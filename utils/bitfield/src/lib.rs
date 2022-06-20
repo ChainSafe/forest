@@ -34,6 +34,21 @@ pub struct BitField {
     unset: AHashSet<usize>,
 }
 
+impl From<fvm_ipld_bitfield::BitField> for BitField {
+    fn from(bitfield: fvm_ipld_bitfield::BitField) -> Self {
+        bitfield.iter().map(|v| v as usize).collect()
+    }
+}
+impl From<BitField> for fvm_ipld_bitfield::BitField {
+    fn from(bitfield: BitField) -> Self {
+        bitfield
+            .iter()
+            .map(|v| v as u64)
+            .collect::<fvm_ipld_bitfield::MaybeBitField>()
+            .unwrap()
+    }
+}
+
 impl PartialEq for BitField {
     fn eq(&self, other: &Self) -> bool {
         Iterator::eq(self.ranges(), other.ranges())

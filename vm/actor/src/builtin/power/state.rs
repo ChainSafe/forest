@@ -28,7 +28,7 @@ lazy_static! {
 }
 
 /// Storage power actor state
-#[derive(Default, Serialize_tuple, Deserialize_tuple)]
+#[derive(Debug, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct State {
     #[serde(with = "bigint_ser")]
     pub total_raw_byte_power: StoragePower,
@@ -76,7 +76,7 @@ impl State {
             .root()
             .map_err(|e| {
                 e.downcast_default(
-                    ExitCode::ErrIllegalState,
+                    ExitCode::USR_ILLEGAL_STATE,
                     "Failed to get empty multimap cid",
                 )
             })?;
@@ -139,7 +139,7 @@ impl State {
         qa_power: &StoragePower,
     ) -> Result<(), Box<dyn StdError>> {
         let old_claim = get_claim(claims, miner)?
-            .ok_or_else(|| actor_error!(ErrNotFound, "no claim for actor {}", miner))?;
+            .ok_or_else(|| actor_error!(USR_NOT_FOUND, "no claim for actor {}", miner))?;
 
         self.total_qa_bytes_committed += qa_power;
         self.total_bytes_committed += power;
@@ -178,21 +178,21 @@ impl State {
 
         if new_claim.raw_byte_power.is_negative() {
             return Err(Box::new(actor_error!(
-                ErrIllegalState,
+                USR_ILLEGAL_STATE,
                 "negative claimed raw byte power: {}",
                 new_claim.raw_byte_power
             )));
         }
         if new_claim.quality_adj_power.is_negative() {
             return Err(Box::new(actor_error!(
-                ErrIllegalState,
+                USR_ILLEGAL_STATE,
                 "negative claimed quality adjusted power: {}",
                 new_claim.quality_adj_power
             )));
         }
         if self.miner_above_min_power_count < 0 {
             return Err(Box::new(actor_error!(
-                ErrIllegalState,
+                USR_ILLEGAL_STATE,
                 "negative amount of miners lather than min: {}",
                 self.miner_above_min_power_count
             )));
@@ -268,15 +268,15 @@ impl State {
     where
         BS: BlockStore,
     {
-        let claims = make_map_with_root::<_, Claim>(&self.claims, store)
-            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims"))?;
+        let claims = make_map_with_root::<_, Claim>(&self.claims, store).map_err(|e| {
+            e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to load claims")
+        })?;
 
-        if !claims
-            .contains_key(&miner_addr.to_bytes())
-            .map_err(|e| e.downcast_default(ExitCode::ErrIllegalState, "failed to look up claim"))?
-        {
+        if !claims.contains_key(&miner_addr.to_bytes()).map_err(|e| {
+            e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to look up claim")
+        })? {
             return Err(actor_error!(
-                ErrForbidden,
+                USR_FORBIDDEN,
                 "unknown miner {} forbidden to interact with power actor",
                 miner_addr
             ));
@@ -292,7 +292,7 @@ impl State {
         let claims =
             make_map_with_root_and_bitwidth::<_, Claim>(&self.claims, store, HAMT_BIT_WIDTH)
                 .map_err(|e| {
-                    e.downcast_default(ExitCode::ErrIllegalState, "failed to load claims")
+                    e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to load claims")
                 })?;
 
         let claim = get_claim(&claims, miner)?;
@@ -358,14 +358,14 @@ pub fn set_claim<BS: BlockStore>(
 ) -> Result<(), Box<dyn StdError>> {
     if claim.raw_byte_power.is_negative() {
         return Err(Box::new(actor_error!(
-            ErrIllegalState,
+            USR_ILLEGAL_STATE,
             "negative claim raw power {}",
             claim.raw_byte_power
         )));
     }
     if claim.quality_adj_power.is_negative() {
         return Err(Box::new(actor_error!(
-            ErrIllegalState,
+            USR_ILLEGAL_STATE,
             "negative claim quality-adjusted power {}",
             claim.quality_adj_power
         )));

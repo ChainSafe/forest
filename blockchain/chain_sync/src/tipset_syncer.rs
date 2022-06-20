@@ -854,7 +854,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
-        pb.set((work_to_be_done - total_size).abs() as u64);
+        pb.set((work_to_be_done - total_size).unsigned_abs());
         validate_tipset_against_cache(
             bad_block_cache.clone(),
             oldest_parent.parents(),
@@ -1132,6 +1132,10 @@ async fn validate_tipset<
 
     let mut validations = FuturesUnordered::new();
     for b in full_tipset.into_blocks() {
+        // let ret =
+        //     validate_block::<_, _, V>(state_manager.clone(), beacon_scheduler.clone(), Arc::new(b))
+        //         .await;
+        // let validation_fn = task::spawn(async { ret });
         let validation_fn = task::spawn(validate_block::<_, _, V>(
             state_manager.clone(),
             beacon_scheduler.clone(),
@@ -1266,7 +1270,7 @@ async fn validate_block<
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
     let work_addr = state_manager
-        .get_miner_work_addr(&lookback_state, header.miner_address())
+        .get_miner_work_addr(*lookback_state, header.miner_address())
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Async validations
@@ -1343,13 +1347,15 @@ async fn validate_block<
             })?;
         if &state_root != header.state_root() {
             #[cfg(feature = "statediff")]
-            if let Err(err) = statediff::print_state_diff(
-                v_state_manager.blockstore(),
-                &state_root,
-                header.state_root(),
-                Some(1),
-            ) {
-                eprintln!("Failed to print state-diff: {}", err);
+            {
+                if let Err(err) = statediff::print_state_diff(
+                    v_state_manager.blockstore(),
+                    &state_root,
+                    header.state_root(),
+                    Some(1),
+                ) {
+                    eprintln!("Failed to print state-diff: {}", err);
+                }
             }
             return Err(TipsetRangeSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
@@ -1395,7 +1401,7 @@ async fn validate_block<
         let miner_address_buf = header.miner_address().marshal_cbor()?;
         let vrf_base = state_manager::chain_rand::draw_randomness(
             r_beacon.data(),
-            DomainSeparationTag::ElectionProofProduction,
+            DomainSeparationTag::ElectionProofProduction as i64,
             header.epoch(),
             &miner_address_buf,
         )
@@ -1466,7 +1472,7 @@ async fn validate_block<
 
         let vrf_base = state_manager::chain_rand::draw_randomness(
             beacon_base.data(),
-            DomainSeparationTag::TicketProduction,
+            DomainSeparationTag::TicketProduction as i64,
             header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
             &miner_address_buf,
         )
@@ -1578,7 +1584,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         .unwrap_or(prev_beacon_entry);
     let rand = state_manager::chain_rand::draw_randomness(
         rand_base.data(),
-        DomainSeparationTag::WinningPoStChallengeSeed,
+        DomainSeparationTag::WinningPoStChallengeSeed as i64,
         header.epoch(),
         &miner_addr_buf,
     )

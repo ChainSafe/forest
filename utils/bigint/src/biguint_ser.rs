@@ -56,7 +56,7 @@ where
         )));
     }
 
-    if bz.get(0) != Some(&0) {
+    if bz.first() != Some(&0) {
         return Err(serde::de::Error::custom(
             "First byte must be 0 to decode as BigUint",
         ));

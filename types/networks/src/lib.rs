@@ -120,7 +120,7 @@ struct DrandPoint<'a> {
     pub config: &'a DrandConfig<'a>,
 }
 
-const VERSION_SCHEDULE: [Upgrade; 14] = [
+const VERSION_SCHEDULE: [Upgrade; 15] = [
     Upgrade {
         height: UPGRADE_BREEZE_HEIGHT,
         network: NetworkVersion::V1,
@@ -176,6 +176,10 @@ const VERSION_SCHEDULE: [Upgrade; 14] = [
     Upgrade {
         height: UPGRADE_ACTORS_V6_HEIGHT,
         network: NetworkVersion::V14,
+    },
+    Upgrade {
+        height: UPGRADE_ACTORS_V7_HEIGHT,
+        network: NetworkVersion::V15,
     },
 ];
 

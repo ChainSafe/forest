@@ -1,29 +1,30 @@
 [package]
-name = "forest_bitfield"
+name        = "forest_bitfield"
 description = "Bitfield logic for use in Filecoin actors"
-version = "0.1.0"
-license = "MIT OR Apache-2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+version     = "0.1.0"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-unsigned-varint = "0.7"
-serde = { version = "1.0", features = ["derive"] }
-serde_bytes = "0.11"
-ahash = "0.7"
-encoding = { package = "forest_encoding", version = "0.2" }
+fvm_ipld_bitfield = "0.5.2"
+unsigned-varint   = "0.7"
+serde             = { version = "1.0", features = ["derive"] }
+serde_bytes       = "0.11"
+ahash             = "0.7"
+encoding          = { package = "forest_encoding", version = "0.2" }
 
 [dev-dependencies]
-rand_xorshift = "0.3"
-rand = "0.8"
-criterion = "0.3"
-serde_json = "1.0"
-serde_ipld_dagcbor = "0.1"
+rand_xorshift      = "0.3"
+rand               = "0.8"
+criterion          = "0.3"
+serde_json         = "1.0"
+serde_ipld_dagcbor = "0.2"
 
 [features]
 json = []
 
 [[bench]]
-name = "benchmarks"
+name    = "benchmarks"
 harness = false

@@ -50,7 +50,7 @@ pub enum BuildType {
 }
 
 /// The type of node that is running.
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug)]
 #[repr(u64)]
 pub enum NodeType {
     Unknown = 0,
@@ -61,7 +61,7 @@ pub enum NodeType {
 
 impl Display for NodeType {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self)
+        write!(f, "{:?}", self)
     }
 }
 

@@ -260,7 +260,11 @@ pub(super) async fn start(config: Config) {
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
     if let Some(path) = &config.snapshot_path {
         let stopwatch = time::Instant::now();
-        let validate_height = if config.snapshot { None } else { Some(0) };
+        let validate_height = if config.snapshot {
+            config.snapshot_height
+        } else {
+            Some(0)
+        };
         import_chain::<FullVerifier, _>(state_manager, path, validate_height, config.skip_load)
             .await
             .expect("Failed miserably while importing chain from snapshot");

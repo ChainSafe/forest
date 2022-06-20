@@ -12,7 +12,7 @@ use std::borrow::Cow;
 pub struct BigIntSer<'a>(#[serde(with = "self")] pub &'a BigInt);
 
 /// Wrapper for deserializing as BigInt from bytes.
-#[derive(Deserialize, Serialize, Clone, Default, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct BigIntDe(#[serde(with = "self")] pub BigInt);
 
