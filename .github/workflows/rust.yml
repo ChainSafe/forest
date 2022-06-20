@@ -67,8 +67,6 @@ jobs:
           toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
-      # - name: Install Rust
-      #   run: rustup toolchain install stable --component llvm-tools-preview
       - name: Add component llvm-tools-preview
         run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Rust Cache
@@ -76,7 +74,7 @@ jobs:
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
         # with:
         #   args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
       - name: Upload CodeCov
