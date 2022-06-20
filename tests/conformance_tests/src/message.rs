@@ -7,6 +7,7 @@ use interpreter::{CircSupplyCalc, LookbackStateGetter};
 use state_tree::StateTree;
 use std::sync::Arc;
 use vm::TokenAmount;
+pub use forest_actor::builtin::codes;
 
 #[derive(Debug, Deserialize)]
 pub struct MessageVector {
@@ -82,7 +83,7 @@ pub fn execute_message(
             .map(|s| s == "true")
             .unwrap_or_default()
         {
-            vm.register_actor(*CHAOS_ACTOR_CODE_ID);
+            vm.register_actor(*codes::CHAOS_ACTOR_CODE_ID);
         }
     }
 

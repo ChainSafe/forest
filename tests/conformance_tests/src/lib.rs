@@ -12,7 +12,7 @@ pub use self::message::*;
 pub use self::rand_replay::*;
 pub use self::stubs::*;
 pub use self::tipset::*;
-use actor::actorv2::CHAOS_ACTOR_CODE_ID;
+pub use forest_actor::builtin::codes::*;
 use address::{Address, Protocol};
 use blockstore::BlockStore;
 use cid::Cid;

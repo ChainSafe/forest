@@ -32,6 +32,7 @@ submodule_tests = [
 ]
 
 [dependencies]
+num-traits = "0.2"
 fvm = "0.8"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
@@ -40,6 +41,7 @@ cid = { package = "forest_cid", version = "0.3", features = [
     "json",
 ], optional = true }
 actor = { package = "actor_interface", path = "../../vm/actor_interface", optional = true }
+forest_actor = { path = "../../vm/actor" }
 clock = { package = "fil_clock", path = "../../node/clock", optional = true }
 db = { package = "forest_db", version = "0.1", optional = true }
 address = { package = "forest_address", version = "0.3", features = [

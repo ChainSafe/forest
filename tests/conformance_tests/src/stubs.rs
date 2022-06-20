@@ -8,7 +8,7 @@ pub struct TestRand;
 impl Rand for TestRand {
     fn get_chain_randomness(
         &self,
-        _: DomainSeparationTag,
+        _: i64,
         _: ChainEpoch,
         _: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -16,7 +16,7 @@ impl Rand for TestRand {
     }
     fn get_beacon_randomness(
         &self,
-        _: DomainSeparationTag,
+        _: i64,
         _: ChainEpoch,
         _: &[u8],
     ) -> anyhow::Result<[u8; 32]> {

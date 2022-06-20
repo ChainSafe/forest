@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use num_traits::FromPrimitive;
 
 #[derive(Clone)]
 pub struct ReplayingRand {
@@ -33,13 +34,13 @@ impl Rand for ReplayingRand {
     // TODO: Check if this is going to be correct for when we integrate v5 Actors test vectors
     fn get_chain_randomness(
         &self,
-        dst: DomainSeparationTag,
+        dst: i64,
         epoch: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         let rule = RandomnessRule {
             kind: RandomnessKind::Chain,
-            dst,
+            dst: FromPrimitive::from_i64(dst).unwrap(),
             epoch,
             entropy: entropy.to_vec(),
         };
@@ -52,13 +53,13 @@ impl Rand for ReplayingRand {
 
     fn get_beacon_randomness(
         &self,
-        dst: DomainSeparationTag,
+        dst: i64,
         epoch: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         let rule = RandomnessRule {
             kind: RandomnessKind::Chain,
-            dst,
+            dst: FromPrimitive::from_i64(dst).unwrap(),
             epoch,
 
             entropy: entropy.to_vec(),

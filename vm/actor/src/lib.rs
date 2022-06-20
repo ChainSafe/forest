@@ -7,7 +7,7 @@ extern crate lazy_static;
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
 extern crate serde;
 
-mod builtin;
+pub mod builtin;
 pub mod util;
 
 pub use self::builtin::*;
