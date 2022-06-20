@@ -71,8 +71,8 @@ jobs:
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-        with:
-          args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
+        # with:
+        #   args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
       - name: Upload CodeCov
         uses: codecov/codecov-action@v2
 
