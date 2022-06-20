@@ -67,10 +67,10 @@ jobs:
           toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
-      - name: Install Rust
-        run: rustup toolchain install stable --component llvm-tools-preview
-      # - name: Add component llvm-tools-preview
-      #   run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
+      # - name: Install Rust
+      #   run: rustup toolchain install stable --component llvm-tools-preview
+      - name: Add component llvm-tools-preview
+        run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run cargo-llvm-cov
