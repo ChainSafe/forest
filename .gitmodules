@@ -4,9 +4,3 @@
 [submodule "ipld/tests/ipld-traversal-vectors"]
 	path = ipld/tests/ipld-traversal-vectors
 	url = https://github.com:ChainSafe/ipld-traversal-vectors.git
-[submodule "tests/conformance_tests/test-vectors"]
-	path = tests/conformance_tests/test-vectors
-	url = https://github.com/filecoin-project/test-vectors.git
-[submodule "tests/conformance_tests/fvm-test-vectors"]
-	path = tests/conformance_tests/fvm-test-vectors
-	url = https://github.com/filecoin-project/fvm-test-vectors
