@@ -49,12 +49,12 @@ fn template_header(
 
 /// Returns a vec of 4 distinct CIDs
 pub fn construct_keys() -> Vec<Cid> {
-    return vec![
+    vec![
         template_key(b"test content"),
         template_key(b"awesome test content "),
         template_key(b"even better test content"),
         template_key(b"the best test content out there"),
-    ];
+    ]
 }
 
 /// Returns a vec of block headers to be used for testing purposes
@@ -76,11 +76,11 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let bz = to_vec(&meta).unwrap();
     let msg_root = cid::new_from_cbor(&bz, Blake2b256);
 
-    return vec![
+    vec![
         template_header(data0, 1, epoch, msg_root, weight),
         template_header(data1, 2, epoch, msg_root, weight),
         template_header(data2, 3, epoch, msg_root, weight),
-    ];
+    ]
 }
 
 /// Returns a Ticket to be used for testing
