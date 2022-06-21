@@ -4,8 +4,8 @@
 use super::gas_block_store::GasBlockStore;
 use super::gas_tracker::{price_list_by_epoch, GasCharge, GasTracker, PriceList};
 use super::{CircSupplyCalc, LookbackStateGetter, Rand};
+use crate::downcast::ActorDowncast;
 use actor::{account, ActorVersion};
-use actorv6::ActorDowncast;
 use address::{Address, Protocol};
 use blocks::BlockHeader;
 use byteorder::{BigEndian, WriteBytesExt};
