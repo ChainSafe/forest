@@ -12,17 +12,13 @@ use multihash::Multihash;
 use multihash::MultihashDigest;
 use std::convert::TryFrom;
 
+pub use fvm_ipld_encoding::DAG_CBOR;
+pub use fvm_shared::commcid::FIL_COMMITMENT_SEALED;
+pub use fvm_shared::commcid::FIL_COMMITMENT_UNSEALED;
+pub use fvm_shared::IPLD_RAW as RAW;
+
 #[cfg(feature = "json")]
 pub mod json;
-
-/// Cbor [Cid] codec.
-pub const DAG_CBOR: u64 = 0x71;
-/// Sealed commitment [Cid] codec.
-pub const FIL_COMMITMENT_SEALED: u64 = 0xf102;
-/// Unsealed commitment [Cid] codec.
-pub const FIL_COMMITMENT_UNSEALED: u64 = 0xf101;
-/// Raw [Cid] codec. This represents data that is not encoded using any protocol.
-pub const RAW: u64 = 0x55;
 
 /// Constructs a cid with bytes using default version and codec
 pub fn new_from_cbor(bz: &[u8], code: Code) -> Cid {
