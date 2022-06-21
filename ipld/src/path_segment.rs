@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 /// Represents either a key in a map or an index in a list.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PathSegment {
     /// Key in a map
     String(String),

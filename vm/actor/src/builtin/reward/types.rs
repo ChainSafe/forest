@@ -8,7 +8,7 @@ use fil_types::StoragePower;
 use num_bigint::bigint_ser;
 use vm::TokenAmount;
 
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct AwardBlockRewardParams {
     pub miner: Address,
     #[serde(with = "bigint_ser")]
@@ -18,7 +18,7 @@ pub struct AwardBlockRewardParams {
     pub win_count: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ThisEpochRewardReturn {
     // * Removed this_epoch_reward in v2
     pub this_epoch_reward_smoothed: FilterEstimate,

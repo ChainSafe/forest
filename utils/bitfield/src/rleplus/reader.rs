@@ -26,7 +26,7 @@ pub struct BitReader<'a> {
 impl<'a> BitReader<'a> {
     /// Creates a new `BitReader`.
     pub fn new(bytes: &'a [u8]) -> Self {
-        let &byte1 = bytes.get(0).unwrap_or(&0);
+        let &byte1 = bytes.first().unwrap_or(&0);
         let &byte2 = bytes.get(1).unwrap_or(&0);
         let bytes = if bytes.len() > 2 { &bytes[2..] } else { &[] };
 

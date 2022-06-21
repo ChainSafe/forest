@@ -7,7 +7,7 @@ use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
 use utils::get_home_dir;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct Config {
     pub data_dir: String,

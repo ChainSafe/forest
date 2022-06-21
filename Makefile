@@ -1,5 +1,4 @@
 SER_TESTS = "tests/serialization_tests"
-CONF_TESTS = "tests/conformance_tests"
 
 ifndef RUST_TEST_THREADS
 	RUST_TEST_THREADS := 1
@@ -83,16 +82,13 @@ pull-serialization-tests:
 run-serialization-vectors:
 	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests" -- --test-threads=$(RUST_TEST_THREADS)
 
-run-conformance-vectors:
-	cargo test --release --manifest-path=$(CONF_TESTS)/Cargo.toml --features "submodule_tests" -- --nocapture --test-threads=$(RUST_TEST_THREADS)
-
 run-vectors: run-serialization-vectors run-conformance-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	# FIXME: https://github.com/ChainSafe/forest/issues/1444
 	#cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
@@ -101,7 +97,7 @@ test:
 	#cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
 test-release:
-	cargo test --release --all --exclude serialization_tests --exclude conformance_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
+	cargo test --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	# FIXME: https://github.com/ChainSafe/forest/issues/1444
 	#cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)

@@ -28,7 +28,7 @@ fn symmetric_json_serialization() {
 
 #[test]
 fn annotating_struct_json() {
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
     struct TestStruct {
         #[serde(with = "json")]
         cid_one: Cid,
