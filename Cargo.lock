@@ -3178,7 +3178,9 @@ name = "forest_db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "forest_cid",
  "forest_encoding",
+ "fvm_ipld_blockstore",
  "num_cpus",
  "parking_lot 0.12.1",
  "rocksdb",

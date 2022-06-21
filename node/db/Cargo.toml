@@ -16,6 +16,8 @@ thiserror = "1.0"
 num_cpus = "1.13"
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1"
+fvm_ipld_blockstore = "0.1.1"
+cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
 
 [dev-dependencies]
 tempfile = "3.3"

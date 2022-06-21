@@ -22,16 +22,15 @@ pub use self::tracking::{BSStats, TrackingBlockStore};
 use cid::{Cid, Code};
 use db::{MemoryDB, Store};
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
+use fvm_ipld_blockstore::Blockstore;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
 #[cfg(feature = "rocksdb")]
 use db::rocks::{RocksDb, WriteBatch};
 
-use fvm_ipld_blockstore::Blockstore;
-
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
-pub trait BlockStore: Store {
+pub trait BlockStore: Store + Blockstore {
     /// Get bytes from block store by Cid.
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
         Ok(self.read(cid.to_bytes())?)

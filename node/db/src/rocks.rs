@@ -4,6 +4,8 @@
 use super::errors::Error;
 use super::Store;
 use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, RocksDbConfig};
+use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;
 
@@ -94,5 +96,15 @@ impl Store for RocksDb {
             batch.put(k, v);
         }
         Ok(self.db.write(batch)?)
+    }
+}
+
+impl Blockstore for RocksDb {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        todo!()
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        todo!()
     }
 }

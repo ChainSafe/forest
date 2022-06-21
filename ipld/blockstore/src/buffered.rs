@@ -8,6 +8,7 @@ use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
 use cid::{Cid, Code, DAG_CBOR};
 use dashmap::DashMap;
 use db::{Error, Store};
+use fvm_ipld_blockstore::Blockstore;
 
 use std::error::Error as StdError;
 use std::io::{Read, Seek};
@@ -205,6 +206,16 @@ where
         let cid = cid::new_from_cbor(&bytes, code);
         self.write.insert(cid, bytes);
         Ok(cid)
+    }
+}
+
+impl<BS> Blockstore for BufferedBlockStore<'_, BS> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        todo!()
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        todo!()
     }
 }
 
