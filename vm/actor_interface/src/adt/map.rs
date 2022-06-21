@@ -29,7 +29,7 @@ where
     V: Serialize + DeserializeOwned + PartialEq,
     BS: BlockStore,
 {
-    pub fn new(store: &'a BS, version: ActorVersion) -> Self {
+    pub fn new(_store: &'a BS, version: ActorVersion) -> Self {
         match version {
             // ActorVersion::V0 => Map::V0(actorv0::make_map(store)),
             // ActorVersion::V2 => Map::V2(actorv2::make_map(store)),
@@ -76,7 +76,7 @@ where
     }
 
     /// Inserts a key-value pair into the `Map`.
-    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, _key: BytesKey, _value: V) -> Result<(), Box<dyn Error>> {
         match self {
             // Map::V0(m) => Ok(m.set(key, value)?),
             // Map::V2(m) => Ok(m.set(key, value)?),
@@ -139,7 +139,7 @@ where
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
+    pub fn delete<Q: ?Sized>(&mut self, _k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
