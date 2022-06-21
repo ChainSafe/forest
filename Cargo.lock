@@ -19,7 +19,6 @@ dependencies = [
  "fil_actors_runtime 7.5.1",
  "fil_clock",
  "fil_types",
- "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
