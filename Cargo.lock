@@ -8022,7 +8022,6 @@ dependencies = [
  "colored",
  "difference",
  "fil_types",
- "forest_actor",
  "forest_address",
  "forest_cid",
  "forest_ipld",
