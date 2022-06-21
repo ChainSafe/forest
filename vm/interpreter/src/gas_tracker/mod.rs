@@ -8,7 +8,7 @@ pub use self::gas_charge::GasCharge;
 pub use self::price_list::{price_list_by_epoch, PriceList};
 use vm::{actor_error, ActorError, ExitCode};
 
-// FIXME: Use gas tracker from the FVM.
+// FIXME: Use gas tracker from the FVM: https://github.com/ChainSafe/forest/issues/1560
 pub(crate) struct GasTracker {
     gas_available: i64,
     gas_used: i64,

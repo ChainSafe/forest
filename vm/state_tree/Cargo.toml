@@ -6,11 +6,11 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-actor = { package = "actor_interface", path = "../actor_interface" }
-address = { package = "forest_address", version = "0.3" }
-vm = { package = "forest_vm", version = "0.3" }
-cid = { package = "forest_cid", version = "0.3" }
-forest_ipld = "0.1"
+actor           = { package = "actor_interface", path = "../actor_interface" }
+address         = { package = "forest_address", version = "0.3" }
+vm              = { package = "forest_vm", version = "0.3" }
+cid             = { package = "forest_cid", version = "0.3" }
+forest_ipld     = "0.1"
 ipld_blockstore = "0.1"
 db              = { package = "forest_db", version = "0.1" }
 fil_types       = { version = "0.2" }
