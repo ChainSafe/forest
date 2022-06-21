@@ -596,6 +596,7 @@ where
         };
         let store_arc = self.blockstore_cloned();
         let heights = Heights::new(&self.chain_config);
+        // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_, _, _, _, V>::new(
             st,
