@@ -2398,6 +2398,7 @@ dependencies = [
  "forest_vm",
  "hex",
  "lazy_static",
+ "log",
  "once_cell",
  "serde",
  "serde_json",

@@ -145,7 +145,6 @@ pub enum TipsetRangeSyncerError {
     TipsetParentNotFound(ChainStoreError),
 }
 
-#[derive(Debug)]
 struct TipsetGroup {
     tipsets: Vec<Arc<Tipset>>,
     epoch: ChainEpoch,
@@ -188,73 +187,29 @@ impl TipsetGroup {
     }
 
     fn take_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        self.tipsets
-            .iter()
-            .enumerate()
-            .max_by_key(|(_idx, ts)| ts.weight())
-            .map(|(idx, _)| idx)
-            .map(|idx| self.tipsets.swap_remove(idx))
+        let (index, _) = self.heaviest_weight();
+        Some(self.tipsets.swap_remove(index))
     }
 
-    fn heaviest_weight(&self) -> BigInt {
-        let mut sorted_tipsets = self.tipsets.clone();
-        sorted_tipsets.sort_by_key(|ts| ts.weight().clone());
+    fn heaviest_weight(&self) -> (usize, &BigInt) {
+        // Unwrapping is safe because we initialize the struct with at least one tipset
+        let max = self.tipsets
+            .iter()
+            .map(|ts| ts.weight())
+            .max()
+            .unwrap();
 
-        let mut heaviest_tipsets = vec![];
-        let mut current_max_weight = BigInt::default();
+        let mut ties = self.tipsets
+            .iter()
+            .enumerate()
+            .filter(|(_, ts)| ts.weight() == max);
 
-        for tipset in sorted_tipsets {
-            if current_max_weight >= *tipset.weight() {
-                heaviest_tipsets.push(tipset.clone());
-                current_max_weight = tipset.weight().clone();
-            } else {
-                break;
-            }
-        }
-
-        // no need to check if there aren't any tipsets
-        // struct gets initialized with atleast 1
-        if heaviest_tipsets.len() == 1 {
-            return heaviest_tipsets.first().unwrap().weight().to_owned();
-        }
-
-        struct TipsetTicketMap {
-            pub tipset: Arc<Tipset>,
-            pub blocks: Vec<BlockHeader>,
-        }
-
-        let mut map: Vec<TipsetTicketMap> = vec![];
-
-        heaviest_tipsets.iter().for_each(|tipset| {
-            let t = TipsetTicketMap {
-                tipset: tipset.clone(),
-                blocks: tipset.blocks().to_vec(),
-            };
-
-            map.push(t);
+        let first = ties.next().unwrap();
+        let (index, ts) = ties.fold(first, |(i, ts), (j, other)| {
+            // break the tie
+            if ts.break_weight_tie(other) { (i, ts) } else { (j, other) }
         });
-
-        map.sort_by(|a, b| {
-            let mut ordering = Ordering::Equal;
-            for (x, y) in a.blocks.iter().zip(b.blocks.iter()) {
-                log::debug!("UNWRAPPING TICKETS");
-                let x_ticket = x.ticket().to_owned().unwrap();
-                let y_ticket = y.ticket().to_owned().unwrap();
-
-                ordering = x_ticket.vrfproof.cmp(&y_ticket.vrfproof);
-
-                if ordering == Ordering::Equal {
-                    continue;
-                }
-
-                break;
-            }
-            ordering
-        });
-
-        // unwrapping is safe because there will always be more than one
-        let out = map.first().unwrap();
-        out.tipset.weight().to_owned()
+        (index, ts.weight())
     }
 
     fn merge(&mut self, other: Self) {
@@ -268,7 +223,23 @@ impl TipsetGroup {
     }
 
     fn is_heavier_than(&self, other: &Self) -> bool {
-        self.heaviest_weight() > other.heaviest_weight()
+        self.cmp(other).is_gt()
+    }
+
+    fn cmp(&self, other: &Self) -> Ordering {
+        let (i, weight) = self.heaviest_weight();
+        let (j, otherw) = other.heaviest_weight();
+        if weight > otherw {
+            Ordering::Greater
+        } else if weight == otherw {
+            if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        } else {
+            Ordering::Less
+        }
     }
 
     fn tipsets(self) -> Vec<Arc<Tipset>> {
@@ -441,7 +412,7 @@ where
                 // Consume the tipsets received, start syncing the heaviest tipset group, and discard the rest
                 if let Some(((epoch, parents), heaviest_tipset_group)) = grouped_tipsets
                     .into_iter()
-                    .max_by_key(|(_, group)| group.heaviest_weight())
+                    .max_by(|(_, a), (_, b)| a.cmp(b))
                 {
                     trace!("Finding range for tipset epoch = {}", epoch);
                     self.state = TipsetProcessorState::FindRange {
@@ -476,12 +447,11 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
+                    .max_by(|(_, a), (_, b)| a.cmp(b))
                     .map(|(_, group)| group)
-                    .max_by_key(|group| group.heaviest_weight())
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
-                    info!("UPDATING TIPSET_GROUP ::\n{:#?}", heaviest_tipset_group);
                     match next_sync {
                         None => *next_sync = Some(heaviest_tipset_group),
                         Some(ns) => {
@@ -524,8 +494,8 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
+                    .max_by(|(_, a), (_, b)| a.cmp(b))
                     .map(|(_, group)| group)
-                    .max_by_key(|group| group.heaviest_weight())
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.

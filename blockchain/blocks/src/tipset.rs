@@ -5,6 +5,7 @@ use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use log::info;
 use num_bigint::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -132,6 +133,21 @@ impl Tipset {
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
+    }
+    /// Returns true if self wins according to the filecoin tie-break rule
+    /// (FIP-0023)
+    pub fn break_weight_tie(&self, other: &Tipset) -> bool {
+        // blocks are already sorted by ticket
+        for (a, b) in self.blocks().iter().zip(other.blocks().iter()) {
+            let ticket = a.ticket().as_ref().unwrap();
+            let othtkt = b.ticket().as_ref().unwrap();
+            if ticket.vrfproof < othtkt.vrfproof {
+                info!("weight tie broken in favour of {:?}", self.key());
+                return true;
+            }
+        }
+        info!("weight tie left unbroken, default to {:?}", other.key());
+        false
     }
 }
 
