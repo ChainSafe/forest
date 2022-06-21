@@ -1,22 +1,21 @@
 [package]
-name = "state_tree"
+name    = "state_tree"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actor = { package = "actor_interface", path = "../actor_interface" }
-address = { package = "forest_address", version = "0.3" }
-vm = { package = "forest_vm", version = "0.3" }
-cid = { package = "forest_cid", version = "0.3" }
-ipld_hamt = "1.0"
-forest_ipld = "0.1"
+actor           = { package = "actor_interface", path = "../actor_interface" }
+address         = { package = "forest_address", version = "0.3" }
+vm              = { package = "forest_vm", version = "0.3" }
+cid             = { package = "forest_cid", version = "0.3" }
+forest_ipld     = "0.1"
 ipld_blockstore = "0.1"
-db = { package = "forest_db", version = "0.1" }
-fil_types = { version = "0.2" }
-futures = { version = "0.3" }
-async-std = "1.9"
-forest_car = { path = "../../ipld/car" }
+db              = { package = "forest_db", version = "0.1" }
+fil_types       = { version = "0.2" }
+futures         = { version = "0.3" }
+async-std       = "1.9"
+forest_car      = { path = "../../ipld/car" }
 
 [dev-dependencies]
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

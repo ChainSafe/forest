@@ -9,7 +9,6 @@ members = [
     "blockchain/beacon",
     "blockchain/message_pool",
     "vm",
-    "vm/actor",
     "vm/actor_interface",
     "vm/address",
     "vm/message",

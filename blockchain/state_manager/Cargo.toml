@@ -13,7 +13,6 @@ fvm = "0.8"
 fvm_shared = { version = "0.7.1", default-features = false }
 fil_actors_runtime = "=7.5.1"
 address = { package = "forest_address", version = "0.3" }
-forest_actor = { path = "../../vm/actor" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 blake2b_simd = "0.5.9"
 byteorder = "1.3.4"

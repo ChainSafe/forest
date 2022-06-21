@@ -19,7 +19,6 @@ dependencies = [
  "fil_actors_runtime 7.5.1",
  "fil_clock",
  "fil_types",
- "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -1188,7 +1187,6 @@ dependencies = [
  "interpreter",
  "ipld_amt 0.2.1",
  "ipld_blockstore",
- "ipld_hamt 2.0.0",
  "lazy_static",
  "libp2p 0.40.0",
  "log",
@@ -3155,43 +3153,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_actor"
-version = "4.0.0"
-dependencies = [
- "ahash 0.7.6",
- "anyhow",
- "base64 0.13.0",
- "byteorder 1.4.3",
- "commcid",
- "derive_builder 0.11.2",
- "fil_clock",
- "fil_types",
- "forest_address",
- "forest_bigint",
- "forest_bitfield",
- "forest_cid",
- "forest_crypto",
- "forest_db",
- "forest_encoding",
- "forest_runtime",
- "forest_vm",
- "fvm_shared 0.7.1",
- "hex",
- "indexmap",
- "integer-encoding",
- "ipld_amt 1.0.0",
- "ipld_blockstore",
- "ipld_hamt 2.0.0",
- "lazy_static",
- "libp2p 0.40.0",
- "log",
- "num-derive",
- "num-traits",
- "serde",
- "unsigned-varint 0.7.1",
-]
-
-[[package]]
 name = "forest_address"
 version = "0.3.1"
 dependencies = [
@@ -3705,9 +3666,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_ipld_amt"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bbe1fb55191eec39304eccc690e94bfe2462a829dbc0a227559d2bf1c33b4dc"
+checksum = "48d09e5aa7de45452676d18fcb70b750acd65faae7a4fe18fe784b4c85f869fb"
 dependencies = [
  "ahash 0.7.6",
  "anyhow",
@@ -4363,7 +4324,6 @@ dependencies = [
  "fil_builtin_actors_bundle 7.5.1",
  "fil_clock",
  "fil_types",
- "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
@@ -4376,17 +4336,19 @@ dependencies = [
  "forest_runtime",
  "forest_vm",
  "fvm",
+ "fvm_ipld_amt",
  "fvm_ipld_encoding",
+ "fvm_ipld_hamt",
  "fvm_shared 0.7.1",
  "interpreter",
  "ipld_blockstore",
- "ipld_hamt 1.0.0",
  "lazy_static",
  "log",
  "networks",
  "num-traits",
  "num_cpus",
  "rayon",
+ "serde_ipld_dagcbor 0.1.2",
  "state_migration",
  "state_tree",
  "statediff",
@@ -4472,26 +4434,6 @@ dependencies = [
  "forest_ipld",
  "fvm_ipld_blockstore",
  "fvm_shared 0.7.1",
-]
-
-[[package]]
-name = "ipld_hamt"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08cdf6c2525cb1a7d15c357f5a135cfb3b85432987e2912a882280ced4ad03a3"
-dependencies = [
- "byteorder 1.4.3",
- "cs_serde_bytes",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "forest_hash_utils",
- "forest_ipld",
- "ipld_blockstore",
- "once_cell",
- "serde",
- "sha2 0.9.9",
- "thiserror",
 ]
 
 [[package]]
@@ -7959,7 +7901,6 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
- "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",
@@ -8033,7 +7974,6 @@ dependencies = [
  "forest_vm",
  "futures",
  "ipld_blockstore",
- "ipld_hamt 1.0.0",
 ]
 
 [[package]]
@@ -8043,14 +7983,12 @@ dependencies = [
  "colored",
  "difference",
  "fil_types",
- "forest_actor",
  "forest_address",
  "forest_cid",
  "forest_ipld",
  "forest_vm",
  "fvm",
  "ipld_blockstore",
- "ipld_hamt 1.0.0",
  "serde",
  "serde_json",
  "state_tree",

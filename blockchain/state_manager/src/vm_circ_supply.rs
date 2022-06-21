@@ -5,10 +5,8 @@ use actor::*;
 use address::Address;
 use blockstore::BlockStore;
 use chain::*;
-use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::FILECOIN_PRECISION;
-use forest_actor::multisig as msig0;
 use interpreter::CircSupplyCalc;
 use networks::{
     UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_CALICO_HEIGHT, UPGRADE_IGNITION_HEIGHT,
@@ -79,9 +77,9 @@ impl GenesisInfo {
 /// to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
-    genesis: OnceCell<Vec<msig0::State>>,
-    ignition: OnceCell<Vec<msig0::State>>,
-    calico: OnceCell<Vec<msig0::State>>,
+    genesis: OnceCell<Vec<(ChainEpoch, TokenAmount)>>,
+    ignition: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
+    calico: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -167,25 +165,21 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
         .expect("calico vesting should be initialized");
 
     if height <= UPGRADE_IGNITION_HEIGHT {
-        for actor in pre_ignition {
-            return_value += &actor.initial_balance - v0_amount_locked(actor, height);
+        for (unlock_duration, initial_balance) in pre_ignition {
+            return_value +=
+                initial_balance - v0_amount_locked(*unlock_duration, initial_balance, height);
         }
     } else if height <= UPGRADE_CALICO_HEIGHT {
-        for actor in post_ignition {
-            return_value +=
-                &actor.initial_balance - v0_amount_locked(actor, height - actor.start_epoch);
+        for (start_epoch, unlock_duration, initial_balance) in post_ignition {
+            return_value += initial_balance
+                - v0_amount_locked(*unlock_duration, initial_balance, height - start_epoch);
         }
     } else {
-        for actor in calico_vesting {
-            // dbg!(&actor.initial_balance);
-            // dbg!(&actor.unlock_duration);
-            // dbg!(actor.start_epoch);
-            // dbg!(actor.amount_locked(height - actor.start_epoch));
-            return_value +=
-                &actor.initial_balance - v0_amount_locked(actor, height - actor.start_epoch);
+        for (start_epoch, unlock_duration, initial_balance) in calico_vesting {
+            return_value += initial_balance
+                - v0_amount_locked(*unlock_duration, initial_balance, height - start_epoch);
         }
     }
-    // dbg!(&return_value);
 
     if height <= UPGRADE_ACTORS_V2_HEIGHT {
         return_value += genesis_info
@@ -197,7 +191,6 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
                 .get()
                 .expect("Genesis info should be initialized");
     }
-    // dbg!(&return_value);
 
     return_value
 }
@@ -291,80 +284,54 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     Ok(fil_circulating)
 }
 
-fn setup_genesis_vesting_schedule() -> Vec<msig0::State> {
+fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
+    PRE_CALICO_VESTING.clone().into_iter().collect()
+}
+
+fn setup_ignition_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
-        .iter()
+        .clone()
+        .into_iter()
         .map(|(unlock_duration, initial_balance)| {
-            msig0::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: msig0::TxnID(0),
-                initial_balance: initial_balance.clone(),
-                start_epoch: ChainEpoch::default(),
-                unlock_duration: *unlock_duration,
-                // Default Cid is ok here because this field is never read
-                pending_txs: Cid::default(),
-            }
+            (
+                UPGRADE_LIFTOFF_HEIGHT,
+                unlock_duration,
+                initial_balance * FILECOIN_PRECISION,
+            )
         })
         .collect()
 }
 
-fn setup_ignition_vesting_schedule() -> Vec<msig0::State> {
-    PRE_CALICO_VESTING
-        .iter()
-        .map(|(unlock_duration, initial_balance)| {
-            msig0::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: msig0::TxnID(0),
-
-                // In the pre-ignition logic, this value was incorrectly set in Fil, not attoFil,
-                // an off-by-10^18 error
-                initial_balance: initial_balance * FILECOIN_PRECISION,
-
-                // In the pre-ignition logic, the start epoch was 0. This changes in the fork logic
-                // of the Ignition upgrade itself.
-                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
-
-                unlock_duration: *unlock_duration,
-                // Default Cid is ok here because this field is never read
-                pending_txs: Cid::default(),
-            }
-        })
-        .collect()
-}
-
-fn setup_calico_vesting_schedule() -> Vec<msig0::State> {
+fn setup_calico_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     CALICO_VESTING
-        .iter()
+        .clone()
+        .into_iter()
         .map(|(unlock_duration, initial_balance)| {
-            msig0::State {
-                signers: vec![],
-                num_approvals_threshold: 0,
-                next_tx_id: msig0::TxnID(0),
-                initial_balance: initial_balance * FILECOIN_PRECISION,
-                start_epoch: UPGRADE_LIFTOFF_HEIGHT,
-                unlock_duration: *unlock_duration,
-                // Default Cid is ok here because this field is never read
-                pending_txs: Cid::default(),
-            }
+            (
+                UPGRADE_LIFTOFF_HEIGHT,
+                unlock_duration,
+                initial_balance * FILECOIN_PRECISION,
+            )
         })
         .collect()
 }
 
+// This exact code (bugs and all) has to be used. The results are locked into the blockchain.
 /// Returns amount locked in multisig contract
-fn v0_amount_locked(st: &msig0::State, elapsed_epoch: ChainEpoch) -> TokenAmount {
+fn v0_amount_locked(
+    unlock_duration: ChainEpoch,
+    initial_balance: &TokenAmount,
+    elapsed_epoch: ChainEpoch,
+) -> TokenAmount {
     use num_bigint::Integer;
 
-    if elapsed_epoch >= st.unlock_duration {
+    if elapsed_epoch >= unlock_duration {
         return TokenAmount::from(0);
     }
     if elapsed_epoch < 0 {
-        return st.initial_balance.clone();
+        return initial_balance.clone();
     }
     // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
-    let unit_locked: TokenAmount = st
-        .initial_balance
-        .div_floor(&TokenAmount::from(st.unlock_duration));
-    unit_locked * (st.unlock_duration - elapsed_epoch)
+    let unit_locked: TokenAmount = initial_balance.div_floor(&TokenAmount::from(unlock_duration));
+    unit_locked * (unlock_duration - elapsed_epoch)
 }

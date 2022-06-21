@@ -139,7 +139,7 @@ impl<T: BlockStore> Blockstore for FvmStore<T> {
 }
 
 pub struct FvmRefStore<'a, T> {
-    bs: &'a T,
+    pub bs: &'a T,
 }
 
 impl<'a, T> FvmRefStore<'a, T> {

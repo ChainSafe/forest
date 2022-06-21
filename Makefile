@@ -25,7 +25,6 @@ clean:
 	@cargo clean -p chain_sync
 	@cargo clean -p forest_vm
 	@cargo clean -p forest_address
-	@cargo clean -p forest_actor
 	@cargo clean -p forest_message
 	@cargo clean -p forest_runtime
 	@cargo clean -p state_tree

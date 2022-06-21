@@ -5,13 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-#actorv0 = { package = "forest_actor", version = "0.1" }
-#actorv2 = { package = "forest_actor", version = "1.0" }
-#actorv3 = { package = "forest_actor", version = "2.0" }
-#actorv4 = { package = "forest_actor", version = "3.0" }
-#actorv5 = { package = "forest_actor", version = "4.0" }
-actorv6 = { package = "forest_actor", path = "../actor" }
-
 fil_actor_miner_v7    = { package = "fil_actor_miner", version = "=7.5.1" }
 fil_actor_cron_v7     = { package = "fil_actor_cron", version = "=7.5.1" }
 fil_actor_account_v7  = { package = "fil_actor_account", version = "=7.5.1" }
