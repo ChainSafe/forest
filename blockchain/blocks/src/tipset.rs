@@ -359,3 +359,61 @@ pub mod tipset_json {
         Tipset::new(blocks).map(Arc::new).map_err(de::Error::custom)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use address::Address;
+    use cid::Cid;
+    use crypto::VRFProof;
+    use num_bigint::BigInt;
+
+    use std::convert::TryFrom;
+
+    pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(1234561);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(c)
+            .messages(c)
+            .state_root(c)
+            .weight(weight_inc)
+            .build()
+            .unwrap()
+    }
+
+    // two tipsets with different min tickets
+    // two tipsets with one min ticket the same
+    // two tipsets with several min tickets the same
+    // three heaviest heads
+    #[test]
+    fn test_break_weight_tie() {
+        let b1 = mock_block(1, 1);
+        let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
+
+        let b2 = mock_block(1, 2);
+        let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
+
+        let b3 = mock_block(1, 1);
+        let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
+
+        // All three tipsets have the same weight (but it's not really important here)
+
+        // Can break weight tie
+        assert!(ts1.break_weight_tie(&ts2));
+        // Can not break weight tie (because of same VRFProof)
+        assert!(!ts1.break_weight_tie(&ts3));
+    }
+}
