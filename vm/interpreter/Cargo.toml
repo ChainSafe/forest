@@ -47,7 +47,6 @@ state_migration = { path = "../state_migration" }
 statediff = { path = "../../utils/statediff" }
 
 [dev-dependencies]
-ipld_hamt   = "1.0"
 interpreter = { path = "../interpreter/" }
 
 [features]
