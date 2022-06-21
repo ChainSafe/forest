@@ -13,7 +13,7 @@ use networks::{
     UPGRADE_LIFTOFF_HEIGHT,
 };
 use num_bigint::BigInt;
-use once_cell::sync::OnceCell;
+//use once_cell::sync::OnceCell;
 use state_tree::StateTree;
 use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
@@ -35,31 +35,14 @@ const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
     (6 * EPOCHS_IN_YEAR, 100_000_000 + 300_000_000 + 9_805_053),
 ];
 
-// lazy_static! {
-//     static ref CALICO_VESTING: [(ChainEpoch, TokenAmount); 6] = [
-//         (0, TokenAmount::from(10_632_000)),
-//         (
-//             183 * actor::EPOCHS_IN_DAY,
-//             TokenAmount::from(19_015_887 + 32_787_700)
-//         ),
-//         (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712 + 9_400_000)),
-//         (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
-//         (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883 + 898_958)),
-//         (
-//             6 * EPOCHS_IN_YEAR,
-//             TokenAmount::from(100_000_000 + 300_000_000 + 9_805_053)
-//         ),
-//     ];
-// }
-
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
 pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
-    genesis_pledge: OnceCell<TokenAmount>,
-    genesis_market_funds: OnceCell<TokenAmount>,
+    genesis_pledge: TokenAmount,
+    genesis_market_funds: TokenAmount,
 }
 
 impl GenesisInfo {
@@ -85,9 +68,9 @@ impl GenesisInfo {
 /// to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
-    genesis: OnceCell<Vec<(ChainEpoch, TokenAmount)>>,
-    ignition: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
-    calico: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
+    genesis: Vec<(ChainEpoch, TokenAmount)>,
+    ignition: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,
+    calico: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -101,20 +84,24 @@ impl CircSupplyCalc for GenesisInfo {
         // but it's not ideal to have the side effect from the VM to modify the genesis info
         // of the state manager. This isn't terrible because it's just caching to avoid
         // recalculating using the store, and it avoids computing until circ_supply is called.
-        self.vesting
-            .genesis
-            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
-                self.init(state_tree.store())?;
-                Ok(setup_genesis_vesting_schedule())
-            })?;
+        self.init(state_tree.store())?;
+        setup_genesis_vesting_schedule();
+        // self.vesting
+        //     .genesis
+        //     .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+        //         self.init(state_tree.store())?;
+        //         Ok(setup_genesis_vesting_schedule())
+        //     })?;
 
-        self.vesting
-            .ignition
-            .get_or_init(setup_ignition_vesting_schedule);
+        setup_ignition_vesting_schedule();
+        // self.vesting
+        //     .ignition
+        //     .get_or_init(setup_ignition_vesting_schedule);
 
-        self.vesting
-            .calico
-            .get_or_init(setup_calico_vesting_schedule);
+        setup_calico_vesting_schedule();
+        // self.vesting
+        //     .calico
+        //     .get_or_init(setup_calico_vesting_schedule);
 
         get_circulating_supply(self, height, state_tree)
     }
@@ -156,21 +143,15 @@ fn get_actor_state<DB: BlockStore>(
 fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
     let mut return_value = TokenAmount::default();
 
-    let pre_ignition = genesis_info
-        .vesting
-        .genesis
-        .get()
-        .expect("Pre ignition should be initialized");
-    let post_ignition = genesis_info
-        .vesting
-        .ignition
-        .get()
-        .expect("Post ignition should be initialized");
-    let calico_vesting = genesis_info
-        .vesting
-        .calico
-        .get()
-        .expect("calico vesting should be initialized");
+    let pre_ignition = &genesis_info.vesting.genesis;
+    // .get()
+    // .expect("Pre ignition should be initialized");
+    let post_ignition = &genesis_info.vesting.ignition;
+    // .get()
+    // .expect("Post ignition should be initialized");
+    let calico_vesting = &genesis_info.vesting.calico;
+    // .get()
+    // .expect("calico vesting should be initialized");
 
     if height <= UPGRADE_IGNITION_HEIGHT {
         for (unlock_duration, initial_balance) in pre_ignition {
@@ -191,13 +172,13 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 
     if height <= UPGRADE_ACTORS_V2_HEIGHT {
         return_value += genesis_info
-            .genesis_pledge
-            .get()
-            .expect("Genesis info should be initialized")
+            .genesis_pledge.clone()
+            // .get()
+            // .expect("Genesis info should be initialized")
             + genesis_info
-                .genesis_market_funds
-                .get()
-                .expect("Genesis info should be initialized");
+                .genesis_market_funds.clone();
+        // .get()
+        // .expect("Genesis info should be initialized");
     }
 
     return_value
@@ -293,18 +274,22 @@ fn get_circulating_supply<'a, DB: BlockStore>(
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
-    PRE_CALICO_VESTING.clone().into_iter().collect()
+    PRE_CALICO_VESTING
+        .into_iter()
+        .map(|(unlock_duration, initial_balance)| {
+            (unlock_duration, TokenAmount::from(initial_balance))
+        })
+        .collect()
 }
 
 fn setup_ignition_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
-        .clone()
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
             (
                 UPGRADE_LIFTOFF_HEIGHT,
                 unlock_duration,
-                initial_balance * FILECOIN_PRECISION,
+                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
             )
         })
         .collect()
@@ -312,13 +297,12 @@ fn setup_ignition_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount
 
 fn setup_calico_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     CALICO_VESTING
-        .clone()
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
             (
                 UPGRADE_LIFTOFF_HEIGHT,
                 unlock_duration,
-                initial_balance * FILECOIN_PRECISION,
+                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
             )
         })
         .collect()

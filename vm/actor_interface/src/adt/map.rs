@@ -179,8 +179,7 @@ where
     }
 
     /// Iterates over each KV in the `Map` and runs a function on the values.
-    pub fn map_for_each<F>(&self, f: F) -> Result<(), anyhow::Error>
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
+    pub fn map_for_each<F>(&self, mut f: F) -> Result<(), anyhow::Error>
     where
         V: DeserializeOwned,
         F: FnMut(&BytesKey, &V) -> Result<(), anyhow::Error>,
