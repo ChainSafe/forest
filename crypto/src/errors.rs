@@ -8,7 +8,7 @@ use std::error;
 use thiserror::Error;
 
 /// Crypto error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// Failed to produce a signature
     #[error("Failed to sign data {0}")]

@@ -150,14 +150,14 @@ impl State {
 impl Cbor for State {}
 
 /// Defines vestion function type for reward actor.
-#[derive(Clone, Debug, PartialEq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum VestingFunction {
     None = 0,
     Linear = 1,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct Reward {
     pub vesting_function: VestingFunction,
     pub start_epoch: ChainEpoch,

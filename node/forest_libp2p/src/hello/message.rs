@@ -7,7 +7,7 @@ use forest_encoding::tuple::*;
 use num_bigint::BigInt;
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloRequest {
     pub heaviest_tip_set: Vec<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
@@ -17,7 +17,7 @@ pub struct HelloRequest {
 }
 
 /// Response to a Hello message. This just handles latency of the peer.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloResponse {
     /// Time of arrival to peer in unix nanoseconds.
     pub arrival: u64,
