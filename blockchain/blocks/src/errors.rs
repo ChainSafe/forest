@@ -5,7 +5,7 @@ use std::time::SystemTimeError as TimeErr;
 use thiserror::Error;
 
 /// Blockchain blocks error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// Tipset contains invalid data, as described by the string parameter.
     #[error("Invalid tipset: {0}")]

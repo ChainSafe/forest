@@ -256,7 +256,7 @@ fn get_fil_locked<DB: BlockStore>(
 fn get_fil_burnt<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, Box<dyn StdError>> {
-    let burnt_actor = get_actor_state(state_tree, &*BURNT_FUNDS_ACTOR_ADDR)?;
+    let burnt_actor = get_actor_state(state_tree, BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
 }
