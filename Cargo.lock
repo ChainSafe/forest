@@ -7939,7 +7939,6 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
- "forest_actor",
  "forest_address",
  "forest_bigint",
  "forest_bitfield",

@@ -293,7 +293,11 @@ fn setup_ignition_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount
         .clone()
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
-            (UPGRADE_LIFTOFF_HEIGHT, unlock_duration, initial_balance)
+            (
+                UPGRADE_LIFTOFF_HEIGHT,
+                unlock_duration,
+                initial_balance * FILECOIN_PRECISION,
+            )
         })
         .collect()
 }
@@ -303,7 +307,11 @@ fn setup_calico_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)>
         .clone()
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
-            (UPGRADE_LIFTOFF_HEIGHT, unlock_duration, initial_balance)
+            (
+                UPGRADE_LIFTOFF_HEIGHT,
+                unlock_duration,
+                initial_balance * FILECOIN_PRECISION,
+            )
         })
         .collect()
 }

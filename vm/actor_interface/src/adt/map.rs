@@ -3,9 +3,11 @@
 
 use crate::ActorVersion;
 use cid::Cid;
+use fil_actors_runtime_v7;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 use std::error::Error;
@@ -17,7 +19,8 @@ pub enum Map<'a, BS, V> {
     // V3(actorv3::Map<'a, BS, V>),
     // V4(actorv4::Map<'a, BS, V>),
     // V5(actorv5::Map<'a, BS, V>),
-    V6(actorv6::Map<'a, BS, V>),
+    // V6(actorv6::Map<'a, BS, V>),
+    V7(fil_actors_runtime_v7::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
     _UnusedMap(PhantomData<(&'a BS, V)>),
 }
 
@@ -33,7 +36,7 @@ where
             // ActorVersion::V3 => Map::V3(actorv3::make_empty_map(store, HAMT_BIT_WIDTH)),
             // ActorVersion::V4 => Map::V4(actorv4::make_empty_map(store, HAMT_BIT_WIDTH)),
             // ActorVersion::V5 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
-            ActorVersion::V6 => Map::V6(actorv6::make_empty_map(store, HAMT_BIT_WIDTH)),
+            // ActorVersion::V6 => Map::V6(actorv6::make_empty_map(store, HAMT_BIT_WIDTH)),
             _ => unimplemented!(),
         }
     }
@@ -46,7 +49,14 @@ where
             // ActorVersion::V3 => Ok(Map::V3(actorv3::make_map_with_root(cid, store)?)),
             // ActorVersion::V4 => Ok(Map::V4(actorv4::make_map_with_root(cid, store)?)),
             // ActorVersion::V5 => Ok(Map::V5(actorv5::make_map_with_root(cid, store)?)),
-            ActorVersion::V6 => Ok(Map::V6(actorv6::make_map_with_root(cid, store)?)),
+            // ActorVersion::V6 => Ok(Map::V6(actorv6::make_map_with_root(cid, store)?)),
+            ActorVersion::V7 => Ok(Map::V7(
+                fil_actors_runtime_v7::fvm_ipld_hamt::Hamt::load_with_bit_width(
+                    cid,
+                    FvmRefStore::new(store),
+                    HAMT_BIT_WIDTH,
+                )?,
+            )),
             _ => panic!("unsupported actor version: {}", version),
         }
     }
@@ -59,7 +69,8 @@ where
             // Map::V3(m) => m.store(),
             // Map::V4(m) => m.store(),
             // Map::V5(m) => m.store(),
-            Map::V6(m) => m.store(),
+            // Map::V6(m) => m.store(),
+            Map::V7(m) => m.store().bs,
             _ => unimplemented!(),
         }
     }
@@ -81,10 +92,10 @@ where
             //     m.set(key, value)?;
             //     Ok(())
             // }
-            Map::V6(m) => {
-                m.set(key, value)?;
-                Ok(())
-            }
+            // Map::V6(m) => {
+            //     m.set(key, value)?;
+            //     Ok(())
+            // }
             _ => unimplemented!(),
         }
     }
@@ -102,7 +113,8 @@ where
             // Map::V3(m) => Ok(m.get(k)?),
             // Map::V4(m) => Ok(m.get(k)?),
             // Map::V5(m) => Ok(m.get(k)?),
-            Map::V6(m) => Ok(m.get(k)?),
+            // Map::V6(m) => Ok(m.get(k)?),
+            Map::V7(m) => Ok(m.get(k)?),
             _ => unimplemented!(),
         }
     }
@@ -119,7 +131,8 @@ where
             // Map::V3(m) => Ok(m.contains_key(k)?),
             // Map::V4(m) => Ok(m.contains_key(k)?),
             // Map::V5(m) => Ok(m.contains_key(k)?),
-            Map::V6(m) => Ok(m.contains_key(k)?),
+            // Map::V6(m) => Ok(m.contains_key(k)?),
+            Map::V7(m) => Ok(m.contains_key(k)?),
             _ => unimplemented!(),
         }
     }
@@ -137,7 +150,7 @@ where
             // Map::V3(m) => Ok(m.delete(k)?),
             // Map::V4(m) => Ok(m.delete(k)?),
             // Map::V5(m) => Ok(m.delete(k)?),
-            Map::V6(m) => Ok(m.delete(k)?),
+            // Map::V6(m) => Ok(m.delete(k)?),
             _ => unimplemented!(),
         }
     }
@@ -150,13 +163,14 @@ where
             // Map::V3(m) => Ok(m.flush()?),
             // Map::V4(m) => Ok(m.flush()?),
             // Map::V5(m) => Ok(m.flush()?),
-            Map::V6(m) => Ok(m.flush()?),
+            // Map::V6(m) => Ok(m.flush()?),
+            Map::V7(m) => Ok(m.flush()?),
             _ => unimplemented!(),
         }
     }
 
     /// Iterates over each KV in the `Map` and runs a function on the values.
-    pub fn for_each<F>(&self, f: F) -> Result<(), Box<dyn Error>>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
     where
         V: DeserializeOwned,
         F: FnMut(&BytesKey, &V) -> Result<(), Box<dyn Error>>,
@@ -167,7 +181,10 @@ where
             // Map::V3(m) => m.for_each(f),
             // Map::V4(m) => m.for_each(f),
             // Map::V5(m) => m.for_each(f),
-            Map::V6(m) => m.for_each(f),
+            // Map::V6(m) => m.for_each(f),
+            Map::V7(m) => m
+                .for_each(|key, val| f(key, val).map_err(|e| anyhow::anyhow!("{}", e)))
+                .map_err(|e| e.into()),
             _ => unimplemented!(),
         }
     }
