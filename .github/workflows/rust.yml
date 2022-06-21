@@ -67,14 +67,21 @@ jobs:
           toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
+      - name: Add component llvm-tools-preview
+        run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
-      - name: Run Tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
+      - name: Run cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        # with:
+        #   args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
       - name: Upload CodeCov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          fail_ci_if_error: true
 
   lint:
     name: Lint
