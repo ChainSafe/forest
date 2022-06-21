@@ -82,7 +82,7 @@ const fn new_version(major: u32, minor: u32, patch: u32) -> Version {
 
 /// Gets the formatted current user version.
 pub async fn user_version() -> String {
-    BUILD_VERSION.to_owned() + &*BUILD_TYPE.read().await.to_str() + &CURRENT_COMMIT
+    BUILD_VERSION.to_owned() + BUILD_TYPE.read().await.to_str() + &CURRENT_COMMIT
 }
 
 impl Version {

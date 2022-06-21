@@ -1,9 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use vm::ExitCode;
-
-use fvm_ipld_encoding::RawBytes;
 use fvm_shared::receipt::Receipt;
 
 /// Result of a state transition from a message
@@ -12,7 +9,9 @@ pub type MessageReceipt = Receipt;
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use fvm_ipld_encoding::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use vm::ExitCode;
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]

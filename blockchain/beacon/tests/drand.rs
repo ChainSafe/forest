@@ -16,6 +16,7 @@ async fn new_beacon() -> DrandBeacon {
                     .into(),
                 ..Default::default()
             },
+            network_type: beacon::DrandNetwork::Incentinet
         },
     )
     .await

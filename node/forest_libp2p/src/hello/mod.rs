@@ -11,7 +11,7 @@ use libp2p::core::ProtocolName;
 pub const HELLO_PROTOCOL_ID: &[u8] = b"/fil/hello/1.0.0";
 
 /// Type to satisfy `ProtocolName` interface for Hello RPC.
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct HelloProtocolName;
 
 impl ProtocolName for HelloProtocolName {

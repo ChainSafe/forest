@@ -7,7 +7,7 @@ use encoding::Error as EncodingError;
 use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.
-#[derive(Error, Debug, Clone, PartialEq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("ActorError(fatal: {fatal}, exit_code: {exit_code:?}, msg: {msg})")]
 pub struct ActorError {
     /// Is this a fatal error.
@@ -151,12 +151,12 @@ mod tests {
     #[test]
     fn error_macro_generation() {
         assert_eq!(
-            actor_error!(SysErrSenderInvalid; "test"),
-            ActorError::new(ExitCode::SysErrSenderInvalid, "test".to_owned())
+            actor_error!(SYS_SENDER_INVALID; "test"),
+            ActorError::new(ExitCode::SYS_SENDER_INVALID, "test".to_owned())
         );
         assert_eq!(
-            actor_error!(SysErrSenderInvalid; "test {}, {}", 8, 10),
-            ActorError::new(ExitCode::SysErrSenderInvalid, format!("test {}, {}", 8, 10))
+            actor_error!(SYS_SENDER_INVALID; "test {}, {}", 8, 10),
+            ActorError::new(ExitCode::SYS_SENDER_INVALID, format!("test {}, {}", 8, 10))
         );
         assert_eq!(
             actor_error!(fatal("test {}, {}", 8, 10)),

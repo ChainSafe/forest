@@ -31,7 +31,6 @@ members = [
     "ipld/hamt",
     "ipld/blockstore",
     "key_management",
-    "tests/conformance_tests",
     "tests/serialization_tests",
     "types",
     "types/networks",

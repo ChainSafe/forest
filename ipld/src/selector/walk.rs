@@ -52,7 +52,7 @@ impl Selector {
 }
 
 /// Provides reason for callback in traversal for `walk_all`.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisitReason {
     /// Ipld node visited was a specific match.
     SelectionMatch,
@@ -83,7 +83,7 @@ pub struct Progress<L = ()> {
 }
 
 /// Contains information about the last block that was traversed in walking of the ipld graph.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LastBlockInfo {
     pub path: Path,
     pub link: Cid,

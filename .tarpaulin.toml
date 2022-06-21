@@ -1,10 +1,5 @@
 [mainnet]
 workspace = true
-exclude   = ["conformance_tests"]
-
-[conformance]
-features = "submodule_tests"
-packages = ["conformance_tests"]
 
 [report]
 out = ["Xml"]

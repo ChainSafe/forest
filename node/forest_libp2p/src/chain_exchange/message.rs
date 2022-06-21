@@ -15,7 +15,7 @@ pub const HEADERS: u64 = 0b01;
 pub const MESSAGES: u64 = 0b10;
 
 /// The payload that gets sent to another node to request for blocks and messages.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeRequest {
     /// The tipset [Cid] to start the request from.
     pub start: Vec<Cid>,
@@ -38,7 +38,7 @@ impl ChainExchangeRequest {
 }
 
 /// Status codes of a chain_exchange response.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ChainExchangeResponseStatus {
     /// All is well.
     Success,
@@ -126,7 +126,7 @@ impl ChainExchangeResponse {
     }
 }
 /// Contains all bls and secp messages and their indexes per block
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
     /// Unsigned bls messages.
     pub bls_msgs: Vec<UnsignedMessage>,

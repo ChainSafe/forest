@@ -44,7 +44,7 @@ impl State {
 
 /// The Lane state tracks the latest (highest) voucher nonce used to merge the lane
 /// as well as the amount it has already redeemed.
-#[derive(Default, Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Clone, PartialEq, Eq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct LaneState {
     #[serde(with = "bigint_ser")]
     pub redeemed: BigInt,
@@ -52,7 +52,7 @@ pub struct LaneState {
 }
 
 /// Specifies which `lane`s to be merged with what `nonce` on `channel_update`
-#[derive(Default, Clone, Copy, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct Merge {
     pub lane: usize,
     pub nonce: u64,
