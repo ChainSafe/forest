@@ -121,6 +121,7 @@ fn pp_actor_state(
     writeln!(&mut buffer, "{:?}", state)?;
 
     // FIXME: Use the actor interface to load and pretty print the actor states.
+    //        Tracker: https://github.com/ChainSafe/forest/issues/1561
     // if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
     //     write!(&mut buffer, "{:?}", miner_state)?;
     // } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
