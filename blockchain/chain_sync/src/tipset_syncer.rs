@@ -193,13 +193,10 @@ impl TipsetGroup {
 
     fn heaviest_weight(&self) -> (usize, &BigInt) {
         // Unwrapping is safe because we initialize the struct with at least one tipset
-        let max = self.tipsets
-            .iter()
-            .map(|ts| ts.weight())
-            .max()
-            .unwrap();
+        let max = self.tipsets.iter().map(|ts| ts.weight()).max().unwrap();
 
-        let mut ties = self.tipsets
+        let mut ties = self
+            .tipsets
             .iter()
             .enumerate()
             .filter(|(_, ts)| ts.weight() == max);
@@ -207,7 +204,11 @@ impl TipsetGroup {
         let first = ties.next().unwrap();
         let (index, ts) = ties.fold(first, |(i, ts), (j, other)| {
             // break the tie
-            if ts.break_weight_tie(other) { (i, ts) } else { (j, other) }
+            if ts.break_weight_tie(other) {
+                (i, ts)
+            } else {
+                (j, other)
+            }
         });
         (index, ts.weight())
     }
