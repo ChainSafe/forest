@@ -3,7 +3,6 @@
 
 use crate::ActorVersion;
 use cid::Cid;
-use fil_actors_runtime_v7;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
 use ipld_blockstore::BlockStore;
@@ -29,7 +28,7 @@ where
     V: Serialize + DeserializeOwned + PartialEq,
     BS: BlockStore,
 {
-    pub fn new(_store: &'a BS, version: ActorVersion) -> Self {
+    pub fn new(store: &'a BS, version: ActorVersion) -> Self {
         match version {
             // ActorVersion::V0 => Map::V0(actorv0::make_map(store)),
             // ActorVersion::V2 => Map::V2(actorv2::make_map(store)),
@@ -37,6 +36,12 @@ where
             // ActorVersion::V4 => Map::V4(actorv4::make_empty_map(store, HAMT_BIT_WIDTH)),
             // ActorVersion::V5 => Map::V5(actorv5::make_empty_map(store, HAMT_BIT_WIDTH)),
             // ActorVersion::V6 => Map::V6(actorv6::make_empty_map(store, HAMT_BIT_WIDTH)),
+            ActorVersion::V7 => Map::V7(
+                fil_actors_runtime_v7::fvm_ipld_hamt::Hamt::new_with_bit_width(
+                    FvmRefStore::new(store),
+                    HAMT_BIT_WIDTH,
+                ),
+            ),
             _ => unimplemented!(),
         }
     }
@@ -76,7 +81,7 @@ where
     }
 
     /// Inserts a key-value pair into the `Map`.
-    pub fn set(&mut self, _key: BytesKey, _value: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn Error>> {
         match self {
             // Map::V0(m) => Ok(m.set(key, value)?),
             // Map::V2(m) => Ok(m.set(key, value)?),
@@ -96,6 +101,10 @@ where
             //     m.set(key, value)?;
             //     Ok(())
             // }
+            Map::V7(m) => {
+                m.set(key, value)?;
+                Ok(())
+            }
             _ => unimplemented!(),
         }
     }
@@ -139,7 +148,7 @@ where
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized>(&mut self, _k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -151,6 +160,7 @@ where
             // Map::V4(m) => Ok(m.delete(k)?),
             // Map::V5(m) => Ok(m.delete(k)?),
             // Map::V6(m) => Ok(m.delete(k)?),
+            Map::V7(m) => Ok(m.delete(k)?),
             _ => unimplemented!(),
         }
     }
