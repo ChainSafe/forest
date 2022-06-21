@@ -33,6 +33,14 @@ impl DrandPublic {
     }
 }
 
+/// Type of the Drand network. In general only Mainnet and its chain information
+/// should be considered stable.
+#[derive(PartialEq, Eq, Clone)]
+pub enum DrandNetwork {
+    Mainnet,
+    Incentinet,
+}
+
 #[derive(Clone)]
 /// Config used when initializing a Drand beacon.
 pub struct DrandConfig<'a> {
@@ -40,6 +48,8 @@ pub struct DrandConfig<'a> {
     pub server: &'static str,
     /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
+    /// Network type
+    pub network_type: DrandNetwork,
 }
 
 /// Contains the vector of BeaconPoints, which are mappings of epoch to the Randomness beacons used.
@@ -131,7 +141,7 @@ where
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
-#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Default)]
+#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
 /// Contains all the info about a Drand beacon chain.
 /// API reference: https://drand.love/developer/http-api/#info
 /// note: groupHash does not exist in docs currently, but is returned.
@@ -183,7 +193,7 @@ impl DrandBeacon {
 
         let chain_info = &config.chain_info;
 
-        if cfg!(debug_assertions) {
+        if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
             let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
                 .recv_json()
                 .await?;

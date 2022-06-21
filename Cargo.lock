@@ -1383,49 +1383,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "conformance_tests"
-version = "0.1.0"
-dependencies = [
- "actor_interface",
- "anyhow",
- "async-std",
- "base64 0.13.0",
- "chain",
- "chain_sync",
- "fil_clock",
- "fil_types",
- "flate2",
- "forest_address",
- "forest_bigint",
- "forest_blocks",
- "forest_car",
- "forest_cid",
- "forest_crypto",
- "forest_db",
- "forest_encoding",
- "forest_message",
- "forest_runtime",
- "forest_vm",
- "futures",
- "fvm",
- "genesis",
- "interpreter",
- "ipld_blockstore",
- "lazy_static",
- "log",
- "networks",
- "paramfetch",
- "pretty_env_logger",
- "regex",
- "serde",
- "serde_json",
- "state_manager",
- "state_tree",
- "statediff",
- "walkdir",
-]
-
-[[package]]
 name = "const_fn"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

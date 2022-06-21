@@ -12,7 +12,7 @@ pub struct State {
     pub entries: Vec<Entry>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Entry {
     /// The actor to call (ID address)
     pub receiver: Address,

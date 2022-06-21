@@ -102,7 +102,7 @@ pub struct State {
     pub deadline_cron_active: bool,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum CollisionPolicy {
     AllowCollisions,
     DenyCollisions,

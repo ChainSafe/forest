@@ -149,7 +149,7 @@ pub enum Selector {
 
 impl Cbor for Selector {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum RecursionLimit {
     #[serde(rename = "none", with = "empty_map")]
     None,
@@ -176,7 +176,7 @@ impl SubAssign<u64> for RecursionLimit {
 /// TODO -- Condition is very skeletal and incomplete.
 /// The place where Condition appears in other structs is correct;
 /// the rest of the details inside it are not final nor even completely drafted.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Condition {
     #[serde(rename = "hasField")]
     HasField,

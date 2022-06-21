@@ -17,7 +17,7 @@ mod mainnet;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
 
-const UPGRADE_INFOS: [UpgradeInfo; 15] = [
+const UPGRADE_INFOS: [UpgradeInfo; 16] = [
     UpgradeInfo {
         height: Height::Breeze,
         version: NetworkVersion::V1,
@@ -77,6 +77,10 @@ const UPGRADE_INFOS: [UpgradeInfo; 15] = [
     UpgradeInfo {
         height: Height::OhSnap,
         version: NetworkVersion::V15,
+    },
+    UpgradeInfo {
+        height: Height::Skyr,
+        version: NetworkVersion::V16,
     },
 ];
 
@@ -152,7 +156,7 @@ const CONFORMANCE_HEIGHT_INFOS: [HeightInfo; 17] = [
 ];
 
 /// Defines the meaningful heights of the protocol.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Height {
     Breeze,
     Smoke,
@@ -180,7 +184,7 @@ impl Default for Height {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct UpgradeInfo {
     pub height: Height,
     #[serde(default = "default_network_version")]
@@ -188,7 +192,7 @@ pub struct UpgradeInfo {
     pub version: NetworkVersion,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct HeightInfo {
     pub height: Height,
     pub epoch: ChainEpoch,
@@ -201,7 +205,7 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(default)]
 pub struct ChainConfig {
     pub name: String,

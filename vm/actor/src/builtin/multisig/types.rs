@@ -26,7 +26,7 @@ impl TxnID {
 }
 
 /// Transaction type used in multisig actor
-#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct Transaction {
     pub to: Address,
     #[serde(with = "bigint_ser")]

@@ -8,7 +8,7 @@ use std::{io, num};
 use thiserror::Error;
 
 /// Address error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     #[error("Unknown address network")]
     UnknownNetwork,

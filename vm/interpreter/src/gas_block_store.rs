@@ -169,7 +169,7 @@ mod tests {
                 .downcast::<ActorError>()
                 .unwrap()
                 .exit_code(),
-            ExitCode::SysErrOutOfGas
+            ExitCode::SYS_OUT_OF_GAS
         );
     }
 }
