@@ -230,16 +230,16 @@ impl TipsetGroup {
     fn cmp(&self, other: &Self) -> Ordering {
         let (i, weight) = self.heaviest_weight();
         let (j, otherw) = other.heaviest_weight();
-        if weight > otherw {
-            Ordering::Greater
-        } else if weight == otherw {
-            if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
+        match weight.cmp(&otherw) {
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Equal => {
+                if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
             }
-        } else {
-            Ordering::Less
+            Ordering::Less => Ordering::Less,
         }
     }
 
