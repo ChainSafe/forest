@@ -227,13 +227,6 @@ impl ChainConfig {
         }
     }
 
-    pub fn conformance() -> Self {
-        Self {
-            height_infos: CONFORMANCE_HEIGHT_INFOS.to_vec(),
-            ..Self::default()
-        }
-    }
-
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         let height = self
             .height_infos

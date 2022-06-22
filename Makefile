@@ -72,7 +72,7 @@ pull-serialization-tests:
 run-serialization-vectors:
 	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests" -- --test-threads=$(RUST_TEST_THREADS)
 
-run-vectors: run-serialization-vectors run-conformance-vectors
+run-vectors: run-serialization-vectors
 
 test-vectors: pull-serialization-tests run-vectors
 
@@ -113,4 +113,4 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors run-conformance-vectors
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors
