@@ -27,11 +27,11 @@ use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo,
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
+use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use interpreter::{
-    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter,
-    Rand, VM,
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
@@ -528,14 +528,14 @@ where
                 msg.gas_premium(),
                 msg.value()
             );
-            if let Some(err) = &apply_ret.act_error {
+            if let Some(err) = &apply_ret.failure_info {
                 warn!("chain call failed: {:?}", err);
             }
 
             Ok(InvocResult {
                 msg: msg.clone(),
                 msg_rct: Some(apply_ret.msg_receipt.clone()),
-                error: apply_ret.act_error.map(|e| e.to_string()),
+                error: apply_ret.failure_info.map(|e| e.to_string()),
             })
         })
     }
@@ -629,7 +629,7 @@ where
         Ok(InvocResult {
             msg: message.message().clone(),
             msg_rct: Some(ret.msg_receipt.clone()),
-            error: ret.act_error.map(|e| e.to_string()),
+            error: ret.failure_info.map(|e| e.to_string()),
         })
     }
 

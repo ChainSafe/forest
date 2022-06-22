@@ -14,15 +14,13 @@ use fil_types::{
 };
 use forest_car::load_car;
 use forest_encoding::Cbor;
+use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
-use fvm::trace::ExecutionTrace;
-use fvm_ipld_encoding::RawBytes;
-use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
+use message::{ChainMessage, MessageReceipt, UnsignedMessage};
 use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 use num_traits::Zero;
@@ -34,7 +32,7 @@ use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
-use vm::{ActorError, ExitCode, Serialized, TokenAmount};
+use vm::{ExitCode, Serialized, TokenAmount};
 
 // const GAS_OVERUSE_NUM: i64 = 11;
 // const GAS_OVERUSE_DENOM: i64 = 10;
@@ -259,7 +257,7 @@ where
         };
 
         let ret = self.apply_implicit_message(&cron_msg)?;
-        if let Some(err) = ret.act_error {
+        if let Some(err) = ret.failure_info {
             return Err(format!("failed to apply block cron message: {}", err).into());
         }
 
@@ -349,7 +347,7 @@ where
             };
 
             let ret = self.apply_implicit_message(&rew_msg)?;
-            if let Some(err) = ret.act_error {
+            if let Some(err) = ret.failure_info {
                 return Err(format!(
                     "failed to apply reward message for miner {}: {}",
                     block.miner, err
@@ -393,7 +391,7 @@ where
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = num_bigint::BigInt::zero();
         ret.penalty = num_bigint::BigInt::zero();
-        Ok(ret.into())
+        Ok(ret)
     }
 
     /// Applies the state transition for a single message.
@@ -416,103 +414,16 @@ where
                 raw_length,
             )
             .map_err(|e| format!("{:?}", e))?;
-        Ok(fvm_ret.into())
-    }
-}
-
-/// Apply message return data.
-#[derive(Clone, Debug)]
-pub struct ApplyRet {
-    /// Message receipt for the transaction. This data is stored on chain.
-    pub msg_receipt: MessageReceipt,
-    /// Actor error from the transaction, if one exists.
-    pub act_error: Option<ActorError>,
-    /// Gas penalty from transaction, if any.
-    pub penalty: BigInt,
-    /// Tip given to miner from message.
-    pub miner_tip: BigInt,
-
-    // Gas stuffs
-    pub base_fee_burn: TokenAmount,
-    pub over_estimation_burn: TokenAmount,
-    pub refund: TokenAmount,
-    pub gas_refund: i64,
-    pub gas_burned: i64,
-
-    // /// Additional failure information for debugging, if any.
-    // pub failure_info: Option<ApplyFailure>,
-    /// Execution trace information, for debugging.
-    pub exec_trace: ExecutionTrace,
-}
-
-impl Default for ApplyRet {
-    fn default() -> ApplyRet {
-        ApplyRet {
-            msg_receipt: Receipt {
-                exit_code: ExitCode::OK,
-                return_data: RawBytes::default(),
-                gas_used: 0,
-            },
-            act_error: None,
-            penalty: BigInt::zero(),
-            miner_tip: BigInt::zero(),
-            base_fee_burn: TokenAmount::from(0),
-            over_estimation_burn: TokenAmount::from(0),
-            refund: TokenAmount::from(0),
-            gas_refund: 0,
-            gas_burned: 0,
-            exec_trace: vec![],
-        }
-    }
-}
-
-impl PartialEq for ApplyRet {
-    fn eq(&self, other: &Self) -> bool {
-        self.penalty == other.penalty
-            && self.miner_tip == other.miner_tip
-            && self.act_error.is_some() == other.act_error.is_some()
-            && self.msg_receipt.exit_code == other.msg_receipt.exit_code
-            && self.msg_receipt.return_data == other.msg_receipt.return_data
-            && self.msg_receipt.gas_used == other.msg_receipt.gas_used
-    }
-}
-
-impl From<fvm::executor::ApplyRet> for ApplyRet {
-    fn from(ret: fvm::executor::ApplyRet) -> Self {
-        let fvm::executor::ApplyRet {
-            msg_receipt,
-            penalty,
-            miner_tip,
-            failure_info,
-            base_fee_burn,
-            over_estimation_burn,
-            refund,
-            gas_refund,
-            gas_burned,
-            exec_trace,
-            ..
-        } = ret;
-        ApplyRet {
-            msg_receipt,
-            act_error: failure_info.map(ActorError::from),
-            penalty,
-            miner_tip,
-            base_fee_burn,
-            over_estimation_burn,
-            refund,
-            gas_refund,
-            gas_burned,
-            exec_trace,
-        }
+        Ok(fvm_ret)
     }
 }
 
 /// Does some basic checks on the Message to see if the fields are valid.
 fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
-    if msg.gas_limit() == 0 {
+    if msg.gas_limit == 0 {
         return Err("Message has no gas limit set");
     }
-    if msg.gas_limit() < 0 {
+    if msg.gas_limit < 0 {
         return Err("Message has negative gas limit");
     }
 
