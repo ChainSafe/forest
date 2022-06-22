@@ -29,3 +29,13 @@ impl GasCharge {
         (self.name, Gas::new(self.total()))
     }
 }
+
+impl From<GasCharge> for fvm::gas::GasCharge<'_> {
+    fn from(charge: GasCharge) -> Self {
+        Self {
+            name: charge.name,
+            compute_gas: Gas::new(charge.compute_gas),
+            storage_gas: Gas::new(charge.storage_gas),
+        }
+    }
+}

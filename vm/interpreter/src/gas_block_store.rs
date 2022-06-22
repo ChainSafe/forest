@@ -5,7 +5,7 @@ use super::gas_tracker::PriceList;
 use cid::{Cid, Code};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
-use fvm::gas::GasTracker;
+use fvm::gas::{GasCharge, GasTracker};
 use fvm::kernel::ExecutionError;
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
@@ -13,11 +13,7 @@ use std::error::Error as StdError;
 use std::rc::Rc;
 
 pub fn to_std_error(exec_error: ExecutionError) -> Box<dyn StdError> {
-    match exec_error {
-        ExecutionError::OutOfGas => "Out of gas Error".into(),
-        ExecutionError::Syscall(err) => err.to_string().into(),
-        ExecutionError::Fatal(err) => err.to_string().into(),
-    }
+    exec_error.to_string().into()
 }
 
 pub fn to_anyhow_error(exec_error: ExecutionError) -> anyhow::Error {
@@ -51,8 +47,8 @@ where
     }
 
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        let (name, to_use) = self.price_list.on_ipld_get().for_charge();
-        if let Err(err) = self.gas.borrow_mut().charge_gas(name, to_use) {
+        let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
+        if let Err(err) = self.gas.borrow_mut().apply_charge(gas_charge) {
             return Err(to_std_error(err));
         }
         self.store.get_bytes(cid)
@@ -62,8 +58,8 @@ where
     where
         T: DeserializeOwned,
     {
-        let (name, to_use) = self.price_list.on_ipld_get().for_charge();
-        if let Err(err) = self.gas.borrow_mut().charge_gas(name, to_use) {
+        let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
+        if let Err(err) = self.gas.borrow_mut().apply_charge(gas_charge) {
             return Err(to_anyhow_error(err));
         }
         self.store.get_anyhow(cid)
@@ -74,16 +70,16 @@ where
         S: Serialize,
     {
         let bytes = to_vec(obj)?;
-        let (name, to_use) = self.price_list.on_ipld_put(bytes.len()).for_charge();
-        if let Err(err) = self.gas.borrow_mut().charge_gas(name, to_use) {
+        let gas_charge = GasCharge::from(self.price_list.on_ipld_put(bytes.len()));
+        if let Err(err) = self.gas.borrow_mut().apply_charge(gas_charge) {
             return Err(to_std_error(err));
         }
         self.store.put_raw(bytes, code)
     }
 
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        let (name, to_use) = self.price_list.on_ipld_put(bytes.len()).for_charge();
-        if let Err(err) = self.gas.borrow_mut().charge_gas(name, to_use) {
+        let gas_charge = GasCharge::from(self.price_list.on_ipld_put(bytes.len()));
+        if let Err(err) = self.gas.borrow_mut().apply_charge(gas_charge) {
             return Err(to_std_error(err));
         }
         self.store.put_raw(bytes, code)
