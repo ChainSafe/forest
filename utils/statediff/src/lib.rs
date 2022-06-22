@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::account;
-use actor::market;
-use actor::miner;
-use actor::power;
+// use actor::account;
+// use actor::market;
+// use actor::miner;
+// use actor::power;
 use address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
@@ -115,22 +115,24 @@ fn pp_actor_state(
     depth: Option<u64>,
 ) -> Result<String, Box<dyn StdError>> {
     let resolved = actor_to_resolved(bs, state, depth);
-    let ipld = &resolved.state.0;
+    // let ipld = &resolved.state.0;
     let mut buffer = String::new();
 
     writeln!(&mut buffer, "{:?}", state)?;
 
-    if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", miner_state)?;
-    } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", account_state)?;
-    } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", state)?;
-    } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", state)?;
-    } else {
-        buffer += &serde_json::to_string_pretty(&resolved)?;
-    }
+    // FIXME: Use the actor interface to load and pretty print the actor states.
+    //        Tracker: https://github.com/ChainSafe/forest/issues/1561
+    // if let Ok(miner_state) = ipld::from_ipld::<miner::State>(ipld.clone()) {
+    //     write!(&mut buffer, "{:?}", miner_state)?;
+    // } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
+    //     write!(&mut buffer, "{:?}", account_state)?;
+    // } else if let Ok(state) = ipld::from_ipld::<power::State>(ipld.clone()) {
+    //     write!(&mut buffer, "{:?}", state)?;
+    // } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
+    //     write!(&mut buffer, "{:?}", state)?;
+    // } else {
+    buffer += &serde_json::to_string_pretty(&resolved)?;
+    // }
     Ok(buffer)
 }
 

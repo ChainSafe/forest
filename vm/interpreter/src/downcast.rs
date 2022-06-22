@@ -1,9 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{error::Error as CborError, Error as EncodingError};
-use ipld_amt::Error as AmtError;
-use ipld_hamt::Error as HamtError;
+use fvm_ipld_amt::Error as AmtError;
+pub use fvm_ipld_encoding::Error as EncodingError;
+use fvm_ipld_hamt::Error as HamtError;
+use serde_ipld_dagcbor::error::Error as CborError;
 use std::error::Error as StdError;
 use vm::{ActorError, ExitCode};
 
@@ -145,7 +146,7 @@ fn downcast_util(error: Box<dyn StdError>) -> Result<ActorError, Box<dyn StdErro
     // Dynamic errors can come from Amt and Hamt through blockstore usages, check them.
     let error = match error.downcast::<AmtError>() {
         Ok(amt_err) => match *amt_err {
-            AmtError::Dynamic(de) => match downcast_util(de) {
+            AmtError::Dynamic(de) => match downcast_util(de.into()) {
                 Ok(a) => return Ok(a),
                 Err(other) => other,
             },
@@ -155,7 +156,7 @@ fn downcast_util(error: Box<dyn StdError>) -> Result<ActorError, Box<dyn StdErro
     };
     let error = match error.downcast::<HamtError>() {
         Ok(amt_err) => match *amt_err {
-            HamtError::Dynamic(de) => match downcast_util(de) {
+            HamtError::Dynamic(de) => match downcast_util(de.into()) {
                 Ok(a) => return Ok(a),
                 Err(other) => other,
             },

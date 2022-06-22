@@ -14,7 +14,6 @@ fvm_ipld_encoding = "0.2"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 amt = { package = "ipld_amt", version = "0.2" }
-hamt = { package = "ipld_hamt", path = "../../ipld/hamt" }
 blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
 db = { package = "forest_db", version = "0.1" }

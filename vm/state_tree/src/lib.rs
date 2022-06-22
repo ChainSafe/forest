@@ -492,7 +492,7 @@ mod tests {
     #[async_std::test]
     async fn state_tree_export_import() {
         let db = db::MemoryDB::default();
-        let mut tree = StateTree::new(&db, StateTreeVersion::V3).unwrap();
+        let mut tree = StateTree::new(&db, StateTreeVersion::V4).unwrap();
         let root = tree.flush().unwrap();
 
         let dir = "/tmp/sttest";
