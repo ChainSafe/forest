@@ -28,13 +28,25 @@ Our crates:
 | `utils` | the forest toolbox (12 crates) |
 
 
+## Run with Docker
+
+No need to install Rust toolchain or other dependencies, you will need only Docker.
+```
+❯ docker run --init -it ghcr.io/chainsafe/forest:latest --help
+```
+
+Follow other instructions for proper `forest` usage. You may need to mount a volume to import a snapshot, e.g.
+```
+❯ docker run --init -it -v ~/Downloads:/downloads ghcr.io/chainsafe/forest:latest --import-snapshot /downloads/minimal_finality_stateroots_latest.car
+```
+
 ## Dependencies
 
 * Rust `rustc >= 1.58.1`
 * Rust WASM target `wasm32-unknown-unknown`
 
 ```shell
-rustup install stable
+rustup install nightly
 rustup target add wasm32-unknown-unknown
 ```
 
