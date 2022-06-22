@@ -1809,5 +1809,58 @@ async fn validate_tipset_against_cache(
 
 #[cfg(test)]
 mod test {
-    pub fn test_break_ties_between_tipsets() {}
+    use address::Address;
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use cid::Cid;
+    use crypto::VRFProof;
+    use num_bigint::BigInt;
+
+    use super::*;
+    use std::convert::TryFrom;
+
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(id);
+        let c =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(c)
+            .messages(c)
+            .state_root(c)
+            .weight(weight_inc)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    pub fn test_heaviest_weight() {
+        // ticket_sequence are choosen so that Ticket(b3) < Ticket(b1)
+
+        let b1 = mock_block(1234561, 10, 2);
+        let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
+
+        let b2 = mock_block(1234563, 9, 1);
+        let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
+
+        let b3 = mock_block(1234562, 10, 1);
+        let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
+
+        let mut tsg = TipsetGroup::new(Arc::new(ts1));
+        assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
+        assert!(tsg.try_add_tipset(Arc::new(ts3)).is_none());
+
+        let (index, weight) = tsg.heaviest_weight();
+        assert_eq!(index, 2);
+        assert_eq!(weight, &BigInt::from(10));
+    }
 }
