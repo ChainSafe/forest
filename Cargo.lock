@@ -3250,6 +3250,8 @@ version = "0.3.0"
 dependencies = [
  "cid",
  "forest_json_utils",
+ "fvm_ipld_encoding",
+ "fvm_shared 0.7.1",
  "generic-array 0.14.5",
  "integer-encoding",
  "multibase 0.9.1",
@@ -5604,6 +5606,7 @@ dependencies = [
  "async-trait",
  "blake2b_simd 0.5.11",
  "chain",
+ "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -5879,7 +5882,9 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "lazy_static",
+ "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]

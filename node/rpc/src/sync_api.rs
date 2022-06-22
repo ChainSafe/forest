@@ -120,6 +120,7 @@ mod tests {
     use db::{MemoryDB, Store};
     use forest_libp2p::NetworkMessage;
     use message_pool::{MessagePool, MpoolRpcProvider};
+    use networks::ChainConfig;
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
@@ -145,7 +146,11 @@ mod tests {
             .build()
             .unwrap();
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone()).await.unwrap());
+        let state_manager = Arc::new(
+            StateManager::new(cs_arc.clone(), Arc::new(ChainConfig::default()))
+                .await
+                .unwrap(),
+        );
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();
         let cs_for_chain = cs_arc.clone();
@@ -170,6 +175,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
+                &state_manager_for_thread.chain_config,
             )
             .await
             .unwrap()

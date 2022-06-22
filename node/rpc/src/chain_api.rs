@@ -19,6 +19,7 @@ use message::{
     unsigned_message::{self, json::UnsignedMessageJson},
     UnsignedMessage,
 };
+use networks::Height;
 use rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -267,6 +268,7 @@ where
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     let entropy = entropy.unwrap_or_default();
+    let hyperdrive_height = data.state_manager.chain_config.epoch(Height::Hyperdrive);
     Ok(data
         .state_manager
         .get_chain_randomness(
@@ -274,7 +276,7 @@ where
             pers,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
+            epoch <= hyperdrive_height,
         )
         .await?)
 }

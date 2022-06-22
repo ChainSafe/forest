@@ -6,7 +6,6 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use ipld_blockstore::BlockStore;
 use message::Message;
-use networks::UPGRADE_SMOKE_HEIGHT;
 use num_bigint::{BigInt, Integer};
 use std::collections::HashSet;
 use types::BLOCK_GAS_LIMIT;
@@ -36,8 +35,9 @@ fn compute_next_base_fee(
     gas_limit_used: i64,
     no_of_blocks: usize,
     epoch: ChainEpoch,
+    smoke_height: ChainEpoch,
 ) -> BigInt {
-    let mut delta: i64 = if epoch > UPGRADE_SMOKE_HEIGHT {
+    let mut delta: i64 = if epoch > smoke_height {
         (gas_limit_used / no_of_blocks as i64) - BLOCK_GAS_TARGET
     } else {
         // Yes the denominator and numerator are intentionally flipped here. We are matching go.
@@ -65,7 +65,11 @@ fn compute_next_base_fee(
     next_base_fee
 }
 
-pub fn compute_base_fee<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, crate::Error>
+pub fn compute_base_fee<DB>(
+    db: &DB,
+    ts: &Tipset,
+    smoke_height: ChainEpoch,
+) -> Result<BigInt, crate::Error>
 where
     DB: BlockStore,
 {
@@ -98,12 +102,14 @@ where
         total_limit,
         ts.blocks().len(),
         ts.epoch(),
+        smoke_height,
     ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use networks::{ChainConfig, Height};
 
     fn construct_tests() -> Vec<(i64, i64, usize, i64, i64)> {
         // (base_fee, limit_used, no_of_blocks, output)
@@ -137,17 +143,28 @@ mod tests {
 
     #[test]
     fn run_base_fee_tests() {
+        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
         let cases = construct_tests();
 
         for case in cases {
             // Pre smoke
-            let output =
-                compute_next_base_fee(&case.0.into(), case.1, case.2, UPGRADE_SMOKE_HEIGHT - 1);
+            let output = compute_next_base_fee(
+                &case.0.into(),
+                case.1,
+                case.2,
+                smoke_height - 1,
+                smoke_height,
+            );
             assert_eq!(BigInt::from(case.3), output);
 
             // Post smoke
-            let output =
-                compute_next_base_fee(&case.0.into(), case.1, case.2, UPGRADE_SMOKE_HEIGHT + 1);
+            let output = compute_next_base_fee(
+                &case.0.into(),
+                case.1,
+                case.2,
+                smoke_height + 1,
+                smoke_height,
+            );
             assert_eq!(BigInt::from(case.4), output);
         }
     }

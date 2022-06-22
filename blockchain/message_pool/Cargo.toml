@@ -11,6 +11,7 @@ blocks = { package = "forest_blocks", path = "../blocks" }
 message = { package = "forest_message", version = "0.7", features = ["proofs", "json", "blst"] }
 thiserror = "1.0"
 cid = { package = "forest_cid", version = "0.3" }
+clock = { package = "fil_clock", path = "../../node/clock" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

@@ -3,6 +3,7 @@
 
 use chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
+use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
 use utils::get_home_dir;
@@ -13,7 +14,7 @@ pub struct Config {
     pub data_dir: String,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
-    pub rpc_port: String,
+    pub rpc_port: u16,
     pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
@@ -28,6 +29,7 @@ pub struct Config {
     pub rocks_db: db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
+    pub chain: ChainConfig,
 }
 
 impl Default for Config {
@@ -37,7 +39,7 @@ impl Default for Config {
             data_dir: get_home_dir() + "/.forest",
             genesis_file: None,
             enable_rpc: true,
-            rpc_port: DEFAULT_PORT.to_owned(),
+            rpc_port: DEFAULT_PORT,
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
@@ -47,6 +49,7 @@ impl Default for Config {
             encrypt_keystore: true,
             metrics_port: 6116,
             rocks_db: db::rocks_config::RocksDbConfig::default(),
+            chain: ChainConfig::default(),
         }
     }
 }

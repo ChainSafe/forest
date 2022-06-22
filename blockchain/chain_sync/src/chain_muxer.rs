@@ -364,6 +364,7 @@ where
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
+        block_delay: u64,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
@@ -454,6 +455,7 @@ where
                 chain_store.clone(),
                 bad_block_cache.clone(),
                 genesis.clone(),
+                block_delay,
             )
             .await
         {
@@ -490,6 +492,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
+        let block_delay = self.state_manager.chain_config.block_delay_secs;
 
         let evaluator = async move {
             let mut tipsets = vec![];
@@ -510,6 +513,7 @@ where
                     mem_pool.clone(),
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::Process,
+                    block_delay,
                 )
                 .await
                 {
@@ -607,6 +611,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
+        let block_delay = self.state_manager.chain_config.block_delay_secs;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
@@ -625,6 +630,7 @@ where
                     mem_pool.clone(),
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
+                    block_delay,
                 )
                 .await
                 {
@@ -697,6 +703,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
+        let block_delay = self.state_manager.chain_config.block_delay_secs;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -723,6 +730,7 @@ where
                         mem_pool.clone(),
                         genesis.clone(),
                         PubsubMessageProcessingStrategy::Process,
+                        block_delay,
                     )
                     .await
                     {

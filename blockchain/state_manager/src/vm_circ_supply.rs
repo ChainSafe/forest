@@ -8,10 +8,7 @@ use chain::*;
 use clock::ChainEpoch;
 use fil_types::FILECOIN_PRECISION;
 use interpreter::CircSupplyCalc;
-use networks::{
-    UPGRADE_ACTORS_V2_HEIGHT, UPGRADE_CALICO_HEIGHT, UPGRADE_IGNITION_HEIGHT,
-    UPGRADE_LIFTOFF_HEIGHT,
-};
+use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 //use once_cell::sync::OnceCell;
 use state_tree::StateTree;
@@ -41,11 +38,36 @@ pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
+<<<<<<< HEAD
     genesis_pledge: TokenAmount,
     genesis_market_funds: TokenAmount,
+=======
+    genesis_pledge: OnceCell<TokenAmount>,
+    genesis_market_funds: OnceCell<TokenAmount>,
+
+    /// Heights epoch
+    ignition_height: ChainEpoch,
+    actors_v2_height: ChainEpoch,
+    liftoff_height: ChainEpoch,
+    calico_height: ChainEpoch,
+>>>>>>> main
 }
 
 impl GenesisInfo {
+    pub fn from_chain_config(chain_config: &ChainConfig) -> Self {
+        let ignition_height = chain_config.epoch(Height::Ignition);
+        let actors_v2_height = chain_config.epoch(Height::ActorsV2);
+        let liftoff_height = chain_config.epoch(Height::Liftoff);
+        let calico_height = chain_config.epoch(Height::Calico);
+        Self {
+            ignition_height,
+            actors_v2_height,
+            liftoff_height,
+            calico_height,
+            ..GenesisInfo::default()
+        }
+    }
+
     fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), Box<dyn StdError>> {
         // let genesis_block =
         //     genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
@@ -68,9 +90,15 @@ impl GenesisInfo {
 /// to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
+<<<<<<< HEAD
     genesis: Vec<(ChainEpoch, TokenAmount)>,
     ignition: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,
     calico: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,
+=======
+    genesis: OnceCell<Vec<(ChainEpoch, TokenAmount)>>,
+    ignition: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
+    calico: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
+>>>>>>> main
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -93,6 +121,7 @@ impl CircSupplyCalc for GenesisInfo {
         //         Ok(setup_genesis_vesting_schedule())
         //     })?;
 
+<<<<<<< HEAD
         setup_ignition_vesting_schedule();
         // self.vesting
         //     .ignition
@@ -102,6 +131,15 @@ impl CircSupplyCalc for GenesisInfo {
         // self.vesting
         //     .calico
         //     .get_or_init(setup_calico_vesting_schedule);
+=======
+        self.vesting
+            .ignition
+            .get_or_init(|| setup_ignition_vesting_schedule(self.liftoff_height));
+
+        self.vesting
+            .calico
+            .get_or_init(|| setup_calico_vesting_schedule(self.liftoff_height));
+>>>>>>> main
 
         get_circulating_supply(self, height, state_tree)
     }
@@ -153,12 +191,20 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     // .get()
     // .expect("calico vesting should be initialized");
 
+<<<<<<< HEAD
     if height <= UPGRADE_IGNITION_HEIGHT {
+=======
+    if height <= genesis_info.ignition_height {
+>>>>>>> main
         for (unlock_duration, initial_balance) in pre_ignition {
             return_value +=
                 initial_balance - v0_amount_locked(*unlock_duration, initial_balance, height);
         }
+<<<<<<< HEAD
     } else if height <= UPGRADE_CALICO_HEIGHT {
+=======
+    } else if height <= genesis_info.calico_height {
+>>>>>>> main
         for (start_epoch, unlock_duration, initial_balance) in post_ignition {
             return_value += initial_balance
                 - v0_amount_locked(*unlock_duration, initial_balance, height - start_epoch);
@@ -170,7 +216,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
         }
     }
 
-    if height <= UPGRADE_ACTORS_V2_HEIGHT {
+    if height <= genesis_info.actors_v2_height {
         return_value += genesis_info
             .genesis_pledge.clone()
             // .get()
@@ -252,7 +298,7 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     let fil_mined = get_fil_mined(state_tree)?;
     let fil_burnt = get_fil_burnt(state_tree)?;
     let fil_locked = get_fil_locked(state_tree)?;
-    let fil_reserve_distributed = if height > UPGRADE_ACTORS_V2_HEIGHT {
+    let fil_reserve_distributed = if height > genesis_info.actors_v2_height {
         get_fil_reserve_disbursed(state_tree)?
     } else {
         TokenAmount::default()
@@ -274,6 +320,7 @@ fn get_circulating_supply<'a, DB: BlockStore>(
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
+<<<<<<< HEAD
     PRE_CALICO_VESTING
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
@@ -303,6 +350,37 @@ fn setup_calico_vesting_schedule() -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)>
                 UPGRADE_LIFTOFF_HEIGHT,
                 unlock_duration,
                 TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
+=======
+    PRE_CALICO_VESTING.clone().into_iter().collect()
+}
+
+fn setup_ignition_vesting_schedule(
+    liftoff_height: ChainEpoch,
+) -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
+    PRE_CALICO_VESTING
+        .clone()
+        .into_iter()
+        .map(|(unlock_duration, initial_balance)| {
+            (
+                liftoff_height,
+                unlock_duration,
+                initial_balance * FILECOIN_PRECISION,
+            )
+        })
+        .collect()
+}
+fn setup_calico_vesting_schedule(
+    liftoff_height: ChainEpoch,
+) -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
+    CALICO_VESTING
+        .clone()
+        .into_iter()
+        .map(|(unlock_duration, initial_balance)| {
+            (
+                liftoff_height,
+                unlock_duration,
+                initial_balance * FILECOIN_PRECISION,
+>>>>>>> main
             )
         })
         .collect()

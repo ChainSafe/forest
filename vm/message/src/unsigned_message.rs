@@ -112,7 +112,7 @@ impl UnsignedMessage {
         use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
         use num_traits::Signed;
         if self.version != 0 {
-            return Err(format!("Message version: {} not  supported", self.version));
+            return Err(format!("Message version: {} not supported", self.version));
         }
         if self.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
             return Err("invalid 'to' address".to_string());

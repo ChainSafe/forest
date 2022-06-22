@@ -29,6 +29,7 @@ use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
+use networks::ChainConfig;
 use num_bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
@@ -109,7 +110,7 @@ pub struct CliOpts {
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "Port used for JSON-RPC communication")]
-    pub port: Option<String>,
+    pub port: Option<u16>,
     #[structopt(
         short,
         long,
@@ -151,6 +152,13 @@ pub struct CliOpts {
     pub target_peer_count: Option<u32>,
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
+    #[structopt(
+        long,
+        help = "Choose network chain to sync to",
+        default_value = "mainnet",
+        possible_values = &["mainnet", "calibnet"],
+    )]
+    pub chain: String,
 }
 
 impl CliOpts {
@@ -164,6 +172,12 @@ impl CliOpts {
             }
             None => find_default_config().unwrap_or_default(),
         };
+
+        if self.chain == "calibnet" {
+            // override the chain configuration
+            cfg.chain = ChainConfig::calibnet();
+        }
+
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }

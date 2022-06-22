@@ -42,7 +42,7 @@ use forest_libp2p::chain_exchange::TipsetBundle;
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
+use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -1242,8 +1242,10 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
+    let block_delay = state_manager.chain_config.block_delay_secs;
+    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
-    let target_timestamp = base_tipset.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
+    let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
         return Err((
             *block_cid,
@@ -1303,9 +1305,11 @@ async fn validate_block<
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
         let base_fee =
-            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
-                TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
-            })?;
+            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(
+                |e| {
+                    TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
+                },
+            )?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
             return Err(TipsetRangeSyncerError::Validation(format!(
@@ -1459,7 +1463,7 @@ async fn validate_block<
         let header = v_block.header();
         let mut miner_address_buf = header.miner_address().marshal_cbor()?;
 
-        if header.epoch() > UPGRADE_SMOKE_HEIGHT {
+        if header.epoch() > smoke_height {
             let vrf_proof = base_tipset
                 .min_ticket()
                 .ok_or(TipsetRangeSyncerError::TipsetWithoutTicket)?
@@ -1626,7 +1630,10 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = get_network_version_default(block.header.epoch());
+    let network_version = state_manager
+        .chain_config
+        .network_version(block.header.epoch());
+    let calico_height = state_manager.chain_config.epoch(Height::Calico);
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1663,7 +1670,7 @@ fn check_block_messages<
     } else {
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
-    let price_list = price_list_by_epoch(base_tipset.epoch());
+    let price_list = price_list_by_epoch(base_tipset.epoch(), calico_height);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity

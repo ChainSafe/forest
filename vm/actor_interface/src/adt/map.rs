@@ -9,6 +9,7 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
+use std::error::Error;
 
 pub enum Map<'a, BS, V> {
     V7(fil_actors_runtime_v7::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
@@ -105,7 +106,7 @@ where
     }
 
     /// Iterates over each KV in the `Map` and runs a function on the values.
-    pub fn map_for_each<F>(&self, mut f: F) -> Result<(), anyhow::Error>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
     where
         V: DeserializeOwned,
         F: FnMut(&BytesKey, &V) -> Result<(), anyhow::Error>,
