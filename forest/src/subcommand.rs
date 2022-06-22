@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use auth::{create_token, ADMIN, JWT_IDENTIFIER, generate_priv_key};
+use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use rpassword::read_password;
 use rpc_client::API_INFO;
 use std::path::PathBuf;
