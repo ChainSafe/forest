@@ -230,7 +230,7 @@ impl TipsetGroup {
     fn cmp(&self, other: &Self) -> Ordering {
         let (i, weight) = self.heaviest_weight();
         let (j, otherw) = other.heaviest_weight();
-        match weight.cmp(&otherw) {
+        match weight.cmp(otherw) {
             Ordering::Greater => Ordering::Greater,
             Ordering::Equal => {
                 if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
@@ -1847,13 +1847,13 @@ mod test {
         // ticket_sequence are choosen so that Ticket(b3) < Ticket(b1)
 
         let b1 = mock_block(1234561, 10, 2);
-        let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts1 = Tipset::new(vec![b1]).unwrap();
 
         let b2 = mock_block(1234563, 9, 1);
-        let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
+        let ts2 = Tipset::new(vec![b2]).unwrap();
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
+        let ts3 = Tipset::new(vec![b3]).unwrap();
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
