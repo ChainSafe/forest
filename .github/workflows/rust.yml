@@ -116,7 +116,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: audit
-          args: --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130 --ignore RUSTSEC-2022-0009
+          args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
 
   build:
     name: Build
