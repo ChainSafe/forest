@@ -403,7 +403,7 @@ mod test {
         let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
 
         let b3 = mock_block(1234563, 1, 1);
-        let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
+        let ts3 = Tipset::new(vec![b3]).unwrap();
 
         // All tipsets have the same weight (but it's not really important here)
 
@@ -416,12 +416,12 @@ mod test {
         let b4 = mock_block(1234564, 1, 41);
         let b5 = mock_block(1234565, 1, 45);
         let ts4 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
-        let ts5 = Tipset::new(vec![b4.clone(), b5.clone(), b2.clone()]).unwrap();
+        let ts5 = Tipset::new(vec![b4.clone(), b5.clone(), b2]).unwrap();
         // Can break weight tie with several min tickets the same
         assert!(ts4.break_weight_tie(&ts5));
 
         let ts6 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
-        let ts7 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
+        let ts7 = Tipset::new(vec![b4, b5, b1]).unwrap();
         // Can not break weight tie with all min tickets the same
         assert!(!ts6.break_weight_tie(&ts7));
     }
