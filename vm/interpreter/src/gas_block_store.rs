@@ -164,7 +164,7 @@ mod tests {
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000), Gas::new(0)))),
             store: &db,
         };
-        assert_eq!(gbs.gas.borrow().gas_used(), 0);
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(2002));
