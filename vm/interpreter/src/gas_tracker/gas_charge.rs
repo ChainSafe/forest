@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fvm::gas::Gas;
+
 /// Single gas charge in the VM. Contains information about what gas was for, as well
 /// as the amount of gas needed for computation and storage respectively.
 pub struct GasCharge {
@@ -21,5 +23,9 @@ impl GasCharge {
     /// Calculates total gas charge based on compute and storage multipliers.
     pub fn total(&self) -> i64 {
         self.compute_gas + self.storage_gas
+    }
+
+    pub fn for_charge(&self) -> (&'static str, Gas) {
+        (self.name, Gas::new(self.total()))
     }
 }
