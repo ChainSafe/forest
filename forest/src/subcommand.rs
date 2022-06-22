@@ -47,7 +47,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
 
             let key_info = keystore
                 .get(JWT_IDENTIFIER)
-                .expect("Keystore initialized with a JWT private key");
+                .expect("Keystore is not initialized with a JWT private key");
 
             create_token(ADMIN.to_owned(), key_info.private_key())
                 .expect("JWT private key parsed into a JWT")
