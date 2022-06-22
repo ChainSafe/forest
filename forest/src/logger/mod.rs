@@ -11,6 +11,10 @@ pub(crate) fn setup_logger() {
     logger_builder.filter(Some("filecoin_proofs"), LevelFilter::Warn);
     logger_builder.filter(Some("storage_proofs_core"), LevelFilter::Warn);
     logger_builder.filter(Some("surf::middleware"), LevelFilter::Warn);
+    logger_builder.filter(
+        Some("bellperson::groth16::aggregate::verify"),
+        LevelFilter::Warn,
+    );
     logger_builder.filter(Some("tide"), LevelFilter::Warn);
     logger_builder.filter(Some("libp2p_bitswap"), LevelFilter::Warn);
     logger_builder.filter(Some("rpc"), LevelFilter::Info);

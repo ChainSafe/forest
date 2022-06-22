@@ -1132,10 +1132,6 @@ async fn validate_tipset<
 
     let mut validations = FuturesUnordered::new();
     for b in full_tipset.into_blocks() {
-        // let ret =
-        //     validate_block::<_, _, V>(state_manager.clone(), beacon_scheduler.clone(), Arc::new(b))
-        //         .await;
-        // let validation_fn = task::spawn(async { ret });
         let validation_fn = task::spawn(validate_block::<_, _, V>(
             state_manager.clone(),
             beacon_scheduler.clone(),
@@ -1143,6 +1139,9 @@ async fn validate_tipset<
         ));
         validations.push(validation_fn);
     }
+
+    info!("Validating tipset: EPOCH = {epoch}");
+    debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
         match result {
@@ -1171,10 +1170,6 @@ async fn validate_tipset<
             }
         }
     }
-    info!(
-        "Validating tipset: EPOCH = {}, KEY = {:?}",
-        epoch, full_tipset_key.cids,
-    );
     Ok(())
 }
 
