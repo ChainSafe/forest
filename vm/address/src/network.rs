@@ -25,7 +25,8 @@ impl FromStr for Network {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "mainnet" => Ok(Network::Mainnet),
-            _ => Ok(Network::Testnet),
+            "testnet" => Ok(Network::Testnet),
+            _ => Err(()),
         }
     }
 }
