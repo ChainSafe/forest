@@ -370,8 +370,8 @@ mod test {
 
     use std::convert::TryFrom;
 
-    pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
-        let addr = Address::new_id(1234561);
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(id);
         let c =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
@@ -394,26 +394,35 @@ mod test {
             .unwrap()
     }
 
-    // two tipsets with different min tickets
-    // two tipsets with one min ticket the same
-    // two tipsets with several min tickets the same
-    // three heaviest heads
     #[test]
     fn test_break_weight_tie() {
-        let b1 = mock_block(1, 1);
+        let b1 = mock_block(1234561, 1, 1);
         let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
 
-        let b2 = mock_block(1, 2);
+        let b2 = mock_block(1234562, 1, 2);
         let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
 
-        let b3 = mock_block(1, 1);
+        let b3 = mock_block(1234563, 1, 1);
         let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
 
-        // All three tipsets have the same weight (but it's not really important here)
+        // All tipsets have the same weight (but it's not really important here)
 
         // Can break weight tie
         assert!(ts1.break_weight_tie(&ts2));
-        // Can not break weight tie (because of same VRFProof)
+        // Can not break weight tie (because of same min tickets)
         assert!(!ts1.break_weight_tie(&ts3));
+
+        // Values are choosen so that Ticket(b4) < Ticket(b5) < Ticket(b1)
+        let b4 = mock_block(1234564, 1, 41);
+        let b5 = mock_block(1234565, 1, 45);
+        let ts4 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
+        let ts5 = Tipset::new(vec![b4.clone(), b5.clone(), b2.clone()]).unwrap();
+        // Can break weight tie with several min tickets the same
+        assert!(ts4.break_weight_tie(&ts5));
+
+        let ts6 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
+        let ts7 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
+        // Can not break weight tie with all min tickets the same
+        assert!(!ts6.break_weight_tie(&ts7));
     }
 }
