@@ -1,7 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::gas_tracker::{GasTracker, PriceList};
+use super::gas_tracker::{PriceList};
+use fvm::gas::GasTracker;
 use cid::{Cid, Code};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};

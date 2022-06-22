@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
 use crate::price_list_by_epoch;
-use crate::GasTracker;
+use fvm::gas::{GasTracker, Gas};
 use crate::Rand;
 use cid::Cid;
 use clock::ChainEpoch;
@@ -73,7 +73,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             .map_err(|e| anyhow::anyhow!("{}", e))?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
-        let tracker = Rc::new(RefCell::new(GasTracker::new(i64::MAX, 0)));
+        let tracker = Rc::new(RefCell::new(GasTracker::new(Gas(i64::MAX), Gas(0))));
         let gbs = GasBlockStore {
             price_list: price_list_by_epoch(self.epoch, self.calico_height),
             gas: tracker.clone(),
