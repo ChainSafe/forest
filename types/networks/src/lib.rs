@@ -259,7 +259,7 @@ impl ChainConfig {
         } else {
             mainnet::DRAND_SCHEDULE.iter()
         };
-        let mut points = BeaconSchedule(Vec::with_capacity(ds_iter.len()));
+        let mut points = BeaconSchedule::with_capacity(ds_iter.len());
         for dc in ds_iter {
             points.0.push(BeaconPoint {
                 height: dc.height,
