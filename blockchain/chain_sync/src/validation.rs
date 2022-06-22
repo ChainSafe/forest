@@ -10,7 +10,6 @@ use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use ipld_blockstore::BlockStore;
 use message::{SignedMessage, UnsignedMessage};
-use networks::BLOCK_DELAY_SECS;
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -59,6 +58,7 @@ impl<'a> TipsetValidator<'a> {
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
         genesis_tipset: Arc<Tipset>,
+        block_delay: u64,
     ) -> Result<(), TipsetValidationError> {
         // No empty blocks
         if self.0.blocks().is_empty() {
@@ -66,7 +66,7 @@ impl<'a> TipsetValidator<'a> {
         }
 
         // Tipset epoch must not be behind current max
-        self.validate_epoch(genesis_tipset)?;
+        self.validate_epoch(genesis_tipset, block_delay)?;
 
         // Validate each block in the tipset by:
         // 1. Calculating the message root using all of the messages to ensure it matches the mst root in the block header
@@ -81,13 +81,16 @@ impl<'a> TipsetValidator<'a> {
         Ok(())
     }
 
-    pub fn validate_epoch(&self, genesis_tipset: Arc<Tipset>) -> Result<(), TipsetValidationError> {
+    pub fn validate_epoch(
+        &self,
+        genesis_tipset: Arc<Tipset>,
+        block_delay: u64,
+    ) -> Result<(), TipsetValidationError> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let max_epoch =
-            ((now - genesis_tipset.min_timestamp()) / BLOCK_DELAY_SECS) + MAX_HEIGHT_DRIFT;
+        let max_epoch = ((now - genesis_tipset.min_timestamp()) / block_delay) + MAX_HEIGHT_DRIFT;
         let too_far_ahead_in_time = self.0.epoch() as u64 > max_epoch;
         if too_far_ahead_in_time {
             Err(TipsetValidationError::EpochTooLarge)

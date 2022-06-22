@@ -124,17 +124,19 @@ mod tests {
     use crate::price_list_by_epoch;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
+    use networks::{ChainConfig, Height};
     use vm::{ActorError, ExitCode};
 
     #[test]
     fn gas_blockstore() {
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
                 ipld_get_base: 4,
                 ipld_put_base: 2,
                 ipld_put_per_byte: 1,
-                ..price_list_by_epoch(0)
+                ..price_list_by_epoch(0, calico_height)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(5000, 0))),
             store: &db,
@@ -149,11 +151,12 @@ mod tests {
 
     #[test]
     fn gas_blockstore_oog() {
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
                 ipld_put_base: 12,
-                ..price_list_by_epoch(0)
+                ..price_list_by_epoch(0, calico_height)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(10, 0))),
             store: &db,

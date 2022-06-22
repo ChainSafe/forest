@@ -7,6 +7,7 @@ use crate::utils::{get_gas_perf, get_gas_reward};
 use address::Address;
 use async_std::sync::RwLock;
 use blocks::Tipset;
+use clock::ChainEpoch;
 use encoding::Cbor;
 use log::warn;
 use message::{Message, SignedMessage};
@@ -344,6 +345,7 @@ pub(crate) async fn create_message_chains<T>(
     base_fee: &BigInt,
     ts: &Tipset,
     chains: &mut Chains,
+    calico_height: ChainEpoch,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -387,7 +389,7 @@ where
         }
         cur_seq += 1;
 
-        let min_gas = interpreter::price_list_by_epoch(ts.epoch())
+        let min_gas = interpreter::price_list_by_epoch(ts.epoch(), calico_height)
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 

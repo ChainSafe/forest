@@ -84,7 +84,16 @@ where
         // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
-            create_message_chains(&self.api, &actor, &mset, &base_fee, ts, &mut chains).await?;
+            create_message_chains(
+                &self.api,
+                &actor,
+                &mset,
+                &base_fee,
+                ts,
+                &mut chains,
+                self.calico_height,
+            )
+            .await?;
         }
 
         let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
@@ -131,6 +140,7 @@ where
                 &base_fee,
                 target_tipset,
                 &mut chains,
+                self.calico_height,
             )
             .await?;
         }
@@ -493,7 +503,16 @@ where
             // remove actor from pending set as we are processing these messages.
             if let Some(mset) = pending.remove(actor) {
                 // create chains for the priority actor
-                create_message_chains(&self.api, actor, &mset, base_fee, ts, &mut chains).await?;
+                create_message_chains(
+                    &self.api,
+                    actor,
+                    &mset,
+                    base_fee,
+                    ts,
+                    &mut chains,
+                    self.calico_height,
+                )
+                .await?;
             }
         }
 
@@ -670,6 +689,7 @@ mod test_selection {
     use db::MemoryDB;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
+    use networks::ChainConfig;
     use std::sync::Arc;
     use types::NetworkParams;
 
@@ -679,7 +699,14 @@ mod test_selection {
         let tma = TestApi::default();
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            MessagePool::new(tma, "mptest".to_string(), tx, Default::default()).await
+            MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                &ChainConfig::default(),
+            )
+            .await
         })
         .unwrap()
     }

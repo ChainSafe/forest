@@ -50,6 +50,7 @@ where
     use sync_api::*;
     use wallet_api::*;
 
+    let block_delay = state.state_manager.chain_config.block_delay_secs;
     let rpc_server = Arc::new(
         Server::new()
             .with_data(Data(state))
@@ -161,7 +162,7 @@ where
                 gas_estimate_message_gas::<DB, B, V>,
             )
             // Common API
-            .with_method(VERSION, version)
+            .with_method(VERSION, move || version(block_delay))
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)

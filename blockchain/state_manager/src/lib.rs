@@ -30,14 +30,15 @@ use futures::{channel::oneshot, select, FutureExt};
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use interpreter::{
-    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, LookbackStateGetter, Rand, VM,
+    resolve_to_key_addr, ApplyRet, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter,
+    Rand, VM,
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
 };
-use networks::get_network_version_default;
+use networks::{ChainConfig, Height};
 use num_bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -92,6 +93,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
+    pub chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
 }
 
@@ -99,16 +101,24 @@ impl<DB> StateManager<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub async fn new(cs: Arc<ChainStore<DB>>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(
+        cs: Arc<ChainStore<DB>>,
+        chain_config: Arc<ChainConfig>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+        let beacon = Arc::new(
+            chain_config
+                .get_beacon_schedule(genesis.timestamp())
+                .await?,
+        );
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: None,
-            genesis_info: GenesisInfo::default(),
+            genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
+            chain_config,
             engine: fvm::machine::MultiEngine::new(),
         })
     }
@@ -117,16 +127,23 @@ where
     pub async fn new_with_publisher(
         cs: Arc<ChainStore<DB>>,
         chain_subs: Publisher<HeadChange>,
+        config: ChainConfig,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let genesis = cs.genesis()?.ok_or("genesis header was none")?;
-        let beacon = Arc::new(networks::beacon_schedule_default(genesis.timestamp()).await?);
+        let chain_config = Arc::new(config);
+        let beacon = Arc::new(
+            chain_config
+                .get_beacon_schedule(genesis.timestamp())
+                .await?,
+        );
 
         Ok(Self {
             cs,
             cache: RwLock::new(HashMap::new()),
             publisher: Some(chain_subs),
-            genesis_info: GenesisInfo::default(),
+            genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
+            chain_config,
             engine: fvm::machine::MultiEngine::new(),
         })
     }
@@ -137,7 +154,7 @@ where
 
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        get_network_version_default(epoch)
+        self.chain_config.network_version(epoch)
     }
 
     /// Gets actor from given [Cid], if it exists.
@@ -327,8 +344,11 @@ where
             verifier: PhantomData::<V>::default(),
         };
 
+        let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
+            let heights = Heights::new(&self.chain_config);
+            let network_version = self.get_network_version(epoch);
             VM::<_, _, _, _, V>::new(
                 state_root,
                 db.as_ref(),
@@ -336,13 +356,14 @@ where
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
-                get_network_version_default(epoch),
+                network_version,
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
                 self.engine
-                    .get(&NetworkConfig::new(get_network_version_default(epoch)))
+                    .get(&NetworkConfig::new(network_version))
                     .unwrap(),
+                heights,
             )
         };
 
@@ -359,7 +380,7 @@ where
                 parent_state = vm.flush()?;
             }
 
-            if epoch_i == networks::UPGRADE_ACTORS_V4_HEIGHT {
+            if epoch_i == turbo_height {
                 todo!("cannot migrate state when using FVM - see https://github.com/ChainSafe/forest/issues/1454 for updates");
             }
         }
@@ -473,6 +494,8 @@ where
 
             let store_arc = self.blockstore_cloned();
 
+            let heights = Heights::new(&self.chain_config);
+            let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_, _, _, _, V>::new(
                 *bstate,
                 store_arc.as_ref(),
@@ -480,13 +503,14 @@ where
                 bheight,
                 rand,
                 0.into(),
-                get_network_version_default(bheight),
+                network_version,
                 self.genesis_info.clone(),
                 None,
                 &lb_wrapper,
                 self.engine
-                    .get(&NetworkConfig::new(get_network_version_default(bheight)))
+                    .get(&NetworkConfig::new(network_version))
                     .unwrap(),
+                heights,
             )?;
 
             if msg.gas_limit() == 0 {
@@ -571,6 +595,9 @@ where
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
+        let heights = Heights::new(&self.chain_config);
+        // Since we're simulating a future message, pretend we're applying it in the "next" tipset
+        let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_, _, _, _, V>::new(
             st,
             store_arc.as_ref(),
@@ -578,15 +605,14 @@ where
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            get_network_version_default(ts.epoch() + 1),
+            network_version,
             self.genesis_info.clone(),
             None,
             &lb_wrapper,
             self.engine
-                .get(&NetworkConfig::new(get_network_version_default(
-                    ts.epoch() + 1,
-                )))
+                .get(&NetworkConfig::new(network_version))
                 .unwrap(),
+            heights,
         )?;
 
         for msg in prior_messages {
@@ -662,7 +688,7 @@ where
         V: ProofVerifier,
     {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
-        let version = get_network_version_default(round);
+        let version = self.get_network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
@@ -713,7 +739,7 @@ where
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
         let hmp = self.miner_has_min_power(address, lookback_tipset)?;
-        let version = get_network_version_default(base_tipset.epoch());
+        let version = self.get_network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
             return Ok(hmp);
@@ -802,7 +828,7 @@ where
             &buf,
         )?;
 
-        let nv = get_network_version_default(tipset.epoch());
+        let nv = self.get_network_version(tipset.epoch());
         let sectors = self.get_sectors_for_winning_post::<V>(
             &lbst,
             nv,

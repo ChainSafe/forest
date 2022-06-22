@@ -23,7 +23,7 @@ use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, Message, MessageReceipt, UnsignedMessage};
-use networks::UPGRADE_ACTORS_V4_HEIGHT;
+use networks::{ChainConfig, Height};
 use num_bigint::BigInt;
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -70,6 +70,27 @@ pub trait LookbackStateGetter<'db, DB> {
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
+#[derive(Clone, Copy)]
+pub struct Heights {
+    pub calico: ChainEpoch,
+    pub claus: ChainEpoch,
+    pub turbo: ChainEpoch,
+    pub hyperdrive: ChainEpoch,
+    pub chocolate: ChainEpoch,
+}
+
+impl Heights {
+    pub fn new(chain_config: &ChainConfig) -> Self {
+        Heights {
+            calico: chain_config.epoch(Height::Calico),
+            claus: chain_config.epoch(Height::Claus),
+            turbo: chain_config.epoch(Height::Turbo),
+            hyperdrive: chain_config.epoch(Height::Hyperdrive),
+            chocolate: chain_config.epoch(Height::Chocolate),
+        }
+    }
+}
+
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<
@@ -94,6 +115,7 @@ pub struct VM<
     _lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
+    heights: Heights,
 }
 
 pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, Cid> {
@@ -134,6 +156,7 @@ where
         override_circ_supply: Option<TokenAmount>,
         lb_state: &'r LB,
         engine: Engine,
+        heights: Heights,
     ) -> Result<Self, String> {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
@@ -162,6 +185,7 @@ where
                 ForestExterns::new(
                     rand.clone(),
                     epoch,
+                    heights.calico,
                     root,
                     lb_state.chain_epoch_root(),
                     store_arc,
@@ -186,6 +210,7 @@ where
             _lb_state: lb_state,
             verifier: PhantomData,
             params: PhantomData,
+            heights,
         })
     }
 
@@ -252,7 +277,7 @@ where
         _store: Arc<impl BlockStore + Send + Sync>,
     ) -> Result<Option<Cid>, Box<dyn StdError>> {
         match epoch {
-            x if x == UPGRADE_ACTORS_V4_HEIGHT => {
+            x if x == self.heights.turbo => {
                 // FIXME: Support state migrations.
                 panic!("Cannot migrate state when using FVM. See https://github.com/ChainSafe/forest/issues/1454 for updates.");
             }

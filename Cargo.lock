@@ -5603,6 +5603,7 @@ dependencies = [
  "async-trait",
  "blake2b_simd 0.5.11",
  "chain",
+ "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -5877,7 +5878,9 @@ dependencies = [
  "fil_clock",
  "fil_types",
  "lazy_static",
+ "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]

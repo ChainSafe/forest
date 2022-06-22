@@ -121,19 +121,17 @@ make test-all
 
 ### Joining the testnet
 
-Build with the `interopnet` config with:
+Select the builtin calibnet configuration with the `--chain` option:
 
 ```bash
-make interopnet
-
 # Run and import past the state migrations to latest network version
-./target/release/forest --import-snapshot ./types/networks/src/interopnet/snapshot.car
+./target/release/forest --chain calibnet --import-snapshot snapshot.car
 ```
 
 Importing the snapshot only needs to happen during the first run. Following this, to restart the daemon run:
 
 ```bash
-./target/release/forest
+./target/release/forest --chain calibnet
 ```
 
 ### Interacting with Forest via CLI

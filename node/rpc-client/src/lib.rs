@@ -23,7 +23,7 @@ use std::env;
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/1234/http";
-pub const DEFAULT_PORT: &str = "1234";
+pub const DEFAULT_PORT: u16 = 1234;
 pub const DEFAULT_PROTOCOL: &str = "http";
 pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 pub const RPC_ENDPOINT: &str = "rpc/v0";
@@ -82,7 +82,7 @@ pub enum JsonRpcResponse<R> {
 
 struct Url {
     protocol: String,
-    port: String,
+    port: u16,
     host: String,
 }
 
@@ -92,7 +92,7 @@ fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
     let addr = multiaddr.into_iter().fold(
         Url {
             protocol: DEFAULT_PROTOCOL.to_owned(),
-            port: DEFAULT_PORT.to_owned(),
+            port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
         },
         |mut addr, protocol| {
@@ -116,7 +116,7 @@ fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
                     addr.host = dns.to_string();
                 }
                 Protocol::Tcp(p) => {
-                    addr.port = p.to_string();
+                    addr.port = p;
                 }
                 Protocol::Http => {
                     addr.protocol = "http".to_string();
