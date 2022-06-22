@@ -26,6 +26,7 @@ impl FromStr for Network {
         match s {
             "mainnet" => Ok(Network::Mainnet),
             "testnet" => Ok(Network::Testnet),
+            "calibnet" => Ok(Network::Testnet),
             _ => Err(()),
         }
     }
