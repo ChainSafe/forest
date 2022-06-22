@@ -13,11 +13,11 @@ pub type Method = fil_actor_multisig_v7::Method;
 #[serde(untagged)]
 pub enum State {
     // V0(actorv0::multisig::State),
-    // V2(actorv2::multisig::State),
-    // V3(actorv3::multisig::State),
-    // V4(actorv4::multisig::State),
-    // V5(actorv5::multisig::State),
-    // V6(actorv6::multisig::State),
+// V2(actorv2::multisig::State),
+// V3(actorv3::multisig::State),
+// V4(actorv4::multisig::State),
+// V5(actorv5::multisig::State),
+// V6(actorv6::multisig::State),
 }
 
 impl State {
