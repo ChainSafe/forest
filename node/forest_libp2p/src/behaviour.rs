@@ -56,7 +56,7 @@ use tiny_cid::Cid as Cid2;
 
 lazy_static! {
     static ref VERSION: &'static str = env!("CARGO_PKG_VERSION");
-    static ref CURRENT_COMMIT: &'static str = git_version!();
+    static ref CURRENT_COMMIT: &'static str = git_version!(fallback = "unknown");
 }
 
 /// Libp2p behaviour for the Forest node. This handles all sub protocols needed for a Filecoin node.

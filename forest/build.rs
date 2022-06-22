@@ -16,11 +16,13 @@ fn main() {
 
 // returns version string at build time, e.g., `v0.1.0/unstable/7af2f5bf`
 fn version() -> String {
-    let git_cmd = Command::new("git")
+    let git_hash = match Command::new("git")
         .args(&["rev-parse", "--short", "HEAD"])
         .output()
-        .expect("Git references should be available on a build system");
-    let git_hash = String::from_utf8(git_cmd.stdout).unwrap_or_default();
+    {
+        Ok(output) => String::from_utf8(output.stdout).unwrap_or_default(),
+        _ => "unknown".to_owned(),
+    };
     format!(
         "v{}/{}/{}",
         env!("CARGO_PKG_VERSION"),
