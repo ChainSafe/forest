@@ -276,7 +276,7 @@ impl ChainConfig {
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.epoch)
-            .unwrap()
+            .expect("Internal error: Protocol height not found in map. Please report to https://github.com/ChainSafe/forest/issues")
     }
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {
