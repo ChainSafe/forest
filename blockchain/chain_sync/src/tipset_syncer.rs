@@ -1140,7 +1140,7 @@ async fn validate_tipset<
         validations.push(validation_fn);
     }
 
-    info!("Validating tipset: EPOCH = {}", epoch);
+    info!("Validating tipset: EPOCH = {epoch}");
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
