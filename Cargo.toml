@@ -35,7 +35,6 @@ members = [
     "utils/auth",
     "utils/bigint",
     "utils/bitfield",
-    "utils/commcid",
     "utils/genesis",
     "utils/hash_utils",
     "utils/json_utils",
@@ -60,7 +59,6 @@ forest_ipld       = { path = "./ipld" }
 forest_encoding   = { path = "./encoding" }
 forest_hash_utils = { path = "./utils/hash_utils" }
 forest_json_utils = { path = "./utils/json_utils" }
-commcid           = { path = "./utils/commcid" }
 forest_vm         = { path = "./vm" }
 forest_runtime    = { path = "./vm/runtime" }
 forest_message    = { path = "./vm/message" }

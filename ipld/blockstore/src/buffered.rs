@@ -262,8 +262,8 @@ where
 mod tests {
     use super::*;
     use cid::{multihash::MultihashDigest, Code, RAW};
-    use commcid::commitment_to_cid;
     use forest_ipld::{ipld, Ipld};
+    use fvm_shared::commcid::commitment_to_cid;
 
     #[test]
     fn basic_buffered_store() {

@@ -1162,7 +1162,6 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "chain",
- "commcid",
  "fil_clock",
  "fil_types",
  "forest_address",
@@ -1348,15 +1347,6 @@ dependencies = [
  "atty",
  "lazy_static",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "commcid"
-version = "0.1.1"
-dependencies = [
- "forest_cid",
- "multihash 0.16.2",
- "rand 0.8.5",
 ]
 
 [[package]]
@@ -2922,7 +2912,6 @@ version = "0.2.2"
 dependencies = [
  "async-std",
  "base64 0.13.0",
- "commcid",
  "fil_clock",
  "filecoin-proofs-api",
  "forest_address",
@@ -3410,7 +3399,6 @@ name = "forest_runtime"
 version = "0.2.1"
 dependencies = [
  "base64 0.13.0",
- "commcid",
  "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
@@ -3420,6 +3408,7 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_vm",
+ "fvm_shared 0.7.1",
  "interpreter",
  "ipld_blockstore",
  "log",
@@ -4428,7 +4417,6 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "byteorder 1.4.3",
- "commcid",
  "dashmap",
  "forest_cid",
  "forest_db",
