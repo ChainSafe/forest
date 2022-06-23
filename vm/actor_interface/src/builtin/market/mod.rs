@@ -11,6 +11,7 @@ use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use std::{error::Error, marker::PhantomData};
 use vm::{ActorState, TokenAmount};
+use num_bigint::bigint_ser::json;
 
 use anyhow::Context;
 
@@ -227,11 +228,11 @@ pub struct DealProposal {
     pub label: String,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     pub storage_price_per_epoch: TokenAmount,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     pub provider_collateral: TokenAmount,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     pub client_collateral: TokenAmount,
 }
 

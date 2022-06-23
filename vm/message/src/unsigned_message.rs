@@ -253,7 +253,9 @@ pub mod json {
     use super::*;
     use address::json::AddressJson;
     use cid::Cid;
-    use fvm_shared::bigint::bigint_ser;
+    // use fvm_shared::bigint::bigint_ser;
+    use num_bigint::bigint_ser;
+
     use serde::{de, ser};
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
@@ -286,12 +288,12 @@ pub mod json {
         from: AddressJson,
         #[serde(rename = "Nonce")]
         sequence: u64,
-        #[serde(with = "bigint_ser")]
+        #[serde(with = "bigint_ser::json")]
         value: TokenAmount,
         gas_limit: i64,
-        #[serde(with = "bigint_ser")]
+        #[serde(with = "bigint_ser::json")]
         gas_fee_cap: TokenAmount,
-        #[serde(with = "bigint_ser")]
+        #[serde(with = "bigint_ser::json")]
         gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,

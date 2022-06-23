@@ -9,6 +9,7 @@ use fvm_shared::bigint::bigint_ser;
 use ipld_blockstore::BlockStore;
 use serde::{Deserialize, Serialize};
 use vm::{ActorState, TokenAmount};
+use num_bigint::bigint_ser::json;
 
 use anyhow::Context;
 
@@ -192,10 +193,10 @@ impl State {
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Claim {
     /// Sum of raw byte power for a miner's sectors.
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     pub raw_byte_power: StoragePower,
     /// Sum of quality adjusted power for a miner's sectors.
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     pub quality_adj_power: StoragePower,
 }
 

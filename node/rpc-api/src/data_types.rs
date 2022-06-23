@@ -35,7 +35,7 @@ use num_bigint::bigint_ser::json::opt;
 use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
-
+use num_bigint::bigint_ser::json;
 // RPC State
 #[derive(Serialize)]
 pub struct StreamingData<'a> {
@@ -120,7 +120,7 @@ pub struct ActorStateJson {
     #[serde(with = "cid::json")]
     head: Cid,
     nonce: u64,
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     balance: BigInt,
 }
 
