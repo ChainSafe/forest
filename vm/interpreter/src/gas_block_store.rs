@@ -187,7 +187,7 @@ mod tests {
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(0));
-        assert_eq!(to_vec(&200u8).unwrap().len(), 2);
+        assert_eq!(to_vec(&200u8), 2);
         assert_eq!(
             gbs.put(&200u8, Blake2b256)
                 .unwrap_err()
