@@ -30,7 +30,7 @@ use fil_types::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
 use networks::ChainConfig;
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;

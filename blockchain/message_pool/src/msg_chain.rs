@@ -11,7 +11,7 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use log::warn;
 use message::{Message, SignedMessage};
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
 use std::collections::HashMap;

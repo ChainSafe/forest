@@ -9,7 +9,7 @@ use blocks::tipset_keys_json::TipsetKeysJson;
 use jsonrpc_v2::Error;
 use message::Message;
 use message::SignedMessage;
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use structopt::StructOpt;
 
 use cid::json::vec::CidJsonVec;

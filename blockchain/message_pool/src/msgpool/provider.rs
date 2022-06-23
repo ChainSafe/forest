@@ -14,7 +14,7 @@ use cid::Cid;
 use cid::Code::Blake2b256;
 use message::{ChainMessage, SignedMessage, UnsignedMessage};
 use networks::Height;
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};

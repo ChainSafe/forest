@@ -52,6 +52,7 @@ async-trait = "0.1"
 lazy_static = "1.4"
 git-version = "0.3"
 serde_ipld_dagcbor = "0.1.0"
+fvm_shared = { version = "0.7.1", default-features = false }
 
 [dev-dependencies]
 forest_address = "0.3"

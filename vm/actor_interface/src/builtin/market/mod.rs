@@ -7,7 +7,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use ipld_blockstore::BlockStore;
-use num_bigint::{bigint_ser, BigInt};
+use fvm_shared::bigint::{bigint_ser, BigInt};
 use serde::Serialize;
 use std::{error::Error, marker::PhantomData};
 use vm::{ActorState, TokenAmount};
@@ -227,11 +227,11 @@ pub struct DealProposal {
     pub label: String,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "bigint_ser")]
     pub storage_price_per_epoch: TokenAmount,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "bigint_ser")]
     pub provider_collateral: TokenAmount,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "bigint_ser")]
     pub client_collateral: TokenAmount,
 }
 

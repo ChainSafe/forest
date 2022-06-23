@@ -309,7 +309,7 @@ pub mod tests {
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use networks::{ChainConfig, Height};
-    use num_bigint::BigInt;
+    use fvm_shared::bigint::BigInt;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;

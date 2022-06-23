@@ -13,7 +13,7 @@ use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
 use message::{ChainMessage, Message};
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,

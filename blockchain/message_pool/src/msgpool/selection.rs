@@ -18,7 +18,7 @@ use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
 use message::Message;
 use message::SignedMessage;
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;

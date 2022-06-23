@@ -8,7 +8,7 @@ use crypto::Signature;
 use encoding::Cbor;
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Integer};
+use fvm_shared::bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
 

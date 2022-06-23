@@ -39,7 +39,7 @@ use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
 };
 use networks::{ChainConfig, Height};
-use num_bigint::{bigint_ser, BigInt};
+use fvm_shared::bigint::{bigint_ser, BigInt};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};

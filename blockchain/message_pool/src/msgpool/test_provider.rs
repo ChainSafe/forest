@@ -17,7 +17,7 @@ use crypto::VRFProof;
 use message::ChainMessage;
 use message::Message;
 use message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use tokio::sync::broadcast;

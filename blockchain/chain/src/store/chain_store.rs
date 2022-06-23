@@ -24,7 +24,7 @@ use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Integer};
+use fvm_shared::bigint::{BigInt, Integer};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
