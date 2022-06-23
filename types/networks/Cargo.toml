@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 fil_types = { path = "../../types" }
 clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 lazy_static = "1.4"

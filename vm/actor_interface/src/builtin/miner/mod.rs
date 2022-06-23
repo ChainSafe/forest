@@ -16,7 +16,6 @@ use libp2p::PeerId;
 use num_bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
 
 use anyhow::Context;
@@ -86,7 +85,7 @@ impl State {
     pub fn for_each_deadline<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Deadline) -> Result<(), Box<dyn Error>>,
+        mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
             // State::V0(st) => st
@@ -272,7 +271,7 @@ impl Deadline {
     pub fn for_each<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Partition) -> Result<(), Box<dyn Error>>,
+        mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
             // Deadline::V0(dl) => dl.for_each(store, |idx, part| {
