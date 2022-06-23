@@ -31,11 +31,11 @@ use message::{
     signed_message::json::SignedMessageJson, unsigned_message, SignedMessage, UnsignedMessage,
 };
 use message_pool::{MessagePool, MpoolRpcProvider};
+use num_bigint::bigint_ser::json;
 use num_bigint::bigint_ser::json::opt;
 use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
-use num_bigint::bigint_ser::json;
 // RPC State
 #[derive(Serialize)]
 pub struct StreamingData<'a> {

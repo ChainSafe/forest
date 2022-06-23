@@ -8,10 +8,10 @@ use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use ipld_blockstore::BlockStore;
+use num_bigint::bigint_ser::json;
 use serde::Serialize;
 use std::{error::Error, marker::PhantomData};
 use vm::{ActorState, TokenAmount};
-use num_bigint::bigint_ser::json;
 
 use anyhow::Context;
 

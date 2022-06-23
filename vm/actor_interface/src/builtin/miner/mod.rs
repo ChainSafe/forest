@@ -14,11 +14,11 @@ use forest_json_utils::go_vec_visitor;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
+use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
-use num_bigint::bigint_ser::json;
 
 use anyhow::Context;
 
