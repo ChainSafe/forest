@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ActorVersion;
+use anyhow::Error as AnyhowError;
 use cid::Cid;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
@@ -10,7 +11,6 @@ use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 use std::error::Error;
-use anyhow::Error as AnyhowError;
 
 pub enum Map<'a, BS, V> {
     V7(fil_actors_runtime_v7::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
