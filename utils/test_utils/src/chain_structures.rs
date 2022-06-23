@@ -14,7 +14,6 @@ use forest_libp2p::chain_exchange::{
 use message::{SignedMessage, UnsignedMessage};
 use num_bigint::BigInt;
 use std::convert::TryFrom;
-use std::error::Error;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {

@@ -200,7 +200,8 @@ impl DrandBeacon {
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
             let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
                 .recv_json()
-                .await.unwrap();
+                .await
+                .unwrap();
             debug_assert!(&remote_chain_info == chain_info);
         }
 

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ActorVersion;
+use anyhow::Error as AnyhowError;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
-use anyhow::Error as AnyhowError;
 use std::marker::PhantomData;
 
 pub enum Array<'a, BS, V> {
@@ -36,11 +36,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(
-        _cid: &Cid,
-        _store: &'a BS,
-        _version: ActorVersion,
-    ) -> Result<Self, AnyhowError> {
+    pub fn load(_cid: &Cid, _store: &'a BS, _version: ActorVersion) -> Result<Self, AnyhowError> {
         panic!("Cannot load Array")
         // match version {
         //     // ActorVersion::V0 => Ok(Array::V0(actorv0::ipld_amt::Amt::load(cid, store)?)),

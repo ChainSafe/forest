@@ -9,6 +9,7 @@ features = ["test_constructors"]
 
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
+anyhow = "1.0"
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks/", optional = true }
 cid = { package = "forest_cid", version = "0.3", optional = true }
 chain = { path = "../../blockchain/chain/", optional = true }
