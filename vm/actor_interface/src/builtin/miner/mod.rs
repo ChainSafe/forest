@@ -11,7 +11,7 @@ use fil_types::{
 };
 use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
-use fvm_shared::bigint::{BigInt};
+use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
 use num_bigint::bigint_ser::json;
