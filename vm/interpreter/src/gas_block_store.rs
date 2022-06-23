@@ -18,7 +18,7 @@ pub fn to_std_error(exec_error: ExecutionError) -> Box<dyn StdError> {
 
 pub fn to_anyhow_error(exec_error: ExecutionError) -> anyhow::Error {
     match exec_error {
-        ExecutionError::OutOfGas => anyhow::Error::msg("Out of gas Error"),
+        ExecutionError::OutOfGas => anyhow::Error::msg("OutOfGas"),
         ExecutionError::Syscall(err) => anyhow::Error::msg(err.to_string()),
         ExecutionError::Fatal(err) => err,
     }
@@ -192,7 +192,7 @@ mod tests {
             gbs.put(&200u8, Blake2b256)
                 .unwrap_err()
                 .to_string(),
-            "Out of gas".to_string()
+            "OutOfGas".to_string()
         );
     }
 }
