@@ -157,10 +157,7 @@ mod tests {
                 ipld_put_per_byte: 1,
                 ..price_list_by_epoch(0, calico_height)
             },
-            gas: Rc::new(RefCell::new(GasTracker::new(
-                Gas::new(5000),
-                Gas::new(0),
-            ))),
+            gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000), Gas::new(0)))),
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
@@ -180,18 +177,13 @@ mod tests {
                 ipld_put_base: 12,
                 ..price_list_by_epoch(0, calico_height)
             },
-            gas: Rc::new(RefCell::new(GasTracker::new(
-                Gas::new(10),
-                Gas::new(0),
-            ))),
+            gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(10), Gas::new(0)))),
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         assert_eq!(
-            gbs.put(&200u8, Blake2b256)
-                .unwrap_err()
-                .to_string(),
+            gbs.put(&200u8, Blake2b256).unwrap_err().to_string(),
             "OutOfGas".to_string()
         );
     }
