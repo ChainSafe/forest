@@ -191,9 +191,7 @@ mod tests {
         assert_eq!(
             gbs.put(&200u8, Blake2b256)
                 .unwrap_err()
-                .downcast::<ActorError>()
-                .unwrap()
-                .exit_code(),
+                .downcast::<ActorError>(),
             ExitCode::SYS_OUT_OF_GAS
         );
     }
