@@ -74,8 +74,8 @@ impl<DB: BlockStore> ForestExterns<DB> {
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tracker = Rc::new(RefCell::new(GasTracker::new(
-            Gas::new(i64::MAX),
-            Gas::new(0),
+            Gas::from_milligas(i64::MAX),
+            Gas::from_milligas(0),
         )));
         let gbs = GasBlockStore {
             price_list: price_list_by_epoch(self.epoch, self.calico_height),
