@@ -6,7 +6,7 @@ use cid::multihash::MultihashDigest;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
-use fvm_shared::bigint::{bigint_ser, BigInt};
+use fvm_shared::bigint::{BigInt};
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::json;
 use serde::Serialize;

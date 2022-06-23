@@ -5,7 +5,7 @@ use crate::FilterEstimate;
 use address::Address;
 use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
-use fvm_shared::bigint::bigint_ser;
+
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use num_bigint::{BigInt, Sign};
+use num_bigint::{BigInt};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "json")]
