@@ -11,9 +11,9 @@ use fil_types::{
 };
 use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
+use fvm_shared::bigint::{bigint_ser, BigInt};
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
-use fvm_shared::bigint::{bigint_ser, BigInt};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
