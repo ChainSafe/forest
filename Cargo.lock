@@ -3217,6 +3217,7 @@ dependencies = [
  "forest_json_utils",
  "forest_message",
  "forest_vm",
+ "fvm_shared 0.7.1",
  "hex",
  "lazy_static",
  "once_cell",
