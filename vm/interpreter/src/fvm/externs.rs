@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
 use crate::price_list_by_epoch;
-use crate::GasTracker;
 use crate::Rand;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_actors_runtime::runtime::Policy;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
+use fvm::gas::{Gas, GasTracker};
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
 
@@ -73,7 +73,10 @@ impl<DB: BlockStore> ForestExterns<DB> {
             .map_err(|e| anyhow::anyhow!("{}", e))?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
-        let tracker = Rc::new(RefCell::new(GasTracker::new(i64::MAX, 0)));
+        let tracker = Rc::new(RefCell::new(GasTracker::new(
+            Gas::new(i64::MAX),
+            Gas::new(0),
+        )));
         let gbs = GasBlockStore {
             price_list: price_list_by_epoch(self.epoch, self.calico_height),
             gas: tracker.clone(),
@@ -91,7 +94,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             resolve_to_key_addr(&state, &gbs, &worker).map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let gas_used = tracker.borrow().gas_used();
-        Ok((addr, gas_used))
+        Ok((addr, gas_used.round_up()))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
