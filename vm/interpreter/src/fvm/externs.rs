@@ -94,7 +94,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             resolve_to_key_addr(&state, &gbs, &worker).map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let gas_used = tracker.borrow().gas_used();
-        Ok((addr, gas_used.as_milligas()))
+        Ok((addr, gas_used.round_up()))
     }
 
     fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64> {
