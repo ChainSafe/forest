@@ -4439,26 +4439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ipld_hamt"
-version = "2.0.0"
-dependencies = [
- "byteorder 1.4.3",
- "criterion",
- "cs_serde_bytes",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "forest_hash_utils",
- "ipld_blockstore",
- "libipld-core",
- "once_cell",
- "serde",
- "sha2 0.10.2",
- "thiserror",
- "unsigned-varint 0.7.1",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
