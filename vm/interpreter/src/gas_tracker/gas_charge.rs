@@ -26,7 +26,7 @@ impl GasCharge {
     }
 
     pub fn for_charge(&self) -> (&'static str, Gas) {
-        (self.name, Gas::from_milligas(self.total()))
+        (self.name, Gas::new(self.total()))
     }
 }
 
@@ -34,8 +34,8 @@ impl From<GasCharge> for fvm::gas::GasCharge<'_> {
     fn from(charge: GasCharge) -> Self {
         Self {
             name: charge.name,
-            compute_gas: Gas::from_milligas(charge.compute_gas),
-            storage_gas: Gas::from_milligas(charge.storage_gas),
+            compute_gas: Gas::new(charge.compute_gas),
+            storage_gas: Gas::new(charge.storage_gas),
         }
     }
 }

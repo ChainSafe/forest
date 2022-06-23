@@ -158,17 +158,17 @@ mod tests {
                 ..price_list_by_epoch(0, calico_height)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(
-                Gas::from_milligas(5000),
-                Gas::from_milligas(0),
+                Gas::new(5000),
+                Gas::new(0),
             ))),
             store: &db,
         };
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(0));
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(2002));
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(2002));
         gbs.get::<u8>(&c).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(2006));
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(2006));
     }
 
     #[test]
@@ -181,12 +181,12 @@ mod tests {
                 ..price_list_by_epoch(0, calico_height)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(
-                Gas::from_milligas(10),
-                Gas::from_milligas(0),
+                Gas::new(10),
+                Gas::new(0),
             ))),
             store: &db,
         };
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(0));
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8), 2);
         assert_eq!(
             gbs.put(&200u8, Blake2b256)
