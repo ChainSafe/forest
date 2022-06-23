@@ -16,30 +16,21 @@ use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
-
-lazy_static! {
-    static ref PRE_CALICO_VESTING: [(ChainEpoch, TokenAmount); 5] = [
-        (183 * actor::EPOCHS_IN_DAY, TokenAmount::from(82_717_041)),
-        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712)),
-        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
-        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883)),
-        (6 * EPOCHS_IN_YEAR, TokenAmount::from(400_000_000)),
-    ];
-    static ref CALICO_VESTING: [(ChainEpoch, TokenAmount); 6] = [
-        (0, TokenAmount::from(10_632_000)),
-        (
-            183 * actor::EPOCHS_IN_DAY,
-            TokenAmount::from(19_015_887 + 32_787_700)
-        ),
-        (EPOCHS_IN_YEAR, TokenAmount::from(22_421_712 + 9_400_000)),
-        (2 * EPOCHS_IN_YEAR, TokenAmount::from(7_223_364)),
-        (3 * EPOCHS_IN_YEAR, TokenAmount::from(87_637_883 + 898_958)),
-        (
-            6 * EPOCHS_IN_YEAR,
-            TokenAmount::from(100_000_000 + 300_000_000 + 9_805_053)
-        ),
-    ];
-}
+const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
+    (183 * actor::EPOCHS_IN_DAY, 82_717_041),
+    (EPOCHS_IN_YEAR, 22_421_712),
+    (2 * EPOCHS_IN_YEAR, 7_223_364),
+    (3 * EPOCHS_IN_YEAR, 87_637_883),
+    (6 * EPOCHS_IN_YEAR, 400_000_000),
+];
+const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
+    (0, 10_632_000),
+    (183 * actor::EPOCHS_IN_DAY, 19_015_887 + 32_787_700),
+    (EPOCHS_IN_YEAR, 22_421_712 + 9_400_000),
+    (2 * EPOCHS_IN_YEAR, 7_223_364),
+    (3 * EPOCHS_IN_YEAR, 87_637_883 + 898_958),
+    (6 * EPOCHS_IN_YEAR, 100_000_000 + 300_000_000 + 9_805_053),
+];
 
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
@@ -302,20 +293,24 @@ fn get_circulating_supply<'a, DB: BlockStore>(
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
-    PRE_CALICO_VESTING.clone().into_iter().collect()
+    PRE_CALICO_VESTING
+        .into_iter()
+        .map(|(unlock_duration, initial_balance)| {
+            (unlock_duration, TokenAmount::from(initial_balance))
+        })
+        .collect()
 }
 
 fn setup_ignition_vesting_schedule(
     liftoff_height: ChainEpoch,
 ) -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
-        .clone()
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
             (
                 liftoff_height,
                 unlock_duration,
-                initial_balance * FILECOIN_PRECISION,
+                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
             )
         })
         .collect()
@@ -324,13 +319,12 @@ fn setup_calico_vesting_schedule(
     liftoff_height: ChainEpoch,
 ) -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     CALICO_VESTING
-        .clone()
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
             (
                 liftoff_height,
                 unlock_duration,
-                initial_balance * FILECOIN_PRECISION,
+                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
             )
         })
         .collect()
