@@ -239,7 +239,7 @@ impl TipsetGroup {
                     Ordering::Equal
                 }
             }
-            r @ _ => r,
+            r => r,
         }
     }
 
