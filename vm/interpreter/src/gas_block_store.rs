@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::error::Error as StdError;
 use std::rc::Rc;
 
+// FIXME: remove when error handling has moved to anyhow::Error. Tracking issue: https://github.com/ChainSafe/forest/issues/1536 ?
 pub fn to_std_error(exec_error: ExecutionError) -> Box<dyn StdError> {
     exec_error.to_string().into()
 }
