@@ -1133,6 +1133,7 @@ dependencies = [
  "forest_ipld",
  "forest_message",
  "futures",
+ "fvm_shared 0.7.1",
  "interpreter",
  "ipld_amt 0.2.1",
  "ipld_blockstore",

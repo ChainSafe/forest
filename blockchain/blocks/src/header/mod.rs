@@ -11,7 +11,7 @@ use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
-use num_bigint::{
+use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
@@ -33,7 +33,7 @@ const SHA_256_BITS: usize = 256;
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
 /// use address::Address;
 /// use cid::{Cid, Code::Identity};
-/// use num_bigint::BigInt;
+/// use fvm_shared::bigint::BigInt;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()
