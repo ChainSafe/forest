@@ -351,7 +351,7 @@ pub(crate) async fn state_replay<
     Ok(InvocResult {
         msg,
         msg_rct: Some(ret.msg_receipt),
-        error: ret.act_error.map(|e| e.to_string()),
+        error: ret.failure_info.map(|e| e.to_string()),
     })
 }
 
