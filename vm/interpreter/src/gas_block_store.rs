@@ -187,12 +187,12 @@ mod tests {
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
-        assert_eq!(to_vec(&200u8), 2);
+        assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         assert_eq!(
             gbs.put(&200u8, Blake2b256)
                 .unwrap_err()
-                .downcast::<ActorError>(),
-            ExitCode::SYS_OUT_OF_GAS
+                .to_string(),
+            "Out of gas".to_string()
         );
     }
 }
