@@ -40,13 +40,19 @@ where
         T: DeserializeOwned,
     {
         let (name, to_use) = self.price_list.on_ipld_get().for_charge();
-        self.gas.borrow_mut().charge_gas(name, to_use).map_err(to_std_error)?;
+        self.gas
+            .borrow_mut()
+            .charge_gas(name, to_use)
+            .map_err(to_std_error)?;
         self.store.get(cid)
     }
 
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
         let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
-        self.gas.borrow_mut().apply_charge(gas_charge).map_err(to_std_error)?;
+        self.gas
+            .borrow_mut()
+            .apply_charge(gas_charge)
+            .map_err(to_std_error)?;
         self.store.get_bytes(cid)
     }
 
@@ -55,7 +61,10 @@ where
         T: DeserializeOwned,
     {
         let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
-        self.gas.borrow_mut().apply_charge(gas_charge).map_err(to_anyhow_error)?;
+        self.gas
+            .borrow_mut()
+            .apply_charge(gas_charge)
+            .map_err(to_anyhow_error)?;
         self.store.get_anyhow(cid)
     }
 
@@ -65,13 +74,19 @@ where
     {
         let bytes = to_vec(obj)?;
         let gas_charge = GasCharge::from(self.price_list.on_ipld_put(bytes.len()));
-        self.gas.borrow_mut().apply_charge(gas_charge).map_err(to_std_error)?;
+        self.gas
+            .borrow_mut()
+            .apply_charge(gas_charge)
+            .map_err(to_std_error)?;
         self.store.put_raw(bytes, code)
     }
 
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         let gas_charge = GasCharge::from(self.price_list.on_ipld_put(bytes.len()));
-        self.gas.borrow_mut().apply_charge(gas_charge).map_err(to_std_error)?;
+        self.gas
+            .borrow_mut()
+            .apply_charge(gas_charge)
+            .map_err(to_std_error)?;
         self.store.put_raw(bytes, code)
     }
 }
