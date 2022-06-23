@@ -8412,6 +8412,7 @@ dependencies = [
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
+ "fvm_shared 0.7.1",
 ]
 
 [[package]]

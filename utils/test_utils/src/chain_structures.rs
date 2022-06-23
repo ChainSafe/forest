@@ -12,7 +12,7 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use std::convert::TryFrom;
 use std::error::Error;
 
