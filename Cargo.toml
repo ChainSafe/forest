@@ -27,7 +27,6 @@ members = [
     "ipld/car",
     "ipld/amt",
     "ipld",
-    "ipld/hamt",
     "ipld/blockstore",
     "key_management",
     "tests/serialization_tests",
