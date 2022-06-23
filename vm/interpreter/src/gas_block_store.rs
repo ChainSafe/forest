@@ -144,7 +144,7 @@ mod tests {
     use db::MemoryDB;
     use fvm::gas::Gas;
     use networks::{ChainConfig, Height};
-    use vm::{ActorError, ExitCode};
+    
 
     #[test]
     fn gas_blockstore() {
