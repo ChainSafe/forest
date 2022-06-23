@@ -144,7 +144,6 @@ mod tests {
     use db::MemoryDB;
     use fvm::gas::Gas;
     use networks::{ChainConfig, Height};
-    
 
     #[test]
     fn gas_blockstore() {
