@@ -157,7 +157,10 @@ mod tests {
                 ipld_put_per_byte: 1,
                 ..price_list_by_epoch(0, calico_height)
             },
-            gas: Rc::new(RefCell::new(GasTracker::new(Gas::from_milligas(5000), Gas::from_milligas(0)))),
+            gas: Rc::new(RefCell::new(GasTracker::new(
+                Gas::from_milligas(5000),
+                Gas::from_milligas(0),
+            ))),
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(0));
@@ -177,7 +180,10 @@ mod tests {
                 ipld_put_base: 12,
                 ..price_list_by_epoch(0, calico_height)
             },
-            gas: Rc::new(RefCell::new(GasTracker::new(Gas::from_milligas(10), Gas::from_milligas(0)))),
+            gas: Rc::new(RefCell::new(GasTracker::new(
+                Gas::from_milligas(10),
+                Gas::from_milligas(0),
+            ))),
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::from_milligas(0));
