@@ -39,10 +39,10 @@ where
     where
         T: DeserializeOwned,
     {
-        let (name, to_use) = self.price_list.on_ipld_get().for_charge();
+        let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
         self.gas
             .borrow_mut()
-            .charge_gas(name, to_use)
+            .apply_charge(gas_charge)
             .map_err(to_std_error)?;
         self.store.get(cid)
     }

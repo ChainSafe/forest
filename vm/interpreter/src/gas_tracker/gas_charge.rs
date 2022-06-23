@@ -24,10 +24,6 @@ impl GasCharge {
     pub fn total(&self) -> i64 {
         self.compute_gas + self.storage_gas
     }
-
-    pub fn for_charge(&self) -> (&'static str, Gas) {
-        (self.name, Gas::new(self.total()))
-    }
 }
 
 impl From<GasCharge> for fvm::gas::GasCharge<'_> {
