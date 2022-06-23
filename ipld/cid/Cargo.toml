@@ -19,6 +19,7 @@ multihash = { version = "0.16", default-features = false, features = [
     "blake2b",
     "derive",
     "serde-codec",
+    "identity",
 ] }
 multibase = "0.9.0"
 integer-encoding = { version = "3.0", default-features = false }
