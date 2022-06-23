@@ -195,21 +195,22 @@ impl TipsetGroup {
         // Unwrapping is safe because we initialize the struct with at least one tipset
         let max = self.tipsets.iter().map(|ts| ts.weight()).max().unwrap();
 
-        let mut ties = self
+        let ties = self
             .tipsets
             .iter()
             .enumerate()
             .filter(|(_, ts)| ts.weight() == max);
 
-        let first = ties.next().unwrap();
-        let (index, ts) = ties.fold(first, |(i, ts), (j, other)| {
-            // break the tie
-            if ts.break_weight_tie(other) {
-                (i, ts)
-            } else {
-                (j, other)
-            }
-        });
+        let (index, ts) = ties
+            .reduce(|(i, ts), (j, other)| {
+                // break the tie
+                if ts.break_weight_tie(other) {
+                    (i, ts)
+                } else {
+                    (j, other)
+                }
+            })
+            .unwrap();
         (index, ts.weight())
     }
 
@@ -231,7 +232,6 @@ impl TipsetGroup {
         let (i, weight) = self.heaviest_weight();
         let (j, otherw) = other.heaviest_weight();
         match weight.cmp(otherw) {
-            Ordering::Greater => Ordering::Greater,
             Ordering::Equal => {
                 if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
                     Ordering::Greater
@@ -239,7 +239,7 @@ impl TipsetGroup {
                     Ordering::Equal
                 }
             }
-            Ordering::Less => Ordering::Less,
+            r @ _ => r,
         }
     }
 
