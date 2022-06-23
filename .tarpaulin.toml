@@ -1,5 +1,0 @@
-[mainnet]
-workspace = true
-
-[report]
-out = ["Xml"]
