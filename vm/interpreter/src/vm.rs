@@ -17,9 +17,7 @@ use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
-
 use fvm_shared::bigint::BigInt;
-
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
@@ -391,8 +389,8 @@ where
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
             .map_err(|e| format!("{:?}", e))?;
         ret.msg_receipt.gas_used = 0;
-        ret.miner_tip = fvm_shared::bigint::BigInt::zero();
-        ret.penalty = fvm_shared::bigint::BigInt::zero();
+        ret.miner_tip = BigInt::zero();
+        ret.penalty = BigInt::zero();
         Ok(ret)
     }
 

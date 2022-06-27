@@ -36,6 +36,7 @@ use num_bigint::bigint_ser::json::opt;
 use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
+
 // RPC State
 #[derive(Serialize)]
 pub struct StreamingData<'a> {
@@ -84,7 +85,7 @@ pub struct BlockMessages {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    #[serde(with = "bigint_ser")]
+    #[serde(with = "json")]
     max_fee: TokenAmount,
 }
 
