@@ -26,7 +26,7 @@ pub mod json {
         BigInt::from_str(&s).map_err(serde::de::Error::custom)
     }
 
-    pub mod opt {
+    pub mod option {
         use super::*;
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
 

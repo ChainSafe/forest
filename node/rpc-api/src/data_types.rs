@@ -32,7 +32,6 @@ use message::{
 };
 use message_pool::{MessagePool, MpoolRpcProvider};
 use num_bigint::bigint_ser::json;
-use num_bigint::bigint_ser::json::opt;
 use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
@@ -188,9 +187,9 @@ pub struct BlockTemplate {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
-    #[serde(with = "opt")]
+    #[serde(with = "json::option")]
     pub miner_power: Option<BigInt>,
-    #[serde(with = "opt")]
+    #[serde(with = "json::option")]
     pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "address::json")]
