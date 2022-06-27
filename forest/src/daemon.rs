@@ -294,6 +294,7 @@ fn db_path(config: &Config) -> PathBuf {
     chain_path(config).join("db")
 }
 
+#[cfg(all(feature = "sled", not(feature = "rocksdb")))]
 fn sled_path(config: &Config) -> PathBuf {
     chain_path(config).join("sled")
 }
