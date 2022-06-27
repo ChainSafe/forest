@@ -29,11 +29,11 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
+use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
 use networks::Height;
-use num_bigint::BigInt;
 use rpc_api::{
     data_types::{
         ActorStateJson, Deadline, MarketDeal, MessageLookup, MiningBaseInfoJson, Partition,

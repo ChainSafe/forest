@@ -4,9 +4,9 @@
 use blocks::Tipset;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use fvm_shared::bigint::{BigInt, Integer};
 use ipld_blockstore::BlockStore;
 use message::Message;
-use num_bigint::{BigInt, Integer};
 use std::collections::HashSet;
 use types::BLOCK_GAS_LIMIT;
 

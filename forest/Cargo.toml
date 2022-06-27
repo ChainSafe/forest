@@ -62,6 +62,7 @@ byte-unit         = "4.0"
 rug               = "1.13"
 toml              = "0.5"
 directories       = "4.0.1"
+fvm_shared        = { version = "0.7.1", default-features = false }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

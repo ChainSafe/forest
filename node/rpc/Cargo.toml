@@ -63,6 +63,7 @@ state_tree = { path = "../../vm/state_tree" }
 wallet = { package = "key_management", path = "../../key_management", features = [
     "json",
 ] }
+fvm_shared = { version = "0.7.1", default-features = false }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

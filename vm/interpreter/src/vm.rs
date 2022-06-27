@@ -17,12 +17,12 @@ use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, MessageReceipt, UnsignedMessage};
 use networks::{ChainConfig, Height};
-use num_bigint::BigInt;
 use num_traits::Zero;
 use state_tree::StateTree;
 use std::cell::RefCell;
@@ -389,8 +389,8 @@ where
             .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
             .map_err(|e| format!("{:?}", e))?;
         ret.msg_receipt.gas_used = 0;
-        ret.miner_tip = num_bigint::BigInt::zero();
-        ret.penalty = num_bigint::BigInt::zero();
+        ret.miner_tip = BigInt::zero();
+        ret.penalty = BigInt::zero();
         Ok(ret)
     }
 

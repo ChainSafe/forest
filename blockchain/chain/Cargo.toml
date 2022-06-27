@@ -39,6 +39,7 @@ forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
 lockfree = "0.5.1"
 crossbeam = "0.8.0"
+fvm_shared = { version = "0.7.1", default-features = false }
 
 [features]
 json = []

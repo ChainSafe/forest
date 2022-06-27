@@ -11,9 +11,10 @@ use fil_types::{
 };
 use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
+use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
-use num_bigint::{bigint_ser, BigInt};
+use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::error::Error;
@@ -426,19 +427,19 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
     /// Integral of active deals over sector lifetime
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub deal_weight: BigInt,
     /// Integral of active verified deals over sector lifetime
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub verified_deal_weight: BigInt,
     /// Pledge collected to commit this sector
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub initial_pledge: TokenAmount,
     /// Expected one day projection of reward for sector computed at activation time
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub expected_day_reward: TokenAmount,
     /// Expected twenty day projection of reward for sector computed at activation time
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub expected_storage_pledge: TokenAmount,
 }
 
@@ -572,14 +573,14 @@ impl From<fil_actor_miner_v7::SectorOnChainInfo> for SectorOnChainInfo {
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitOnChainInfo {
     pub info: SectorPreCommitInfo,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
     /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub deal_weight: BigInt,
     /// Integral of active verified deals over sector lifetime
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub verified_deal_weight: BigInt,
 }
 

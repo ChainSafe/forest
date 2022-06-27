@@ -14,8 +14,8 @@ use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
+use fvm_shared::bigint::BigInt;
 use log::{debug, error, info, trace, warn};
-use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;

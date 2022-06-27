@@ -6,8 +6,9 @@ use cid::multihash::MultihashDigest;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
+use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;
-use num_bigint::{bigint_ser, BigInt};
+use num_bigint::bigint_ser::json;
 use serde::Serialize;
 use std::{error::Error, marker::PhantomData};
 use vm::{ActorState, TokenAmount};
@@ -227,11 +228,11 @@ pub struct DealProposal {
     pub label: String,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub storage_price_per_epoch: TokenAmount,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub provider_collateral: TokenAmount,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     pub client_collateral: TokenAmount,
 }
 

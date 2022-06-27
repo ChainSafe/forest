@@ -5,7 +5,7 @@ use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
