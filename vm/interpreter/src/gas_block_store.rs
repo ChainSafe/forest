@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::gas_tracker::PriceList;
 use cid::{Cid, Code};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
+use fvm::gas::PriceList;
 use fvm::gas::{GasCharge, GasTracker};
 use fvm::kernel::ExecutionError;
 use ipld_blockstore::BlockStore;
@@ -40,7 +40,7 @@ where
     where
         T: DeserializeOwned,
     {
-        let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
+        let gas_charge = GasCharge::from(self.price_list.on_block_open_base());
         self.gas
             .borrow_mut()
             .apply_charge(gas_charge)
@@ -49,7 +49,7 @@ where
     }
 
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
+        let gas_charge = GasCharge::from(self.price_list.on_block_open_base());
         self.gas
             .borrow_mut()
             .apply_charge(gas_charge)
@@ -61,7 +61,7 @@ where
     where
         T: DeserializeOwned,
     {
-        let gas_charge = GasCharge::from(self.price_list.on_ipld_get());
+        let gas_charge = GasCharge::from(self.price_list.on_block_open_base());
         self.gas
             .borrow_mut()
             .apply_charge(gas_charge)
@@ -74,7 +74,7 @@ where
         S: Serialize,
     {
         let bytes = to_vec(obj)?;
-        let gas_charge = GasCharge::from(self.price_list.on_ipld_put(bytes.len()));
+        let gas_charge = GasCharge::from(self.price_list.on_block_link(bytes.len()));
         self.gas
             .borrow_mut()
             .apply_charge(gas_charge)
@@ -83,7 +83,7 @@ where
     }
 
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        let gas_charge = GasCharge::from(self.price_list.on_ipld_put(bytes.len()));
+        let gas_charge = GasCharge::from(self.price_list.on_block_link(bytes.len()));
         self.gas
             .borrow_mut()
             .apply_charge(gas_charge)

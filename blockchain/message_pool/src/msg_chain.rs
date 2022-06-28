@@ -393,7 +393,7 @@ where
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 
-        if m.gas_limit() < min_gas {
+        if m.gas_limit() < min_gas.as_milligas() {
             break;
         }
         gas_limit += m.gas_limit();

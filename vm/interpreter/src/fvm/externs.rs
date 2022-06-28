@@ -78,7 +78,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             Gas::new(0),
         )));
         let gbs = GasBlockStore {
-            price_list: price_list_by_epoch(self.epoch, self.calico_height),
+            price_list: price_list_by_epoch(self.epoch, self.calico_height).clone(),
             gas: tracker.clone(),
             store: self.db.as_ref(),
         };
