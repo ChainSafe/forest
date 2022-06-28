@@ -365,8 +365,8 @@ pub mod state_api {
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
     use cid::json::CidJson;
-    use fvm_shared::clock::ChainEpoch;
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use fvm_shared::clock::ChainEpoch;
     use message::{
         message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
     };
