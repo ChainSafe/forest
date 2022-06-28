@@ -4,7 +4,7 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,

@@ -22,7 +22,7 @@ pub use fil_actor_reward_v7::AwardBlockRewardParams;
 
 pub use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 pub use fvm_shared::smooth::FilterEstimate;
-pub const EPOCHS_IN_DAY: clock::ChainEpoch = network::EPOCHS_IN_DAY;
+pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
 
 // Aliases for common addresses
 pub static CHAOS_ACTOR_ADDR: &singletons::CHAOS_ACTOR_ADDR = &singletons::CHAOS_ACTOR_ADDR;

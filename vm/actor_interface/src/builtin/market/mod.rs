@@ -4,7 +4,7 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;

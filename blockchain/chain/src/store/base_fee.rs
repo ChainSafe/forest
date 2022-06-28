@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::Tipset;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use ipld_blockstore::BlockStore;

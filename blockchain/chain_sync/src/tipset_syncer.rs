@@ -30,7 +30,7 @@ use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, 
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
@@ -1258,7 +1258,7 @@ async fn validate_block<
         ));
     } else if header.timestamp() > time_now {
         warn!(
-            "Got block from the future, but within clock drift threshold, {} > {}",
+            "Got block from the future, but within fvm_shared::clock drift threshold, {} > {}",
             header.timestamp(),
             time_now
         );

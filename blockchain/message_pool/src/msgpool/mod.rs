@@ -17,7 +17,7 @@ use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crypto::Signature;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};

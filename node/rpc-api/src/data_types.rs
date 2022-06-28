@@ -20,7 +20,7 @@ use blockstore::BlockStore;
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
 use cid::{json::CidJson, Cid};
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};

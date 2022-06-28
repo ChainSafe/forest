@@ -4,7 +4,7 @@ use crate::gas_block_store::GasBlockStore;
 use crate::price_list_by_epoch;
 use crate::Rand;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fil_actors_runtime::runtime::Policy;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;

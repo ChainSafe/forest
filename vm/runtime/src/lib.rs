@@ -7,7 +7,7 @@ pub use self::actor_code::*;
 
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crypto::{DomainSeparationTag, Signature};
 use fil_types::{
     zero_piece_commitment, NetworkVersion, PaddedPieceSize, PieceInfo, Randomness,

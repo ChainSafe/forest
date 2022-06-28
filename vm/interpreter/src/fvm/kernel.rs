@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::ForestMachine;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fvm::call_manager::*;
 use fvm::gas::{Gas, PriceList};
 use fvm::kernel::BlockRegistry;

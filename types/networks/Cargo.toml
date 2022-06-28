@@ -6,11 +6,11 @@ edition = "2021"
 
 [dependencies]
 fil_types = { path = "../../types" }
-clock = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 lazy_static = "1.4"
 beacon = { path = "../../blockchain/beacon" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+fvm_shared = { version = "0.7.1", default-features = false }
 
 [dev-dependencies]
 toml = "0.5"

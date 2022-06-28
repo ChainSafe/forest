@@ -7,7 +7,7 @@ use crate::utils::{get_gas_perf, get_gas_reward};
 use address::Address;
 use async_std::sync::RwLock;
 use blocks::Tipset;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use encoding::Cbor;
 use fvm_shared::bigint::BigInt;
 use log::warn;

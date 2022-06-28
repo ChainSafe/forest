@@ -6,7 +6,7 @@
 
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use state_tree::StateTree;
 use vm::{ActorState, TokenAmount};

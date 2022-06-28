@@ -16,7 +16,6 @@ members = [
     "vm/state_tree",
     "vm/interpreter",
     "vm/state_migration",
-    "node/clock",
     "node/db",
     "node/rpc",
     "node/rpc-client",
@@ -48,7 +47,6 @@ resolver = "2"
 [patch.crates-io]
 ipld_blockstore   = { path = "./ipld/blockstore" }
 fil_types         = { path = "./types" }
-fil_clock         = { path = "./node/clock" }
 forest_db         = { path = "./node/db" }
 forest_crypto     = { path = "./crypto" }
 forest_address    = { path = "./vm/address" }

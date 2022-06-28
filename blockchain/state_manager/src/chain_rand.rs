@@ -8,7 +8,7 @@ use blake2b_simd::Params;
 use blockstore::BlockStore;
 use byteorder::{BigEndian, WriteBytesExt};
 use chain::ChainStore;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
 use interpreter::Rand;

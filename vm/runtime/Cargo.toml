@@ -13,7 +13,6 @@ crypto              = { package = "forest_crypto", version = "0.5", features = [
 address             = { package = "forest_address", version = "0.3" }
 cid                 = { package = "forest_cid", version = "0.3" }
 ipld_blockstore     = "0.1"
-clock               = { package = "fil_clock", path = "../../node/clock", version = "0.1" }
 forest_encoding     = "0.2"
 filecoin-proofs-api = { version = "11.0", default_features = false }
 base64              = "0.13"

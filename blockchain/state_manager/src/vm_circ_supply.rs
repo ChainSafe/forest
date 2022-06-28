@@ -5,7 +5,7 @@ use actor::*;
 use address::Address;
 use blockstore::BlockStore;
 use chain::*;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fil_types::FILECOIN_PRECISION;
 use fvm_shared::bigint::BigInt;
 use interpreter::CircSupplyCalc;

@@ -24,7 +24,7 @@ use async_std::task;
 use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::{HeadChange, MINIMUM_BASE_FEE};
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;

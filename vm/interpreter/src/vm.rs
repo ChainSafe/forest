@@ -6,7 +6,7 @@ use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor::{cron, reward, system, AwardBlockRewardParams};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},

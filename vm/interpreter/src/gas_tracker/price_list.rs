@@ -3,7 +3,7 @@
 
 use super::GasCharge;
 use ahash::AHashMap;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crypto::SignatureType;
 use fil_types::{
     AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof,

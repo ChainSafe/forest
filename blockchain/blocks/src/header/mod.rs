@@ -5,7 +5,7 @@ use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;

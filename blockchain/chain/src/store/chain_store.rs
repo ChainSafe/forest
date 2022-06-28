@@ -11,7 +11,7 @@ use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use cid::Code::Blake2b256;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
