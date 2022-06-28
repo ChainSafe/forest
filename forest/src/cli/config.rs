@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chain_sync::SyncConfig;
+use directories::ProjectDirs;
 use forest_libp2p::Libp2pConfig;
 use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
-use utils::get_home_dir;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
@@ -34,9 +34,15 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
+        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("project directories couldn't be found and that FOREST_CONFIG_PATH must be set manually.");
         Self {
             network: Libp2pConfig::default(),
-            data_dir: get_home_dir() + "/.forest",
+            data_dir: dir
+                .data_dir()
+                .to_path_buf()
+                .into_os_string()
+                .into_string()
+                .unwrap(),
             genesis_file: None,
             enable_rpc: true,
             rpc_port: DEFAULT_PORT,
