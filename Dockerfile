@@ -41,7 +41,8 @@ FROM debian:buster-slim
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1
+RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates
+RUN update-ca-certificates
 
 # Copy forest binary from the build-env
 COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
