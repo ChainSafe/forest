@@ -1258,7 +1258,7 @@ async fn validate_block<
         ));
     } else if header.timestamp() > time_now {
         warn!(
-            "Got block from the future, but within fvm_shared::clock drift threshold, {} > {}",
+            "Got block from the future, but within clock drift threshold, {} > {}",
             header.timestamp(),
             time_now
         );
