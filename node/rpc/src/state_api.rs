@@ -24,12 +24,12 @@ use blocks::{
 use blockstore::BlockStore;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{json::CidJson, Cid, Code::Blake2b256};
-use crypto::SignatureType;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
 use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::SignatureType;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
@@ -655,9 +655,9 @@ pub(crate) async fn miner_create_block<
     )?;
 
     let calculated_bls_agg = if bls_sigs.is_empty() {
-        Some(crypto::Signature::new_bls(vec![]))
+        Some(fvm_shared::crypto::Signature::new_bls(vec![]))
     } else {
-        Some(crypto::Signature::new_bls(
+        Some(fvm_shared::crypto::Signature::new_bls(
             bls_signatures::aggregate(
                 &bls_sigs
                     .iter()

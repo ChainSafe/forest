@@ -15,6 +15,7 @@ use blocks::{
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
+use fvm_shared::crypto::DomainSeparationTag;
 use message::{
     unsigned_message::{self, json::UnsignedMessageJson},
     UnsignedMessage,

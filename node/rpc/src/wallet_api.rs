@@ -8,10 +8,10 @@ use std::str::FromStr;
 use address::{json::AddressJson, Address};
 use beacon::Beacon;
 use blockstore::BlockStore;
-use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use fvm_shared::bigint::BigUint;
+use fvm_shared::crypto::signature::json::SignatureJson;
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,

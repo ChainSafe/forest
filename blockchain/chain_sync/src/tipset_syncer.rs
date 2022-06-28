@@ -31,7 +31,6 @@ use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
 use clock::ChainEpoch;
-use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
 use fil_types::{
@@ -39,6 +38,7 @@ use fil_types::{
     TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
+use fvm_shared::crypto::{verify_bls_aggregate, DomainSeparationTag};
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
@@ -1550,7 +1550,8 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), TipsetRangeSyncerError> {
-    crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
+    fvm_shared::crypto::verify_vrf(worker, rand, evrf)
+        .map_err(TipsetRangeSyncerError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(

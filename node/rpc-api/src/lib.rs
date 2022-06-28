@@ -297,7 +297,7 @@ pub mod sync_api {
 /// Wallet API
 pub mod wallet_api {
     use address::json::AddressJson;
-    use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+    use fvm_shared::crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use message::{
         signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     };

@@ -1,14 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::{SignedMessage, UnsignedMessage};
+<<<<<<< Updated upstream
 use fvm_shared::bigint::BigInt;
+=======
+use fvm_shared::crypto::{Signature, Signer};
+use num_bigint::BigInt;
+>>>>>>> Stashed changes
 use std::convert::TryFrom;
 use std::error::Error;
 

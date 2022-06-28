@@ -1,10 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crypto::VRFProof;
 use encoding::{blake2b_256, tuple::*};
 use fil_types::BLOCKS_PER_EPOCH;
+<<<<<<< Updated upstream
 use fvm_shared::bigint::{BigInt, Integer, ParseBigIntError, Sign};
+=======
+use fvm_shared::crypto::VRFProof;
+use num_bigint::{BigInt, Integer, ParseBigIntError, Sign};
+>>>>>>> Stashed changes
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;
@@ -168,7 +172,7 @@ impl ElectionProof {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use crypto::vrf;
+    use fvm_shared::crypto::vrf;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a ElectionProof from JSON.

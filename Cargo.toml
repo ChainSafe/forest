@@ -21,7 +21,6 @@ members = [
     "node/rpc",
     "node/rpc-client",
     "node/rpc-api",
-    "crypto",
     "encoding",
     "ipld/cid",
     "ipld/car",
@@ -50,7 +49,6 @@ ipld_blockstore   = { path = "./ipld/blockstore" }
 fil_types         = { path = "./types" }
 fil_clock         = { path = "./node/clock" }
 forest_db         = { path = "./node/db" }
-forest_crypto     = { path = "./crypto" }
 forest_address    = { path = "./vm/address" }
 forest_bigint     = { path = "./utils/bigint" }
 forest_bitfield   = { path = "./utils/bitfield" }

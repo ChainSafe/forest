@@ -29,7 +29,6 @@ message = { package = "forest_message", version = "0.7", features = [
 state_tree = { path = "../../vm/state_tree/" }
 state_manager = { path = "../state_manager/" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 log = "0.4.8"
 async-std = { version = "1.9", features = ["tokio1", "unstable"] }
 forest_libp2p = { path = "../../node/forest_libp2p" }

@@ -3,9 +3,9 @@
 
 use super::{Message, UnsignedMessage};
 use address::Address;
-use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
+use fvm_shared::crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes.
@@ -128,7 +128,7 @@ pub mod json {
     use super::*;
     use crate::unsigned_message;
     use cid::Cid;
-    use crypto::signature;
+    use fvm_shared::crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.

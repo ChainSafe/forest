@@ -4,8 +4,8 @@
 use super::*;
 use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use beacon::beacon_entries;
-use crypto::signature;
 use fil_types::sector::post;
+use fvm_shared::crypto::signature;
 use serde::{de, Deserialize, Serialize};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.

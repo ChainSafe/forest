@@ -4,9 +4,12 @@
 use crate::Error;
 use chain::MINIMUM_BASE_FEE;
 use cid::Cid;
-use crypto::Signature;
 use encoding::Cbor;
+<<<<<<< Updated upstream
 use fvm_shared::bigint::{BigInt, Integer};
+=======
+use fvm_shared::crypto::Signature;
+>>>>>>> Stashed changes
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
 use num_rational::BigRational;

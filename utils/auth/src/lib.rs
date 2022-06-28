@@ -9,7 +9,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crypto::SignatureType;
+use fvm_shared::crypto::SignatureType;
 use wallet::KeyInfo;
 
 /// constant string that is used to identify the JWT secret key in KeyStore

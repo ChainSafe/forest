@@ -18,7 +18,6 @@ address           = { package = "forest_address", version = "0.3" }
 cid               = { package = "forest_cid", version = "0.3" }
 num-bigint        = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1" }
 encoding          = { package = "forest_encoding", version = "0.2" }
-crypto            = { package = "forest_crypto", default-features = false, version = "0.5" }
 derive_builder    = "0.11"
 serde             = { version = "1.0", features = ["derive"] }
 base64            = { version = "0.13", optional = true }
@@ -31,12 +30,11 @@ serde_json = "1.0"
 
 [features]
 default = ["blst"]
-blst    = ["crypto/blst", "fvm_shared/blst"]
-pairing = ["crypto/pairing", "fvm_shared/pairing"]
+blst    = ["fvm_shared/blst"]
+pairing = ["fvm_shared/pairing"]
 
 json = [
     "base64",
-    "crypto/json",
     "forest_json_utils",
     "cid/json",
     "num-bigint/json",

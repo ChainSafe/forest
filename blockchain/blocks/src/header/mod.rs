@@ -6,7 +6,6 @@ use address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
 use clock::ChainEpoch;
-use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
@@ -15,6 +14,7 @@ use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
+use fvm_shared::crypto::Signature;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;

@@ -16,7 +16,6 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 lru = "0.7.2"
-crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 chain = { path = "../chain" }
 state_tree = { path = "../../vm/state_tree/" }
 serde = { version = "1.0", features = ["derive"] }

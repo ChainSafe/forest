@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crypto::VRFProof;
 use encoding::tuple::*;
+use fvm_shared::crypto::VRFProof;
 
 /// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated

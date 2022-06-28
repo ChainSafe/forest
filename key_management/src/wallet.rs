@@ -4,7 +4,7 @@
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
 use address::Address;
-use crypto::{Signature, SignatureType};
+use fvm_shared::crypto::{Signature, SignatureType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryFrom;

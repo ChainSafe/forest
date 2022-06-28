@@ -6,9 +6,9 @@
 
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
-use crypto::{signature, Signature};
 use encoding::Cbor;
 use forest_message::{unsigned_message, SignedMessage, UnsignedMessage};
+use fvm_shared::crypto::{signature, Signature};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
