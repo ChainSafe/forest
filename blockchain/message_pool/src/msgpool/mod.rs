@@ -306,10 +306,10 @@ pub mod tests {
     use async_std::task;
     use blocks::Tipset;
     use crypto::SignatureType;
+    use fvm_shared::bigint::BigInt;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use networks::{ChainConfig, Height};
-    use num_bigint::BigInt;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;

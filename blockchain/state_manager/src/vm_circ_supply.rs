@@ -7,9 +7,9 @@ use blockstore::BlockStore;
 use chain::*;
 use clock::ChainEpoch;
 use fil_types::FILECOIN_PRECISION;
+use fvm_shared::bigint::BigInt;
 use interpreter::CircSupplyCalc;
 use networks::{ChainConfig, Height};
-use num_bigint::BigInt;
 use once_cell::sync::OnceCell;
 use state_tree::StateTree;
 use std::error::Error as StdError;
@@ -337,7 +337,7 @@ fn v0_amount_locked(
     initial_balance: &TokenAmount,
     elapsed_epoch: ChainEpoch,
 ) -> TokenAmount {
-    use num_bigint::Integer;
+    use fvm_shared::bigint::Integer;
 
     if elapsed_epoch >= unlock_duration {
         return TokenAmount::from(0);

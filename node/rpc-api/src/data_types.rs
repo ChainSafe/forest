@@ -24,13 +24,14 @@ use clock::ChainEpoch;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
+use fvm_shared::bigint::BigInt;
 use ipld::json::IpldJson;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
     signed_message::json::SignedMessageJson, unsigned_message, SignedMessage, UnsignedMessage,
 };
 use message_pool::{MessagePool, MpoolRpcProvider};
-use num_bigint::{bigint_ser, BigInt};
+use num_bigint::bigint_ser::json;
 use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
@@ -83,7 +84,7 @@ pub struct BlockMessages {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     max_fee: TokenAmount,
 }
 
@@ -119,7 +120,7 @@ pub struct ActorStateJson {
     #[serde(with = "cid::json")]
     head: Cid,
     nonce: u64,
-    #[serde(with = "bigint_ser::json")]
+    #[serde(with = "json")]
     balance: BigInt,
 }
 
@@ -186,9 +187,9 @@ pub struct BlockTemplate {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
-    #[serde(with = "bigint_ser::json::opt")]
+    #[serde(with = "json::option")]
     pub miner_power: Option<BigInt>,
-    #[serde(with = "bigint_ser::json::opt")]
+    #[serde(with = "json::option")]
     pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "address::json")]

@@ -6,9 +6,9 @@ use chain::MINIMUM_BASE_FEE;
 use cid::Cid;
 use crypto::Signature;
 use encoding::Cbor;
+use fvm_shared::bigint::{BigInt, Integer};
 use lru::LruCache;
 use message::{Message, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Integer};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
 

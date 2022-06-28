@@ -21,12 +21,6 @@ pub type Method = fil_actor_reward_v7::Method;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    // V0(actorv0::reward::State),
-    // V2(actorv2::reward::State),
-    // V3(actorv3::reward::State),
-    // V4(actorv4::reward::State),
-    // V5(actorv5::reward::State),
-    // V6(actorv6::reward::State),
     V7(fil_actor_reward_v7::State),
 }
 
@@ -48,12 +42,6 @@ impl State {
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> StoragePower {
         match self {
-            // State::V0(st) => st.into_total_storage_power_reward(),
-            // State::V2(st) => st.into_total_storage_power_reward(),
-            // State::V3(st) => st.into_total_storage_power_reward(),
-            // State::V4(st) => st.into_total_storage_power_reward(),
-            // State::V5(st) => st.into_total_storage_power_reward(),
-            // State::V6(st) => st.into_total_storage_power_reward(),
             State::V7(st) => st.into_total_storage_power_reward(),
         }
     }
@@ -64,54 +52,6 @@ impl State {
         _sector_weight: &StoragePower,
     ) -> TokenAmount {
         match self {
-            // State::V0(st) => actorv0::miner::pre_commit_deposit_for_power(
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv0::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     sector_weight,
-            // ),
-            // State::V2(st) => actorv2::miner::pre_commit_deposit_for_power(
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv2::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     sector_weight,
-            // ),
-            // State::V3(st) => actorv3::miner::pre_commit_deposit_for_power(
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv3::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     sector_weight,
-            // ),
-            // State::V4(st) => actorv4::miner::pre_commit_deposit_for_power(
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv4::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     sector_weight,
-            // ),
-            // State::V5(st) => actorv5::miner::pre_commit_deposit_for_power(
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv5::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     sector_weight,
-            // ),
-            // State::V6(st) => actorv6::miner::pre_commit_deposit_for_power(
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv6::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     sector_weight,
-            // ),
             State::V7(_st) => todo!(),
         }
     }
@@ -124,66 +64,6 @@ impl State {
         _circ_supply: &TokenAmount,
     ) -> TokenAmount {
         match self {
-            // State::V0(st) => actorv0::miner::initial_pledge_for_power(
-            //     sector_weight,
-            //     &st.this_epoch_baseline_power,
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv0::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     circ_supply,
-            // ),
-            // State::V2(st) => actorv2::miner::initial_pledge_for_power(
-            //     sector_weight,
-            //     &st.this_epoch_baseline_power,
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv2::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     circ_supply,
-            // ),
-            // State::V3(st) => actorv3::miner::initial_pledge_for_power(
-            //     sector_weight,
-            //     &st.this_epoch_baseline_power,
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv3::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     circ_supply,
-            // ),
-            // State::V4(st) => actorv4::miner::initial_pledge_for_power(
-            //     sector_weight,
-            //     &st.this_epoch_baseline_power,
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv4::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     circ_supply,
-            // ),
-            // State::V5(st) => actorv5::miner::initial_pledge_for_power(
-            //     sector_weight,
-            //     &st.this_epoch_baseline_power,
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv5::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     circ_supply,
-            // ),
-            // State::V6(st) => actorv6::miner::initial_pledge_for_power(
-            //     sector_weight,
-            //     &st.this_epoch_baseline_power,
-            //     &st.this_epoch_reward_smoothed,
-            //     &actorv6::util::smooth::FilterEstimate {
-            //         position: network_qa_power.position,
-            //         velocity: network_qa_power.velocity,
-            //     },
-            //     circ_supply,
-            // ),
             State::V7(_st) => todo!(),
         }
     }

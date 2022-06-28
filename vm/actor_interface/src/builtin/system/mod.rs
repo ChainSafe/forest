@@ -15,14 +15,7 @@ pub type Method = fil_actor_system_v7::Method;
 /// System actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
-pub enum State {
-    // V0(actorv0::system::State),
-    // V2(actorv2::system::State),
-    // V3(actorv3::system::State),
-    // V4(actorv4::system::State),
-    // V5(actorv5::system::State),
-    // V6(actorv6::system::State),
-}
+pub enum State {}
 
 impl State {
     pub fn load<BS>(_store: &BS, actor: &ActorState) -> anyhow::Result<State>

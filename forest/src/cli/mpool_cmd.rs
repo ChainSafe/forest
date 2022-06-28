@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use address::json::AddressJson;
 use address::Address;
 use blocks::tipset_keys_json::TipsetKeysJson;
+use fvm_shared::bigint::BigInt;
 use jsonrpc_v2::Error;
 use message::Message;
 use message::SignedMessage;
-use num_bigint::BigInt;
 use structopt::StructOpt;
 
 use cid::json::vec::CidJsonVec;
