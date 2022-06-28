@@ -34,7 +34,7 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("project directories couldn't be found and that FOREST_CONFIG_PATH must be set manually.");
+        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
         Self {
             network: Libp2pConfig::default(),
             data_dir: dir
