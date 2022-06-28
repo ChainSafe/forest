@@ -17,12 +17,6 @@ pub type Method = fil_actor_account_v7::Method;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    // V0(actorv0::account::State),
-    // V2(actorv2::account::State),
-    // V3(actorv3::account::State),
-    // V4(actorv4::account::State),
-    // V5(actorv5::account::State),
-    // V6(actorv6::account::State),
     V7(fil_actor_account_v7::State),
 }
 
@@ -47,12 +41,6 @@ impl State {
 
     pub fn pubkey_address(&self) -> Address {
         match self {
-            // State::V0(st) => st.address,
-            // State::V2(st) => st.address,
-            // State::V3(st) => st.address,
-            // State::V4(st) => st.address,
-            // State::V5(st) => st.address,
-            // State::V6(st) => st.address,
             State::V7(st) => st.address,
         }
     }

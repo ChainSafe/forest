@@ -21,12 +21,6 @@ pub type Method = fil_actor_init_v7::Method;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    // V0(actorv0::init::State),
-    // V2(actorv2::init::State),
-    // V3(actorv3::init::State),
-    // V4(actorv4::init::State),
-    // V5(actorv5::init::State),
-    // V6(actorv6::init::State),
     V7(fil_actor_init_v7::State),
 }
 
@@ -76,12 +70,6 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Option<Address>> {
         match self {
-            // State::V0(st) => st.resolve_address(store, addr),
-            // State::V2(st) => st.resolve_address(store, addr),
-            // State::V3(st) => st.resolve_address(store, addr),
-            // State::V4(st) => st.resolve_address(store, addr),
-            // State::V5(st) => st.resolve_address(store, addr),
-            // State::V6(st) => st.resolve_address(store, addr),
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(st.resolve_address(&fvm_store, addr).expect("FIXME"))
@@ -91,12 +79,6 @@ impl State {
 
     pub fn into_network_name(self) -> String {
         match self {
-            // State::V0(st) => st.network_name,
-            // State::V2(st) => st.network_name,
-            // State::V3(st) => st.network_name,
-            // State::V4(st) => st.network_name,
-            // State::V5(st) => st.network_name,
-            // State::V6(st) => st.network_name,
             State::V7(st) => st.network_name,
         }
     }
