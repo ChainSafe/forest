@@ -140,8 +140,8 @@ impl Tipset {
         // blocks are already sorted by ticket
         for (a, b) in self.blocks().iter().zip(other.blocks().iter()) {
             let ticket = a.ticket().as_ref().unwrap();
-            let othtkt = b.ticket().as_ref().unwrap();
-            if ticket.vrfproof < othtkt.vrfproof {
+            let other_ticket = b.ticket().as_ref().unwrap();
+            if ticket.vrfproof < other_ticket.vrfproof {
                 info!("weight tie broken in favour of {:?}", self.key());
                 return true;
             }
