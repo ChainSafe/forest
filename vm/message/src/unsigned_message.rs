@@ -290,8 +290,7 @@ pub mod json {
         sequence: u64,
         #[serde(with = "bigint_ser::json")]
         value: TokenAmount,
-        #[serde(with = "bigint_ser::json::gas")]
-        gas_limit: Gas,
+        gas_limit: i64,
         #[serde(with = "bigint_ser::json")]
         gas_fee_cap: TokenAmount,
         #[serde(with = "bigint_ser::json")]
@@ -313,7 +312,7 @@ pub mod json {
             from: m.from.into(),
             sequence: m.sequence,
             value: m.value.clone(),
-            gas_limit: Gas::new(m.gas_limit),
+            gas_limit: m.gas_limit,
             gas_fee_cap: m.gas_fee_cap.clone(),
             gas_premium: m.gas_premium.clone(),
             method_num: m.method_num,
@@ -334,7 +333,7 @@ pub mod json {
             from: m.from.into(),
             sequence: m.sequence,
             value: m.value,
-            gas_limit: m.gas_limit.as_milligas(),
+            gas_limit: m.gas_limit,
             gas_fee_cap: m.gas_fee_cap,
             gas_premium: m.gas_premium,
             method_num: m.method_num,
