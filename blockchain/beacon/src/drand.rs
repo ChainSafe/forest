@@ -201,7 +201,7 @@ impl DrandBeacon {
             let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
                 .recv_json()
                 .await
-                .unwrap();
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             debug_assert!(&remote_chain_info == chain_info);
         }
 
