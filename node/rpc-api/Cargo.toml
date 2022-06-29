@@ -9,7 +9,6 @@ edition = "2021"
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
-bitfield = { package = "forest_bitfield", version = "0.1", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 blockstore = { package = "ipld_blockstore", version = "0.1" }
 chain = { path = "../../blockchain/chain", features = ["json"] }
@@ -32,6 +31,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 libp2p = { version = "0.40.0-rc.1", default-features = false }
 fvm_shared = { version = "0.7.1", default-features = false }
+fvm_ipld_bitfield = { version = "0.5.2", features = ["json"] }
 
 [dependencies.jsonrpc-v2]
 version = "0.10"

@@ -11,6 +11,7 @@ features = ["statediff"]
 anyhow = "1.0"
 fvm = "0.8"
 fvm_shared = { version = "0.7.1", default-features = false }
+fvm_ipld_bitfield = "0.5.2"
 fil_actors_runtime = "=7.5.1"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
@@ -39,7 +40,6 @@ message = { package = "forest_message", version = "0.7", features = [
     "blst",
 ] }
 vm = { package = "forest_vm", version = "0.3.1" }
-bitfield = { package = "forest_bitfield", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2.11"
 tokio = { version = "1.0", features = ["sync"] }

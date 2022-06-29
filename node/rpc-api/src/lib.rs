@@ -360,12 +360,12 @@ pub mod state_api {
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
     use address::json::AddressJson;
-    use bitfield::json::BitFieldJson;
     use blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
     use cid::json::CidJson;
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
     use message::{
         message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
