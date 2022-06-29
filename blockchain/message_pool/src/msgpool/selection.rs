@@ -92,6 +92,7 @@ where
                 ts,
                 &mut chains,
                 self.calico_height,
+                &self.chain_config,
             )
             .await?;
         }
@@ -141,6 +142,7 @@ where
                 target_tipset,
                 &mut chains,
                 self.calico_height,
+                &&self.chain_config,
             )
             .await?;
         }
@@ -511,6 +513,7 @@ where
                     ts,
                     &mut chains,
                     self.calico_height,
+                    &self.chain_config,
                 )
                 .await?;
             }

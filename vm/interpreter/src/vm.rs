@@ -187,6 +187,7 @@ where
                     root,
                     lb_state.chain_epoch_root(),
                     store_arc,
+                    network_version,
                 ),
             )
             .unwrap();

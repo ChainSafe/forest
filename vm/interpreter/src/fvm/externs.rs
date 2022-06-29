@@ -1,16 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
-use crate::price_list_by_epoch;
 use crate::Rand;
 use cid::Cid;
 use clock::ChainEpoch;
 use fil_actors_runtime::runtime::Policy;
+use fil_types::NetworkVersion;
 use fvm::externs::Consensus;
 use fvm::externs::Externs;
+use fvm::gas::price_list_by_network_version;
 use fvm::gas::{Gas, GasTracker};
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
+use networks::ChainConfig;
 
 use crate::resolve_to_key_addr;
 use address::Address;
@@ -30,6 +32,7 @@ pub struct ForestExterns<DB> {
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
     db: Arc<DB>,
+    network_version: NetworkVersion,
 }
 
 impl<DB: BlockStore> ForestExterns<DB> {
@@ -40,6 +43,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
         db: Arc<DB>,
+        network_version: NetworkVersion,
     ) -> Self {
         ForestExterns {
             rand: Box::new(rand),
@@ -48,6 +52,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             root,
             lookback,
             db,
+            network_version,
         }
     }
 
@@ -78,7 +83,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             Gas::new(0),
         )));
         let gbs = GasBlockStore {
-            price_list: price_list_by_epoch(self.epoch, self.calico_height).clone(),
+            price_list: price_list_by_network_version(self.network_version).clone(),
             gas: tracker.clone(),
             store: self.db.as_ref(),
         };

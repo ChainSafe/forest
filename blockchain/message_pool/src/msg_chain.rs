@@ -9,10 +9,11 @@ use async_std::sync::RwLock;
 use blocks::Tipset;
 use clock::ChainEpoch;
 use encoding::Cbor;
-use fvm::gas::Gas;
+use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::BigInt;
 use log::warn;
 use message::{Message, SignedMessage};
+use networks::ChainConfig;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -347,6 +348,7 @@ pub(crate) async fn create_message_chains<T>(
     ts: &Tipset,
     chains: &mut Chains,
     calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -390,7 +392,9 @@ where
         }
         cur_seq += 1;
 
-        let min_gas = interpreter::price_list_by_epoch(ts.epoch(), calico_height)
+        let network_version = chain_config.network_version(ts.epoch());
+
+        let min_gas = price_list_by_network_version(network_version)
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 

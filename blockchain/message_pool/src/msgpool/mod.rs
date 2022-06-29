@@ -24,6 +24,7 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};
+use networks::ChainConfig;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -64,6 +65,7 @@ async fn republish_pending_messages<T>(
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
     calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -103,6 +105,7 @@ where
             &ts,
             &mut chains,
             calico_height,
+            chain_config,
         )
         .await?;
     }

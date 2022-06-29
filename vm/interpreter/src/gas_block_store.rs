@@ -149,18 +149,20 @@ mod tests {
     use cid::Code::Blake2b256;
     use db::MemoryDB;
     use fvm::gas::Gas;
+    use fvm::gas::{price_list_by_network_version, PriceList};
     use networks::{ChainConfig, Height};
 
     #[test]
     fn gas_blockstore() {
         let calico_height = ChainConfig::default().epoch(Height::Calico);
+        let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
-                ipld_get_base: 4,
-                ipld_put_base: 2,
-                ipld_put_per_byte: 1,
-                ..price_list_by_epoch(0, calico_height)
+                block_open_base: 4,
+                block_link_base: 2,
+                block_link_storage_per_byte_cost: 1,
+                ..price_list_by_network_version(network_version)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000), Gas::new(0)))),
             store: &db,
@@ -176,11 +178,12 @@ mod tests {
     #[test]
     fn gas_blockstore_oog() {
         let calico_height = ChainConfig::default().epoch(Height::Calico);
+        let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
-                ipld_put_base: 12,
-                ..price_list_by_epoch(0, calico_height)
+                block_link_base: 12,
+                ..price_list_by_network_version(network_version)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(10), Gas::new(0)))),
             store: &db,

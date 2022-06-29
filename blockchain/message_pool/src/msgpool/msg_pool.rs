@@ -30,6 +30,7 @@ use db::Store;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
+use fvm::gas::price_list_by_network_version;
 use fvm::gas::Gas;
 use fvm_shared::bigint::{BigInt, Integer};
 use log::warn;
@@ -159,6 +160,8 @@ pub struct MessagePool<T> {
     pub config: MpoolConfig,
     /// Calico height
     pub calico_height: ChainEpoch,
+    /// Chain сonfig
+    pub chain_config: ChainConfig,
 }
 
 impl<T> MessagePool<T>
@@ -171,7 +174,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
-        chain_config: &ChainConfig,
+        chain_config: ChainConfig,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -206,6 +209,7 @@ where
             network_sender,
             repub_trigger,
             calico_height,
+            chain_config: chain_config.clone(),
         };
 
         mp.load_local().await?;
@@ -283,6 +287,7 @@ where
                     republished.as_ref(),
                     local_addrs.as_ref(),
                     calico_height,
+                    &chain_config,
                 )
                 .await
                 {
@@ -383,7 +388,8 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let publish = verify_msg_before_add(&msg, cur_ts, local, self.calico_height)?;
+        let publish =
+            verify_msg_before_add(&msg, cur_ts, local, self.calico_height, &self.chain_config)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -473,7 +479,8 @@ where
             return Err(Error::TryAgain);
         }
 
-        let publish = verify_msg_before_add(&msg, &cur_ts, true, self.calico_height)?;
+        let publish =
+            verify_msg_before_add(&msg, &cur_ts, true, self.calico_height, &self.chain_config)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
@@ -696,9 +703,10 @@ fn verify_msg_before_add(
     cur_ts: &Tipset,
     local: bool,
     calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch, calico_height)
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(m.marshal_cbor()?.len());
     m.message()
         .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)

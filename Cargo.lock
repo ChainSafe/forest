@@ -1180,6 +1180,7 @@ dependencies = [
  "forest_vm",
  "futures",
  "futures-util",
+ "fvm",
  "fvm_ipld_encoding",
  "fvm_shared 0.7.1",
  "genesis",
