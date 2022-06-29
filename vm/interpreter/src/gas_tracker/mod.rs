@@ -4,5 +4,3 @@
 mod gas_charge;
 
 pub use self::gas_charge::GasCharge;
-
-
