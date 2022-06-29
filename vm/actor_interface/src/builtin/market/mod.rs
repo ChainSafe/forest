@@ -10,7 +10,7 @@ use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::json;
 use serde::Serialize;
-use std::{error::Error, marker::PhantomData};
+use std::marker::PhantomData;
 use vm::{ActorState, TokenAmount};
 
 use anyhow::Context;
@@ -127,7 +127,7 @@ pub enum DealProposals<'a, BS> {
 impl<BS> DealProposals<'_, BS> {
     pub fn for_each(
         &self,
-        _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), Box<dyn Error>>,
+        _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), anyhow::Error>,
     ) -> anyhow::Result<()>
     where
         BS: BlockStore,

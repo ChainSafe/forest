@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 fil_types = { path = "../../types" }
 lazy_static = "1.4"
 beacon = { path = "../../blockchain/beacon" }

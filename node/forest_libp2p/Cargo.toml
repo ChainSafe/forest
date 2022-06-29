@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 utils = { path = "../utils" }
 networks = { path = "../../types/networks" }
 libp2p = { version = "0.40.0-rc.1", default-features = false, features = [

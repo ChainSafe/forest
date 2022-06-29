@@ -46,7 +46,6 @@ use libp2p_bitswap::{Bitswap, BitswapEvent, Priority};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::convert::TryFrom;
-use std::error::Error;
 use std::pin::Pin;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -548,7 +547,7 @@ impl ForestBehaviour {
         peer_id: &PeerId,
         cid: Cid,
         data: Box<[u8]>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         debug!("send {}", cid.to_string());
         let cid = cid.to_bytes();
         let cid = Cid2::try_from(cid)?;
@@ -557,7 +556,7 @@ impl ForestBehaviour {
     }
 
     /// Send a request for data over bitswap
-    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), Box<dyn Error>> {
+    pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), anyhow::Error> {
         debug!("want {}", cid.to_string());
         let cid = cid.to_bytes();
         let cid = Cid2::try_from(cid)?;

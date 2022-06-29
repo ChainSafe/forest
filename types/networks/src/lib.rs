@@ -8,7 +8,7 @@ use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fil_types::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use serde::{Deserialize, Serialize};
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 mod calibnet;
 mod drand;
@@ -175,7 +175,7 @@ impl ChainConfig {
     pub async fn get_beacon_schedule(
         &self,
         genesis_ts: u64,
-    ) -> Result<BeaconSchedule<DrandBeacon>, Box<dyn Error>> {
+    ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
         let ds_iter = if self.name == "calibnet" {
             calibnet::DRAND_SCHEDULE.iter()
         } else {

@@ -3318,6 +3318,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "async-trait",
  "asynchronous-codec",
@@ -3356,6 +3357,7 @@ dependencies = [
 name = "forest_message"
 version = "0.7.2"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "derive_builder 0.11.2",
  "fil_types",
@@ -4352,22 +4354,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "ipld_blockstore",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "ipld_amt"
-version = "1.0.0"
-dependencies = [
- "ahash 0.7.6",
- "criterion",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "ipld_blockstore",
- "itertools 0.10.3",
  "once_cell",
  "serde",
  "thiserror",
@@ -5821,6 +5807,7 @@ dependencies = [
 name = "networks"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "beacon",
  "fil_types",
  "fvm_shared 0.7.1",
@@ -7073,7 +7060,7 @@ dependencies = [
  "fvm_shared 0.7.1",
  "hex",
  "interpreter",
- "ipld_amt 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 1.0.0",
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
@@ -7099,6 +7086,7 @@ name = "rpc-api"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "beacon",
  "chain",
@@ -8342,6 +8330,7 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 name = "test_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "chain",
  "forest_address",

@@ -184,9 +184,9 @@ where
         tipset: &Tipset,
         address: &Address,
         mut cb: F,
-    ) -> Result<(), Box<dyn StdError>>
+    ) -> Result<(), anyhow::Error>
     where
-        F: FnMut(&Partition) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(&Partition) -> Result<(), anyhow::Error>,
 
         V: ProofVerifier,
     {

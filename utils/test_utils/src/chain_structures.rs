@@ -14,7 +14,6 @@ use forest_libp2p::chain_exchange::{
 use fvm_shared::bigint::BigInt;
 use message::{SignedMessage, UnsignedMessage};
 use std::convert::TryFrom;
-use std::error::Error;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
@@ -129,7 +128,7 @@ const DUMMY_SIG: [u8; 1] = [0u8];
 
 struct DummySigner;
 impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, Box<dyn Error>> {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }

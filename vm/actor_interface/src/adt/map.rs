@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ActorVersion;
+use anyhow::Error as AnyhowError;
 use cid::Cid;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
@@ -54,7 +55,7 @@ where
     }
 
     /// Inserts a key-value pair into the `Map`.
-    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), AnyhowError> {
         match self {
             Map::V7(m) => {
                 m.set(key, value)?;
@@ -64,7 +65,7 @@ where
     }
 
     /// Returns a reference to the value corresponding to the key.
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Box<dyn Error>>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -76,7 +77,7 @@ where
     }
 
     /// Returns `true` if a value exists for the given key in the `Map`.
-    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, Box<dyn Error>>
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -88,7 +89,7 @@ where
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -99,7 +100,7 @@ where
     }
 
     /// Flush root and return Cid for `Map`
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn Error>> {
+    pub fn flush(&mut self) -> Result<Cid, AnyhowError> {
         match self {
             Map::V7(m) => Ok(m.flush()?),
         }
