@@ -365,7 +365,6 @@ pub mod state_api {
     };
     use cid::json::CidJson;
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
-    use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
     use message::{
         message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
