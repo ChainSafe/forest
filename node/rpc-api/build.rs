@@ -3,7 +3,6 @@
 
 use std::cmp;
 use std::collections::BTreeMap;
-use std::error::Error;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 
@@ -141,7 +140,7 @@ type Metrics = (
     ForestOnlyMethods,
 );
 
-fn run() -> Result<Metrics, Box<dyn Error>> {
+fn run() -> Result<Metrics, anyhow::Error> {
     let mut lotus_rpc_file = File::open(LOTUS_OPENRPC_JSON_PATH)?;
     let mut lotus_rpc_content = String::new();
     lotus_rpc_file.read_to_string(&mut lotus_rpc_content)?;

@@ -3316,6 +3316,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "async-trait",
  "asynchronous-codec",
@@ -3354,6 +3355,7 @@ dependencies = [
 name = "forest_message"
 version = "0.7.2"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "derive_builder 0.11.2",
  "fil_types",
@@ -5801,6 +5803,7 @@ dependencies = [
 name = "networks"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "beacon",
  "fil_types",
  "fvm_shared 0.7.1",
@@ -7079,6 +7082,7 @@ name = "rpc-api"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "beacon",
  "chain",
@@ -8322,6 +8326,7 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 name = "test_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "chain",
  "forest_address",
