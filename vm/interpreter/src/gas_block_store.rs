@@ -159,9 +159,9 @@ mod tests {
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: PriceList {
-                block_open_base: 4,
-                block_link_base: 2,
-                block_link_storage_per_byte_cost: 1,
+                block_open_base: Gas::new(4),
+                block_link_base: Gas::new(2),
+                block_link_storage_per_byte_cost: Gas::new(1),
                 ..*price_list_by_network_version(network_version)
             },
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000), Gas::new(0)))),
