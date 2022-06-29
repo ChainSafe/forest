@@ -20,7 +20,6 @@ use fvm_shared::commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v
 use proofs::seal;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::BTreeMap;
-use std::convert::TryInto;
 use std::error::Error as StdError;
 
 /// Full verification implementation. This will verify all proofs through `rust-fil-proofs`
@@ -39,7 +38,7 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(vi.sector_id.miner);
 
         if !proofs_verify_seal(
-            vi.registered_proof.try_into()?,
+            vi.registered_proof,
             commr,
             commd,
             prover_id,
@@ -60,7 +59,7 @@ pub trait ProofVerifier {
         if aggregate.infos.is_empty() {
             return Err("no seal verify infos".into());
         }
-        let spt: proofs::RegisteredSealProof = aggregate.seal_proof.try_into()?;
+        let spt = aggregate.seal_proof;
         let prover_id = prover_id_from_u64(aggregate.miner);
         struct AggregationInputs {
             // replica
@@ -108,7 +107,7 @@ pub trait ProofVerifier {
         let seeds: Vec<[u8; 32]> = inputs.iter().map(|input| input.seed).collect();
         if !verify_aggregate_seal_commit_proofs(
             spt,
-            aggregate.aggregate_proof.try_into()?,
+            aggregate.aggregate_proof,
             aggregate.proof.clone(),
             &commrs,
             &seeds,
@@ -170,7 +169,7 @@ pub trait ProofVerifier {
         // Convert PoSt proofs into proofs-api format
         let proofs: Vec<(proofs::RegisteredPoStProof, _)> = proofs
             .iter()
-            .map(|p| Ok((p.post_proof.try_into()?, p.proof_bytes.as_ref())))
+            .map(|p| Ok((p.post_proof, p.proof_bytes.as_ref())))
             .collect::<Result<_, String>>()?;
 
         // Generate prover bytes from ID
@@ -192,7 +191,7 @@ pub trait ProofVerifier {
         randomness[31] &= 0x3f;
 
         Ok(post::generate_winning_post_sector_challenge(
-            proof.try_into()?,
+            proof,
             &bytes_32(&randomness),
             eligible_sector_count,
             prover_id_from_u64(prover_id),
@@ -225,7 +224,7 @@ fn to_fil_public_replica_infos(
                 ProofType::Winning => sector_info.proof.registered_winning_post_proof()?,
                 ProofType::Window => sector_info.proof.registered_window_post_proof()?,
             };
-            let replica = PublicReplicaInfo::new(proof.try_into()?, commr);
+            let replica = PublicReplicaInfo::new(proof, commr);
             Ok((SectorId::from(sector_info.sector_number), replica))
         })
         .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;

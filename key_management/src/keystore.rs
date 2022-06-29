@@ -59,7 +59,7 @@ impl KeyInfo {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use fvm_shared::crypto::signature::json::signature_type::SignatureTypeJson;
+    use fvm_shared::crypto::signature::SignatureType;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
@@ -80,7 +80,7 @@ pub mod json {
     #[derive(Serialize, Deserialize)]
     struct JsonHelper {
         #[serde(rename = "Type")]
-        sig_type: SignatureTypeJson,
+        sig_type: SignatureType,
         #[serde(rename = "PrivateKey")]
         private_key: String,
     }
@@ -90,7 +90,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: SignatureTypeJson(k.key_type),
+            sig_type: k.key_type,
             private_key: base64::encode(&k.private_key),
         }
         .serialize(serializer)
@@ -105,7 +105,7 @@ pub mod json {
             private_key,
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
-            key_type: sig_type.0,
+            key_type: sig_type,
             private_key: base64::decode(private_key).map_err(de::Error::custom)?,
         })
     }
