@@ -25,6 +25,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
+use fvm::gas::Gas;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};

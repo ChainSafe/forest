@@ -5,7 +5,9 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
+use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
+use num_bigint::bigint_ser;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -106,7 +108,7 @@ impl UnsignedMessage {
     #[cfg(feature = "proofs")]
     pub fn valid_for_block_inclusion(
         &self,
-        min_gas: i64,
+        min_gas: Gas,
         version: fil_types::NetworkVersion,
     ) -> Result<(), String> {
         use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
@@ -136,7 +138,7 @@ impl UnsignedMessage {
             return Err("gas_limit cannot be greater than block gas limit".to_string());
         }
 
-        if self.gas_limit < min_gas {
+        if Gas::new(self.gas_limit) < min_gas {
             return Err(format!(
                 "gas_limit {} cannot be less than cost {} of storing a message on chain",
                 self.gas_limit, min_gas
@@ -288,7 +290,8 @@ pub mod json {
         sequence: u64,
         #[serde(with = "bigint_ser::json")]
         value: TokenAmount,
-        gas_limit: i64,
+        #[serde(with = "bigint_ser::json::gas")]
+        gas_limit: Gas,
         #[serde(with = "bigint_ser::json")]
         gas_fee_cap: TokenAmount,
         #[serde(with = "bigint_ser::json")]
@@ -310,7 +313,7 @@ pub mod json {
             from: m.from.into(),
             sequence: m.sequence,
             value: m.value.clone(),
-            gas_limit: m.gas_limit,
+            gas_limit: Gas::new(m.gas_limit),
             gas_fee_cap: m.gas_fee_cap.clone(),
             gas_premium: m.gas_premium.clone(),
             method_num: m.method_num,
@@ -331,7 +334,7 @@ pub mod json {
             from: m.from.into(),
             sequence: m.sequence,
             value: m.value,
-            gas_limit: m.gas_limit,
+            gas_limit: m.gas_limit.as_milligas(),
             gas_fee_cap: m.gas_fee_cap,
             gas_premium: m.gas_premium,
             method_num: m.method_num,

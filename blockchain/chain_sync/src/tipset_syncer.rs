@@ -1675,7 +1675,7 @@ fn check_block_messages<
      -> Result<(), Box<dyn StdError>> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        msg.valid_for_block_inclusion(min_gas.total().as_milligas(), network_version)?;
+        msg.valid_for_block_inclusion(min_gas.total(), network_version)?;
         sum_gas_limit += msg.gas_limit();
         if sum_gas_limit > BLOCK_GAS_LIMIT {
             return Err("block gas limit exceeded".into());

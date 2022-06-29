@@ -13,6 +13,7 @@ pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
 
 use address::Address;
+use fvm::gas::Gas;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Message interface to interact with Signed and unsigned messages in a generic context.

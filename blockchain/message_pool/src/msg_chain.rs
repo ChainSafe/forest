@@ -9,6 +9,7 @@ use async_std::sync::RwLock;
 use blocks::Tipset;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use fvm::gas::Gas;
 use fvm_shared::bigint::BigInt;
 use log::warn;
 use message::{Message, SignedMessage};
@@ -393,7 +394,7 @@ where
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 
-        if m.gas_limit() < min_gas.as_milligas() {
+        if Gas::new(m.gas_limit()) < min_gas {
             break;
         }
         gas_limit += m.gas_limit();

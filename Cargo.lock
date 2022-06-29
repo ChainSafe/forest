@@ -3166,6 +3166,7 @@ name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
+ "fvm",
  "num-bigint 0.4.3",
  "num-integer",
  "serde",
@@ -3391,6 +3392,7 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
+ "fvm",
  "fvm_ipld_encoding",
  "fvm_shared 0.7.1",
  "num-traits",
@@ -5588,6 +5590,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "futures",
+ "fvm",
  "fvm_shared 0.7.1",
  "interpreter",
  "ipld_blockstore",

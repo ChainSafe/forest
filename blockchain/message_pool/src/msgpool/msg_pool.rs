@@ -30,6 +30,7 @@ use db::Store;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
+use fvm::gas::Gas;
 use fvm_shared::bigint::{BigInt, Integer};
 use log::warn;
 use lru::LruCache;
@@ -325,7 +326,7 @@ where
             return Err(Error::MessageTooBig);
         }
         msg.message()
-            .valid_for_block_inclusion(0, NEWEST_NETWORK_VERSION)
+            .valid_for_block_inclusion(Gas::new(0), NEWEST_NETWORK_VERSION)
             .map_err(Error::Other)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
@@ -700,7 +701,7 @@ fn verify_msg_before_add(
     let min_gas = interpreter::price_list_by_epoch(epoch, calico_height)
         .on_chain_message(m.marshal_cbor()?.len());
     m.message()
-        .valid_for_block_inclusion(min_gas.total().as_milligas(), NEWEST_NETWORK_VERSION)
+        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
         .map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
