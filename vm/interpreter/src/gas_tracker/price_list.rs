@@ -3,12 +3,12 @@
 
 use super::GasCharge;
 use ahash::AHashMap;
-use clock::ChainEpoch;
 use crypto::SignatureType;
 use fil_types::{
     AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof,
     SealVerifyInfo, WindowPoStVerifyInfo,
 };
+use fvm_shared::clock::ChainEpoch;
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 

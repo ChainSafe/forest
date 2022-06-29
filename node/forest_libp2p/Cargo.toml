@@ -41,7 +41,6 @@ bytes = "1.0"
 fnv = "1.0"
 smallvec = "1.1"
 chain = { path = "../../blockchain/chain" }
-clock = { package = "fil_clock", path = "../clock" }
 db = { package = "forest_db", version = "0.1" }
 forest_car = { path = "../../ipld/car" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

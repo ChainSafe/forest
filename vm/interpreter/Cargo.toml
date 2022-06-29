@@ -24,7 +24,6 @@ message = { package = "forest_message", default_features = false, version = "0.7
 ] }
 runtime = { package = "forest_runtime", version = "0.2" }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks" }
-clock = { package = "fil_clock", path = "../../node/clock" }
 vm = { package = "forest_vm", version = "0.3" }
 ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

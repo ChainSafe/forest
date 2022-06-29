@@ -17,7 +17,6 @@ use blockstore::FvmStore;
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::Cbor;
 use fil_actors_runtime::runtime::Policy;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
@@ -28,6 +27,7 @@ use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};
+use fvm_shared::clock::ChainEpoch;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };

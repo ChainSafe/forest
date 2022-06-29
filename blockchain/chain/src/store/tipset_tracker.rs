@@ -7,7 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 
 use super::Error;

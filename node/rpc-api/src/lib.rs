@@ -153,7 +153,7 @@ pub mod auth_api {
 /// Beacon API
 pub mod beacon_api {
     use beacon::json::BeaconEntryJson;
-    use clock::ChainEpoch;
+    use fvm_shared::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
     pub type BeaconGetEntryParams = (ChainEpoch,);
@@ -169,7 +169,7 @@ pub mod chain_api {
     };
     use chain::headchange_json::SubscriptionHeadChange;
     use cid::json::CidJson;
-    use clock::ChainEpoch;
+    use fvm_shared::clock::ChainEpoch;
     use message::unsigned_message::json::UnsignedMessageJson;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
@@ -365,8 +365,8 @@ pub mod state_api {
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
     use cid::json::CidJson;
-    use clock::ChainEpoch;
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use fvm_shared::clock::ChainEpoch;
     use message::{
         message_receipt::json::MessageReceiptJson, unsigned_message::json::UnsignedMessageJson,
     };

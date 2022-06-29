@@ -4,7 +4,6 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
@@ -12,6 +11,7 @@ use fil_types::{
 use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
 use num_bigint::bigint_ser::json;

@@ -5,7 +5,7 @@ use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
     DrandPoint, Height, HeightInfo,
 };
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 

@@ -17,7 +17,6 @@ dependencies = [
  "fil_actor_reward 7.5.1",
  "fil_actor_system 7.5.1",
  "fil_actors_runtime 7.5.1",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -617,9 +616,9 @@ dependencies = [
  "base64 0.13.0",
  "bls-signatures",
  "byteorder 1.4.3",
- "fil_clock",
  "forest_encoding",
  "forest_json_utils",
+ "fvm_shared 0.7.1",
  "hex",
  "serde",
  "serde_json",
@@ -1120,7 +1119,6 @@ dependencies = [
  "blake2b_simd 0.5.11",
  "byteorder 1.4.3",
  "crossbeam",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -1163,7 +1161,6 @@ dependencies = [
  "base64 0.13.0",
  "beacon",
  "chain",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -2892,10 +2889,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_clock"
-version = "0.1.0"
-
-[[package]]
 name = "fil_logger"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2913,7 +2906,6 @@ version = "0.2.2"
 dependencies = [
  "async-std",
  "base64 0.13.0",
- "fil_clock",
  "filecoin-proofs-api",
  "forest_address",
  "forest_bigint",
@@ -3198,7 +3190,6 @@ dependencies = [
  "beacon",
  "byteorder 1.4.3",
  "derive_builder 0.10.2",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -3347,7 +3338,6 @@ dependencies = [
  "asynchronous-codec",
  "bytes 1.1.0",
  "chain",
- "fil_clock",
  "fnv",
  "forest_address",
  "forest_bigint",
@@ -3403,7 +3393,6 @@ name = "forest_runtime"
 version = "0.2.1"
 dependencies = [
  "base64 0.13.0",
- "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
  "forest_address",
@@ -4317,7 +4306,6 @@ dependencies = [
  "fil_actors_runtime 7.5.1",
  "fil_builtin_actors_bundle 6.3.0",
  "fil_builtin_actors_bundle 7.5.1",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -5575,7 +5563,6 @@ dependencies = [
  "async-trait",
  "blake2b_simd 0.5.11",
  "chain",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -5848,8 +5835,8 @@ name = "networks"
 version = "0.1.0"
 dependencies = [
  "beacon",
- "fil_clock",
  "fil_types",
+ "fvm_shared 0.7.1",
  "lazy_static",
  "serde",
  "serde_json",
@@ -7129,7 +7116,6 @@ dependencies = [
  "beacon",
  "chain",
  "chain_sync",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -7878,7 +7864,6 @@ dependencies = [
  "byteorder 1.4.3",
  "chain",
  "fil_actors_runtime 7.5.1",
- "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
  "forest_address",
@@ -7917,7 +7902,6 @@ dependencies = [
  "actor_interface",
  "async-std",
  "crossbeam-channel",
- "fil_clock",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -7928,6 +7912,7 @@ dependencies = [
  "forest_json_utils",
  "forest_vm",
  "futures",
+ "fvm_shared 0.7.1",
  "ipld_blockstore",
  "libp2p 0.40.0",
  "log",

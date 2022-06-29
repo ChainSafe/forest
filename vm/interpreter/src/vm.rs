@@ -6,7 +6,6 @@ use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor::{cron, reward, system, AwardBlockRewardParams};
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
@@ -18,6 +17,7 @@ use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
 use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;

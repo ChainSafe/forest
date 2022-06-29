@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use clock::ChainEpoch;
 use forest_cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 
 /// Hello message https://filecoin-project.github.io/specs/#hello-spec
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]

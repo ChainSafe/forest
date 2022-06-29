@@ -15,7 +15,6 @@ blockstore = { package = "ipld_blockstore", version = "0.1" }
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
-clock = { package = "fil_clock", path = "../clock" }
 crypto = { package = "forest_crypto", version = "0.5", features = ["json", "blst"] }
 fil_types = "0.2"
 forest_libp2p = { path = "../forest_libp2p" }
