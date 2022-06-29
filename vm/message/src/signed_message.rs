@@ -6,7 +6,7 @@ use address::Address;
 use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
-use fvm::gas::Gas;
+
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes.

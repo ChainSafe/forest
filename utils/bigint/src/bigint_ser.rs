@@ -53,7 +53,7 @@ pub mod json {
 
     pub mod gas {
         use fvm::gas::Gas;
-        use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+        use serde::{self, Deserialize, Serialize, Serializer};
 
         pub fn serialize<S>(v: &Gas, serializer: S) -> Result<S::Ok, S::Error>
         where

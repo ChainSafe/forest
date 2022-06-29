@@ -7,7 +7,7 @@ use derive_builder::Builder;
 use encoding::Cbor;
 use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
-use num_bigint::bigint_ser;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
 

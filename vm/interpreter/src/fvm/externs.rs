@@ -12,7 +12,7 @@ use fvm::gas::{Gas, GasTracker};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
-use networks::ChainConfig;
+
 
 use crate::resolve_to_key_addr;
 use address::Address;
