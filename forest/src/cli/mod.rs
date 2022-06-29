@@ -327,10 +327,13 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 }
 
 /// convert bigint to size string using byte size units (ie KiB, GiB, PiB, etc)
-pub(super) fn to_size_string(bi: &BigInt) -> String {
-    let bi = bi.clone();
-    let byte = Byte::from_bytes(bi.to_string().parse().expect("error parsing string to int"));
-    byte.get_appropriate_unit(false).to_string()
+/// Provided number cannot be negative, otherwise the function will panic.
+pub(super) fn to_size_string(input: &BigInt) -> String {
+    Byte::from_bytes(
+        u128::try_from(input).unwrap_or_else(|e| panic!("error parsing the input {input}: {e}")),
+    )
+    .get_appropriate_unit(true)
+    .to_string()
 }
 
 /// Print an error message and exit the program with an error code
@@ -412,4 +415,44 @@ pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> 
     let p = Float::with_val(64, raw);
 
     Ok(Float::with_val(128, b / p))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use fvm_shared::bigint::Zero;
+
+    #[test]
+    fn to_size_string_valid_input() {
+        let cases = [
+            (BigInt::zero(), "0 B"),
+            (BigInt::from(1 << 10), "1024 B"),
+            (BigInt::from((1 << 10) + 1), "1.00 KiB"),
+            (BigInt::from((1 << 10) + 512), "1.50 KiB"),
+            (BigInt::from(1 << 20), "1024.00 KiB"),
+            (BigInt::from((1 << 20) + 1), "1.00 MiB"),
+            (BigInt::from(1 << 29), "512.00 MiB"),
+            (BigInt::from((1 << 30) + 1), "1.00 GiB"),
+            (BigInt::from((1u64 << 40) + 1), "1.00 TiB"),
+            (BigInt::from((1u64 << 50) + 1), "1.00 PiB"),
+            // ZiB is 2^70, 288230376151711744 is 2^58
+            (BigInt::from(u128::MAX), "288230376151711744.00 ZiB"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(to_size_string(&input), expected.to_string());
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn to_size_string_negative_input_should_fail() {
+        to_size_string(&BigInt::from(-1i8));
+    }
+
+    #[test]
+    #[should_panic]
+    fn to_size_string_too_large_input_should_fail() {
+        to_size_string(&(BigInt::from(u128::MAX) + 1));
+    }
 }
