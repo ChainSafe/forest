@@ -258,7 +258,10 @@ impl Beacon for DrandBeacon {
             Some(cached_entry) => Ok(cached_entry),
             None => {
                 let url = format!("{}/public/{}", self.url, round);
-                let resp: BeaconEntryJson = surf::get(&url).recv_json().await.unwrap();
+                let resp: BeaconEntryJson = surf::get(&url)
+                    .recv_json()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
                 Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
         }
