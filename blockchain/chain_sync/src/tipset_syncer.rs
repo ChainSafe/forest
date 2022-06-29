@@ -30,7 +30,6 @@ use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, 
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use clock::ChainEpoch;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
@@ -40,6 +39,7 @@ use fil_types::{
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use fvm::gas::price_list_by_network_version;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use networks::Height;

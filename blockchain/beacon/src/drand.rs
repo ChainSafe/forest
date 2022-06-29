@@ -8,7 +8,7 @@ use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
