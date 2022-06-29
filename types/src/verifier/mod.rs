@@ -187,12 +187,12 @@ pub trait ProofVerifier {
         prover_id: u64,
         Randomness(mut randomness): Randomness,
         eligible_sector_count: u64,
-    ) -> Result<Vec<u64>, Box<dyn StdError>> {
+    ) -> Result<Vec<u64>, anyhow::Error> {
         // Necessary to be valid bls12 381 element.
         randomness[31] &= 0x3f;
 
         Ok(post::generate_winning_post_sector_challenge(
-            proof.try_into()?,
+            proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
             &bytes_32(&randomness),
             eligible_sector_count,
             prover_id_from_u64(prover_id),

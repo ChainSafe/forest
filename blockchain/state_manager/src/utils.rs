@@ -19,7 +19,6 @@ use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 
 impl<DB> StateManager<DB>
 where
@@ -32,7 +31,7 @@ where
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<SectorInfo>, Box<dyn StdError>>
+    ) -> Result<Vec<SectorInfo>, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -80,7 +79,9 @@ where
 
         let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv);
 
-        let wpt = spt.registered_winning_post_proof()?;
+        let wpt = spt
+            .registered_winning_post_proof()
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let m_id = miner_address.id()?;
 
@@ -90,12 +91,15 @@ where
 
         let mut selected_sectors = BitField::new();
         for n in ids {
-            let sno = iter.nth(n as usize).ok_or_else(|| {
-                format!(
-                    "Error iterating over proving sectors, id {} does not exist",
-                    n
-                )
-            })?;
+            let sno = iter
+                .nth(n as usize)
+                .ok_or_else(|| {
+                    format!(
+                        "Error iterating over proving sectors, id {} does not exist",
+                        n
+                    )
+                })
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             selected_sectors.set(sno);
         }
 
@@ -213,7 +217,7 @@ where
         &self,
         tipset: &Tipset,
         address: &Address,
-    ) -> Result<BitField, Box<dyn StdError>>
+    ) -> Result<BitField, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -232,7 +236,7 @@ where
         &self,
         tipset: &Tipset,
         address: &Address,
-    ) -> Result<BitField, Box<dyn StdError>>
+    ) -> Result<BitField, anyhow::Error>
     where
         V: ProofVerifier,
     {

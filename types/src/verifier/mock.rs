@@ -33,7 +33,7 @@ impl ProofVerifier for MockVerifier {
         _: u64,
         _: Randomness,
         _: u64,
-    ) -> Result<Vec<u64>, Box<dyn StdError>> {
+    ) -> Result<Vec<u64>, anyhow::Error> {
         Ok(vec![0])
     }
 }
