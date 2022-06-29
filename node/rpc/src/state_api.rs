@@ -761,9 +761,9 @@ pub(crate) async fn state_miner_sector_allocated<
         miner::State::V7(m) => data
             .chain_store
             .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .get::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
             .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
+            .get(sector_num),
     };
 
     Ok(allocated_sectors)

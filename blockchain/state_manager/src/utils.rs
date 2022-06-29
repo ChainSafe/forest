@@ -8,7 +8,6 @@ use actor::{
     power,
 };
 use address::Address;
-use bitfield::BitField;
 use blockstore::BlockStore;
 use cid::Cid;
 use fil_types::{
@@ -16,6 +15,7 @@ use fil_types::{
     SectorNumber,
 };
 use forest_blocks::Tipset;
+use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;
 use serde::Serialize;
 use state_tree::StateTree;

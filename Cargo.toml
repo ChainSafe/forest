@@ -33,7 +33,6 @@ members = [
     "types/networks",
     "utils/auth",
     "utils/bigint",
-    "utils/bitfield",
     "utils/genesis",
     "utils/hash_utils",
     "utils/json_utils",
@@ -51,7 +50,6 @@ forest_db         = { path = "./node/db" }
 forest_crypto     = { path = "./crypto" }
 forest_address    = { path = "./vm/address" }
 forest_bigint     = { path = "./utils/bigint" }
-forest_bitfield   = { path = "./utils/bitfield" }
 forest_cid        = { path = "./ipld/cid" }
 forest_ipld       = { path = "./ipld" }
 forest_encoding   = { path = "./encoding" }

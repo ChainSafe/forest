@@ -13,7 +13,7 @@ serde = { version = "1.0", features = ["derive"] }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }
 encoding = { package = "forest_encoding", version = "0.2" }
 libp2p = { version = "0.40.0-rc.1", default-features = false }
-forest_bitfield = "0.1"
+fvm_ipld_bitfield = "0.5.2"
 num-bigint = { version = "0.1", package = "forest_bigint", features = ["json"] }
 forest_hash_utils = "0.1"
 forest_json_utils = "0.1"

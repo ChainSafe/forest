@@ -8,8 +8,8 @@ use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
-use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
+use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
@@ -117,7 +117,7 @@ impl State {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(&fvm_store, &sectors.clone().into())?
+                        .load_sector_infos(&fvm_store, sectors)?
                         .into_iter()
                         .map(From::from)
                         .collect())
@@ -282,12 +282,12 @@ impl Partition<'_> {
     }
     pub fn live_sectors(&self) -> BitField {
         match self {
-            Partition::V7(dl) => dl.live_sectors().into(),
+            Partition::V7(dl) => dl.live_sectors(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
         match self {
-            Partition::V7(dl) => dl.active_sectors().into(),
+            Partition::V7(dl) => dl.active_sectors(),
         }
     }
 }
