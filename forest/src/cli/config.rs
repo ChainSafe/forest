@@ -7,11 +7,12 @@ use forest_libp2p::Libp2pConfig;
 use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct Config {
-    pub data_dir: String,
+    pub data_dir: PathBuf,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
     pub rpc_port: u16,
@@ -37,12 +38,7 @@ impl Default for Config {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
         Self {
             network: Libp2pConfig::default(),
-            data_dir: dir
-                .data_dir()
-                .to_path_buf()
-                .into_os_string()
-                .into_string()
-                .unwrap(),
+            data_dir: dir.data_dir().to_path_buf(),
             genesis_file: None,
             enable_rpc: true,
             rpc_port: DEFAULT_PORT,
