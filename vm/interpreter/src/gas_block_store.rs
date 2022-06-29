@@ -161,7 +161,7 @@ mod tests {
                 block_open_base: Gas::new(4),
                 block_link_base: Gas::new(2),
                 block_link_storage_per_byte_cost: Gas::new(1),
-                ..*price_list_by_network_version(network_version)
+                ..price_list_by_network_version(network_version).clone()
             },
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000), Gas::new(0)))),
             store: &db,
@@ -182,7 +182,7 @@ mod tests {
         let gbs = GasBlockStore {
             price_list: PriceList {
                 block_link_base: Gas::new(12),
-                ..*price_list_by_network_version(network_version)
+                ..price_list_by_network_version(network_version).clone()
             },
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(10), Gas::new(0)))),
             store: &db,
