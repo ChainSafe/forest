@@ -459,8 +459,8 @@ where
     let mut seen = Default::default();
     forest_ipld::recurse_links(&mut seen, state_root, &mut |cid| {
         let block = bs
-            .get_bytes(&cid)?
-            .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+            .get_bytes_anyhow(&cid)?
+            .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
         // * If cb can return a generic type, deserializing would remove need to clone.
         // Ignore error intentionally, if receiver dropped, error will be handled below
