@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use actor::market::{DealProposal, DealState};
 use address::{json::AddressJson, Address};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
-use bitfield::json::BitFieldJson;
 use blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
@@ -23,6 +22,7 @@ use cid::{json::CidJson, Cid};
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
+use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld::json::IpldJson;

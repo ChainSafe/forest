@@ -35,7 +35,6 @@ clean:
 	@cargo clean -p forest_ipld
 	@cargo clean -p ipld_amt
 	@cargo clean -p forest_bigint
-	@cargo clean -p forest_bitfield
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore
 	@cargo clean -p rpc
