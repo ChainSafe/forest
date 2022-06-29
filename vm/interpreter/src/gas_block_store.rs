@@ -157,21 +157,16 @@ mod tests {
         let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
-            price_list: PriceList {
-                block_open_base: Gas::new(4),
-                block_link_base: Gas::new(2),
-                block_link_storage_per_byte_cost: Gas::new(1),
-                ..price_list_by_network_version(network_version).clone()
-            },
-            gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000), Gas::new(0)))),
+            price_list: price_list_by_network_version(network_version).clone(),
+            gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000000000000), Gas::new(0)))),
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(2002));
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(356242));
         gbs.get::<u8>(&c).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(2006));
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(491859));
     }
 
     #[test]
@@ -180,10 +175,7 @@ mod tests {
         let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
-            price_list: PriceList {
-                block_link_base: Gas::new(12),
-                ..price_list_by_network_version(network_version).clone()
-            },
+            price_list: price_list_by_network_version(network_version).clone(),
             gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(10), Gas::new(0)))),
             store: &db,
         };
