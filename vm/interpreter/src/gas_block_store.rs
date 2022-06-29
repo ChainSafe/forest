@@ -145,7 +145,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::price_list_by_epoch;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
     use fvm::gas::Gas;
