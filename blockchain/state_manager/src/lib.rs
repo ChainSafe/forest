@@ -26,12 +26,12 @@ use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
+use fvm_ipld_amt::Amt;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
-use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use message::{
     message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
