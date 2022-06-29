@@ -4357,22 +4357,6 @@ dependencies = [
 [[package]]
 name = "ipld_amt"
 version = "1.0.0"
-dependencies = [
- "ahash 0.7.6",
- "criterion",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "ipld_blockstore",
- "itertools 0.10.3",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "ipld_amt"
-version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "278ba2fa369fae45884276f68784750a81bd48a9973615195f0138b8d1fa9436"
 dependencies = [
@@ -7069,7 +7053,7 @@ dependencies = [
  "fvm_shared 0.7.1",
  "hex",
  "interpreter",
- "ipld_amt 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ipld_amt 1.0.0",
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",

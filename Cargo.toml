@@ -24,7 +24,6 @@ members = [
     "encoding",
     "ipld/cid",
     "ipld/car",
-    "ipld/amt",
     "ipld",
     "ipld/blockstore",
     "key_management",
