@@ -158,7 +158,10 @@ mod tests {
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
             price_list: price_list_by_network_version(network_version).clone(),
-            gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(5000000000000), Gas::new(0)))),
+            gas: Rc::new(RefCell::new(GasTracker::new(
+                Gas::new(5000000000000),
+                Gas::new(0),
+            ))),
             store: &db,
         };
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
