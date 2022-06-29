@@ -29,10 +29,11 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
+use fvm_ipld_amt::Amt;
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
-use message::signed_message::SignedMessage;
+use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
 use networks::Height;
 use rpc_api::{
     data_types::{
