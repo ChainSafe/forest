@@ -347,7 +347,7 @@ pub(crate) async fn create_message_chains<T>(
     base_fee: &BigInt,
     ts: &Tipset,
     chains: &mut Chains,
-    calico_height: ChainEpoch,
+    _calico_height: ChainEpoch,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where

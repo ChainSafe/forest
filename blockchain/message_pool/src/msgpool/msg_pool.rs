@@ -702,7 +702,7 @@ fn verify_msg_before_add(
     m: &SignedMessage,
     cur_ts: &Tipset,
     local: bool,
-    calico_height: ChainEpoch,
+    _calico_height: ChainEpoch,
     chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();

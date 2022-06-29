@@ -171,7 +171,7 @@ where
         let mb = m.marshal_cbor()?;
         network_sender
             .send(NetworkMessage::PubsubMessage {
-                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
+                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, netwo&rk_name)),
                 message: mb,
             })
             .await
@@ -577,6 +577,7 @@ pub mod tests {
             let tma = RwLock::new(tma);
             let a = mock_block(1, 1);
             let ts = Tipset::new(vec![a]).unwrap();
+            let chain_config = ChainConfig::default();
 
             // --- Test Chain Aggregations ---
             // Test 1: 10 messages from a1 to a2, with increasing gasPerf; it should
@@ -598,6 +599,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -636,6 +638,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -680,6 +683,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -728,6 +732,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -778,6 +783,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -817,6 +823,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -859,6 +866,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -894,6 +902,7 @@ pub mod tests {
                 &ts,
                 &mut chains,
                 calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
