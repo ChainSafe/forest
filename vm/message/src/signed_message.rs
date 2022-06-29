@@ -20,7 +20,7 @@ impl SignedMessage {
     pub fn new<S: Signer>(message: UnsignedMessage, signer: &S) -> Result<Self, CryptoError> {
         let bz = message.to_signing_bytes();
 
-        let signature = signer.sign_bytes(&bz, message.from()).unwrap();
+        let signature = signer.sign_bytes(&bz, message.from())?;
 
         Ok(SignedMessage { message, signature })
     }
