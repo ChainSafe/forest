@@ -62,7 +62,10 @@ pub trait ProofVerifier {
         if aggregate.infos.is_empty() {
             anyhow::bail!("no seal verify infos");
         }
-        let spt: proofs::RegisteredSealProof = aggregate.seal_proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?;
+        let spt: proofs::RegisteredSealProof = aggregate
+            .seal_proof
+            .try_into()
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         let prover_id = prover_id_from_u64(aggregate.miner);
         struct AggregationInputs {
             // replica
@@ -111,7 +114,10 @@ pub trait ProofVerifier {
         let seeds: Vec<[u8; 32]> = inputs.iter().map(|input| input.seed).collect();
         if !verify_aggregate_seal_commit_proofs(
             spt,
-            aggregate.aggregate_proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
+            aggregate
+                .aggregate_proof
+                .try_into()
+                .map_err(|e| anyhow::anyhow!("{}", e))?,
             aggregate.proof.clone(),
             &commrs,
             &seeds,
