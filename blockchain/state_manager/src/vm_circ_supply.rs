@@ -63,19 +63,6 @@ impl GenesisInfo {
     }
 
     fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), anyhow::Error> {
-        // let genesis_block =
-        //     genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
-
-        // // Parent state of genesis tipset is tipset state
-        // let st = genesis_block.state_root();
-
-        // let state_tree = StateTree::new_from_root(bs, st)?;
-
-        // let _ = self
-        //     .genesis_market_funds
-        //     .set(get_fil_market_locked(&state_tree)?);
-        // let _ = self.genesis_pledge.set(get_fil_power_locked(&state_tree)?);
-
         Ok(())
     }
 }
@@ -124,22 +111,6 @@ impl CircSupplyCalc for GenesisInfo {
         _store: &DB,
     ) -> Result<TokenAmount, anyhow::Error> {
         unimplemented!()
-        // self.vesting
-        //     .genesis
-        //     .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
-        //         self.init(store)?;
-        //         Ok(setup_genesis_vesting_schedule())
-        //     })?;
-
-        // self.vesting
-        //     .ignition
-        //     .get_or_init(setup_ignition_vesting_schedule);
-
-        // self.vesting
-        //     .calico
-        //     .get_or_init(setup_calico_vesting_schedule);
-
-        // Ok(get_fil_vested(self, height))
     }
 }
 
