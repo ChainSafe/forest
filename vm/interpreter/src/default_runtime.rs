@@ -1,12 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::downcast::ActorDowncast;
 use actor::account;
 use address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 
 /// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
 /// identified by `addr`.
