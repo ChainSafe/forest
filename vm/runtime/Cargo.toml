@@ -8,6 +8,7 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
+anyhow              = "1.0"
 vm                  = { package = "forest_vm", version = "0.3" }
 crypto              = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 address             = { package = "forest_address", version = "0.3" }
