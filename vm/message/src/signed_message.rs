@@ -5,7 +5,7 @@ use super::{Message, UnsignedMessage};
 use address::Address;
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
-use fvm_shared::crypto::{Error as CryptoError, Signature, SignatureType, Signer};
+use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType, Signer};
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes.

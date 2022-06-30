@@ -59,7 +59,7 @@ pub trait ProofVerifier {
         if aggregate.infos.is_empty() {
             return Err("no seal verify infos".into());
         }
-        let spt = aggregate.seal_proof;
+        let spt: proofs::RegisteredSealProof = aggregate.seal_proof.try_into()?;
         let prover_id = prover_id_from_u64(aggregate.miner);
         struct AggregationInputs {
             // replica
@@ -90,7 +90,7 @@ pub trait ProofVerifier {
             .par_iter()
             .map(|input| {
                 seal::get_seal_inputs(
-                    spt.try_into()?,
+                    spt,
                     input.commr,
                     input.commd,
                     prover_id,
@@ -169,7 +169,7 @@ pub trait ProofVerifier {
         // Convert PoSt proofs into proofs-api format
         let proofs: Vec<(proofs::RegisteredPoStProof, _)> = proofs
             .iter()
-            .map(|p| Ok((p.post_proof, p.proof_bytes.as_ref())))
+            .map(|p| Ok((p.post_proof.try_into()?, p.proof_bytes.as_ref())))
             .collect::<Result<_, String>>()?;
 
         // Generate prover bytes from ID
