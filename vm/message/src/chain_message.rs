@@ -7,7 +7,6 @@ use crate::unsigned_message::UnsignedMessage;
 use address::Address;
 use cid::Cid;
 use encoding::{Cbor, Error};
-
 use serde::{Deserialize, Serialize};
 use vm::{MethodNum, Serialized, TokenAmount};
 
