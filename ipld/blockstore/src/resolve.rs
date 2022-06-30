@@ -16,7 +16,7 @@ where
 {
     let mut ipld = bs
         .get_anyhow(cid)?
-        .ok_or(anyhow::anyhow!("Cid does not exist in blockstore"))?;
+        .ok_or_else(|| anyhow::anyhow!("Cid does not exist in blockstore"))?;
 
     resolve_ipld(bs, &mut ipld, depth)?;
 
