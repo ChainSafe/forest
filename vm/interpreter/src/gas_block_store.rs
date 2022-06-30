@@ -4,8 +4,7 @@
 use cid::{Cid, Code};
 use db::{Error, Store};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
-use fvm::gas::GasTracker;
-use fvm::gas::PriceList;
+use fvm::gas::{GasTracker, PriceList};
 use fvm::kernel::ExecutionError;
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
