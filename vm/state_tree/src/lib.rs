@@ -202,12 +202,7 @@ where
         {
             (version, Some(info), actors)
         } else {
-            return Err(anyhow::anyhow!(
-                "Failed to load version info for statetree".to_string()
-            ))?;
-            // eprintln!("Failed to load version info for statetree");
-            // // Fallback to v0 state tree if retrieval fails
-            // (StateTreeVersion::V0, None, *c)
+            anyhow::bail!("Failed to load version info for statetree");
         };
 
         match version {
