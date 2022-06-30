@@ -158,8 +158,8 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    /// Calico height
-    pub calico_height: ChainEpoch,
+    // /// Calico height
+    // pub calico_height: ChainEpoch,
     /// Chain сonfig
     pub chain_config: ChainConfig,
 }
@@ -208,7 +208,6 @@ where
             config,
             network_sender,
             repub_trigger,
-            calico_height,
             chain_config: chain_config.clone(),
         };
 
@@ -389,7 +388,7 @@ where
         }
 
         let publish =
-            verify_msg_before_add(&msg, cur_ts, local, self.calico_height, &self.chain_config)?;
+            verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -480,7 +479,7 @@ where
         }
 
         let publish =
-            verify_msg_before_add(&msg, &cur_ts, true, self.calico_height, &self.chain_config)?;
+            verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
@@ -702,7 +701,6 @@ fn verify_msg_before_add(
     m: &SignedMessage,
     cur_ts: &Tipset,
     local: bool,
-    _calico_height: ChainEpoch,
     chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();

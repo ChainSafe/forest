@@ -91,7 +91,6 @@ where
                 &base_fee,
                 ts,
                 &mut chains,
-                self.calico_height,
                 &self.chain_config,
             )
             .await?;
@@ -141,7 +140,6 @@ where
                 &base_fee,
                 target_tipset,
                 &mut chains,
-                self.calico_height,
                 &self.chain_config,
             )
             .await?;
@@ -512,7 +510,6 @@ where
                     base_fee,
                     ts,
                     &mut chains,
-                    self.calico_height,
                     &self.chain_config,
                 )
                 .await?;

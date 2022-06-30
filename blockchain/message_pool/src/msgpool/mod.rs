@@ -104,7 +104,6 @@ where
             &base_fee_lower_bound,
             &ts,
             &mut chains,
-            calico_height,
             chain_config,
         )
         .await?;
