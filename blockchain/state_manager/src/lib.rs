@@ -1445,7 +1445,7 @@ where
     BS: BlockStore + Send + Sync,
     V: ProofVerifier,
 {
-    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, Box<dyn StdError>> {
+    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, anyhow::Error> {
         let (_, st) = task::block_on(
             self.sm
                 .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),

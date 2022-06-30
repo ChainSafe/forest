@@ -64,7 +64,7 @@ pub trait CircSupplyCalc: Clone + 'static {
 /// Trait to allow VM to retrieve state at an old epoch.
 pub trait LookbackStateGetter<'db, DB> {
     /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
+    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, anyhow::Error>;
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
