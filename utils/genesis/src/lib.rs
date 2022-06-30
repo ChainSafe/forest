@@ -38,7 +38,8 @@ where
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
-            let genesis_bytes = genesis_bytes.ok_or(anyhow::anyhow!("No default genesis."))?;
+            let genesis_bytes =
+                genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
             process_car(reader, cs).await?
         }

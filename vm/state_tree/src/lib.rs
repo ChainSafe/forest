@@ -298,7 +298,7 @@ where
 
         let init_act = self
             .get_actor(actor::init::ADDRESS)?
-            .ok_or(anyhow::anyhow!("Init actor address could not be resolved"))?;
+            .ok_or_else(|| anyhow::anyhow!("Init actor address could not be resolved"))?;
 
         let state = init::State::load(self.hamt.store(), &init_act)?;
 
@@ -333,10 +333,9 @@ where
         F: FnOnce(&mut ActorState) -> Result<(), anyhow::Error>,
     {
         // Retrieve actor state from address
-        let mut act: ActorState = self.get_actor(addr)?.ok_or(anyhow::anyhow!(
-            "Actor for address: {} does not exist",
-            addr
-        ))?;
+        let mut act: ActorState = self
+            .get_actor(addr)?
+            .ok_or_else(|| anyhow::anyhow!("Actor for address: {} does not exist", addr))?;
 
         // Apply function of actor state
         mutate(&mut act)?;
@@ -348,7 +347,7 @@ where
     pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, anyhow::Error> {
         let mut actor: ActorState = self
             .get_actor(init::ADDRESS)?
-            .ok_or(anyhow::anyhow!("Could not retrieve init actor"))?;
+            .ok_or_else(|| anyhow::anyhow!("Could not retrieve init actor"))?;
 
         let mut ias = init::State::load(self.store(), &actor)?;
 
