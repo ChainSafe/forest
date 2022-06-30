@@ -356,7 +356,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -426,7 +426,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -526,7 +526,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
