@@ -171,7 +171,7 @@ where
         let mb = m.marshal_cbor()?;
         network_sender
             .send(NetworkMessage::PubsubMessage {
-                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, netwo&rk_name)),
+                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
                 message: mb,
             })
             .await
