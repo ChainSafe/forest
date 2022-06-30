@@ -12,7 +12,6 @@ use interpreter::CircSupplyCalc;
 use networks::{ChainConfig, Height};
 use once_cell::sync::OnceCell;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 use vm::{ActorState, TokenAmount};
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
@@ -63,7 +62,7 @@ impl GenesisInfo {
         }
     }
 
-    fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), Box<dyn StdError>> {
+    fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), anyhow::Error> {
         // let genesis_block =
         //     genesis(bs)?.ok_or_else(|| "Genesis Block doesn't exist".to_string())?;
 
@@ -95,7 +94,7 @@ impl CircSupplyCalc for GenesisInfo {
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, Box<dyn StdError>> {
+    ) -> Result<TokenAmount, anyhow::Error> {
         // TODO investigate a better way to handle initializing the genesis actors rather than
         // on first circ supply call. This is currently necessary because it is how Lotus does it
         // but it's not ideal to have the side effect from the VM to modify the genesis info
@@ -103,7 +102,7 @@ impl CircSupplyCalc for GenesisInfo {
         // recalculating using the store, and it avoids computing until circ_supply is called.
         self.vesting
             .genesis
-            .get_or_try_init(|| -> Result<_, Box<dyn StdError>> {
+            .get_or_try_init(|| -> Result<_, anyhow::Error> {
                 self.init(state_tree.store())?;
                 Ok(setup_genesis_vesting_schedule())
             })?;
@@ -123,7 +122,7 @@ impl CircSupplyCalc for GenesisInfo {
         &self,
         _height: ChainEpoch,
         _store: &DB,
-    ) -> Result<TokenAmount, Box<dyn StdError>> {
+    ) -> Result<TokenAmount, anyhow::Error> {
         unimplemented!()
         // self.vesting
         //     .genesis
@@ -147,10 +146,10 @@ impl CircSupplyCalc for GenesisInfo {
 fn get_actor_state<DB: BlockStore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
-) -> Result<ActorState, Box<dyn StdError>> {
+) -> Result<ActorState, anyhow::Error> {
     Ok(state_tree
         .get_actor(addr)?
-        .ok_or_else(|| format!("Failed to get Actor for address {}", addr))?)
+        .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {}", addr))?)
 }
 
 fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
@@ -203,9 +202,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     return_value
 }
 
-fn get_fil_mined<DB: BlockStore>(
-    state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(reward::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -216,7 +213,7 @@ fn get_fil_mined<DB: BlockStore>(
 
 fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(market::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -227,7 +224,7 @@ fn get_fil_market_locked<DB: BlockStore>(
 
 fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -238,7 +235,7 @@ fn get_fil_power_locked<DB: BlockStore>(
 
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
     let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
 
@@ -248,15 +245,13 @@ fn get_fil_reserve_disbursed<DB: BlockStore>(
 
 fn get_fil_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+) -> Result<TokenAmount, anyhow::Error> {
     let market_locked = get_fil_market_locked(state_tree)?;
     let power_locked = get_fil_power_locked(state_tree)?;
     Ok(power_locked + market_locked)
 }
 
-fn get_fil_burnt<DB: BlockStore>(
-    state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
@@ -266,7 +261,7 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<'a, DB>,
-) -> Result<TokenAmount, Box<dyn StdError>> {
+) -> Result<TokenAmount, anyhow::Error> {
     let fil_vested = get_fil_vested(genesis_info, height);
     let fil_mined = get_fil_mined(state_tree)?;
     let fil_burnt = get_fil_burnt(state_tree)?;

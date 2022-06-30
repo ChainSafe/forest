@@ -28,7 +28,6 @@ use state_tree::StateTree;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -53,12 +52,12 @@ pub trait CircSupplyCalc: Clone + 'static {
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, Box<dyn StdError>>;
+    ) -> Result<TokenAmount, anyhow::Error>;
     fn get_fil_vested<DB: BlockStore>(
         &self,
         height: ChainEpoch,
         store: &DB,
-    ) -> Result<TokenAmount, Box<dyn StdError>>;
+    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
@@ -229,10 +228,10 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, Box<dyn StdError>> {
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, anyhow::Error> {
         match self.fvm_executor.state_tree().get_actor(addr) {
             Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
-            Err(err) => Err(format!("failed to get actor: {}", err).into()),
+            Err(err) => anyhow::bail!("failed to get actor: {}", err),
         }
     }
 
@@ -275,7 +274,7 @@ where
         &self,
         epoch: ChainEpoch,
         _store: Arc<impl BlockStore + Send + Sync>,
-    ) -> Result<Option<Cid>, Box<dyn StdError>> {
+    ) -> Result<Option<Cid>, anyhow::Error> {
         match epoch {
             x if x == self.heights.turbo => {
                 // FIXME: Support state migrations.
