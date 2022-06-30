@@ -571,7 +571,6 @@ pub mod tests {
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         let gas_limit = 6955002;
-        let calico_height = ChainConfig::default().epoch(Height::Calico);
         task::block_on(async move {
             let tma = RwLock::new(tma);
             let a = mock_block(1, 1);
