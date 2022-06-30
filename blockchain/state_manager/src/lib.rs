@@ -327,11 +327,11 @@ where
         base_fee: BigInt,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, Box<dyn StdError>>
+    ) -> Result<CidPair, anyhow::Error>
     where
         R: Rand + Clone + 'static,
         V: ProofVerifier,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
@@ -362,6 +362,7 @@ where
                     .unwrap(),
                 heights,
             )
+            .map_err(|e| anyhow::anyhow!("{}", e))
         };
 
         let mut parent_state = *p_state;
@@ -388,7 +389,8 @@ where
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
 
         // Construct receipt root from receipts
-        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
+        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
@@ -409,7 +411,7 @@ where
     pub async fn tipset_state<V>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, Box<dyn StdError>>
+    ) -> Result<CidPair, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -457,7 +459,8 @@ where
                 (*tipset.parent_state(), *message_receipts.message_receipts())
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
-                let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
+                let no_func =
+                    None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
                 let ts_state = self.compute_tipset_state::<V, _>(tipset, no_func).await?;
                 debug!("completed tipset state calculation {:?}", tipset.cids());
                 ts_state
@@ -650,7 +653,7 @@ where
             if *cid == mcid {
                 let _ = m_clone.set(unsigned.message().clone());
                 let _ = r_clone.set(apply_ret.clone());
-                return Err("halt".to_string());
+                anyhow::bail!("halt");
             }
 
             Ok(())
@@ -787,7 +790,7 @@ where
         key: &TipsetKeys,
         round: ChainEpoch,
         address: Address,
-    ) -> Result<Option<MiningBaseInfo>, Box<dyn StdError>> {
+    ) -> Result<Option<MiningBaseInfo>, anyhow::Error> {
         let tipset = self.cs.tipset_from_keys(key).await?;
         let prev = match self.cs.latest_beacon_entry(&tipset).await {
             Ok(prev) => prev,
@@ -796,10 +799,7 @@ where
                     .map(|e| e != "1")
                     .unwrap_or(true)
                 {
-                    return Err(Box::from(format!(
-                        "failed to get latest beacon entry: {:?}",
-                        err
-                    )));
+                    anyhow::bail!("failed to get latest beacon entry: {:?}", err);
                 }
                 beacon::BeaconEntry::default()
             }
@@ -870,7 +870,7 @@ where
     ) -> Result<CidPair, Error>
     where
         V: ProofVerifier,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String> + Send,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         span!("compute_tipset_state", {
             let block_headers = tipset.blocks();
@@ -1312,7 +1312,7 @@ where
         self: &Arc<Self>,
         addr: &Address,
         ts: &Arc<Tipset>,
-    ) -> Result<Address, Box<dyn StdError>>
+    ) -> Result<Address, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -1345,7 +1345,7 @@ where
         self: &Arc<Self>,
         mut ts: Arc<Tipset>,
         height: i64,
-    ) -> Result<(), Box<dyn StdError>> {
+    ) -> Result<(), anyhow::Error> {
         let mut ts_chain = Vec::<Arc<Tipset>>::new();
         while ts.epoch() != height {
             let next = self.cs.tipset_from_keys(ts.parents()).await?;
@@ -1366,22 +1366,20 @@ where
                 )
                 .unwrap();
 
-                return Err(format!(
+                anyhow::bail!(
                     "Tipset chain has state mismatch at height: {}, {} != {}, \
                         receipts mismatched: {}",
                     ts.epoch(),
                     ts.parent_state(),
                     last_state,
                     ts.blocks()[0].message_receipts() != &last_receipt
-                )
-                .into());
+                );
             }
             if ts.blocks()[0].message_receipts() != &last_receipt {
-                return Err(format!(
+                anyhow::bail!(
                     "Tipset message receipts has a mismatch at height: {}",
                     ts.epoch(),
-                )
-                .into());
+                );
             }
             info!(
                 "Computing state (height: {}, ts={:?})",
@@ -1400,8 +1398,10 @@ where
         self: &Arc<Self>,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, Box<dyn StdError>> {
-        self.genesis_info.get_supply(height, state_tree)
+    ) -> Result<TokenAmount, anyhow::Error> {
+        self.genesis_info
+            .get_supply(height, state_tree)
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 
     /// Return the state of Market Actor.

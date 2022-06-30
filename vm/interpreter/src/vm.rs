@@ -239,8 +239,10 @@ where
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
-    ) -> Result<(), Box<dyn StdError>> {
+        callback: Option<
+            &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+        >,
+    ) -> Result<(), anyhow::Error> {
         let cron_msg = UnsignedMessage {
             from: **system::ADDRESS,
             to: **cron::ADDRESS,
@@ -258,7 +260,7 @@ where
 
         let ret = self.apply_implicit_message(&cron_msg)?;
         if let Some(err) = ret.failure_info {
-            return Err(format!("failed to apply block cron message: {}", err).into());
+            anyhow::bail!("failed to apply block cron message: {}", err);
         }
 
         if let Some(callback) = callback {
@@ -289,8 +291,10 @@ where
         &mut self,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
-    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
+        mut callback: Option<
+            impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+        >,
+    ) -> Result<Vec<MessageReceipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
@@ -298,7 +302,7 @@ where
             let mut penalty = Default::default();
             let mut gas_reward = Default::default();
 
-            let mut process_msg = |msg: &ChainMessage| -> Result<(), Box<dyn StdError>> {
+            let mut process_msg = |msg: &ChainMessage| -> Result<(), anyhow::Error> {
                 let cid = msg.cid()?;
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
@@ -348,20 +352,19 @@ where
 
             let ret = self.apply_implicit_message(&rew_msg)?;
             if let Some(err) = ret.failure_info {
-                return Err(format!(
+                anyhow::bail!(
                     "failed to apply reward message for miner {}: {}",
-                    block.miner, err
-                )
-                .into());
+                    block.miner,
+                    err
+                );
             }
 
             // This is more of a sanity check, this should not be able to be hit.
             if ret.msg_receipt.exit_code != ExitCode::OK {
-                return Err(format!(
+                anyhow::bail!(
                     "reward application message failed (exit: {:?})",
                     ret.msg_receipt.exit_code
-                )
-                .into());
+                );
             }
 
             if let Some(callback) = &mut callback {
@@ -376,8 +379,12 @@ where
     }
 
     /// Applies single message through vm and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    pub fn apply_implicit_message(
+        &mut self,
+        msg: &UnsignedMessage,
+    ) -> Result<ApplyRet, anyhow::Error> {
         self.apply_implicit_message_fvm(msg)
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 
     fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
@@ -396,8 +403,9 @@ where
 
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
-    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
+    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
         self.apply_message_fvm(msg)
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 
     fn apply_message_fvm(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
