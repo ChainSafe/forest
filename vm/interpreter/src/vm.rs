@@ -183,7 +183,6 @@ where
                 ForestExterns::new(
                     rand.clone(),
                     epoch,
-                    heights.calico,
                     root,
                     lb_state.chain_epoch_root(),
                     store_arc,

@@ -27,7 +27,6 @@ use std::sync::Arc;
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
-    calico_height: ChainEpoch,
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
     db: Arc<DB>,
@@ -38,7 +37,6 @@ impl<DB: BlockStore> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
-        calico_height: ChainEpoch,
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
         db: Arc<DB>,
@@ -47,7 +45,6 @@ impl<DB: BlockStore> ForestExterns<DB> {
         ForestExterns {
             rand: Box::new(rand),
             epoch,
-            calico_height,
             root,
             lookback,
             db,
