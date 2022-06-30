@@ -147,6 +147,7 @@ mod tests {
     use super::*;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
+    use fvm::gas;
     use fvm::gas::price_list_by_network_version;
     use fvm::gas::Gas;
     use networks::{ChainConfig, Height};
@@ -160,7 +161,7 @@ mod tests {
         let gbs = GasBlockStore {
             price_list: price_list.clone(),
             gas: Rc::new(RefCell::new(GasTracker::new(
-                Gas::new(5000000000000),
+                Gas::new(i64::MAX),
                 Gas::new(0),
             ))),
             store: &db,
@@ -168,12 +169,13 @@ mod tests {
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
-        assert_eq!(
-            gbs.gas.borrow().gas_used(),
-            price_list.on_block_link(2).compute_gas + price_list.on_block_link(2).storage_gas
-        );
+        let mut charge_gas = price_list.on_block_link(2);
+        let put_gas = charge_gas.compute_gas + charge_gas.storage_gas;
+        assert_eq!(gbs.gas.borrow().gas_used(), put_gas);
         gbs.get::<u8>(&c).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(491859));
+        charge_gas = price_list.on_block_open_base();
+        let get_gas = charge_gas.compute_gas + charge_gas.storage_gas;
+        assert_eq!(gbs.gas.borrow().gas_used(), put_gas + get_gas);
     }
 
     #[test]
