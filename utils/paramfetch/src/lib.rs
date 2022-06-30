@@ -16,7 +16,6 @@ use net_utils::FetchProgress;
 use pbr::{MultiBar, Units};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
@@ -59,7 +58,7 @@ pub async fn get_params(
     param_json: &str,
     storage_size: SectorSizeOpt,
     is_verbose: bool,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     fs::create_dir_all(param_dir()).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
@@ -120,7 +119,7 @@ pub async fn get_params(
 pub async fn get_params_default(
     storage_size: SectorSizeOpt,
     is_verbose: bool,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     get_params(DEFAULT_PARAMETERS, storage_size, is_verbose).await
 }
 
@@ -128,7 +127,7 @@ async fn fetch_verify_params(
     name: &str,
     info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     let path: PathBuf = [&param_dir(), name].iter().collect();
     let path: Arc<Path> = Arc::from(path.as_path());
 
@@ -153,7 +152,7 @@ async fn fetch_params(
     path: &Path,
     info: &ParameterData,
     multi_bar: Option<Arc<MultiBar<Stdout>>>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     debug!("Fetching {:?} from {}", path, gw);
 
@@ -183,13 +182,13 @@ async fn fetch_params(
         pb.set_units(Units::Bytes);
 
         let mut source = FetchProgress {
-            inner: req.await?,
+            inner: req.await.map_err(|e| anyhow::anyhow!(e))?,
             progress_bar: pb,
         };
         copy(&mut source, &mut writer).await?;
         source.finish();
     } else {
-        let mut source = req.await?;
+        let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?;
         copy(&mut source, &mut writer).await?;
     };
 
