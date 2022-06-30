@@ -50,25 +50,4 @@ pub mod json {
             Ok(None)
         }
     }
-
-    // pub mod gas {
-    //     use fvm::gas::Gas;
-    //     use serde::{self, Deserialize, Serialize, Serializer};
-
-    //     pub fn serialize<S>(v: &Gas, serializer: S) -> Result<S::Ok, S::Error>
-    //     where
-    //         S: Serializer,
-    //     {
-    //         i64::serialize(&v.as_milligas(), serializer)
-    //     }
-
-    //     pub fn deserialize<'de, D>(deserializer: D) -> Result<Gas, D::Error>
-    //     where
-    //         D: serde::Deserializer<'de>,
-    //     {
-    //         let s = String::deserialize(deserializer)?;
-    //         let milligas = s.parse::<i64>().map_err(serde::de::Error::custom)?;
-    //         Ok(Gas::from_milligas(milligas))
-    //     }
-    // }
 }
