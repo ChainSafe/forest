@@ -597,7 +597,6 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
@@ -636,7 +635,6 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
@@ -681,7 +679,6 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
@@ -730,7 +727,6 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
@@ -781,7 +777,6 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
@@ -821,7 +816,6 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
@@ -864,7 +858,6 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
