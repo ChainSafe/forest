@@ -147,7 +147,7 @@ mod tests {
     use super::*;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
-    
+
     use fvm::gas::price_list_by_network_version;
     use fvm::gas::Gas;
     use networks::{ChainConfig, Height};
@@ -170,11 +170,11 @@ mod tests {
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
         let mut charge_gas = price_list.on_block_link(2);
-        let put_gas = charge_gas.compute_gas + charge_gas.storage_gas;
+        let put_gas = charge_gas.total();
         assert_eq!(gbs.gas.borrow().gas_used(), put_gas);
         gbs.get::<u8>(&c).unwrap();
         charge_gas = price_list.on_block_open_base();
-        let get_gas = charge_gas.compute_gas + charge_gas.storage_gas;
+        let get_gas = charge_gas.total();
         assert_eq!(gbs.gas.borrow().gas_used(), put_gas + get_gas);
     }
 
