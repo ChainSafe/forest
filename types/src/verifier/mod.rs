@@ -10,7 +10,6 @@ use crate::{
     SectorInfo,
 };
 use address::Address;
-use anyhow::Error;
 use encoding::bytes_32;
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
@@ -91,8 +90,7 @@ pub trait ProofVerifier {
             .par_iter()
             .map(|input| {
                 seal::get_seal_inputs(
-                    spt.try_into()
-                        .map_err(|e| Err(Error::msg("Couldn't convert RegisteredSealProof")))?,
+                    spt.try_into()?,
                     input.commr,
                     input.commd,
                     prover_id,
@@ -108,8 +106,8 @@ pub trait ProofVerifier {
         let commrs: Vec<[u8; 32]> = inputs.iter().map(|input| input.commr).collect();
         let seeds: Vec<[u8; 32]> = inputs.iter().map(|input| input.seed).collect();
         if !verify_aggregate_seal_commit_proofs(
-            spt,
-            aggregate.aggregate_proof,
+            spt.try_into()?,
+            aggregate.aggregate_proof.try_into()?,
             aggregate.proof.clone(),
             &commrs,
             &seeds,
