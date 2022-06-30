@@ -64,7 +64,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
-    calico_height: ChainEpoch,
+    _calico_height: ChainEpoch,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
@@ -900,7 +900,6 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
                 &chain_config,
             )
             .await
