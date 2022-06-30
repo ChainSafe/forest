@@ -20,7 +20,6 @@ use cid::Cid;
 use crypto::Signature;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use fvm_shared::clock::ChainEpoch;
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};

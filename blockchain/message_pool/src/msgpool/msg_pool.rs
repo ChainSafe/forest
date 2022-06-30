@@ -188,7 +188,6 @@ where
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
 
         let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
         let mut mp = MessagePool {
