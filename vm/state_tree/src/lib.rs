@@ -330,7 +330,7 @@ where
     /// Mutate and set actor state for an Address.
     pub fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), anyhow::Error>
     where
-        F: FnOnce(&mut ActorState) -> Result<(), String>,
+        F: FnOnce(&mut ActorState) -> Result<(), anyhow::Error>,
     {
         // Retrieve actor state from address
         let mut act: ActorState = self.get_actor(addr)?.ok_or(anyhow::anyhow!(
@@ -339,7 +339,7 @@ where
         ))?;
 
         // Apply function of actor state
-        mutate(&mut act).map_err(|e| anyhow::anyhow!("{}", e))?;
+        mutate(&mut act)?;
         // Set the actor
         self.set_actor(addr, act)
     }
