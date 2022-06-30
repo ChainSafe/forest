@@ -156,8 +156,9 @@ mod tests {
         let calico_height = ChainConfig::default().epoch(Height::Calico);
         let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
+        let price_list = price_list_by_network_version(network_version).clone();
         let gbs = GasBlockStore {
-            price_list: price_list_by_network_version(network_version).clone(),
+            price_list: price_list.clone(),
             gas: Rc::new(RefCell::new(GasTracker::new(
                 Gas::new(5000000000000),
                 Gas::new(0),
@@ -167,7 +168,10 @@ mod tests {
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(356242));
+        assert_eq!(
+            gbs.gas.borrow().gas_used(),
+            price_list.on_block_link(2).compute_gas + price_list.on_block_link(2).storage_gas
+        );
         gbs.get::<u8>(&c).unwrap();
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(491859));
     }
