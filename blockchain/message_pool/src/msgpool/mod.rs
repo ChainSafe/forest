@@ -64,7 +64,6 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
-    _calico_height: ChainEpoch,
     chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where

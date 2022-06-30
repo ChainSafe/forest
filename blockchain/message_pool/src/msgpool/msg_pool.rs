@@ -158,8 +158,6 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    // /// Calico height
-    // pub calico_height: ChainEpoch,
     /// Chain сonfig
     pub chain_config: ChainConfig,
 }
@@ -285,7 +283,6 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
-                    calico_height,
                     &chain_config,
                 )
                 .await
