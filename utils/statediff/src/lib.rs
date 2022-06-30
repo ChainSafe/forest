@@ -18,7 +18,6 @@ use state_tree::StateTree;
 use vm::ActorState;
 
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;
@@ -152,7 +151,7 @@ pub fn print_actor_diff<BS: BlockStore>(
     expected: &ActorState,
     actual: &ActorState,
     depth: Option<u64>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     let expected_pp = pp_actor_state(bs, expected, depth)?;
     let actual_pp = pp_actor_state(bs, actual, depth)?;
 
@@ -170,7 +169,7 @@ pub fn print_state_diff<BS>(
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
     BS: BlockStore,
 {

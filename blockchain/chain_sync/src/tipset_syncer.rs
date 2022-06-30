@@ -4,7 +4,6 @@
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
