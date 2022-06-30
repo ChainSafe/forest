@@ -188,7 +188,6 @@ pub trait ProofVerifier {
 
         // Verify Proof
         post::verify_window_post(&bytes_32(&randomness), &proofs, &replicas, prover_id)
-            .map_err(|err| err.into())
     }
 
     /// Generates sector challenge indexes for use in winning PoSt verification.
@@ -201,12 +200,12 @@ pub trait ProofVerifier {
         // Necessary to be valid bls12 381 element.
         randomness[31] &= 0x3f;
 
-        Ok(post::generate_winning_post_sector_challenge(
+        post::generate_winning_post_sector_challenge(
             proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
             &bytes_32(&randomness),
             eligible_sector_count,
             prover_id_from_u64(prover_id),
-        )?)
+        )
     }
 }
 
