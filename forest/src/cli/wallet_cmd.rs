@@ -9,13 +9,7 @@ use std::{
 use structopt::StructOpt;
 
 use address::{json::AddressJson, Address};
-use forest_crypto::{
-    signature::{
-        json::{signature_type::SignatureTypeJson, SignatureJson},
-        SignatureType,
-    },
-    Signature,
-};
+use fvm_shared::signature::{Signature, SignatureType};
 use rpc_client::wallet_ops::*;
 use utils::read_file_to_string;
 use wallet::json::KeyInfoJson;

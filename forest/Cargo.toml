@@ -26,7 +26,6 @@ state_manager     = { path = "../blockchain/state_manager" }
 cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
 multibase         = "0.9"
 forest_car        = { path = "../ipld/car" }
-forest_crypto     = { version = "0.5", features = ["json"] }
 vm                = { package = "forest_vm", version = "0.3" }
 tokio             = { version = "1.0", features = ["sync"] }
 num-bigint        = { path = "../utils/bigint", package = "forest_bigint" }
