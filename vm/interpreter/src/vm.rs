@@ -403,35 +403,27 @@ where
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
-        self.apply_message_fvm(msg)
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    fn apply_message_fvm(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
         check_message(msg.message())?;
 
         use fvm::executor::Executor;
         let unsigned = msg.message();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let fvm_ret = self
-            .fvm_executor
-            .execute_message(
-                unsigned.into(),
-                fvm::executor::ApplyKind::Explicit,
-                raw_length,
-            )
-            .map_err(|e| format!("{:?}", e))?;
+        let fvm_ret = self.fvm_executor.execute_message(
+            unsigned.into(),
+            fvm::executor::ApplyKind::Explicit,
+            raw_length,
+        )?;
         Ok(fvm_ret)
     }
 }
 
 /// Does some basic checks on the Message to see if the fields are valid.
-fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
+fn check_message(msg: &UnsignedMessage) -> Result<(), anyhow::Error> {
     if msg.gas_limit == 0 {
-        return Err("Message has no gas limit set");
+        anyhow::bail!("Message has no gas limit set");
     }
     if msg.gas_limit < 0 {
-        return Err("Message has negative gas limit");
+        anyhow::bail!("Message has negative gas limit");
     }
 
     Ok(())
