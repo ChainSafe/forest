@@ -91,15 +91,12 @@ where
 
         let mut selected_sectors = BitField::new();
         for n in ids {
-            let sno = iter
-                .nth(n as usize)
-                .ok_or_else(|| {
-                    format!(
-                        "Error iterating over proving sectors, id {} does not exist",
-                        n
-                    )
-                })
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let sno = iter.nth(n as usize).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Error iterating over proving sectors, id {} does not exist",
+                    n
+                )
+            })?;
             selected_sectors.set(sno);
         }
 
