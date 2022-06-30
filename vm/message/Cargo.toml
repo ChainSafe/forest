@@ -11,7 +11,7 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-fvm_shared        = { version = "*", default-features = false }
+fvm_shared        = { version = "0.7.1", default-features = false }
 fvm_ipld_encoding = "0.2"
 vm                = { package = "forest_vm", version = "0.3" }
 address           = { package = "forest_address", version = "0.3" }
@@ -33,11 +33,6 @@ default = ["blst"]
 blst    = ["fvm_shared/blst"]
 pairing = ["fvm_shared/pairing"]
 
-json = [
-    "base64",
-    "forest_json_utils",
-    "cid/json",
-    "num-bigint/json",
-]
+json = ["base64", "forest_json_utils", "cid/json", "num-bigint/json"]
 # TODO try to prune out this dependency before releasing
 proofs = ["fil_types"]
