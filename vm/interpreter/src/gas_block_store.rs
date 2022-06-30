@@ -169,12 +169,10 @@ mod tests {
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         let c = gbs.put(&200u8, Blake2b256).unwrap();
-        let mut charge_gas = price_list.on_block_link(2);
-        let put_gas = charge_gas.total();
+        let put_gas = price_list.on_block_link(2).total();
         assert_eq!(gbs.gas.borrow().gas_used(), put_gas);
         gbs.get::<u8>(&c).unwrap();
-        charge_gas = price_list.on_block_open_base();
-        let get_gas = charge_gas.total();
+        let get_gas = price_list.on_block_open_base().total();
         assert_eq!(gbs.gas.borrow().gas_used(), put_gas + get_gas);
     }
 
