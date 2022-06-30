@@ -30,6 +30,7 @@ lazy_static         = "1.4"
 async-std           = "1.9"
 git-version         = "0.3"
 rayon               = "1.5"
+anyhow              = "1.0.58"
 
 [features]
 json   = ["base64", "forest_json_utils", "num-bigint/json"]

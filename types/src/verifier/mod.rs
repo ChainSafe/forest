@@ -10,6 +10,7 @@ use crate::{
     SectorInfo,
 };
 use address::Address;
+use anyhow::Error;
 use encoding::bytes_32;
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
@@ -38,7 +39,7 @@ pub trait ProofVerifier {
         let prover_id = prover_id_from_u64(vi.sector_id.miner);
 
         if !proofs_verify_seal(
-            vi.registered_proof,
+            vi.registered_proof.try_into()?,
             commr,
             commd,
             prover_id,
@@ -90,7 +91,8 @@ pub trait ProofVerifier {
             .par_iter()
             .map(|input| {
                 seal::get_seal_inputs(
-                    spt,
+                    spt.try_into()
+                        .map_err(|e| Err(Error::msg("Couldn't convert RegisteredSealProof")))?,
                     input.commr,
                     input.commd,
                     prover_id,
@@ -191,7 +193,7 @@ pub trait ProofVerifier {
         randomness[31] &= 0x3f;
 
         Ok(post::generate_winning_post_sector_challenge(
-            proof,
+            proof.try_into()?,
             &bytes_32(&randomness),
             eligible_sector_count,
             prover_id_from_u64(prover_id),
@@ -224,7 +226,7 @@ fn to_fil_public_replica_infos(
                 ProofType::Winning => sector_info.proof.registered_winning_post_proof()?,
                 ProofType::Window => sector_info.proof.registered_window_post_proof()?,
             };
-            let replica = PublicReplicaInfo::new(proof, commr);
+            let replica = PublicReplicaInfo::new(proof.try_into()?, commr);
             Ok((SectorId::from(sector_info.sector_number), replica))
         })
         .collect::<Result<BTreeMap<SectorId, PublicReplicaInfo>, _>>()?;

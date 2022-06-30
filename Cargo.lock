@@ -551,6 +551,7 @@ dependencies = [
 name = "auth"
 version = "0.1.0"
 dependencies = [
+ "fvm_shared 0.7.1",
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
@@ -2926,6 +2927,7 @@ dependencies = [
 name = "fil_types"
 version = "0.2.2"
 dependencies = [
+ "anyhow",
  "async-std",
  "base64 0.13.0",
  "fil_clock",
