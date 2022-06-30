@@ -328,5 +328,5 @@ pub fn compute_unsealed_sector_cid(
         &all_pieces,
     )?;
 
-    Ok(data_commitment_v1_to_cid(&comm_d).map_err(|e| anyhow::anyhow!("{}", e))?)
+    data_commitment_v1_to_cid(&comm_d).map_err(|e| anyhow::anyhow!("{}", e))
 }
