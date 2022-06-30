@@ -72,7 +72,7 @@ impl State {
         match self {
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                Ok(st.resolve_address(&fvm_store, addr).expect("FIXME"))
+                st.resolve_address(&fvm_store, addr)
             }
         }
     }

@@ -101,7 +101,7 @@ impl State {
         match self {
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                Ok(fil_actor_market_v7::validate_deals_for_activation(
+                fil_actor_market_v7::validate_deals_for_activation(
                     st,
                     &fvm_store,
                     deal_ids,
@@ -110,7 +110,6 @@ impl State {
                     curr_epoch,
                 )
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-                .expect("FIXME"))
             } // _ => unimplemented!(),
         }
     }

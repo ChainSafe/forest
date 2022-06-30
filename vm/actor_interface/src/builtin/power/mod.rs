@@ -108,9 +108,7 @@ impl State {
         match self {
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                Ok(st
-                    .miner_nominal_power_meets_consensus_minimum(&fvm_store, miner)
-                    .expect("FIXME"))
+                st.miner_nominal_power_meets_consensus_minimum(&fvm_store, miner)
             }
         }
     }

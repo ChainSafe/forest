@@ -85,13 +85,11 @@ impl State {
         match self {
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                st.load_deadlines(&fvm_store)?
-                    .for_each(&Default::default(), &fvm_store, |idx, dl| {
-                        f(idx as u64, Deadline::V7(dl)).expect("FIXME");
-                        Ok(())
-                    })
-                    .expect("FIXME");
-                Ok(())
+                st.load_deadlines(&fvm_store)?.for_each(
+                    &Default::default(),
+                    &fvm_store,
+                    |idx, dl| f(idx as u64, Deadline::V7(dl)),
+                )
             }
         }
     }
@@ -230,11 +228,8 @@ impl Deadline {
             Deadline::V7(dl) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 dl.for_each(&fvm_store, |idx, part| {
-                    f(idx as u64, Partition::V7(Cow::Borrowed(part))).expect("FIXME");
-                    Ok(())
+                    f(idx as u64, Partition::V7(Cow::Borrowed(part)))
                 })
-                .expect("FIXME");
-                Ok(())
             }
         }
     }
