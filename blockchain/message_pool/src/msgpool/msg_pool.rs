@@ -29,7 +29,7 @@ use db::Store;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
-use fvm::gas::{Gas, price_list_by_network_version};
+use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::{BigInt, Integer};
 use log::warn;
 use lru::LruCache;
