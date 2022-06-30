@@ -32,11 +32,10 @@ use futures::{future::select, StreamExt};
 use fvm::gas::price_list_by_network_version;
 use fvm::gas::Gas;
 use fvm_shared::bigint::{BigInt, Integer};
-
 use log::warn;
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};
-use networks::{ChainConfig, Height, NEWEST_NETWORK_VERSION};
+use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
