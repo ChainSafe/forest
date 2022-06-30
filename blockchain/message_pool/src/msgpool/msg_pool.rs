@@ -387,8 +387,7 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let publish =
-            verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
+        let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -478,8 +477,7 @@ where
             return Err(Error::TryAgain);
         }
 
-        let publish =
-            verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
+        let publish = verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
