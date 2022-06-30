@@ -10,7 +10,6 @@ use blocks::Tipset;
 use encoding::Cbor;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::BigInt;
-
 use log::warn;
 use message::{Message, SignedMessage};
 use networks::ChainConfig;

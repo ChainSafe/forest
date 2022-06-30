@@ -146,7 +146,6 @@ mod tests {
     use super::*;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
-
     use fvm::gas::price_list_by_network_version;
     use fvm::gas::Gas;
     use networks::{ChainConfig, Height};
