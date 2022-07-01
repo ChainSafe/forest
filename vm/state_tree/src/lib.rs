@@ -211,8 +211,7 @@ where
             | StateTreeVersion::V2
             | StateTreeVersion::V3
             | StateTreeVersion::V4 => {
-                let hamt = Map::load(&actors, store, version.into())
-                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                let hamt = Map::load(&actors, store, version.into())?;
 
                 Ok(Self {
                     hamt,

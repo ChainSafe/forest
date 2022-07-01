@@ -10,7 +10,6 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
-use std::error::Error;
 
 pub enum Map<'a, BS, V> {
     V7(fil_actors_runtime_v7::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
@@ -34,7 +33,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, Box<dyn Error>> {
+    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
             ActorVersion::V7 => Ok(Map::V7(
                 fil_actors_runtime_v7::fvm_ipld_hamt::Hamt::load_with_bit_width(
