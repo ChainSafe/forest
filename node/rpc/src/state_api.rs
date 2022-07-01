@@ -758,7 +758,7 @@ pub(crate) async fn state_miner_sector_allocated<
         //     .get::<bitfield::BitField>(&m.allocated_sectors)?
         //     .ok_or("allocated sectors bitfield not found")?
         //     .get(sector_num as usize),
-        miner::State::V7(m) => data
+        miner::State::V8(m) => data
             .chain_store
             .db
             .get::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
@@ -834,7 +834,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = fil_actor_miner_v7::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = fil_actor_miner_v8::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
         .get_actor(power::ADDRESS)?
@@ -878,7 +878,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = fil_actor_miner_v7::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = fil_actor_miner_v8::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
         .get_actor(power::ADDRESS)?

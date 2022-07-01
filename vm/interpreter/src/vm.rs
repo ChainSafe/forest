@@ -199,7 +199,7 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        self.fvm_executor.flush()
+        Ok(self.fvm_executor.flush()?)
     }
 
     /// Get actor state from an address. Will be resolved to ID address.

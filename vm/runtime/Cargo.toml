@@ -19,7 +19,7 @@ filecoin-proofs-api = { version = "11.0", default_features = false }
 base64              = "0.13"
 fil_types           = { features = ["proofs"], version = "0.2" }
 log                 = "0.4"
-fvm_shared          = { version = "0.7.1", default-features = false }
+fvm_shared          = { version = "0.8.0", default-features = false }
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }

@@ -11,17 +11,18 @@ use vm::{ActorState, TokenAmount};
 use anyhow::Context;
 
 /// Reward actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::REWARD_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::REWARD_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::REWARD_ACTOR_ADDR =
+    &fil_actors_runtime_v8::builtin::singletons::REWARD_ACTOR_ADDR;
 
 /// Reward actor method.
-pub type Method = fil_actor_reward_v7::Method;
+pub type Method = fil_actor_reward_v8::Method;
 
 /// Reward actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_reward_v7::State),
+    // V7(fil_actor_reward_v7::State),
+    V8(fil_actor_reward_v8::State),
 }
 
 impl State {
@@ -29,21 +30,22 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward")) {
-            Ok(store
-                .get_anyhow(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
-        }
+        // if actor.code == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward")) {
+        //     Ok(store
+        //         .get_anyhow(&actor.state)?
+        //         .map(State::V7)
+        //         .context("Actor state doesn't exist in store")?)
+        // } else {
+        Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
+        // }
     }
 
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> StoragePower {
-        match self {
-            State::V7(st) => st.into_total_storage_power_reward(),
-        }
+        todo!()
+        // match self {
+        //     State::V7(st) => st.into_total_storage_power_reward(),
+        // }
     }
 
     pub fn pre_commit_deposit_for_power(
@@ -51,9 +53,10 @@ impl State {
         _network_qa_power: FilterEstimate,
         _sector_weight: &StoragePower,
     ) -> TokenAmount {
-        match self {
-            State::V7(_st) => todo!(),
-        }
+        todo!()
+        // match self {
+        //     State::V7(_st) => todo!(),
+        // }
     }
 
     pub fn initial_pledge_for_power(
@@ -63,8 +66,9 @@ impl State {
         _network_qa_power: FilterEstimate,
         _circ_supply: &TokenAmount,
     ) -> TokenAmount {
-        match self {
-            State::V7(_st) => todo!(),
-        }
+        todo!()
+        // match self {
+        //     State::V7(_st) => todo!(),
+        // }
     }
 }

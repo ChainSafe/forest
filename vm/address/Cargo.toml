@@ -8,7 +8,7 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-fvm_shared          = { version = "0.7.1", default-features = false }
+fvm_shared          = { version = "0.8.0", default-features = false }
 num-traits          = "0.2"
 num-derive          = "0.3"
 data-encoding       = "2.1"

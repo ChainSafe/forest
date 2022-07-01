@@ -208,7 +208,7 @@ fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
-    let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
+    let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
     Ok(fil_reserved - reserve_actor.balance)

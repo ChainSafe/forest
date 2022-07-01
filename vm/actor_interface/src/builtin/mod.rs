@@ -15,10 +15,10 @@ use crate::ActorVersion;
 
 use cid::Cid;
 
-use fil_actors_runtime_v7::builtin::network;
-use fil_actors_runtime_v7::builtin::singletons;
+use fil_actors_runtime_v8::builtin::network;
+use fil_actors_runtime_v8::builtin::singletons;
 
-pub use fil_actor_reward_v7::AwardBlockRewardParams;
+pub use fil_actor_reward_v8::AwardBlockRewardParams;
 
 pub use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 pub use fvm_shared::smooth::FilterEstimate;
@@ -28,7 +28,9 @@ pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
 pub static CHAOS_ACTOR_ADDR: &singletons::CHAOS_ACTOR_ADDR = &singletons::CHAOS_ACTOR_ADDR;
 pub static BURNT_FUNDS_ACTOR_ADDR: &singletons::BURNT_FUNDS_ACTOR_ADDR =
     &singletons::BURNT_FUNDS_ACTOR_ADDR;
-pub static RESERVE_ADDRESS: &singletons::RESERVE_ADDRESS = &singletons::RESERVE_ADDRESS;
+// pub static RESERVE_ADDRESS: &singletons::RESERVE_ADDRESS = &singletons::RESERVE_ADDRESS;
+
+pub static RESERVE_ADDRESS: address::Address = address::Address::new_id(90);
 
 #[macro_export]
 macro_rules! load_actor_state {

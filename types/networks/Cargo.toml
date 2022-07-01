@@ -1,17 +1,17 @@
 [package]
-name = "networks"
+name    = "networks"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-fil_types = { path = "../../types" }
+anyhow      = "1.0"
+fil_types   = { path = "../../types" }
 lazy_static = "1.4"
-beacon = { path = "../../blockchain/beacon" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-fvm_shared = { version = "0.7.1", default-features = false }
+beacon      = { path = "../../blockchain/beacon" }
+serde       = { version = "1.0", features = ["derive"] }
+serde_json  = "1.0"
+fvm_shared  = { version = "0.8.0", default-features = false }
 
 [dev-dependencies]
 toml = "0.5"

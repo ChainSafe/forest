@@ -16,17 +16,18 @@ use vm::{ActorState, TokenAmount};
 use anyhow::Context;
 
 /// Market actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR =
+    &fil_actors_runtime_v8::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
 
 /// Market actor method.
-pub type Method = fil_actor_market_v7::Method;
+pub type Method = fil_actor_market_v8::Method;
 
 /// Market actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_market_v7::State),
+    // V7(fil_actor_market_v7::State),
+    V7(fil_actor_market_v8::State),
 }
 
 impl State {
@@ -99,9 +100,21 @@ impl State {
         BS: BlockStore,
     {
         match self {
+            // State::V7(st) => {
+            //     let fvm_store = ipld_blockstore::FvmRefStore::new(store);
+            //     fil_actor_market_v7::validate_deals_for_activation(
+            //         st,
+            //         &fvm_store,
+            //         deal_ids,
+            //         miner_addr,
+            //         sector_expiry,
+            //         curr_epoch,
+            //     )
+            //     .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
+            // },
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                fil_actor_market_v7::validate_deals_for_activation(
+                fil_actor_market_v8::validate_deals_for_activation(
                     st,
                     &fvm_store,
                     deal_ids,
@@ -110,7 +123,8 @@ impl State {
                     curr_epoch,
                 )
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-            } // _ => unimplemented!(),
+            }
+            // _ => unimplemented!(),
         }
     }
 }

@@ -10,8 +10,8 @@ actors-v6 = { package = "fil_builtin_actors_bundle", version = "6.1.0" }
 actors-v7 = { package = "fil_builtin_actors_bundle", version = "7.5.1" }
 wasmtime = { version = "0.35", default-features = false }
 anyhow = "1.0"
-fvm = { version = "0.8", features = [] }
-fvm_shared = { version = "0.7.1", default-features = false }
+fvm = { version = "1.0", features = [] }
+fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding = "0.2"
 fvm_ipld_amt = "0.4.2"
 fvm_ipld_hamt = "0.5.1"

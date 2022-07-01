@@ -11,17 +11,18 @@ use vm::ActorState;
 use anyhow::Context;
 
 /// Init actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::INIT_ACTOR_ADDR =
+    &fil_actors_runtime_v8::builtin::singletons::INIT_ACTOR_ADDR;
 
 /// Init actor method.
-pub type Method = fil_actor_init_v7::Method;
+pub type Method = fil_actor_init_v8::Method;
 
 /// Init actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_init_v7::State),
+    // V7(fil_actor_init_v7::State),
+    V7(fil_actor_init_v8::State),
 }
 
 impl State {

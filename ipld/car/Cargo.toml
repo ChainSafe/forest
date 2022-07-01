@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-fvm_shared        = "0.7.1"
+fvm_shared        = "0.8.0"
 fvm_ipld_encoding = "0.2"
 cid               = { package = "forest_cid", version = "0.3", features = ["cbor"] }
 forest_encoding   = "0.2"

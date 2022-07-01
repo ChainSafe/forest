@@ -6,11 +6,11 @@ use serde::Serialize;
 use vm::ActorState;
 
 /// Cron actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::CRON_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::CRON_ACTOR_ADDR;
+pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::CRON_ACTOR_ADDR =
+    &fil_actors_runtime_v8::builtin::singletons::CRON_ACTOR_ADDR;
 
 /// Cron actor method.
-pub type Method = fil_actor_cron_v7::Method;
+pub type Method = fil_actor_cron_v8::Method;
 
 /// Cron actor state.
 #[derive(Serialize)]

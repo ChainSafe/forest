@@ -7,7 +7,7 @@ edition     = "2021"
 build       = "build.rs"
 
 [dependencies]
-fvm               = "0.8"
+fvm               = "1.0"
 address           = { package = "forest_address", version = "0.3" }
 base64            = "0.13"
 forest_libp2p     = { path = "../node/forest_libp2p" }
@@ -62,7 +62,7 @@ byte-unit         = "4.0"
 rug               = "1.13"
 toml              = "0.5"
 directories       = "4.0.1"
-fvm_shared        = { version = "0.7.1", default-features = false }
+fvm_shared        = { version = "0.8.0", default-features = false }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"
