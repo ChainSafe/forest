@@ -130,7 +130,7 @@ where
         network_version: NetworkVersion,
         circ_supply_calc: C,
         override_circ_supply: Option<TokenAmount>,
-        lb_state: &'db LB,
+        lb_state: &LB,
         engine: Engine,
         heights: Heights,
     ) -> Result<Self, String>
