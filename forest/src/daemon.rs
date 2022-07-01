@@ -39,7 +39,7 @@ pub(super) async fn start(config: Config) {
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
     );
 
-    let path: PathBuf = [&config.data_dir, "libp2p"].iter().collect();
+    let path: PathBuf = config.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
         // Keypair not found, generate and save generated keypair
         let gen_keypair = ed25519::Keypair::generate();
