@@ -1820,7 +1820,7 @@ mod test {
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
-        let c =
+        let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
         let fmt_str = format!("===={}=====", ticket_sequence);
@@ -1834,9 +1834,9 @@ mod test {
             .miner_address(addr)
             .election_proof(Some(election_proof))
             .ticket(Some(ticket))
-            .message_receipts(c)
-            .messages(c)
-            .state_root(c)
+            .message_receipts(cid)
+            .messages(cid)
+            .state_root(cid)
             .weight(weight_inc)
             .build()
             .unwrap()

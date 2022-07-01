@@ -134,20 +134,20 @@ impl Tipset {
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
-    /// Returns true if self wins according to the filecoin tie-break rule
-    /// (FIP-0023)
+    /// Returns true if self wins according to the filecoin tie-break rule (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
-        for (a, b) in self.blocks().iter().zip(other.blocks().iter()) {
+        let broken = self.blocks().iter().zip(other.blocks().iter()).any(|(a, b)| {
             let ticket = a.ticket().as_ref().unwrap();
             let other_ticket = b.ticket().as_ref().unwrap();
-            if ticket.vrfproof < other_ticket.vrfproof {
-                info!("weight tie broken in favour of {:?}", self.key());
-                return true;
-            }
+            ticket.vrfproof < other_ticket.vrfproof
+        });
+        if broken {
+            info!("weight tie broken in favour of {:?}", self.key());
+        } else {
+            info!("weight tie left unbroken, default to {:?}", other.key());
         }
-        info!("weight tie left unbroken, default to {:?}", other.key());
-        false
+        broken
     }
 }
 
@@ -372,7 +372,7 @@ mod test {
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
-        let c =
+        let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
         let fmt_str = format!("===={}=====", ticket_sequence);
@@ -386,9 +386,9 @@ mod test {
             .miner_address(addr)
             .election_proof(Some(election_proof))
             .ticket(Some(ticket))
-            .message_receipts(c)
-            .messages(c)
-            .state_root(c)
+            .message_receipts(cid)
+            .messages(cid)
+            .state_root(cid)
             .weight(weight_inc)
             .build()
             .unwrap()
