@@ -25,12 +25,10 @@ use message::{ChainMessage, MessageReceipt, UnsignedMessage};
 use networks::{ChainConfig, Height};
 use num_traits::Zero;
 use state_tree::StateTree;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 use vm::{ExitCode, Serialized, TokenAmount};
 
@@ -91,26 +89,9 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<
-    'db,
-    'r,
-    DB: BlockStore + 'static,
-    R,
-    C: CircSupplyCalc,
-    LB,
-    V = FullVerifier,
-    P = DefaultNetworkParams,
-> {
-    _state: Rc<RefCell<StateTree<'db, DB>>>,
-    _store: &'db DB,
-    _epoch: ChainEpoch,
-    _rand: &'r R,
-    _base_fee: BigInt,
+pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
     registered_actors: HashSet<Cid>,
-    _network_version: NetworkVersion,
-    _circ_supply_calc: C,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
-    _lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
     heights: Heights,
@@ -132,30 +113,32 @@ pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, C
         .collect()
 }
 
-impl<'db, 'r, DB, R, C, LB, V, P> VM<'db, 'r, DB, R, C, LB, V, P>
+impl<DB, V, P> VM<DB, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
-    R: Rand + Clone + 'static,
-    C: CircSupplyCalc,
-    LB: LookbackStateGetter<'db, DB>,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new<'db, R, C, LB>(
         root: Cid,
-        store: &'db DB,
+        store: &DB,
         store_arc: Arc<DB>,
         epoch: ChainEpoch,
-        rand: &'r R,
+        rand: &R,
         base_fee: BigInt,
         network_version: NetworkVersion,
         circ_supply_calc: C,
         override_circ_supply: Option<TokenAmount>,
-        lb_state: &'r LB,
+        lb_state: &LB,
         engine: Engine,
         heights: Heights,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, String>
+    where
+        R: Rand + Clone + 'static,
+        C: CircSupplyCalc,
+        LB: LookbackStateGetter<'db, DB>,
+    {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
@@ -172,7 +155,7 @@ where
         let mut context = NetworkConfig::new(network_version)
             .override_actors(builtin_actors)
             .for_epoch(epoch, root);
-        context.set_base_fee(base_fee.clone());
+        context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
@@ -196,16 +179,8 @@ where
                 circ_supply: override_circ_supply,
             });
         Ok(VM {
-            _network_version: network_version,
-            _state: Rc::new(RefCell::new(state)),
-            _store: store,
-            _epoch: epoch,
-            _rand: rand,
-            _base_fee: base_fee,
             registered_actors,
             fvm_executor: exec,
-            _circ_supply_calc: circ_supply_calc,
-            _lb_state: lb_state,
             verifier: PhantomData,
             params: PhantomData,
             heights,
