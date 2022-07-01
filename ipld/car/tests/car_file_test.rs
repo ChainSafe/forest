@@ -10,7 +10,6 @@ use forest_car::*;
 async fn load_into_blockstore() {
     let file = File::open("tests/test.car").await.unwrap();
     let buf_reader = BufReader::new(file);
-    let mut bs = MemoryDB::default();
-
-    let _ = load_car(&mut bs, buf_reader).await.unwrap();
+    let bs = MemoryDB::default();
+    let _ = load_car(&bs, buf_reader).await.unwrap();
 }

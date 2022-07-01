@@ -11,10 +11,9 @@ use encoding::to_vec;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
+use fvm_shared::bigint::BigInt;
 use message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
 use std::convert::TryFrom;
-use std::error::Error;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
@@ -49,12 +48,12 @@ fn template_header(
 
 /// Returns a vec of 4 distinct CIDs
 pub fn construct_keys() -> Vec<Cid> {
-    return vec![
+    vec![
         template_key(b"test content"),
         template_key(b"awesome test content "),
         template_key(b"even better test content"),
         template_key(b"the best test content out there"),
-    ];
+    ]
 }
 
 /// Returns a vec of block headers to be used for testing purposes
@@ -76,11 +75,11 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let bz = to_vec(&meta).unwrap();
     let msg_root = cid::new_from_cbor(&bz, Blake2b256);
 
-    return vec![
+    vec![
         template_header(data0, 1, epoch, msg_root, weight),
         template_header(data1, 2, epoch, msg_root, weight),
         template_header(data2, 3, epoch, msg_root, weight),
-    ];
+    ]
 }
 
 /// Returns a Ticket to be used for testing
@@ -129,7 +128,7 @@ const DUMMY_SIG: [u8; 1] = [0u8];
 
 struct DummySigner;
 impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, Box<dyn Error>> {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }

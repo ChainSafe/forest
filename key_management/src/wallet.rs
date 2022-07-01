@@ -68,7 +68,7 @@ impl Wallet {
         if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
-        let key_string = format!("wallet-{}", addr.to_string());
+        let key_string = format!("wallet-{}", addr);
         let key_info = match self.keystore.get(&key_string) {
             Ok(k) => k,
             Err(_) => {
@@ -99,7 +99,7 @@ impl Wallet {
     /// Add Key_Info to the Wallet, return the Address that resolves to this newly added KeyInfo
     pub fn import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
         let k = Key::try_from(key_info)?;
-        let addr = format!("wallet-{}", k.address.to_string());
+        let addr = format!("wallet-{}", k.address);
         self.keystore.put(addr, k.key_info)?;
         Ok(k.address)
     }
@@ -111,14 +111,14 @@ impl Wallet {
 
     /// Return the Address of the default KeyInfo in the Wallet
     pub fn get_default(&self) -> Result<Address, Error> {
-        let key_info = self.keystore.get(&"default".to_string())?;
+        let key_info = self.keystore.get("default")?;
         let k = Key::try_from(key_info)?;
         Ok(k.address)
     }
 
     /// Set a default KeyInfo to the Wallet
     pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
-        let addr_string = format!("wallet-{}", addr.to_string());
+        let addr_string = format!("wallet-{}", addr);
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
             self.keystore.remove("default".to_string())?; // This line should unregister current default key then continue
@@ -130,10 +130,10 @@ impl Wallet {
     /// Generate a new Address that fits the requirement of the given SignatureType
     pub fn generate_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
         let key = generate_key(typ)?;
-        let addr = format!("wallet-{}", key.address.to_string());
+        let addr = format!("wallet-{}", key.address);
         self.keystore.put(addr, key.key_info.clone())?;
         self.keys.insert(key.address, key.clone());
-        let value = self.keystore.get(&"default".to_string());
+        let value = self.keystore.get("default");
         if value.is_err() {
             self.keystore
                 .put("default".to_string(), key.key_info.clone())
@@ -151,7 +151,7 @@ impl Wallet {
 
 /// Return the default Address for KeyStore
 pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
-    let key_info = keystore.get(&"default".to_string())?;
+    let key_info = keystore.get("default")?;
     let k = Key::try_from(key_info)?;
     Ok(k.address)
 }
@@ -174,14 +174,14 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
 
 /// Return Key corresponding to given Address in KeyStore
 pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
-    let key_string = format!("wallet-{}", addr.to_string());
+    let key_string = format!("wallet-{}", addr);
     let key_info = keystore.get(&key_string)?;
     let new_key = Key::try_from(key_info)?;
     Ok(new_key)
 }
 
 pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
-    let key_string = format!("wallet-{}", addr.to_string());
+    let key_string = format!("wallet-{}", addr);
     match keystore.get(&key_string) {
         Ok(k) => Ok(k),
         Err(_) => {
@@ -216,7 +216,7 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 /// Import KeyInfo into KeyStore
 pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> Result<Address, Error> {
     let k = Key::try_from(key_info)?;
-    let addr = format!("wallet-{}", k.address.to_string());
+    let addr = format!("wallet-{}", k.address);
     keystore.put(addr, k.key_info)?;
     Ok(k.address)
 }
@@ -249,8 +249,7 @@ mod tests {
 
     fn generate_wallet() -> Wallet {
         let key_vec = construct_priv_keys();
-        let wallet = Wallet::new_from_keys(KeyStore::new(KeyStoreConfig::Memory).unwrap(), key_vec);
-        wallet
+        Wallet::new_from_keys(KeyStore::new(KeyStoreConfig::Memory).unwrap(), key_vec)
     }
 
     #[test]
@@ -265,7 +264,7 @@ mod tests {
         // make sure that this address resolves to the right key
         assert_eq!(wallet.find_key(&addr).unwrap(), found_key);
         // make sure that has_key returns true as well
-        assert_eq!(wallet.has_key(&addr), true);
+        assert!(wallet.has_key(&addr));
 
         let new_priv_key = generate(SignatureType::BLS).unwrap();
         let pub_key =
@@ -273,12 +272,12 @@ mod tests {
         let address = Address::new_bls(pub_key.as_slice()).unwrap();
 
         // test to see if the new key has been created and added to the wallet
-        assert_eq!(wallet.has_key(&address), false);
+        assert!(!wallet.has_key(&address));
         // test to make sure that the newly made key cannot be added to the wallet because it is not
         // found in the keystore
         assert_eq!(wallet.find_key(&address).unwrap_err(), Error::KeyInfo);
         // sanity check to make sure that the key has not been added to the wallet
-        assert_eq!(wallet.has_key(&address), false);
+        assert!(!wallet.has_key(&address));
     }
 
     #[test]
@@ -342,7 +341,7 @@ mod tests {
         for i in &key_vec {
             addr_string_vec.push(i.address.to_string());
 
-            let addr_string = format!("wallet-{}", i.address.to_string());
+            let addr_string = format!("wallet-{}", i.address);
             key_store.put(addr_string, i.key_info.clone()).unwrap();
         }
 
@@ -371,7 +370,7 @@ mod tests {
         // make sure that the newly generated key is the default key - checking by key type
         assert_eq!(&SignatureType::BLS, key.key_type());
 
-        let address = format!("wallet-{}", addr.to_string());
+        let address = format!("wallet-{}", addr);
 
         let key_info = wallet.keystore.get(&address).unwrap();
         let key = wallet.keys.get(&addr).unwrap();
@@ -394,7 +393,7 @@ mod tests {
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
 
         let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
-        let test_addr_string = format!("wallet-{}", test_addr.to_string());
+        let test_addr_string = format!("wallet-{}", test_addr);
 
         wallet.keystore.put(test_addr_string, key_info).unwrap();
 

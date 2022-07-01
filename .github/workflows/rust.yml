@@ -1,0 +1,160 @@
+name: Rust
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    -
+      cron: "0 0 * * *"
+
+env:
+  CI: 1
+  CARGO_INCREMENTAL: 1
+
+jobs:
+  test:
+    name: Test
+    runs-on: buildjet-16vcpu-ubuntu-2004
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Cargo Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+      - name: Make Test-All
+        run: make test-all
+
+  codecov:
+    name: Cover
+    runs-on: buildjet-16vcpu-ubuntu-2004
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+          override: true
+      - name: Add component llvm-tools-preview
+        run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Run cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        # with:
+        #   args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
+      - name: Upload CodeCov
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          fail_ci_if_error: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Install RustFmt
+        run: rustup component add rustfmt
+      - name: Run Linters
+        run: make lint
+
+  audit:
+    name: Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install Audit
+        run: cargo install cargo-audit
+      - name: Run Audit
+        uses: actions-rs/cargo@v1
+        with:
+          command: audit
+          args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2021-0130
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        #rv: [1.58.1, stable, beta, nightly]
+        rv: [nightly]
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          access_token: ${{ github.token }}
+      - name: Install Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rv }}
+          target: wasm32-unknown-unknown
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Cargo Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --profile dev

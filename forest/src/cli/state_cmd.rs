@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use actor::{actorv3::ActorState, is_miner_actor};
+use actor::is_miner_actor;
 use address::{json::AddressJson, Address};
 use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use rpc_client::{
@@ -11,6 +11,7 @@ use rpc_client::{
     state_miner_power,
 };
 use structopt::StructOpt;
+use vm::ActorState;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
 
@@ -90,11 +91,11 @@ impl StateCommands {
 
                 println!(
                     "{}({}) / {}({}) ~= {}%",
-                    mp.quality_adj_power.to_string(),
+                    &mp.quality_adj_power,
                     to_size_string(&mp.quality_adj_power),
-                    tp.quality_adj_power.to_string(),
+                    &tp.quality_adj_power,
                     to_size_string(&tp.quality_adj_power),
-                    (mp.quality_adj_power * 100) / tp.quality_adj_power
+                    (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
             }
             Self::GetActor { address } => {
@@ -138,7 +139,7 @@ impl StateCommands {
 
                 for a in actors {
                     let AddressJson(addr) = a;
-                    println!("{}", addr.to_string());
+                    println!("{}", addr);
                 }
             }
             Self::Lookup { reverse, address } => {

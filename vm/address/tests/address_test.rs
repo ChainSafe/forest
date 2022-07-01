@@ -3,10 +3,8 @@
 
 use data_encoding::{DecodeError, DecodeKind};
 use encoding::{from_slice, Cbor};
-use forest_address::{
-    checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN,
-    SECP_PUB_LEN,
-};
+use forest_address::{checksum, validate_checksum, Address, Protocol, BLS_PUB_LEN, SECP_PUB_LEN};
+use fvm_shared::address::{Error, Network};
 use std::str::FromStr;
 
 #[test]
@@ -45,8 +43,8 @@ fn generate_validate_checksum() {
     let other_data = [1, 4, 3, 6, 7, 1, 2];
     let cksm = checksum(&data);
     assert_eq!(cksm.len(), 4);
-    assert_eq!(validate_checksum(&data, cksm.clone()), true);
-    assert_eq!(validate_checksum(&other_data, cksm), false);
+    assert!(validate_checksum(&data, cksm.clone()));
+    assert!(!validate_checksum(&other_data, cksm));
 }
 
 struct AddressTestVec<'a> {
@@ -67,7 +65,7 @@ fn test_address(addr: Address, protocol: Protocol, expected: &'static str) {
 
     // Test encoding and decoding from bytes
     let from_bytes = Address::from_bytes(&decoded.to_bytes()).unwrap();
-    assert!(decoded == from_bytes);
+    assert_eq!(decoded, from_bytes);
 }
 
 #[test]
@@ -329,81 +327,7 @@ fn invalid_string_addresses() {
         let res = Address::from_str(t.input);
         match res {
             Err(e) => assert_eq!(e, t.expected),
-            _ => assert!(false, "Addresses should have errored"),
-        };
-    }
-}
-
-#[test]
-fn invalid_byte_addresses() {
-    struct StringAddrVec {
-        input: Vec<u8>,
-        expected: Error,
-    }
-
-    let secp_vec = vec![1];
-    let mut secp_l = secp_vec.clone();
-    secp_l.resize(PAYLOAD_HASH_LEN + 2, 0);
-    let mut secp_s = secp_vec;
-    secp_s.resize(PAYLOAD_HASH_LEN, 0);
-
-    let actor_vec = vec![2];
-    let mut actor_l = actor_vec.clone();
-    actor_l.resize(PAYLOAD_HASH_LEN + 2, 0);
-    let mut actor_s = actor_vec;
-    actor_s.resize(PAYLOAD_HASH_LEN, 0);
-
-    let bls_vec = vec![3];
-    let mut bls_l = bls_vec.clone();
-    bls_l.resize(BLS_PUB_LEN + 2, 0);
-    let mut bls_s = bls_vec;
-    bls_s.resize(BLS_PUB_LEN, 0);
-
-    let test_vectors = &[
-        // Unknown Protocol
-        StringAddrVec {
-            input: vec![4, 4, 4],
-            expected: Error::UnknownProtocol,
-        },
-        // ID protocol
-        StringAddrVec {
-            input: vec![0],
-            expected: Error::InvalidLength,
-        },
-        // SECP256K1 Protocol
-        StringAddrVec {
-            input: secp_l,
-            expected: Error::InvalidPayloadLength(21),
-        },
-        StringAddrVec {
-            input: secp_s,
-            expected: Error::InvalidPayloadLength(19),
-        },
-        // Actor Protocol
-        StringAddrVec {
-            input: actor_l,
-            expected: Error::InvalidPayloadLength(21),
-        },
-        StringAddrVec {
-            input: actor_s,
-            expected: Error::InvalidPayloadLength(19),
-        },
-        // BLS Protocol
-        StringAddrVec {
-            input: bls_l,
-            expected: Error::InvalidBLSLength(49),
-        },
-        StringAddrVec {
-            input: bls_s,
-            expected: Error::InvalidBLSLength(47),
-        },
-    ];
-
-    for t in test_vectors.iter() {
-        let res = Address::from_bytes(&t.input);
-        match res {
-            Err(e) => assert_eq!(e, t.expected),
-            _ => assert!(false, "Addresses should have errored"),
+            _ => panic!("Addresses should have errored"),
         };
     }
 }

@@ -12,8 +12,9 @@ use blockstore::BlockStore;
 use chain::HeadChange;
 use cid::Cid;
 use cid::Code::Blake2b256;
+use fvm_shared::bigint::BigInt;
 use message::{ChainMessage, SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use networks::Height;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -119,7 +120,8 @@ where
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
+        let smoke_height = self.sm.chain_config.epoch(Height::Smoke);
+        chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height).map_err(|err| err.into())
     }
     async fn state_account_key<V>(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>
     where

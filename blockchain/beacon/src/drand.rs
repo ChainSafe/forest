@@ -3,15 +3,15 @@
 
 use super::beacon_entries::BeaconEntry;
 use ahash::AHashMap;
+use anyhow::Context;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
-use std::error;
 use std::sync::Arc;
 
 /// Enviromental Variable to ignore Drand. Lotus parallel is LOTUS_IGNORE_DRAND
@@ -32,6 +32,14 @@ impl DrandPublic {
     }
 }
 
+/// Type of the Drand network. In general only Mainnet and its chain information
+/// should be considered stable.
+#[derive(PartialEq, Eq, Clone)]
+pub enum DrandNetwork {
+    Mainnet,
+    Incentinet,
+}
+
 #[derive(Clone)]
 /// Config used when initializing a Drand beacon.
 pub struct DrandConfig<'a> {
@@ -39,6 +47,8 @@ pub struct DrandConfig<'a> {
     pub server: &'static str,
     /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
+    /// Network type
+    pub network_type: DrandNetwork,
 }
 
 /// Contains the vector of BeaconPoints, which are mappings of epoch to the Randomness beacons used.
@@ -48,6 +58,11 @@ impl<T> BeaconSchedule<T>
 where
     T: Beacon,
 {
+    /// Constructs a new, empty BeaconSchedule<T> with the specified capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        BeaconSchedule(Vec::with_capacity(capacity))
+    }
+
     /// Returns the beacon entries for a given epoch.
     /// When the beacon for the given epoch is on a new beacon, randomness entries are taken
     /// from the last two rounds.
@@ -56,7 +71,7 @@ where
         epoch: ChainEpoch,
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
-    ) -> Result<Vec<BeaconEntry>, Box<dyn error::Error>> {
+    ) -> Result<Vec<BeaconEntry>, anyhow::Error> {
         let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
         let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
         if cb_epoch != pb_epoch {
@@ -92,18 +107,14 @@ where
         Ok(out)
     }
 
-    pub fn beacon_for_epoch(
-        &self,
-        epoch: ChainEpoch,
-    ) -> Result<(ChainEpoch, &T), Box<dyn error::Error>> {
+    pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &T)> {
         // Iterate over beacon schedule to find the latest randomness beacon to use.
-        Ok(self
-            .0
+        self.0
             .iter()
             .rev()
             .find(|upgrade| epoch >= upgrade.height)
             .map(|upgrade| (upgrade.height, upgrade.beacon.as_ref()))
-            .ok_or("Invalid beacon schedule, no valid beacon")?)
+            .context("Invalid beacon schedule, no valid beacon")
     }
 }
 
@@ -124,17 +135,17 @@ where
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
-    ) -> Result<bool, Box<dyn error::Error>>;
+    ) -> Result<bool, anyhow::Error>;
 
     /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
     /// In the future, we will cache values, and support streaming.
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>>;
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error>;
 
     /// Returns the most recent beacon round for the given Filecoin chain epoch.
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
 }
 
-#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Default)]
+#[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
 /// Contains all the info about a Drand beacon chain.
 /// API reference: https://drand.love/developer/http-api/#info
 /// note: groupHash does not exist in docs currently, but is returned.
@@ -179,17 +190,18 @@ impl DrandBeacon {
         genesis_ts: u64,
         interval: u64,
         config: &DrandConfig<'_>,
-    ) -> Result<Self, Box<dyn error::Error>> {
+    ) -> Result<Self, anyhow::Error> {
         if genesis_ts == 0 {
             panic!("Genesis timestamp cannot be 0")
         }
 
         let chain_info = &config.chain_info;
 
-        if cfg!(debug_assertions) {
+        if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
             let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
                 .recv_json()
-                .await?;
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             debug_assert!(&remote_chain_info == chain_info);
         }
 
@@ -213,7 +225,7 @@ impl Beacon for DrandBeacon {
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
-    ) -> Result<bool, Box<dyn error::Error>> {
+    ) -> Result<bool, anyhow::Error> {
         // TODO: Handle Genesis better
         if prev.round() == 0 {
             return Ok(true);
@@ -240,13 +252,16 @@ impl Beacon for DrandBeacon {
         Ok(sig_match)
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn error::Error>> {
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
         let cached: Option<BeaconEntry> = self.local_cache.read().await.get(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
                 let url = format!("{}/public/{}", self.url, round);
-                let resp: BeaconEntryJson = surf::get(&url).recv_json().await?;
+                let resp: BeaconEntryJson = surf::get(&url)
+                    .recv_json()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
                 Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
             }
         }

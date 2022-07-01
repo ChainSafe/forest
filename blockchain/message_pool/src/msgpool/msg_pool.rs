@@ -12,7 +12,7 @@ use crate::head_change;
 use crate::msgpool::recover_sig;
 use crate::msgpool::republish_pending_messages;
 use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
-use crate::msgpool::REPUBLISH_INTERVAL;
+use crate::msgpool::PROPAGATION_DELAY_SECS;
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
@@ -29,12 +29,12 @@ use db::Store;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
+use fvm::gas::{price_list_by_network_version, Gas};
+use fvm_shared::bigint::{BigInt, Integer};
 use log::warn;
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};
-use networks::NEWEST_NETWORK_VERSION;
-use num_bigint::BigInt;
-use num_bigint::Integer;
+use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
@@ -156,6 +156,8 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
+    /// Chain сonfig
+    pub chain_config: ChainConfig,
 }
 
 impl<T> MessagePool<T>
@@ -168,6 +170,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
+        chain_config: ChainConfig,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -182,6 +185,7 @@ where
         let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
+        let block_delay = chain_config.block_delay_secs;
 
         let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
         let mut mp = MessagePool {
@@ -199,6 +203,7 @@ where
             config,
             network_sender,
             repub_trigger,
+            chain_config: chain_config.clone(),
         };
 
         mp.load_local().await?;
@@ -261,9 +266,10 @@ where
         let local_addrs = mp.local_addrs.clone();
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
+        let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         task::spawn(async move {
-            let mut interval = interval(Duration::from_millis(REPUBLISH_INTERVAL));
+            let mut interval = interval(Duration::from_millis(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
                 if let Err(e) = republish_pending_messages(
@@ -274,6 +280,7 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
+                    &chain_config,
                 )
                 .await
                 {
@@ -317,8 +324,7 @@ where
             return Err(Error::MessageTooBig);
         }
         msg.message()
-            .valid_for_block_inclusion(0, NEWEST_NETWORK_VERSION)
-            .map_err(Error::Other)?;
+            .valid_for_block_inclusion(Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
@@ -374,7 +380,7 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let publish = verify_msg_before_add(&msg, cur_ts, local)?;
+        let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -464,7 +470,7 @@ where
             return Err(Error::TryAgain);
         }
 
-        let publish = verify_msg_before_add(&msg, &cur_ts, true)?;
+        let publish = verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
@@ -682,12 +688,17 @@ where
     Ok(())
 }
 
-fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+fn verify_msg_before_add(
+    m: &SignedMessage,
+    cur_ts: &Tipset,
+    local: bool,
+    chain_config: &ChainConfig,
+) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch).on_chain_message(m.marshal_cbor()?.len());
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
+        .on_chain_message(m.marshal_cbor()?.len());
     m.message()
-        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
-        .map_err(Error::Other)?;
+        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound =
@@ -698,7 +709,7 @@ fn verify_msg_before_add(m: &SignedMessage, cur_ts: &Tipset, local: bool) -> Res
                 return Ok(false);
             } else {
                 return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-					m.gas_fee_cap(), base_fee_lower_bound)));
+                    m.gas_fee_cap(), base_fee_lower_bound)));
             }
         }
     }

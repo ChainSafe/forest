@@ -1,13 +1,12 @@
 codecov:
-  require_ci_to_pass: true
+  require_ci_to_pass: no
 
 coverage:
-  # range for color spectrum display, red=50%, green=80%
-  range: "50...80"
-  round: down
-  precision: 1
-
   status:
-    project: true
-    patch: true
-    changes: false
+    project:
+      default:
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        informational: true

@@ -2,13 +2,14 @@
 name = "chain"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
+pbr = "1.0.3"
 blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 db = { package = "forest_db", version = "0.1" }
 cid = { package = "forest_cid", version = "0.3" }
-clock = { package = "fil_clock", path = "../../node/clock" }
 crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 serde = { version = "1.0", features = ["derive"] }
@@ -37,10 +38,11 @@ forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
 lockfree = "0.5.1"
 crossbeam = "0.8.0"
+fvm_shared = { version = "0.7.1", default-features = false }
 
 [features]
 json = []
 
 [dev-dependencies]
-multihash = { version = "0.13", default-features = false, features = ["std", "blake2b", "derive"] }
+multihash = { version = "0.16.1", default-features = false, features = ["std", "blake2b", "derive"] }
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }

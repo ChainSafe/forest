@@ -2,35 +2,26 @@
 
 ## Build
 
-### Toolchain
-
-- [Rust](https://www.rust-lang.org/tools/install)
-
 ### Dependencies
 
-The following commands will install the required dependencies for Forest:
+* Rust `rustc >= 1.58.1`
+* Rust WASM target `wasm32-unknown-unknown`
 
-```bash
-# Install protoc
-PROTOC_ZIP=protoc-3.7.1-linux-x86_64.zip
-curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/$PROTOC_ZIP
-unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
-unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
-rm -f $PROTOC_ZIP
+```shell
+rustup install stable
+rustup target add wasm32-unknown-unknown
+```
 
-# Extra dependencies needed for rust-fil-proofs
-apt-get update && \
-    apt-get install --no-install-recommends -y curl file gcc g++ hwloc libhwloc-dev git make openssh-client \
-    ca-certificates autoconf automake cmake libtool libcurl4 libcurl4-openssl-dev libssl-dev \
-    libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-    xz-utils pkg-config python clang ocl-icd-opencl-dev
+* OS Base-Devel/Build-Essential
+* Clang compiler
+* OpenCL bindings
 
-# Install binary dependencies
-apt-get update && \
-    apt-get install --no-install-recommends -y curl file gcc g++ hwloc libhwloc-dev make openssh-client \
-    autoconf automake cmake libtool libcurl4 libcurl4-openssl-dev libssl-dev \
-    libelf-dev libdw-dev binutils-dev zlib1g-dev libiberty-dev wget \
-    xz-utils pkg-config python clang ocl-icd-opencl-dev ca-certificates
+```shell
+# Ubuntu
+sudo apt install build-essential clang ocl-icd-opencl-dev
+
+# Archlinux
+sudo pacman -S base-devel clang ocl-icd
 ```
 
 ### Commands
@@ -48,8 +39,10 @@ Before running `forest` in the normal mode you must seed the database with the F
 Download the latest snapshot provided by Protocol Labs:
 
 ```bash
-wget https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car > /destination/for/snapshot/file
+curl -sI https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car | perl -ne '/x-amz-website-redirect-location:\s(.+)\.car/ && print "$1.sha256sum\n$1.car"' | xargs wget
 ```
+
+If desired, you can check the checksum using the instructions [here](https://lotus.filecoin.io/docs/set-up/chain-management/#lightweight-snapshot).
 
 Import the snapshot using `forest`:
 

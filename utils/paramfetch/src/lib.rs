@@ -11,12 +11,11 @@ use async_std::{
 use blake2b_simd::{Hash, State as Blake2b};
 use core::time::Duration;
 use fil_types::SectorSize;
-use log::{info, warn};
+use log::{debug, warn};
 use net_utils::FetchProgress;
 use pbr::{MultiBar, Units};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
@@ -59,7 +58,7 @@ pub async fn get_params(
     param_json: &str,
     storage_size: SectorSizeOpt,
     is_verbose: bool,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     fs::create_dir_all(param_dir()).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
@@ -120,7 +119,7 @@ pub async fn get_params(
 pub async fn get_params_default(
     storage_size: SectorSizeOpt,
     is_verbose: bool,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     get_params(DEFAULT_PARAMETERS, storage_size, is_verbose).await
 }
 
@@ -128,7 +127,7 @@ async fn fetch_verify_params(
     name: &str,
     info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     let path: PathBuf = [&param_dir(), name].iter().collect();
     let path: Arc<Path> = Arc::from(path.as_path());
 
@@ -153,9 +152,9 @@ async fn fetch_params(
     path: &Path,
     info: &ParameterData,
     multi_bar: Option<Arc<MultiBar<Stdout>>>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
-    info!("Fetching {:?} from {}", path, gw);
+    debug!("Fetching {:?} from {}", path, gw);
 
     let file = File::create(path).await?;
     let mut writer = BufWriter::new(file);
@@ -183,13 +182,13 @@ async fn fetch_params(
         pb.set_units(Units::Bytes);
 
         let mut source = FetchProgress {
-            inner: req.await?,
+            inner: req.await.map_err(|e| anyhow::anyhow!(e))?,
             progress_bar: pb,
         };
         copy(&mut source, &mut writer).await?;
         source.finish();
     } else {
-        let mut source = req.await?;
+        let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?;
         copy(&mut source, &mut writer).await?;
     };
 
@@ -198,7 +197,7 @@ async fn fetch_params(
 
 async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io::Error> {
     if std::env::var(TRUST_PARAMS_ENV) == Ok("1".to_owned()) {
-        warn!("Assuming parameter files are okay. DO NOT USE IN PRODUCTION");
+        warn!("Assuming parameter files are okay. Do not use in production!");
         return Ok(());
     }
 
@@ -215,7 +214,7 @@ async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io:
     let str_sum = hash.to_hex();
     let str_sum = &str_sum[..32];
     if str_sum == info.digest {
-        info!("Parameter file {:?} is ok", path);
+        debug!("Parameter file {:?} is ok", path);
         Ok(())
     } else {
         Err(io::Error::new(

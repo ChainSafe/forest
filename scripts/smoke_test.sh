@@ -15,7 +15,7 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 # extract token from auth api-info output
-TOKEN="$(cut -d':' -f1 <<< $FULL_ADDR)"
+TOKEN="$(cut -d':' -f1 <<< "$FULL_ADDR")"
 TOKEN=${TOKEN#"FULLNODE_API_INFO=\""}
 
 # set headers for http requests 
@@ -59,7 +59,7 @@ RPC_ENDPOINTS+=("StateMinerInitialPledgeCollateral" "MinerGetBaseInfo")
 
 
 # send requests programmatically
-for endpoint in ${RPC_ENDPOINTS[@]}; do
+for endpoint in "${RPC_ENDPOINTS[@]}"; do
     METHOD="Filecoin.${endpoint}"
     REQUEST_BODY="{\"jsonrpc\": \"2.0\", \"method\": \"$METHOD\", \"params\":[], \"id\": 0}"
 
@@ -67,7 +67,7 @@ for endpoint in ${RPC_ENDPOINTS[@]}; do
 
     # a response is a response and considered a passing test
     # we are not passing params to endpoints so some methods will fail due to lack of params
-    if [ $RESPONSE_CODE = '200' ] || [ $RESPONSE_CODE = '500' ]; then
+    if [ "$RESPONSE_CODE" = '200' ] || [ "$RESPONSE_CODE" = '500' ]; then
         echo -e "${METHOD} ${GREEN} OK ${NC}"
     else
         echo -e "${METHOD} ${RED} FAIL ${RESPONSE_CODE} ${NC}"
@@ -76,4 +76,4 @@ for endpoint in ${RPC_ENDPOINTS[@]}; do
 done
 
 # Kill forest daemon
-ps -ef | grep forest | grep -v grep | awk '{print $2}' | xargs kill
+pgrep forest | xargs kill

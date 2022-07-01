@@ -9,7 +9,6 @@ members = [
     "blockchain/beacon",
     "blockchain/message_pool",
     "vm",
-    "vm/actor",
     "vm/actor_interface",
     "vm/address",
     "vm/message",
@@ -17,7 +16,6 @@ members = [
     "vm/state_tree",
     "vm/interpreter",
     "vm/state_migration",
-    "node/clock",
     "node/db",
     "node/rpc",
     "node/rpc-client",
@@ -26,21 +24,14 @@ members = [
     "encoding",
     "ipld/cid",
     "ipld/car",
-    "ipld/amt",
     "ipld",
-    "ipld/hamt",
     "ipld/blockstore",
-    # TODO re-enable graphsync when work continues
-    # "ipld/graphsync",
     "key_management",
-    "tests/conformance_tests",
     "tests/serialization_tests",
     "types",
     "types/networks",
     "utils/auth",
     "utils/bigint",
-    "utils/bitfield",
-    "utils/commcid",
     "utils/genesis",
     "utils/hash_utils",
     "utils/json_utils",
@@ -52,20 +43,25 @@ members = [
 resolver = "2"
 
 [patch.crates-io]
-ipld_blockstore = { path = "./ipld/blockstore" }
-fil_types = { path = "./types" }
-fil_clock = { path = "./node/clock" }
-forest_db = { path = "./node/db" }
-forest_crypto = { path = "./crypto" }
-forest_address = { path = "./vm/address" }
-forest_bigint = { path = "./utils/bigint" }
-forest_bitfield = { path = "./utils/bitfield" }
-forest_cid = { path = "./ipld/cid" }
-forest_ipld = { path = "./ipld" }
-forest_encoding = { path = "./encoding" }
+ipld_blockstore   = { path = "./ipld/blockstore" }
+fil_types         = { path = "./types" }
+forest_db         = { path = "./node/db" }
+forest_crypto     = { path = "./crypto" }
+forest_address    = { path = "./vm/address" }
+forest_bigint     = { path = "./utils/bigint" }
+forest_cid        = { path = "./ipld/cid" }
+forest_ipld       = { path = "./ipld" }
+forest_encoding   = { path = "./encoding" }
 forest_hash_utils = { path = "./utils/hash_utils" }
 forest_json_utils = { path = "./utils/json_utils" }
-commcid = { path = "./utils/commcid" }
-forest_vm = { path = "./vm" }
-forest_runtime = { path = "./vm/runtime" }
-forest_message = { path = "./vm/message" }
+forest_vm         = { path = "./vm" }
+forest_runtime    = { path = "./vm/runtime" }
+forest_message    = { path = "./vm/message" }
+
+[profile.dev]
+debug = 0
+
+[profile.quick]
+inherits  = "release"
+opt-level = 1
+lto       = "off"

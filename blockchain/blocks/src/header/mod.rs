@@ -5,16 +5,16 @@ use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
-use clock::ChainEpoch;
 use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
-use num_bigint::{
+use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
+use fvm_shared::clock::ChainEpoch;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
@@ -33,7 +33,7 @@ const SHA_256_BITS: usize = 256;
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
 /// use address::Address;
 /// use cid::{Cid, Code::Identity};
-/// use num_bigint::BigInt;
+/// use fvm_shared::bigint::BigInt;
 /// use crypto::Signature;
 ///
 /// BlockHeader::builder()

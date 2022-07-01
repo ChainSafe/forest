@@ -8,9 +8,11 @@ use address::Address;
 use async_std::sync::RwLock;
 use blocks::Tipset;
 use encoding::Cbor;
+use fvm::gas::{price_list_by_network_version, Gas};
+use fvm_shared::bigint::BigInt;
 use log::warn;
 use message::{Message, SignedMessage};
-use num_bigint::BigInt;
+use networks::ChainConfig;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -166,9 +168,12 @@ impl Chains {
 
     /// Removes messages from the given index and resets effective perfs
     pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: i64, base_fee: &BigInt) {
-        let prev = self
-            .get_at(if idx == 0 { return } else { idx - 1 })
-            .map(|prev| (prev.eff_perf, prev.gas_limit));
+        let prev = match idx {
+            0 => None,
+            _ => self
+                .get_at(idx - 1)
+                .map(|prev| (prev.eff_perf, prev.gas_limit)),
+        };
         let chain_node = self.get_mut_at(idx).unwrap();
         let mut i = chain_node.msgs.len() as i64 - 1;
 
@@ -341,6 +346,7 @@ pub(crate) async fn create_message_chains<T>(
     base_fee: &BigInt,
     ts: &Tipset,
     chains: &mut Chains,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -384,11 +390,13 @@ where
         }
         cur_seq += 1;
 
-        let min_gas = interpreter::price_list_by_epoch(ts.epoch())
+        let network_version = chain_config.network_version(ts.epoch());
+
+        let min_gas = price_list_by_network_version(network_version)
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 
-        if m.gas_limit() < min_gas {
+        if Gas::new(m.gas_limit()) < min_gas {
             break;
         }
         gas_limit += m.gas_limit();

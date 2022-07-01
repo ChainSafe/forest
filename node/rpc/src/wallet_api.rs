@@ -11,11 +11,11 @@ use blockstore::BlockStore;
 use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
+use fvm_shared::bigint::BigUint;
 use message::{
     signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
     SignedMessage,
 };
-use num_bigint::BigUint;
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
 use wallet::{json::KeyInfoJson, Error, Key};
@@ -120,7 +120,7 @@ where
 
     let key = Key::try_from(key_info)?;
 
-    let addr = format!("wallet-{}", key.address.to_string());
+    let addr = format!("wallet-{}", key.address);
 
     let mut keystore = data.keystore.write().await;
 
@@ -165,9 +165,9 @@ where
     let mut keystore = data.keystore.write().await;
     let key = wallet::generate_key(sig_raw.0)?;
 
-    let addr = format!("wallet-{}", key.address.to_string());
+    let addr = format!("wallet-{}", key.address);
     keystore.put(addr, key.key_info.clone())?;
-    let value = keystore.get(&"default".to_string());
+    let value = keystore.get("default");
     if value.is_err() {
         keystore.put("default".to_string(), key.key_info)?
     }

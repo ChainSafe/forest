@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::{Error, Ipld, Path, PathSegment};
+use super::super::{lookup_segment, Error, Ipld, Path, PathSegment};
 use super::Selector;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
@@ -52,7 +52,7 @@ impl Selector {
 }
 
 /// Provides reason for callback in traversal for `walk_all`.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisitReason {
     /// Ipld node visited was a specific match.
     SelectionMatch,
@@ -83,7 +83,7 @@ pub struct Progress<L = ()> {
 }
 
 /// Contains information about the last block that was traversed in walking of the ipld graph.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LastBlockInfo {
     pub path: Path,
     pub link: Cid,
@@ -150,7 +150,7 @@ where
         match selector.interests() {
             Some(interests) => {
                 for ps in interests {
-                    let v = match ipld.lookup_segment(&ps) {
+                    let v = match lookup_segment(ipld, &ps) {
                         Some(ipld) => ipld,
                         None => continue,
                     };

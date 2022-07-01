@@ -7,13 +7,13 @@ mod util;
 use blockstore::BlockStore;
 use cid::Cid;
 pub use error::*;
-use forest_encoding::{from_slice, to_vec};
 use futures::{AsyncRead, AsyncWrite, Stream, StreamExt};
+use fvm_ipld_encoding::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
 use util::{ld_read, ld_write, read_node};
 
 /// CAR file header
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
     pub roots: Vec<Cid>,
     pub version: u64,
@@ -105,10 +105,11 @@ where
     let mut car_reader = CarReader::new(reader).await?;
 
     // Batch write key value pairs from car file
-    let mut buf: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(100);
+    const BATCH_SIZE: usize = 10240;
+    let mut buf: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(BATCH_SIZE);
     while let Some(block) = car_reader.next_block().await? {
         buf.push((block.cid.to_bytes(), block.data));
-        if buf.len() > 1000 {
+        if buf.len() >= BATCH_SIZE {
             s.bulk_write(&buf)
                 .map_err(|e| Error::Other(e.to_string()))?;
             buf.clear();

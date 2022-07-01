@@ -4,7 +4,7 @@
 use std::io;
 use thiserror::Error;
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// info that corresponds to key does not exist
     #[error("Key info not found")]

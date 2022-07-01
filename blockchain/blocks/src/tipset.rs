@@ -3,10 +3,10 @@
 
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::Cbor;
+use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 use log::info;
-use num_bigint::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
@@ -137,12 +137,17 @@ impl Tipset {
     /// Returns true if self wins according to the filecoin tie-break rule (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
-        let broken = self.blocks().iter().zip(other.blocks().iter()).any(|(a, b)| {
-            const MSG: &str = "The function block_sanity_checks should have been called at this point.";
-            let ticket = a.ticket().as_ref().expect(MSG);
-            let other_ticket = b.ticket().as_ref().expect(MSG);
-            ticket.vrfproof < other_ticket.vrfproof
-        });
+        let broken = self
+            .blocks()
+            .iter()
+            .zip(other.blocks().iter())
+            .any(|(a, b)| {
+                const MSG: &str =
+                    "The function block_sanity_checks should have been called at this point.";
+                let ticket = a.ticket().as_ref().expect(MSG);
+                let other_ticket = b.ticket().as_ref().expect(MSG);
+                ticket.vrfproof < other_ticket.vrfproof
+            });
         if broken {
             info!("weight tie broken in favour of {:?}", self.key());
         } else {

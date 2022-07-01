@@ -17,7 +17,7 @@ use forest_libp2p::{
 use futures::channel::oneshot::channel as oneshot_channel;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use log::{trace, warn};
+use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -141,14 +141,14 @@ where
                 match self.db.get(&content) {
                     Ok(Some(b)) => Ok(b),
                     Ok(None) => Err(format!("Bitswap response successful for: {:?}, but can't find it in the database", content)),
-                    Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e.to_string())),
+                    Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e)),
                 }
             }
             Err(_e) => {
                Err(format!("Bitswap get for {:?} timed out", content))
             }
             Ok(Err(e)) => {
-                Err(format!("Bitswap get for {:?} failed: {}", content, e.to_string()))
+                Err(format!("Bitswap get for {:?} failed: {}", content, e))
             }
         }
     }
@@ -191,12 +191,12 @@ where
                                 break;
                             }
                             Err(e) => {
-                                warn!("Failed chain_exchange response: {}", e);
+                                debug!("Failed chain_exchange response: {}", e);
                                 continue;
                             }
                         },
                         Err(e) => {
-                            warn!("Failed chain_exchange request to peer {:?}: {}", p, e);
+                            debug!("Failed chain_exchange request to peer {:?}: {}", p, e);
                             continue;
                         }
                     }

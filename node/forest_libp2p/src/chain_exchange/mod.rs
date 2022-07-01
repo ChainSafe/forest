@@ -13,7 +13,7 @@ use libp2p::core::ProtocolName;
 pub const CHAIN_XCHG_PROTOCOL_ID: &[u8] = b"/fil/chain/xchg/0.0.1";
 
 /// Type to satisfy `ProtocolName` interface for ChainExchange RPC.
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ChainExchangeProtocolName;
 
 impl ProtocolName for ChainExchangeProtocolName {

@@ -12,6 +12,7 @@ use fil_types::verifier::MockVerifier;
 use forest_libp2p::hello::HelloRequest;
 use libp2p::core::PeerId;
 use message_pool::{test_provider::TestApi, MessagePool};
+use networks::ChainConfig;
 use state_manager::StateManager;
 use std::time::Duration;
 
@@ -26,6 +27,7 @@ fn peer_manager_update() {
         "test".to_string(),
         tx,
         Default::default(),
+        &ChainConfig::default(),
     ))
     .unwrap();
     let mpool = Arc::new(mpool);
@@ -49,7 +51,7 @@ fn peer_manager_update() {
         height: 0,
         beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
     }]));
-    let state_manager = Arc::new(StateManager::new(chain_store));
+    let state_manager = Arc::new(StateManager::new(chain_store, config.chain));
     let cs = ChainSyncer::<_, _, MockVerifier, TestApi>::new(
         state_manager,
         beacon,

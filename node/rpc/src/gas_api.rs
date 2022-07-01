@@ -11,9 +11,9 @@ use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
+use fvm_shared::bigint::BigInt;
 use message::{unsigned_message::json::UnsignedMessageJson, UnsignedMessage};
 use message::{ChainMessage, Message};
-use num_bigint::BigInt;
 use rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
@@ -229,7 +229,7 @@ where
         .await?;
     match res.msg_rct {
         Some(rct) => {
-            if rct.exit_code as u64 != 0 {
+            if rct.exit_code.value() != 0 {
                 return Ok(-1);
             }
             // TODO: Figure out why we always under estimate the gas calculation so we dont need to add 200000

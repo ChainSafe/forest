@@ -29,10 +29,11 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
+use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
 use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
-use num_bigint::BigInt;
+use networks::Height;
 use rpc_api::{
     data_types::{
         ActorStateJson, Deadline, MarketDeal, MessageLookup, MiningBaseInfoJson, Partition,
@@ -97,7 +98,7 @@ pub(crate) async fn state_miner_deadlines<
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerDeadlinesParams>,
-) -> Result<StateMinerDeadlinesResult, JsonRpcError> {
+) -> anyhow::Result<StateMinerDeadlinesResult, JsonRpcError> {
     let (actor, key) = params;
     let actor = actor.into();
     let mas = data
@@ -155,7 +156,7 @@ pub async fn state_miner_info<
     let ts = data.chain_store.tipset_from_keys(&key).await?;
     let actor = data
         .state_manager
-        .get_actor(&addr, ts.parent_state())
+        .get_actor(&addr, *ts.parent_state())
         .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
         .ok_or_else(|| format!("miner {} does not exist", addr))?;
 
@@ -208,7 +209,7 @@ pub(crate) async fn state_miner_proving_deadline<
         .await?;
 
     let actor = state_manager
-        .get_actor(&addr, tipset.parent_state())?
+        .get_actor(&addr, *tipset.parent_state())?
         .ok_or_else(|| format!("Address {} not found", addr))?;
 
     let mas = miner::State::load(state_manager.blockstore(), &actor)?;
@@ -303,7 +304,7 @@ pub(crate) async fn state_miner_partitions<
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPartitionsParams>,
-) -> Result<StateMinerPartitionsResult, JsonRpcError> {
+) -> anyhow::Result<StateMinerPartitionsResult, JsonRpcError> {
     let (actor, dl_idx, key) = params;
     let actor = actor.into();
     let db = data.state_manager.chain_store().db.as_ref();
@@ -350,7 +351,7 @@ pub(crate) async fn state_replay<
     Ok(InvocResult {
         msg,
         msg_rct: Some(ret.msg_receipt),
-        error: ret.act_error.map(|e| e.to_string()),
+        error: ret.failure_info.map(|e| e.to_string()),
     })
 }
 
@@ -511,8 +512,8 @@ pub(crate) async fn state_market_deals<
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let actor = data
         .state_manager
-        .get_actor(market::ADDRESS, ts.parent_state())?
-        .ok_or("Power actor address could not be resolved")?;
+        .get_actor(market::ADDRESS, *ts.parent_state())?
+        .ok_or("Market actor address could not be resolved")?;
     let market_state = market::State::load(data.state_manager.blockstore(), &actor)?;
 
     let da = market_state.proposals(data.state_manager.blockstore())?;
@@ -554,7 +555,7 @@ pub(crate) async fn state_get_receipt<
         .tipset_from_keys(&key.into())
         .await?;
     state_manager
-        .get_receipt(&tipset, &cid)
+        .get_receipt(&tipset, cid)
         .await
         .map(|s| s.into())
         .map_err(|e| e.into())
@@ -669,7 +670,9 @@ pub(crate) async fn miner_create_block<
         ))
     };
     let pweight = chain::weight(data.chain_store.blockstore(), pts.as_ref())?;
-    let base_fee = chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref())?;
+    let smoke_height = data.state_manager.chain_config.epoch(Height::Smoke);
+    let base_fee =
+        chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
 
     let mut next = BlockHeader::builder()
         .messages(mmcid)
@@ -716,45 +719,51 @@ pub(crate) async fn state_miner_sector_allocated<
 
     let actor = data
         .state_manager
-        .get_actor(&maddr, ts.parent_state())?
+        .get_actor(&maddr, *ts.parent_state())?
         .ok_or(format!("Miner actor {} could not be resolved", maddr))?;
     let allocated_sectors = match miner::State::load(data.state_manager.blockstore(), &actor)? {
-        miner::State::V0(m) => data
+        // miner::State::V0(m) => data
+        //     .chain_store
+        //     .db
+        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
+        //     .ok_or("allocated sectors bitfield not found")?
+        //     .get(sector_num as usize),
+        // miner::State::V2(m) => data
+        //     .chain_store
+        //     .db
+        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
+        //     .ok_or("allocated sectors bitfield not found")?
+        //     .get(sector_num as usize),
+        // miner::State::V3(m) => data
+        //     .chain_store
+        //     .db
+        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
+        //     .ok_or("allocated sectors bitfield not found")?
+        //     .get(sector_num as usize),
+        // miner::State::V4(m) => data
+        //     .chain_store
+        //     .db
+        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
+        //     .ok_or("allocated sectors bitfield not found")?
+        //     .get(sector_num as usize),
+        // miner::State::V5(m) => data
+        //     .chain_store
+        //     .db
+        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
+        //     .ok_or("allocated sectors bitfield not found")?
+        //     .get(sector_num as usize),
+        // miner::State::V6(m) => data
+        //     .chain_store
+        //     .db
+        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
+        //     .ok_or("allocated sectors bitfield not found")?
+        //     .get(sector_num as usize),
+        miner::State::V7(m) => data
             .chain_store
             .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .get::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
             .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
-        miner::State::V2(m) => data
-            .chain_store
-            .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
-            .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
-        miner::State::V3(m) => data
-            .chain_store
-            .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
-            .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
-        miner::State::V4(m) => data
-            .chain_store
-            .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
-            .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
-        miner::State::V5(m) => data
-            .chain_store
-            .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
-            .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
-        miner::State::V6(m) => data
-            .chain_store
-            .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
-            .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
+            .get(sector_num),
     };
 
     Ok(allocated_sectors)
@@ -825,7 +834,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = actor::actorv2::miner::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = fil_actor_miner_v7::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
         .get_actor(power::ADDRESS)?
@@ -869,7 +878,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = actor::actorv2::miner::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = fil_actor_miner_v7::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
         .get_actor(power::ADDRESS)?

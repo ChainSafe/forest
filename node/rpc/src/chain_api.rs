@@ -15,12 +15,11 @@ use blocks::{
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
-use crypto::DomainSeparationTag;
 use message::{
     unsigned_message::{self, json::UnsignedMessageJson},
     UnsignedMessage,
 };
-use num_traits::FromPrimitive;
+use networks::Height;
 use rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -182,7 +181,7 @@ where
     Ok(subscription_id)
 }
 
-pub(crate) async fn chain_notify<'a, DB, B>(
+pub(crate) async fn chain_notify<DB, B>(
     data: Data<RPCState<DB, B>>,
     id: Id,
 ) -> Result<ChainNotifyResult, JsonRpcError>
@@ -269,14 +268,15 @@ where
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     let entropy = entropy.unwrap_or_default();
+    let hyperdrive_height = data.state_manager.chain_config.epoch(Height::Hyperdrive);
     Ok(data
         .state_manager
         .get_chain_randomness(
             &tsk,
-            DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
+            pers,
             epoch,
             &base64::decode(entropy)?,
-            epoch <= networks::UPGRADE_HYPERDRIVE_HEIGHT,
+            epoch <= hyperdrive_height,
         )
         .await?)
 }
@@ -294,11 +294,6 @@ where
 
     Ok(data
         .state_manager
-        .get_beacon_randomness(
-            &tsk,
-            DomainSeparationTag::from_i64(pers).ok_or("invalid DomainSeparationTag")?,
-            epoch,
-            &base64::decode(entropy)?,
-        )
+        .get_beacon_randomness(&tsk, pers, epoch, &base64::decode(entropy)?)
         .await?)
 }

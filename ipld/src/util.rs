@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
-use std::error::Error as StdError;
 
 use cid::Cid;
-use encoding::Cbor;
+use fvm_ipld_encoding::from_slice;
 
 use crate::Ipld;
 
@@ -15,9 +14,9 @@ fn traverse_ipld_links<F>(
     walked: &mut HashSet<Cid>,
     load_block: &mut F,
     ipld: &Ipld,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+    F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
 {
     match ipld {
         Ipld::Map(m) => {
@@ -36,7 +35,7 @@ where
                     return Ok(());
                 }
                 let bytes = load_block(*cid)?;
-                let ipld = Ipld::unmarshal_cbor(&bytes)?;
+                let ipld = from_slice(&bytes)?;
                 traverse_ipld_links(walked, load_block, &ipld)?;
             }
         }
@@ -50,9 +49,9 @@ pub fn recurse_links<F>(
     walked: &mut HashSet<Cid>,
     root: Cid,
     load_block: &mut F,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+    F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
 {
     if !walked.insert(root) {
         // Cid has already been traversed
@@ -63,7 +62,7 @@ where
     }
 
     let bytes = load_block(root)?;
-    let ipld = Ipld::unmarshal_cbor(&bytes)?;
+    let ipld = from_slice(&bytes)?;
 
     traverse_ipld_links(walked, load_block, &ipld)?;
 

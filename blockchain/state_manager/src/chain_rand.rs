@@ -1,27 +1,35 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::{bail, Context};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use blake2b_simd::Params;
 use blockstore::BlockStore;
 use byteorder::{BigEndian, WriteBytesExt};
 use chain::ChainStore;
-use clock::ChainEpoch;
 use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
-use forest_crypto::DomainSeparationTag;
+use fvm_shared::clock::ChainEpoch;
 use interpreter::Rand;
-use std::error::Error;
 use std::io::Write;
 use std::sync::Arc;
 
 /// Allows for deriving the randomness from a particular tipset.
-#[derive(Clone)]
 pub struct ChainRand<DB> {
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
+}
+
+impl<DB> Clone for ChainRand<DB> {
+    fn clone(&self) -> Self {
+        ChainRand {
+            blks: self.blks.clone(),
+            cs: self.cs.clone(),
+            beacon: self.beacon.clone(),
+        }
+    }
 }
 
 impl<DB> ChainRand<DB>
@@ -41,15 +49,15 @@ where
     pub async fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         let ts = self.cs.tipset_from_keys(blocks).await?;
 
         if round > ts.epoch() {
-            return Err("cannot draw randomness from the future".into());
+            bail!("cannot draw randomness from the future");
         }
 
         let search_height = if round < 0 { 0 } else { round };
@@ -62,7 +70,7 @@ where
         draw_randomness(
             rand_ts
                 .min_ticket()
-                .ok_or("No ticket exists for block")?
+                .context("No ticket exists for block")?
                 .vrfproof
                 .as_bytes(),
             pers,
@@ -75,10 +83,10 @@ where
     pub async fn get_chain_randomness_v1(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness(blocks, pers, round, entropy, true)
             .await
     }
@@ -87,10 +95,10 @@ where
     pub async fn get_chain_randomness_v2(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness(blocks, pers, round, entropy, false)
             .await
     }
@@ -99,10 +107,10 @@ where
     pub async fn get_beacon_randomness_v1(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         self.get_beacon_randomness(blocks, pers, round, entropy, true)
             .await
     }
@@ -111,10 +119,10 @@ where
     pub async fn get_beacon_randomness_v2(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         self.get_beacon_randomness(blocks, pers, round, entropy, false)
             .await
     }
@@ -123,10 +131,10 @@ where
     pub async fn get_beacon_randomness_v3(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         if round < 0 {
             return self
                 .get_beacon_randomness_v2(blocks, pers, round, entropy)
@@ -142,11 +150,11 @@ where
     pub async fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
-    ) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         let rand_ts: Arc<Tipset> = self
             .get_beacon_randomness_tipset(blocks, round, lookback)
             .await?;
@@ -158,7 +166,7 @@ where
         &self,
         blocks: &TipsetKeys,
         epoch: ChainEpoch,
-    ) -> Result<BeaconEntry, Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<BeaconEntry> {
         let mut rand_ts: Arc<Tipset> = self
             .get_beacon_randomness_tipset(blocks, epoch, false)
             .await?;
@@ -176,11 +184,11 @@ where
             rand_ts = self.cs.tipset_from_keys(rand_ts.parents()).await?;
         }
 
-        Err(format!(
+        bail!(
             "didn't find beacon for round {:?} (epoch {:?})",
-            round, epoch
+            round,
+            epoch
         )
-        .into())
     }
 
     pub async fn get_beacon_randomness_tipset(
@@ -188,11 +196,11 @@ where
         blocks: &TipsetKeys,
         round: ChainEpoch,
         lookback: bool,
-    ) -> Result<Arc<Tipset>, Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<Arc<Tipset>> {
         let ts = self.cs.tipset_from_keys(blocks).await?;
 
         if round > ts.epoch() {
-            return Err("cannot draw randomness from the future".into());
+            bail!("cannot draw randomness from the future");
         }
 
         let search_height = if round < 0 { 0 } else { round };
@@ -208,48 +216,21 @@ impl<DB> Rand for ChainRand<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    fn get_chain_randomness_v1(
+    fn get_chain_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn Error>> {
-        task::block_on(self.get_chain_randomness_v1(&self.blks, pers, round, entropy))
-    }
-
-    fn get_beacon_randomness_v1(
-        &self,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn Error>> {
-        task::block_on(self.get_beacon_randomness_v1(&self.blks, pers, round, entropy))
-    }
-
-    fn get_chain_randomness_v2(
-        &self,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
     }
 
-    fn get_beacon_randomness_v2(
+    fn get_beacon_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn Error>> {
-        task::block_on(self.get_beacon_randomness_v2(&self.blks, pers, round, entropy))
-    }
-
-    fn get_beacon_randomness_v3(
-        &self,
-        pers: DomainSeparationTag,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> Result<[u8; 32], Box<dyn Error>> {
+    ) -> anyhow::Result<[u8; 32]> {
         task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
     }
 }
@@ -257,10 +238,10 @@ where
 /// Computes a pseudorandom 32 byte Vec.
 pub fn draw_randomness(
     rbase: &[u8],
-    pers: DomainSeparationTag,
+    pers: i64,
     round: ChainEpoch,
     entropy: &[u8],
-) -> Result<[u8; 32], Box<dyn std::error::Error>> {
+) -> anyhow::Result<[u8; 32]> {
     let mut state = Params::new().hash_length(32).to_state();
     state.write_i64::<BigEndian>(pers as i64)?;
     let vrf_digest = blake2b_256(rbase);

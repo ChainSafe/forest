@@ -11,12 +11,13 @@ use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use cid::Code::Blake2b256;
-use clock::ChainEpoch;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
+use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::clock::ChainEpoch;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
@@ -24,11 +25,9 @@ use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Integer};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -406,7 +405,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk<'a>(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<'_, DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
@@ -416,7 +415,7 @@ where
     /// be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = self.block_msgs_for_tipset(ts)?;
-        Ok(bmsgs.into_iter().map(|bm| bm.messages).flatten().collect())
+        Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
     }
 
     /// get miner state given address and tipsetkeys
@@ -424,14 +423,14 @@ where
         &self,
         address: &Address,
         tsk: &TipsetKeys,
-    ) -> Result<miner::State, Error> {
+    ) -> anyhow::Result<miner::State> {
         let state = self.parent_state_tsk(tsk).await?;
         let actor = state
             .get_actor(address)
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        Ok(miner::State::load(self.blockstore(), &actor)?)
+        miner::State::load(self.blockstore(), &actor)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
@@ -461,8 +460,8 @@ where
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
-                .get_bytes(&cid)?
-                .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+                .get_bytes_anyhow(&cid)?
+                .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
@@ -578,7 +577,7 @@ where
         mut load_block: F,
     ) -> Result<(), Error>
     where
-        F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
     {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -971,9 +970,9 @@ mod tests {
         let cs = ChainStore::new(Arc::new(db));
 
         let cid = cid::new_from_cbor(&[1, 2, 3], Blake2b256);
-        assert_eq!(cs.is_block_validated(&cid).unwrap(), false);
+        assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();
-        assert_eq!(cs.is_block_validated(&cid).unwrap(), true);
+        assert!(cs.is_block_validated(&cid).unwrap());
     }
 }

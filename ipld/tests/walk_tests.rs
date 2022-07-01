@@ -13,7 +13,7 @@ use ipld_blockstore::BlockStore;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Type to ignore the specifics of a list or map for JSON tests
 #[derive(Deserialize, Debug, Clone)]
@@ -112,11 +112,10 @@ fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
 }
 
 fn check_matched(reason: VisitReason, matched: bool) -> bool {
-    match (reason, matched) {
-        (VisitReason::SelectionMatch, true) => true,
-        (VisitReason::SelectionCandidate, false) => true,
-        _ => false,
-    }
+    matches!(
+        (reason, matched),
+        (VisitReason::SelectionMatch, true) | (VisitReason::SelectionCandidate, false)
+    )
 }
 
 #[derive(Clone)]
@@ -140,26 +139,26 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     });
 
     // Index to ensure that the callback can check against the expectations
-    let index = Arc::new(Mutex::new(0));
+    let index = AtomicUsize::new(0);
     let expect = tv.expect_visit.clone();
     let description = tv
         .description
         .clone()
-        .unwrap_or("unnamed test case".to_owned());
+        .unwrap_or_else(|| "unnamed test case".to_owned());
 
     tv.selector
         .walk_all(
             &tv.ipld,
             resolver,
             |prog, ipld, reason| -> Result<(), String> {
-                let mut idx = index.lock().unwrap();
-                let exp = &expect[*idx];
+                let idx = index.load(Ordering::Relaxed);
+                let exp = &expect[idx];
                 // Current path
                 if prog.path() != &exp.path {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
                         prog.path(),
-                        *idx,
+                        idx,
                         exp.path
                     ));
                 }
@@ -167,14 +166,14 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
                 if !check_ipld(ipld, &exp.node) {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
-                        ipld, *idx, exp.node
+                        ipld, idx, exp.node
                     ));
                 }
                 // Match boolean against visit reason
                 if !check_matched(reason, exp.matched) {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
-                        reason, *idx, exp.matched
+                        reason, idx, exp.matched
                     ));
                 }
                 // Check last block information
@@ -182,19 +181,19 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
                     return Err(format!(
                         "{:?} at (idx: {}) does not match {:?}",
                         prog.last_block(),
-                        *idx,
+                        idx,
                         exp.last_block
                     ));
                 }
-                *idx += 1;
+                index.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             },
         )
         .await
-        .map_err(|e| format!("({}) failed, reason: {}", description, e.to_string()))?;
+        .map_err(|e| format!("({}) failed, reason: {}", description, e))?;
 
     // Ensure all expected traversals were checked
-    let current_idx = *index.lock().unwrap();
+    let current_idx = index.into_inner();
     if expect.len() != current_idx {
         Err(format!(
             "{}: Did not traverse all expected nodes (expected: {}) (current: {})",

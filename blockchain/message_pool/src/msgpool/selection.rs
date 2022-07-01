@@ -16,9 +16,9 @@ use crate::{add_to_selected_msgs, remove_from_selected_msgs};
 use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
+use fvm_shared::bigint::BigInt;
 use message::Message;
 use message::SignedMessage;
-use num_bigint::BigInt;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
@@ -84,7 +84,16 @@ where
         // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
-            create_message_chains(&self.api, &actor, &mset, &base_fee, ts, &mut chains).await?;
+            create_message_chains(
+                &self.api,
+                &actor,
+                &mset,
+                &base_fee,
+                ts,
+                &mut chains,
+                &self.chain_config,
+            )
+            .await?;
         }
 
         let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
@@ -131,6 +140,7 @@ where
                 &base_fee,
                 target_tipset,
                 &mut chains,
+                &self.chain_config,
             )
             .await?;
         }
@@ -493,7 +503,16 @@ where
             // remove actor from pending set as we are processing these messages.
             if let Some(mset) = pending.remove(actor) {
                 // create chains for the priority actor
-                create_message_chains(&self.api, actor, &mset, base_fee, ts, &mut chains).await?;
+                create_message_chains(
+                    &self.api,
+                    actor,
+                    &mset,
+                    base_fee,
+                    ts,
+                    &mut chains,
+                    &self.chain_config,
+                )
+                .await?;
             }
         }
 
@@ -670,6 +689,7 @@ mod test_selection {
     use db::MemoryDB;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
+    use networks::ChainConfig;
     use std::sync::Arc;
     use types::NetworkParams;
 
@@ -679,7 +699,14 @@ mod test_selection {
         let tma = TestApi::default();
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            MessagePool::new(tma, "mptest".to_string(), tx, Default::default()).await
+            MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                ChainConfig::default(),
+            )
+            .await
         })
         .unwrap()
     }
@@ -742,26 +769,26 @@ mod test_selection {
         assert_eq!(msgs.len(), 20, "Expected 20 messages, got {}", msgs.len());
 
         let mut next_nonce = 0;
-        for i in 0..10 {
+        for (i, msg) in msgs.iter().enumerate().take(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1 {}",
                 i
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
 
         next_nonce = 0;
-        for i in 10..20 {
+        for (i, msg) in msgs.iter().enumerate().take(20).skip(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2 {}",
                 i
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
 
@@ -832,23 +859,23 @@ mod test_selection {
         );
 
         let mut next_nonce = 20;
-        for i in 0..10 {
+        for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
         next_nonce = 20;
-        for i in 10..20 {
+        for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
     }
@@ -1010,23 +1037,23 @@ mod test_selection {
         assert_eq!(msgs.len(), 20);
 
         let mut next_nonce = 0;
-        for i in 0..10 {
+        for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
         next_nonce = 0;
-        for i in 10..20 {
+        for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msgs[i].from(),
+                *msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
-            assert_eq!(msgs[i].sequence(), next_nonce, "nonce should be in order");
+            assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
     }
@@ -1100,17 +1127,15 @@ mod test_selection {
 
         assert_eq!(msgs.len(), expected_msgs as usize);
 
-        let mut next_nonce = 0u64;
-        for m in msgs {
+        for (next_nonce, m) in msgs.into_iter().enumerate() {
             assert_eq!(m.message().from(), &a1, "Expected message from a1");
             assert_eq!(
                 m.message().sequence,
-                next_nonce,
+                next_nonce as u64,
                 "expected nonce {} but got {}",
                 next_nonce,
                 m.message().sequence
             );
-            next_nonce += 1;
         }
     }
 
@@ -1278,7 +1303,7 @@ mod test_selection {
         for a in &mut actors {
             api.write()
                 .await
-                .set_state_balance_raw(&a, types::DefaultNetworkParams::from_fil(1));
+                .set_state_balance_raw(a, types::DefaultNetworkParams::from_fil(1));
             // in FIL
         }
 
@@ -1317,7 +1342,7 @@ mod test_selection {
                 }
             }
             // Lotus has -1, but since we don't have -ve indexes, set it some unrealistic number
-            return 9999999;
+            9999999
         };
 
         let mut nonces = vec![0; n_actors as usize];

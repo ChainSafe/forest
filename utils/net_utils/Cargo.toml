@@ -2,14 +2,14 @@
 name = "net_utils"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-isahc = "0.9.11"
-url = "2.1.1"
-log = "0.4.8"
+isahc = "1.6"
+url = "2.1"
+log = "0.4"
 thiserror = "1.0"
-pbr = "1.0.3"
+pbr = "1.0"
 pin-project-lite = "0.2"
 async-std = { version = "1.9", features = ["attributes"] }
-futures = "0.3.5"
+futures = "0.3"

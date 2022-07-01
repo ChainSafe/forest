@@ -12,9 +12,7 @@ use futures::AsyncRead;
 use ipld_blockstore::BlockStore;
 use log::{debug, info};
 use net_utils::FetchProgress;
-use networks::DEFAULT_GENESIS;
 use state_manager::StateManager;
-use std::error::Error as StdError;
 use std::sync::Arc;
 use std::{convert::TryFrom, io::Stdout};
 use url::Url;
@@ -26,8 +24,9 @@ pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 /// chain store has existing data for the given genesis.
 pub async fn read_genesis_header<DB>(
     genesis_fp: Option<&String>,
+    genesis_bytes: Option<&[u8]>,
     cs: &ChainStore<DB>,
-) -> Result<Tipset, Box<dyn StdError>>
+) -> Result<Tipset, anyhow::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
@@ -39,7 +38,9 @@ where
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
-            let reader = BufReader::<&[u8]>::new(DEFAULT_GENESIS);
+            let genesis_bytes =
+                genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
+            let reader = BufReader::<&[u8]>::new(genesis_bytes);
             process_car(reader, cs).await?
         }
     };
@@ -51,7 +52,7 @@ where
 pub async fn get_network_name_from_genesis<BS>(
     genesis_ts: &Tipset,
     state_manager: &StateManager<BS>,
-) -> Result<String, Box<dyn StdError>>
+) -> Result<String, anyhow::Error>
 where
     BS: BlockStore + Send + Sync + 'static,
 {
@@ -61,18 +62,19 @@ where
     // Get network name from genesis state.
     let network_name = state_manager
         .get_network_name(genesis_header.state_root())
-        .map_err(|e| format!("Failed to retrieve network name from genesis: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to retrieve network name from genesis: {}", e))?;
     Ok(network_name)
 }
 
 pub async fn initialize_genesis<BS>(
     genesis_fp: Option<&String>,
     state_manager: &StateManager<BS>,
-) -> Result<(Tipset, String), Box<dyn StdError>>
+) -> Result<(Tipset, String), anyhow::Error>
 where
     BS: BlockStore + Send + Sync + 'static,
 {
-    let ts = read_genesis_header(genesis_fp, state_manager.chain_store()).await?;
+    let genesis_bytes = state_manager.chain_config.genesis_bytes();
+    let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
     let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
     Ok((ts, network_name))
 }
@@ -80,7 +82,7 @@ where
 async fn process_car<R, BS>(
     reader: R,
     chain_store: &ChainStore<BS>,
-) -> Result<BlockHeader, Box<dyn StdError>>
+) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
     BS: BlockStore + Send + Sync + 'static,
@@ -91,9 +93,15 @@ where
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block: BlockHeader = chain_store.db.get(&genesis_cids[0])?.ok_or_else(|| {
-        "Could not find genesis block despite being loaded using a genesis file".to_owned()
-    })?;
+    let genesis_block: BlockHeader =
+        chain_store
+            .db
+            .get_anyhow(&genesis_cids[0])?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Could not find genesis block despite being loaded using a genesis file"
+                )
+            })?;
 
     let store_genesis = chain_store.genesis()?;
 
@@ -157,7 +165,7 @@ where
     sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
 
     if let Some(height) = validate_height {
-        info!("Validating imported chain");
+        info!("Validating imported chain from height: {}", height);
         sm.validate_chain::<V>(ts.clone(), height).await?;
     }
 
@@ -170,7 +178,7 @@ async fn load_and_retrieve_header<DB, R>(
     store: &DB,
     mut reader: FetchProgress<R, Stdout>,
     skip_load: bool,
-) -> Result<Vec<Cid>, Box<dyn StdError>>
+) -> Result<Vec<Cid>, anyhow::Error>
 where
     DB: BlockStore,
     R: AsyncRead + Send + Unpin,

@@ -2,9 +2,10 @@
 name = "message_pool"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 blocks = { package = "forest_blocks", path = "../blocks" }
@@ -33,10 +34,12 @@ types = { package = "fil_types", version = "0.2" }
 forest_libp2p = { path = "../../node/forest_libp2p" }
 num-traits = "0.2"
 statrs = "0.15"
-num-rational = "0.3.2"
+num-rational = "0.4"
 networks = { path = "../../types/networks" }
 slotmap = "1.0"
 rand = "0.8.3"
+fvm_shared = { version = "0.7.1", default-features = false }
+fvm = "0.8"
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }

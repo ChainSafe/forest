@@ -7,7 +7,7 @@ use std::fmt;
 use thiserror::Error;
 
 /// Ipld error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     #[error("{0}")]
     Encoding(String),

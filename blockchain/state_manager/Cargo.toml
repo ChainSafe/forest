@@ -1,13 +1,18 @@
 [package]
-name = "state_manager"
+name    = "state_manager"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2018"
+edition = "2021"
 
 [package.metadata.docs.rs]
 features = ["statediff"]
 
 [dependencies]
+anyhow = "1.0"
+fvm = "0.8"
+fvm_shared = { version = "0.7.1", default-features = false }
+fvm_ipld_bitfield = "0.5.2"
+fil_actors_runtime = "=7.5.1"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 blake2b_simd = "0.5.9"
@@ -18,26 +23,27 @@ encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
 blockstore = { package = "ipld_blockstore", version = "0.1", features = [
-    "buffered"
+    "buffered",
 ] }
 forest_blocks = { path = "../../blockchain/blocks" }
 beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"
 interpreter = { path = "../../vm/interpreter/" }
 ipld_amt = "0.2"
-clock = { package = "fil_clock", path = "../../node/clock" }
 chain = { path = "../chain" }
 async-std = { version = "1.9", features = ["unstable", "tokio1"] }
 async-log = "2.0.0"
 log = "0.4.8"
 fil_types = "0.2"
-message = { package = "forest_message", version = "0.7", features = ["json", "blst"] }
+message = { package = "forest_message", version = "0.7", features = [
+    "json",
+    "blst",
+] }
 vm = { package = "forest_vm", version = "0.3.1" }
-bitfield = { package = "forest_bitfield", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2.11"
 tokio = { version = "1.0", features = ["sync"] }
-filecoin-proofs-api = { version = "9", features = ["blst"], default_features = false }
+filecoin-proofs-api = { version = "11.0.0", default_features = false }
 futures = "0.3.5"
 runtime = { package = "forest_runtime", version = "0.2" }
 lazy_static = "1.4"
@@ -45,3 +51,6 @@ once_cell = "1.5"
 forest_crypto = { version = "0.5", features = ["blst"] }
 networks = { path = "../../types/networks" }
 statediff = { path = "../../utils/statediff", optional = true }
+
+[features]
+default = ["statediff"]

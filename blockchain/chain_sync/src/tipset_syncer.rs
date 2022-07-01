@@ -4,7 +4,6 @@
 use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,8 +13,8 @@ use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
+use fvm_shared::bigint::BigInt;
 use log::{debug, error, info, trace, warn};
-use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
@@ -30,7 +29,6 @@ use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, 
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use clock::ChainEpoch;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
@@ -39,10 +37,11 @@ use fil_types::{
     TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
-use interpreter::price_list_by_epoch;
+use fvm::gas::price_list_by_network_version;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
-use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
+use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -869,10 +868,17 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     parent_tipsets.push(proposed_head.clone());
     tracker.write().await.set_epoch(current_head.epoch());
 
+    let total_size = proposed_head.epoch() - current_head.epoch();
+    let mut pb = pbr::ProgressBar::new(total_size as u64);
+    pb.message("Downloading headers ");
+    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
+        let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
+        pb.set((work_to_be_done - total_size).unsigned_abs());
         validate_tipset_against_cache(
             bad_block_cache.clone(),
             oldest_parent.parents(),
@@ -913,6 +919,8 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
             parent_tipsets.push(tipset);
         }
     }
+    pb.finish();
+
     // Unwrapping is safe here because we assume that the tipset
     // vector was initialized with a tipset that will not be removed
     let oldest_tipset = parent_tipsets.last().unwrap().clone();
@@ -1058,6 +1066,7 @@ async fn sync_messages_check_state<
                 )
                 .await?;
                 tracker.write().await.set_epoch(current_epoch);
+                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
             None => {
                 // Full tipset is not in storage; request messages via chain_exchange
@@ -1108,6 +1117,7 @@ async fn sync_messages_check_state<
                     .await?;
                     tracker.write().await.set_epoch(current_epoch);
                     timer.observe_duration();
+                    metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
 
                     // Persist the messages in the store
                     if let Some(m) = bundle.messages {
@@ -1154,6 +1164,9 @@ async fn validate_tipset<
         validations.push(validation_fn);
     }
 
+    info!("Validating tipset: EPOCH = {epoch}");
+    debug!("Tipset keys: {:?}", full_tipset_key.cids);
+
     while let Some(result) = validations.next().await {
         match result {
             Ok(block) => {
@@ -1181,10 +1194,6 @@ async fn validate_tipset<
             }
         }
     }
-    info!(
-        "Validating tipset: EPOCH = {}, KEY = {:?}",
-        epoch, full_tipset_key.cids,
-    );
     Ok(())
 }
 
@@ -1252,8 +1261,10 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
+    let block_delay = state_manager.chain_config.block_delay_secs;
+    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
-    let target_timestamp = base_tipset.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
+    let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
         return Err((
             *block_cid,
@@ -1280,7 +1291,7 @@ async fn validate_block<
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
     let work_addr = state_manager
-        .get_miner_work_addr(&lookback_state, header.miner_address())
+        .get_miner_work_addr(*lookback_state, header.miner_address())
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Async validations
@@ -1313,12 +1324,11 @@ async fn validate_block<
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
         let base_fee =
-            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
-                TipsetRangeSyncerError::Validation(format!(
-                    "Could not compute base fee: {}",
-                    e.to_string()
-                ))
-            })?;
+            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(
+                |e| {
+                    TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
+                },
+            )?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
             return Err(TipsetRangeSyncerError::Validation(format!(
@@ -1359,6 +1369,17 @@ async fn validate_block<
                 TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {}", e))
             })?;
         if &state_root != header.state_root() {
+            #[cfg(feature = "statediff")]
+            {
+                if let Err(err) = statediff::print_state_diff(
+                    v_state_manager.blockstore(),
+                    &state_root,
+                    header.state_root(),
+                    Some(1),
+                ) {
+                    eprintln!("Failed to print state-diff: {}", err);
+                }
+            }
             return Err(TipsetRangeSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),
@@ -1403,7 +1424,7 @@ async fn validate_block<
         let miner_address_buf = header.miner_address().marshal_cbor()?;
         let vrf_base = state_manager::chain_rand::draw_randomness(
             r_beacon.data(),
-            DomainSeparationTag::ElectionProofProduction,
+            DomainSeparationTag::ElectionProofProduction as i64,
             header.epoch(),
             &miner_address_buf,
         )
@@ -1461,7 +1482,7 @@ async fn validate_block<
         let header = v_block.header();
         let mut miner_address_buf = header.miner_address().marshal_cbor()?;
 
-        if header.epoch() > UPGRADE_SMOKE_HEIGHT {
+        if header.epoch() > smoke_height {
             let vrf_proof = base_tipset
                 .min_ticket()
                 .ok_or(TipsetRangeSyncerError::TipsetWithoutTicket)?
@@ -1474,7 +1495,7 @@ async fn validate_block<
 
         let vrf_base = state_manager::chain_rand::draw_randomness(
             beacon_base.data(),
-            DomainSeparationTag::TicketProduction,
+            DomainSeparationTag::TicketProduction as i64,
             header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
             &miner_address_buf,
         )
@@ -1538,7 +1559,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     tipset_state: &Cid,
 ) -> Result<(), TipsetRangeSyncerError> {
     let actor = state_manager
-        .get_actor(power::ADDRESS, tipset_state)?
+        .get_actor(power::ADDRESS, *tipset_state)?
         .ok_or(TipsetRangeSyncerError::PowerActorUnavailable)?;
     let state = power::State::load(state_manager.blockstore(), &actor)
         .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;
@@ -1586,7 +1607,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         .unwrap_or(prev_beacon_entry);
     let rand = state_manager::chain_rand::draw_randomness(
         rand_base.data(),
-        DomainSeparationTag::WinningPoStChallengeSeed,
+        DomainSeparationTag::WinningPoStChallengeSeed as i64,
         header.epoch(),
         &miner_addr_buf,
     )
@@ -1606,10 +1627,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
             Randomness(rand.to_vec()),
         )
         .map_err(|e| {
-            TipsetRangeSyncerError::Validation(format!(
-                "Failed to get sectors for PoSt: {}",
-                e.to_string()
-            ))
+            TipsetRangeSyncerError::Validation(format!("Failed to get sectors for PoSt: {}", e))
         })?;
 
     V::verify_winning_post(
@@ -1619,10 +1637,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         id,
     )
     .map_err(|e| {
-        TipsetRangeSyncerError::Validation(format!(
-            "Failed to verify winning PoSt: {}",
-            e.to_string()
-        ))
+        TipsetRangeSyncerError::Validation(format!("Failed to verify winning PoSt: {}", e))
     })
 }
 
@@ -1634,7 +1649,9 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = get_network_version_default(block.header.epoch());
+    let network_version = state_manager
+        .chain_config
+        .network_version(block.header.epoch());
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1644,7 +1661,7 @@ fn check_block_messages<
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
             m.from(),
-            base_tipset.parent_state(),
+            *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
         cids.push(m.to_signing_bytes());
@@ -1671,20 +1688,22 @@ fn check_block_messages<
     } else {
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
-    let price_list = price_list_by_epoch(base_tipset.epoch());
+
+    let price_list = price_list_by_network_version(network_version);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity
     let mut check_msg = |msg: &UnsignedMessage,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), Box<dyn StdError>> {
+     -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        msg.valid_for_block_inclusion(min_gas.total(), network_version)?;
+        msg.valid_for_block_inclusion(min_gas.total(), network_version)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit();
         if sum_gas_limit > BLOCK_GAS_LIMIT {
-            return Err("block gas limit exceeded".into());
+            anyhow::bail!("block gas limit exceeded");
         }
 
         // Phase 2: (Partial) Semantic validation
@@ -1692,11 +1711,13 @@ fn check_block_messages<
         let sequence: u64 = match account_sequences.get(msg.from()) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(msg.from())?.ok_or({
-                    "Failed to retrieve nonce for addr: Actor does not exist in state"
+                let actor = tree.get_actor(msg.from())?.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    )
                 })?;
                 if !is_account_actor(&actor.code) {
-                    return Err("Sending must be an account actor".into());
+                    anyhow::bail!("Sending must be an account actor");
                 }
                 actor.sequence
             }
@@ -1704,12 +1725,11 @@ fn check_block_messages<
 
         // Sequence equality check
         if sequence != msg.sequence() {
-            return Err(format!(
+            anyhow::bail!(
                 "Message has incorrect sequence (exp: {} got: {})",
                 sequence,
                 msg.sequence()
-            )
-            .into());
+            );
         }
         account_sequences.insert(*msg.from(), sequence + 1);
         Ok(())

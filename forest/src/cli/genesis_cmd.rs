@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fvm_shared::bigint::BigInt;
 use log::{info, warn};
-use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Read;
@@ -51,7 +51,7 @@ impl GenesisCommands {
                 let template = GenesisTemplate::new(
                     network_name
                         .as_ref()
-                        .unwrap_or(&format!("localnet-{}", Uuid::new_v4().to_string()))
+                        .unwrap_or(&format!("localnet-{}", Uuid::new_v4()))
                         .to_string(),
                 );
 

@@ -1,19 +1,19 @@
 #!/bin/bash
+#
+# Checks if the source code contains required license and adds it if necessary.
+# Returns 1 if there was a missing license, 0 otherwise.
 
-PAT_APA="^// Copyright 2019-2022 ChainSafe Systems // SPDX-License-Identifier: Apache-2.0, MIT$"
+PAT_APA="^// Copyright 2019-2022 ChainSafe Systems// SPDX-License-Identifier: Apache-2.0, MIT$"
 
-valid=true
-for file in $(find . -type f -not -path "./target/*" -not -path "./blockchain/beacon/src/drand_api/*" -not -path "./ipld/graphsync/src/message/proto/message.rs" | egrep '\.(rs)$'); do
-	header=$(echo $(head -3 $file))
+ret=0
+for file in $(git grep --cached -Il '' -- '*.rs' ':!*ipld/graphsync/src/message/proto/message.rs'); do
+  header=$(head -2 "$file" | tr -d '\n')
 	if ! echo "$header" | grep -q "$PAT_APA"; then
 		echo "$file was missing header"
-		cat ./scripts/copyright.txt $file > temp
-		mv temp $file
-		valid=false
+		cat ./scripts/copyright.txt "$file" > temp
+		mv temp "$file"
+		ret=1
 	fi
 done
 
-# if a header is incorrect, return an OS exit code
-if [ "$valid" = false ] ; then
-	exit 1
-fi
+exit $ret
