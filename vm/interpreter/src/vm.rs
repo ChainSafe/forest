@@ -91,26 +91,9 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<
-    'db,
-    'r,
-    DB: BlockStore + 'static,
-    R,
-    C: CircSupplyCalc,
-    LB,
-    V = FullVerifier,
-    P = DefaultNetworkParams,
-> {
-    _state: Rc<RefCell<StateTree<'db, DB>>>,
-    _store: &'db DB,
-    _epoch: ChainEpoch,
-    _rand: &'r R,
-    _base_fee: BigInt,
+pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
     registered_actors: HashSet<Cid>,
-    _network_version: NetworkVersion,
-    _circ_supply_calc: C,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
-    _lb_state: &'r LB,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
     heights: Heights,
@@ -132,17 +115,14 @@ pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, C
         .collect()
 }
 
-impl<'db, 'r, DB, R, C, LB, V, P> VM<'db, 'r, DB, R, C, LB, V, P>
+impl<DB, V, P> VM<DB, V, P>
 where
     DB: BlockStore,
     V: ProofVerifier,
     P: NetworkParams,
-    R: Rand + Clone + 'static,
-    C: CircSupplyCalc,
-    LB: LookbackStateGetter<'db, DB>,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new<'db, 'r, R, C, LB>(
         root: Cid,
         store: &'db DB,
         store_arc: Arc<DB>,
@@ -155,7 +135,12 @@ where
         lb_state: &'r LB,
         engine: Engine,
         heights: Heights,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, String>
+    where
+        R: Rand + Clone + 'static,
+        C: CircSupplyCalc,
+        LB: LookbackStateGetter<'db, DB>,
+    {
         let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
         let registered_actors = HashSet::new();
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
@@ -196,16 +181,8 @@ where
                 circ_supply: override_circ_supply,
             });
         Ok(VM {
-            _network_version: network_version,
-            _state: Rc::new(RefCell::new(state)),
-            _store: store,
-            _epoch: epoch,
-            _rand: rand,
-            _base_fee: base_fee,
             registered_actors,
             fvm_executor: exec,
-            _circ_supply_calc: circ_supply_calc,
-            _lb_state: lb_state,
             verifier: PhantomData,
             params: PhantomData,
             heights,
