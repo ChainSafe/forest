@@ -100,10 +100,23 @@ pub trait BlockStoreExt: BlockStore {
         S: Serialize + 'a,
         V: IntoIterator<Item = &'a S>,
     {
-        values
+        let keyed_objects = values
             .into_iter()
-            .map(|value| self.put_obj(value, code))
-            .collect()
+            .map(|value| {
+                let bytes = to_vec(value)?;
+                let cid = cid::new_from_cbor(&bytes, code);
+                Ok((cid, bytes))
+            })
+            .collect::<Result<Vec<_>, anyhow::Error>>()?;
+
+        let cids = keyed_objects
+            .iter()
+            .map(|(cid, _)| cid.to_owned())
+            .collect();
+
+        self.put_many_keyed(keyed_objects)?;
+
+        Ok(cids)
     }
 }
 
