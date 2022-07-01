@@ -225,10 +225,10 @@ impl TipsetGroup {
     }
 
     fn is_heavier_than(&self, other: &Self) -> bool {
-        self.cmp(other).is_gt()
+        self.weight_cmp(other).is_gt()
     }
 
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn weight_cmp(&self, other: &Self) -> Ordering {
         let (i, weight) = self.heaviest_weight();
         let (j, otherw) = other.heaviest_weight();
         match weight.cmp(otherw) {
@@ -413,7 +413,7 @@ where
                 // Consume the tipsets received, start syncing the heaviest tipset group, and discard the rest
                 if let Some(((epoch, parents), heaviest_tipset_group)) = grouped_tipsets
                     .into_iter()
-                    .max_by(|(_, a), (_, b)| a.cmp(b))
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                 {
                     trace!("Finding range for tipset epoch = {}", epoch);
                     self.state = TipsetProcessorState::FindRange {
@@ -448,7 +448,7 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
-                    .max_by(|(_, a), (_, b)| a.cmp(b))
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                     .map(|(_, group)| group)
                 {
                     // Find the heaviest tipset group and either merge it with the
@@ -495,7 +495,7 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
-                    .max_by(|(_, a), (_, b)| a.cmp(b))
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                     .map(|(_, group)| group)
                 {
                     // Find the heaviest tipset group and either merge it with the
