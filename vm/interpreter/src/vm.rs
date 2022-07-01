@@ -120,17 +120,17 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<'db, 'r, R, C, LB>(
+    pub fn new<'db, R, C, LB>(
         root: Cid,
-        store: &'db DB,
+        store: &DB,
         store_arc: Arc<DB>,
         epoch: ChainEpoch,
-        rand: &'r R,
+        rand: &R,
         base_fee: BigInt,
         network_version: NetworkVersion,
         circ_supply_calc: C,
         override_circ_supply: Option<TokenAmount>,
-        lb_state: &'r LB,
+        lb_state: &'db LB,
         engine: Engine,
         heights: Heights,
     ) -> Result<Self, String>
