@@ -1,13 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
-use crate::price_list_by_epoch;
 use crate::Rand;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
-use fvm::externs::Consensus;
-use fvm::externs::Externs;
-use fvm::gas::{Gas, GasTracker};
+use fil_types::NetworkVersion;
+use fvm::externs::{Consensus, Externs};
+use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
@@ -26,28 +25,28 @@ use std::sync::Arc;
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
-    calico_height: ChainEpoch,
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
     db: Arc<DB>,
+    network_version: NetworkVersion,
 }
 
 impl<DB: BlockStore> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
-        calico_height: ChainEpoch,
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
         db: Arc<DB>,
+        network_version: NetworkVersion,
     ) -> Self {
         ForestExterns {
             rand: Box::new(rand),
             epoch,
-            calico_height,
             root,
             lookback,
             db,
+            network_version,
         }
     }
 
@@ -78,7 +77,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             Gas::new(0),
         )));
         let gbs = GasBlockStore {
-            price_list: price_list_by_epoch(self.epoch, self.calico_height),
+            price_list: price_list_by_network_version(self.network_version).clone(),
             gas: tracker.clone(),
             store: self.db.as_ref(),
         };

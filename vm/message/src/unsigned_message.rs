@@ -5,6 +5,7 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
+use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vm::{MethodNum, Serialized, TokenAmount};
@@ -106,7 +107,7 @@ impl UnsignedMessage {
     #[cfg(feature = "proofs")]
     pub fn valid_for_block_inclusion(
         &self,
-        min_gas: i64,
+        min_gas: Gas,
         version: fil_types::NetworkVersion,
     ) -> Result<(), String> {
         use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
@@ -136,7 +137,7 @@ impl UnsignedMessage {
             return Err("gas_limit cannot be greater than block gas limit".to_string());
         }
 
-        if self.gas_limit < min_gas {
+        if Gas::new(self.gas_limit) < min_gas {
             return Err(format!(
                 "gas_limit {} cannot be less than cost {} of storing a message on chain",
                 self.gas_limit, min_gas

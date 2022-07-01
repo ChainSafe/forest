@@ -200,7 +200,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
-            &state_manager.chain_config,
+            (*state_manager.chain_config).clone(),
         )
         .await
         .unwrap(),

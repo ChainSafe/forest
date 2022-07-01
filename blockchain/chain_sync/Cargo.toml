@@ -52,6 +52,7 @@ time = { version = "0.3", features = ["serde"] }
 prometheus = { version = "0.12.0", features = ["process"] }
 lazy_static = "1.4.0"
 statediff = { path = "../../utils/statediff", optional = true }
+fvm = "0.8"
 
 [dev-dependencies]
 test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [

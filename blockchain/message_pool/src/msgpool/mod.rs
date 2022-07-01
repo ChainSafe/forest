@@ -20,10 +20,10 @@ use cid::Cid;
 use crypto::Signature;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use fvm_shared::clock::ChainEpoch;
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};
+use networks::ChainConfig;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -63,7 +63,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
-    calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -102,7 +102,7 @@ where
             &base_fee_lower_bound,
             &ts,
             &mut chains,
-            calico_height,
+            chain_config,
         )
         .await?;
     }
@@ -309,7 +309,7 @@ pub mod tests {
     use fvm_shared::bigint::BigInt;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::{SignedMessage, UnsignedMessage};
-    use networks::{ChainConfig, Height};
+    use networks::ChainConfig;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;
@@ -353,7 +353,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -423,7 +423,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -523,7 +523,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -569,11 +569,11 @@ pub mod tests {
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         let gas_limit = 6955002;
-        let calico_height = ChainConfig::default().epoch(Height::Calico);
         task::block_on(async move {
             let tma = RwLock::new(tma);
             let a = mock_block(1, 1);
             let ts = Tipset::new(vec![a]).unwrap();
+            let chain_config = ChainConfig::default();
 
             // --- Test Chain Aggregations ---
             // Test 1: 10 messages from a1 to a2, with increasing gasPerf; it should
@@ -594,7 +594,7 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -632,7 +632,7 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -676,7 +676,7 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -724,7 +724,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -774,7 +774,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -813,7 +813,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -855,7 +855,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -890,7 +890,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();

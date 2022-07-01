@@ -38,8 +38,8 @@ use fil_types::{
     TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
+use fvm::gas::price_list_by_network_version;
 use fvm_shared::clock::ChainEpoch;
-use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
 use networks::Height;
@@ -1628,7 +1628,6 @@ fn check_block_messages<
     let network_version = state_manager
         .chain_config
         .network_version(block.header.epoch());
-    let calico_height = state_manager.chain_config.epoch(Height::Calico);
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1665,7 +1664,8 @@ fn check_block_messages<
     } else {
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
-    let price_list = price_list_by_epoch(base_tipset.epoch(), calico_height);
+
+    let price_list = price_list_by_network_version(network_version);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity

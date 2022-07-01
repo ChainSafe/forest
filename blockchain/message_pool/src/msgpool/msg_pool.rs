@@ -29,12 +29,12 @@ use db::Store;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
+use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::{BigInt, Integer};
-use fvm_shared::clock::ChainEpoch;
 use log::warn;
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};
-use networks::{ChainConfig, Height, NEWEST_NETWORK_VERSION};
+use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
@@ -156,8 +156,8 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    /// Calico height
-    pub calico_height: ChainEpoch,
+    /// Chain сonfig
+    pub chain_config: ChainConfig,
 }
 
 impl<T> MessagePool<T>
@@ -170,7 +170,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
-        chain_config: &ChainConfig,
+        chain_config: ChainConfig,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -186,7 +186,6 @@ where
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
 
         let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
         let mut mp = MessagePool {
@@ -204,7 +203,7 @@ where
             config,
             network_sender,
             repub_trigger,
-            calico_height,
+            chain_config: chain_config.clone(),
         };
 
         mp.load_local().await?;
@@ -281,7 +280,7 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
-                    calico_height,
+                    &chain_config,
                 )
                 .await
                 {
@@ -325,7 +324,7 @@ where
             return Err(Error::MessageTooBig);
         }
         msg.message()
-            .valid_for_block_inclusion(0, NEWEST_NETWORK_VERSION)
+            .valid_for_block_inclusion(Gas::new(0), NEWEST_NETWORK_VERSION)
             .map_err(Error::Other)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
@@ -382,7 +381,7 @@ where
             return Err(Error::SequenceTooLow);
         }
 
-        let publish = verify_msg_before_add(&msg, cur_ts, local, self.calico_height)?;
+        let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
@@ -472,7 +471,7 @@ where
             return Err(Error::TryAgain);
         }
 
-        let publish = verify_msg_before_add(&msg, &cur_ts, true, self.calico_height)?;
+        let publish = verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
@@ -694,10 +693,10 @@ fn verify_msg_before_add(
     m: &SignedMessage,
     cur_ts: &Tipset,
     local: bool,
-    calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch, calico_height)
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(m.marshal_cbor()?.len());
     m.message()
         .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
