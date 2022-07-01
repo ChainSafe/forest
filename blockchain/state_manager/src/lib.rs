@@ -1399,7 +1399,6 @@ where
     ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info
             .get_supply(height, state_tree)
-            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 
     /// Return the state of Market Actor.
