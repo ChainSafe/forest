@@ -138,8 +138,9 @@ impl Tipset {
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self.blocks().iter().zip(other.blocks().iter()).any(|(a, b)| {
-            let ticket = a.ticket().as_ref().unwrap();
-            let other_ticket = b.ticket().as_ref().unwrap();
+            const MSG: &str = "The function block_sanity_checks should have been called at this point.";
+            let ticket = a.ticket().as_ref().expect(MSG);
+            let other_ticket = b.ticket().as_ref().expect(MSG);
             ticket.vrfproof < other_ticket.vrfproof
         });
         if broken {
