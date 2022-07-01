@@ -154,8 +154,8 @@ where
         lb_state: &'r LB,
         engine: Engine,
         heights: Heights,
-    ) -> Result<Self, String> {
-        let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
+    ) -> Result<Self, anyhow::Error> {
+        let state = StateTree::new_from_root(store, &root)?;
         let registered_actors = HashSet::new();
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
         // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();

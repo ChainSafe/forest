@@ -361,7 +361,6 @@ where
                     .unwrap(),
                 heights,
             )
-            .map_err(|e| anyhow::anyhow!("{}", e))
         };
 
         let mut parent_state = *p_state;
