@@ -15,7 +15,7 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 ];
 
 /// Height epochs.
-pub const HEIGHT_INFOS: [HeightInfo; 17] = [
+pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: -1,
@@ -83,6 +83,10 @@ pub const HEIGHT_INFOS: [HeightInfo; 17] = [
     HeightInfo {
         height: Height::OhSnap,
         epoch: 682006,
+    },
+    HeightInfo {
+        height: Height::Skyr,
+        epoch: 1044660,
     },
 ];
 
