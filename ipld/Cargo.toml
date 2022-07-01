@@ -11,6 +11,7 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json"]
 
 [dependencies]
+anyhow            = "1.0"
 fvm_shared        = { version = "0.7.1", default-features = false }
 fvm_ipld_encoding = "0.2"
 libipld-core      = { version = "0.13", features = ["serde-codec"] }

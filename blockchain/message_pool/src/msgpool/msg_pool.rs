@@ -324,8 +324,7 @@ where
             return Err(Error::MessageTooBig);
         }
         msg.message()
-            .valid_for_block_inclusion(Gas::new(0), NEWEST_NETWORK_VERSION)
-            .map_err(Error::Other)?;
+            .valid_for_block_inclusion(Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
@@ -699,8 +698,7 @@ fn verify_msg_before_add(
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(m.marshal_cbor()?.len());
     m.message()
-        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
-        .map_err(Error::Other)?;
+        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound =

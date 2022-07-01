@@ -71,8 +71,24 @@ pub trait BlockStore: Store {
         self.put_raw(bytes, code)
     }
 
+    /// Put an object in the block store and return the Cid identifier.
+    fn put_anyhow<S>(&self, obj: &S, code: Code) -> Result<Cid, anyhow::Error>
+    where
+        S: Serialize,
+    {
+        let bytes = to_vec(obj)?;
+        self.put_raw_anyhow(bytes, code)
+    }
+
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
+        let cid = cid::new_from_cbor(&bytes, code);
+        self.write(cid.to_bytes(), bytes)?;
+        Ok(cid)
+    }
+
+    /// Put raw bytes in the block store and return the Cid identifier.
+    fn put_raw_anyhow(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, anyhow::Error> {
         let cid = cid::new_from_cbor(&bytes, code);
         self.write(cid.to_bytes(), bytes)?;
         Ok(cid)

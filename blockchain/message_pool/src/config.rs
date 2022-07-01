@@ -5,7 +5,6 @@ use address::Address;
 use db::Store;
 use encoding::{from_slice, to_vec};
 use serde::{Deserialize, Serialize};
-use std::error::Error as StdError;
 use std::time::Duration;
 
 const MPOOL_CONFIG_KEY: &[u8] = b"/mpool/config";
@@ -74,12 +73,12 @@ impl MpoolConfig {
     }
 
     /// Saves message pool config to the database, to easily reload.
-    pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), Box<dyn StdError>> {
+    pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), anyhow::Error> {
         Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
     }
 
     /// Load config from store, if exists. If there is no config, uses default.
-    pub fn load_config<DB: Store>(store: &DB) -> Result<Self, Box<dyn StdError>> {
+    pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
         match store.read(MPOOL_CONFIG_KEY)? {
             Some(v) => Ok(from_slice(&v)?),
             None => Ok(Default::default()),

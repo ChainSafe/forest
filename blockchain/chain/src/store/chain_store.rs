@@ -28,7 +28,6 @@ use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMess
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -461,8 +460,8 @@ where
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
-                .get_bytes(&cid)?
-                .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+                .get_bytes_anyhow(&cid)?
+                .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
@@ -578,7 +577,7 @@ where
         mut load_block: F,
     ) -> Result<(), Error>
     where
-        F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
     {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();

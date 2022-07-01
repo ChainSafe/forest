@@ -27,7 +27,6 @@ use num_traits::Zero;
 use state_tree::StateTree;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use vm::{ExitCode, Serialized, TokenAmount};
@@ -51,18 +50,18 @@ pub trait CircSupplyCalc: Clone + 'static {
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, Box<dyn StdError>>;
+    ) -> Result<TokenAmount, anyhow::Error>;
     fn get_fil_vested<DB: BlockStore>(
         &self,
         height: ChainEpoch,
         store: &DB,
-    ) -> Result<TokenAmount, Box<dyn StdError>>;
+    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
 pub trait LookbackStateGetter<'db, DB> {
     /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, Box<dyn StdError>>;
+    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, anyhow::Error>;
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
@@ -133,13 +132,13 @@ where
         lb_state: &LB,
         engine: Engine,
         heights: Heights,
-    ) -> Result<Self, String>
+    ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
         C: CircSupplyCalc,
         LB: LookbackStateGetter<'db, DB>,
     {
-        let state = StateTree::new_from_root(store, &root).map_err(|e| e.to_string())?;
+        let state = StateTree::new_from_root(store, &root)?;
         let registered_actors = HashSet::new();
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
         // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
@@ -204,18 +203,20 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, Box<dyn StdError>> {
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, anyhow::Error> {
         match self.fvm_executor.state_tree().get_actor(addr) {
             Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
-            Err(err) => Err(format!("failed to get actor: {}", err).into()),
+            Err(err) => anyhow::bail!("failed to get actor: {}", err),
         }
     }
 
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
-    ) -> Result<(), Box<dyn StdError>> {
+        callback: Option<
+            &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+        >,
+    ) -> Result<(), anyhow::Error> {
         let cron_msg = UnsignedMessage {
             from: **system::ADDRESS,
             to: **cron::ADDRESS,
@@ -233,7 +234,7 @@ where
 
         let ret = self.apply_implicit_message(&cron_msg)?;
         if let Some(err) = ret.failure_info {
-            return Err(format!("failed to apply block cron message: {}", err).into());
+            anyhow::bail!("failed to apply block cron message: {}", err);
         }
 
         if let Some(callback) = callback {
@@ -248,7 +249,7 @@ where
         &self,
         epoch: ChainEpoch,
         _store: Arc<impl BlockStore + Send + Sync>,
-    ) -> Result<Option<Cid>, Box<dyn StdError>> {
+    ) -> Result<Option<Cid>, anyhow::Error> {
         match epoch {
             x if x == self.heights.turbo => {
                 // FIXME: Support state migrations.
@@ -264,8 +265,10 @@ where
         &mut self,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        mut callback: Option<impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
-    ) -> Result<Vec<MessageReceipt>, Box<dyn StdError>> {
+        mut callback: Option<
+            impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+        >,
+    ) -> Result<Vec<MessageReceipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
@@ -273,7 +276,7 @@ where
             let mut penalty = Default::default();
             let mut gas_reward = Default::default();
 
-            let mut process_msg = |msg: &ChainMessage| -> Result<(), Box<dyn StdError>> {
+            let mut process_msg = |msg: &ChainMessage| -> Result<(), anyhow::Error> {
                 let cid = msg.cid()?;
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
@@ -323,20 +326,19 @@ where
 
             let ret = self.apply_implicit_message(&rew_msg)?;
             if let Some(err) = ret.failure_info {
-                return Err(format!(
+                anyhow::bail!(
                     "failed to apply reward message for miner {}: {}",
-                    block.miner, err
-                )
-                .into());
+                    block.miner,
+                    err
+                );
             }
 
             // This is more of a sanity check, this should not be able to be hit.
             if ret.msg_receipt.exit_code != ExitCode::OK {
-                return Err(format!(
+                anyhow::bail!(
                     "reward application message failed (exit: {:?})",
                     ret.msg_receipt.exit_code
-                )
-                .into());
+                );
             }
 
             if let Some(callback) = &mut callback {
@@ -351,18 +353,18 @@ where
     }
 
     /// Applies single message through vm and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
-        self.apply_implicit_message_fvm(msg)
-    }
-
-    fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    pub fn apply_implicit_message(
+        &mut self,
+        msg: &UnsignedMessage,
+    ) -> Result<ApplyRet, anyhow::Error> {
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let mut ret = self
-            .fvm_executor
-            .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
-            .map_err(|e| format!("{:?}", e))?;
+        let mut ret = self.fvm_executor.execute_message(
+            msg.into(),
+            fvm::executor::ApplyKind::Implicit,
+            raw_length,
+        )?;
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = BigInt::zero();
         ret.penalty = BigInt::zero();
@@ -371,35 +373,28 @@ where
 
     /// Applies the state transition for a single message.
     /// Returns ApplyRet structure which contains the message receipt and some meta data.
-    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
-        self.apply_message_fvm(msg)
-    }
-
-    fn apply_message_fvm(&mut self, msg: &ChainMessage) -> Result<ApplyRet, String> {
+    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
         check_message(msg.message())?;
 
         use fvm::executor::Executor;
         let unsigned = msg.message();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let fvm_ret = self
-            .fvm_executor
-            .execute_message(
-                unsigned.into(),
-                fvm::executor::ApplyKind::Explicit,
-                raw_length,
-            )
-            .map_err(|e| format!("{:?}", e))?;
+        let fvm_ret = self.fvm_executor.execute_message(
+            unsigned.into(),
+            fvm::executor::ApplyKind::Explicit,
+            raw_length,
+        )?;
         Ok(fvm_ret)
     }
 }
 
 /// Does some basic checks on the Message to see if the fields are valid.
-fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
+fn check_message(msg: &UnsignedMessage) -> Result<(), anyhow::Error> {
     if msg.gas_limit == 0 {
-        return Err("Message has no gas limit set");
+        anyhow::bail!("Message has no gas limit set");
     }
     if msg.gas_limit < 0 {
-        return Err("Message has negative gas limit");
+        anyhow::bail!("Message has negative gas limit");
     }
 
     Ok(())

@@ -109,39 +109,40 @@ impl UnsignedMessage {
         &self,
         min_gas: Gas,
         version: fil_types::NetworkVersion,
-    ) -> Result<(), String> {
+    ) -> Result<(), anyhow::Error> {
         use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
         use num_traits::Signed;
         if self.version != 0 {
-            return Err(format!("Message version: {} not supported", self.version));
+            anyhow::bail!("Message version: {} not supported", self.version);
         }
         if self.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
-            return Err("invalid 'to' address".to_string());
+            anyhow::bail!("invalid 'to' address");
         }
         if self.value.is_negative() {
-            return Err("message value cannot be negative".to_string());
+            anyhow::bail!("message value cannot be negative");
         }
         if self.value > *TOTAL_FILECOIN {
-            return Err("message value cannot be greater than total FIL supply".to_string());
+            anyhow::bail!("message value cannot be greater than total FIL supply");
         }
         if self.gas_fee_cap.is_negative() {
-            return Err("gas_fee_cap cannot be negative".to_string());
+            anyhow::bail!("gas_fee_cap cannot be negative");
         }
         if self.gas_premium.is_negative() {
-            return Err("gas_premium cannot be negative".to_string());
+            anyhow::bail!("gas_premium cannot be negative");
         }
         if self.gas_premium > self.gas_fee_cap {
-            return Err("gas_fee_cap less than gas_premium".to_string());
+            anyhow::bail!("gas_fee_cap less than gas_premium");
         }
         if self.gas_limit > BLOCK_GAS_LIMIT {
-            return Err("gas_limit cannot be greater than block gas limit".to_string());
+            anyhow::bail!("gas_limit cannot be greater than block gas limit");
         }
 
         if Gas::new(self.gas_limit) < min_gas {
-            return Err(format!(
+            anyhow::bail!(
                 "gas_limit {} cannot be less than cost {} of storing a message on chain",
-                self.gas_limit, min_gas
-            ));
+                self.gas_limit,
+                min_gas
+            );
         }
 
         Ok(())

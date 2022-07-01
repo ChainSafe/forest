@@ -57,7 +57,7 @@ where
 fn cbor_read_header_buf<B: Read>(
     br: &mut B,
     scratch: &mut [u8],
-) -> Result<(u8, usize), Box<dyn StdError>> {
+) -> Result<(u8, usize), anyhow::Error> {
     let first = br.read_u8()?;
     let maj = (first & 0xe0) >> 5;
     let low = first & 0x1f;
@@ -67,41 +67,41 @@ fn cbor_read_header_buf<B: Read>(
     } else if low == 24 {
         let val = br.read_u8()?;
         if val < 24 {
-            return Err("cbor input was not canonical (lval 24 with value < 24)".into());
+            anyhow::bail!("cbor input was not canonical (lval 24 with value < 24)");
         }
         Ok((maj, val as usize))
     } else if low == 25 {
         br.read_exact(&mut scratch[..2])?;
         let val = BigEndian::read_u16(&scratch[..2]);
         if val <= u8::MAX as u16 {
-            return Err("cbor input was not canonical (lval 25 with value <= MaxUint8)".into());
+            anyhow::bail!("cbor input was not canonical (lval 25 with value <= MaxUint8)");
         }
         Ok((maj, val as usize))
     } else if low == 26 {
         br.read_exact(&mut scratch[..4])?;
         let val = BigEndian::read_u32(&scratch[..4]);
         if val <= u16::MAX as u32 {
-            return Err("cbor input was not canonical (lval 26 with value <= MaxUint16)".into());
+            anyhow::bail!("cbor input was not canonical (lval 26 with value <= MaxUint16)");
         }
         Ok((maj, val as usize))
     } else if low == 27 {
         br.read_exact(&mut scratch[..8])?;
         let val = BigEndian::read_u64(&scratch[..8]);
         if val <= u32::MAX as u64 {
-            return Err("cbor input was not canonical (lval 27 with value <= MaxUint32)".into());
+            anyhow::bail!("cbor input was not canonical (lval 27 with value <= MaxUint32)");
         }
         Ok((maj, val as usize))
     } else {
-        Err("invalid header cbor_read_header_buf".into())
+        Err(anyhow::anyhow!("invalid header cbor_read_header_buf"))
     }
 }
 
 /// Given a CBOR serialized IPLD buffer, read through all of it and return all the Links.
 /// This function is useful because it is quite a bit more fast than doing this recursively on a
 /// deserialized IPLD object.
-fn scan_for_links<B: Read + Seek, F>(buf: &mut B, mut callback: F) -> Result<(), Box<dyn StdError>>
+fn scan_for_links<B: Read + Seek, F>(buf: &mut B, mut callback: F) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<(), Box<dyn StdError>>,
+    F: FnMut(Cid) -> Result<(), anyhow::Error>,
 {
     let mut scratch: [u8; 100] = [0; 100];
     let mut remaining = 1;
@@ -121,10 +121,10 @@ where
                     let (maj, extra) = cbor_read_header_buf(buf, &mut scratch)?;
                     // The actual CID is expected to be a byte string
                     if maj != 2 {
-                        return Err("expected cbor type byte string in input".into());
+                        anyhow::bail!("expected cbor type byte string in input");
                     }
                     if extra > 100 {
-                        return Err("string in cbor input too long".into());
+                        anyhow::bail!("string in cbor input too long");
                     }
                     buf.read_exact(&mut scratch[..extra])?;
                     let c = Cid::try_from(&scratch[1..extra])?;
@@ -142,7 +142,7 @@ where
                 remaining += extra * 2;
             }
             _ => {
-                return Err(format!("unhandled cbor type: {}", maj).into());
+                anyhow::bail!("unhandled cbor type: {}", maj);
             }
         }
         remaining -= 1;
@@ -156,7 +156,7 @@ fn copy_rec<BS>(
     cache: &DashMap<Cid, Vec<u8>>,
     root: Cid,
     buffer: &mut Vec<(Vec<u8>, Vec<u8>)>,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
     BS: BlockStore,
 {
@@ -167,7 +167,7 @@ where
 
     let block = &*cache
         .get(&root)
-        .ok_or_else(|| format!("Invalid link ({}) in flushing buffered store", root))?;
+        .ok_or_else(|| anyhow::anyhow!("Invalid link ({}) in flushing buffered store", root))?;
 
     scan_for_links(&mut Cursor::new(block), |link| {
         if link.codec() != DAG_CBOR {

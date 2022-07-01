@@ -19,7 +19,6 @@ use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 
 impl<DB> StateManager<DB>
 where
@@ -32,7 +31,7 @@ where
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<SectorInfo>, Box<dyn StdError>>
+    ) -> Result<Vec<SectorInfo>, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -40,7 +39,7 @@ where
 
         let actor = self
             .get_actor(miner_address, *st)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
         let proving_sectors = {
@@ -80,7 +79,9 @@ where
 
         let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv);
 
-        let wpt = spt.registered_winning_post_proof()?;
+        let wpt = spt
+            .registered_winning_post_proof()
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let m_id = miner_address.id()?;
 
@@ -91,7 +92,7 @@ where
         let mut selected_sectors = BitField::new();
         for n in ids {
             let sno = iter.nth(n as usize).ok_or_else(|| {
-                format!(
+                anyhow::anyhow!(
                     "Error iterating over proving sectors, id {} does not exist",
                     n
                 )
@@ -125,7 +126,7 @@ where
     {
         let actor = self
             .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
         Ok(mas.load_sectors(self.blockstore(), filter)?)
@@ -143,7 +144,7 @@ where
     {
         let actor = self
             .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         Ok(mas.get_sector(self.blockstore(), sector_number)?)
     }
@@ -160,7 +161,7 @@ where
     {
         let actor = self
             .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         let precommit_info = mas.get_precommitted_sector(self.blockstore(), *sector_number)?;
         precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))
@@ -173,7 +174,7 @@ where
     {
         let actor = self
             .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         let info = mas.info(self.blockstore())?;
         Ok(info)
@@ -194,7 +195,7 @@ where
 
         let actor = self
             .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
         mas.for_each_deadline(store, |_, deadline| {
@@ -213,7 +214,7 @@ where
         &self,
         tipset: &Tipset,
         address: &Address,
-    ) -> Result<BitField, Box<dyn StdError>>
+    ) -> Result<BitField, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -232,7 +233,7 @@ where
         &self,
         tipset: &Tipset,
         address: &Address,
-    ) -> Result<BitField, Box<dyn StdError>>
+    ) -> Result<BitField, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -270,7 +271,7 @@ where
         let st = StateTree::new_from_root(self.blockstore(), state)?;
         let actor = st
             .get_actor(miner_addr)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         let info = mas.info(self.blockstore())?;
         Ok(resolve_to_key_addr(&st, self.blockstore(), &info.worker())?)
