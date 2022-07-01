@@ -345,7 +345,7 @@ where
         let create_vm = |state_root, epoch| {
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(epoch);
-            VM::<_, _, _, _, V>::new(
+            VM::<_, V>::new(
                 state_root,
                 db.as_ref(),
                 db.clone(),
@@ -494,7 +494,7 @@ where
 
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(bheight);
-            let mut vm = VM::<_, _, _, _, V>::new(
+            let mut vm = VM::<_, V>::new(
                 *bstate,
                 store_arc.as_ref(),
                 store_arc.clone(),
@@ -596,7 +596,7 @@ where
         let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
-        let mut vm = VM::<_, _, _, _, V>::new(
+        let mut vm = VM::<_, V>::new(
             st,
             store_arc.as_ref(),
             store_arc.clone(),

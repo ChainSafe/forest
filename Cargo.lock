@@ -1167,6 +1167,7 @@ dependencies = [
  "forest_vm",
  "futures",
  "futures-util",
+ "fvm",
  "fvm_ipld_encoding",
  "fvm_shared 0.7.1",
  "genesis",
@@ -1997,15 +1998,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
 dependencies = [
  "cfg-if 0.1.10",
- "dirs-sys",
-]
-
-[[package]]
-name = "dirs"
-version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
-dependencies = [
  "dirs-sys",
 ]
 
@@ -3091,6 +3083,7 @@ name = "forest_bigint"
 version = "0.1.4"
 dependencies = [
  "cs_serde_bytes",
+ "fvm",
  "num-bigint 0.4.3",
  "num-integer",
  "serde",
@@ -3300,6 +3293,7 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
+ "fvm",
  "fvm_ipld_encoding",
  "fvm_shared 0.7.1",
  "num-traits",
@@ -5481,6 +5475,7 @@ dependencies = [
  "forest_message",
  "forest_vm",
  "futures",
+ "fvm",
  "fvm_shared 0.7.1",
  "interpreter",
  "ipld_blockstore",
@@ -7054,7 +7049,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1785ab2a8accec77189e23fead221f2543cebf7ccf569788511cdac9f5fad168"
 dependencies = [
- "dirs 2.0.2",
+ "dirs",
  "hex",
  "lazy_static",
  "log",
@@ -8728,7 +8723,6 @@ checksum = "5190c9442dcdaf0ddd50f37420417d219ae5261bbf5db120d0f9bab996c9cba1"
 name = "utils"
 version = "0.1.0"
 dependencies = [
- "dirs 4.0.0",
  "libc",
  "log",
  "serde",
