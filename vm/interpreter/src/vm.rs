@@ -382,18 +382,14 @@ where
         &mut self,
         msg: &UnsignedMessage,
     ) -> Result<ApplyRet, anyhow::Error> {
-        self.apply_implicit_message_fvm(msg)
-            .map_err(|e| anyhow::anyhow!("{}", e))
-    }
-
-    fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let mut ret = self
-            .fvm_executor
-            .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
-            .map_err(|e| format!("{:?}", e))?;
+        let mut ret = self.fvm_executor.execute_message(
+            msg.into(),
+            fvm::executor::ApplyKind::Implicit,
+            raw_length,
+        )?;
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = BigInt::zero();
         ret.penalty = BigInt::zero();

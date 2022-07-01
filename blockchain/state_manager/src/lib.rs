@@ -1397,8 +1397,7 @@ where
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info
-            .get_supply(height, state_tree)
+        self.genesis_info.get_supply(height, state_tree)
     }
 
     /// Return the state of Market Actor.
