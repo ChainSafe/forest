@@ -1280,7 +1280,9 @@ where
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| {
+                Error::State("Market actor address could not be resolved".to_string())
+            })?;
 
         let market_state = market::State::load(self.blockstore(), &actor)?;
 
