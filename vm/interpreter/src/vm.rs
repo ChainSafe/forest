@@ -25,12 +25,10 @@ use message::{ChainMessage, MessageReceipt, UnsignedMessage};
 use networks::{ChainConfig, Height};
 use num_traits::Zero;
 use state_tree::StateTree;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::marker::PhantomData;
-use std::rc::Rc;
 use std::sync::Arc;
 use vm::{ExitCode, Serialized, TokenAmount};
 
@@ -157,7 +155,7 @@ where
         let mut context = NetworkConfig::new(network_version)
             .override_actors(builtin_actors)
             .for_epoch(epoch, root);
-        context.set_base_fee(base_fee.clone());
+        context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
         let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
