@@ -3,6 +3,7 @@
 
 use crate::FilterEstimate;
 use cid::multihash::MultihashDigest;
+use cid::Cid;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
@@ -25,6 +26,10 @@ pub enum State {
     V8(fil_actor_reward_v8::State),
 }
 
+pub fn reward_cid_v8() -> Cid {
+    Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap()
+}
+
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
@@ -35,17 +40,23 @@ impl State {
         //         .get_anyhow(&actor.state)?
         //         .map(State::V7)
         //         .context("Actor state doesn't exist in store")?)
-        // } else {
-        Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
         // }
+        if actor.code == reward_cid_v8() {
+            Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?)
+        } else {
+            Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
+        }
     }
 
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> StoragePower {
-        todo!()
-        // match self {
-        //     State::V7(st) => st.into_total_storage_power_reward(),
-        // }
+        // todo!()
+        match self {
+            State::V8(st) => st.into_total_storage_power_reward(),
+        }
     }
 
     pub fn pre_commit_deposit_for_power(

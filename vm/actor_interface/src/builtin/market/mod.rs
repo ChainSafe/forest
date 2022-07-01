@@ -22,12 +22,16 @@ pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::STORAGE_MARKET_
 /// Market actor method.
 pub type Method = fil_actor_market_v8::Method;
 
+pub fn market_cid_v8() -> Cid {
+    Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap()
+}
+
 /// Market actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
     // V7(fil_actor_market_v7::State),
-    V7(fil_actor_market_v8::State),
+    V8(fil_actor_market_v8::State),
 }
 
 impl State {
@@ -35,16 +39,22 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code
-            == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagemarket"))
-        {
-            Ok(store
+        if actor.code == market_cid_v8() {
+            return Ok(store
                 .get_anyhow(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?);
         }
+        // if actor.code
+        //     == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagemarket"))
+        // {
+        //     Ok(store
+        //         .get_anyhow(&actor.state)?
+        //         .map(State::V7)
+        //         .context("Actor state doesn't exist in store")?)
+        // } else {
+        Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
+        // }
     }
 
     /// Loads escrow table
@@ -82,7 +92,7 @@ impl State {
     /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V7(st) => st.total_locked(),
+            State::V8(st) => st.total_locked(),
         }
     }
 
@@ -112,7 +122,7 @@ impl State {
             //     )
             //     .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
             // },
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 fil_actor_market_v8::validate_deals_for_activation(
                     st,
@@ -123,8 +133,7 @@ impl State {
                     curr_epoch,
                 )
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-            }
-            // _ => unimplemented!(),
+            } // _ => unimplemented!(),
         }
     }
 }

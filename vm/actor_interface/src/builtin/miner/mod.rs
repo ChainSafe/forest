@@ -287,20 +287,20 @@ impl Partition<'_> {
     pub fn recovering_sectors(&self) -> &BitField {
         todo!()
         // match self {
-        //     Partition::V7(_dl) => todo!(),
+        //     Partition::V8(_dl) => todo!(),
         // }
     }
     pub fn live_sectors(&self) -> BitField {
-        todo!()
-        // match self {
-        //     Partition::V7(dl) => dl.live_sectors(),
-        // }
+        // todo!()
+        match self {
+            Partition::V8(dl) => dl.live_sectors(),
+        }
     }
     pub fn active_sectors(&self) -> BitField {
-        todo!()
-        // match self {
-        //     Partition::V7(dl) => dl.active_sectors(),
-        // }
+        // todo!()
+        match self {
+            Partition::V8(dl) => dl.active_sectors(),
+        }
     }
 }
 
