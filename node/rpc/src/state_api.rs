@@ -21,7 +21,7 @@ use blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset, TxMeta,
 };
-use blockstore::BlockStore;
+use blockstore::{BlockStore, BlockStoreExt};
 use bls_signatures::Serialize as SerializeBls;
 use cid::{json::CidJson, Cid, Code::Blake2b256};
 use crypto::SignatureType;
@@ -632,12 +632,12 @@ pub(crate) async fn miner_create_block<
             let c = data
                 .chain_store
                 .blockstore()
-                .put(&msg.message, Blake2b256)?;
+                .put_obj(&msg.message, Blake2b256)?;
             bls_sigs.push(msg.signature);
             bls_msgs.push(msg.message);
             bls_cids.push(c);
         } else {
-            let c = data.chain_store.blockstore().put(&msg, Blake2b256)?;
+            let c = data.chain_store.blockstore().put_obj(&msg, Blake2b256)?;
             secp_cids.push(c);
             secp_msgs.push(msg);
         }
@@ -647,7 +647,7 @@ pub(crate) async fn miner_create_block<
     let secp_msg_root =
         Amt::new_from_iter(data.chain_store.blockstore(), secp_cids.iter().copied())?;
 
-    let mmcid = data.chain_store.blockstore().put(
+    let mmcid = data.chain_store.blockstore().put_obj(
         &TxMeta {
             bls_message_root: bls_msg_root,
             secp_message_root: secp_msg_root,
@@ -762,7 +762,7 @@ pub(crate) async fn state_miner_sector_allocated<
         miner::State::V7(m) => data
             .chain_store
             .db
-            .get::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
+            .get_obj::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
             .ok_or("allocated sectors bitfield not found")?
             .get(sector_num),
     };

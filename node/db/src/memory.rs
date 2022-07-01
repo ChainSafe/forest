@@ -71,10 +71,10 @@ impl Store for MemoryDB {
 
 impl Blockstore for MemoryDB {
     fn get(&self, k: &Cid) -> Result<Option<Vec<u8>>> {
-        todo!()
+        self.read(k.to_bytes()).map_err(|e| e.into())
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> Result<()> {
-        todo!()
+        self.write(k.to_bytes(), block).map_err(|e| e.into())
     }
 }

@@ -4,7 +4,7 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
 use vm::ActorState;
 

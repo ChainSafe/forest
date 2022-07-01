@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::BlockStore;
+use crate::BlockStoreExt;
 use cid::{Cid, DAG_CBOR};
 use forest_ipld::Ipld;
 

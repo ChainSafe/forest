@@ -7,7 +7,7 @@ use cid::Cid;
 use fil_types::PaddedPieceSize;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use num_bigint::bigint_ser::json;
 use serde::Serialize;
 use std::marker::PhantomData;

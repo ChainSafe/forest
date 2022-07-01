@@ -3,14 +3,14 @@
 
 use crate::bad_block_cache::BadBlockCache;
 
-use amt::{Amt, Error as IpldAmtError};
 use blocks::{Block, FullTipset, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use fvm_shared::message::Message;
-use ipld_blockstore::BlockStore;
-use message::SignedMessage;
+use fvm_ipld_amt::{Amt, Error as IpldAmtError};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
+
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -137,7 +137,7 @@ impl<'a> TipsetValidator<'a> {
 
         // Store message roots and receive meta_root CID
         blockstore
-            .put(&meta, Blake2b256)
+            .put_obj(&meta, Blake2b256)
             .map_err(|e| TipsetValidationError::Blockstore(e.to_string()))
     }
 }

@@ -68,11 +68,11 @@ where
 
 impl<BS> Blockstore for TrackingBlockStore<'_, BS> {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        todo!()
+        self.read(k.to_bytes()).map_err(|e| e.into())
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        todo!()
+        self.write(k.to_bytes(), block).map_err(|e| e.into())
     }
 }
 

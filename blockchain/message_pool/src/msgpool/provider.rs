@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use blocks::BlockHeader;
 use blocks::Tipset;
 use blocks::TipsetKeys;
-use blockstore::BlockStore;
+use blockstore::{BlockStore, BlockStoreExt};
 use chain::HeadChange;
 use cid::Cid;
 use cid::Code::Blake2b256;
@@ -91,7 +91,7 @@ where
         let cid = self
             .sm
             .blockstore()
-            .put(msg, Blake2b256)
+            .put_obj(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }

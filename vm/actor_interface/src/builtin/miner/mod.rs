@@ -12,7 +12,7 @@ use forest_json_utils::go_vec_visitor;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use libp2p::PeerId;
 use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};

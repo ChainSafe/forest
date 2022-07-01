@@ -9,6 +9,7 @@ use serde::Serialize;
 use vm::ActorState;
 
 use anyhow::Context;
+use ipld_blockstore::BlockStoreExt;
 
 /// Account actor method.
 pub type Method = fil_actor_account_v7::Method;

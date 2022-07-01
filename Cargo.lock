@@ -4216,6 +4216,7 @@ dependencies = [
  "forest_vm",
  "fvm",
  "fvm_ipld_amt",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
  "fvm_shared 0.7.1",

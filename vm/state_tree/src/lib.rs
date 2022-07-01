@@ -7,7 +7,7 @@ use async_std::{channel::bounded, task};
 use cid::{Cid, Code::Blake2b256};
 use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
 use forest_car::CarHeader;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use vm::ActorState;
@@ -198,7 +198,7 @@ where
             version,
             info,
             actors,
-        })) = store.get(c)
+        })) = store.get_obj(c)
         {
             (version, Some(info), actors)
         } else {

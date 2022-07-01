@@ -8,7 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 use blocks::{BlockHeader, Tipset};
 use cid::Cid;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 
 use super::Error;
 
@@ -44,7 +44,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
 
         for cid in cids.iter() {
             // TODO: maybe cache the miner address to avoid having to do a blockstore lookup here
-            if let Ok(Some(block)) = self.db.get::<BlockHeader>(cid) {
+            if let Ok(Some(block)) = self.db.get_obj::<BlockHeader>(cid) {
                 if header.miner_address() == block.miner_address() {
                     warn!(
                         "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
@@ -75,7 +75,7 @@ impl<DB: BlockStore> TipsetTracker<DB> {
                 // TODO: maybe cache the parents tipset keys to avoid having to do a blockstore lookup here
                 let h = self
                     .db
-                    .get::<BlockHeader>(cid)
+                    .get_obj::<BlockHeader>(cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {

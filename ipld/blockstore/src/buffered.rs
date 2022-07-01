@@ -5,7 +5,7 @@
 
 use super::BlockStore;
 use byteorder::{BigEndian, ByteOrder, ReadBytesExt};
-use cid::{Cid, Code, DAG_CBOR};
+use cid::{Cid, DAG_CBOR};
 use dashmap::DashMap;
 use db::{Error, Store};
 use fvm_ipld_blockstore::Blockstore;
@@ -190,32 +190,18 @@ where
     Ok(())
 }
 
-impl<BS> BlockStore for BufferedBlockStore<'_, BS>
-where
-    BS: BlockStore,
-{
-    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        if let Some(data) = self.write.get(cid) {
+impl<BS: Blockstore> Blockstore for BufferedBlockStore<'_, BS> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        if let Some(data) = self.write.get(k) {
             return Ok(Some(data.clone()));
         }
 
-        self.base.get_bytes(cid)
-    }
-
-    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        let cid = cid::new_from_cbor(&bytes, code);
-        self.write.insert(cid, bytes);
-        Ok(cid)
-    }
-}
-
-impl<BS> Blockstore for BufferedBlockStore<'_, BS> {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        todo!()
+        self.base.get(k)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        todo!()
+        self.write.insert(*k, block.to_owned());
+        Ok(())
     }
 }
 
@@ -272,6 +258,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::BlockStoreExt;
     use cid::{multihash::MultihashDigest, Code, RAW};
     use forest_ipld::{ipld, Ipld};
     use fvm_shared::commcid::commitment_to_cid;
@@ -281,13 +268,13 @@ mod tests {
         let mem = db::MemoryDB::default();
         let mut buf_store = BufferedBlockStore::new(&mem);
 
-        let cid = buf_store.put(&8, Code::Blake2b256).unwrap();
-        assert_eq!(mem.get::<u8>(&cid).unwrap(), None);
-        assert_eq!(buf_store.get::<u8>(&cid).unwrap(), Some(8));
+        let cid = buf_store.put_obj(&8, Code::Blake2b256).unwrap();
+        assert_eq!(mem.get_obj::<u8>(&cid).unwrap(), None);
+        assert_eq!(buf_store.get_obj::<u8>(&cid).unwrap(), Some(8));
 
         buf_store.flush(&cid).unwrap();
-        assert_eq!(buf_store.get::<u8>(&cid).unwrap(), Some(8));
-        assert_eq!(mem.get::<u8>(&cid).unwrap(), Some(8));
+        assert_eq!(buf_store.get_obj::<u8>(&cid).unwrap(), Some(8));
+        assert_eq!(mem.get_obj::<u8>(&cid).unwrap(), Some(8));
         assert!(buf_store.write.get(&cid).is_none());
     }
 
@@ -297,7 +284,9 @@ mod tests {
         let mut buf_store = BufferedBlockStore::new(&mem);
         let str_val = "value";
         let value = 8u8;
-        let arr_cid = buf_store.put(&(str_val, value), Code::Blake2b256).unwrap();
+        let arr_cid = buf_store
+            .put_obj(&(str_val, value), Code::Blake2b256)
+            .unwrap();
         let identity_cid = Cid::new_v1(RAW, Code::Identity.digest(&[0u8]));
 
         // Create map to insert into store
@@ -320,33 +309,35 @@ mod tests {
             "identity": Link(identity_cid),
             "value": str_val,
         });
-        let map_cid = buf_store.put(&map, Code::Blake2b256).unwrap();
+        let map_cid = buf_store.put_obj(&map, Code::Blake2b256).unwrap();
 
-        let root_cid = buf_store.put(&(map_cid, 1u8), Code::Blake2b256).unwrap();
+        let root_cid = buf_store
+            .put_obj(&(map_cid, 1u8), Code::Blake2b256)
+            .unwrap();
 
         // Make sure a block not connected to the root does not get written
-        let unconnected = buf_store.put(&27u8, Code::Blake2b256).unwrap();
+        let unconnected = buf_store.put_obj(&27u8, Code::Blake2b256).unwrap();
 
-        assert_eq!(mem.get::<Ipld>(&map_cid).unwrap(), None);
-        assert_eq!(mem.get::<Ipld>(&root_cid).unwrap(), None);
-        assert_eq!(mem.get::<(String, u8)>(&arr_cid).unwrap(), None);
-        assert_eq!(buf_store.get::<u8>(&unconnected).unwrap(), Some(27u8));
+        assert_eq!(mem.get_obj::<Ipld>(&map_cid).unwrap(), None);
+        assert_eq!(mem.get_obj::<Ipld>(&root_cid).unwrap(), None);
+        assert_eq!(mem.get_obj::<(String, u8)>(&arr_cid).unwrap(), None);
+        assert_eq!(buf_store.get_obj::<u8>(&unconnected).unwrap(), Some(27u8));
 
         // Flush and assert changes
         buf_store.flush(&root_cid).unwrap();
         assert_eq!(
-            mem.get::<(String, u8)>(&arr_cid).unwrap(),
+            mem.get_obj::<(String, u8)>(&arr_cid).unwrap(),
             Some((str_val.to_owned(), value))
         );
-        assert_eq!(mem.get::<Ipld>(&map_cid).unwrap(), Some(map));
+        assert_eq!(mem.get_obj::<Ipld>(&map_cid).unwrap(), Some(map));
         assert_eq!(
-            mem.get::<Ipld>(&root_cid).unwrap(),
+            mem.get_obj::<Ipld>(&root_cid).unwrap(),
             Some(ipld!([Link(map_cid), 1]))
         );
-        assert_eq!(buf_store.get::<u8>(&identity_cid).unwrap(), None);
-        assert_eq!(buf_store.get::<Ipld>(&unsealed_comm_cid).unwrap(), None);
-        assert_eq!(buf_store.get::<Ipld>(&sealed_comm_cid).unwrap(), None);
-        assert_eq!(mem.get::<u8>(&unconnected).unwrap(), None);
-        assert_eq!(buf_store.get::<u8>(&unconnected).unwrap(), None);
+        assert_eq!(buf_store.get_obj::<u8>(&identity_cid).unwrap(), None);
+        assert_eq!(buf_store.get_obj::<Ipld>(&unsealed_comm_cid).unwrap(), None);
+        assert_eq!(buf_store.get_obj::<Ipld>(&sealed_comm_cid).unwrap(), None);
+        assert_eq!(mem.get_obj::<u8>(&unconnected).unwrap(), None);
+        assert_eq!(buf_store.get_obj::<u8>(&unconnected).unwrap(), None);
     }
 }

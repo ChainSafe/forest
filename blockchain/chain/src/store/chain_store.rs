@@ -21,7 +21,7 @@ use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::BlockMessages;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -641,7 +641,7 @@ where
         .iter()
         .map(|c| {
             store
-                .get(c)
+                .get_obj(c)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
@@ -700,7 +700,7 @@ where
     DB: BlockStore,
 {
     if let Some(roots) = db
-        .get::<TxMeta>(msg_cid)
+        .get_obj::<TxMeta>(msg_cid)
         .map_err(|e| Error::Other(e.to_string()))?
     {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
@@ -722,7 +722,7 @@ where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    db.put(&header, Blake2b256)
+    db.put_obj(&header, Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))
 }
 
@@ -773,7 +773,7 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
 {
-    db.get(key)
+    db.get_obj(key)
         .map_err(|e| Error::Other(e.to_string()))?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
@@ -844,7 +844,7 @@ where
 {
     keys.iter()
         .map(|k| {
-            db.get(k)
+            db.get_obj(k)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })

@@ -7,6 +7,7 @@ use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::BlockStoreExt;
 use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use vm::{ActorState, TokenAmount};

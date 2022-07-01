@@ -101,10 +101,23 @@ impl Store for RocksDb {
 
 impl Blockstore for RocksDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        todo!()
+        self.read(k.to_bytes()).map_err(|e| e.into())
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        todo!()
+        self.write(k.to_bytes(), block).map_err(|e| e.into())
+    }
+
+    fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
+    where
+        Self: Sized,
+        D: AsRef<[u8]>,
+        I: IntoIterator<Item = (Cid, D)>,
+    {
+        let values = blocks
+            .into_iter()
+            .map(|(k, v)| (k.to_bytes(), v))
+            .collect::<Vec<_>>();
+        self.bulk_write(&values).map_err(|e| e.into())
     }
 }

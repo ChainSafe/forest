@@ -9,7 +9,7 @@ use cid::Cid;
 use fil_types::verifier::ProofVerifier;
 use forest_car::{load_car, CarReader};
 use futures::AsyncRead;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use log::{debug, info};
 use net_utils::FetchProgress;
 use state_manager::StateManager;

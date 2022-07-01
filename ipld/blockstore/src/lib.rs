@@ -20,35 +20,24 @@ pub use self::buffered::BufferedBlockStore;
 pub use self::tracking::{BSStats, TrackingBlockStore};
 
 use cid::{Cid, Code};
-use db::{MemoryDB, Store};
+use db::Store;
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use fvm_ipld_blockstore::Blockstore;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
-#[cfg(feature = "rocksdb")]
-use db::rocks::{RocksDb, WriteBatch};
-
 /// Wrapper for database to handle inserting and retrieving ipld data with Cids
-pub trait BlockStore: Store + Blockstore {
+pub trait BlockStore: Blockstore + Store {}
+impl<T: Blockstore + Store> BlockStore for T {}
+
+pub trait BlockStoreExt: BlockStore {
     /// Get bytes from block store by Cid.
     fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
-        Ok(self.read(cid.to_bytes())?)
+        Ok(self.get(cid)?)
     }
 
     fn get_bytes_anyhow(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        Ok(self.read(cid.to_bytes())?)
-    }
-
-    /// Get typed object from block store by Cid.
-    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
-    where
-        T: DeserializeOwned,
-    {
-        match self.get_bytes(cid)? {
-            Some(bz) => Ok(Some(from_slice(&bz)?)),
-            None => Ok(None),
-        }
+        self.get(cid)
     }
 
     fn get_anyhow<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
@@ -61,8 +50,19 @@ pub trait BlockStore: Store + Blockstore {
         }
     }
 
+    /// Get typed object from block store by Cid.
+    fn get_obj<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
+    where
+        T: DeserializeOwned,
+    {
+        match self.get_bytes(cid)? {
+            Some(bz) => Ok(Some(from_slice(&bz)?)),
+            None => Ok(None),
+        }
+    }
+
     /// Put an object in the block store and return the Cid identifier.
-    fn put<S>(&self, obj: &S, code: Code) -> Result<Cid, Box<dyn StdError>>
+    fn put_obj<S>(&self, obj: &S, code: Code) -> Result<Cid, Box<dyn StdError>>
     where
         S: Serialize,
     {
@@ -82,7 +82,7 @@ pub trait BlockStore: Store + Blockstore {
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
         let cid = cid::new_from_cbor(&bytes, code);
-        self.write(cid.to_bytes(), bytes)?;
+        self.put_keyed(&cid, &bytes)?;
         Ok(cid)
     }
 
@@ -96,40 +96,18 @@ pub trait BlockStore: Store + Blockstore {
     /// Batch put cbor objects into blockstore and returns vector of Cids
     fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> Result<Vec<Cid>, Box<dyn StdError>>
     where
+        Self: Sized,
         S: Serialize + 'a,
         V: IntoIterator<Item = &'a S>,
     {
         values
             .into_iter()
-            .map(|value| self.put(value, code))
+            .map(|value| self.put_obj(value, code))
             .collect()
     }
 }
 
-impl BlockStore for MemoryDB {}
-
-#[cfg(feature = "rocksdb")]
-impl BlockStore for RocksDb {
-    fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> Result<Vec<Cid>, Box<dyn StdError>>
-    where
-        S: Serialize + 'a,
-        V: IntoIterator<Item = &'a S>,
-    {
-        let mut batch = WriteBatch::default();
-        let cids: Vec<Cid> = values
-            .into_iter()
-            .map(|v| {
-                let bz = to_vec(v)?;
-                let cid = cid::new_from_cbor(&bz, code);
-                batch.put(cid.to_bytes(), bz);
-                Ok(cid)
-            })
-            .collect::<Result<_, Box<dyn StdError>>>()?;
-        self.db.write(batch)?;
-
-        Ok(cids)
-    }
-}
+impl<T: BlockStore> BlockStoreExt for T {}
 
 pub struct FvmStore<T> {
     bs: Arc<T>,

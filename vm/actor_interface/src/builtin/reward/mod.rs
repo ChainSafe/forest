@@ -5,6 +5,7 @@ use crate::FilterEstimate;
 use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::BlockStoreExt;
 use serde::Serialize;
 use vm::{ActorState, TokenAmount};
 
