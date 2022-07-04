@@ -79,8 +79,7 @@ pub(crate) async fn state_call<
     Params(params): Params<StateCallParams>,
 ) -> Result<StateCallResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (unsigned_msg_json, key) = params;
-    let mut message: UnsignedMessage = unsigned_msg_json.into();
+    let (mut message, key) = params;
     let tipset = data
         .state_manager
         .chain_store()

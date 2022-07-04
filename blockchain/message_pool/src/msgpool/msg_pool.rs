@@ -33,6 +33,7 @@ use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::{BigInt, Integer};
 use log::warn;
 use lru::LruCache;
+use message::message::valid_for_block_inclusion;
 use message::{ChainMessage, Message, SignedMessage};
 use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
@@ -71,10 +72,10 @@ impl MsgSet {
         }
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
-                let premium = exms.message().gas_premium();
+                let premium = exms.message().gas_premium.clone();
                 let rbf_denom = BigInt::from(RBF_DENOM);
-                let min_price = premium + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
-                if m.message().gas_premium() <= &min_price {
+                let min_price = premium.clone() + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
+                if m.message().gas_premium <= min_price {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
@@ -323,8 +324,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        msg.message()
-            .valid_for_block_inclusion(Gas::new(0), NEWEST_NETWORK_VERSION)
+        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)
             .map_err(Error::Other)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
@@ -377,7 +377,7 @@ where
     ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
 
-        if sequence > msg.message().sequence() {
+        if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
         }
 
@@ -385,7 +385,7 @@ where
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
-        let msg_balance = msg.message().required_funds();
+        let msg_balance = msg.required_funds();
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
@@ -550,7 +550,7 @@ where
         for (_, item) in mset.msgs.iter() {
             msg_vec.push(item.clone());
         }
-        msg_vec.sort_by_key(|value| value.message().sequence());
+        msg_vec.sort_by_key(|value| value.message().sequence);
         Some(msg_vec)
     }
 
@@ -661,7 +661,7 @@ where
             .put(msg.cid()?, msg.signature().clone());
     }
 
-    if msg.message().gas_limit() > 100_000_000 {
+    if msg.message().gas_limit > 100_000_000 {
         return Err(Error::Other(
             "given message has too high of a gas limit".to_string(),
         ));
@@ -675,12 +675,12 @@ where
         .put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write().await;
-    let msett = pending.get_mut(msg.message().from());
+    let msett = pending.get_mut(&msg.message().from);
     match msett {
         Some(mset) => mset.add(msg)?,
         None => {
             let mut mset = MsgSet::new(sequence);
-            let from = *msg.message().from();
+            let from = msg.message().from;
             mset.add(msg)?;
             pending.insert(from, mset);
         }
@@ -698,8 +698,7 @@ fn verify_msg_before_add(
     let epoch = cur_ts.epoch();
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(m.marshal_cbor()?.len());
-    m.message()
-        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
+    valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)
         .map_err(Error::Other)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();

@@ -242,7 +242,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (addr_str, UnsignedMessageJson(msg)) = params;
+    let (addr_str, msg) = params;
     let address = Address::from_str(&addr_str)?;
     let msg_cid = msg.cid()?;
 

@@ -18,10 +18,11 @@ use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use message::{ChainMessage, MessageReceipt, UnsignedMessage};
+use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::Zero;
 use state_tree::StateTree;
@@ -216,7 +217,7 @@ where
         epoch: ChainEpoch,
         callback: Option<&mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>,
     ) -> Result<(), Box<dyn StdError>> {
-        let cron_msg = UnsignedMessage {
+        let cron_msg = Message {
             from: **system::ADDRESS,
             to: **cron::ADDRESS,
             // Epoch as sequence is intentional
@@ -307,7 +308,7 @@ where
                 win_count: block.win_count,
             })?;
 
-            let rew_msg = UnsignedMessage {
+            let rew_msg = Message {
                 from: **system::ADDRESS,
                 to: **reward::ADDRESS,
                 method_num: reward::Method::AwardBlockReward as u64,
@@ -351,17 +352,17 @@ where
     }
 
     /// Applies single message through vm and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, String> {
         self.apply_implicit_message_fvm(msg)
     }
 
-    fn apply_implicit_message_fvm(&mut self, msg: &UnsignedMessage) -> Result<ApplyRet, String> {
+    fn apply_implicit_message_fvm(&mut self, msg: &Message) -> Result<ApplyRet, String> {
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let mut ret = self
             .fvm_executor
-            .execute_message(msg.into(), fvm::executor::ApplyKind::Implicit, raw_length)
+            .execute_message(msg.clone(), fvm::executor::ApplyKind::Implicit, raw_length)
             .map_err(|e| format!("{:?}", e))?;
         ret.msg_receipt.gas_used = 0;
         ret.miner_tip = BigInt::zero();
@@ -379,22 +380,18 @@ where
         check_message(msg.message())?;
 
         use fvm::executor::Executor;
-        let unsigned = msg.message();
+        let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let fvm_ret = self
             .fvm_executor
-            .execute_message(
-                unsigned.into(),
-                fvm::executor::ApplyKind::Explicit,
-                raw_length,
-            )
+            .execute_message(unsigned, fvm::executor::ApplyKind::Explicit, raw_length)
             .map_err(|e| format!("{:?}", e))?;
         Ok(fvm_ret)
     }
 }
 
 /// Does some basic checks on the Message to see if the fields are valid.
-fn check_message(msg: &UnsignedMessage) -> Result<(), &'static str> {
+fn check_message(msg: &Message) -> Result<(), &'static str> {
     if msg.gas_limit == 0 {
         return Err("Message has no gas limit set");
     }

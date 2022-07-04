@@ -40,8 +40,10 @@ use fil_types::{
 use forest_libp2p::chain_exchange::TipsetBundle;
 use fvm::gas::price_list_by_network_version;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::{Message, UnsignedMessage};
+use message::message::valid_for_block_inclusion;
+use message::Message as MessageTrait;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
@@ -1636,7 +1638,7 @@ fn check_block_messages<
     for m in block.bls_msgs() {
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
-            m.from(),
+            &m.from,
             *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
@@ -1669,24 +1671,24 @@ fn check_block_messages<
     let mut sum_gas_limit = 0;
 
     // Check messages for validity
-    let mut check_msg = |msg: &UnsignedMessage,
+    let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
      -> Result<(), Box<dyn StdError>> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        msg.valid_for_block_inclusion(min_gas.total(), network_version)?;
-        sum_gas_limit += msg.gas_limit();
+        valid_for_block_inclusion(msg, min_gas.total(), network_version)?;
+        sum_gas_limit += msg.gas_limit;
         if sum_gas_limit > BLOCK_GAS_LIMIT {
             return Err("block gas limit exceeded".into());
         }
 
         // Phase 2: (Partial) Semantic validation
         // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(msg.from()) {
+        let sequence: u64 = match account_sequences.get(&msg.from) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(msg.from())?.ok_or({
+                let actor = tree.get_actor(&msg.from)?.ok_or({
                     "Failed to retrieve nonce for addr: Actor does not exist in state"
                 })?;
                 if !is_account_actor(&actor.code) {
@@ -1697,15 +1699,14 @@ fn check_block_messages<
         };
 
         // Sequence equality check
-        if sequence != msg.sequence() {
+        if sequence != msg.sequence {
             return Err(format!(
                 "Message has incorrect sequence (exp: {} got: {})",
-                sequence,
-                msg.sequence()
+                sequence, msg.sequence
             )
             .into());
         }
-        account_sequences.insert(*msg.from(), sequence + 1);
+        account_sequences.insert(msg.from, sequence + 1);
         Ok(())
     };
 

@@ -234,7 +234,7 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
                     .await?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;

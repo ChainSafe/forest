@@ -15,10 +15,8 @@ use blocks::{
 use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
-use message::{
-    unsigned_message::{self, json::UnsignedMessageJson},
-    UnsignedMessage,
-};
+use fvm_shared::message::Message as FVMMessage;
+use message::unsigned_message::{self, json::UnsignedMessageJson};
 use networks::Height;
 use rpc_api::{
     chain_api::*,
@@ -30,8 +28,7 @@ use rpc_api::{
 pub(crate) struct Message {
     #[serde(with = "cid::json")]
     cid: Cid,
-    #[serde(with = "unsigned_message::json")]
-    message: UnsignedMessage,
+    message: FVMMessage,
 }
 
 pub(crate) async fn chain_get_message<DB, B>(
@@ -43,12 +40,12 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(msg_cid),) = params;
-    let ret: UnsignedMessage = data
+    let ret: FVMMessage = data
         .state_manager
         .blockstore()
         .get(&msg_cid)?
         .ok_or("can't find message with that cid")?;
-    Ok(UnsignedMessageJson(ret))
+    Ok(ret)
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(
