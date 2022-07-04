@@ -11,6 +11,7 @@ use hex::encode;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
+use fvm_shared::message::Message;
 
 #[derive(Deserialize)]
 struct TestVector {
