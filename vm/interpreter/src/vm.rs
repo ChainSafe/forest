@@ -362,7 +362,7 @@ where
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let mut ret = self.fvm_executor.execute_message(
-            msg.into(),
+            msg.clone(),
             fvm::executor::ApplyKind::Implicit,
             raw_length,
         )?;
