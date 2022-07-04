@@ -1705,7 +1705,7 @@ fn check_block_messages<
             anyhow::bail!(
                 "Message has incorrect sequence (exp: {} got: {})",
                 sequence,
-                msg.sequence()
+                msg.sequence
             );
         }
         account_sequences.insert(msg.from, sequence + 1);
