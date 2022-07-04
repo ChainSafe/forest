@@ -4,7 +4,6 @@
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -1674,13 +1673,14 @@ fn check_block_messages<
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), Box<dyn StdError>> {
+     -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        valid_for_block_inclusion(msg, min_gas.total(), network_version)?;
+        msg.valid_for_block_inclusion(min_gas.total(), network_version)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;
         if sum_gas_limit > BLOCK_GAS_LIMIT {
-            return Err("block gas limit exceeded".into());
+            anyhow::bail!("block gas limit exceeded");
         }
 
         // Phase 2: (Partial) Semantic validation
@@ -1688,11 +1688,13 @@ fn check_block_messages<
         let sequence: u64 = match account_sequences.get(&msg.from) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(&msg.from)?.ok_or({
-                    "Failed to retrieve nonce for addr: Actor does not exist in state"
+                let actor = tree.get_actor(msg.from())?.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    )
                 })?;
                 if !is_account_actor(&actor.code) {
-                    return Err("Sending must be an account actor".into());
+                    anyhow::bail!("Sending must be an account actor");
                 }
                 actor.sequence
             }
@@ -1700,11 +1702,11 @@ fn check_block_messages<
 
         // Sequence equality check
         if sequence != msg.sequence {
-            return Err(format!(
+            anyhow::bail!(
                 "Message has incorrect sequence (exp: {} got: {})",
-                sequence, msg.sequence
-            )
-            .into());
+                sequence,
+                msg.sequence()
+            );
         }
         account_sequences.insert(msg.from, sequence + 1);
         Ok(())

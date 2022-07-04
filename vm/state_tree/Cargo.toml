@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow          = "1.0"
 actor           = { package = "actor_interface", path = "../actor_interface" }
 address         = { package = "forest_address", version = "0.3" }
 vm              = { package = "forest_vm", version = "0.3" }

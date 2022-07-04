@@ -18,7 +18,6 @@ use state_tree::StateTree;
 use vm::ActorState;
 
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;
@@ -49,7 +48,7 @@ fn actor_to_resolved(
 fn root_to_state_map<BS: BlockStore>(
     bs: &BS,
     root: &Cid,
-) -> Result<HashMap<Address, ActorState>, Box<dyn StdError>> {
+) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
     let mut actors = HashMap::default();
     let state_tree = StateTree::new_from_root(bs, root)?;
     state_tree.for_each(|addr: Address, actor: &ActorState| {
@@ -69,7 +68,7 @@ fn try_print_actor_states<BS: BlockStore>(
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     // For now, resolving to a map, because we need to use go implementation's inefficient caching
     // this would probably be faster in most cases.
     let mut e_state = root_to_state_map(bs, expected_root)?;
@@ -113,7 +112,7 @@ fn pp_actor_state(
     bs: &impl BlockStore,
     state: &ActorState,
     depth: Option<u64>,
-) -> Result<String, Box<dyn StdError>> {
+) -> Result<String, anyhow::Error> {
     let resolved = actor_to_resolved(bs, state, depth);
     // let ipld = &resolved.state.0;
     let mut buffer = String::new();
@@ -152,7 +151,7 @@ pub fn print_actor_diff<BS: BlockStore>(
     expected: &ActorState,
     actual: &ActorState,
     depth: Option<u64>,
-) -> Result<(), Box<dyn StdError>> {
+) -> Result<(), anyhow::Error> {
     let expected_pp = pp_actor_state(bs, expected, depth)?;
     let actual_pp = pp_actor_state(bs, actual, depth)?;
 
@@ -170,7 +169,7 @@ pub fn print_state_diff<BS>(
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
     BS: BlockStore,
 {

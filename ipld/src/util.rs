@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::collections::HashSet;
-use std::error::Error as StdError;
 
 use cid::Cid;
 use fvm_ipld_encoding::from_slice;
@@ -15,9 +14,9 @@ fn traverse_ipld_links<F>(
     walked: &mut HashSet<Cid>,
     load_block: &mut F,
     ipld: &Ipld,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+    F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
 {
     match ipld {
         Ipld::Map(m) => {
@@ -50,9 +49,9 @@ pub fn recurse_links<F>(
     walked: &mut HashSet<Cid>,
     root: Cid,
     load_block: &mut F,
-) -> Result<(), Box<dyn StdError>>
+) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+    F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
 {
     if !walked.insert(root) {
         // Cid has already been traversed

@@ -156,11 +156,9 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             }
         });
 
-        let root_cid = actors_out
+        actors_out
             .flush()
-            .map_err(|e| MigrationError::FlushFailed(e.to_string()));
-
-        root_cid
+            .map_err(|e| MigrationError::FlushFailed(e.to_string()))
     }
 }
 

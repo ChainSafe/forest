@@ -46,3 +46,9 @@ impl From<EncodeError> for Error {
         Error::Other(ee.to_string())
     }
 }
+
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        Error::Other(e.to_string())
+    }
+}

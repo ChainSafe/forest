@@ -10,7 +10,6 @@ use forest_car::CarHeader;
 use ipld_blockstore::BlockStore;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use vm::ActorState;
 
 /// State tree implementation using hamt. This structure is not threadsafe and should only be used
@@ -112,11 +111,11 @@ impl StateSnapshots {
         &self,
         addr: Address,
         resolve_addr: Address,
-    ) -> Result<(), Box<dyn StdError>> {
+    ) -> Result<(), anyhow::Error> {
         self.layers
             .last()
             .ok_or_else(|| {
-                format!(
+                anyhow::anyhow!(
                     "caching address failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
@@ -138,11 +137,11 @@ impl StateSnapshots {
         None
     }
 
-    fn set_actor(&self, addr: Address, actor: ActorState) -> Result<(), Box<dyn StdError>> {
+    fn set_actor(&self, addr: Address, actor: ActorState) -> Result<(), anyhow::Error> {
         self.layers
             .last()
             .ok_or_else(|| {
-                format!(
+                anyhow::anyhow!(
                     "set actor failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
@@ -153,11 +152,11 @@ impl StateSnapshots {
         Ok(())
     }
 
-    fn delete_actor(&self, addr: Address) -> Result<(), Box<dyn StdError>> {
+    fn delete_actor(&self, addr: Address) -> Result<(), anyhow::Error> {
         self.layers
             .last()
             .ok_or_else(|| {
-                format!(
+                anyhow::anyhow!(
                     "delete actor failed to index snapshot layer at index: {}",
                     &self.layers.len() - 1
                 )
@@ -174,13 +173,13 @@ impl<'db, S> StateTree<'db, S>
 where
     S: BlockStore,
 {
-    pub fn new(store: &'db S, version: StateTreeVersion) -> Result<Self, Box<dyn StdError>> {
+    pub fn new(store: &'db S, version: StateTreeVersion) -> Result<Self, anyhow::Error> {
         let info = match version {
             StateTreeVersion::V0 => None,
             StateTreeVersion::V1
             | StateTreeVersion::V2
             | StateTreeVersion::V3
-            | StateTreeVersion::V4 => Some(store.put(&StateInfo0::default(), Blake2b256)?),
+            | StateTreeVersion::V4 => Some(store.put_anyhow(&StateInfo0::default(), Blake2b256)?),
         };
 
         let hamt = Map::new(store, ActorVersion::from(version));
@@ -193,7 +192,7 @@ where
     }
 
     /// Constructor for a hamt state tree given an IPLD store
-    pub fn new_from_root(store: &'db S, c: &Cid) -> Result<Self, Box<dyn StdError>> {
+    pub fn new_from_root(store: &'db S, c: &Cid) -> Result<Self, anyhow::Error> {
         // Try to load state root, if versioned
         let (version, info, actors) = if let Ok(Some(StateRoot {
             version,
@@ -203,10 +202,7 @@ where
         {
             (version, Some(info), actors)
         } else {
-            return Err("Failed to load version info for statetree".to_string())?;
-            // eprintln!("Failed to load version info for statetree");
-            // // Fallback to v0 state tree if retrieval fails
-            // (StateTreeVersion::V0, None, *c)
+            anyhow::bail!("Failed to load version info for statetree");
         };
 
         match version {
@@ -258,7 +254,7 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, Box<dyn StdError>> {
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
         let addr = match self.lookup_id(addr)? {
             Some(addr) => addr,
             None => return Ok(None),
@@ -281,20 +277,16 @@ where
     }
 
     /// Set actor state for an address. Will set state at ID address.
-    pub fn set_actor(
-        &mut self,
-        addr: &Address,
-        actor: ActorState,
-    ) -> Result<(), Box<dyn StdError>> {
+    pub fn set_actor(&mut self, addr: &Address, actor: ActorState) -> Result<(), anyhow::Error> {
         let addr = self
             .lookup_id(addr)?
-            .ok_or_else(|| format!("Resolution lookup failed for {}", addr))?;
+            .ok_or_else(|| anyhow::anyhow!("Resolution lookup failed for {}", addr))?;
 
         self.snaps.set_actor(addr, actor)
     }
 
     /// Get an ID address from any Address
-    pub fn lookup_id(&self, addr: &Address) -> Result<Option<Address>, Box<dyn StdError>> {
+    pub fn lookup_id(&self, addr: &Address) -> Result<Option<Address>, anyhow::Error> {
         if addr.protocol() == Protocol::ID {
             return Ok(Some(*addr));
         }
@@ -305,13 +297,13 @@ where
 
         let init_act = self
             .get_actor(actor::init::ADDRESS)?
-            .ok_or("Init actor address could not be resolved")?;
+            .ok_or_else(|| anyhow::anyhow!("Init actor address could not be resolved"))?;
 
         let state = init::State::load(self.hamt.store(), &init_act)?;
 
         let a: Address = match state
             .resolve_address(self.store(), addr)
-            .map_err(|e| format!("Could not resolve address: {:?}", e))?
+            .map_err(|e| anyhow::anyhow!("Could not resolve address: {:?}", e))?
         {
             Some(a) => a,
             None => return Ok(None),
@@ -323,10 +315,10 @@ where
     }
 
     /// Delete actor for an address. Will resolve to ID address to delete.
-    pub fn delete_actor(&mut self, addr: &Address) -> Result<(), Box<dyn StdError>> {
+    pub fn delete_actor(&mut self, addr: &Address) -> Result<(), anyhow::Error> {
         let addr = self
             .lookup_id(addr)?
-            .ok_or_else(|| format!("Resolution lookup failed for {}", addr))?;
+            .ok_or_else(|| anyhow::anyhow!("Resolution lookup failed for {}", addr))?;
 
         // Remove value from cache
         self.snaps.delete_actor(addr)?;
@@ -335,14 +327,14 @@ where
     }
 
     /// Mutate and set actor state for an Address.
-    pub fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), Box<dyn StdError>>
+    pub fn mutate_actor<F>(&mut self, addr: &Address, mutate: F) -> Result<(), anyhow::Error>
     where
-        F: FnOnce(&mut ActorState) -> Result<(), String>,
+        F: FnOnce(&mut ActorState) -> Result<(), anyhow::Error>,
     {
         // Retrieve actor state from address
         let mut act: ActorState = self
             .get_actor(addr)?
-            .ok_or(format!("Actor for address: {} does not exist", addr))?;
+            .ok_or_else(|| anyhow::anyhow!("Actor for address: {} does not exist", addr))?;
 
         // Apply function of actor state
         mutate(&mut act)?;
@@ -351,17 +343,17 @@ where
     }
 
     /// Register a new address through the init actor.
-    pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, Box<dyn StdError>> {
+    pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, anyhow::Error> {
         let mut actor: ActorState = self
             .get_actor(init::ADDRESS)?
-            .ok_or("Could not retrieve init actor")?;
+            .ok_or_else(|| anyhow::anyhow!("Could not retrieve init actor"))?;
 
         let mut ias = init::State::load(self.store(), &actor)?;
 
         let new_addr = ias.map_address_to_new_id(self.store(), addr)?;
 
         // Set state for init actor in store and update root Cid
-        actor.state = self.store().put(&ias, Blake2b256)?;
+        actor.state = self.store().put_anyhow(&ias, Blake2b256)?;
 
         self.set_actor(init::ADDRESS, actor)?;
 
@@ -387,13 +379,12 @@ where
     }
 
     /// Flush state tree and return Cid root.
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn StdError>> {
+    pub fn flush(&mut self) -> Result<Cid, anyhow::Error> {
         if self.snaps.layers.len() != 1 {
-            return Err(format!(
+            anyhow::bail!(
                 "tried to flush state tree with snapshots on the stack: {:?}",
                 self.snaps.layers.len()
-            )
-            .into());
+            );
         }
 
         for (addr, sto) in self.snaps.layers[0].actors.borrow().iter() {
@@ -412,7 +403,7 @@ where
         if matches!(self.version, StateTreeVersion::V0) {
             Ok(root)
         } else {
-            Ok(self.store().put(
+            Ok(self.store().put_anyhow(
                 &StateRoot {
                     version: self.version,
                     actors: root,
@@ -425,9 +416,9 @@ where
         }
     }
 
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), anyhow::Error>
     where
-        F: FnMut(Address, &ActorState) -> Result<(), Box<dyn StdError>>,
+        F: FnMut(Address, &ActorState) -> Result<(), anyhow::Error>,
         S: BlockStore,
     {
         self.hamt.for_each(|k, v| f(Address::from_bytes(&k.0)?, v))
@@ -459,8 +450,8 @@ where
     let mut seen = Default::default();
     forest_ipld::recurse_links(&mut seen, state_root, &mut |cid| {
         let block = bs
-            .get_bytes(&cid)?
-            .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+            .get_bytes_anyhow(&cid)?
+            .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
         // * If cb can return a generic type, deserializing would remove need to clone.
         // Ignore error intentionally, if receiver dropped, error will be handled below
