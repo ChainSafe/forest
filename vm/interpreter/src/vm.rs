@@ -378,7 +378,7 @@ where
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let fvm_ret = self.fvm_executor.execute_message(
-            unsigned.into(),
+            unsigned,
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
