@@ -33,7 +33,6 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
@@ -64,11 +63,10 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
       - name: Add component llvm-tools-preview
-        run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
+        run: rustup component add llvm-tools-preview
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run cargo-llvm-cov
@@ -92,7 +90,6 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
           target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
@@ -113,7 +110,6 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
           override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
@@ -148,7 +144,7 @@ jobs:
       - name: Install Toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rv }}
+          #toolchain: ${{ matrix.rv }}
           target: wasm32-unknown-unknown
           override: true
       - name: Rust Cache
