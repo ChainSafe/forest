@@ -127,8 +127,8 @@ mod tests {
         assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         assert_eq!(
-            gbs.put_obj(&200u8, Blake2b256).unwrap_err().to_string(),
-            "OutOfGas".to_string()
+            &gbs.put_obj(&200u8, Blake2b256).unwrap_err().to_string(),
+            "out of gas"
         );
     }
 }
