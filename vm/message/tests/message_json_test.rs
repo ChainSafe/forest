@@ -107,6 +107,9 @@ fn message_json_annotations() {
             }
         }
         "#;
-    let expected = TestStruct { unsigned: message, signed };
+    let expected = TestStruct {
+        unsigned: message,
+        signed,
+    };
     assert_eq!(from_str::<TestStruct>(test_json).unwrap(), expected);
 }
