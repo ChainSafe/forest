@@ -1676,7 +1676,7 @@ fn check_block_messages<
      -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        msg.valid_for_block_inclusion(min_gas.total(), network_version)
+        valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;
         if sum_gas_limit > BLOCK_GAS_LIMIT {
@@ -1688,7 +1688,7 @@ fn check_block_messages<
         let sequence: u64 = match account_sequences.get(&msg.from) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(msg.from())?.ok_or_else(|| {
+                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
                     anyhow::anyhow!(
                         "Failed to retrieve nonce for addr: Actor does not exist in state"
                     )

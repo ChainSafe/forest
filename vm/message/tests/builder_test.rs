@@ -3,7 +3,7 @@
 
 use address::Address;
 use crypto::{Signature, Signer};
-use forest_message::{SignedMessage};
+use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 
 const DUMMY_SIG: [u8; 1] = [0u8];

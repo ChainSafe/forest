@@ -12,8 +12,8 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use fvm_shared::{bigint::BigInt, message::Message};
-use message::{SignedMessage};
-use std::{convert::TryFrom};
+use message::SignedMessage;
+use std::convert::TryFrom;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {

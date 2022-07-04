@@ -12,10 +12,7 @@ use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use fvm_shared::bigint::BigUint;
-use message::{
-    signed_message::json::SignedMessageJson,
-    SignedMessage,
-};
+use message::{signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
 use wallet::{json::KeyInfoJson, Error, Key};

@@ -10,10 +10,7 @@ use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
 use message::Message;
-use message::{
-    signed_message::json::SignedMessageJson,
-    SignedMessage,
-};
+use message::{signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::data_types::RPCState;
 use rpc_api::mpool_api::*;
 

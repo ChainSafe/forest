@@ -10,38 +10,40 @@ pub fn valid_for_block_inclusion(
     msg: &Message,
     min_gas: Gas,
     version: fil_types::NetworkVersion,
-) -> Result<(), String> {
+) -> Result<(), anyhow::Error> {
     use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
     use num_traits::Signed;
     if msg.version != 0 {
-        return Err(format!("Message version: {} not supported", msg.version));
+        anyhow::bail!("Message version: {} not supported", msg.version);
     }
     if msg.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
-        return Err("invalid 'to' address".to_string());
+        anyhow::bail!("invalid 'to' address");
     }
     if msg.value.is_negative() {
-        return Err("message value cannot be negative".to_string());
+        anyhow::bail!("message value cannot be negative");
     }
     if msg.value > *TOTAL_FILECOIN {
-        return Err("message value cannot be greater than total FIL supply".to_string());
+        anyhow::bail!("message value cannot be greater than total FIL supply");
     }
     if msg.gas_fee_cap.is_negative() {
-        return Err("gas_fee_cap cannot be negative".to_string());
+        anyhow::bail!("gas_fee_cap cannot be negative");
     }
     if msg.gas_premium.is_negative() {
-        return Err("gas_premium cannot be negative".to_string());
+        anyhow::bail!("gas_premium cannot be negative");
     }
     if msg.gas_premium > msg.gas_fee_cap {
-        return Err("gas_fee_cap less than gas_premium".to_string());
+        anyhow::bail!("gas_fee_cap less than gas_premium");
     }
     if msg.gas_limit > BLOCK_GAS_LIMIT {
-        return Err("gas_limit cannot be greater than block gas limit".to_string());
+        anyhow::bail!("gas_limit cannot be greater than block gas limit");
     }
+
     if Gas::new(msg.gas_limit) < min_gas {
-        return Err(format!(
+        anyhow::bail!(
             "gas_limit {} cannot be less than cost {} of storing a message on chain",
-            msg.gas_limit, min_gas
-        ));
+            msg.gas_limit,
+            min_gas
+        );
     }
 
     Ok(())

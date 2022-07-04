@@ -34,9 +34,7 @@ use interpreter::{
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use message::{
-    message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt,
-};
+use message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
