@@ -7807,11 +7807,15 @@ name = "statediff"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-log",
+ "async-std",
  "colored",
  "difference",
  "fil_types",
  "forest_address",
+ "forest_car",
  "forest_cid",
+ "forest_db",
  "forest_ipld",
  "forest_vm",
  "fvm",
@@ -7819,6 +7823,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_tree",
+ "structopt",
 ]
 
 [[package]]
