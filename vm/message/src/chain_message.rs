@@ -3,7 +3,7 @@
 
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
-use crate::unsigned_message::UnsignedMessage;
+
 use address::Address;
 use cid::Cid;
 use encoding::{Cbor, Error};
@@ -86,7 +86,7 @@ impl MessageTrait for ChainMessage {
     fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => t.gas_fee_cap.clone() * t.gas_limit.clone() + t.value.clone(),
+            Self::Unsigned(t) => t.gas_fee_cap.clone() * t.gas_limit + t.value.clone(),
         }
     }
     fn gas_fee_cap(&self) -> &TokenAmount {

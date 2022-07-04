@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::Cbor;
+
 use fvm::gas::Gas;
 use fvm_shared::message::Message;
 

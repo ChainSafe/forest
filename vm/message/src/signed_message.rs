@@ -93,7 +93,7 @@ impl MessageTrait for SignedMessage {
         self.message.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        self.message.gas_fee_cap.clone() * self.message.gas_limit.clone()
+        self.message.gas_fee_cap.clone() * self.message.gas_limit
             + self.message.value.clone()
     }
     fn gas_fee_cap(&self) -> &TokenAmount {
@@ -125,7 +125,7 @@ impl Cbor for SignedMessage {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use crate::unsigned_message;
+    
     use cid::Cid;
     use crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
