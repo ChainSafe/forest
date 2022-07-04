@@ -29,7 +29,7 @@ use fvm_shared::message::Message;
 use ipld::json::IpldJson;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
-    signed_message::json::SignedMessageJson, unsigned_message, SignedMessage,
+    signed_message::json::SignedMessageJson, SignedMessage,
 };
 use message_pool::{MessagePool, MpoolRpcProvider};
 use num_bigint::bigint_ser::json;

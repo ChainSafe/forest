@@ -13,7 +13,7 @@ use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use fvm_shared::bigint::BigUint;
 use message::{
-    signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
+    signed_message::json::SignedMessageJson,
     SignedMessage,
 };
 use rpc_api::{data_types::RPCState, wallet_api::*};

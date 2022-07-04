@@ -16,7 +16,6 @@ use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
 use fvm_shared::message::Message as FVMMessage;
-use message::unsigned_message::{self, json::UnsignedMessageJson};
 use networks::Height;
 use rpc_api::{
     chain_api::*,

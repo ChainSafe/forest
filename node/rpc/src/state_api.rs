@@ -32,7 +32,7 @@ use fil_types::{
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
-use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
+use message::{signed_message::SignedMessage};
 use networks::Height;
 use rpc_api::{
     data_types::{

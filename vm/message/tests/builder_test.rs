@@ -3,9 +3,8 @@
 
 use address::Address;
 use crypto::{Signature, Signer};
-use forest_message::{Message as MessageTrait, SignedMessage};
+use forest_message::{SignedMessage};
 use fvm_shared::message::Message;
-use vm::{MethodNum, Serialized, TokenAmount};
 
 const DUMMY_SIG: [u8; 1] = [0u8];
 

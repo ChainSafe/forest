@@ -11,9 +11,7 @@ use forest_message::signed_message::{
     SignedMessage,
 };
 use forest_message::unsigned_message::{
-    self,
     json::{UnsignedMessageJson, UnsignedMessageJsonRef},
-    UnsignedMessage,
 };
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};

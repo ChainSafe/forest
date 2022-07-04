@@ -35,7 +35,7 @@ use interpreter::{
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use message::{
-    message_receipt, unsigned_message, ChainMessage, Message as MessageTrait, MessageReceipt,
+    message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt,
 };
 use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
