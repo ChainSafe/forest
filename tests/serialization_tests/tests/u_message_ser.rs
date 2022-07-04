@@ -5,11 +5,11 @@
 #![cfg(feature = "submodule_tests")]
 
 use encoding::to_vec;
+use fvm_shared::message::Message;
 use hex::encode;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
-use fvm_shared::message::Message;
 
 #[derive(Deserialize)]
 struct TestVector {
