@@ -23,7 +23,7 @@ impl Block {
     pub fn header(&self) -> &BlockHeader {
         &self.header
     }
-    /// Returns reference to the block's BLS [UnsignedMessage]s.
+    /// Returns reference to the block's BLS [Message]s.
     pub fn bls_msgs(&self) -> &[Message] {
         &self.bls_messages
     }
