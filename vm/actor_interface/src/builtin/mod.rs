@@ -96,7 +96,7 @@ pub fn is_account_actor(code: &Cid) -> bool {
     //     || actorv4::is_account_actor(code)
     //     || actorv5::is_account_actor(code)
     //     || actorv6::is_account_actor(code)
-    code == &account::account_cid_v7()
+    code == &account::account_cid_v7() || code == &account::account_cid_v8()
 }
 
 /// Returns true if the code belongs to a singleton actor.

@@ -17,12 +17,16 @@ pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::INIT_ACTOR_ADDR
 /// Init actor method.
 pub type Method = fil_actor_init_v8::Method;
 
+pub fn init_cid_v8() -> Cid {
+    Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap()
+}
+
 /// Init actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
     // V7(fil_actor_init_v7::State),
-    V7(fil_actor_init_v8::State),
+    V8(fil_actor_init_v8::State),
 }
 
 impl State {
@@ -30,10 +34,16 @@ impl State {
     where
         BS: BlockStore,
     {
+        if actor.code == init_cid_v8() {
+            return Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?);
+        }
         if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
             Ok(store
                 .get_anyhow(&actor.state)?
-                .map(State::V7)
+                .map(State::V8)
                 .context("Actor state doesn't exist in store")?)
         } else {
             Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
@@ -48,7 +58,7 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Address> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
             }
@@ -71,7 +81,7 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Option<Address>> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 st.resolve_address(&fvm_store, addr)
             }
@@ -80,7 +90,7 @@ impl State {
 
     pub fn into_network_name(self) -> String {
         match self {
-            State::V7(st) => st.network_name,
+            State::V8(st) => st.network_name,
         }
     }
 }

@@ -393,10 +393,11 @@ impl BlockHeader {
         let max_round = curr_beacon.max_beacon_round_for_epoch(self.epoch);
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
-                return Err(Error::Validation(format!(
-                    "expected not to have any beacon entries in this block, got: {:?}",
-                    self.beacon_entries.len()
-                )));
+                // FIXME: Is this no longer required?
+                // return Err(Error::Validation(format!(
+                //     "expected not to have any beacon entries in this block, got: {:?}",
+                //     self.beacon_entries.len()
+                // )));
             }
             return Ok(());
         }

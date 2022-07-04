@@ -147,12 +147,12 @@ where
         let nv_actors = import_actors(store);
 
         // Get the builtin actors index for the concrete network version.
-        let builtin_actors = *nv_actors
-            .get(&network_version)
-            .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
+        // let builtin_actors = *nv_actors
+        //     .get(&network_version)
+        //     .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
 
         let mut context = NetworkConfig::new(network_version)
-            .override_actors(builtin_actors)
+            // .override_actors(builtin_actors)
             .for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
