@@ -170,11 +170,11 @@ pub mod chain_api {
     use chain::headchange_json::SubscriptionHeadChange;
     use cid::json::CidJson;
     use fvm_shared::clock::ChainEpoch;
-    use fvm_shared::message::Message;
+    use message::message::json::MessageJson;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
-    pub type ChainGetMessageResult = Message;
+    pub type ChainGetMessageResult = MessageJson;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);
@@ -236,7 +236,7 @@ pub mod mpool_api {
     use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
     use cid::json::CidJson;
     use fvm_shared::message::Message;
-    use message::signed_message::json::SignedMessageJson;
+    use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
     pub type MpoolEstimateGasPriceParams = (u64, String, u64, TipsetKeys);
@@ -258,7 +258,7 @@ pub mod mpool_api {
     pub type MpoolPushResult = CidJson;
 
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-    pub type MpoolPushMessageParams = (Message, Option<MessageSendSpec>);
+    pub type MpoolPushMessageParams = (MessageJson, Option<MessageSendSpec>);
     pub type MpoolPushMessageResult = SignedMessageJson;
 
     pub const MPOOL_SELECT: &str = "Filecoin.MpoolSelect";
@@ -298,7 +298,7 @@ pub mod wallet_api {
     use address::json::AddressJson;
     use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use fvm_shared::message::Message;
-    use message::signed_message::json::SignedMessageJson;
+    use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
     use wallet::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
@@ -338,7 +338,7 @@ pub mod wallet_api {
     pub type WalletSignResult = SignatureJson;
 
     pub const WALLET_SIGN_MESSAGE: &str = "Filecoin.WalletSignMessage";
-    pub type WalletSignMessageParams = (String, Message);
+    pub type WalletSignMessageParams = (String, MessageJson);
     pub type WalletSignMessageResult = SignedMessageJson;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
@@ -366,7 +366,7 @@ pub mod state_api {
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
     use fvm_shared::message::Message;
-    use message::message_receipt::json::MessageReceiptJson;
+    use message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use state_manager::{InvocResult, MarketBalance};
 
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
@@ -374,7 +374,7 @@ pub mod state_api {
     pub type StateMinerSectorsResult = Vec<SectorOnChainInfo>;
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
-    pub type StateCallParams = (Message, TipsetKeysJson);
+    pub type StateCallParams = (MessageJson, TipsetKeysJson);
     pub type StateCallResult = InvocResult;
 
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
@@ -491,10 +491,10 @@ pub mod gas_api {
     use crate::data_types::MessageSendSpec;
     use address::json::AddressJson;
     use blocks::tipset_keys_json::TipsetKeysJson;
-    use fvm_shared::message::Message;
+    use message::message::json::MessageJson;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub type GasEstimateFeeCapParams = (Message, i64, TipsetKeysJson);
+    pub type GasEstimateFeeCapParams = (MessageJson, i64, TipsetKeysJson);
     pub type GasEstimateFeeCapResult = String;
 
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
@@ -502,12 +502,12 @@ pub mod gas_api {
     pub type GasEstimateGasPremiumResult = String;
 
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-    pub type GasEstimateGasLimitParams = (Message, TipsetKeysJson);
+    pub type GasEstimateGasLimitParams = (MessageJson, TipsetKeysJson);
     pub type GasEstimateGasLimitResult = i64;
 
     pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
-    pub type GasEstimateMessageGasParams = (Message, Option<MessageSendSpec>, TipsetKeysJson);
-    pub type GasEstimateMessageGasResult = Message;
+    pub type GasEstimateMessageGasParams = (MessageJson, Option<MessageSendSpec>, TipsetKeysJson);
+    pub type GasEstimateMessageGasResult = MessageJson;
 }
 
 /// Common API

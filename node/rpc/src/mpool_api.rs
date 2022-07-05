@@ -9,6 +9,7 @@ use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
+use message::message::json::MessageJson;
 use message::{signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::data_types::RPCState;
 use rpc_api::mpool_api::*;
@@ -140,7 +141,7 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (umsg, spec) = params;
+    let (MessageJson(umsg), spec) = params;
 
     let from = umsg.from;
 

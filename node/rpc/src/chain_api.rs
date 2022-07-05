@@ -1,12 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
-use log::debug;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-
 use crate::rpc_util::get_error_obj;
+use ::message::message::json::MessageJson;
 use beacon::Beacon;
 use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -16,17 +12,23 @@ use blockstore::BlockStore;
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
 use fvm_shared::message::Message as FVMMessage;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use log::debug;
+use message::message;
 use networks::Height;
 use rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Message {
     #[serde(with = "cid::json")]
     cid: Cid,
+    #[serde(with = "message::json")]
     message: FVMMessage,
 }
 
@@ -44,7 +46,7 @@ where
         .blockstore()
         .get(&msg_cid)?
         .ok_or("can't find message with that cid")?;
-    Ok(ret)
+    Ok(MessageJson(ret))
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(

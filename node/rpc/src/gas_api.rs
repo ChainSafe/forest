@@ -13,7 +13,7 @@ use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
-use message::ChainMessage;
+use message::{message::json::MessageJson, ChainMessage};
 use rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
@@ -30,7 +30,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (msg, max_queue_blks, TipsetKeysJson(tsk)) = params;
+    let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
     estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
         .await
@@ -184,7 +184,7 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (msg, TipsetKeysJson(tsk)) = params;
+    let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
     estimate_gas_limit::<DB, B, V>(&data, msg, tsk).await
 }
 
@@ -250,8 +250,10 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (msg, spec, TipsetKeysJson(tsk)) = params;
-    estimate_message_gas::<DB, B, V>(&data, msg, spec, tsk).await
+    let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
+    estimate_message_gas::<DB, B, V>(&data, msg, spec, tsk)
+        .await
+        .map(MessageJson::from)
 }
 
 pub(crate) async fn estimate_message_gas<DB, B, V>(
