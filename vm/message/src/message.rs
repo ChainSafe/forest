@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fvm::gas::Gas;
-use fvm_ipld_encoding::{Cbor, RawBytes};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{MethodNum, Serialized, TokenAmount};
+use vm::{Serialized, TokenAmount};
 
 /// Semantic validation and validates the message has enough gas.
 #[cfg(feature = "proofs")]
