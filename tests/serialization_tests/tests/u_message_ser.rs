@@ -5,6 +5,7 @@
 #![cfg(feature = "submodule_tests")]
 
 use encoding::to_vec;
+use forest_message::message;
 use fvm_shared::message::Message;
 use hex::encode;
 use serde::Deserialize;
@@ -13,6 +14,7 @@ use std::io::prelude::*;
 
 #[derive(Deserialize)]
 struct TestVector {
+    #[serde(with = "message::json")]
     message: Message,
     hex_cbor: String,
 }
