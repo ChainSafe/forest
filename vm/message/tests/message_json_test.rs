@@ -5,12 +5,13 @@
 
 use address::Address;
 use crypto::{Signature, Signer};
+use forest_message::message;
+use forest_message::message::json::{MessageJson, MessageJsonRef};
 use forest_message::signed_message::{
     self,
     json::{SignedMessageJson, SignedMessageJsonRef},
     SignedMessage,
 };
-use forest_message::unsigned_message::json::{UnsignedMessageJson, UnsignedMessageJsonRef};
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
@@ -21,10 +22,10 @@ fn unsigned_symmetric_json() {
     let message_json = r#"{"Version":9,"To":"f01234","From":"f01234","Nonce":42,"Value":"0","GasLimit":1,"GasFeeCap":"2","GasPremium":"9","Method":1,"Params":"Ynl0ZSBhcnJheQ==","CID":{"/":"bafy2bzacea5z7ywqogtuxykqcis76lrhl4fl27bg63firldlry5ml6bbahoy6"}}"#;
 
     // Deserialize
-    let UnsignedMessageJson(cid_d) = from_str(message_json).unwrap();
+    let MessageJson(cid_d) = from_str(message_json).unwrap();
 
     // Serialize
-    let ser_cid = to_string(&UnsignedMessageJsonRef(&cid_d)).unwrap();
+    let ser_cid = to_string(&MessageJsonRef(&cid_d)).unwrap();
     assert_eq!(ser_cid, message_json);
 }
 
@@ -44,8 +45,8 @@ fn signed_symmetric_json() {
 fn message_json_annotations() {
     let message = Message {
         version: 10,
-        from: Address::new_id(12),
-        to: Address::new_id(34),
+        from: Address::new_id(34),
+        to: Address::new_id(12),
         sequence: 5,
         value: 6.into(),
         method_num: 7,
@@ -65,6 +66,7 @@ fn message_json_annotations() {
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestStruct {
+        #[serde(with = "message::json")]
         unsigned: Message,
         #[serde(with = "signed_message::json")]
         signed: SignedMessage,

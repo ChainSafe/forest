@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message as MessageTrait;
+use crate::message;
 use address::Address;
 use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
@@ -158,7 +159,7 @@ pub mod json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct SignedMessageSer<'a> {
-            // #[serde(with = "unsigned_message::json")]
+            #[serde(with = "message::json")]
             message: &'a Message,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
@@ -180,7 +181,7 @@ pub mod json {
         #[derive(Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct SignedMessageDe {
-            // #[serde(with = "unsigned_message::json")]
+            #[serde(with = "message::json")]
             message: Message,
             #[serde(with = "signature::json")]
             signature: Signature,
