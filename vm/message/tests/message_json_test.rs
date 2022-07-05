@@ -4,6 +4,7 @@
 #![cfg(feature = "json")]
 
 use address::Address;
+use forest_message::signed_message::Signer;
 use forest_message::signed_message::{
     self,
     json::{SignedMessageJson, SignedMessageJsonRef},
@@ -14,7 +15,7 @@ use forest_message::unsigned_message::{
     json::{UnsignedMessageJson, UnsignedMessageJsonRef},
     UnsignedMessage,
 };
-use fvm_shared::crypto::{Signature, Signer};
+use fvm_shared::crypto::signature::Signature;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 use std::error::Error;

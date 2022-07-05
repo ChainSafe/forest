@@ -3,11 +3,13 @@
 
 use address::Address;
 use forest_message::{Message, SignedMessage, UnsignedMessage};
-use fvm_shared::crypto::{Signature, Signer};
+use fvm_shared::crypto::signature::Signature;
 use std::error::Error;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 const DUMMY_SIG: [u8; 1] = [0u8];
+
+use forest_message::signed_message::Signer;
 
 struct DummySigner;
 impl Signer for DummySigner {

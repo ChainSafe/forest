@@ -3376,6 +3376,7 @@ dependencies = [
 name = "forest_message"
 version = "0.7.2"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "derive_builder 0.11.2",
  "fil_types",

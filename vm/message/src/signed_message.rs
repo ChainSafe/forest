@@ -1,12 +1,20 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::error::Error;
+
 use super::{Message, UnsignedMessage};
 use address::Address;
 use encoding::tuple::*;
-use encoding::{to_vec, Cbor, Error};
-use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType, Signer};
+use encoding::{to_vec, Cbor, Error as CborError};
+use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use vm::{MethodNum, Serialized, TokenAmount};
+
+/// Signer is a trait which allows a key implementation to sign data for an address
+pub trait Signer {
+    /// Function signs any arbitrary data given the [Address].
+    fn sign_bytes(&self, data: &[u8], address: &Address) -> Result<Signature, Box<dyn Error>>;
+}
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
@@ -114,7 +122,7 @@ impl Message for SignedMessage {
 }
 
 impl Cbor for SignedMessage {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, CborError> {
         if self.is_bls() {
             self.message.marshal_cbor()
         } else {
