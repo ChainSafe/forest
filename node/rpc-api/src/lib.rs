@@ -235,7 +235,6 @@ pub mod mpool_api {
     use crate::data_types::MessageSendSpec;
     use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
     use cid::json::CidJson;
-    use fvm_shared::message::Message;
     use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
@@ -297,7 +296,6 @@ pub mod sync_api {
 pub mod wallet_api {
     use address::json::AddressJson;
     use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
-    use fvm_shared::message::Message;
     use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
     use wallet::json::KeyInfoJson;
 
@@ -365,7 +363,6 @@ pub mod state_api {
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
-    use fvm_shared::message::Message;
     use message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use state_manager::{InvocResult, MarketBalance};
 
