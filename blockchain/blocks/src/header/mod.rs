@@ -14,7 +14,7 @@ use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
-use fvm_shared::crypto::Signature;
+use fvm_shared::crypto::signature::Signature;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
