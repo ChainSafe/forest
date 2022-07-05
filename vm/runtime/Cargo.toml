@@ -19,6 +19,7 @@ base64              = "0.13"
 fil_types           = { features = ["proofs"], version = "0.2" }
 log                 = "0.4"
 fvm_shared          = { version = "0.7.1", default-features = false }
+fil_actors_runtime_v7 = { package = "fil_actors_runtime", version = "=7.5.1" }
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }

@@ -8,6 +8,7 @@ pub use self::actor_code::*;
 use address::Address;
 use cid::Cid;
 use clock::ChainEpoch;
+use fil_actors_runtime_v7::runtime::DomainSeparationTag;
 use fil_types::{
     zero_piece_commitment, NetworkVersion, PaddedPieceSize, PieceInfo, Randomness,
     RegisteredSealProof, SealVerifyInfo, WindowPoStVerifyInfo,
@@ -17,7 +18,6 @@ use filecoin_proofs_api::{self as proofs};
 use forest_encoding::{blake2b_256, de, Cbor};
 use fvm_shared::commcid::data_commitment_v1_to_cid;
 use fvm_shared::crypto::signature::Signature;
-use fvm_shared::crypto::DomainSeparationTag;
 use ipld_blockstore::BlockStore;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};

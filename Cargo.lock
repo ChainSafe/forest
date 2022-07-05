@@ -3397,6 +3397,7 @@ name = "forest_runtime"
 version = "0.2.1"
 dependencies = [
  "base64 0.13.0",
+ "fil_actors_runtime 7.5.1",
  "fil_clock",
  "fil_types",
  "filecoin-proofs-api",
