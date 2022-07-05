@@ -106,7 +106,7 @@ pub trait ProofVerifier {
         let commrs: Vec<[u8; 32]> = inputs.iter().map(|input| input.commr).collect();
         let seeds: Vec<[u8; 32]> = inputs.iter().map(|input| input.seed).collect();
         if !verify_aggregate_seal_commit_proofs(
-            spt.try_into()?,
+            spt,
             aggregate.aggregate_proof.try_into()?,
             aggregate.proof.clone(),
             &commrs,

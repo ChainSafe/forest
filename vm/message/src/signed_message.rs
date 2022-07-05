@@ -162,7 +162,7 @@ pub mod json {
         struct SignedMessageSer<'a> {
             #[serde(with = "unsigned_message::json")]
             message: &'a UnsignedMessage,
-            #[serde(with = "signature::json")]
+            #[serde(with = "signature::Signature")]
             signature: &'a Signature,
             #[serde(default, rename = "CID", with = "cid::json::opt")]
             cid: Option<Cid>,
@@ -184,7 +184,7 @@ pub mod json {
         struct SignedMessageDe {
             #[serde(with = "unsigned_message::json")]
             message: UnsignedMessage,
-            #[serde(with = "signature::json")]
+            #[serde(with = "signature::Signature")]
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
