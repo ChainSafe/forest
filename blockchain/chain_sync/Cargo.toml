@@ -11,9 +11,9 @@ pbr = "1.0.3"
 anyhow = "1.0"
 fvm_shared = { version = "0.7.1", default-features = false }
 fvm_ipld_encoding = "0.2"
-fvm_ipld_amt = "0.4.2"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
+amt = { package = "ipld_amt", version = "0.2" }
 blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
 db = { package = "forest_db", version = "0.1" }

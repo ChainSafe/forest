@@ -5,7 +5,8 @@ use blocks::Error as BlkErr;
 use cid::Error as CidErr;
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
-use fvm_ipld_amt::Error as AmtErr;
+use std::error::Error as StdError;
+use ipld_amt::Error as AmtErr;
 use thiserror::Error;
 
 /// Chain error

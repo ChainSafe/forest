@@ -17,6 +17,7 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 num-traits = "0.2"
 message = { package = "forest_message", version = "0.7", features = ["blst"] }
 ipld_blockstore = "0.1"
+ipld_amt = "0.2"
 thiserror = "1.0"
 log = "0.4.8"
 state_tree = { path = "../../vm/state_tree/" }
@@ -38,7 +39,6 @@ networks = { path = "../../types/networks" }
 lockfree = "0.5.1"
 crossbeam = "0.8.0"
 fvm_shared = { version = "0.7.1", default-features = false }
-fvm_ipld_amt = "0.4.2"
 
 [features]
 json = []

@@ -1121,9 +1121,9 @@ dependencies = [
  "forest_ipld",
  "forest_message",
  "futures",
- "fvm_ipld_amt",
  "fvm_shared 0.7.1",
  "interpreter",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
  "lockfree",
@@ -1168,12 +1168,12 @@ dependencies = [
  "futures",
  "futures-util",
  "fvm",
- "fvm_ipld_amt",
  "fvm_ipld_encoding",
  "fvm_shared 0.7.1",
  "genesis",
  "hex",
  "interpreter",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
  "libp2p 0.40.0",
@@ -4254,6 +4254,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipld_amt"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dde92f9f67932f831a0137be87f60370cfb107b3664b6bcca2703311e32c3d46"
+dependencies = [
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "ipld_blockstore",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "ipld_amt"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "278ba2fa369fae45884276f68784750a81bd48a9973615195f0138b8d1fa9436"
+dependencies = [
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "ipld_blockstore",
+ "itertools 0.10.3",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "ipld_blockstore"
 version = "0.1.1"
 dependencies = [
@@ -6902,11 +6933,11 @@ dependencies = [
  "forest_libp2p",
  "forest_message",
  "futures",
- "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_shared 0.7.1",
  "hex",
  "interpreter",
+ "ipld_amt 1.0.0",
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
@@ -7689,10 +7720,10 @@ dependencies = [
  "forest_vm",
  "futures",
  "fvm",
- "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_shared 0.7.1",
  "interpreter",
+ "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
  "log",
