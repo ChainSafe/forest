@@ -128,7 +128,13 @@ pub async fn get_params_default(
     storage_size: SectorSizeOpt,
     is_verbose: bool,
 ) -> Result<(), anyhow::Error> {
-    get_params(data_dir.clone(), DEFAULT_PARAMETERS, storage_size, is_verbose).await
+    get_params(
+        data_dir.clone(),
+        DEFAULT_PARAMETERS,
+        storage_size,
+        is_verbose,
+    )
+    .await
 }
 
 async fn fetch_verify_params(
