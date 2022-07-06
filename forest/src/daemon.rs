@@ -159,7 +159,7 @@ pub(super) async fn start(config: Config) {
     sync_from_snapshot(&config, &state_manager).await;
 
     // Fetch and ensure verification keys are downloaded
-    get_params_default(SectorSizeOpt::Keys, false)
+    get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
         .await
         .unwrap();
 

@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::cli::Config;
 use structopt::StructOpt;
 
 use fil_types::SectorSize;
@@ -20,7 +21,7 @@ pub struct FetchCommands {
 }
 
 impl FetchCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         let sizes = if self.all {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
@@ -32,7 +33,9 @@ impl FetchCommands {
             panic!("Sector size option must be chosen. Choose between --all, --keys, or <size>");
         };
 
-        get_params_default(sizes, self.verbose).await.unwrap();
+        get_params_default(&config.data_dir, sizes, self.verbose)
+            .await
+            .unwrap();
     }
 }
 
