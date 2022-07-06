@@ -3,7 +3,7 @@
 
 use crate::FilterEstimate;
 use address::Address;
-use cid::multihash::MultihashDigest;
+// use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 
 use cid::Cid;

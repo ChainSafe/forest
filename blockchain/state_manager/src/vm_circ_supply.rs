@@ -250,9 +250,9 @@ fn get_circulating_supply<'a, DB: BlockStore>(
     // dbg!(height);
     // dbg!(&fil_vested);
     // dbg!(&fil_mined);
+    // dbg!(&fil_reserve_distributed);
     // dbg!(&fil_burnt);
     // dbg!(&fil_locked);
-    // dbg!(&fil_reserve_distributed);
     // dbg!(&fil_circulating);
 
     Ok(fil_circulating)

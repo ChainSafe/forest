@@ -139,12 +139,16 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
 
     // forwarded
     fn batch_verify_seals(&mut self, vis: &[SealVerifyInfo]) -> Result<Vec<bool>> {
-        self.0.batch_verify_seals(vis)
+        let ret = self.0.batch_verify_seals(vis);
+        eprintln!(" === batch_verify_seal: {:?}", ret.as_ref().ok());
+        ret
     }
 
     // forwarded
     fn verify_seal(&mut self, vi: &SealVerifyInfo) -> Result<bool> {
-        self.0.verify_seal(vi)
+        let ret = self.0.verify_seal(vi);
+        eprintln!(" === verify_seal: {:?}", ret.as_ref().ok());
+        ret
     }
 
     // forwarded

@@ -89,7 +89,6 @@ impl Heights {
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
-    registered_actors: HashSet<Cid>,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
@@ -139,17 +138,19 @@ where
         LB: LookbackStateGetter<'db, DB>,
     {
         let state = StateTree::new_from_root(store, &root)?;
-        let registered_actors = HashSet::new();
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
         // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
 
         // Load the builtin actors bundles into the blockstore.
-        let nv_actors = import_actors(store);
+        // let nv_actors = import_actors(store);
 
         // Get the builtin actors index for the concrete network version.
         // let builtin_actors = *nv_actors
         //     .get(&network_version)
         //     .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
+        dbg!(epoch);
+        dbg!(&base_fee);
+        dbg!(&circ_supply);
 
         let mut context = NetworkConfig::new(network_version)
             // .override_actors(builtin_actors)
@@ -178,23 +179,11 @@ where
                 circ_supply: override_circ_supply,
             });
         Ok(VM {
-            registered_actors,
             fvm_executor: exec,
             verifier: PhantomData,
             params: PhantomData,
             heights,
         })
-    }
-
-    /// Registers an actor that is not part of the set of default builtin actors by providing the
-    /// code cid.
-    pub fn register_actor(&mut self, code_cid: Cid) -> bool {
-        self.registered_actors.insert(code_cid)
-    }
-
-    /// Gets registered actors that are not part of the set of default builtin actors.
-    pub fn registered_actors(&self) -> &HashSet<Cid> {
-        &self.registered_actors
     }
 
     /// Flush stores in VM and return state root.
@@ -358,16 +347,21 @@ where
         msg: &UnsignedMessage,
     ) -> Result<ApplyRet, anyhow::Error> {
         use fvm::executor::Executor;
+        use fvm::trace::ExecutionEvent;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let mut ret = self.fvm_executor.execute_message(
+        let ret = self.fvm_executor.execute_message(
             msg.into(),
             fvm::executor::ApplyKind::Implicit,
             raw_length,
         )?;
-        ret.msg_receipt.gas_used = 0;
-        ret.miner_tip = BigInt::zero();
-        ret.penalty = BigInt::zero();
+        dbg!(&ret.msg_receipt);
+        for evt in &ret.exec_trace {
+            eprintln!("{:?}", evt);
+        }
+        // ret.msg_receipt.gas_used = 0;
+        // ret.miner_tip = BigInt::zero();
+        // ret.penalty = BigInt::zero();
         Ok(ret)
     }
 
@@ -384,6 +378,16 @@ where
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
+        // dbg!(&fvm_ret);
+        dbg!(&fvm_ret.msg_receipt);
+        dbg!(&fvm_ret.penalty);
+        dbg!(&fvm_ret.miner_tip);
+        dbg!(&fvm_ret.base_fee_burn);
+        dbg!(&fvm_ret.over_estimation_burn);
+        dbg!(&fvm_ret.refund);
+        dbg!(&fvm_ret.gas_refund);
+        dbg!(&fvm_ret.gas_burned);
+        dbg!(&fvm_ret.failure_info);
         Ok(fvm_ret)
     }
 }
