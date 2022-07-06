@@ -58,7 +58,7 @@ fn param_dir(mut data_dir: PathBuf) -> String {
 /// Get proofs parameters and all verification keys for a given sector size given
 /// a param JSON manifest.
 pub async fn get_params(
-    data_dir: &PathBuf,
+    data_dir: PathBuf,
     param_json: &str,
     storage_size: SectorSizeOpt,
     is_verbose: bool,
@@ -124,11 +124,11 @@ pub async fn get_params(
 /// Get proofs parameters and all verification keys for a given sector size using default manifest.
 #[inline]
 pub async fn get_params_default(
-    data_dir: &PathBuf,
+    data_dir: PathBuf,
     storage_size: SectorSizeOpt,
     is_verbose: bool,
 ) -> Result<(), anyhow::Error> {
-    get_params(data_dir, DEFAULT_PARAMETERS, storage_size, is_verbose).await
+    get_params(data_dir.clone(), DEFAULT_PARAMETERS, storage_size, is_verbose).await
 }
 
 async fn fetch_verify_params(
