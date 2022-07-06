@@ -12,7 +12,6 @@ members = [
     "vm/actor_interface",
     "vm/address",
     "vm/message",
-    "vm/runtime",
     "vm/state_tree",
     "vm/interpreter",
     "vm/state_migration",
@@ -55,7 +54,6 @@ forest_encoding   = { path = "./encoding" }
 forest_hash_utils = { path = "./utils/hash_utils" }
 forest_json_utils = { path = "./utils/json_utils" }
 forest_vm         = { path = "./vm" }
-forest_runtime    = { path = "./vm/runtime" }
 forest_message    = { path = "./vm/message" }
 
 [profile.dev]
