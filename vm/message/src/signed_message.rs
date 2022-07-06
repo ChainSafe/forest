@@ -23,7 +23,7 @@ impl SignedMessage {
 
         let signature = signer
             .sign_bytes(&bz, message.from())
-            .map_err(|e| Err(CryptoError::SigningError(e.to_string())))?;
+            .map_err(|e| CryptoError::SigningError(e.to_string()))?;
 
         Ok(SignedMessage { message, signature })
     }
