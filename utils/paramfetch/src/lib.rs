@@ -51,6 +51,7 @@ struct ParameterData {
 fn param_dir(mut data_dir: PathBuf) -> String {
     std::env::var(PathBuf::from(DIR_ENV)).unwrap_or_else(|_| {
         data_dir.push(PARAM_DIR);
+        std::env::set_var(DIR_ENV, data_dir.clone());
         data_dir.to_str().unwrap().to_string()
     })
 }
