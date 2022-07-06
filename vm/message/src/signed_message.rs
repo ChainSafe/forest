@@ -94,7 +94,7 @@ impl MessageTrait for SignedMessage {
         self.message.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        self.message.gas_fee_cap.clone() * self.message.gas_limit + self.message.value.clone()
+        &self.message.gas_fee_cap * self.message.gas_limit + &self.message.value
     }
     fn gas_fee_cap(&self) -> &TokenAmount {
         &self.message.gas_fee_cap

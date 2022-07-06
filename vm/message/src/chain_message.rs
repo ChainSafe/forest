@@ -86,7 +86,7 @@ impl MessageTrait for ChainMessage {
     fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => t.gas_fee_cap.clone() * t.gas_limit + t.value.clone(),
+            Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
         }
     }
     fn gas_fee_cap(&self) -> &TokenAmount {
