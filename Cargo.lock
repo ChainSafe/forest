@@ -3302,26 +3302,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_runtime"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "base64 0.13.0",
- "fil_types",
- "filecoin-proofs-api",
- "forest_address",
- "forest_cid",
- "forest_crypto",
- "forest_db",
- "forest_encoding",
- "forest_vm",
- "fvm_shared 0.7.1",
- "interpreter",
- "ipld_blockstore",
- "log",
-]
-
-[[package]]
 name = "forest_vm"
 version = "0.3.1"
 dependencies = [
@@ -4231,7 +4211,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_message",
- "forest_runtime",
  "forest_vm",
  "fvm",
  "fvm_ipld_amt",
@@ -7734,7 +7713,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_message",
- "forest_runtime",
  "forest_vm",
  "futures",
  "fvm",
