@@ -7813,6 +7813,7 @@ dependencies = [
  "difference",
  "fil_types",
  "forest_address",
+ "forest_blocks",
  "forest_car",
  "forest_cid",
  "forest_db",

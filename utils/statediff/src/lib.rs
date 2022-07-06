@@ -196,3 +196,105 @@ where
 
     Ok(())
 }
+
+fn is_match(a: Ipld, b: Ipld) -> bool {
+    match a {
+        Ipld::Null => if let Ipld::Null = b {
+            return true;
+        },
+        Ipld::Bool(value) => if let Ipld::Bool(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::Integer(value) => if let Ipld::Integer(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::Float(value) => if let Ipld::Float(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::String(value) => if let Ipld::String(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::Bytes(value) => if let Ipld::Bytes(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::List(value) => if let Ipld::List(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::Map(value) => if let Ipld::Map(other_value) = b {
+            return value == other_value;
+        }
+        Ipld::Link(value) => if let Ipld::Link(other_value) = b {
+            return value == other_value;
+        }
+    }
+    false
+}
+
+pub fn print_ipld_diff<BS>(
+    bs: &BS,
+    pre: &Cid,
+    post: &Option<Cid>,
+    depth: Option<u64>,
+) -> Result<(), anyhow::Error>
+where
+    BS: BlockStore,
+{
+    use blocks::BlockHeader;
+
+    let left = bs.get_anyhow::<BlockHeader>(&pre)?;
+    println!("{:?}", left.unwrap());
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use db::MemoryDB;
+    use blockstore::BlockStore;
+    use std::path::{Path, PathBuf};
+    use db::rocks::RocksDb;
+    use db::rocks_config::RocksDbConfig;
+
+    fn get_db() -> RocksDb {
+        let db_path = PathBuf::from("/Users/guillaume/Library/Application Support/com.ChainSafe.Forest/mainnet/db");
+        let db = db::rocks::RocksDb::open(db_path, &RocksDbConfig::default())
+            .expect("Opening RocksDB must succeed");
+
+        db
+    }
+
+    #[async_std::test]
+    async fn basic_diff_test() {
+        let a = ipld::ipld!({
+            "code": 200,
+            "success": true,
+            "link": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
+            "bytes": Bytes(vec![0x1, 0xfa, 0x8b]),
+            "payload": {
+                "features": [
+                    "serde",
+                    "ipld"
+                ]
+                }
+            });
+
+        let b = ipld::ipld!({
+            "code": 200,
+            "success": true,
+            "link": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
+            "bytes": Bytes(vec![0x1, 0xff, 0x8b]),
+            "payload": {
+                "features": [
+                    "serde",
+                    "ipld"
+                ]
+                }
+            });
+
+        // look for local rocksdb
+        let db = get_db();
+        let cid = Cid::try_from("bafy2bzaceb5vqcmq4ejdo473mc3dgre6h4wur5nulo6c2ig7f4jyj4ukq2mqe").unwrap();
+        print_ipld_diff(&db, &cid, &None, None);
+    }
+}

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 use cid::Cid;
-use db::MemoryDB;
 use forest_car::load_car;
 use statediff::print_state_diff;
 
@@ -21,16 +20,16 @@ pub struct CarCommand {
 
 impl CarCommand {
     pub async fn run(&self) {
-        let file = File::open(&self.file).await.unwrap();
-        let buf_reader = BufReader::new(file);
-        let bs = MemoryDB::default();
+        // let file = File::open(&self.file).await.unwrap();
+        // let buf_reader = BufReader::new(file);
+        // let bs = MemoryDB::default();
 
-        let cids = load_car(&bs, buf_reader).await.unwrap();
-        println!("Roots:");
-        for cid in cids {
-            println!("{cid}");
-        }
-        print_state_diff(&bs, &self.pre, &self.post, None).unwrap();
+        // let cids = load_car(&bs, buf_reader).await.unwrap();
+        // println!("Roots:");
+        // for cid in cids {
+        //     println!("{cid}");
+        // }
+        // print_state_diff(&bs, &self.pre, &self.post, None).unwrap();
     }
 }
 
