@@ -3,8 +3,8 @@
 
 use encoding::{blake2b_256, tuple::*};
 use fil_types::BLOCKS_PER_EPOCH;
+use forest_crypto::vrf::{self, VRFProof};
 use fvm_shared::bigint::{BigInt, Integer, ParseBigIntError, Sign};
-use fvm_shared::crypto::VRFProof;
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;

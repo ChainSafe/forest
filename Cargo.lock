@@ -3220,6 +3220,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_cid",
+ "forest_crypto",
  "forest_encoding",
  "forest_json_utils",
  "forest_message",
