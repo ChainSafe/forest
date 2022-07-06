@@ -22,7 +22,6 @@ use encoding::Cbor;
 use fil_actors_runtime::runtime::Policy;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;

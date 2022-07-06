@@ -3270,6 +3270,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_crypto"
+version = "0.5.2"
+dependencies = [
+ "anyhow",
+ "base64 0.13.0",
+ "bls-signatures",
+ "fil_actors_runtime 7.5.1",
+ "forest_address",
+ "forest_encoding",
+ "fvm_shared 0.2.2",
+ "libsecp256k1 0.7.0",
+ "num-derive",
+ "num-traits",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "forest_db"
 version = "0.1.0"
 dependencies = [
@@ -3383,6 +3403,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_cid",
+ "forest_crypto",
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
@@ -3802,6 +3823,7 @@ dependencies = [
  "anyhow",
  "bimap",
  "blake2b_simd 1.0.0",
+ "bls-signatures",
  "byteorder 1.4.3",
  "chrono",
  "cid",

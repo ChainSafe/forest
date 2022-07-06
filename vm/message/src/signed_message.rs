@@ -1,20 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::error::Error;
-
 use super::{Message, UnsignedMessage};
 use address::Address;
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error as CborError};
+use forest_crypto::Signer;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use vm::{MethodNum, Serialized, TokenAmount};
-
-/// Signer is a trait which allows a key implementation to sign data for an address
-pub trait Signer {
-    /// Function signs any arbitrary data given the [Address].
-    fn sign_bytes(&self, data: &[u8], address: &Address) -> Result<Signature, Box<dyn Error>>;
-}
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]

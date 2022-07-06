@@ -168,7 +168,6 @@ impl ElectionProof {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use fvm_shared::crypto::vrf;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a ElectionProof from JSON.
