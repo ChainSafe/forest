@@ -292,7 +292,9 @@ enum Diff {
     Map(MapDiff),
 }
 
-fn find_vec_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Vec<Ipld>, b: &Vec<Ipld>, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<(), anyhow::Error>
+type DiffMap = BTreeMap<Cid, (Cid, Diff)>;
+
+fn find_vec_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Vec<Ipld>, b: &Vec<Ipld>, level: usize, diffs: &mut DiffMap) -> Result<(), anyhow::Error>
 where
     BS: BlockStore
 {
@@ -321,7 +323,7 @@ where
     Ok(())
 }
 
-fn find_map_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &BTreeMap<String, Ipld>, b: &BTreeMap<String, Ipld>, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<(), anyhow::Error>
+fn find_map_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &BTreeMap<String, Ipld>, b: &BTreeMap<String, Ipld>, level: usize, diffs: &mut DiffMap) -> Result<(), anyhow::Error>
 where
     BS: BlockStore
 {
@@ -357,7 +359,7 @@ where
     Ok(())
 }
 
-fn find_ipld_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Ipld, b: &Ipld, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<bool, anyhow::Error>
+fn find_ipld_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Ipld, b: &Ipld, level: usize, diffs: &mut DiffMap) -> Result<bool, anyhow::Error>
 where
     BS: BlockStore,
 {
@@ -388,7 +390,7 @@ where
     Ok(false)
 }
 
-fn find_cid_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<(), anyhow::Error>
+fn find_cid_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, level: usize, diffs: &mut DiffMap) -> Result<(), anyhow::Error>
 where
     BS: BlockStore,
 {
@@ -425,11 +427,15 @@ where
         StateTree::new_from_root(bs, &post)
             .expect(&format!("expecting {} to be a state root", post));
 
-        let mut diffs = HashMap::new();
+        let mut diffs = DiffMap::new();
         find_cid_diffs(bs, &pre, &post, 0, &mut diffs).unwrap();
         println!("found {} differences:", diffs.len());
-        for diff in diffs {
+        for diff in diffs.iter() {
             println!("{:?}", diff);
+            let (a, (b, kind)) = diff;
+            // if let PlainData = kind {
+            //     try_print_actor_states(bs, &a, &b, None);
+            // }
         }
     } else {
         // just print state root
