@@ -32,7 +32,7 @@ use fil_types::{
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
-use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
+use message::signed_message::SignedMessage;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -79,8 +79,8 @@ pub(crate) async fn state_call<
     Params(params): Params<StateCallParams>,
 ) -> Result<StateCallResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (unsigned_msg_json, key) = params;
-    let mut message: UnsignedMessage = unsigned_msg_json.into();
+    let (message_json, key) = params;
+    let mut message = message_json.into();
     let tipset = data
         .state_manager
         .chain_store()

@@ -13,7 +13,8 @@ use chain::HeadChange;
 use cid::Cid;
 use cid::Code::Blake2b256;
 use fvm_shared::bigint::BigInt;
-use message::{ChainMessage, SignedMessage, UnsignedMessage};
+use fvm_shared::message::Message;
+use message::{ChainMessage, SignedMessage};
 use networks::Height;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -38,7 +39,7 @@ pub trait Provider {
     fn messages_for_block(
         &self,
         h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
+    ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
     /// Resolves to the key address
     async fn state_account_key<V>(
         &self,
@@ -107,7 +108,7 @@ where
     fn messages_for_block(
         &self,
         h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
+    ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 

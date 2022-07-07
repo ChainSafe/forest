@@ -9,7 +9,8 @@ use chain_sync::SyncState;
 use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
-use message::{SignedMessage, UnsignedMessage};
+use fvm_shared::message::Message;
+use message::SignedMessage;
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 
@@ -73,13 +74,13 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let bls_msgs: Vec<UnsignedMessage> =
+    let bls_msgs: Vec<Message> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
     let secp_msgs: Vec<SignedMessage> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
     let sm_root = chain_sync::TipsetValidator::compute_msg_root(
         data.state_manager.blockstore(),
-        &bls_msgs,
+        &bls_msgs[..],
         &secp_msgs,
     )?;
     if blk.header.messages() != &sm_root {

@@ -15,9 +15,10 @@ use chain::HeadChange;
 use cid::Cid;
 use crypto::VRFProof;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::message::Message;
 use message::ChainMessage;
-use message::Message;
-use message::{SignedMessage, UnsignedMessage};
+use message::Message as MessageTrait;
+use message::SignedMessage;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use tokio::sync::broadcast;
@@ -125,8 +126,8 @@ impl Provider for TestApi {
     fn messages_for_block(
         &self,
         h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
-        let v: Vec<UnsignedMessage> = Vec::new();
+    ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
+        let v: Vec<Message> = Vec::new();
         let thing = self.bmsgs.get(h.cid());
 
         match thing {

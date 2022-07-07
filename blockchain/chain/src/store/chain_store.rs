@@ -18,13 +18,15 @@ use forest_ipld::recurse_links;
 use futures::AsyncWrite;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::Message as MessageTrait;
+use message::{ChainMessage, MessageReceipt, SignedMessage};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
@@ -664,13 +666,13 @@ fn block_validation_key(cid: &Cid) -> Vec<u8> {
 pub fn block_messages<DB>(
     db: &DB,
     bh: &BlockHeader,
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, &bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
@@ -681,11 +683,11 @@ pub fn block_messages_from_cids<DB>(
     db: &DB,
     bls_cids: &[Cid],
     secp_cids: &[Cid],
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
 
     Ok((bls_msgs, secp_msgs))
