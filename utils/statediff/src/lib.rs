@@ -292,7 +292,25 @@ enum Diff {
     Map(MapDiff),
 }
 
-type DiffMap = BTreeMap<(Cid, Cid), Diff>;
+struct DiffMap {
+    entries: BTreeMap<(Cid, Cid), Vec<Diff>>
+}
+
+impl DiffMap {
+    fn new() -> Self {
+        DiffMap {
+            entries: BTreeMap::new()
+        }
+    }
+
+    fn insert(&mut self, key: (Cid, Cid), value: Diff) {
+        if let Some(v) = self.entries.get_mut(&key) {
+            v.push(value);
+        } else {
+            self.entries.insert(key, vec!(value));
+        }
+    }
+}
 
 fn find_vec_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Vec<Ipld>, b: &Vec<Ipld>, level: usize, diffs: &mut DiffMap) -> Result<(), anyhow::Error>
 where
@@ -429,8 +447,8 @@ where
 
         let mut diffs = DiffMap::new();
         find_cid_diffs(bs, &pre, &post, 0, &mut diffs).unwrap();
-        println!("found {} differences:", diffs.len());
-        for diff in diffs.iter() {
+        println!("found {} differences:", diffs.entries.len());
+        for diff in diffs.entries.iter() {
             println!("{:?}", diff);
             let ((a, b), kind) = diff;
             // if let PlainData = kind {
