@@ -20,7 +20,5 @@ dashmap             = "5.0"
 
 [features]
 rocksdb  = ["db/rocksdb"]
-buffered = ["forest_ipld"]
-tracking = []
 resolve  = ["forest_ipld"]
 sled     = ["db/sled"]

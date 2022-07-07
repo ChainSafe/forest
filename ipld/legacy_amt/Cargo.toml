@@ -20,7 +20,3 @@ itertools = "0.10"
 
 [features]
 go-interop = ["ahash"]
-
-[dev-dependencies]
-criterion = "0.3"
-ipld_blockstore = { version = "0.1", features = ["tracking"] }
