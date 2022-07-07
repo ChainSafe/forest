@@ -5,7 +5,7 @@ use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{Cid, Code::Blake2b256};
 use encoding::{serde_bytes, BytesSer};
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use once_cell::unsync::OnceCell;
 use serde::{
     de::{self, DeserializeOwned},
@@ -194,7 +194,7 @@ where
                     n.flush(bs)?;
 
                     // Puts node in blockstore and and retrieves it's CID
-                    let cid = bs.put(n, Blake2b256)?;
+                    let cid = bs.put_obj(n, Blake2b256)?;
 
                     // Replace the data with some arbitrary node to move without requiring clone
                     let existing = std::mem::replace(n, Box::new(Node::empty()));
@@ -248,7 +248,7 @@ where
             Node::Link { links, .. } => match links.get(sub_i).and_then(|v| v.as_ref()) {
                 Some(Link::Cid { cid, cache }) => {
                     let cached_node = cache.get_or_try_init(|| {
-                        bs.get::<CollapsedNode<V>>(cid)?
+                        bs.get_obj::<CollapsedNode<V>>(cid)?
                             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                             .expand(bit_width)
                             .map(Box::new)
@@ -298,7 +298,7 @@ where
                         sn
                     } else {
                         // Only retrieve sub node if not found in cache
-                        bs.get::<CollapsedNode<V>>(cid)?
+                        bs.get_obj::<CollapsedNode<V>>(cid)?
                             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                             .expand(bit_width)
                             .map(Box::new)?
@@ -378,7 +378,7 @@ where
                     Some(Link::Cid { cid, cache }) => {
                         // Take cache, will be replaced if no nodes deleted
                         cache.get_or_try_init(|| {
-                            bs.get::<CollapsedNode<V>>(cid)?
+                            bs.get_obj::<CollapsedNode<V>>(cid)?
                                 .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                                 .expand(bit_width)
                                 .map(Box::new)
@@ -449,7 +449,7 @@ where
                             }
                             Link::Cid { cid, cache } => {
                                 let cached_node = cache.get_or_try_init(|| {
-                                    bs.get::<CollapsedNode<V>>(cid)?
+                                    bs.get_obj::<CollapsedNode<V>>(cid)?
                                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                                         .expand(bit_width)
                                         .map(Box::new)
@@ -513,7 +513,7 @@ where
                             }
                             Link::Cid { cid, cache } => {
                                 cache.get_or_try_init(|| {
-                                    bs.get::<CollapsedNode<V>>(cid)?
+                                    bs.get_obj::<CollapsedNode<V>>(cid)?
                                         .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                                         .expand(bit_width)
                                         .map(Box::new)

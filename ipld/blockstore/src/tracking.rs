@@ -3,12 +3,12 @@
 
 #![cfg(feature = "tracking")]
 
-use super::BlockStore;
-use cid::{Cid, Code};
+use super::{BlockStore, BlockStoreExt};
+use cid::Cid;
 use db::{Error, Store};
 use fvm_ipld_blockstore::Blockstore;
+
 use std::cell::RefCell;
-use std::error::Error as StdError;
 
 /// Stats for a [TrackingBlockStore] this indicates the amount of read and written data
 /// to the wrapped store.
@@ -44,34 +44,19 @@ where
     }
 }
 
-impl<BS> BlockStore for TrackingBlockStore<'_, BS>
-where
-    BS: BlockStore,
-{
-    fn get_bytes(&self, cid: &Cid) -> Result<Option<Vec<u8>>, Box<dyn StdError>> {
+impl<BS: Blockstore + BlockStoreExt> Blockstore for TrackingBlockStore<'_, BS> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         self.stats.borrow_mut().r += 1;
-        let bytes = self.base.get_bytes(cid)?;
+        let bytes = self.base.get_bytes_anyhow(k)?;
         if let Some(bytes) = &bytes {
             self.stats.borrow_mut().br += bytes.len();
         }
         Ok(bytes)
     }
 
-    fn put_raw(&self, bytes: Vec<u8>, code: Code) -> Result<Cid, Box<dyn StdError>> {
-        self.stats.borrow_mut().w += 1;
-        self.stats.borrow_mut().bw += bytes.len();
-        let cid = cid::new_from_cbor(&bytes, code);
-        self.write(cid.to_bytes(), bytes)?;
-        Ok(cid)
-    }
-}
-
-impl<BS> Blockstore for TrackingBlockStore<'_, BS> {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read(k.to_bytes()).map_err(|e| e.into())
-    }
-
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.stats.borrow_mut().w += 1;
+        self.stats.borrow_mut().bw += block.len();
         self.write(k.to_bytes(), block).map_err(|e| e.into())
     }
 }
@@ -142,7 +127,7 @@ mod tests {
         let obj_bytes_len = encoding::to_vec(&object).unwrap().len();
 
         tr_store
-            .get::<u8>(&cid::new_from_cbor(&[0], Blake2b256))
+            .get_obj::<u8>(&cid::new_from_cbor(&[0], Blake2b256))
             .unwrap();
         assert_eq!(
             *tr_store.stats.borrow(),
@@ -152,8 +137,11 @@ mod tests {
             }
         );
 
-        let put_cid = tr_store.put(&object, Blake2b256).unwrap();
-        assert_eq!(tr_store.get::<TestType>(&put_cid).unwrap(), Some(object));
+        let put_cid = tr_store.put_obj(&object, Blake2b256).unwrap();
+        assert_eq!(
+            tr_store.get_obj::<TestType>(&put_cid).unwrap(),
+            Some(object)
+        );
         assert_eq!(
             *tr_store.stats.borrow(),
             BSStats {

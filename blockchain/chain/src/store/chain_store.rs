@@ -16,12 +16,12 @@ use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
-use fvm_ipld_amt::Amt;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::BlockMessages;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
+use legacy_ipld_amt::Amt;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -861,7 +861,7 @@ where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i as u64)?;
+    let receipts = amt.get(i)?;
     Ok(receipts.cloned())
 }
 

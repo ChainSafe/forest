@@ -23,7 +23,7 @@ members = [
     "encoding",
     "ipld/cid",
     "ipld/car",
-    "ipld/amt",
+    "ipld/legacy_amt",
     "ipld",
     "ipld/blockstore",
     "key_management",

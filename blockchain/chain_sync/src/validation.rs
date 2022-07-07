@@ -8,8 +8,8 @@ use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use fvm_shared::message::Message;
-use fvm_ipld_amt::{Amt, Error as IpldAmtError};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
+use legacy_ipld_amt::{Amt, Error as IpldAmtError};
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};

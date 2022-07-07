@@ -1,7 +1,7 @@
 [package]
-name = "ipld_amt"
+name = "legacy_ipld_amt"
 description = "Sharded IPLD Array implementation."
-version = "1.0.0"
+version = "0.2.0"
 license = "MIT OR Apache-2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -24,8 +24,3 @@ go-interop = ["ahash"]
 [dev-dependencies]
 criterion = "0.3"
 ipld_blockstore = { version = "0.1", features = ["tracking"] }
-
-[[bench]]
-name = "amt_benchmark"
-path = "benches/amt_benchmark.rs"
-harness = false

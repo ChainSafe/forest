@@ -5,11 +5,11 @@ use super::ValueMut;
 use crate::{
     init_sized_vec,
     node::{CollapsedNode, Link},
-    nodes_for_height, Error, Node, Root, DEFAULT_BIT_WIDTH, MAX_HEIGHT, MAX_INDEX,
+    nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
 };
 use cid::{Cid, Code::Blake2b256};
 use encoding::{de::DeserializeOwned, ser::Serialize};
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use itertools::sorted;
 use std::error::Error as StdError;
 
@@ -19,7 +19,7 @@ use std::error::Error as StdError;
 ///
 /// Usage:
 /// ```
-/// use ipld_amt::Amt;
+/// use legacy_ipld_amt::Amt;
 ///
 /// let db = db::MemoryDB::default();
 /// let mut amt = Amt::new(&db);
@@ -53,13 +53,13 @@ where
 {
     /// Constructor for Root AMT node
     pub fn new(block_store: &'db BS) -> Self {
-        Self::new_with_bit_width(block_store, DEFAULT_BIT_WIDTH)
+        Self::new_with_bit_width(block_store)
     }
 
     /// Construct new Amt with given bit width.
-    pub fn new_with_bit_width(block_store: &'db BS, bit_width: usize) -> Self {
+    pub fn new_with_bit_width(block_store: &'db BS) -> Self {
         Self {
-            root: Root::new(bit_width),
+            root: Root::new(),
             block_store,
         }
     }
@@ -72,7 +72,7 @@ where
     pub fn load(cid: &Cid, block_store: &'db BS) -> Result<Self, Error> {
         // Load root bytes from database
         let root: Root<V> = block_store
-            .get(cid)?
+            .get_obj(cid)?
             .ok_or_else(|| Error::CidNotFound(cid.to_string()))?;
 
         // Sanity check, this should never be possible.
@@ -216,7 +216,7 @@ where
                             } else {
                                 // Only retrieve sub node if not found in cache
                                 self.block_store
-                                    .get::<CollapsedNode<V>>(cid)?
+                                    .get_obj::<CollapsedNode<V>>(cid)?
                                     .ok_or_else(|| Error::CidNotFound(cid.to_string()))?
                                     .expand(self.root.bit_width)?
                             }
@@ -264,7 +264,7 @@ where
     /// flush root and return Cid used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
-        Ok(self.block_store.put(&self.root, Blake2b256)?)
+        Ok(self.block_store.put_obj(&self.root, Blake2b256)?)
     }
 
     /// Iterates over each value in the Amt and runs a function on the values.
@@ -275,7 +275,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use ipld_amt::Amt;
+    /// use legacy_ipld_amt::Amt;
     ///
     /// let store = db::MemoryDB::default();
     ///

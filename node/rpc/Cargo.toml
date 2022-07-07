@@ -63,7 +63,7 @@ wallet = { package = "key_management", path = "../../key_management", features =
 ] }
 fvm_shared = { version = "0.7.1", default-features = false }
 fvm_ipld_bitfield = "0.5.2"
-fvm_ipld_amt = "0.4.2"
+legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"
