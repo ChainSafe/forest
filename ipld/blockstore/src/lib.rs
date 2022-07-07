@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "buffered")]
-mod buffered;
 #[cfg(feature = "resolve")]
 /// This module is used for resolving Cids and Ipld recursively. This is generally only needed
 /// for testing because links should generally not be collapsed to generate a singular data
@@ -10,14 +8,6 @@ mod buffered;
 pub mod resolve;
 #[cfg(feature = "sled")]
 mod sled;
-#[cfg(feature = "tracking")]
-mod tracking;
-
-#[cfg(feature = "buffered")]
-pub use self::buffered::BufferedBlockStore;
-
-#[cfg(feature = "tracking")]
-pub use self::tracking::{BSStats, TrackingBlockStore};
 
 use cid::{Cid, Code};
 use db::Store;
