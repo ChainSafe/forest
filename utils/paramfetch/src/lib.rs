@@ -48,12 +48,15 @@ struct ParameterData {
 }
 
 #[inline]
-fn param_dir(mut data_dir: PathBuf) -> String {
-    std::env::var(PathBuf::from(DIR_ENV)).unwrap_or_else(|_| {
+fn param_dir(mut data_dir: PathBuf) -> PathBuf {
+
+    if let Ok(path_buf_string) = std::env::var(PathBuf::from(DIR_ENV)) {
+        PathBuf::from(path_buf_string)
+    } else {
         data_dir.push(PARAM_DIR);
         std::env::set_var(DIR_ENV, data_dir.clone());
-        data_dir.to_str().unwrap().to_string()
-    })
+        data_dir
+    }
 }
 
 /// Get proofs parameters and all verification keys for a given sector size given
@@ -144,7 +147,7 @@ async fn fetch_verify_params(
     info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), anyhow::Error> {
-    let path: PathBuf = [&param_dir(data_dir.clone()), name].iter().collect();
+    let path: PathBuf = [param_dir(data_dir.clone()).to_str().unwrap(), name].iter().collect();
     let path: Arc<Path> = Arc::from(path.as_path());
 
     match check_file(path.clone(), info.clone()).await {
