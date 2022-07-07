@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use encoding::de;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
