@@ -48,28 +48,25 @@ struct ParameterData {
 }
 
 #[inline]
-fn param_dir(mut data_dir: PathBuf) -> PathBuf {
-    if let Ok(path_buf_string) = std::env::var(PathBuf::from(DIR_ENV)) {
-        PathBuf::from(path_buf_string)
-    } else {
-        data_dir.push(PARAM_DIR);
-        data_dir
-    }
+fn param_dir(data_dir: &Path) -> PathBuf {
+    std::env::var(PathBuf::from(DIR_ENV))
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| data_dir.join(PARAM_DIR))
 }
 
-pub fn set_dir_env(data_dir: PathBuf) {
-    std::env::set_var(DIR_ENV, data_dir.clone());
+pub fn set_proofs_parameter_cache_dir_env(data_dir: PathBuf) {
+    std::env::set_var(DIR_ENV, data_dir.join(PARAM_DIR));
 }
 
 /// Get proofs parameters and all verification keys for a given sector size given
 /// a param JSON manifest.
 pub async fn get_params(
-    data_dir: PathBuf,
+    data_dir: &Path,
     param_json: &str,
     storage_size: SectorSizeOpt,
     is_verbose: bool,
 ) -> Result<(), anyhow::Error> {
-    fs::create_dir_all(param_dir(data_dir.clone())).await?;
+    fs::create_dir_all(param_dir(data_dir)).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
     let mut tasks = Vec::with_capacity(params.len());
@@ -91,10 +88,10 @@ pub async fn get_params(
         })
         .for_each(|(name, info)| {
             let cmb = mb.clone();
-            let data_dir_clone = data_dir.clone();
+            let data_dir_clone = data_dir.to_owned();
             tasks.push(task::spawn(async move {
                 if let Err(e) =
-                    fetch_verify_params(data_dir_clone, &name, Arc::new(info), cmb).await
+                    fetch_verify_params(&data_dir_clone, &name, Arc::new(info), cmb).await
                 {
                     warn!("Error in validating params {}", e);
                 }
@@ -130,26 +127,20 @@ pub async fn get_params(
 /// Get proofs parameters and all verification keys for a given sector size using default manifest.
 #[inline]
 pub async fn get_params_default(
-    data_dir: PathBuf,
+    data_dir: &Path,
     storage_size: SectorSizeOpt,
     is_verbose: bool,
 ) -> Result<(), anyhow::Error> {
-    get_params(
-        data_dir.clone(),
-        DEFAULT_PARAMETERS,
-        storage_size,
-        is_verbose,
-    )
-    .await
+    get_params(data_dir, DEFAULT_PARAMETERS, storage_size, is_verbose).await
 }
 
 async fn fetch_verify_params(
-    data_dir: PathBuf,
+    data_dir: &Path,
     name: &str,
     info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), anyhow::Error> {
-    let mut path: PathBuf = param_dir(data_dir.clone());
+    let mut path: PathBuf = param_dir(data_dir);
     path.push(name);
     let path: Arc<Path> = Arc::from(path.as_path());
 

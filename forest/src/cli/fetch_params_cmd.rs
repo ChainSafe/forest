@@ -5,7 +5,7 @@ use crate::cli::Config;
 use structopt::StructOpt;
 
 use fil_types::SectorSize;
-use paramfetch::{get_params_default, set_dir_env, SectorSizeOpt};
+use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
@@ -33,9 +33,9 @@ impl FetchCommands {
             panic!("Sector size option must be chosen. Choose between --all, --keys, or <size>");
         };
 
-        set_dir_env(config.data_dir.clone());
+        set_proofs_parameter_cache_dir_env(config.data_dir.clone());
 
-        get_params_default(config.data_dir.clone(), sizes, self.verbose)
+        get_params_default(&config.data_dir, sizes, self.verbose)
             .await
             .unwrap();
     }
