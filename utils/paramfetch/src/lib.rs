@@ -49,7 +49,6 @@ struct ParameterData {
 
 #[inline]
 fn param_dir(mut data_dir: PathBuf) -> PathBuf {
-
     if let Ok(path_buf_string) = std::env::var(PathBuf::from(DIR_ENV)) {
         PathBuf::from(path_buf_string)
     } else {
@@ -147,7 +146,9 @@ async fn fetch_verify_params(
     info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), anyhow::Error> {
-    let path: PathBuf = [param_dir(data_dir.clone()).to_str().unwrap(), name].iter().collect();
+    let path: PathBuf = [param_dir(data_dir.clone()).to_str().unwrap(), name]
+        .iter()
+        .collect();
     let path: Arc<Path> = Arc::from(path.as_path());
 
     match check_file(path.clone(), info.clone()).await {
