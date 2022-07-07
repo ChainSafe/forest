@@ -48,13 +48,22 @@ impl State {
             == Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4")
                 .unwrap()
         {
-            Ok(store
+            return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
+                .context("Actor state doesn't exist in store")?);
         }
+        if actor.code
+            == Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu")
+                .unwrap()
+        {
+            return Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?);
+        }
+
+        Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
     }
 
     pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {

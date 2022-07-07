@@ -27,6 +27,10 @@ pub fn power_cid_v8() -> Cid {
     Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap()
 }
 
+pub fn power_cid_v8_mainnet() -> Cid {
+    Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap()
+}
+
 /// Power actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -51,6 +55,12 @@ impl State {
         BS: BlockStore,
     {
         if actor.code == power_cid_v8() {
+            return Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?);
+        }
+        if actor.code == power_cid_v8_mainnet() {
             return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)

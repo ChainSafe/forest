@@ -29,6 +29,9 @@ pub enum State {
 pub fn reward_cid_v8() -> Cid {
     Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap()
 }
+pub fn reward_cid_v8_mainnet() -> Cid {
+    Cid::try_from("bafk2bzacecwzzxlgjiavnc3545cqqil3cmq4hgpvfp2crguxy2pl5ybusfsbe").unwrap()
+}
 
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
@@ -42,13 +45,18 @@ impl State {
         //         .context("Actor state doesn't exist in store")?)
         // }
         if actor.code == reward_cid_v8() {
-            Ok(store
+            return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
+                .context("Actor state doesn't exist in store")?);
         }
+        if actor.code == reward_cid_v8_mainnet() {
+            return Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?);
+        }
+        Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
     }
 
     /// Consume state to return just storage power reward

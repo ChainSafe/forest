@@ -20,6 +20,9 @@ pub type Method = fil_actor_init_v8::Method;
 pub fn init_cid_v8() -> Cid {
     Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap()
 }
+pub fn init_cid_v8_mainnet() -> Cid {
+    Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap()
+}
 
 /// Init actor state.
 #[derive(Serialize)]
@@ -34,7 +37,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == init_cid_v8() {
+        if actor.code == init_cid_v8() || actor.code == init_cid_v8_mainnet() {
             return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)

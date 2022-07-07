@@ -28,6 +28,9 @@ pub fn account_cid_v7() -> Cid {
 pub fn account_cid_v8() -> Cid {
     Cid::try_from("bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo").unwrap()
 }
+pub fn account_cid_v8_mainnet() -> Cid {
+    Cid::try_from("bafk2bzacedudbf7fc5va57t3tmo63snmt3en4iaidv4vo3qlyacbxaa6hlx6y").unwrap()
+}
 
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
@@ -40,7 +43,7 @@ impl State {
         //         .map(State::V7)
         //         .context("Actor state doesn't exist in store")?)
         // } else
-        if actor.code == account_cid_v8() {
+        if actor.code == account_cid_v8() || actor.code == account_cid_v8_mainnet() {
             Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)

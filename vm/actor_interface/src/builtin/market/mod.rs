@@ -26,6 +26,10 @@ pub fn market_cid_v8() -> Cid {
     Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap()
 }
 
+pub fn market_cid_v8_mainnet() -> Cid {
+    Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap()
+}
+
 /// Market actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -40,6 +44,12 @@ impl State {
         BS: BlockStore,
     {
         if actor.code == market_cid_v8() {
+            return Ok(store
+                .get_anyhow(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store")?);
+        }
+        if actor.code == market_cid_v8_mainnet() {
             return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
