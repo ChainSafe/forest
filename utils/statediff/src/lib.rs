@@ -292,7 +292,7 @@ enum Diff {
     Map(MapDiff),
 }
 
-type DiffMap = BTreeMap<Cid, (Cid, Diff)>;
+type DiffMap = BTreeMap<(Cid, Cid), Diff>;
 
 fn find_vec_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Vec<Ipld>, b: &Vec<Ipld>, level: usize, diffs: &mut DiffMap) -> Result<(), anyhow::Error>
 where
@@ -308,15 +308,15 @@ where
                     indices.push(i);
                 }
             }
-            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::List(ListDiff::Updates(indices))));
+            diffs.insert((cid_a.clone(), cid_b.clone()), Diff::List(ListDiff::Updates(indices)));
         },
         Ordering::Less => {
             let n = a.len() - b.len();
-            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::List(ListDiff::Deletion(n))));
+            diffs.insert((cid_a.clone(), cid_b.clone()), Diff::List(ListDiff::Deletion(n)));
         },
         Ordering::Greater => {
             let n = b.len() - a.len();
-            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::List(ListDiff::Insertion(n))));
+            diffs.insert((cid_a.clone(), cid_b.clone()), Diff::List(ListDiff::Insertion(n)));
         },
     }
 
@@ -340,19 +340,19 @@ where
                 }
             }
             if !keys.is_empty() {
-                diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Updates(keys))));
+                diffs.insert((cid_a.clone(), cid_b.clone()), Diff::Map(MapDiff::Updates(keys)));
             } else {
                 // result in a mix of new insertions, deletions
-                diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Other)));
+                diffs.insert((cid_a.clone(), cid_b.clone()), Diff::Map(MapDiff::Other));
             }
         },
         Ordering::Less => {
             let n = a.len() - b.len();
-            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Deletion(n))));
+            diffs.insert((cid_a.clone(), cid_b.clone()), Diff::Map(MapDiff::Deletion(n)));
         },
         Ordering::Greater => {
             let n = b.len() - a.len();
-            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Insertion(n))));
+            diffs.insert((cid_a.clone(), cid_b.clone()), Diff::Map(MapDiff::Insertion(n)));
         },
     }
 
@@ -366,7 +366,7 @@ where
     if same_variant(a, b) {
         if a != b {
             if is_plain_data(a) {
-                diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::PlainData));
+                diffs.insert((cid_a.clone(), cid_b.clone()), Diff::PlainData);
             }
             else {
                 if let Some((new_cid_a, new_cid_b)) = get_links(a, b) {
@@ -384,7 +384,7 @@ where
             // do nothing
         }
     } else {
-        diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Variant));
+        diffs.insert((cid_a.clone(), cid_b.clone()), Diff::Variant);
         return Ok(true);
     }
     Ok(false)
@@ -400,10 +400,10 @@ where
         if let Some(b) = node_b {
             find_ipld_diffs(bs, &cid_a, &cid_b, &a, &b, level, diffs)?;
         } else {
-            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::KeyNotFound));
+            diffs.insert((cid_a.clone(), cid_b.clone()), Diff::KeyNotFound);
         }
     } else {
-        diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::KeyNotFound));
+        diffs.insert((cid_a.clone(), cid_b.clone()), Diff::KeyNotFound);
     }
     Ok(())
 }
@@ -432,7 +432,7 @@ where
         println!("found {} differences:", diffs.len());
         for diff in diffs.iter() {
             println!("{:?}", diff);
-            let (a, (b, kind)) = diff;
+            let ((a, b), kind) = diff;
             // if let PlainData = kind {
             //     try_print_actor_states(bs, &a, &b, None);
             // }
