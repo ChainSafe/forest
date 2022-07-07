@@ -60,6 +60,8 @@ wallet = { package = "key_management", path = "../../key_management", features =
     "json",
 ] }
 fvm_shared = { version = "0.7.1", default-features = false }
+forest_crypto = "0.5"
+fil_actors_runtime = "=7.5.1"
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

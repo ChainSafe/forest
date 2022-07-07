@@ -15,6 +15,7 @@ use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use thiserror::Error;
 
@@ -39,7 +40,6 @@ use fil_types::{
     TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
-use fvm_shared::crypto::verify_bls_aggregate;
 use interpreter::price_list_by_epoch;
 use ipld_blockstore::BlockStore;
 use message::{Message, UnsignedMessage};
@@ -1551,8 +1551,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), TipsetRangeSyncerError> {
-    fvm_shared::crypto::verify_vrf(worker, rand, evrf)
-        .map_err(TipsetRangeSyncerError::VrfValidation)
+    forest_crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(
