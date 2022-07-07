@@ -72,6 +72,9 @@ sudo pacman -S base-devel clang ocl-icd openssl
 git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
+# Run the correct rust toolchain
+rustup toolchain install nightly && rustup target add wasm32-unknown-unknown
+
 # Install binary to $HOME/.cargo/bin and run node
 make install
 forest
