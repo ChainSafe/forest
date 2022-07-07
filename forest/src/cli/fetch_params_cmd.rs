@@ -33,8 +33,6 @@ impl FetchCommands {
             panic!("Sector size option must be chosen. Choose between --all, --keys, or <size>");
         };
 
-        set_proofs_parameter_cache_dir_env(config.data_dir.clone());
-
         get_params_default(&config.data_dir, sizes, self.verbose)
             .await
             .unwrap();
