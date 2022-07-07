@@ -10,6 +10,7 @@ use encoding::{Cbor, Error as EncodingError};
 use fvm_shared::message::Message;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::{Amt, Error as IpldAmtError};
+use message::SignedMessage;
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
