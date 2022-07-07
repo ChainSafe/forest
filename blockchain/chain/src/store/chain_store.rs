@@ -462,7 +462,7 @@ where
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
-                .get_bytes_anyhow(&cid)?
+                .get_bytes(&cid)?
                 .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.

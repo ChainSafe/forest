@@ -179,7 +179,7 @@ where
             StateTreeVersion::V1
             | StateTreeVersion::V2
             | StateTreeVersion::V3
-            | StateTreeVersion::V4 => Some(store.put_anyhow(&StateInfo0::default(), Blake2b256)?),
+            | StateTreeVersion::V4 => Some(store.put_obj(&StateInfo0::default(), Blake2b256)?),
         };
 
         let hamt = Map::new(store, ActorVersion::from(version));
@@ -353,7 +353,7 @@ where
         let new_addr = ias.map_address_to_new_id(self.store(), addr)?;
 
         // Set state for init actor in store and update root Cid
-        actor.state = self.store().put_anyhow(&ias, Blake2b256)?;
+        actor.state = self.store().put_obj(&ias, Blake2b256)?;
 
         self.set_actor(init::ADDRESS, actor)?;
 
@@ -403,7 +403,7 @@ where
         if matches!(self.version, StateTreeVersion::V0) {
             Ok(root)
         } else {
-            Ok(self.store().put_anyhow(
+            Ok(self.store().put_obj(
                 &StateRoot {
                     version: self.version,
                     actors: root,
@@ -450,7 +450,7 @@ where
     let mut seen = Default::default();
     forest_ipld::recurse_links(&mut seen, state_root, &mut |cid| {
         let block = bs
-            .get_bytes_anyhow(&cid)?
+            .get_bytes(&cid)?
             .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
         // * If cb can return a generic type, deserializing would remove need to clone.

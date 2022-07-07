@@ -32,7 +32,7 @@ impl State {
     {
         if actor.code == account_cid_v7() {
             Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V7)
                 .context("Actor state doesn't exist in store")?)
         } else {

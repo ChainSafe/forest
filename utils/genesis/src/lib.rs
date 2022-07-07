@@ -94,14 +94,11 @@ where
     }
 
     let genesis_block: BlockHeader =
-        chain_store
-            .db
-            .get_anyhow(&genesis_cids[0])?
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Could not find genesis block despite being loaded using a genesis file"
-                )
-            })?;
+        chain_store.db.get_obj(&genesis_cids[0])?.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Could not find genesis block despite being loaded using a genesis file"
+            )
+        })?;
 
     let store_genesis = chain_store.genesis()?;
 

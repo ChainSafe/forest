@@ -4473,6 +4473,7 @@ name = "legacy_ipld_amt"
 version = "0.2.0"
 dependencies = [
  "ahash 0.7.6",
+ "anyhow",
  "forest_cid",
  "forest_db",
  "forest_encoding",
