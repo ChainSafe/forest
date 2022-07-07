@@ -5,7 +5,7 @@ use crate::cli::Config;
 use structopt::StructOpt;
 
 use fil_types::SectorSize;
-use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
+use paramfetch::{get_params_default, SectorSizeOpt};
 
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
