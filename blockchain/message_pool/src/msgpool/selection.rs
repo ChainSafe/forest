@@ -686,7 +686,7 @@ mod test_selection {
     use async_std::channel::bounded;
     use async_std::task;
     use db::MemoryDB;
-    use fvm_shared::crypto::SignatureType;
+    use fvm_shared::crypto::signature::SignatureType;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
     use networks::ChainConfig;

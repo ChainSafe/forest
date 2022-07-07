@@ -8,7 +8,7 @@ use fil_types::{
     AggregateSealVerifyProofAndInfos, PieceInfo, RegisteredPoStProof, RegisteredSealProof,
     SealVerifyInfo, WindowPoStVerifyInfo,
 };
-use fvm_shared::crypto::SignatureType;
+use fvm_shared::crypto::signature::SignatureType;
 use num_traits::Zero;
 use vm::{MethodNum, TokenAmount, METHOD_SEND};
 

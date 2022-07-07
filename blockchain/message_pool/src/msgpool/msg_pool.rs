@@ -30,7 +30,7 @@ use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
 use fvm_shared::bigint::{BigInt, Integer};
-use fvm_shared::crypto::{Signature, SignatureType};
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use message::{ChainMessage, Message, SignedMessage};

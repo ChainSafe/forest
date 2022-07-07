@@ -19,6 +19,7 @@ use chain_rand::ChainRand;
 use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
+use fil_actors_runtime::runtime::DomainSeparationTag;
 use fil_actors_runtime::runtime::Policy;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};

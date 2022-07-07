@@ -3,25 +3,21 @@
 
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
+use forest_crypto::Signer;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::{SignedMessage, UnsignedMessage};
-<<<<<<< Updated upstream
 use fvm_shared::bigint::BigInt;
-=======
-use fvm_shared::crypto::{Signature, Signer};
-use num_bigint::BigInt;
->>>>>>> Stashed changes
+use fvm_shared::crypto::signature::Signature;
 use std::convert::TryFrom;
-use std::error::Error;
 
 const DUMMY_SIG: [u8; 1] = [0u8];
 
 /// Test struct to generate one byte signature for testing
 struct DummySigner;
 impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, Box<dyn Error>> {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }

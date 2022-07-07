@@ -20,7 +20,7 @@ use cid::Cid;
 use clock::ChainEpoch;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use fvm_shared::crypto::Signature;
+use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use message::{Message, SignedMessage};
@@ -306,7 +306,7 @@ pub mod tests {
     use async_std::task;
     use blocks::Tipset;
     use fvm_shared::bigint::BigInt;
-    use fvm_shared::crypto::SignatureType;
+    use fvm_shared::crypto::signature::SignatureType;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::{SignedMessage, UnsignedMessage};
     use networks::{ChainConfig, Height};

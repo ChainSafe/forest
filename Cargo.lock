@@ -3359,6 +3359,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "async-trait",
  "asynchronous-codec",
@@ -3371,6 +3372,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_message",
@@ -5671,6 +5673,7 @@ dependencies = [
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_libp2p",
@@ -8454,12 +8457,14 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 name = "test_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.13.0",
  "chain",
  "forest_address",
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
+ "forest_crypto",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
