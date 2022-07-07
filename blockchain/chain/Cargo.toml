@@ -32,7 +32,7 @@ types = { package = "fil_types", version = "0.2" }
 lazy_static = "1.4"
 interpreter = { path = "../../vm/interpreter/" }
 lru = "0.7.2"
-forest_car = { path = "../../ipld/car" }
+fvm_ipld_car = "0.4.1"
 forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
 lockfree = "0.5.1"

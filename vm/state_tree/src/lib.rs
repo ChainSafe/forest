@@ -6,7 +6,7 @@ use address::{Address, Protocol};
 use async_std::{channel::bounded, task};
 use cid::{Cid, Code::Blake2b256};
 use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
-use forest_car::CarHeader;
+use fvm_ipld_car::CarHeader;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -228,7 +228,7 @@ where
         store: &'db S,
         reader: R,
     ) -> Result<Cid, String> {
-        let state_root = forest_car::load_car(store, reader)
+        let state_root = fvm_ipld_car::load_car(store, reader)
             .await
             .map_err(|e| format!("Import StateTree failed: {}", e))?;
         if state_root.len() != 1 {
