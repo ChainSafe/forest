@@ -158,7 +158,7 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
-    set_proofs_parameter_cache_dir_env(config.data_dir.clone());
+    set_proofs_parameter_cache_dir_env(&config.data_dir);
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)

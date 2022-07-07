@@ -54,8 +54,8 @@ fn param_dir(data_dir: &Path) -> PathBuf {
         .unwrap_or_else(|_| data_dir.join(PARAM_DIR))
 }
 
-pub fn set_proofs_parameter_cache_dir_env(data_dir: PathBuf) {
-    std::env::set_var(param_dir(data_dir));
+pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
+    std::env::set_var(DIR_ENV, param_dir(data_dir));
 }
 
 /// Get proofs parameters and all verification keys for a given sector size given
