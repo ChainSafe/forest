@@ -9,7 +9,7 @@ use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use paramfetch::{get_params_default, SectorSizeOpt};
+use paramfetch::{get_params_default, set_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
@@ -157,6 +157,8 @@ pub(super) async fn start(config: Config) {
     info!("Using network :: {}", network_name);
 
     sync_from_snapshot(&config, &state_manager).await;
+
+    set_dir_env(config.data_dir.clone());
 
     // Fetch and ensure verification keys are downloaded
     get_params_default(config.data_dir.clone(), SectorSizeOpt::Keys, false)

@@ -53,9 +53,12 @@ fn param_dir(mut data_dir: PathBuf) -> PathBuf {
         PathBuf::from(path_buf_string)
     } else {
         data_dir.push(PARAM_DIR);
-        std::env::set_var(DIR_ENV, data_dir.clone());
         data_dir
     }
+}
+
+pub fn set_dir_env(data_dir: PathBuf) {
+    std::env::set_var(DIR_ENV, data_dir.clone());
 }
 
 /// Get proofs parameters and all verification keys for a given sector size given
