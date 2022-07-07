@@ -18,6 +18,7 @@ use state_tree::StateTree;
 use vm::ActorState;
 
 use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;
@@ -197,37 +198,212 @@ where
     Ok(())
 }
 
-fn is_match(a: Ipld, b: Ipld) -> bool {
+fn same_variant(a: &Ipld, b: &Ipld) -> bool {
     match a {
         Ipld::Null => if let Ipld::Null = b {
             return true;
         },
-        Ipld::Bool(value) => if let Ipld::Bool(other_value) = b {
-            return value == other_value;
+        Ipld::Bool(_) => if let Ipld::Bool(_) = b {
+            return true;
         }
-        Ipld::Integer(value) => if let Ipld::Integer(other_value) = b {
-            return value == other_value;
+        Ipld::Integer(_) => if let Ipld::Integer(_) = b {
+            return true;
         }
-        Ipld::Float(value) => if let Ipld::Float(other_value) = b {
-            return value == other_value;
+        Ipld::Float(_) => if let Ipld::Float(_) = b {
+            return true;
         }
-        Ipld::String(value) => if let Ipld::String(other_value) = b {
-            return value == other_value;
+        Ipld::String(_) => if let Ipld::String(_) = b {
+            return true;
         }
-        Ipld::Bytes(value) => if let Ipld::Bytes(other_value) = b {
-            return value == other_value;
+        Ipld::Bytes(_) => if let Ipld::Bytes(_) = b {
+            return true;
         }
-        Ipld::List(value) => if let Ipld::List(other_value) = b {
-            return value == other_value;
+        Ipld::List(_) => if let Ipld::List(_) = b {
+            return true;
         }
-        Ipld::Map(value) => if let Ipld::Map(other_value) = b {
-            return value == other_value;
+        Ipld::Map(_) => if let Ipld::Map(_) = b {
+            return true;
         }
-        Ipld::Link(value) => if let Ipld::Link(other_value) = b {
-            return value == other_value;
+        Ipld::Link(_) => if let Ipld::Link(_) = b {
+            return true;
         }
     }
     false
+}
+
+fn is_plain_data(node: &Ipld) -> bool {
+    match node {
+        Ipld::List(_) | Ipld::Map(_) | Ipld::Link(_)  => false,
+        _ => true,
+    }
+}
+
+fn get_links(a: &Ipld, b: &Ipld) -> Option<(Cid, Cid)> {
+    match a {
+        Ipld::Link(cid_a) => if let Ipld::Link(cid_b) = b {
+            return Some((*cid_a, *cid_b));
+        }
+        _ => (),
+    }
+    return None;
+}
+
+fn get_lists(a: &Ipld, b: &Ipld) -> Option<(Vec<Ipld>, Vec<Ipld>)> {
+    match a {
+        Ipld::List(vec_a) => if let Ipld::List(vec_b) = b {
+            return Some((vec_a.clone(), vec_b.clone()));
+        }
+        _ => (),
+    }
+    return None;
+}
+
+fn get_maps(a: &Ipld, b: &Ipld) -> Option<(BTreeMap<String, Ipld>, BTreeMap<String, Ipld>)> {
+    match a {
+        Ipld::Map(map_a) => if let Ipld::Map(map_b) = b {
+            return Some((map_a.clone(), map_b.clone()));
+        }
+        _ => (),
+    }
+    return None;
+}
+
+#[derive(Debug)]
+enum ListDiff {
+    Deletion(usize),
+    Insertion(usize),
+    Updates(Vec<usize>),
+}
+
+#[derive(Debug)]
+enum MapDiff {
+    Deletion(usize),
+    Insertion(usize),
+    Updates(Vec<String>),
+    Other,
+}
+
+#[derive(Debug)]
+enum Diff {
+    KeyNotFound,
+    Variant,
+    PlainData,
+    List(ListDiff),
+    Map(MapDiff),
+}
+
+fn find_vec_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Vec<Ipld>, b: &Vec<Ipld>, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<(), anyhow::Error>
+where
+    BS: BlockStore
+{
+    use std::cmp::Ordering;
+
+    match b.len().cmp(&a.len()) {
+        Ordering::Equal => {
+            let mut indices: Vec<usize> = vec![];
+            for (i, (a, b)) in a.iter().zip(b.iter()).enumerate() {
+                if find_ipld_diffs(bs, cid_a, cid_b, a, b, level, diffs)? {
+                    indices.push(i);
+                }
+            }
+            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::List(ListDiff::Updates(indices))));
+        },
+        Ordering::Less => {
+            let n = a.len() - b.len();
+            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::List(ListDiff::Deletion(n))));
+        },
+        Ordering::Greater => {
+            let n = b.len() - a.len();
+            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::List(ListDiff::Insertion(n))));
+        },
+    }
+
+    Ok(())
+}
+
+fn find_map_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &BTreeMap<String, Ipld>, b: &BTreeMap<String, Ipld>, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<(), anyhow::Error>
+where
+    BS: BlockStore
+{
+    use std::cmp::Ordering;
+
+    match b.len().cmp(&a.len()) {
+        Ordering::Equal => {
+            let mut keys: Vec<String> = vec![];
+            for (k, node_a) in a.iter() {
+                if let Some(node_b) = b.get(k) {
+                    if find_ipld_diffs(bs, cid_a, cid_b, node_a, node_b, level, diffs)? {
+                        keys.push(k.clone());
+                    }
+                }
+            }
+            if !keys.is_empty() {
+                diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Updates(keys))));
+            } else {
+                // result in a mix of new insertions, deletions
+                diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Other)));
+            }
+        },
+        Ordering::Less => {
+            let n = a.len() - b.len();
+            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Deletion(n))));
+        },
+        Ordering::Greater => {
+            let n = b.len() - a.len();
+            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Map(MapDiff::Insertion(n))));
+        },
+    }
+
+    Ok(())
+}
+
+fn find_ipld_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, a: &Ipld, b: &Ipld, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<bool, anyhow::Error>
+where
+    BS: BlockStore,
+{
+    if same_variant(a, b) {
+        if a != b {
+            if is_plain_data(a) {
+                diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::PlainData));
+            }
+            else {
+                if let Some((new_cid_a, new_cid_b)) = get_links(a, b) {
+                    find_cid_diffs(bs, &new_cid_a, &new_cid_b, level+1, diffs)?;
+                } else if let Some((vec_a, vec_b)) = get_lists(a, b) {
+                    find_vec_diffs(bs, &cid_a, &cid_b, &vec_a, &vec_b, level, diffs)?;
+                } else if let Some((map_a, map_b)) = get_maps(a, b) {
+                    find_map_diffs(bs, &cid_a, &cid_b, &map_a, &map_b, level, diffs)?;
+                } else {
+                    unreachable!();
+                }
+            }
+            return Ok(true);
+        } else {
+            // do nothing
+        }
+    } else {
+        diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::Variant));
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn find_cid_diffs<BS>(bs: &BS, cid_a: &Cid, cid_b: &Cid, level: usize, diffs: &mut HashMap<Cid, (Cid, Diff)>) -> Result<(), anyhow::Error>
+where
+    BS: BlockStore,
+{
+    let node_a = bs.get_anyhow::<Ipld>(&cid_a)?;
+    let node_b = bs.get_anyhow::<Ipld>(&cid_b)?;
+    if let Some(a) = node_a {
+        if let Some(b) = node_b {
+            find_ipld_diffs(bs, &cid_a, &cid_b, &a, &b, level, diffs)?;
+        } else {
+            diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::KeyNotFound));
+        }
+    } else {
+        diffs.insert(cid_a.clone(), (cid_b.clone(), Diff::KeyNotFound));
+    }
+    Ok(())
 }
 
 pub fn print_ipld_diff<BS>(
@@ -241,8 +417,25 @@ where
 {
     use blocks::BlockHeader;
 
-    let left = bs.get_anyhow::<BlockHeader>(&pre)?;
-    println!("{:?}", left.unwrap());
+    if let Some(post) = post {
+        // first check if state root
+        StateTree::new_from_root(bs, &pre)
+            .expect(&format!("expecting {} to be a state root", pre));
+
+        StateTree::new_from_root(bs, &post)
+            .expect(&format!("expecting {} to be a state root", post));
+
+        let mut diffs = HashMap::new();
+        find_cid_diffs(bs, &pre, &post, 0, &mut diffs).unwrap();
+        println!("found {} differences:", diffs.len());
+        for diff in diffs {
+            println!("{:?}", diff);
+        }
+    } else {
+        // just print state root
+        let bh = bs.get_anyhow::<BlockHeader>(&pre)?;
+        println!("state_root({pre}): {}", bh.unwrap().state_root());
+    }
 
     Ok(())
 }
@@ -266,35 +459,24 @@ mod tests {
 
     #[async_std::test]
     async fn basic_diff_test() {
-        let a = ipld::ipld!({
-            "code": 200,
-            "success": true,
-            "link": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
-            "bytes": Bytes(vec![0x1, 0xfa, 0x8b]),
-            "payload": {
-                "features": [
-                    "serde",
-                    "ipld"
-                ]
-                }
-            });
-
-        let b = ipld::ipld!({
-            "code": 200,
-            "success": true,
-            "link": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
-            "bytes": Bytes(vec![0x1, 0xff, 0x8b]),
-            "payload": {
-                "features": [
-                    "serde",
-                    "ipld"
-                ]
-                }
-            });
-
-        // look for local rocksdb
+        // look for a local rocksdb
         let db = get_db();
-        let cid = Cid::try_from("bafy2bzaceb5vqcmq4ejdo473mc3dgre6h4wur5nulo6c2ig7f4jyj4ukq2mqe").unwrap();
+        //let cid = Cid::try_from("bafy2bzaceb5vqcmq4ejdo473mc3dgre6h4wur5nulo6c2ig7f4jyj4ukq2mqe").unwrap();
+
+        // Height #1927022
+        // state_root: bafy2bzacechcvphowekjggyz7aayyprwsipgkcedobbuw7k77aigcx7sw67hc
+        let cid = Cid::try_from("bafy2bzaceadvwb7wfkvs25ih7eh6znn2xm5qzeldib7d5se5kkny2h4wk4yzo").unwrap();
         print_ipld_diff(&db, &cid, &None, None);
+
+        // Height #1927023
+        // state_root: bafy2bzacebbb7orn4xpqcehtlmlqunt7ukaunr2xgusjmw4q5efrph2jo3cjc
+        let cid = Cid::try_from("bafy2bzaceconxxu7hinpuacichclo5rhudezxcp54ftzbzfkywkxzfjlqxsse").unwrap();
+        print_ipld_diff(&db, &cid, &None, None);
+
+        let pre = Cid::try_from("bafy2bzacechcvphowekjggyz7aayyprwsipgkcedobbuw7k77aigcx7sw67hc").unwrap();
+        let post = Cid::try_from("bafy2bzacebbb7orn4xpqcehtlmlqunt7ukaunr2xgusjmw4q5efrph2jo3cjc").unwrap();
+        print_ipld_diff(&db, &pre, &Some(post), None);
+
+        //print_state_diff(&db, &pre, &post, None).unwrap();
     }
 }
