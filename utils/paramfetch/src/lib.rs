@@ -149,9 +149,8 @@ async fn fetch_verify_params(
     info: Arc<ParameterData>,
     mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), anyhow::Error> {
-    let path: PathBuf = [param_dir(data_dir.clone()).to_str().unwrap(), name]
-        .iter()
-        .collect();
+    let mut path: PathBuf = param_dir(data_dir.clone());
+    path.push(name);
     let path: Arc<Path> = Arc::from(path.as_path());
 
     match check_file(path.clone(), info.clone()).await {
