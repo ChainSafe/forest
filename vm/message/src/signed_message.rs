@@ -1,41 +1,40 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Message, UnsignedMessage};
+use super::Message as MessageTrait;
+use crate::message;
 use address::Address;
 use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
+use fvm_shared::message::Message;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
 pub struct SignedMessage {
-    pub message: UnsignedMessage,
+    pub message: Message,
     pub signature: Signature,
 }
 
 impl SignedMessage {
     /// Generate new signed message from an unsigned message and a signer.
-    pub fn new<S: Signer>(message: UnsignedMessage, signer: &S) -> Result<Self, CryptoError> {
+    pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
         let bz = message.to_signing_bytes();
 
-        let signature = signer.sign_bytes(&bz, message.from())?;
+        let signature = signer.sign_bytes(&bz, &message.from)?;
 
         Ok(SignedMessage { message, signature })
     }
 
     /// Generate a new signed message from fields.
-    pub fn new_from_parts(
-        message: UnsignedMessage,
-        signature: Signature,
-    ) -> Result<SignedMessage, String> {
-        signature.verify(&message.to_signing_bytes(), message.from())?;
+    pub fn new_from_parts(message: Message, signature: Signature) -> Result<SignedMessage, String> {
+        signature.verify(&message.to_signing_bytes(), &message.from)?;
         Ok(SignedMessage { message, signature })
     }
 
     /// Returns reference to the unsigned message.
-    pub fn message(&self) -> &UnsignedMessage {
+    pub fn message(&self) -> &Message {
         &self.message
     }
 
@@ -45,7 +44,7 @@ impl SignedMessage {
     }
 
     /// Consumes self and returns it's unsigned message.
-    pub fn into_message(self) -> UnsignedMessage {
+    pub fn into_message(self) -> Message {
         self.message
     }
 
@@ -66,50 +65,50 @@ impl SignedMessage {
     }
 }
 
-impl Message for SignedMessage {
+impl MessageTrait for SignedMessage {
     fn from(&self) -> &Address {
-        self.message.from()
+        &self.message.from
     }
     fn to(&self) -> &Address {
-        self.message.to()
+        &self.message.to
     }
     fn sequence(&self) -> u64 {
-        self.message.sequence()
+        self.message.sequence
     }
     fn value(&self) -> &TokenAmount {
-        self.message.value()
+        &self.message.value
     }
     fn method_num(&self) -> MethodNum {
-        self.message.method_num()
+        self.message.method_num
     }
     fn params(&self) -> &Serialized {
-        self.message.params()
+        &self.message.params
     }
     fn gas_limit(&self) -> i64 {
-        self.message.gas_limit()
+        self.message.gas_limit
     }
     fn set_gas_limit(&mut self, token_amount: i64) {
-        self.message.set_gas_limit(token_amount)
+        self.message.gas_limit = token_amount;
     }
     fn set_sequence(&mut self, new_sequence: u64) {
-        self.message.set_sequence(new_sequence)
+        self.message.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        self.message.required_funds()
+        &self.message.gas_fee_cap * self.message.gas_limit + &self.message.value
     }
     fn gas_fee_cap(&self) -> &TokenAmount {
-        self.message.gas_fee_cap()
+        &self.message.gas_fee_cap
     }
     fn gas_premium(&self) -> &TokenAmount {
-        self.message.gas_premium()
+        &self.message.gas_premium
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.message.set_gas_fee_cap(cap);
+        self.message.gas_fee_cap = cap;
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.message.set_gas_premium(prem);
+        self.message.gas_premium = prem;
     }
 }
 
@@ -126,7 +125,7 @@ impl Cbor for SignedMessage {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use crate::unsigned_message;
+
     use cid::Cid;
     use crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
@@ -160,8 +159,8 @@ pub mod json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct SignedMessageSer<'a> {
-            #[serde(with = "unsigned_message::json")]
-            message: &'a UnsignedMessage,
+            #[serde(with = "message::json")]
+            message: &'a Message,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
             #[serde(default, rename = "CID", with = "cid::json::opt")]
@@ -182,8 +181,8 @@ pub mod json {
         #[derive(Serialize, Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct SignedMessageDe {
-            #[serde(with = "unsigned_message::json")]
-            message: UnsignedMessage,
+            #[serde(with = "message::json")]
+            message: Message,
             #[serde(with = "signature::json")]
             signature: Signature,
         }

@@ -93,6 +93,6 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
 lazy_static! {
     pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
         height: 0,
-        config: &*DRAND_MAINNET,
+        config: &DRAND_MAINNET,
     },];
 }

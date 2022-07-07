@@ -18,3 +18,4 @@ forest_message = { version = "0.7", features = ["json", "blst"] }
 encoding = { package = "forest_encoding", version = "0.2" }
 forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
 bls-signatures = { version = "0.11", default-features = false, features = ["blst"] }
+fvm_shared = { version = "0.7.1", default-features = false }

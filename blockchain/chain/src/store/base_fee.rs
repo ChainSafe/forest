@@ -82,7 +82,7 @@ where
         for m in msg1 {
             let m_cid = m.cid()?;
             if !seen.contains(&m_cid) {
-                total_limit += m.gas_limit();
+                total_limit += m.gas_limit;
                 seen.insert(m_cid);
             }
         }

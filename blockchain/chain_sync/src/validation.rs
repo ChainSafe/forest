@@ -8,9 +8,9 @@ use blocks::{Block, FullTipset, Tipset, TxMeta};
 use chain::ChainStore;
 use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::{SignedMessage, UnsignedMessage};
-
+use message::SignedMessage;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -114,7 +114,7 @@ impl<'a> TipsetValidator<'a> {
 
     pub fn compute_msg_root<DB: BlockStore>(
         blockstore: &DB,
-        bls_msgs: &[UnsignedMessage],
+        bls_msgs: &[Message],
         secp_msgs: &[SignedMessage],
     ) -> Result<Cid, TipsetValidationError> {
         // Generate message CIDs

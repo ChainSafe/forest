@@ -8,7 +8,9 @@ use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use crypto::{signature, Signature};
 use encoding::Cbor;
-use forest_message::{unsigned_message, SignedMessage, UnsignedMessage};
+use forest_message::message;
+use forest_message::SignedMessage;
+use fvm_shared::message::Message;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
@@ -17,8 +19,8 @@ use std::str::FromStr;
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct TestVec {
-    #[serde(with = "unsigned_message::json")]
-    unsigned: UnsignedMessage,
+    #[serde(with = "message::json")]
+    unsigned: Message,
     cid: String,
     private_key: String,
     #[serde(with = "signature::json")]

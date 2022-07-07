@@ -28,14 +28,13 @@ use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use message::{
-    message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
-};
+use message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -55,8 +54,8 @@ type CidPair = (Cid, Cid);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "unsigned_message::json")]
-    pub msg: UnsignedMessage,
+    #[serde(with = "message::message::json")]
+    pub msg: Message,
     #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<MessageReceipt>,
     pub error: Option<String>,
@@ -472,7 +471,7 @@ where
 
     fn call_raw<V>(
         self: &Arc<Self>,
-        msg: &mut UnsignedMessage,
+        msg: &mut Message,
         rand: &ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult
@@ -511,20 +510,20 @@ where
                 heights,
             )?;
 
-            if msg.gas_limit() == 0 {
-                msg.set_gas_limit(10000000000)
+            if msg.gas_limit == 0 {
+                msg.gas_limit = 10000000000;
             }
 
             let actor = self
-                .get_actor(msg.from(), *bstate)?
+                .get_actor(&msg.from, *bstate)?
                 .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-            msg.set_sequence(actor.sequence);
+            msg.sequence = actor.sequence;
             let apply_ret = vm.apply_implicit_message(msg)?;
             trace!(
                 "gas limit {:},gas premium{:?},value {:?}",
-                msg.gas_limit(),
-                msg.gas_premium(),
-                msg.value()
+                msg.gas_limit,
+                msg.gas_premium,
+                msg.value
             );
             if let Some(err) = &apply_ret.failure_info {
                 warn!("chain call failed: {:?}", err);
@@ -541,7 +540,7 @@ where
     /// runs the given message and returns its result without any persisted changes.
     pub async fn call<V>(
         self: &Arc<Self>,
-        message: &mut UnsignedMessage,
+        message: &mut Message,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult
     where
@@ -637,13 +636,13 @@ where
         self: &Arc<Self>,
         ts: &Arc<Tipset>,
         mcid: Cid,
-    ) -> Result<(UnsignedMessage, ApplyRet), Error>
+    ) -> Result<(Message, ApplyRet), Error>
     where
         V: ProofVerifier,
     {
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
-        let outm: OnceCell<UnsignedMessage> = Default::default();
+        let outm: OnceCell<Message> = Default::default();
         let outr: OnceCell<ApplyRet> = Default::default();
         let m_clone = outm.clone();
         let r_clone = outr.clone();

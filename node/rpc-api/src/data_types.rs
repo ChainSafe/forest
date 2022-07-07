@@ -25,10 +25,11 @@ use forest_libp2p::{Multihash, NetworkMessage};
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use ipld::json::IpldJson;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
-    signed_message::json::SignedMessageJson, unsigned_message, SignedMessage, UnsignedMessage,
+    signed_message::json::SignedMessageJson, SignedMessage,
 };
 use message_pool::{MessagePool, MpoolRpcProvider};
 use num_bigint::bigint_ser::json;
@@ -73,8 +74,8 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "unsigned_message::json::vec")]
-    pub bls_msg: Vec<UnsignedMessage>,
+    #[serde(rename = "BlsMessages", with = "message::message::json::vec")]
+    pub bls_msg: Vec<Message>,
     #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "cid::json::vec")]

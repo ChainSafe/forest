@@ -4,7 +4,8 @@
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
 use forest_cid::Cid;
 use forest_encoding::tuple::*;
-use forest_message::{SignedMessage, UnsignedMessage};
+use forest_message::SignedMessage;
+use fvm_shared::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -129,7 +130,7 @@ impl ChainExchangeResponse {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
     /// Unsigned bls messages.
-    pub bls_msgs: Vec<UnsignedMessage>,
+    pub bls_msgs: Vec<Message>,
     /// Describes which block each message belongs to.
     pub bls_msg_includes: Vec<Vec<u64>>,
 
