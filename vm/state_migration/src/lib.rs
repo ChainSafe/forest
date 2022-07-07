@@ -6,7 +6,7 @@
 
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use state_tree::StateTree;
 use vm::{ActorState, TokenAmount};
@@ -156,11 +156,9 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             }
         });
 
-        let root_cid = actors_out
+        actors_out
             .flush()
-            .map_err(|e| MigrationError::FlushFailed(e.to_string()));
-
-        root_cid
+            .map_err(|e| MigrationError::FlushFailed(e.to_string()))
     }
 }
 

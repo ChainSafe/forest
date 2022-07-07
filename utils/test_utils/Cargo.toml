@@ -9,6 +9,7 @@ features = ["test_constructors"]
 
 [dependencies]
 address = { package = "forest_address", version = "0.3" }
+anyhow = "1.0"
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks/", optional = true }
 cid = { package = "forest_cid", version = "0.3", optional = true }
 chain = { path = "../../blockchain/chain/", optional = true }
@@ -19,7 +20,6 @@ encoding = { package = "forest_encoding", version = "0.2" }
 base64 = "0.13"
 fvm_shared = { version = "0.7.1", default-features = false }
 forest_crypto = "0.5"
-anyhow = "1.0"
 
 [features]
 test_constructors = ["blocks", "chain", "cid", "message", "forest_libp2p"]

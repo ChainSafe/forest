@@ -5,7 +5,6 @@ use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
-use clock::ChainEpoch;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
@@ -14,6 +13,7 @@ use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
 };
+use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

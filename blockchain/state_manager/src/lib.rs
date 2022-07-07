@@ -17,7 +17,6 @@ use blockstore::FvmStore;
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::Cbor;
 use fil_actors_runtime::runtime::DomainSeparationTag;
 use fil_actors_runtime::runtime::Policy;
@@ -28,21 +27,20 @@ use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
 use ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use message::{
-    message_receipt, unsigned_message, ChainMessage, Message, MessageReceipt, UnsignedMessage,
-};
+use message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use state_tree::StateTree;
 use std::collections::HashMap;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
@@ -56,8 +54,8 @@ type CidPair = (Cid, Cid);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "unsigned_message::json")]
-    pub msg: UnsignedMessage,
+    #[serde(with = "message::message::json")]
+    pub msg: Message,
     #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<MessageReceipt>,
     pub error: Option<String>,
@@ -327,11 +325,11 @@ where
         base_fee: BigInt,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, Box<dyn StdError>>
+    ) -> Result<CidPair, anyhow::Error>
     where
         R: Rand + Clone + 'static,
         V: ProofVerifier,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
@@ -346,7 +344,7 @@ where
         let create_vm = |state_root, epoch| {
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(epoch);
-            VM::<_, _, _, _, V>::new(
+            VM::<_, V>::new(
                 state_root,
                 db.as_ref(),
                 db.clone(),
@@ -388,7 +386,8 @@ where
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
 
         // Construct receipt root from receipts
-        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
+        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
@@ -409,7 +408,7 @@ where
     pub async fn tipset_state<V>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, Box<dyn StdError>>
+    ) -> Result<CidPair, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -457,7 +456,8 @@ where
                 (*tipset.parent_state(), *message_receipts.message_receipts())
             } else {
                 // generic constants are not implemented yet this is a lowcost method for now
-                let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String>>;
+                let no_func =
+                    None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
                 let ts_state = self.compute_tipset_state::<V, _>(tipset, no_func).await?;
                 debug!("completed tipset state calculation {:?}", tipset.cids());
                 ts_state
@@ -471,7 +471,7 @@ where
 
     fn call_raw<V>(
         self: &Arc<Self>,
-        msg: &mut UnsignedMessage,
+        msg: &mut Message,
         rand: &ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult
@@ -493,7 +493,7 @@ where
 
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(bheight);
-            let mut vm = VM::<_, _, _, _, V>::new(
+            let mut vm = VM::<_, V>::new(
                 *bstate,
                 store_arc.as_ref(),
                 store_arc.clone(),
@@ -510,20 +510,20 @@ where
                 heights,
             )?;
 
-            if msg.gas_limit() == 0 {
-                msg.set_gas_limit(10000000000)
+            if msg.gas_limit == 0 {
+                msg.gas_limit = 10000000000;
             }
 
             let actor = self
-                .get_actor(msg.from(), *bstate)?
+                .get_actor(&msg.from, *bstate)?
                 .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-            msg.set_sequence(actor.sequence);
+            msg.sequence = actor.sequence;
             let apply_ret = vm.apply_implicit_message(msg)?;
             trace!(
                 "gas limit {:},gas premium{:?},value {:?}",
-                msg.gas_limit(),
-                msg.gas_premium(),
-                msg.value()
+                msg.gas_limit,
+                msg.gas_premium,
+                msg.value
             );
             if let Some(err) = &apply_ret.failure_info {
                 warn!("chain call failed: {:?}", err);
@@ -540,7 +540,7 @@ where
     /// runs the given message and returns its result without any persisted changes.
     pub async fn call<V>(
         self: &Arc<Self>,
-        message: &mut UnsignedMessage,
+        message: &mut Message,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult
     where
@@ -595,7 +595,7 @@ where
         let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
-        let mut vm = VM::<_, _, _, _, V>::new(
+        let mut vm = VM::<_, V>::new(
             st,
             store_arc.as_ref(),
             store_arc.clone(),
@@ -636,13 +636,13 @@ where
         self: &Arc<Self>,
         ts: &Arc<Tipset>,
         mcid: Cid,
-    ) -> Result<(UnsignedMessage, ApplyRet), Error>
+    ) -> Result<(Message, ApplyRet), Error>
     where
         V: ProofVerifier,
     {
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
-        let outm: OnceCell<UnsignedMessage> = Default::default();
+        let outm: OnceCell<Message> = Default::default();
         let outr: OnceCell<ApplyRet> = Default::default();
         let m_clone = outm.clone();
         let r_clone = outr.clone();
@@ -650,7 +650,7 @@ where
             if *cid == mcid {
                 let _ = m_clone.set(unsigned.message().clone());
                 let _ = r_clone.set(apply_ret.clone());
-                return Err("halt".to_string());
+                anyhow::bail!("halt");
             }
 
             Ok(())
@@ -754,7 +754,7 @@ where
 
         let actor = self
             .get_actor(address, *base_tipset.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
 
         let miner_state = miner::State::load(self.blockstore(), &actor)?;
 
@@ -787,7 +787,7 @@ where
         key: &TipsetKeys,
         round: ChainEpoch,
         address: Address,
-    ) -> Result<Option<MiningBaseInfo>, Box<dyn StdError>> {
+    ) -> Result<Option<MiningBaseInfo>, anyhow::Error> {
         let tipset = self.cs.tipset_from_keys(key).await?;
         let prev = match self.cs.latest_beacon_entry(&tipset).await {
             Ok(prev) => prev,
@@ -796,10 +796,7 @@ where
                     .map(|e| e != "1")
                     .unwrap_or(true)
                 {
-                    return Err(Box::from(format!(
-                        "failed to get latest beacon entry: {:?}",
-                        err
-                    )));
+                    anyhow::bail!("failed to get latest beacon entry: {:?}", err);
                 }
                 beacon::BeaconEntry::default()
             }
@@ -870,7 +867,7 @@ where
     ) -> Result<CidPair, Error>
     where
         V: ProofVerifier,
-        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), String> + Send,
+        CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         span!("compute_tipset_state", {
             let block_headers = tipset.blocks();
@@ -898,7 +895,7 @@ where
                     .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
                 let parent: BlockHeader = self
                     .blockstore()
-                    .get(parent_cid)?
+                    .get_anyhow(parent_cid)?
                     .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
                 parent.epoch()
             } else {
@@ -1282,7 +1279,9 @@ where
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
             .get_actor(actor::market::ADDRESS, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
+            .ok_or_else(|| {
+                Error::State("Market actor address could not be resolved".to_string())
+            })?;
 
         let market_state = market::State::load(self.blockstore(), &actor)?;
 
@@ -1312,7 +1311,7 @@ where
         self: &Arc<Self>,
         addr: &Address,
         ts: &Arc<Tipset>,
-    ) -> Result<Address, Box<dyn StdError>>
+    ) -> Result<Address, anyhow::Error>
     where
         V: ProofVerifier,
     {
@@ -1345,7 +1344,7 @@ where
         self: &Arc<Self>,
         mut ts: Arc<Tipset>,
         height: i64,
-    ) -> Result<(), Box<dyn StdError>> {
+    ) -> Result<(), anyhow::Error> {
         let mut ts_chain = Vec::<Arc<Tipset>>::new();
         while ts.epoch() != height {
             let next = self.cs.tipset_from_keys(ts.parents()).await?;
@@ -1366,22 +1365,20 @@ where
                 )
                 .unwrap();
 
-                return Err(format!(
+                anyhow::bail!(
                     "Tipset chain has state mismatch at height: {}, {} != {}, \
                         receipts mismatched: {}",
                     ts.epoch(),
                     ts.parent_state(),
                     last_state,
                     ts.blocks()[0].message_receipts() != &last_receipt
-                )
-                .into());
+                );
             }
             if ts.blocks()[0].message_receipts() != &last_receipt {
-                return Err(format!(
+                anyhow::bail!(
                     "Tipset message receipts has a mismatch at height: {}",
                     ts.epoch(),
-                )
-                .into());
+                );
             }
             info!(
                 "Computing state (height: {}, ts={:?})",
@@ -1400,7 +1397,7 @@ where
         self: &Arc<Self>,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, Box<dyn StdError>> {
+    ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }
 
@@ -1445,7 +1442,7 @@ where
     BS: BlockStore + Send + Sync,
     V: ProofVerifier,
 {
-    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, Box<dyn StdError>> {
+    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, anyhow::Error> {
         let (_, st) = task::block_on(
             self.sm
                 .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),

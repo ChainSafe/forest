@@ -32,7 +32,7 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::SignatureType;
 use ipld::{json::IpldJson, Ipld};
 use ipld_amt::Amt;
-use message::{signed_message::SignedMessage, unsigned_message::UnsignedMessage};
+use message::signed_message::SignedMessage;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -79,8 +79,8 @@ pub(crate) async fn state_call<
     Params(params): Params<StateCallParams>,
 ) -> Result<StateCallResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (unsigned_msg_json, key) = params;
-    let mut message: UnsignedMessage = unsigned_msg_json.into();
+    let (message_json, key) = params;
+    let mut message = message_json.into();
     let tipset = data
         .state_manager
         .chain_store()
@@ -513,7 +513,7 @@ pub(crate) async fn state_market_deals<
     let actor = data
         .state_manager
         .get_actor(market::ADDRESS, *ts.parent_state())?
-        .ok_or("Power actor address could not be resolved")?;
+        .ok_or("Market actor address could not be resolved")?;
     let market_state = market::State::load(data.state_manager.blockstore(), &actor)?;
 
     let da = market_state.proposals(data.state_manager.blockstore())?;
@@ -761,9 +761,9 @@ pub(crate) async fn state_miner_sector_allocated<
         miner::State::V7(m) => data
             .chain_store
             .db
-            .get::<bitfield::BitField>(&m.allocated_sectors)?
+            .get::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
             .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num as usize),
+            .get(sector_num),
     };
 
     Ok(allocated_sectors)

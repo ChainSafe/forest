@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use dirs::home_dir;
 use std::fs::{create_dir_all, File};
 use std::io::{prelude::*, Result};
 use std::path::Path;
@@ -45,15 +44,6 @@ pub fn read_file_to_string(path: &Path) -> Result<String> {
     let mut string = String::new();
     file.read_to_string(&mut string)?;
     Ok(string)
-}
-
-/// Gets the home directory of the current system.
-/// Will return correct path for windows, linux, and osx.
-///
-/// # Panics
-/// We will panic if we cannot determine a home directory.
-pub fn get_home_dir() -> String {
-    home_dir().unwrap().to_str().unwrap().to_owned()
 }
 
 /// Converts a toml file represented as a string to `S`

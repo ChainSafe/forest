@@ -11,8 +11,7 @@ use forest_crypto::{Signer, VRFProof};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use fvm_shared::bigint::BigInt;
-use fvm_shared::crypto::signature::Signature;
+use fvm_shared::{bigint::BigInt, message::Message};
 use message::{SignedMessage, UnsignedMessage};
 use std::convert::TryFrom;
 
@@ -135,12 +134,12 @@ impl Signer for DummySigner {
 }
 
 /// Returns a tuple of unsigned and signed messages used for testing
-pub fn construct_messages() -> (UnsignedMessage, SignedMessage) {
-    let bls_messages = UnsignedMessage::builder()
-        .to(Address::new_id(1))
-        .from(Address::new_id(2))
-        .build()
-        .unwrap();
+pub fn construct_messages() -> (Message, SignedMessage) {
+    let bls_messages = Message {
+        to: Address::new_id(1),
+        from: Address::new_id(2),
+        ..Message::default()
+    };
 
     let secp_messages = SignedMessage::new(bls_messages.clone(), &DummySigner).unwrap();
     (bls_messages, secp_messages)

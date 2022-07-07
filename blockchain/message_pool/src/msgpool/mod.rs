@@ -21,9 +21,11 @@ use clock::ChainEpoch;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use fvm_shared::crypto::signature::Signature;
+use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
-use message::{Message, SignedMessage};
+use message::{Message as MessageTrait, SignedMessage};
+use networks::ChainConfig;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -63,7 +65,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
-    calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -102,7 +104,7 @@ where
             &base_fee_lower_bound,
             &ts,
             &mut chains,
-            calico_height,
+            chain_config,
         )
         .await?;
     }
@@ -234,7 +236,7 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
                     .await?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
@@ -307,9 +309,10 @@ pub mod tests {
     use blocks::Tipset;
     use fvm_shared::bigint::BigInt;
     use fvm_shared::crypto::signature::SignatureType;
+    use fvm_shared::message::Message;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use message::{SignedMessage, UnsignedMessage};
-    use networks::{ChainConfig, Height};
+    use message::SignedMessage;
+    use networks::ChainConfig;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;
@@ -323,15 +326,15 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg: UnsignedMessage = UnsignedMessage::builder()
-            .to(*to)
-            .from(*from)
-            .sequence(sequence)
-            .gas_limit(gas_limit)
-            .gas_fee_cap((gas_price + 100).into())
-            .gas_premium(gas_price.into())
-            .build()
-            .unwrap();
+        let umsg = Message {
+            to: *to,
+            from: *from,
+            sequence,
+            gas_limit,
+            gas_fee_cap: (gas_price + 100).into(),
+            gas_premium: gas_price.into(),
+            ..Message::default()
+        };
         let msg_signing_bytes = umsg.to_signing_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
@@ -353,7 +356,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -423,7 +426,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -523,7 +526,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                &ChainConfig::default(),
+                ChainConfig::default(),
             )
             .await
             .unwrap();
@@ -569,11 +572,11 @@ pub mod tests {
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         let gas_limit = 6955002;
-        let calico_height = ChainConfig::default().epoch(Height::Calico);
         task::block_on(async move {
             let tma = RwLock::new(tma);
             let a = mock_block(1, 1);
             let ts = Tipset::new(vec![a]).unwrap();
+            let chain_config = ChainConfig::default();
 
             // --- Test Chain Aggregations ---
             // Test 1: 10 messages from a1 to a2, with increasing gasPerf; it should
@@ -594,7 +597,7 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -632,7 +635,7 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -676,7 +679,7 @@ pub mod tests {
                 &BigInt::from(0i64),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -724,7 +727,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -774,7 +777,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -813,7 +816,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -855,7 +858,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();
@@ -890,7 +893,7 @@ pub mod tests {
                 &BigInt::from(0i32),
                 &ts,
                 &mut chains,
-                calico_height,
+                &chain_config,
             )
             .await
             .unwrap();

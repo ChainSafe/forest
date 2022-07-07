@@ -19,23 +19,19 @@ clean-all:
 clean:
 	@echo "Cleaning local packages..."
 	@cargo clean -p forest
-	@cargo clean -p fil_clock
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync
 	@cargo clean -p forest_vm
 	@cargo clean -p forest_address
 	@cargo clean -p forest_message
-	@cargo clean -p forest_runtime
 	@cargo clean -p state_tree
 	@cargo clean -p state_manager
 	@cargo clean -p interpreter
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
-	@cargo clean -p ipld_amt
 	@cargo clean -p forest_bigint
-	@cargo clean -p forest_bitfield
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore
 	@cargo clean -p rpc

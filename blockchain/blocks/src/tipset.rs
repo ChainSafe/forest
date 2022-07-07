@@ -3,9 +3,9 @@
 
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::Cbor;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 

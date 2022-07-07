@@ -4,13 +4,13 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use clock::ChainEpoch;
 use fil_types::PaddedPieceSize;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use num_bigint::bigint_ser::json;
 use serde::Serialize;
-use std::{error::Error, marker::PhantomData};
+use std::marker::PhantomData;
 use vm::{ActorState, TokenAmount};
 
 use anyhow::Context;
@@ -101,7 +101,7 @@ impl State {
         match self {
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                Ok(fil_actor_market_v7::validate_deals_for_activation(
+                fil_actor_market_v7::validate_deals_for_activation(
                     st,
                     &fvm_store,
                     deal_ids,
@@ -110,7 +110,6 @@ impl State {
                     curr_epoch,
                 )
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-                .expect("FIXME"))
             } // _ => unimplemented!(),
         }
     }
@@ -127,7 +126,7 @@ pub enum DealProposals<'a, BS> {
 impl<BS> DealProposals<'_, BS> {
     pub fn for_each(
         &self,
-        _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), Box<dyn Error>>,
+        _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), anyhow::Error>,
     ) -> anyhow::Result<()>
     where
         BS: BlockStore,

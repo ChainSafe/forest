@@ -4,7 +4,6 @@
 use std::cmp::min;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -32,6 +31,7 @@ use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
 use clock::ChainEpoch;
+use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
 pub use fil_actors_runtime::runtime::DomainSeparationTag;
@@ -40,9 +40,12 @@ use fil_types::{
     TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
-use interpreter::price_list_by_epoch;
+use fvm::gas::price_list_by_network_version;
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::{Message, UnsignedMessage};
+use message::message::valid_for_block_inclusion;
+use message::Message as MessageTrait;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
@@ -1629,7 +1632,6 @@ fn check_block_messages<
     let network_version = state_manager
         .chain_config
         .network_version(block.header.epoch());
-    let calico_height = state_manager.chain_config.epoch(Height::Calico);
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1638,7 +1640,7 @@ fn check_block_messages<
     for m in block.bls_msgs() {
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
-            m.from(),
+            &m.from,
             *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
@@ -1666,47 +1668,50 @@ fn check_block_messages<
     } else {
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
-    let price_list = price_list_by_epoch(base_tipset.epoch(), calico_height);
+
+    let price_list = price_list_by_network_version(network_version);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity
-    let mut check_msg = |msg: &UnsignedMessage,
+    let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), Box<dyn StdError>> {
+     -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        msg.valid_for_block_inclusion(min_gas.total(), network_version)?;
-        sum_gas_limit += msg.gas_limit();
+        valid_for_block_inclusion(msg, min_gas.total(), network_version)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        sum_gas_limit += msg.gas_limit;
         if sum_gas_limit > BLOCK_GAS_LIMIT {
-            return Err("block gas limit exceeded".into());
+            anyhow::bail!("block gas limit exceeded");
         }
 
         // Phase 2: (Partial) Semantic validation
         // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(msg.from()) {
+        let sequence: u64 = match account_sequences.get(&msg.from) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(msg.from())?.ok_or({
-                    "Failed to retrieve nonce for addr: Actor does not exist in state"
+                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    )
                 })?;
                 if !is_account_actor(&actor.code) {
-                    return Err("Sending must be an account actor".into());
+                    anyhow::bail!("Sending must be an account actor");
                 }
                 actor.sequence
             }
         };
 
         // Sequence equality check
-        if sequence != msg.sequence() {
-            return Err(format!(
+        if sequence != msg.sequence {
+            anyhow::bail!(
                 "Message has incorrect sequence (exp: {} got: {})",
                 sequence,
-                msg.sequence()
-            )
-            .into());
+                msg.sequence
+            );
         }
-        account_sequences.insert(*msg.from(), sequence + 1);
+        account_sequences.insert(msg.from, sequence + 1);
         Ok(())
     };
 

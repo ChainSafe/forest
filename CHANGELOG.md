@@ -1,3 +1,12 @@
+
+## Forest v0.3.0 (unreleased)
+
+Notable updates:
+* Support nv15 entirely through the FVM.
+* Resolve two security concerns by removing legacy code (RUSTSEC-2020-0071 and RUSTSEC-2021-0130).
+* Fixed Docker image and released it to GH container registry.
+* Network selection (ie mainnet vs testnet) moved to a CLI flag rather than a compile-time flag.
+
 ## Forest v0.2.2 _alpha_ (2022-04-06)
 
 Forest v0.2.2 alpha is a service release improving performance and stability. This release supports Filecoin network version 14.

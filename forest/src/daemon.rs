@@ -39,7 +39,7 @@ pub(super) async fn start(config: Config) {
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
     );
 
-    let path: PathBuf = [&config.data_dir, "libp2p"].iter().collect();
+    let path: PathBuf = config.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
         // Keypair not found, generate and save generated keypair
         let gen_keypair = ed25519::Keypair::generate();
@@ -105,8 +105,7 @@ pub(super) async fn start(config: Config) {
         (format!("127.0.0.1:{}", config.metrics_port))
             .parse()
             .unwrap(),
-        PathBuf::from(&config.data_dir)
-            .join("db")
+        db_path(&config)
             .into_os_string()
             .into_string()
             .expect("Failed converting the path to db"),
@@ -121,21 +120,11 @@ pub(super) async fn start(config: Config) {
 
     // Initialize database (RocksDb will be default if both features enabled)
     #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(
-        PathBuf::from(&config.data_dir)
-            .join(&config.chain.name)
-            .join("sled"),
-    )
-    .expect("Opening SledDB must succeed");
+    let db = db::sled::SledDb::open(sled_path(config)).expect("Opening SledDB must succeed");
 
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(
-        PathBuf::from(&config.data_dir)
-            .join(&config.chain.name)
-            .join("db"),
-        &config.rocks_db,
-    )
-    .expect("Opening RocksDB must succeed");
+    let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
+        .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
 
@@ -211,7 +200,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
-            &state_manager.chain_config,
+            (*state_manager.chain_config).clone(),
         )
         .await
         .unwrap(),
@@ -299,6 +288,19 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             .expect("Failed miserably while importing chain from snapshot");
         debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
+}
+
+fn db_path(config: &Config) -> PathBuf {
+    chain_path(config).join("db")
+}
+
+#[cfg(all(feature = "sled", not(feature = "rocksdb")))]
+fn sled_path(config: &Config) -> PathBuf {
+    chain_path(config).join("sled")
+}
+
+fn chain_path(config: &Config) -> PathBuf {
+    PathBuf::from(&config.data_dir).join(&config.chain.name)
 }
 
 #[cfg(test)]

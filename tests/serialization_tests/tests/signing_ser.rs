@@ -17,8 +17,8 @@ use std::str::FromStr;
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct TestVec {
-    #[serde(with = "unsigned_message::json")]
-    unsigned: UnsignedMessage,
+    #[serde(with = "message::json")]
+    unsigned: Message,
     cid: String,
     private_key: String,
     #[serde(with = "signature::json")]

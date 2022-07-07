@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ActorVersion;
+use anyhow::Error as AnyhowError;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
-use std::error::Error;
 use std::marker::PhantomData;
 
 pub enum Array<'a, BS, V> {
@@ -36,11 +36,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(
-        _cid: &Cid,
-        _store: &'a BS,
-        _version: ActorVersion,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn load(_cid: &Cid, _store: &'a BS, _version: ActorVersion) -> Result<Self, AnyhowError> {
         panic!("Cannot load Array")
         // match version {
         //     // ActorVersion::V0 => Ok(Array::V0(actorv0::ipld_amt::Amt::load(cid, store)?)),
@@ -67,7 +63,7 @@ where
     }
 
     /// Get value at index of `Array`
-    pub fn get(&self, _i: u64) -> Result<Option<&V>, Box<dyn Error>> {
+    pub fn get(&self, _i: u64) -> Result<Option<&V>, AnyhowError> {
         panic!("Cannot get Array")
         // match self {
         //     // Array::V0(m) => Ok(m.get(i)?),
@@ -80,7 +76,7 @@ where
     }
 
     /// Set value at index
-    pub fn set(&mut self, _i: u64, _val: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, _i: u64, _val: V) -> Result<(), AnyhowError> {
         unimplemented!()
         // match self {
         //     // Array::V0(m) => Ok(m.set(i, val)?),
@@ -93,7 +89,7 @@ where
     }
 
     /// Delete item from `Array` at index
-    pub fn delete(&mut self, _i: u64) -> Result<bool, Box<dyn Error>> {
+    pub fn delete(&mut self, _i: u64) -> Result<bool, AnyhowError> {
         unimplemented!()
         // match self {
         //     // Array::V0(m) => Ok(m.delete(i)?),
@@ -106,7 +102,7 @@ where
     }
 
     /// flush root and return Cid used as key in block store
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn Error>> {
+    pub fn flush(&mut self) -> Result<Cid, AnyhowError> {
         unimplemented!()
         // match self {
         //     // Array::V0(m) => Ok(m.flush()?),
@@ -119,9 +115,9 @@ where
     }
 
     /// Iterates over each value in the `Array` and runs a function on the values.
-    pub fn for_each<F>(&self, _f: F) -> Result<(), Box<dyn Error>>
+    pub fn for_each<F>(&self, _f: F) -> Result<(), AnyhowError>
     where
-        F: FnMut(u64, &V) -> Result<(), Box<dyn Error>>,
+        F: FnMut(u64, &V) -> Result<(), AnyhowError>,
     {
         unimplemented!()
         // match self {

@@ -4,20 +4,19 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use clock::ChainEpoch;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
-use forest_bitfield::BitField;
 use forest_json_utils::go_vec_visitor;
+use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use libp2p::PeerId;
 use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::error::Error;
 use vm::{ActorState, DealID, TokenAmount};
 
 use anyhow::Context;
@@ -81,18 +80,16 @@ impl State {
     pub fn for_each_deadline<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Deadline) -> Result<(), Box<dyn Error>>,
+        mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
             State::V7(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                st.load_deadlines(&fvm_store)?
-                    .for_each(&Default::default(), &fvm_store, |idx, dl| {
-                        f(idx as u64, Deadline::V7(dl)).expect("FIXME");
-                        Ok(())
-                    })
-                    .expect("FIXME");
-                Ok(())
+                st.load_deadlines(&fvm_store)?.for_each(
+                    &Default::default(),
+                    &fvm_store,
+                    |idx, dl| f(idx as u64, Deadline::V7(dl)),
+                )
             }
         }
     }
@@ -117,7 +114,7 @@ impl State {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(&fvm_store, &sectors.clone().into())?
+                        .load_sector_infos(&fvm_store, sectors)?
                         .into_iter()
                         .map(From::from)
                         .collect())
@@ -225,17 +222,14 @@ impl Deadline {
     pub fn for_each<BS: BlockStore>(
         &self,
         store: &BS,
-        mut f: impl FnMut(u64, Partition) -> Result<(), Box<dyn Error>>,
+        mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
             Deadline::V7(dl) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 dl.for_each(&fvm_store, |idx, part| {
-                    f(idx as u64, Partition::V7(Cow::Borrowed(part))).expect("FIXME");
-                    Ok(())
+                    f(idx as u64, Partition::V7(Cow::Borrowed(part)))
                 })
-                .expect("FIXME");
-                Ok(())
             }
         }
     }
@@ -282,12 +276,12 @@ impl Partition<'_> {
     }
     pub fn live_sectors(&self) -> BitField {
         match self {
-            Partition::V7(dl) => dl.live_sectors().into(),
+            Partition::V7(dl) => dl.live_sectors(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
         match self {
-            Partition::V7(dl) => dl.active_sectors().into(),
+            Partition::V7(dl) => dl.active_sectors(),
         }
     }
 }

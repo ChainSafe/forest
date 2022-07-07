@@ -18,9 +18,10 @@ use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
 };
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use message::{SignedMessage, UnsignedMessage};
+use message::SignedMessage;
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 
@@ -322,7 +323,7 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<UnsignedMessage>(m))
+            .map(|m| network.bitswap_get::<Message>(m))
             .collect();
 
         // Get secp_messages in the store or over Bitswap

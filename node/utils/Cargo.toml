@@ -5,7 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-dirs = "4.0"
 toml = "0.5"
 libc = "0.2"
 serde = "1.0"

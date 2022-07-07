@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ActorVersion;
+use anyhow::Error as AnyhowError;
 use cid::Cid;
 use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
@@ -9,7 +10,6 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
-use std::error::Error;
 
 pub enum Map<'a, BS, V> {
     V7(fil_actors_runtime_v7::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
@@ -33,7 +33,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, Box<dyn Error>> {
+    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
             ActorVersion::V7 => Ok(Map::V7(
                 fil_actors_runtime_v7::fvm_ipld_hamt::Hamt::load_with_bit_width(
@@ -54,7 +54,7 @@ where
     }
 
     /// Inserts a key-value pair into the `Map`.
-    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), Box<dyn Error>> {
+    pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), AnyhowError> {
         match self {
             Map::V7(m) => {
                 m.set(key, value)?;
@@ -64,7 +64,7 @@ where
     }
 
     /// Returns a reference to the value corresponding to the key.
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, Box<dyn Error>>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -76,7 +76,7 @@ where
     }
 
     /// Returns `true` if a value exists for the given key in the `Map`.
-    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, Box<dyn Error>>
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -88,7 +88,7 @@ where
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, Box<dyn Error>>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -99,17 +99,17 @@ where
     }
 
     /// Flush root and return Cid for `Map`
-    pub fn flush(&mut self) -> Result<Cid, Box<dyn Error>> {
+    pub fn flush(&mut self) -> Result<Cid, AnyhowError> {
         match self {
             Map::V7(m) => Ok(m.flush()?),
         }
     }
 
     /// Iterates over each KV in the `Map` and runs a function on the values.
-    pub fn for_each<F>(&self, mut f: F) -> Result<(), Box<dyn Error>>
+    pub fn for_each<F>(&self, mut f: F) -> Result<(), anyhow::Error>
     where
         V: DeserializeOwned,
-        F: FnMut(&BytesKey, &V) -> Result<(), Box<dyn Error>>,
+        F: FnMut(&BytesKey, &V) -> Result<(), anyhow::Error>,
     {
         match self {
             Map::V7(m) => m

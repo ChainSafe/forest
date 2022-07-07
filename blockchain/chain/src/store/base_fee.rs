@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::Tipset;
-use clock::ChainEpoch;
 use encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use message::Message;
 use std::collections::HashSet;
@@ -82,7 +82,7 @@ where
         for m in msg1 {
             let m_cid = m.cid()?;
             if !seen.contains(&m_cid) {
-                total_limit += m.gas_limit();
+                total_limit += m.gas_limit;
                 seen.insert(m_cid);
             }
         }

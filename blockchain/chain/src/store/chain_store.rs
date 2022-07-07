@@ -11,24 +11,25 @@ use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use cid::Code::Blake2b256;
-use clock::ChainEpoch;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_car::CarHeader;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
 use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use interpreter::BlockMessages;
 use ipld_amt::Amt;
 use ipld_blockstore::BlockStore;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::Message as MessageTrait;
+use message::{ChainMessage, MessageReceipt, SignedMessage};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -461,8 +462,8 @@ where
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
-                .get_bytes(&cid)?
-                .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+                .get_bytes_anyhow(&cid)?
+                .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
@@ -578,7 +579,7 @@ where
         mut load_block: F,
     ) -> Result<(), Error>
     where
-        F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
     {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -665,13 +666,13 @@ fn block_validation_key(cid: &Cid) -> Vec<u8> {
 pub fn block_messages<DB>(
     db: &DB,
     bh: &BlockHeader,
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, &bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
@@ -682,11 +683,11 @@ pub fn block_messages_from_cids<DB>(
     db: &DB,
     bls_cids: &[Cid],
     secp_cids: &[Cid],
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
 
     Ok((bls_msgs, secp_msgs))

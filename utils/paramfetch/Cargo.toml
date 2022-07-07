@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 surf = { version = "2.3", default-features = false, features = ["curl-client"] }
 async-std = { version = "1.9", features = ["unstable", "attributes"] }
 pbr = "1.0"

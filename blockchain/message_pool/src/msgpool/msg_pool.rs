@@ -25,16 +25,19 @@ use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::{HeadChange, MINIMUM_BASE_FEE};
 use cid::Cid;
 use clock::ChainEpoch;
+use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use futures::{future::select, StreamExt};
+use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
+use message::message::valid_for_block_inclusion;
 use message::{ChainMessage, Message, SignedMessage};
-use networks::{ChainConfig, Height, NEWEST_NETWORK_VERSION};
+use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
@@ -71,10 +74,10 @@ impl MsgSet {
         }
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
-                let premium = exms.message().gas_premium();
+                let premium = exms.message().gas_premium.clone();
                 let rbf_denom = BigInt::from(RBF_DENOM);
-                let min_price = premium + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
-                if m.message().gas_premium() <= &min_price {
+                let min_price = premium.clone() + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
+                if m.message().gas_premium <= min_price {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
@@ -156,8 +159,8 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    /// Calico height
-    pub calico_height: ChainEpoch,
+    /// Chain сonfig
+    pub chain_config: ChainConfig,
 }
 
 impl<T> MessagePool<T>
@@ -170,7 +173,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
-        chain_config: &ChainConfig,
+        chain_config: ChainConfig,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -186,7 +189,6 @@ where
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
-        let calico_height = chain_config.epoch(Height::Calico);
 
         let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
         let mut mp = MessagePool {
@@ -204,7 +206,7 @@ where
             config,
             network_sender,
             repub_trigger,
-            calico_height,
+            chain_config: chain_config.clone(),
         };
 
         mp.load_local().await?;
@@ -281,7 +283,7 @@ where
                     cur_tipset.as_ref(),
                     republished.as_ref(),
                     local_addrs.as_ref(),
-                    calico_height,
+                    &chain_config,
                 )
                 .await
                 {
@@ -324,9 +326,7 @@ where
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
-        msg.message()
-            .valid_for_block_inclusion(0, NEWEST_NETWORK_VERSION)
-            .map_err(Error::Other)?;
+        valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
         if msg.value() > &types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
@@ -378,15 +378,15 @@ where
     ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
 
-        if sequence > msg.message().sequence() {
+        if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
         }
 
-        let publish = verify_msg_before_add(&msg, cur_ts, local, self.calico_height)?;
+        let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
         let balance = self.get_state_balance(msg.from(), cur_ts).await?;
 
-        let msg_balance = msg.message().required_funds();
+        let msg_balance = msg.required_funds();
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
@@ -472,7 +472,7 @@ where
             return Err(Error::TryAgain);
         }
 
-        let publish = verify_msg_before_add(&msg, &cur_ts, true, self.calico_height)?;
+        let publish = verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
         self.check_balance(&msg, &cur_ts).await?;
         self.add_helper(msg.clone()).await?;
         self.add_local(msg.clone()).await?;
@@ -551,7 +551,7 @@ where
         for (_, item) in mset.msgs.iter() {
             msg_vec.push(item.clone());
         }
-        msg_vec.sort_by_key(|value| value.message().sequence());
+        msg_vec.sort_by_key(|value| value.message().sequence);
         Some(msg_vec)
     }
 
@@ -662,7 +662,7 @@ where
             .put(msg.cid()?, msg.signature().clone());
     }
 
-    if msg.message().gas_limit() > 100_000_000 {
+    if msg.message().gas_limit > 100_000_000 {
         return Err(Error::Other(
             "given message has too high of a gas limit".to_string(),
         ));
@@ -676,12 +676,12 @@ where
         .put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write().await;
-    let msett = pending.get_mut(msg.message().from());
+    let msett = pending.get_mut(&msg.message().from);
     match msett {
         Some(mset) => mset.add(msg)?,
         None => {
             let mut mset = MsgSet::new(sequence);
-            let from = *msg.message().from();
+            let from = msg.message().from;
             mset.add(msg)?;
             pending.insert(from, mset);
         }
@@ -694,14 +694,12 @@ fn verify_msg_before_add(
     m: &SignedMessage,
     cur_ts: &Tipset,
     local: bool,
-    calico_height: ChainEpoch,
+    chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = interpreter::price_list_by_epoch(epoch, calico_height)
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(m.marshal_cbor()?.len());
-    m.message()
-        .valid_for_block_inclusion(min_gas.total(), NEWEST_NETWORK_VERSION)
-        .map_err(Error::Other)?;
+    valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
         let base_fee_lower_bound =
