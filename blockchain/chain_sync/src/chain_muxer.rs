@@ -10,10 +10,12 @@ use crate::tipset_syncer::{
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
 
+use address::Address;
 use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys};
 use chain::{ChainStore, Error as ChainStoreError};
 use cid::Cid;
+use crypto::{Signer, Signature};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
@@ -883,14 +885,33 @@ where
     }
 }
 
+const DUMMY_SIG: [u8; 1] = [0u8];
+
+struct DummySigner;
+impl Signer for DummySigner {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
+        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
+    use std::{convert::TryFrom, sync::Arc};
 
     use crate::validation::TipsetValidator;
-    use cid::Cid;
+    use address::Address;
+    use blocks::{BlockHeader, Tipset, Block};
+    use chain::ChainStore;
+    use cid::{Cid, Code::Blake2b256};
     use db::MemoryDB;
+    use forest_libp2p::chain_exchange::{TipsetBundle, CompactedMessages};
+    use fvm_shared::message::Message;
+    use message::SignedMessage;
+    use networks::{Height, ChainConfig};
+    use num_bigint::BigInt;
+    use state_manager::StateManager;
     use test_utils::construct_messages;
+    use super::*;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
@@ -924,4 +945,85 @@ mod tests {
     //         "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
     //     );
     // }
+
+    #[async_std::test]
+    async fn compute_base_fee_test() {
+        let blockstore = MemoryDB::default();
+        let db = Arc::new(blockstore.clone());
+        let chain_store = Arc::new(ChainStore::new(db));
+
+        // let (bls, secp) = test_utils::construct_messages();
+        // let root = TipsetValidator::compute_msg_root(&blockstore, &[bls], &[secp]).unwrap();
+        // let h0 = BlockHeader::builder()
+        //     .miner_address(Address::new_id(1000))
+        //     .messages(root)
+        //     .message_receipts(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        //     .state_root(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        //     .timestamp(2)
+        //     .build()
+        //     .unwrap();
+        // chain_store.set_genesis(&h0).unwrap();
+
+
+
+        let h0 = BlockHeader::builder()
+            .weight(BigInt::from(1u32))
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()
+            .unwrap();
+        let ua = Message {
+            to: Address::new_id(0),
+            from: Address::new_id(0),
+            ..Message::default()
+        };
+        let ub = Message {
+            to: Address::new_id(1),
+            from: Address::new_id(1),
+            ..Message::default()
+        };
+        let uc = Message {
+            to: Address::new_id(2),
+            from: Address::new_id(2),
+            ..Message::default()
+        };
+        let ud = Message {
+            to: Address::new_id(3),
+            from: Address::new_id(3),
+            ..Message::default()
+        };
+        let sa = SignedMessage::new(ua.clone(), &DummySigner).unwrap();
+        let sb = SignedMessage::new(ub.clone(), &DummySigner).unwrap();
+        let sc = SignedMessage::new(uc.clone(), &DummySigner).unwrap();
+        let sd = SignedMessage::new(ud.clone(), &DummySigner).unwrap();
+
+        let b0 = Block {
+            header: h0.clone(),
+            secp_messages: vec![sa.clone(), sb.clone(), sd.clone()],
+            bls_messages: vec![ua.clone(), ub.clone()],
+        };
+
+        chain_store.set_genesis(&h0).unwrap();
+
+        let mut tsb = TipsetBundle {
+            blocks: vec![h0],
+            messages: Some(CompactedMessages {
+                secp_msgs: vec![sa, sb, sc, sd],
+                secp_msg_includes: vec![vec![0, 1, 3]],
+                bls_msgs: vec![ua, ub, uc, ud],
+                bls_msg_includes: vec![vec![0, 1]],
+            }),
+        };
+
+        let ts = Tipset::try_from(tsb).unwrap();
+
+        
+
+
+        let chain_config = Arc::new(ChainConfig::default());
+        let state_manager: Arc<StateManager<_>> = Arc::new(StateManager::new(chain_store, chain_config).await.unwrap());
+        let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
+        // let ts = Tipset::new(vec![h0]).unwrap();
+        chain::compute_base_fee(state_manager.blockstore(), &ts, smoke_height).unwrap();
+    }
 }
