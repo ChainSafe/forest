@@ -6,14 +6,6 @@
 /// for testing because links should generally not be collapsed to generate a singular data
 /// structure, or this would lead to ambiguity of the data.
 pub mod resolve;
-#[cfg(feature = "tracking")]
-mod tracking;
-
-#[cfg(feature = "buffered")]
-pub use self::buffered::BufferedBlockStore;
-
-#[cfg(feature = "tracking")]
-pub use self::tracking::{BSStats, TrackingBlockStore};
 
 use cid::{Cid, Code};
 use db::Store;
