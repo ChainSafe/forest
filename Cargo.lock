@@ -4458,6 +4458,7 @@ dependencies = [
  "base64 0.13.0",
  "bls-signatures",
  "forest_address",
+ "forest_crypto",
  "forest_encoding",
  "fvm_shared 0.7.1",
  "libsecp256k1 0.7.0",
