@@ -937,8 +937,6 @@ mod tests {
             .unwrap();
         let ts = Tipset::new(vec![h0]).unwrap();
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(chain::compute_base_fee(&blockstore, &ts, smoke_height)
-            .err()
-            .is_some());
+        assert!(chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }
 }
