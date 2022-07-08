@@ -15,7 +15,7 @@ use forest_libp2p::{
     NetworkMessage,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use libp2p::core::PeerId;
 use log::{debug, trace, warn};
 use std::convert::TryFrom;
@@ -124,7 +124,7 @@ where
     ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
         // database. If it does, return it, else fetch over the network.
-        if let Some(b) = self.db.get(&content).map_err(|e| e.to_string())? {
+        if let Some(b) = self.db.get_obj(&content).map_err(|e| e.to_string())? {
             return Ok(b);
         }
         let (tx, rx) = oneshot_channel();
@@ -138,7 +138,7 @@ where
         let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
         match res {
             Ok(Ok(())) => {
-                match self.db.get(&content) {
+                match self.db.get_obj(&content) {
                     Ok(Some(b)) => Ok(b),
                     Ok(None) => Err(format!("Bitswap response successful for: {:?}, but can't find it in the database", content)),
                     Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e)),

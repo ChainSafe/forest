@@ -15,6 +15,7 @@ fvm_shared = { version = "0.7.1", default-features = false }
 fvm_ipld_encoding = "0.2"
 fvm_ipld_amt = "0.4.2"
 fvm_ipld_hamt = "0.5.1"
+fvm_ipld_blockstore = "0.1.1"
 fil_actors_runtime = "=7.5.1"
 serde_ipld_dagcbor = "0.1"
 address = { package = "forest_address", version = "0.3" }
@@ -27,7 +28,7 @@ vm = { package = "forest_vm", version = "0.3" }
 ipld_blockstore = "0.1"
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 forest_encoding = "0.2"
-forest_car = { path = "../../ipld/car" }
+fvm_ipld_car = "0.4.1"
 cid = { package = "forest_cid", version = "0.3" }
 crypto = { package = "forest_crypto", default_features = false, version = "0.5", features = [
     "blst",
