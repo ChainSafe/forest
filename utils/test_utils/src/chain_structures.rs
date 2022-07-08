@@ -11,8 +11,9 @@ use forest_crypto::{Signer, VRFProof};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
-use message::{SignedMessage, UnsignedMessage};
+use message::SignedMessage;
 use std::convert::TryFrom;
 
 /// Defines a TipsetKey used in testing

@@ -30,8 +30,6 @@ use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, 
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use clock::ChainEpoch;
-use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
 pub use fil_actors_runtime::runtime::DomainSeparationTag;

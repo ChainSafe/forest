@@ -5,7 +5,6 @@ use address::Address;
 use forest_message::SignedMessage;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
-use vm::{MethodNum, Serialized, TokenAmount};
 
 const DUMMY_SIG: [u8; 1] = [0u8];
 
