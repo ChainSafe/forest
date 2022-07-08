@@ -10,12 +10,10 @@ use crate::tipset_syncer::{
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
 
-use address::Address;
 use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys};
 use chain::{ChainStore, Error as ChainStoreError};
 use cid::Cid;
-use crypto::{Signature, Signer};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
@@ -895,7 +893,6 @@ mod tests {
     use cid::Cid;
     use db::MemoryDB;
     use networks::{ChainConfig, Height};
-    use num_bigint::BigInt;
     use test_utils::construct_messages;
 
     #[test]
@@ -931,8 +928,8 @@ mod tests {
     //     );
     // }
 
-    #[async_std::test]
-    async fn compute_base_fee_test() {
+    #[test]
+    fn compute_base_fee_test() {
         let blockstore = MemoryDB::default();
         let h0 = BlockHeader::builder()
             .miner_address(Address::new_id(0))

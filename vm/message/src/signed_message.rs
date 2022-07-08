@@ -125,6 +125,7 @@ impl Cbor for SignedMessage {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+
     use cid::Cid;
     use crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
