@@ -906,7 +906,6 @@ mod tests {
     use db::MemoryDB;
     use networks::{ChainConfig, Height};
     use num_bigint::BigInt;
-    use state_manager::StateManager;
     use test_utils::construct_messages;
 
     #[test]
@@ -956,11 +955,9 @@ mod tests {
         chain_store.set_genesis(&h0).unwrap();
         let ts = Tipset::new(vec![h0]).unwrap();
         let chain_config = Arc::new(ChainConfig::default());
-        let state_manager: Arc<StateManager<_>> =
-            Arc::new(StateManager::new(chain_store, chain_config).await.unwrap());
-        let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
+        let smoke_height = chain_config.epoch(Height::Smoke);
         assert!(
-            chain::compute_base_fee(state_manager.blockstore(), &ts, smoke_height)
+            chain::compute_base_fee(&blockstore, &ts, smoke_height)
                 .err()
                 .unwrap()
                 .to_string()
