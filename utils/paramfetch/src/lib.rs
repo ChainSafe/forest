@@ -47,7 +47,6 @@ struct ParameterData {
     sector_size: u64,
 }
 
-#[inline]
 fn param_dir(data_dir: &Path) -> PathBuf {
     std::env::var(PathBuf::from(DIR_ENV))
         .map(PathBuf::from)
