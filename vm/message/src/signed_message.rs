@@ -130,7 +130,6 @@ pub mod json {
     use super::*;
 
     use cid::Cid;
-    use fvm_shared::crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
@@ -164,7 +163,7 @@ pub mod json {
         struct SignedMessageSer<'a> {
             #[serde(with = "message::json")]
             message: &'a Message,
-            #[serde(with = "signature::json")]
+            #[serde(with = "forest_crypto::json")]
             signature: &'a Signature,
             #[serde(default, rename = "CID", with = "cid::json::opt")]
             cid: Option<Cid>,
@@ -186,7 +185,7 @@ pub mod json {
         struct SignedMessageDe {
             #[serde(with = "message::json")]
             message: Message,
-            #[serde(with = "signature::json")]
+            #[serde(with = "forest_crypto::json")]
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;

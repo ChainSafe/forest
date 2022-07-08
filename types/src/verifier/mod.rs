@@ -21,7 +21,6 @@ use proofs::seal;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::BTreeMap;
 use std::convert::TryInto;
-use std::error::Error as StdError;
 
 /// Full verification implementation. This will verify all proofs through `rust-fil-proofs`
 /// using locally fetched parameters.

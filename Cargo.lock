@@ -99,7 +99,7 @@ dependencies = [
  "cipher 0.2.5",
  "ctr 0.6.0",
  "ghash 0.3.1",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -113,7 +113,7 @@ dependencies = [
  "cipher 0.3.0",
  "ctr 0.8.0",
  "ghash 0.4.4",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -614,7 +614,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "base64 0.13.0",
- "bls-signatures 0.11.3",
+ "bls-signatures",
  "byteorder 1.4.3",
  "forest_encoding",
  "forest_json_utils",
@@ -635,7 +635,7 @@ dependencies = [
  "bincode",
  "bitvec 0.22.3",
  "blake2s_simd 0.5.11",
- "blstrs 0.4.2",
+ "blstrs",
  "byteorder 1.4.3",
  "crossbeam-channel",
  "digest 0.9.0",
@@ -882,35 +882,20 @@ dependencies = [
 
 [[package]]
 name = "bls-signatures"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a1f770b1f05de85e079fa775dee8b5025c36cff5b4d8bd2c9ad9c134d16de5b"
-dependencies = [
- "blst 0.2.0",
- "blstrs 0.1.3",
- "fff",
- "groupy",
- "rand_core 0.5.1",
- "rayon",
- "thiserror",
-]
-
-[[package]]
-name = "bls-signatures"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc57c23173f929b361656cebc4a8a9333dfccd91993d46942aebc72b47278a41"
 dependencies = [
  "bls12_381",
- "blst 0.3.7",
- "blstrs 0.4.2",
+ "blst",
+ "blstrs",
  "ff",
  "group",
  "hkdf 0.11.0",
  "pairing",
  "rand_core 0.6.3",
  "sha2 0.9.9",
- "subtle 2.4.1",
+ "subtle",
  "thiserror",
 ]
 
@@ -925,18 +910,7 @@ dependencies = [
  "group",
  "pairing",
  "rand_core 0.6.3",
- "subtle 2.4.1",
-]
-
-[[package]]
-name = "blst"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ce0ad2fe12998eb01f41b8ba29e697927b26b5ce04b60856bd8254658ba0fbb"
-dependencies = [
- "cc",
- "glob",
- "threadpool",
+ "subtle",
 ]
 
 [[package]]
@@ -954,23 +928,11 @@ dependencies = [
 
 [[package]]
 name = "blstrs"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3772c44fcecaa3a00fda7707507d9363e6edd21f6d66cbcc0ef6f908f43dda27"
-dependencies = [
- "blst 0.2.0",
- "fff",
- "groupy",
- "rand_core 0.5.1",
-]
-
-[[package]]
-name = "blstrs"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "664e5bb8c905952f8de3911166c63f1d6e94c04bb5094c662e5884c7bb62b475"
 dependencies = [
- "blst 0.3.7",
+ "blst",
  "byte-slice-cast",
  "ec-gpu",
  "ff",
@@ -978,7 +940,7 @@ dependencies = [
  "pairing",
  "rand_core 0.6.3",
  "serde",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -1195,7 +1157,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_ipld",
@@ -1656,22 +1618,12 @@ dependencies = [
 
 [[package]]
 name = "crypto-mac"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4434400df11d95d556bac068ddfedd482915eb18fe8bea89bc80b6e4b1c179e5"
-dependencies = [
- "generic-array 0.12.4",
- "subtle 1.0.0",
-]
-
-[[package]]
-name = "crypto-mac"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b584a330336237c1eecd3e94266efb216c56ed91225d634cb2991c5f3fd1aeab"
 dependencies = [
  "generic-array 0.14.5",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -1681,7 +1633,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bff07008ec701e8028e2ceb8f83f0e4274ee62bd2dbdc4fefff2e9a91824081a"
 dependencies = [
  "generic-array 0.14.5",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -1691,7 +1643,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1d1a86f49236c215f271d40892d5fc950490551400b02ef360692c29815c714"
 dependencies = [
  "generic-array 0.14.5",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -1792,7 +1744,7 @@ dependencies = [
  "byteorder 1.4.3",
  "digest 0.9.0",
  "rand_core 0.5.1",
- "subtle 2.4.1",
+ "subtle",
  "zeroize",
 ]
 
@@ -2302,19 +2254,7 @@ checksum = "131655483be284720a17d74ff97592b8e76576dc25563148601df2d7c9080924"
 dependencies = [
  "bitvec 0.22.3",
  "rand_core 0.6.3",
- "subtle 2.4.1",
-]
-
-[[package]]
-name = "fff"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2544d325b4870bd803d371a7df3c6845e84dcfcb6ebe7ffcae0eac6d5d676133"
-dependencies = [
- "byteorder 1.4.3",
- "cc",
- "lazy_static",
- "rand_core 0.5.1",
+ "subtle",
 ]
 
 [[package]]
@@ -2917,7 +2857,7 @@ checksum = "31b13b919031ffcf145e4a03f1d0e0ec52d9df52ea2ea77fa20141403b07d0cd"
 dependencies = [
  "anyhow",
  "bellperson",
- "blstrs 0.4.2",
+ "blstrs",
  "ff",
  "generic-array 0.14.5",
  "hex",
@@ -2941,7 +2881,7 @@ dependencies = [
  "bitvec 0.17.4",
  "blake2b_simd 0.5.11",
  "blake2s_simd 0.5.11",
- "blstrs 0.4.2",
+ "blstrs",
  "byte-slice-cast",
  "byteorder 1.4.3",
  "ff",
@@ -2958,7 +2898,7 @@ dependencies = [
  "merkletree",
  "once_cell",
  "rand 0.8.5",
- "rand_xorshift 0.3.0",
+ "rand_xorshift",
  "rayon",
  "serde",
  "serde_json",
@@ -2979,7 +2919,7 @@ dependencies = [
  "anyhow",
  "bellperson",
  "bincode",
- "blstrs 0.4.2",
+ "blstrs",
  "filecoin-hashers",
  "filecoin-proofs",
  "fr32",
@@ -3077,7 +3017,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_libp2p",
@@ -3164,7 +3104,7 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_encoding",
  "forest_json_utils",
  "forest_message",
@@ -3216,28 +3156,11 @@ dependencies = [
 
 [[package]]
 name = "forest_crypto"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60d3e968dce965de74604c65f0596115fa3b4fe5cfb320bf730cbb7520484219"
-dependencies = [
- "base64 0.13.0",
- "bls-signatures 0.7.1",
- "forest_address",
- "forest_encoding",
- "libsecp256k1 0.3.5",
- "num-derive",
- "num-traits",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "forest_crypto"
 version = "0.5.2"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
- "bls-signatures 0.11.3",
+ "bls-signatures",
  "fil_actors_runtime 7.5.1",
  "forest_address",
  "forest_encoding",
@@ -3333,7 +3256,7 @@ dependencies = [
  "forest_blocks",
  "forest_car",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_message",
@@ -3367,10 +3290,11 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
+ "fvm",
  "fvm_ipld_encoding",
  "fvm_shared 0.7.1",
  "num-traits",
@@ -3415,7 +3339,7 @@ checksum = "80932cb34221f04d5a79245d1d9d3aff991abc0ae7cc49100694b6e478bb8a19"
 dependencies = [
  "anyhow",
  "bellperson",
- "blstrs 0.4.2",
+ "blstrs",
  "byte-slice-cast",
  "byteorder 1.4.3",
  "ff",
@@ -3784,7 +3708,7 @@ dependencies = [
  "anyhow",
  "bimap",
  "blake2b_simd 1.0.0",
- "bls-signatures 0.11.3",
+ "bls-signatures",
  "byteorder 1.4.3",
  "cid",
  "cs_serde_bytes",
@@ -4002,20 +3926,8 @@ dependencies = [
  "ff",
  "rand 0.8.5",
  "rand_core 0.6.3",
- "rand_xorshift 0.3.0",
- "subtle 2.4.1",
-]
-
-[[package]]
-name = "groupy"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d38f1bec17d75a7c30b754cd74db6e7cb5927529021ced14fbd622411c04d8b"
-dependencies = [
- "fff",
- "rand 0.7.3",
- "rand_xorshift 0.2.0",
- "thiserror",
+ "rand_xorshift",
+ "subtle",
 ]
 
 [[package]]
@@ -4097,16 +4009,6 @@ dependencies = [
 
 [[package]]
 name = "hmac"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dcb5e64cda4c23119ab41ba960d1e170a774c8e4b9d9e6a9bc18aabf5e59695"
-dependencies = [
- "crypto-mac 0.7.0",
- "digest 0.8.1",
-]
-
-[[package]]
-name = "hmac"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "126888268dcc288495a26bf004b38c5fdbb31682f992c84ceb046a1f0fe38840"
@@ -4133,17 +4035,6 @@ checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
  "crypto-mac 0.11.1",
  "digest 0.9.0",
-]
-
-[[package]]
-name = "hmac-drbg"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6e570451493f10f6581b48cdd530413b63ea9e780f544bfd3bdcaa0d89d1a7b"
-dependencies = [
- "digest 0.8.1",
- "generic-array 0.12.4",
- "hmac 0.7.1",
 ]
 
 [[package]]
@@ -4610,7 +4501,7 @@ name = "key_management"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
- "bls-signatures 0.11.3",
+ "bls-signatures",
  "forest_address",
  "forest_encoding",
  "fvm_shared 0.7.1",
@@ -5301,22 +5192,6 @@ dependencies = [
 
 [[package]]
 name = "libsecp256k1"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fc1e2c808481a63dc6da2074752fdd4336a3c8fcc68b83db6f1fd5224ae7962"
-dependencies = [
- "arrayref",
- "crunchy",
- "digest 0.8.1",
- "hmac-drbg 0.2.0",
- "rand 0.7.3",
- "sha2 0.8.2",
- "subtle 2.4.1",
- "typenum",
-]
-
-[[package]]
-name = "libsecp256k1"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9d220bc1feda2ac231cb78c3d26f27676b8cf82c96971f7aeef3d0cf2797c73"
@@ -5324,7 +5199,7 @@ dependencies = [
  "arrayref",
  "base64 0.12.3",
  "digest 0.9.0",
- "hmac-drbg 0.3.0",
+ "hmac-drbg",
  "libsecp256k1-core 0.2.2",
  "libsecp256k1-gen-ecmult 0.2.1",
  "libsecp256k1-gen-genmult 0.2.1",
@@ -5343,7 +5218,7 @@ dependencies = [
  "arrayref",
  "base64 0.13.0",
  "digest 0.9.0",
- "hmac-drbg 0.3.0",
+ "hmac-drbg",
  "libsecp256k1-core 0.3.0",
  "libsecp256k1-gen-ecmult 0.3.0",
  "libsecp256k1-gen-genmult 0.3.0",
@@ -5361,7 +5236,7 @@ checksum = "d0f6ab710cec28cef759c5f18671a27dae2a5f952cdaaee1d8e2908cb2478a80"
 dependencies = [
  "crunchy",
  "digest 0.9.0",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -5372,7 +5247,7 @@ checksum = "5be9b9bb642d8522a44d533eab56c16c738301965504753b03ad1de3425d5451"
 dependencies = [
  "crunchy",
  "digest 0.9.0",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]
@@ -5834,7 +5709,7 @@ checksum = "45f91e8bfce021d30c9d576440d6e79ef87564cafcd50cb47714ddbe2b21bb1a"
 dependencies = [
  "bellperson",
  "blake2s_simd 0.5.11",
- "blstrs 0.4.2",
+ "blstrs",
  "byteorder 1.4.3",
  "ec-gpu",
  "ec-gpu-gen",
@@ -6876,15 +6751,6 @@ dependencies = [
 
 [[package]]
 name = "rand_xorshift"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d416b86801d23dde1aa643023b775c3a462efc0ed96443add11546cdf1dca8"
-dependencies = [
- "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_xorshift"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
@@ -7075,7 +6941,7 @@ dependencies = [
  "auth",
  "base64 0.13.0",
  "beacon",
- "bls-signatures 0.11.3",
+ "bls-signatures",
  "chain",
  "chain_sync",
  "crossbeam",
@@ -7086,7 +6952,7 @@ dependencies = [
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_db",
  "forest_encoding",
  "forest_ipld",
@@ -7133,7 +6999,7 @@ dependencies = [
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
- "forest_crypto 0.5.1",
+ "forest_crypto",
  "forest_ipld",
  "forest_libp2p",
  "forest_message",
@@ -7512,7 +7378,7 @@ name = "serialization_tests"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
- "bls-signatures 0.11.3",
+ "bls-signatures",
  "forest_blocks",
  "forest_cid",
  "forest_encoding",
@@ -7760,7 +7626,7 @@ dependencies = [
  "ring",
  "rustc_version 0.3.3",
  "sha2 0.9.9",
- "subtle 2.4.1",
+ "subtle",
  "x25519-dalek",
 ]
 
@@ -8040,7 +7906,7 @@ dependencies = [
  "blake2b_simd 0.5.11",
  "blake2s_simd 0.5.11",
  "block-modes",
- "blstrs 0.4.2",
+ "blstrs",
  "byteorder 1.4.3",
  "config",
  "ff",
@@ -8078,7 +7944,7 @@ dependencies = [
  "anyhow",
  "bellperson",
  "bincode",
- "blstrs 0.4.2",
+ "blstrs",
  "byte-slice-cast",
  "byteorder 1.4.3",
  "crossbeam",
@@ -8121,7 +7987,7 @@ dependencies = [
  "bellperson",
  "blake2b_simd 0.5.11",
  "blake2s_simd 0.5.11",
- "blstrs 0.4.2",
+ "blstrs",
  "byteorder 1.4.3",
  "crossbeam",
  "ff",
@@ -8149,7 +8015,7 @@ dependencies = [
  "anyhow",
  "bellperson",
  "bincode",
- "blstrs 0.4.2",
+ "blstrs",
  "byte-slice-cast",
  "byteorder 1.4.3",
  "crossbeam",
@@ -8191,7 +8057,7 @@ checksum = "1a9baee171ea889cfe5333700f0948777b483db8dc805c5c519ffe92e7714783"
 dependencies = [
  "bitflags",
  "byteorder 1.4.3",
- "subtle 2.4.1",
+ "subtle",
  "tiny-keccak",
 ]
 
@@ -8230,12 +8096,6 @@ dependencies = [
  "quote 1.0.20",
  "syn 1.0.98",
 ]
-
-[[package]]
-name = "subtle"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d67a5a62ba6e01cb2192ff309324cb4875d0c451d55fe2319433abe7a05a8ee"
 
 [[package]]
 name = "subtle"
@@ -8369,7 +8229,7 @@ dependencies = [
  "forest_bigint",
  "forest_blocks",
  "forest_cid",
- "forest_crypto 0.5.2",
+ "forest_crypto",
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
@@ -8813,7 +8673,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f214e8f697e925001e66ec2c6e37a4ef93f0f78c2eed7814394e10c62025b05"
 dependencies = [
  "generic-array 0.14.5",
- "subtle 2.4.1",
+ "subtle",
 ]
 
 [[package]]

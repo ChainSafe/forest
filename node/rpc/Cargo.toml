@@ -59,7 +59,7 @@ wallet = { package = "key_management", path = "../../key_management", features =
     "json",
 ] }
 fvm_shared = { version = "0.7.1", default-features = false }
-forest_crypto = "0.5"
+forest_crypto = "0.5.2"
 fil_actors_runtime = "=7.5.1"
 fvm_ipld_bitfield = "0.5.2"
 
