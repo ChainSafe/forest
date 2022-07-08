@@ -933,7 +933,6 @@ mod tests {
         let blockstore = MemoryDB::default();
         let h0 = BlockHeader::builder()
             .miner_address(Address::new_id(0))
-            .timestamp(7777)
             .build()
             .unwrap();
         let ts = Tipset::new(vec![h0]).unwrap();
