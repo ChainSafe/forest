@@ -8,7 +8,7 @@ use blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use blockstore::BlockStore;
+use blockstore::{BlockStore, BlockStoreExt};
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
 use fvm_shared::message::Message as FVMMessage;
@@ -44,7 +44,7 @@ where
     let ret: FVMMessage = data
         .state_manager
         .blockstore()
-        .get(&msg_cid)?
+        .get_obj(&msg_cid)?
         .ok_or("can't find message with that cid")?;
     Ok(MessageJson(ret))
 }
@@ -94,7 +94,7 @@ where
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
-        .get(&blk_cid)?
+        .get_obj(&blk_cid)?
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
@@ -234,7 +234,7 @@ where
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
-        .get(&blk_cid)?
+        .get_obj(&blk_cid)?
         .ok_or("can't find BlockHeader with that cid")?;
     Ok(BlockHeaderJson(blk))
 }

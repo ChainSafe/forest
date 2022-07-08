@@ -31,6 +31,7 @@ clean:
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
+	@cargo clean -p legacy_ipld_amt
 	@cargo clean -p forest_bigint
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore

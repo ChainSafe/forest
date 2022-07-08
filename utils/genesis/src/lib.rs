@@ -7,9 +7,9 @@ use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
 use cid::Cid;
 use fil_types::verifier::ProofVerifier;
-use forest_car::{load_car, CarReader};
 use futures::AsyncRead;
-use ipld_blockstore::BlockStore;
+use fvm_ipld_car::{load_car, CarReader};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use log::{debug, info};
 use net_utils::FetchProgress;
 use state_manager::StateManager;
@@ -94,14 +94,11 @@ where
     }
 
     let genesis_block: BlockHeader =
-        chain_store
-            .db
-            .get_anyhow(&genesis_cids[0])?
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Could not find genesis block despite being loaded using a genesis file"
-                )
-            })?;
+        chain_store.db.get_obj(&genesis_cids[0])?.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Could not find genesis block despite being loaded using a genesis file"
+            )
+        })?;
 
     let store_genesis = chain_store.genesis()?;
 

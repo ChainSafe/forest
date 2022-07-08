@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, Store};
+use anyhow::Result;
+use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -63,5 +66,15 @@ impl Store for MemoryDB {
         K: AsRef<[u8]>,
     {
         Ok(self.db.read().contains_key(&Self::db_index(key)))
+    }
+}
+
+impl Blockstore for MemoryDB {
+    fn get(&self, k: &Cid) -> Result<Option<Vec<u8>>> {
+        self.read(k.to_bytes()).map_err(|e| e.into())
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> Result<()> {
+        self.write(k.to_bytes(), block).map_err(|e| e.into())
     }
 }

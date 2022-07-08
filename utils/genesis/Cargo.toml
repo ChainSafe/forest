@@ -12,7 +12,7 @@ anyhow          = "1.0"
 ipld_blockstore = "0.1"
 async-std       = "1.9"
 log             = "0.4"
-forest_car      = { path = "../../ipld/car" }
+fvm_ipld_car    = "0.4.1"
 state_manager   = { path = "../../blockchain/state_manager" }
 cid             = { package = "forest_cid", version = "0.3" }
 blocks          = { package = "forest_blocks", path = "../../blockchain/blocks" }

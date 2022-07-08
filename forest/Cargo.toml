@@ -25,7 +25,8 @@ chain_sync        = { path = "../blockchain/chain_sync" }
 state_manager     = { path = "../blockchain/state_manager" }
 cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
 multibase         = "0.9"
-forest_car        = { path = "../ipld/car" }
+fvm_ipld_car      = "0.4.1"
+forest_crypto     = "0.5"
 vm                = { package = "forest_vm", version = "0.3" }
 tokio             = { version = "1.0", features = ["sync"] }
 num-bigint        = { path = "../utils/bigint", package = "forest_bigint" }
@@ -62,7 +63,6 @@ rug               = "1.13"
 toml              = "0.5"
 directories       = "4.0.1"
 fvm_shared        = { version = "0.7.1", default-features = false }
-forest_crypto     = "0.5"
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"
