@@ -929,7 +929,7 @@ mod tests {
     // }
 
     #[test]
-    fn compute_base_fee_test() {
+    fn compute_base_fee_shouldnt_panic_on_bad_input() {
         let blockstore = MemoryDB::default();
         let h0 = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -937,12 +937,8 @@ mod tests {
             .unwrap();
         let ts = Tipset::new(vec![h0]).unwrap();
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(
-            chain::compute_base_fee(&blockstore, &ts, smoke_height)
-                .err()
-                .unwrap()
-                .to_string()
-                == *"Invalid tipset: no msg root with cid baeaaaaa"
-        );
+        chain::compute_base_fee(&blockstore, &ts, smoke_height)
+            .err()
+            .unwrap();
     }
 }
