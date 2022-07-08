@@ -5,6 +5,7 @@ use crate::FilterEstimate;
 use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::BlockStoreExt;
 use serde::Serialize;
 use vm::{ActorState, TokenAmount};
 
@@ -31,7 +32,7 @@ impl State {
     {
         if actor.code == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward")) {
             Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V7)
                 .context("Actor state doesn't exist in store")?)
         } else {

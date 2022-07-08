@@ -12,8 +12,7 @@ use address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
-use blockstore::BlockStore;
-use blockstore::FvmStore;
+use blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -32,7 +31,7 @@ use fvm_shared::message::Message;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
-use ipld_amt::Amt;
+use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use networks::{ChainConfig, Height};
@@ -895,7 +894,7 @@ where
                     .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
                 let parent: BlockHeader = self
                     .blockstore()
-                    .get_anyhow(parent_cid)?
+                    .get_obj(parent_cid)?
                     .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
                 parent.epoch()
             } else {

@@ -16,7 +16,7 @@ db              = { package = "forest_db", version = "0.1" }
 fil_types       = { version = "0.2" }
 futures         = { version = "0.3" }
 async-std       = "1.9"
-forest_car      = { path = "../../ipld/car" }
+fvm_ipld_car    = "0.4.1"
 
 [dev-dependencies]
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

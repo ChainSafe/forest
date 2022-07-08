@@ -17,7 +17,6 @@ num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 num-traits = "0.2"
 message = { package = "forest_message", version = "0.7", features = ["blst"] }
 ipld_blockstore = "0.1"
-ipld_amt = "0.2"
 thiserror = "1.0"
 log = "0.4.8"
 state_tree = { path = "../../vm/state_tree/" }
@@ -33,12 +32,13 @@ types = { package = "fil_types", version = "0.2" }
 lazy_static = "1.4"
 interpreter = { path = "../../vm/interpreter/" }
 lru = "0.7.2"
-forest_car = { path = "../../ipld/car" }
+fvm_ipld_car = "0.4.1"
 forest_ipld = "0.1.1"
 networks = { path = "../../types/networks" }
 lockfree = "0.5.1"
 crossbeam = "0.8.0"
 fvm_shared = { version = "0.7.1", default-features = false }
+legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 
 [features]
 json = []
