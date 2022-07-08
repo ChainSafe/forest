@@ -47,6 +47,8 @@ struct ParameterData {
     sector_size: u64,
 }
 
+// Proof parameter file directory. Defaults to %DATA_DIR/filecoin-proof-parameters unless
+// the FIL_PROOFS_PARAMETER_CACHE environment variable is set.
 fn param_dir(data_dir: &Path) -> PathBuf {
     std::env::var(PathBuf::from(DIR_ENV))
         .map(PathBuf::from)
@@ -61,6 +63,8 @@ fn param_dir(data_dir: &Path) -> PathBuf {
 /// validity. For consistency, Forest will prefer to download the files it's local data
 /// directory. To this end, the FIL_PROOFS_PARAMETER_CACHE environment variable is
 /// updated before the parameters are downloaded.
+///
+/// More information available here: https://github.com/filecoin-project/rust-fil-proofs#parameter-file-location
 pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     std::env::set_var(DIR_ENV, param_dir(data_dir));
 }
