@@ -901,9 +901,9 @@ mod tests {
     use super::*;
     use crate::validation::TipsetValidator;
     use address::Address;
-    use blocks::{Block, BlockHeader, Tipset};
+    use blocks::{BlockHeader, Tipset};
     use chain::ChainStore;
-    use cid::{Cid, Code::Blake2b256};
+    use cid::Cid;
     use db::MemoryDB;
     use forest_libp2p::chain_exchange::{CompactedMessages, TipsetBundle};
     use fvm_shared::message::Message;
@@ -1006,7 +1006,7 @@ mod tests {
                 .err()
                 .unwrap()
                 .to_string()
-                == "Invalid tipset: no msg root with cid baeaaaaa".to_string()
+                == *"Invalid tipset: no msg root with cid baeaaaaa"
         );
     }
 }
