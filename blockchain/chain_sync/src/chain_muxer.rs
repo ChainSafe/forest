@@ -898,16 +898,12 @@ impl Signer for DummySigner {
 mod tests {
     use std::{convert::TryFrom, sync::Arc};
 
-    use super::*;
     use crate::validation::TipsetValidator;
     use address::Address;
     use blocks::{BlockHeader, Tipset};
     use chain::ChainStore;
     use cid::Cid;
     use db::MemoryDB;
-    use forest_libp2p::chain_exchange::{CompactedMessages, TipsetBundle};
-    use fvm_shared::message::Message;
-    use message::SignedMessage;
     use networks::{ChainConfig, Height};
     use num_bigint::BigInt;
     use state_manager::StateManager;
@@ -951,52 +947,14 @@ mod tests {
         let blockstore = MemoryDB::default();
         let db = Arc::new(blockstore.clone());
         let chain_store = Arc::new(ChainStore::new(db));
-
         let h0 = BlockHeader::builder()
             .weight(BigInt::from(1u32))
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()
             .unwrap();
-        let ua = Message {
-            to: Address::new_id(0),
-            from: Address::new_id(0),
-            ..Message::default()
-        };
-        let ub = Message {
-            to: Address::new_id(1),
-            from: Address::new_id(1),
-            ..Message::default()
-        };
-        let uc = Message {
-            to: Address::new_id(2),
-            from: Address::new_id(2),
-            ..Message::default()
-        };
-        let ud = Message {
-            to: Address::new_id(3),
-            from: Address::new_id(3),
-            ..Message::default()
-        };
-        let sa = SignedMessage::new(ua.clone(), &DummySigner).unwrap();
-        let sb = SignedMessage::new(ub.clone(), &DummySigner).unwrap();
-        let sc = SignedMessage::new(uc.clone(), &DummySigner).unwrap();
-        let sd = SignedMessage::new(ud.clone(), &DummySigner).unwrap();
-
         chain_store.set_genesis(&h0).unwrap();
-
-        let tsb = TipsetBundle {
-            blocks: vec![h0],
-            messages: Some(CompactedMessages {
-                secp_msgs: vec![sa, sb, sc, sd],
-                secp_msg_includes: vec![vec![0, 1, 3]],
-                bls_msgs: vec![ua, ub, uc, ud],
-                bls_msg_includes: vec![vec![0, 1]],
-            }),
-        };
-
-        let ts = Tipset::try_from(tsb).unwrap();
-
+        let ts = Tipset::new(vec![h0]).unwrap();
         let chain_config = Arc::new(ChainConfig::default());
         let state_manager: Arc<StateManager<_>> =
             Arc::new(StateManager::new(chain_store, chain_config).await.unwrap());
