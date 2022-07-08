@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use surf::Client;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
-const PARAM_DIR: &str = "/filecoin-proof-parameters";
+const PARAM_DIR: &str = "filecoin-proof-parameters";
 const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
 const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
