@@ -15,7 +15,7 @@ use beacon::{Beacon, BeaconSchedule};
 use blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys};
 use chain::{ChainStore, Error as ChainStoreError};
 use cid::Cid;
-use crypto::{Signer, Signature};
+use crypto::{Signature, Signer};
 use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
@@ -898,20 +898,20 @@ impl Signer for DummySigner {
 mod tests {
     use std::{convert::TryFrom, sync::Arc};
 
+    use super::*;
     use crate::validation::TipsetValidator;
     use address::Address;
-    use blocks::{BlockHeader, Tipset, Block};
+    use blocks::{Block, BlockHeader, Tipset};
     use chain::ChainStore;
     use cid::{Cid, Code::Blake2b256};
     use db::MemoryDB;
-    use forest_libp2p::chain_exchange::{TipsetBundle, CompactedMessages};
+    use forest_libp2p::chain_exchange::{CompactedMessages, TipsetBundle};
     use fvm_shared::message::Message;
     use message::SignedMessage;
-    use networks::{Height, ChainConfig};
+    use networks::{ChainConfig, Height};
     use num_bigint::BigInt;
     use state_manager::StateManager;
     use test_utils::construct_messages;
-    use super::*;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
@@ -952,20 +952,6 @@ mod tests {
         let db = Arc::new(blockstore.clone());
         let chain_store = Arc::new(ChainStore::new(db));
 
-        // let (bls, secp) = test_utils::construct_messages();
-        // let root = TipsetValidator::compute_msg_root(&blockstore, &[bls], &[secp]).unwrap();
-        // let h0 = BlockHeader::builder()
-        //     .miner_address(Address::new_id(1000))
-        //     .messages(root)
-        //     .message_receipts(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        //     .state_root(cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        //     .timestamp(2)
-        //     .build()
-        //     .unwrap();
-        // chain_store.set_genesis(&h0).unwrap();
-
-
-
         let h0 = BlockHeader::builder()
             .weight(BigInt::from(1u32))
             .miner_address(Address::new_id(0))
@@ -997,15 +983,9 @@ mod tests {
         let sc = SignedMessage::new(uc.clone(), &DummySigner).unwrap();
         let sd = SignedMessage::new(ud.clone(), &DummySigner).unwrap();
 
-        let b0 = Block {
-            header: h0.clone(),
-            secp_messages: vec![sa.clone(), sb.clone(), sd.clone()],
-            bls_messages: vec![ua.clone(), ub.clone()],
-        };
-
         chain_store.set_genesis(&h0).unwrap();
 
-        let mut tsb = TipsetBundle {
+        let tsb = TipsetBundle {
             blocks: vec![h0],
             messages: Some(CompactedMessages {
                 secp_msgs: vec![sa, sb, sc, sd],
@@ -1017,13 +997,16 @@ mod tests {
 
         let ts = Tipset::try_from(tsb).unwrap();
 
-        
-
-
         let chain_config = Arc::new(ChainConfig::default());
-        let state_manager: Arc<StateManager<_>> = Arc::new(StateManager::new(chain_store, chain_config).await.unwrap());
+        let state_manager: Arc<StateManager<_>> =
+            Arc::new(StateManager::new(chain_store, chain_config).await.unwrap());
         let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
-        // let ts = Tipset::new(vec![h0]).unwrap();
-        chain::compute_base_fee(state_manager.blockstore(), &ts, smoke_height).unwrap();
+        assert!(
+            chain::compute_base_fee(state_manager.blockstore(), &ts, smoke_height)
+                .err()
+                .unwrap()
+                .to_string()
+                == "Invalid tipset: no msg root with cid baeaaaaa".to_string()
+        );
     }
 }
