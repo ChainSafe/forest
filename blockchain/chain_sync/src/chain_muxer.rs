@@ -896,12 +896,11 @@ impl Signer for DummySigner {
 
 #[cfg(test)]
 mod tests {
-    use std::{convert::TryFrom, sync::Arc};
+    use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
     use address::Address;
     use blocks::{BlockHeader, Tipset};
-    use chain::ChainStore;
     use cid::Cid;
     use db::MemoryDB;
     use networks::{ChainConfig, Height};
@@ -944,18 +943,14 @@ mod tests {
     #[async_std::test]
     async fn compute_base_fee_test() {
         let blockstore = MemoryDB::default();
-        let db = Arc::new(blockstore.clone());
-        let chain_store = Arc::new(ChainStore::new(db));
         let h0 = BlockHeader::builder()
             .weight(BigInt::from(1u32))
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()
             .unwrap();
-        chain_store.set_genesis(&h0).unwrap();
         let ts = Tipset::new(vec![h0]).unwrap();
-        let chain_config = Arc::new(ChainConfig::default());
-        let smoke_height = chain_config.epoch(Height::Smoke);
+        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
         assert!(
             chain::compute_base_fee(&blockstore, &ts, smoke_height)
                 .err()
