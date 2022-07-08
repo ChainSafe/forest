@@ -8,8 +8,6 @@ mod buffered;
 /// for testing because links should generally not be collapsed to generate a singular data
 /// structure, or this would lead to ambiguity of the data.
 pub mod resolve;
-#[cfg(feature = "sled")]
-mod sled;
 #[cfg(feature = "tracking")]
 mod tracking;
 
