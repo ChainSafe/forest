@@ -34,7 +34,7 @@ const SHA_256_BITS: usize = 256;
 /// use address::Address;
 /// use cid::{Cid, Code::Identity};
 /// use fvm_shared::bigint::BigInt;
-/// use crypto::Signature;
+/// use fvm_shared::crypto::signature::Signature;
 ///
 /// BlockHeader::builder()
 ///     .messages(cid::new_from_cbor(&[], Identity)) // required
