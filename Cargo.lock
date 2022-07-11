@@ -7811,6 +7811,7 @@ dependencies = [
  "async-std",
  "colored",
  "difference",
+ "directories",
  "fil_types",
  "forest_address",
  "forest_blocks",

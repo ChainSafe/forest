@@ -1,60 +1,45 @@
-use async_std::fs::File;
-use async_std::io::BufReader;
-use std::path::PathBuf;
+use directories::ProjectDirs;
 use structopt::StructOpt;
 
 use cid::Cid;
-use forest_car::load_car;
+use db::rocks::RocksDb;
+use db::rocks_config::RocksDbConfig;
 use statediff::print_state_diff;
 
-#[derive(Debug, StructOpt)]
-pub struct CarCommand {
-    #[structopt(parse(from_os_str))]
-    #[structopt(short, long, help = "The CAR archive file")]
-    file: PathBuf,
-    #[structopt(help = "The pre state root cid")]
-    pre: Cid,
-    #[structopt(help = "The post state root cid")]
-    post: Cid,
-}
-
-impl CarCommand {
-    pub async fn run(&self) {
-        // let file = File::open(&self.file).await.unwrap();
-        // let buf_reader = BufReader::new(file);
-        // let bs = MemoryDB::default();
-
-        // let cids = load_car(&bs, buf_reader).await.unwrap();
-        // println!("Roots:");
-        // for cid in cids {
-        //     println!("{cid}");
-        // }
-        // print_state_diff(&bs, &self.pre, &self.post, None).unwrap();
-    }
-}
-
-#[derive(Debug, StructOpt)]
+#[derive(StructOpt)]
 pub struct ChainCommand {
     #[structopt(help = "The pre cid object")]
     pre: Cid,
     #[structopt(help = "The post cid object")]
-    post: Option<Cid>,
+    post: Cid,
+    #[structopt(short, long, help = "The name of the chain", default_value = "mainnet")]
+    chain: String,
+    #[structopt(short, long, help = "The depth at which ipld links are resolved")]
+    depth: Option<u64>,
 }
 
 impl ChainCommand {
     pub async fn run(&self) {
-        todo!()
+        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
+        let mut path = dir.data_dir().to_path_buf();
+        path.push(&self.chain);
+        path.push("db");
+
+        let bs =
+            RocksDb::open(path, &RocksDbConfig::default()).expect("Opening RocksDB must succeed");
+
+        if let Err(err) = print_state_diff(&bs, &self.pre, &self.post, self.depth) {
+            eprintln!("Failed to print state diff: {}", err);
+        }
     }
 }
 
 /// statediff binary subcommands available.
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 #[structopt(about = "statediff subcommands")]
 enum Subcommand {
-    #[structopt(name = "car", about = "Examine the state delta from a CAR")]
-    Car(CarCommand),
-    #[structopt(name = "chain", about = "Examine the state delta of an API object")]
+    #[structopt(name = "chain", about = "Examine the state delta")]
     Chain(ChainCommand),
 }
 
@@ -76,9 +61,6 @@ async fn main() {
     // Capture Cli inputs
     let Cli { cmd } = Cli::from_args();
     match cmd {
-        Subcommand::Car(cmd) => {
-            cmd.run().await;
-        }
         Subcommand::Chain(cmd) => {
             cmd.run().await;
         }
