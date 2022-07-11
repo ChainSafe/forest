@@ -268,8 +268,20 @@ impl Beacon for DrandBeacon {
     }
 
     fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64 {
+        // Algorithm for nv15 and below
+        // (latest_ts - self.drand_gen_time) / self.interval
+
+        // Algorithm for nv16 and above
         let latest_ts =
             ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
-        (latest_ts - self.drand_gen_time) / self.interval
+
+        if latest_ts < self.drand_gen_time {
+            return 1;
+        }
+        let from_genesis = latest_ts - self.drand_gen_time;
+        // we take the time from genesis divided by the periods in seconds, that
+        // gives us the number of periods since genesis.  We also add +1 because
+        // round 1 starts at genesis time.
+        from_genesis / self.interval + 1
     }
 }
