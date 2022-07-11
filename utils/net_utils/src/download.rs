@@ -69,7 +69,8 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
             }
         };
 
-        let request = task::block_on(client.get_async(url.as_str())).map_err(|e| anyhow::anyhow!("{}", e))?;
+        let request =
+            task::block_on(client.get_async(url.as_str())).map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
@@ -87,7 +88,9 @@ impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
     type Error = anyhow::Error;
 
     fn try_from(file: File) -> Result<Self, Self::Error> {
-        let total_size = async_std::task::block_on(file.metadata()).map_err(|e| anyhow::anyhow!("{}", e))?.len();
+        let total_size = async_std::task::block_on(file.metadata())
+            .map_err(|e| anyhow::anyhow!("{}", e))?
+            .len();
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");

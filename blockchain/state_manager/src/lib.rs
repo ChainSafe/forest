@@ -99,11 +99,16 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis().map_err(|e| anyhow::anyhow!("{}", e))?.ok_or("genesis header was none").map_err(|e| anyhow::anyhow!("{}", e))?;
+        let genesis = cs
+            .genesis()
+            .map_err(|e| anyhow::anyhow!("{}", e))?
+            .ok_or("genesis header was none")
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         let beacon = Arc::new(
             chain_config
                 .get_beacon_schedule(genesis.timestamp())
-                .await.map_err(|e| anyhow::anyhow!("{}", e))?,
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?,
         );
 
         Ok(Self {
@@ -123,12 +128,17 @@ where
         chain_subs: Publisher<HeadChange>,
         config: ChainConfig,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis().map_err(|e| anyhow::anyhow!("{}", e))?.ok_or("genesis header was none").map_err(|e| anyhow::anyhow!("{}", e))?;
+        let genesis = cs
+            .genesis()
+            .map_err(|e| anyhow::anyhow!("{}", e))?
+            .ok_or("genesis header was none")
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         let chain_config = Arc::new(config);
         let beacon = Arc::new(
             chain_config
                 .get_beacon_schedule(genesis.timestamp())
-                .await.map_err(|e| anyhow::anyhow!("{}", e))?,
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?,
         );
 
         Ok(Self {
