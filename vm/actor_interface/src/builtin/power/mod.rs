@@ -7,6 +7,7 @@ use fil_types::StoragePower;
 
 use cid::Cid;
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::BlockStoreExt;
 use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use vm::{ActorState, TokenAmount};
@@ -56,7 +57,7 @@ impl State {
     {
         if is_v8_power_cid(&actor.code) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }

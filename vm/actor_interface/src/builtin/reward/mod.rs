@@ -6,6 +6,7 @@ use address::Address;
 use cid::Cid;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
+use ipld_blockstore::BlockStoreExt;
 use serde::Serialize;
 use vm::{ActorState, TokenAmount};
 
@@ -42,7 +43,7 @@ impl State {
     {
         if is_v8_reward_cid(&actor.code) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }

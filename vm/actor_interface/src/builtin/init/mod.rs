@@ -4,7 +4,7 @@
 use address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
 use vm::ActorState;
 
@@ -40,13 +40,13 @@ impl State {
     {
         if is_v8_init_cid(&actor.code) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }
         if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }

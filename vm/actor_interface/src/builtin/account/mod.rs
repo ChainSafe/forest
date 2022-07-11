@@ -9,6 +9,7 @@ use serde::Serialize;
 use vm::ActorState;
 
 use anyhow::Context;
+use ipld_blockstore::BlockStoreExt;
 
 /// Account actor method.
 pub type Method = fil_actor_account_v8::Method;
@@ -42,7 +43,7 @@ impl State {
     {
         if is_v8_account_cid(&actor.code) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }

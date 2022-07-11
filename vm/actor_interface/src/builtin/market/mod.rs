@@ -6,7 +6,7 @@ use cid::Cid;
 use fil_types::PaddedPieceSize;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use num_bigint::bigint_ser::json;
 use serde::Serialize;
 use std::marker::PhantomData;
@@ -44,7 +44,7 @@ impl State {
     {
         if is_v8_market_cid(&actor.code) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }

@@ -11,7 +11,7 @@ use forest_json_utils::go_vec_visitor;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use libp2p::PeerId;
 use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
@@ -49,7 +49,7 @@ impl State {
     {
         if is_v8_miner_cid(&actor.code) {
             return Ok(store
-                .get_anyhow(&actor.state)?
+                .get_obj(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }

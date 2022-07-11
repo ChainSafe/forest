@@ -1113,7 +1113,6 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_db",
@@ -1121,11 +1120,12 @@ dependencies = [
  "forest_ipld",
  "forest_message",
  "futures",
+ "fvm_ipld_car",
  "fvm_shared 0.8.0",
  "interpreter",
- "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
+ "legacy_ipld_amt",
  "lockfree",
  "log",
  "lru 0.7.7",
@@ -1155,7 +1155,6 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_db",
@@ -1168,14 +1167,15 @@ dependencies = [
  "futures",
  "futures-util",
  "fvm",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared 0.8.0",
  "genesis",
  "hex",
  "interpreter",
- "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
+ "legacy_ipld_amt",
  "libp2p 0.40.0",
  "log",
  "lru 0.7.7",
@@ -2660,7 +2660,6 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_db",
@@ -2670,6 +2669,7 @@ dependencies = [
  "forest_vm",
  "futures",
  "fvm",
+ "fvm_ipld_car",
  "fvm_shared 0.8.0",
  "genesis",
  "hex",
@@ -2766,23 +2766,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_car"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "futures",
- "fvm_ipld_encoding",
- "fvm_shared 0.8.0",
- "integer-encoding",
- "ipld_blockstore",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "forest_cid"
 version = "0.3.0"
 dependencies = [
@@ -2824,12 +2807,13 @@ name = "forest_db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "forest_cid",
  "forest_encoding",
+ "fvm_ipld_blockstore",
  "num_cpus",
  "parking_lot 0.12.1",
  "rocksdb",
  "serde",
- "sled",
  "tempfile",
  "thiserror",
 ]
@@ -2899,7 +2883,6 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_db",
@@ -2907,6 +2890,7 @@ dependencies = [
  "forest_message",
  "futures",
  "futures-util",
+ "fvm_ipld_car",
  "fvm_shared 0.8.0",
  "genesis",
  "git-version",
@@ -3229,6 +3213,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm_ipld_car"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ade8c2f76a9e014f2fdaeb693a0884f49eca5ee663958e1c8c1db8d23290817c"
+dependencies = [
+ "cid",
+ "futures",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "integer-encoding",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "fvm_ipld_encoding"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3382,10 +3381,10 @@ dependencies = [
  "chain",
  "fil_types",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_encoding",
  "futures",
+ "fvm_ipld_car",
  "ipld_blockstore",
  "log",
  "net_utils",
@@ -3817,7 +3816,6 @@ dependencies = [
  "forest_address",
  "forest_bigint",
  "forest_blocks",
- "forest_car",
  "forest_cid",
  "forest_crypto",
  "forest_db",
@@ -3826,6 +3824,8 @@ dependencies = [
  "forest_vm",
  "fvm",
  "fvm_ipld_amt",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
  "fvm_shared 0.8.0",
@@ -3860,37 +3860,6 @@ dependencies = [
  "widestring",
  "winapi 0.3.9",
  "winreg",
-]
-
-[[package]]
-name = "ipld_amt"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dde92f9f67932f831a0137be87f60370cfb107b3664b6bcca2703311e32c3d46"
-dependencies = [
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "ipld_blockstore",
- "once_cell",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "ipld_amt"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "278ba2fa369fae45884276f68784750a81bd48a9973615195f0138b8d1fa9436"
-dependencies = [
- "forest_cid",
- "forest_db",
- "forest_encoding",
- "ipld_blockstore",
- "itertools 0.10.3",
- "once_cell",
- "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -4124,6 +4093,22 @@ name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
+
+[[package]]
+name = "legacy_ipld_amt"
+version = "0.2.0"
+dependencies = [
+ "ahash 0.7.6",
+ "anyhow",
+ "forest_cid",
+ "forest_db",
+ "forest_encoding",
+ "ipld_blockstore",
+ "itertools 0.10.3",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "lexical-core"
@@ -6542,10 +6527,10 @@ dependencies = [
  "fvm_shared 0.8.0",
  "hex",
  "interpreter",
- "ipld_amt 1.0.0",
  "ipld_blockstore",
  "jsonrpc-v2",
  "key_management",
+ "legacy_ipld_amt",
  "log",
  "message_pool",
  "multibase 0.9.1",
@@ -7152,22 +7137,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 
 [[package]]
-name = "sled"
-version = "0.34.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f96b4737c2ce5987354855aed3797279def4ebf734436c6aa4552cf8e169935"
-dependencies = [
- "crc32fast",
- "crossbeam-epoch",
- "crossbeam-utils",
- "fs2",
- "fxhash",
- "libc",
- "log",
- "parking_lot 0.11.2",
-]
-
-[[package]]
 name = "slice-group-by"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7334,9 +7303,9 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_shared 0.8.0",
  "interpreter",
- "ipld_amt 0.2.1",
  "ipld_blockstore",
  "lazy_static",
+ "legacy_ipld_amt",
  "log",
  "networks",
  "num-traits",
@@ -7386,12 +7355,12 @@ dependencies = [
  "fil_types",
  "forest_address",
  "forest_bigint",
- "forest_car",
  "forest_cid",
  "forest_db",
  "forest_ipld",
  "forest_vm",
  "futures",
+ "fvm_ipld_car",
  "ipld_blockstore",
 ]
 
