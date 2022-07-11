@@ -39,7 +39,7 @@ networks = { path = "../../types/networks" }
 slotmap = "1.0"
 rand = "0.8.3"
 fvm_shared = { version = "0.7.1", default-features = false }
-forest_crypto = "0.5.2"
+forest_crypto = { version = "0.5.2", features = ["blst"] }
 
 [dev-dependencies]
 interpreter = { path = "../../vm/interpreter/" }

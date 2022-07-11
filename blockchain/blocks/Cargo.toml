@@ -36,4 +36,4 @@ serde_json = "1.0"
 async-std = "1.9"
 
 [features]
-json = ["base64", "forest_json_utils", "beacon/json", "cid/json", "fil_types/json"]
+json = ["base64", "forest_crypto/json", "forest_json_utils", "beacon/json", "cid/json", "fil_types/json"]

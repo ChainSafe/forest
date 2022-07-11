@@ -51,7 +51,7 @@ time = { version = "0.3", features = ["serde"] }
 prometheus = { version = "0.12.0", features = ["process"] }
 lazy_static = "1.4.0"
 statediff = { path = "../../utils/statediff", optional = true }
-forest_crypto = "0.5.2"
+forest_crypto = { version = "0.5.2", features = ["blst"] }
 fil_actors_runtime = "=7.5.1"
 fvm = "0.8"
 
