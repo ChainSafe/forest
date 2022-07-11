@@ -124,7 +124,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     path: &str,
     validate_height: Option<i64>,
     skip_load: bool,
-) -> Result<(), Box<dyn std::error::Error>>
+) -> Result<(), anyhow::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
@@ -135,35 +135,35 @@ where
     let cids = if is_remote_file {
         let url = Url::parse(path).expect("URL is invalid");
         info!("Downloading file...");
-        let reader = FetchProgress::try_from(url)?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        let reader = FetchProgress::try_from(url).map_err(|e| anyhow::anyhow!("{}", e))?;
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await.map_err(|e| anyhow::anyhow!("{}", e))?
     } else {
         let file = File::open(&path)
             .await
             .expect("Snapshot file path not found!");
         info!("Reading file...");
-        let reader = FetchProgress::try_from(file)?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        let reader = FetchProgress::try_from(file).map_err(|e| anyhow::anyhow!("{}", e))?;
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await.map_err(|e| anyhow::anyhow!("{}", e))?
     };
     let ts = sm
         .chain_store()
         .tipset_from_keys(&TipsetKeys::new(cids))
-        .await?;
+        .await.map_err(|e| anyhow::anyhow!("{}", e))?;
 
     if !skip_load {
         let gb = sm
             .chain_store()
             .tipset_by_height(0, ts.clone(), true)
-            .await?;
-        sm.chain_store().set_genesis(&gb.blocks()[0])?;
+            .await.map_err(|e| anyhow::anyhow!("{}", e))?;
+        sm.chain_store().set_genesis(&gb.blocks()[0]).map_err(|e| anyhow::anyhow!("{}", e))?;
     }
 
     // Update head with snapshot header tipset
-    sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
+    sm.chain_store().set_heaviest_tipset(ts.clone()).await.map_err(|e| anyhow::anyhow!("{}", e))?;
 
     if let Some(height) = validate_height {
         info!("Validating imported chain from height: {}", height);
-        sm.validate_chain::<V>(ts.clone(), height).await?;
+        sm.validate_chain::<V>(ts.clone(), height).await.map_err(|e| anyhow::anyhow!("{}", e))?;
     }
 
     info!("Accepting {:?} as new head.", ts.cids(),);

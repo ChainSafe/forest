@@ -76,14 +76,14 @@ impl GenesisCommands {
     }
 }
 
-fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn std::error::Error>> {
+fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), anyhow::Error> {
     let mut genesis_str = String::new();
-    File::open(&genesis_path)?.read_to_string(&mut genesis_str)?;
-    let mut template: GenesisTemplate = serde_json::from_str(&genesis_str)?;
+    File::open(&genesis_path).map_err(|e| anyhow::anyhow!("{}", e))?.read_to_string(&mut genesis_str).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let mut template: GenesisTemplate = serde_json::from_str(&genesis_str).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     let mut preseal_str = String::new();
-    File::open(preseal_path)?.read_to_string(&mut preseal_str)?;
-    let miners: HashMap<String, Miner> = serde_json::from_str(&preseal_str)?;
+    File::open(preseal_path).map_err(|e| anyhow::anyhow!("{}", e))?.read_to_string(&mut preseal_str).map_err(|e| anyhow::anyhow!("{}", e))?;
+    let miners: HashMap<String, Miner> = serde_json::from_str(&preseal_str).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     for (miner_address_str, miner) in miners.into_iter() {
         info!("Adding miner {} to genesis template", miner_address_str);
@@ -98,7 +98,7 @@ fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn s
             }
         };
 
-        let mid = maddress.id()?;
+        let mid = maddress.id().map_err(|e| anyhow::anyhow!("{}", e))?;
 
         if mid != id {
             info!("Tried to set miner {} as {}", mid, id);
@@ -117,9 +117,9 @@ fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn s
     }
 
     serde_json::to_writer_pretty(
-        OpenOptions::new().write(true).open(&genesis_path)?,
+        OpenOptions::new().write(true).open(&genesis_path).map_err(|e| anyhow::anyhow!("{}", e))?,
         &template,
-    )?;
+    ).map_err(|e| anyhow::anyhow!("{}", e))?;
 
     Ok(())
 }
