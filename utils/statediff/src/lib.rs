@@ -30,6 +30,27 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::StoragePower;
 use fvm_shared::smooth::FilterEstimate;
 
+/// State includes the address for the actor
+#[derive(Serialize_tuple, Deserialize_tuple, Debug)]
+pub struct AccountState {
+    pub address: Address,
+}
+
+/// Cron actor state which holds entries to call during epoch tick
+#[derive(Default, Serialize_tuple, Deserialize_tuple, Debug)]
+pub struct CronState {
+    /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
+    pub entries: Vec<CronEntry>,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+pub struct CronEntry {
+    /// The actor to call (ID address)
+    pub receiver: Address,
+    /// The method number to call (must accept empty parameters)
+    pub method_num: fvm_shared::MethodNum,
+}
+
 /// Storage power actor state
 #[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct PowerState {
@@ -238,9 +259,14 @@ fn pp_actor_state(
         write!(&mut buffer, "{:?}", miner_state)?;
         return Ok(buffer);
     }
-    // } else if let Ok(account_state) = ipld::from_ipld::<account::State>(ipld.clone()) {
-    //     write!(&mut buffer, "{:?}", account_state)?;
-    // }
+    if let Ok(cron_state) = ipld::from_ipld::<CronState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", cron_state)?;
+        return Ok(buffer);
+    }
+    if let Ok(account_state) = ipld::from_ipld::<AccountState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", account_state)?;
+        return Ok(buffer);
+    }
     if let Ok(state) = ipld::from_ipld::<PowerState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", state)?;
         return Ok(buffer);
