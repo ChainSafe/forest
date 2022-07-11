@@ -18,7 +18,6 @@ pub type Method = fil_actor_account_v8::Method;
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    // V7(fil_actor_account_v7::State),
     V8(fil_actor_account_v8::State),
 }
 
