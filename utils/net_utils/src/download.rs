@@ -65,7 +65,7 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
                     .and_then(|ct_len| ct_len.parse().ok())
                     .unwrap_or(0)
             } else {
-                return Err(anyhow::anyhow!("{}", DownloadError::HeaderError));
+                return Err(anyhow::Error::new(DownloadError::HeaderError));
             }
         };
 
