@@ -25,6 +25,16 @@ use crate::power::Claim;
 /// Miner actor method.
 pub type Method = fil_actor_miner_v8::Method;
 
+pub fn is_v8_miner_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
 /// Miner actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -38,31 +48,12 @@ impl State {
     where
         BS: BlockStore,
     {
-        // if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storageminer")) {
-        //     Ok(store
-        //         .get_anyhow(&actor.state)?
-        //         .map(State::V7)
-        //         .context("Actor state doesn't exist in store")?)
-        // } else
-        if actor.code
-            == Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4")
-                .unwrap()
-        {
+        if is_v8_miner_cid(&actor.code) {
             return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }
-        if actor.code
-            == Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu")
-                .unwrap()
-        {
-            return Ok(store
-                .get_anyhow(&actor.state)?
-                .map(State::V8)
-                .context("Actor state doesn't exist in store")?);
-        }
-
         Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
     }
 
@@ -283,30 +274,19 @@ pub enum Partition<'a> {
 impl Partition<'_> {
     pub fn all_sectors(&self) -> &BitField {
         todo!()
-        // match self {
-        //     Partition::V7(_dl) => todo!(),
-        // }
     }
     pub fn faulty_sectors(&self) -> &BitField {
         todo!()
-        // match self {
-        //     Partition::V7(_dl) => todo!(),
-        // }
     }
     pub fn recovering_sectors(&self) -> &BitField {
         todo!()
-        // match self {
-        //     Partition::V8(_dl) => todo!(),
-        // }
     }
     pub fn live_sectors(&self) -> BitField {
-        // todo!()
         match self {
             Partition::V8(dl) => dl.live_sectors(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
-        // todo!()
         match self {
             Partition::V8(dl) => dl.active_sectors(),
         }

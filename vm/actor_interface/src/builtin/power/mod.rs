@@ -23,12 +23,14 @@ pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::STORAGE_POWER_A
 /// TODO: Select based on actor version
 pub type Method = fil_actor_power_v8::Method;
 
-pub fn power_cid_v8() -> Cid {
-    Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap()
-}
-
-pub fn power_cid_v8_mainnet() -> Cid {
-    Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap()
+pub fn is_v8_power_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
+    ];
+    known_cids.contains(cid)
 }
 
 /// Power actor state.
@@ -54,34 +56,17 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == power_cid_v8() {
+        if is_v8_power_cid(&actor.code) {
             return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }
-        if actor.code == power_cid_v8_mainnet() {
-            return Ok(store
-                .get_anyhow(&actor.state)?
-                .map(State::V8)
-                .context("Actor state doesn't exist in store")?);
-        }
-        // bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa
-        // if actor.code
-        //     == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagepower"))
-        // {
-        //     Ok(store
-        //         .get_anyhow(&actor.state)?
-        //         .map(State::V7)
-        //         .context("Actor state doesn't exist in store")?)
-        // } else {
         Err(anyhow::anyhow!("Unknown power actor code {}", actor.code))
-        // }
     }
 
     /// Consume state to return just total quality adj power
     pub fn into_total_quality_adj_power(self) -> StoragePower {
-        // todo!()
         match self {
             State::V8(st) => st.total_quality_adj_power,
         }
@@ -89,7 +74,6 @@ impl State {
 
     /// Returns the total power claim.
     pub fn total_power(&self) -> Claim {
-        // todo!()
         match self {
             State::V8(st) => Claim {
                 raw_byte_power: st.total_raw_byte_power.clone(),
@@ -100,7 +84,6 @@ impl State {
 
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
-        // todo!()
         match self {
             State::V8(st) => st.into_total_locked(),
         }
@@ -112,7 +95,6 @@ impl State {
         s: &BS,
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
-        // todo!()
         match self {
             State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
@@ -132,11 +114,10 @@ impl State {
         s: &BS,
         miner: &Address,
     ) -> anyhow::Result<bool> {
-        // todo!()
         match self {
             State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                let mut policy = fil_actors_runtime_v8::runtime::Policy::default();
+                let policy = fil_actors_runtime_v8::runtime::Policy::default();
                 // policy for calibnet
                 // policy.minimum_consensus_power = fvm_shared::bigint::BigInt::from(32u128 << 30);
                 st.miner_nominal_power_meets_consensus_minimum(&policy, &fvm_store, miner)
@@ -146,7 +127,6 @@ impl State {
 
     /// Returns this_epoch_qa_power_smoothed from the state.
     pub fn total_power_smoothed(&self) -> FilterEstimate {
-        // todo!()
         match self {
             State::V8(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
         }
@@ -154,7 +134,6 @@ impl State {
 
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
-        // todo!()
         match self {
             State::V8(st) => st.total_pledge_collateral.clone(),
         }

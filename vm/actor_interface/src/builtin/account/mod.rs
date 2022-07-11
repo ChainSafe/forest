@@ -25,11 +25,14 @@ pub fn account_cid_v7() -> Cid {
     cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/account"))
 }
 
-pub fn account_cid_v8() -> Cid {
-    Cid::try_from("bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo").unwrap()
-}
-pub fn account_cid_v8_mainnet() -> Cid {
-    Cid::try_from("bafk2bzacedudbf7fc5va57t3tmo63snmt3en4iaidv4vo3qlyacbxaa6hlx6y").unwrap()
+pub fn is_v8_account_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacedudbf7fc5va57t3tmo63snmt3en4iaidv4vo3qlyacbxaa6hlx6y").unwrap(),
+    ];
+    known_cids.contains(cid)
 }
 
 impl State {
@@ -37,25 +40,17 @@ impl State {
     where
         BS: BlockStore,
     {
-        // if actor.code == account_cid_v7() {
-        //     Ok(store
-        //         .get_anyhow(&actor.state)?
-        //         .map(State::V7)
-        //         .context("Actor state doesn't exist in store")?)
-        // } else
-        if actor.code == account_cid_v8() || actor.code == account_cid_v8_mainnet() {
-            Ok(store
+        if is_v8_account_cid(&actor.code) {
+            return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown account actor code {}", actor.code))
+                .context("Actor state doesn't exist in store")?);
         }
+        Err(anyhow::anyhow!("Unknown account actor code {}", actor.code))
     }
 
     pub fn pubkey_address(&self) -> Address {
         match self {
-            // State::V7(st) => st.address,
             State::V8(st) => st.address,
         }
     }

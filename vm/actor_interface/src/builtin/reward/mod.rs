@@ -18,6 +18,16 @@ pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::REWARD_ACTOR_AD
 /// Reward actor method.
 pub type Method = fil_actor_reward_v8::Method;
 
+pub fn is_v8_reward_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacecwzzxlgjiavnc3545cqqil3cmq4hgpvfp2crguxy2pl5ybusfsbe").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
 /// Reward actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -26,31 +36,12 @@ pub enum State {
     V8(fil_actor_reward_v8::State),
 }
 
-pub fn reward_cid_v8() -> Cid {
-    Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap()
-}
-pub fn reward_cid_v8_mainnet() -> Cid {
-    Cid::try_from("bafk2bzacecwzzxlgjiavnc3545cqqil3cmq4hgpvfp2crguxy2pl5ybusfsbe").unwrap()
-}
-
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        // if actor.code == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward")) {
-        //     Ok(store
-        //         .get_anyhow(&actor.state)?
-        //         .map(State::V7)
-        //         .context("Actor state doesn't exist in store")?)
-        // }
-        if actor.code == reward_cid_v8() {
-            return Ok(store
-                .get_anyhow(&actor.state)?
-                .map(State::V8)
-                .context("Actor state doesn't exist in store")?);
-        }
-        if actor.code == reward_cid_v8_mainnet() {
+        if is_v8_reward_cid(&actor.code) {
             return Ok(store
                 .get_anyhow(&actor.state)?
                 .map(State::V8)
@@ -61,7 +52,6 @@ impl State {
 
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> StoragePower {
-        // todo!()
         match self {
             State::V8(st) => st.into_total_storage_power_reward(),
         }
@@ -73,9 +63,6 @@ impl State {
         _sector_weight: &StoragePower,
     ) -> TokenAmount {
         todo!()
-        // match self {
-        //     State::V7(_st) => todo!(),
-        // }
     }
 
     pub fn initial_pledge_for_power(
@@ -86,8 +73,5 @@ impl State {
         _circ_supply: &TokenAmount,
     ) -> TokenAmount {
         todo!()
-        // match self {
-        //     State::V7(_st) => todo!(),
-        // }
     }
 }
