@@ -22,7 +22,7 @@ log = "0.4"
 sodiumoxide = "0.2"
 utils = { path = "../node/utils" }
 fvm_shared = { version = "0.7.1", default-features = false }
-forest_crypto = "0.5.2"
+forest_crypto = { version = "0.5.2", features = ["blst"] }
 
 [features]
 json = []

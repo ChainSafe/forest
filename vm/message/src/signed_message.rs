@@ -163,7 +163,7 @@ pub mod json {
         struct SignedMessageSer<'a> {
             #[serde(with = "message::json")]
             message: &'a Message,
-            #[serde(with = "forest_crypto::json")]
+            #[serde(with = "forest_crypto::signature::json")]
             signature: &'a Signature,
             #[serde(default, rename = "CID", with = "cid::json::opt")]
             cid: Option<Cid>,
@@ -185,7 +185,7 @@ pub mod json {
         struct SignedMessageDe {
             #[serde(with = "message::json")]
             message: Message,
-            #[serde(with = "forest_crypto::json")]
+            #[serde(with = "forest_crypto::signature::json")]
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;

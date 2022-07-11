@@ -51,10 +51,10 @@ where
         message_receipts: &'a Cid,
         #[serde(with = "cid::json")]
         messages: &'a Cid,
-        #[serde(rename = "BLSAggregate", with = "forest_crypto::json::opt")]
+        #[serde(rename = "BLSAggregate", with = "forest_crypto::signature::json::opt")]
         bls_aggregate: &'a Option<Signature>,
         timestamp: &'a u64,
-        #[serde(rename = "BlockSig", with = "forest_crypto::json::opt")]
+        #[serde(rename = "BlockSig", with = "forest_crypto::signature::json::opt")]
         signature: &'a Option<Signature>,
         #[serde(rename = "ForkSignaling")]
         fork_signal: &'a u64,
@@ -109,10 +109,18 @@ where
         message_receipts: Cid,
         #[serde(with = "cid::json")]
         messages: Cid,
-        #[serde(default, rename = "BLSAggregate", with = "forest_crypto::json::opt")]
+        #[serde(
+            default,
+            rename = "BLSAggregate",
+            with = "forest_crypto::signature::json::opt"
+        )]
         bls_aggregate: Option<Signature>,
         timestamp: u64,
-        #[serde(default, rename = "BlockSig", with = "forest_crypto::json::opt")]
+        #[serde(
+            default,
+            rename = "BlockSig",
+            with = "forest_crypto::signature::json::opt"
+        )]
         signature: Option<Signature>,
         #[serde(rename = "ForkSignaling")]
         fork_signal: u64,

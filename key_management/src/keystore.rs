@@ -59,7 +59,7 @@ impl KeyInfo {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use forest_crypto::json::signature_type::SignatureTypeJson;
+    use forest_crypto::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
