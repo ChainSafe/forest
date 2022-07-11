@@ -121,19 +121,8 @@ where
     {
         let state = StateTree::new_from_root(store, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
-        // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
 
-        // Get the builtin actors index for the concrete network version.
-        // let builtin_actors = *nv_actors
-        //     .get(&network_version)
-        //     .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
-        dbg!(epoch);
-        dbg!(&base_fee);
-        dbg!(&circ_supply);
-
-        let mut context = NetworkConfig::new(network_version)
-            // .override_actors(builtin_actors)
-            .for_epoch(epoch, root);
+        let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
