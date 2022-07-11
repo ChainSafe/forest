@@ -10,9 +10,6 @@ pub mod rocks;
 #[cfg(feature = "rocksdb")]
 pub mod rocks_config;
 
-#[cfg(feature = "sled")]
-pub mod sled;
-
 pub use errors::Error;
 pub use memory::MemoryDB;
 

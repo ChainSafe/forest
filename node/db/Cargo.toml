@@ -9,7 +9,6 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 rocksdb = { version = "0.18", optional = true }
-sled = { version = "0.34", optional = true }
 parking_lot = "0.12"
 encoding = { package = "forest_encoding", version = "0.2" }
 thiserror = "1.0"
