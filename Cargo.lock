@@ -7354,6 +7354,7 @@ dependencies = [
  "bls-signatures",
  "forest_blocks",
  "forest_cid",
+ "forest_crypto",
  "forest_encoding",
  "forest_message",
  "fvm_shared 0.7.1",

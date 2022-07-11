@@ -7,8 +7,11 @@
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use encoding::Cbor;
-use forest_message::{unsigned_message, SignedMessage, UnsignedMessage};
+use forest_crypto;
+use forest_message::message;
+use forest_message::SignedMessage;
 use fvm_shared::crypto::{signature, Signature};
+use fvm_shared::message::Message;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::prelude::*;
@@ -21,7 +24,7 @@ struct TestVec {
     unsigned: Message,
     cid: String,
     private_key: String,
-    #[serde(with = "signature::json")]
+    #[serde(with = "forest_crypto::signature::json")]
     signature: Signature,
 }
 
