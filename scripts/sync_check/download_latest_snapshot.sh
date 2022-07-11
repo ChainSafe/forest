@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-CHECK_DIR="$HOME"/nightly_check
+CHECK_DIR="$HOME"/sync_check
 SNAPSHOT_DIR="$CHECK_DIR"/snapshots
 
 # Download to downloading
