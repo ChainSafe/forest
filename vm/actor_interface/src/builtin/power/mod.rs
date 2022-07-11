@@ -136,11 +136,10 @@ impl State {
         match self {
             State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                st.miner_nominal_power_meets_consensus_minimum(
-                    &fil_actors_runtime_v8::runtime::Policy::default(),
-                    &fvm_store,
-                    miner,
-                )
+                let mut policy = fil_actors_runtime_v8::runtime::Policy::default();
+                // policy for calibnet
+                // policy.minimum_consensus_power = fvm_shared::bigint::BigInt::from(32u128 << 30);
+                st.miner_nominal_power_meets_consensus_minimum(&policy, &fvm_store, miner)
             }
         }
     }

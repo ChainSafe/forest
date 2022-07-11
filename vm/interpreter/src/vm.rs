@@ -24,7 +24,6 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
-use num_traits::Zero;
 use state_tree::StateTree;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
@@ -345,7 +344,6 @@ where
     /// Applies single message through vm and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
         use fvm::executor::Executor;
-        use fvm::trace::ExecutionEvent;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let ret = self.fvm_executor.execute_message(
@@ -353,13 +351,6 @@ where
             fvm::executor::ApplyKind::Implicit,
             raw_length,
         )?;
-        dbg!(&ret.msg_receipt);
-        for evt in &ret.exec_trace {
-            eprintln!("{:?}", evt);
-        }
-        // ret.msg_receipt.gas_used = 0;
-        // ret.miner_tip = BigInt::zero();
-        // ret.penalty = BigInt::zero();
         Ok(ret)
     }
 
@@ -371,22 +362,12 @@ where
         use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let fvm_ret = self.fvm_executor.execute_message(
+        let ret = self.fvm_executor.execute_message(
             unsigned,
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
-        // dbg!(&fvm_ret);
-        dbg!(&fvm_ret.msg_receipt);
-        dbg!(&fvm_ret.penalty);
-        dbg!(&fvm_ret.miner_tip);
-        dbg!(&fvm_ret.base_fee_burn);
-        dbg!(&fvm_ret.over_estimation_burn);
-        dbg!(&fvm_ret.refund);
-        dbg!(&fvm_ret.gas_refund);
-        dbg!(&fvm_ret.gas_burned);
-        dbg!(&fvm_ret.failure_info);
-        Ok(fvm_ret)
+        Ok(ret)
     }
 }
 
