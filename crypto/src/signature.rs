@@ -5,8 +5,6 @@ use address::Address;
 use bls_signatures::{
     verify_messages, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
-use encoding::de;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
 
 /// Returns `String` error if a bls signature is invalid.
 pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
@@ -31,7 +29,8 @@ pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> R
 
 #[cfg(feature = "json")]
 pub mod json {
-    use super::*;
+    use encoding::de;
+    use fvm_shared::crypto::signature::{Signature, SignatureType};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.
