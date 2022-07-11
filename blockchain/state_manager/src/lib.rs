@@ -125,17 +125,12 @@ where
         chain_subs: Publisher<HeadChange>,
         config: ChainConfig,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs
-            .genesis()
-            .map_err(|e| anyhow::anyhow!("{}", e))?
-            .ok_or("genesis header was none")
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let genesis = cs.genesis()?.ok_or_else(|| anyhow::anyhow!("genesis header was none"))?;
         let chain_config = Arc::new(config);
         let beacon = Arc::new(
             chain_config
                 .get_beacon_schedule(genesis.timestamp())
-                .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?,
+                .await?,
         );
 
         Ok(Self {
@@ -392,8 +387,7 @@ where
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
 
         // Construct receipt root from receipts
-        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
