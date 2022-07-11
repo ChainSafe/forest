@@ -100,15 +100,12 @@ where
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs
-            .genesis()
-            .map_err(|e| anyhow::anyhow!("{}", e))?
-            .ok_or("genesis header was none")
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+            .genesis()?
+            .ok_or_else(|| anyhow::anyhow!("genesis header was none"))?;
         let beacon = Arc::new(
             chain_config
                 .get_beacon_schedule(genesis.timestamp())
-                .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?,
+                .await?,
         );
 
         Ok(Self {
