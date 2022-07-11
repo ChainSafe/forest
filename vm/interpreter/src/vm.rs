@@ -95,22 +95,6 @@ pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkPara
     heights: Heights,
 }
 
-pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, Cid> {
-    let bundles = [
-        (NetworkVersion::V14, actors_v6::BUNDLE_CAR),
-        (NetworkVersion::V15, actors_v7::BUNDLE_CAR),
-    ];
-    bundles
-        .into_iter()
-        .map(|(nv, car)| {
-            let roots =
-                async_std::task::block_on(async { load_car(blockstore, car).await.unwrap() });
-            assert_eq!(roots.len(), 1);
-            (nv, roots[0])
-        })
-        .collect()
-}
-
 impl<DB, V, P> VM<DB, V, P>
 where
     DB: BlockStore,
@@ -140,9 +124,6 @@ where
         let state = StateTree::new_from_root(store, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
         // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
-
-        // Load the builtin actors bundles into the blockstore.
-        // let nv_actors = import_actors(store);
 
         // Get the builtin actors index for the concrete network version.
         // let builtin_actors = *nv_actors
