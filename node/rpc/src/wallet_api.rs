@@ -10,7 +10,7 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
-use forest_crypto::json::SignatureJson;
+use forest_crypto::signature::json::SignatureJson;
 use fvm_shared::bigint::BigUint;
 use message::{message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::{data_types::RPCState, wallet_api::*};
