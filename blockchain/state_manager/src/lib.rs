@@ -125,7 +125,9 @@ where
         chain_subs: Publisher<HeadChange>,
         config: ChainConfig,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis()?.ok_or_else(|| anyhow::anyhow!("genesis header was none"))?;
+        let genesis = cs
+            .genesis()?
+            .ok_or_else(|| anyhow::anyhow!("genesis header was none"))?;
         let chain_config = Arc::new(config);
         let beacon = Arc::new(
             chain_config
