@@ -15,8 +15,7 @@ use vm::{ActorState, TokenAmount};
 use anyhow::Context;
 
 /// Market actor address.
-pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR =
-    &fil_actors_runtime_v8::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(5);
 
 /// Market actor method.
 pub type Method = fil_actor_market_v8::Method;

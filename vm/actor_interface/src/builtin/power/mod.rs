@@ -15,8 +15,7 @@ use anyhow::Context;
 
 /// Power actor address.
 /// TODO: Select based on actors version
-pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::STORAGE_POWER_ACTOR_ADDR =
-    &fil_actors_runtime_v8::builtin::singletons::STORAGE_POWER_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(4);
 
 /// Power actor method.
 /// TODO: Select based on actor version

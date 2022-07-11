@@ -11,8 +11,7 @@ use vm::ActorState;
 use anyhow::Context;
 
 /// Init actor address.
-pub static ADDRESS: &fil_actors_runtime_v8::builtin::singletons::INIT_ACTOR_ADDR =
-    &fil_actors_runtime_v8::builtin::singletons::INIT_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(1);
 
 /// Init actor method.
 pub type Method = fil_actor_init_v8::Method;

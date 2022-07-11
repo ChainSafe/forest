@@ -175,7 +175,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 
 fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(reward::ADDRESS)?
+        .get_actor(&reward::ADDRESS)?
         .ok_or_else(|| Error::State("Reward actor address could not be resolved".to_string()))?;
     let state = reward::State::load(state_tree.store(), &actor)?;
 
@@ -186,7 +186,7 @@ fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(market::ADDRESS)?
+        .get_actor(&market::ADDRESS)?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
     let state = market::State::load(state_tree.store(), &actor)?;
 
@@ -197,7 +197,7 @@ fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(power::ADDRESS)?
+        .get_actor(&power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
     let state = power::State::load(state_tree.store(), &actor)?;
 

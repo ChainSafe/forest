@@ -186,8 +186,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg = Message {
-            from: **system::ADDRESS,
-            to: **cron::ADDRESS,
+            from: system::ADDRESS,
+            to: cron::ADDRESS,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -279,8 +279,8 @@ where
             })?;
 
             let rew_msg = Message {
-                from: **system::ADDRESS,
-                to: **reward::ADDRESS,
+                from: system::ADDRESS,
+                to: reward::ADDRESS,
                 method_num: reward::Method::AwardBlockReward as u64,
                 params,
                 // Epoch as sequence is intentional
