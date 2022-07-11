@@ -118,10 +118,6 @@ pub(super) async fn start(config: Config) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    // Initialize database (RocksDb will be default if both features enabled)
-    #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(sled_path(config)).expect("Opening SledDB must succeed");
-
     #[cfg(feature = "rocksdb")]
     let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
@@ -294,11 +290,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
 
 fn db_path(config: &Config) -> PathBuf {
     chain_path(config).join("db")
-}
-
-#[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-fn sled_path(config: &Config) -> PathBuf {
-    chain_path(config).join("sled")
 }
 
 fn chain_path(config: &Config) -> PathBuf {

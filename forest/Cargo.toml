@@ -77,7 +77,6 @@ tempfile   = "3"
 [features]
 default       = ["rocksdb"]
 rocksdb       = ["db/rocksdb", "ipld_blockstore/rocksdb"]
-sled          = ["db/sled", "ipld_blockstore/sled"]
 insecure_post = ["chain_sync/insecure_post"]
 testnet       = []
 release       = []
