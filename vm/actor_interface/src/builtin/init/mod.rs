@@ -44,12 +44,6 @@ impl State {
                 .map(State::V8)
                 .context("Actor state doesn't exist in store")?);
         }
-        if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
-            return Ok(store
-                .get_obj(&actor.state)?
-                .map(State::V8)
-                .context("Actor state doesn't exist in store")?);
-        }
         Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
     }
 
