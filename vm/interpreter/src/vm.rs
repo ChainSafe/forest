@@ -11,7 +11,6 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     DefaultNetworkParams, NetworkParams,
 };
-use forest_car::load_car;
 use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
@@ -25,7 +24,6 @@ use ipld_blockstore::FvmStore;
 use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
 use state_tree::StateTree;
-use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
