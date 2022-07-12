@@ -24,8 +24,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 tide = "0.16"
 tide-websockets = "0.4"
-# Internal
-fil_actor_miner_v7 = { package = "fil_actor_miner", version = "=7.5.1" }
+fil_actor_miner_v8 = { package = "fil_actor_miner", version = "=8.0.0" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
 address = { package = "forest_address", version = "0.3", features = ["json"] }
 auth = { path = "../../utils/auth" }
@@ -61,7 +60,7 @@ state_tree = { path = "../../vm/state_tree" }
 wallet = { package = "key_management", path = "../../key_management", features = [
     "json",
 ] }
-fvm_shared = { version = "0.7.1", default-features = false }
+fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield = "0.5.2"
 legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 

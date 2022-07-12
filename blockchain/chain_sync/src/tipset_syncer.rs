@@ -1466,7 +1466,12 @@ async fn validate_block<
         validations.push(task::spawn(async move {
             v_block
                 .header()
-                .validate_block_drand(beacon_schedule.as_ref(), parent_epoch, &v_prev_beacon)
+                .validate_block_drand(
+                    win_p_nv,
+                    beacon_schedule.as_ref(),
+                    parent_epoch,
+                    &v_prev_beacon,
+                )
                 .await
                 .map_err(|e| {
                     TipsetRangeSyncerError::Validation(format!(
@@ -1561,7 +1566,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     tipset_state: &Cid,
 ) -> Result<(), TipsetRangeSyncerError> {
     let actor = state_manager
-        .get_actor(power::ADDRESS, *tipset_state)?
+        .get_actor(&power::ADDRESS, *tipset_state)?
         .ok_or(TipsetRangeSyncerError::PowerActorUnavailable)?;
     let state = power::State::load(state_manager.blockstore(), &actor)
         .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;

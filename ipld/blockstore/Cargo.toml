@@ -9,7 +9,7 @@ repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 anyhow              = "1.0"
-fvm_shared          = { version = "0.7.1", default-features = false }
+fvm_shared          = { version = "0.8.0", default-features = false }
 fvm_ipld_blockstore = "0.1.1"
 cid                 = { package = "forest_cid", features = ["cbor"], version = "0.3" }
 db                  = { package = "forest_db", version = "0.1" }
@@ -19,5 +19,5 @@ byteorder           = "1.3"
 dashmap             = "5.0"
 
 [features]
-rocksdb  = ["db/rocksdb"]
-resolve  = ["forest_ipld"]
+rocksdb = ["db/rocksdb"]
+resolve = ["forest_ipld"]

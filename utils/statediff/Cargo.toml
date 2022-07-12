@@ -5,8 +5,11 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+fvm_ipld_encoding = "0.2"
+fvm_shared = "0.8"
+fvm_ipld_bitfield = "0.5.0"
 anyhow = "1.0"
-fvm = "0.8"
+fvm = "1.0"
 serde_json = "1.0"
 blockstore = { package = "ipld_blockstore", version = "0.1", features = [
     "resolve",
