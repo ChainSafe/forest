@@ -39,7 +39,7 @@ networks = { path = "../../types/networks" }
 slotmap = "1.0"
 rand = "0.8.3"
 fvm_shared = { version = "0.8.0", default-features = false }
-fvm = "1.0"
+fvm = "1.1"
 
 [dev-dependencies]
 interpreter    = { path = "../../vm/interpreter/" }

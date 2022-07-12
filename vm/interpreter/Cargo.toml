@@ -8,7 +8,7 @@ edition = "2021"
 async-std = "1.9"
 wasmtime = { version = "0.37", default-features = false }
 anyhow = "1.0"
-fvm = { version = "1.0", features = [] }
+fvm = { version = "1.1", features = [] }
 fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding = "0.2"
 fvm_ipld_amt = "0.4.2"

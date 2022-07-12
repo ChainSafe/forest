@@ -255,19 +255,19 @@ fn pp_actor_state(
 
     // FIXME: Use the actor interface to load and pretty print the actor states.
     //        Tracker: https://github.com/ChainSafe/forest/issues/1561
-    if let Ok(miner_state) = ipld::from_ipld::<MinerState>(ipld.clone()) {
+    if let Ok(miner_state) = forest_ipld::from_ipld::<MinerState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", miner_state)?;
         return Ok(buffer);
     }
-    if let Ok(cron_state) = ipld::from_ipld::<CronState>(ipld.clone()) {
+    if let Ok(cron_state) = forest_ipld::from_ipld::<CronState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", cron_state)?;
         return Ok(buffer);
     }
-    if let Ok(account_state) = ipld::from_ipld::<AccountState>(ipld.clone()) {
+    if let Ok(account_state) = forest_ipld::from_ipld::<AccountState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", account_state)?;
         return Ok(buffer);
     }
-    if let Ok(state) = ipld::from_ipld::<PowerState>(ipld.clone()) {
+    if let Ok(state) = forest_ipld::from_ipld::<PowerState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", state)?;
         return Ok(buffer);
     }

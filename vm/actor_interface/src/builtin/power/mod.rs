@@ -4,11 +4,7 @@
 use crate::FilterEstimate;
 use fil_types::StoragePower;
 use forest_address::Address;
-use forest_cid::multihash::MultihashDigest;
 use forest_cid::Cid;
-use forest_cid::Code;
-use forest_cid::RAW;
-
 use forest_bigint::bigint_ser::json;
 use forest_vm::{ActorState, TokenAmount};
 use ipld_blockstore::BlockStore;

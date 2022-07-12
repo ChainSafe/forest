@@ -163,9 +163,9 @@ where
     pub fn get_actor(
         &self,
         addr: &Address,
-    ) -> Result<Option<forest_vm::ActorState>, anyhow::Error> {
+    ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
         match self.fvm_executor.state_tree().get_actor(addr) {
-            Ok(opt_state) => Ok(opt_state.map(forest_vm::ActorState::from)),
+            Ok(opt_state) => Ok(opt_state.map(fvm::state_tree::ActorState::from)),
             Err(err) => anyhow::bail!("failed to get actor: {}", err),
         }
     }

@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_address::Address;
 use forest_vm::ActorState;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
