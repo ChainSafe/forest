@@ -12,6 +12,7 @@ use forest_blocks::TipsetKeys;
 use forest_cid::Cid;
 use forest_cid::Code::Blake2b256;
 use forest_message::{ChainMessage, SignedMessage};
+use forest_vm::ActorState;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -20,7 +21,6 @@ use state_manager::StateManager;
 use state_tree::StateTree;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use types::verifier::ProofVerifier;
-use vm::ActorState;
 
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.

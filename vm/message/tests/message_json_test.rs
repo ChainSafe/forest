@@ -12,10 +12,10 @@ use forest_message::signed_message::{
     json::{SignedMessageJson, SignedMessageJsonRef},
     SignedMessage,
 };
+use forest_vm::Serialized;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
-use vm::Serialized;
 
 #[test]
 fn unsigned_symmetric_json() {

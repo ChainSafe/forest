@@ -17,12 +17,12 @@ use forest_crypto::VRFProof;
 use forest_message::ChainMessage;
 use forest_message::Message as MessageTrait;
 use forest_message::SignedMessage;
+use forest_vm::ActorState;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use tokio::sync::broadcast;
-use vm::ActorState;
 
 /// Struct used for creating a provider when writing tests involving message pool
 pub struct TestApi {

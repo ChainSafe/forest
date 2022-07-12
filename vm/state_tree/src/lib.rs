@@ -6,11 +6,11 @@ use async_std::{channel::bounded, task};
 use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
 use forest_address::{Address, Protocol};
 use forest_cid::{Cid, Code::Blake2b256};
+use forest_vm::ActorState;
 use fvm_ipld_car::CarHeader;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use vm::ActorState;
 
 /// State tree implementation using hamt. This structure is not threadsafe and should only be used
 /// in sync contexts.

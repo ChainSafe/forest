@@ -5,17 +5,17 @@ use super::Message;
 use derive_builder::Builder;
 use encoding::Cbor;
 use forest_address::Address;
+use forest_vm::{MethodNum, Serialized, TokenAmount};
 use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
 /// ```
 /// use forest_message::{UnsignedMessage, Message};
-/// use vm::{TokenAmount, Serialized, MethodNum};
+/// use forest_vm::{TokenAmount, Serialized, MethodNum};
 /// use forest_address::Address;
 ///
 /// // Use the builder pattern to generate a message

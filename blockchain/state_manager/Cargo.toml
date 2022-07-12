@@ -37,7 +37,7 @@ forest_message = { version = "0.7", features = [
     "json",
     "blst",
 ] }
-vm = { package = "forest_vm", version = "0.3.1" }
+forest_vm = "0.3.1"
 serde = { version = "1.0", features = ["derive"] }
 num-traits = "0.2.11"
 tokio = { version = "1.0", features = ["sync"] }

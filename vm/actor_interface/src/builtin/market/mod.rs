@@ -6,12 +6,12 @@ use forest_address::Address;
 use forest_bigint::bigint_ser::json;
 use forest_cid::{multihash::MultihashDigest, RAW};
 use forest_cid::{Cid, Code};
+use forest_vm::{ActorState, TokenAmount};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
 use std::marker::PhantomData;
-use vm::{ActorState, TokenAmount};
 
 use anyhow::Context;
 

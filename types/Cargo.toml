@@ -18,7 +18,7 @@ time                = { version = "0.3", features = ["serde", "serde-well-known"
 serde               = { version = "1.0", features = ["derive"] }
 serde_json          = "1.0"
 filecoin-proofs-api = { version = "11.0", default_features = false, optional = true }
-vm                  = { package = "forest_vm", version = "0.3" }
+forest_vm           = "0.3"
 forest_cid          = { features = ["cbor"], version = "0.3" }
 forest_bigint       = { path = "../utils/bigint", version = "0.1" }
 num-traits          = "0.2"

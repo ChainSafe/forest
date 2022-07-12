@@ -1,11 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_vm::{Serialized, TokenAmount};
 use fvm::gas::Gas;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{Serialized, TokenAmount};
 
 /// Semantic validation and validates the message has enough gas.
 #[cfg(feature = "proofs")]

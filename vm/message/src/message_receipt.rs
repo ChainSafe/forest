@@ -9,9 +9,9 @@ pub type MessageReceipt = Receipt;
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use forest_vm::ExitCode;
     use fvm_ipld_encoding::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-    use vm::ExitCode;
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
     #[derive(Deserialize, Serialize)]

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::ForestMachine;
 use forest_cid::Cid;
+use forest_vm::TokenAmount;
 use fvm::call_manager::*;
 use fvm::gas::{Gas, PriceList};
 use fvm::kernel::BlockRegistry;
@@ -19,7 +20,6 @@ use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;
 use fvm_shared::{ActorID, MethodNum};
 use ipld_blockstore::BlockStore;
-use vm::TokenAmount;
 
 pub struct ForestKernel<DB: BlockStore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,

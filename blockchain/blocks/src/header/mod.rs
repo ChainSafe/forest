@@ -10,6 +10,7 @@ use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use forest_address::Address;
 use forest_cid::{Cid, Code::Blake2b256};
 use forest_crypto::Signature;
+use forest_vm::TokenAmount;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -19,7 +20,6 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::fmt;
-use vm::TokenAmount;
 
 #[cfg(feature = "json")]
 pub mod json;

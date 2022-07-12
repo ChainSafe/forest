@@ -3,10 +3,10 @@
 
 use forest_address::{json as addr_json, Address};
 use forest_bigint::bigint_ser::json as bigint_json;
+use forest_vm::TokenAmount;
 use fvm_shared::sector::SectorSize;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use vm::TokenAmount;
 
 /// Different account variants. This is used with genesis utils to define the possible
 /// genesis allocated actors.

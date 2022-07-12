@@ -10,6 +10,7 @@ use forest_bigint::bigint_ser::json;
 use forest_cid::{multihash::MultihashDigest, RAW};
 use forest_cid::{Cid, Code};
 use forest_json_utils::go_vec_visitor;
+use forest_vm::{ActorState, DealID, TokenAmount};
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -17,7 +18,6 @@ use ipld_blockstore::{BlockStore, BlockStoreExt};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use vm::{ActorState, DealID, TokenAmount};
 
 use anyhow::Context;
 

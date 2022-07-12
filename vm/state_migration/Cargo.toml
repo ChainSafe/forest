@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 fil_types = { path="../../types" }
-vm = { package = "forest_vm", version = "0.3.1" }
+forest_vm = "0.3.1"
 ipld_blockstore = "0.1"
 forest_address = "0.3"
 serde = { version = "1.0", features = ["derive"] }

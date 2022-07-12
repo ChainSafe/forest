@@ -27,7 +27,7 @@ forest_cid        = { version = "0.3", features = ["json"] }
 multibase         = "0.9"
 fvm_ipld_car      = "0.4.1"
 forest_crypto     = { version = "0.5", features = ["json"] }
-vm                = { package = "forest_vm", version = "0.3" }
+forest_vm         = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
 forest_bigint        = { path = "../utils/bigint" }
 num-rational      = "0.4"

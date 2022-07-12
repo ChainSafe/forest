@@ -8,7 +8,7 @@ edition = "2021"
 anyhow          = "1.0"
 actor           = { package = "actor_interface", path = "../actor_interface" }
 forest_address  = "0.3"
-vm              = { package = "forest_vm", version = "0.3" }
+forest_vm       = "0.3"
 forest_cid      = "0.3"
 forest_ipld     = "0.1"
 ipld_blockstore = "0.1"

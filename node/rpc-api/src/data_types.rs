@@ -27,6 +27,7 @@ use forest_message::{
     message_receipt::json::MessageReceiptJson, signed_message,
     signed_message::json::SignedMessageJson, SignedMessage,
 };
+use forest_vm::{ActorState, TokenAmount};
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -34,7 +35,6 @@ use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::{MiningBaseInfo, StateManager};
-use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;
 
 // RPC State

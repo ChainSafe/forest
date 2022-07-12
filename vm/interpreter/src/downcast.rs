@@ -1,12 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_vm::{ActorError, ExitCode};
 use fvm_ipld_amt::Error as AmtError;
 pub use fvm_ipld_encoding::Error as EncodingError;
 use fvm_ipld_hamt::Error as HamtError;
 use serde_ipld_dagcbor::error::Error as CborError;
 use std::error::Error as StdError;
-use vm::{ActorError, ExitCode};
 
 /// Trait to allow multiple error types to be able to be downcasted into an `ActorError`.
 pub trait ActorDowncast {

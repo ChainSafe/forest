@@ -6,10 +6,10 @@ use fil_types::StoragePower;
 use forest_cid::multihash::MultihashDigest;
 use forest_cid::Code;
 use forest_cid::RAW;
+use forest_vm::{ActorState, TokenAmount};
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;
 use serde::Serialize;
-use vm::{ActorState, TokenAmount};
 
 use anyhow::Context;
 

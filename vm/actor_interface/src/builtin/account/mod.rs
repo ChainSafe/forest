@@ -4,9 +4,9 @@
 use forest_address::Address;
 use forest_cid::multihash::MultihashDigest;
 use forest_cid::{Cid, Code, RAW};
+use forest_vm::ActorState;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use vm::ActorState;
 
 use anyhow::Context;
 use ipld_blockstore::BlockStoreExt;

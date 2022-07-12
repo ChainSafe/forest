@@ -14,7 +14,7 @@ features = ["json", "proofs"]
 anyhow            = "1.0"
 fvm_shared        = { version = "*", default-features = false, features = ["testing"] }
 fvm_ipld_encoding = "0.2"
-vm                = { package = "forest_vm", version = "0.3" }
+forest_vm         = "0.3"
 forest_address    = "0.3" 
 forest_cid        = "0.3"
 forest_bigint     = { path = "../../utils/bigint", version = "0.1" }

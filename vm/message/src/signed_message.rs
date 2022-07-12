@@ -7,8 +7,8 @@ use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
 use forest_address::Address;
 use forest_crypto::{Error as CryptoError, Signature, SignatureType, Signer};
+use forest_vm::{MethodNum, Serialized, TokenAmount};
 use fvm_shared::message::Message;
-use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]

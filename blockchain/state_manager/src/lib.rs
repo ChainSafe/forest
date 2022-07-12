@@ -21,6 +21,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_cid::Cid;
 use forest_crypto::DomainSeparationTag;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
+use forest_vm::{ActorState, TokenAmount};
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
@@ -43,7 +44,6 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
-use vm::{ActorState, TokenAmount};
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
