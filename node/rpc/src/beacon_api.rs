@@ -6,6 +6,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use beacon::json::BeaconEntryJson;
 use beacon::Beacon;
 use blockstore::BlockStore;
+use fvm_shared::version::NetworkVersion;
 use rpc_api::beacon_api::*;
 use rpc_api::data_types::RPCState;
 
@@ -22,7 +23,8 @@ where
 {
     let (first,) = params;
     let (_, beacon) = data.beacon.beacon_for_epoch(first)?;
-    let rr = beacon.max_beacon_round_for_epoch(first);
+    let rr =
+        beacon.max_beacon_round_for_epoch(data.state_manager.get_network_version(first), first);
     let e = beacon.entry(rr).await?;
     Ok(BeaconEntryJson(e))
 }

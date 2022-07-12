@@ -5,6 +5,7 @@ use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use encoding::blake2b_256;
+use fvm_shared::version::NetworkVersion;
 use std::time::Duration;
 
 /// Mock beacon used for testing. Deterministic based on an interval.
@@ -42,7 +43,7 @@ impl Beacon for MockBeacon {
         Ok(Self::entry_for_index(round))
     }
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: i64) -> u64 {
+    fn max_beacon_round_for_epoch(&self, _network_version: NetworkVersion, fil_epoch: i64) -> u64 {
         fil_epoch as u64
     }
 }

@@ -184,9 +184,14 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = ChainRand::new(
+            self.chain_config.clone(),
+            blocks.to_owned(),
+            self.cs.clone(),
+            self.beacon.clone(),
+        );
         match self.get_network_version(round) {
-            NetworkVersion::V15 | NetworkVersion::V14 => {
+            NetworkVersion::V16 | NetworkVersion::V15 | NetworkVersion::V14 => {
                 chain_rand
                     .get_beacon_randomness_v3(blocks, pers, round, entropy)
                     .await
@@ -227,7 +232,12 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = ChainRand::new(
+            self.chain_config.clone(),
+            blocks.to_owned(),
+            self.cs.clone(),
+            self.beacon.clone(),
+        );
         chain_rand
             .get_chain_randomness(blocks, pers, round, entropy, lookback)
             .await
@@ -553,7 +563,12 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = ChainRand::new(
+            self.chain_config.clone(),
+            ts.key().to_owned(),
+            self.cs.clone(),
+            self.beacon.clone(),
+        );
         self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
@@ -580,7 +595,12 @@ where
             .tipset_state::<V>(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = ChainRand::new(
+            self.chain_config.clone(),
+            ts.key().to_owned(),
+            self.cs.clone(),
+            self.beacon.clone(),
+        );
 
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
@@ -801,7 +821,12 @@ where
             }
         };
         let entries = beacon
-            .beacon_entries_for_block(round, tipset.epoch(), &prev)
+            .beacon_entries_for_block(
+                self.get_network_version(round),
+                round,
+                tipset.epoch(),
+                &prev,
+            )
             .await?;
         let rbase = entries.iter().last().unwrap_or(&prev);
         let (lbts, lbst) = self
@@ -903,7 +928,12 @@ where
 
             let tipset_keys =
                 TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = ChainRand::new(tipset_keys, self.cs.clone(), self.beacon.clone());
+            let chain_rand = ChainRand::new(
+                self.chain_config.clone(),
+                tipset_keys,
+                self.cs.clone(),
+                self.beacon.clone(),
+            );
             let base_fee = first_block.parent_base_fee().clone();
 
             let blocks = self
