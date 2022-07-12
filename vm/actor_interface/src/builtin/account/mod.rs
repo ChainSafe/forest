@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
-use cid::multihash::MultihashDigest;
 use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
@@ -19,10 +18,6 @@ pub type Method = fil_actor_account_v8::Method;
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_account_v8::State),
-}
-
-pub fn account_cid_v7() -> Cid {
-    cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/account"))
 }
 
 pub fn is_v8_account_cid(cid: &Cid) -> bool {
