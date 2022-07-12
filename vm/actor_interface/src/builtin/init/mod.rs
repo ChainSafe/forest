@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
-use cid::multihash::MultihashDigest;
 use cid::Cid;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
