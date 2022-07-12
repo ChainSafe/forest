@@ -7,7 +7,7 @@
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use encoding::Cbor;
-use forest_crypto;
+use forest_crypto::signature;
 use forest_message::message;
 use forest_message::SignedMessage;
 use fvm_shared::crypto::signature::Signature;
@@ -24,7 +24,7 @@ struct TestVec {
     unsigned: Message,
     cid: String,
     private_key: String,
-    #[serde(with = "forest_crypto::signature::json")]
+    #[serde(with = "signature::json")]
     signature: Signature,
 }
 

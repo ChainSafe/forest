@@ -75,8 +75,8 @@ test-vectors: pull-serialization-tests run-vectors
 test:
 	cargo test --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test --all --exclude serialization_tests --exclude forest_message -- --test-threads=$(RUST_TEST_THREADS)
 	# FIXME: https://github.com/ChainSafe/forest/issues/1444
+	#cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	# FIXME: https://github.com/ChainSafe/forest/issues/1444
 	#cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
@@ -84,8 +84,8 @@ test:
 test-release:
 	cargo test --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test --release --all --exclude serialization_tests --exclude forest_message -- --test-threads=$(RUST_TEST_THREADS)
 	# FIXME: https://github.com/ChainSafe/forest/issues/1444
+	#cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	# FIXME: https://github.com/ChainSafe/forest/issues/1444
 	#cargo test --release -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)

@@ -6,7 +6,7 @@ use crate::message;
 use address::Address;
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error as CborError};
-use forest_crypto::Signer;
+use forest_crypto::{signature, Signer};
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use fvm_shared::message::Message;
 use vm::{MethodNum, Serialized, TokenAmount};
@@ -163,7 +163,7 @@ pub mod json {
         struct SignedMessageSer<'a> {
             #[serde(with = "message::json")]
             message: &'a Message,
-            #[serde(with = "forest_crypto::signature::json")]
+            #[serde(with = "signature::json")]
             signature: &'a Signature,
             #[serde(default, rename = "CID", with = "cid::json::opt")]
             cid: Option<Cid>,
@@ -185,7 +185,7 @@ pub mod json {
         struct SignedMessageDe {
             #[serde(with = "message::json")]
             message: Message,
-            #[serde(with = "forest_crypto::signature::json")]
+            #[serde(with = "signature::json")]
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;

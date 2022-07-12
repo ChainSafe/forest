@@ -29,7 +29,7 @@ use fil_types::{
     PoStProof,
 };
 use fvm_shared::bigint::BigInt;
-use fvm_shared::crypto::signature::SignatureType;
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use ipld::{json::IpldJson, Ipld};
 use legacy_ipld_amt::Amt;
 use message::signed_message::SignedMessage;
@@ -655,9 +655,9 @@ pub(crate) async fn miner_create_block<
     )?;
 
     let calculated_bls_agg = if bls_sigs.is_empty() {
-        Some(fvm_shared::crypto::signature::Signature::new_bls(vec![]))
+        Some(Signature::new_bls(vec![]))
     } else {
-        Some(fvm_shared::crypto::signature::Signature::new_bls(
+        Some(Signature::new_bls(
             bls_signatures::aggregate(
                 &bls_sigs
                     .iter()
