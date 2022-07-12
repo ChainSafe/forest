@@ -23,7 +23,7 @@ db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
 state_tree = { path = "../../vm/state_tree/" }
-blockstore = { package = "ipld_blockstore", version = "0.1" }
+ipld_blockstore = "0.1"
 forest_blocks = { path = "../../blockchain/blocks" }
 beacon = { path = "../../blockchain/beacon" }
 thiserror = "1.0"

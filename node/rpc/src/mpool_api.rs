@@ -3,12 +3,12 @@
 
 use super::gas_api::estimate_message_gas;
 use beacon::Beacon;
-use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
 use forest_address::{Address, Protocol};
 use forest_blocks::TipsetKeys;
+use ipld_blockstore::BlockStore;
 use message::message::json::MessageJson;
 use message::{signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::data_types::RPCState;

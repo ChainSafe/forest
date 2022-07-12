@@ -35,7 +35,7 @@ beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
 forest_blocks = { path = "../../blockchain/blocks", features = [
     "json",
 ] }
-blockstore = { package = "ipld_blockstore", version = "0.1" }
+ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 cid = { package = "forest_cid", version = "0.3", features = ["json"] }

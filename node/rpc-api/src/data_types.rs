@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use actor::market::{DealProposal, DealState};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
-use blockstore::BlockStore;
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
 use cid::{json::CidJson, Cid};
@@ -27,6 +26,7 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld::json::IpldJson;
+use ipld_blockstore::BlockStore;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
     signed_message::json::SignedMessageJson, SignedMessage,

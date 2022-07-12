@@ -4,7 +4,6 @@
 use crate::errors::Error;
 use async_std::sync::Arc;
 use async_trait::async_trait;
-use blockstore::{BlockStore, BlockStoreExt};
 use chain::HeadChange;
 use cid::Cid;
 use cid::Code::Blake2b256;
@@ -14,6 +13,7 @@ use forest_blocks::Tipset;
 use forest_blocks::TipsetKeys;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use message::{ChainMessage, SignedMessage};
 use networks::Height;
 use state_manager::StateManager;

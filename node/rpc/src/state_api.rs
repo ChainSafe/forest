@@ -12,7 +12,6 @@ use actor::{
     reward,
 };
 use beacon::{Beacon, BeaconEntry};
-use blockstore::{BlockStore, BlockStoreExt};
 use bls_signatures::Serialize as SerializeBls;
 use cid::{json::CidJson, Cid, Code::Blake2b256};
 use crypto::SignatureType;
@@ -31,6 +30,7 @@ use forest_blocks::{
 };
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
 use message::signed_message::SignedMessage;
 use networks::Height;

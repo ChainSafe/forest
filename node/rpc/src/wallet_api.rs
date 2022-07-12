@@ -6,12 +6,12 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use beacon::Beacon;
-use blockstore::BlockStore;
 use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use forest_address::{json::AddressJson, Address};
 use fvm_shared::bigint::BigUint;
+use ipld_blockstore::BlockStore;
 use message::{message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;

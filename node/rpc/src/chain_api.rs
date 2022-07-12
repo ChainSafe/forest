@@ -4,7 +4,6 @@
 use crate::rpc_util::get_error_obj;
 use ::message::message::json::MessageJson;
 use beacon::Beacon;
-use blockstore::{BlockStore, BlockStoreExt};
 use chain::headchange_json::HeadChangeJson;
 use cid::{json::CidJson, Cid};
 use forest_blocks::{
@@ -12,6 +11,7 @@ use forest_blocks::{
     BlockHeader, Tipset,
 };
 use fvm_shared::message::Message as FVMMessage;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use log::debug;
 use message::message;
