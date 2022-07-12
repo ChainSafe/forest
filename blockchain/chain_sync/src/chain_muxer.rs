@@ -888,7 +888,7 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
-    use address::Address;
+    use forest_address::Address;
     use blocks::{BlockHeader, Tipset};
     use cid::Cid;
     use db::MemoryDB;

@@ -3,7 +3,7 @@
 
 use super::Message as MessageTrait;
 use crate::message;
-use address::Address;
+use forest_address::Address;
 use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};

@@ -55,7 +55,7 @@ pub fn valid_for_block_inclusion(
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use address::json::AddressJson;
+    use forest_address::json::AddressJson;
     use cid::Cid;
     use num_bigint::bigint_ser;
     use serde::{de, ser};

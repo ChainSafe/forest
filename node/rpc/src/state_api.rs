@@ -11,7 +11,7 @@ use actor::{
     power::{self, Claim},
     reward,
 };
-use address::json::AddressJson;
+use forest_address::json::AddressJson;
 use beacon::{Beacon, BeaconEntry};
 use blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,

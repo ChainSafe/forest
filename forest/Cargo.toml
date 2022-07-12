@@ -8,7 +8,7 @@ build       = "build.rs"
 
 [dependencies]
 fvm               = "0.8"
-address           = { package = "forest_address", version = "0.3" }
+forest_address    = "0.3"
 base64            = "0.13"
 forest_libp2p     = { path = "../node/forest_libp2p" }
 utils             = { path = "../node/utils" }

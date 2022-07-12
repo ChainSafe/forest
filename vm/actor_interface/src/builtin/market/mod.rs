@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
+use forest_address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use fil_types::PaddedPieceSize;
@@ -142,9 +142,9 @@ pub struct DealProposal {
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub client: Address,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub provider: Address,
     // ! This is the field that requires unsafe unchecked utf8 deserialization
     pub label: String,

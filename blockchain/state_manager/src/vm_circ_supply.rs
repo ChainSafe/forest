@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::*;
-use address::Address;
+use forest_address::Address;
 use blockstore::BlockStore;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;

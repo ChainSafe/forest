@@ -13,7 +13,7 @@ pub use message_receipt::MessageReceipt;
 pub use signed_message::SignedMessage;
 pub use unsigned_message::UnsignedMessage;
 
-use address::Address;
+use forest_address::Address;
 use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Message interface to interact with Signed and unsigned messages in a generic context.

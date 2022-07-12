@@ -9,7 +9,7 @@ use crate::{
     AggregateSealVerifyProofAndInfos, PoStProof, Randomness, RegisteredPoStProof, SealVerifyInfo,
     SectorInfo,
 };
-use address::Address;
+use forest_address::Address;
 use encoding::bytes_32;
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{

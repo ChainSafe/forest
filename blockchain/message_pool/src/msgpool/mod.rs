@@ -12,7 +12,7 @@ use crate::msg_chain::{create_message_chains, Chains};
 use crate::msg_pool::MsgSet;
 use crate::msg_pool::{add_helper, remove};
 use crate::provider::Provider;
-use address::Address;
+use forest_address::Address;
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
@@ -301,7 +301,7 @@ pub mod tests {
     use super::*;
     use crate::msg_chain::{create_message_chains, Chains};
     use crate::msg_pool::MessagePool;
-    use address::Address;
+    use forest_address::Address;
     use async_std::channel::bounded;
     use async_std::task;
     use blocks::Tipset;

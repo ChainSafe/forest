@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_api::estimate_message_gas;
-use address::{Address, Protocol};
+use forest_address::{Address, Protocol};
 use beacon::Beacon;
 use blocks::TipsetKeys;
 use blockstore::BlockStore;

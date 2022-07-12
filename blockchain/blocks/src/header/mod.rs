@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use address::Address;
+use forest_address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
 use crypto::Signature;
@@ -31,7 +31,7 @@ const SHA_256_BITS: usize = 256;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use address::Address;
+/// use forest_address::Address;
 /// use cid::{Cid, Code::Identity};
 /// use fvm_shared::bigint::BigInt;
 /// use crypto::Signature;
@@ -458,7 +458,7 @@ impl fmt::Display for BlockHeader {
 #[cfg(test)]
 mod tests {
     use crate::{errors::Error, BlockHeader};
-    use address::Address;
+    use forest_address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
 

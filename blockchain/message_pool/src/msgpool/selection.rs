@@ -13,7 +13,7 @@ use crate::msg_pool::MsgSet;
 use crate::msgpool::MIN_GAS;
 use crate::Error;
 use crate::{add_to_selected_msgs, remove_from_selected_msgs};
-use address::Address;
+use forest_address::Address;
 use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
 use fvm_shared::bigint::BigInt;

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
+use forest_address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use ipld_blockstore::BlockStore;

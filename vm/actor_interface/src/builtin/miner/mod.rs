@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
+use forest_address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use encoding::BytesDe;
@@ -177,13 +177,13 @@ impl State {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfo {
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub owner: Address,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub worker: Address,
-    #[serde(with = "address::json::opt")]
+    #[serde(with = "forest_address::json::opt")]
     pub new_worker: Option<Address>,
-    #[serde(with = "address::json::vec")]
+    #[serde(with = "forest_address::json::vec")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
     #[serde(with = "peer_id_json")]

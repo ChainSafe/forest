@@ -10,7 +10,7 @@ use std::str::FromStr;
 use structopt::StructOpt;
 use uuid::Uuid;
 
-use address::Address;
+use forest_address::Address;
 use fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
 use fil_types::FILECOIN_PRECISION;
 

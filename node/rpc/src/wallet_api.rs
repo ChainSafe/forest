@@ -5,7 +5,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-use address::{json::AddressJson, Address};
+use forest_address::{json::AddressJson, Address};
 use beacon::Beacon;
 use blockstore::BlockStore;
 use crypto::signature::json::SignatureJson;

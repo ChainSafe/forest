@@ -32,7 +32,7 @@ use std::time;
 pub(super) async fn start(config: Config) {
     // Set the Address network prefix
     let network = config.chain.name.parse().unwrap();
-    address::NETWORK_DEFAULT.set(network).unwrap();
+    forest_address::NETWORK_DEFAULT.set(network).unwrap();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -300,7 +300,7 @@ fn chain_path(config: &Config) -> PathBuf {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
-    use address::Address;
+    use forest_address::Address;
     use blocks::BlockHeader;
     use db::MemoryDB;
     use networks::ChainConfig;

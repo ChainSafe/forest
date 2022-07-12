@@ -12,7 +12,7 @@ use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
 
 use crate::resolve_to_key_addr;
-use address::Address;
+use forest_address::Address;
 use blocks::BlockHeader;
 use forest_encoding::Cbor;
 use state_tree::StateTree;

@@ -7,7 +7,7 @@ use actor::{
     miner::{self, MinerInfo, Partition, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
 };
-use address::Address;
+use forest_address::Address;
 use blockstore::BlockStore;
 use cid::Cid;
 use fil_types::{

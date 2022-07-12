@@ -27,7 +27,7 @@ tide-websockets = "0.4"
 # Internal
 fil_actor_miner_v7 = { package = "fil_actor_miner", version = "=7.5.1" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
-address = { package = "forest_address", version = "0.3", features = ["json"] }
+forest_address = { version = "0.3", features = ["json"] }
 auth = { path = "../../utils/auth" }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
     "json",

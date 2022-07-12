@@ -15,7 +15,7 @@ anyhow            = "1.0"
 fvm_shared        = { version = "*", default-features = false, features = ["testing"] }
 fvm_ipld_encoding = "0.2"
 vm                = { package = "forest_vm", version = "0.3" }
-address           = { package = "forest_address", version = "0.3" }
+forest_address    = "0.3" 
 cid               = { package = "forest_cid", version = "0.3" }
 num-bigint        = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1" }
 encoding          = { package = "forest_encoding", version = "0.2" }

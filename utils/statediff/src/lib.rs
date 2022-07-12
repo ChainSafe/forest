@@ -5,7 +5,7 @@
 // use actor::market;
 // use actor::miner;
 // use actor::power;
-use address::Address;
+use forest_address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};

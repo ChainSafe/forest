@@ -3,7 +3,7 @@
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power};
-use address::Address;
+use forest_address::Address;
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
@@ -941,7 +941,7 @@ pub mod headchange_json {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
+    use forest_address::Address;
     use async_std::sync::Arc;
     use cid::Code::{Blake2b256, Identity};
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::errors::Error;
-use address::Address;
+use forest_address::Address;
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use blocks::BlockHeader;

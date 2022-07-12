@@ -4,7 +4,7 @@
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-use address::Address;
+use forest_address::Address;
 use cid::Cid;
 use encoding::{Cbor, Error};
 use fvm_shared::message::Message;

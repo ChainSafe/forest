@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::signature::verify_bls_sig;
-use address::Address;
+use forest_address::Address;
 use encoding::{blake2b_256, serde_byte_array};
 use serde::{Deserialize, Serialize};
 

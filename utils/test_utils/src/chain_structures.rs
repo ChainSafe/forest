@@ -3,7 +3,7 @@
 
 #![cfg(feature = "test_constructors")]
 
-use address::Address;
+use forest_address::Address;
 use blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use cid::{Cid, Code::Blake2b256};
 use crypto::{Signature, Signer, VRFProof};

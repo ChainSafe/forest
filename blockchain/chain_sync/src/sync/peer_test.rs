@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use address::Address;
+use forest_address::Address;
 use async_std::channel::bounded;
 use async_std::task;
 use beacon::{BeaconPoint, MockBeacon};

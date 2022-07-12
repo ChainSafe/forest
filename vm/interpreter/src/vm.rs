@@ -4,7 +4,7 @@
 use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor::{cron, reward, system, AwardBlockRewardParams};
-use address::Address;
+use forest_address::Address;
 use cid::Cid;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{

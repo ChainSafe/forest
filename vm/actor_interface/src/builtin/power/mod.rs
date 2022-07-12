@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
-use address::Address;
+use forest_address::Address;
 use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 

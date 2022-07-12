@@ -8,7 +8,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use address::{json::AddressJson, Address};
+use forest_address::{json::AddressJson, Address};
 use forest_crypto::{
     signature::{
         json::{signature_type::SignatureTypeJson, SignatureJson},

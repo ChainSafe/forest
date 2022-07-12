@@ -5,7 +5,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 
-use address::json::AddressJson;
+use forest_address::json::AddressJson;
 use beacon::Beacon;
 use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use blockstore::BlockStore;

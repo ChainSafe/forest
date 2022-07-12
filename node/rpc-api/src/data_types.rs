@@ -9,7 +9,7 @@ use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 
 use actor::market::{DealProposal, DealState};
-use address::{json::AddressJson, Address};
+use forest_address::{json::AddressJson, Address};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
@@ -193,7 +193,7 @@ pub struct MiningBaseInfoJson {
     #[serde(with = "json::option")]
     pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfoJson>,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub worker_key: Address,
     pub sector_size: SectorSize,
     #[serde(with = "beacon::json")]

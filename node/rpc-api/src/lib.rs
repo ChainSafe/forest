@@ -294,7 +294,7 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use address::json::AddressJson;
+    use forest_address::json::AddressJson;
     use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
     use wallet::json::KeyInfoJson;
@@ -355,7 +355,7 @@ pub mod state_api {
     use actor::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use address::json::AddressJson;
+    use forest_address::json::AddressJson;
     use blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
@@ -486,7 +486,7 @@ pub mod state_api {
 /// Gas API
 pub mod gas_api {
     use crate::data_types::MessageSendSpec;
-    use address::json::AddressJson;
+    use forest_address::json::AddressJson;
     use blocks::tipset_keys_json::TipsetKeysJson;
     use message::message::json::MessageJson;
 

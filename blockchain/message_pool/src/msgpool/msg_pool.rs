@@ -16,7 +16,7 @@ use crate::msgpool::PROPAGATION_DELAY_SECS;
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
-use address::{Address, Protocol};
+use forest_address::{Address, Protocol};
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
 use async_std::sync::{Arc, RwLock};

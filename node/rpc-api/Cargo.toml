@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 # Internal
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
-address = { package = "forest_address", version = "0.3", features = ["json"] }
+forest_address = { version = "0.3", features = ["json"] }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = ["json"] }
 blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = ["json"] }
 blockstore = { package = "ipld_blockstore", version = "0.1" }

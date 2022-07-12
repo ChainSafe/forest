@@ -6,7 +6,7 @@
 use crate::msgpool::{Publisher, Subscriber};
 use crate::provider::Provider;
 use crate::Error;
-use address::{Address, Protocol};
+use forest_address::{Address, Protocol};
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use blocks::TipsetKeys;
