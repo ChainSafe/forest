@@ -8,7 +8,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
     // Run command
     match command {
         Subcommand::Fetch(cmd) => {
-            cmd.run().await;
+            cmd.run(config).await;
         }
         Subcommand::Chain(cmd) => {
             cmd.run().await;

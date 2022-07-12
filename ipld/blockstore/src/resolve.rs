@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::BlockStore;
+use crate::BlockStoreExt;
 use cid::{Cid, DAG_CBOR};
 use forest_ipld::Ipld;
 
@@ -15,7 +16,7 @@ where
     BS: BlockStore,
 {
     let mut ipld = bs
-        .get_anyhow(cid)?
+        .get_obj(cid)?
         .ok_or_else(|| anyhow::anyhow!("Cid does not exist in blockstore"))?;
 
     resolve_ipld(bs, &mut ipld, depth)?;
@@ -51,7 +52,7 @@ where
         }
         Ipld::Link(cid) => {
             if cid.codec() == DAG_CBOR {
-                if let Some(x) = bs.get_anyhow(cid)? {
+                if let Some(x) = bs.get_obj(cid)? {
                     *ipld = x;
                 }
             }

@@ -48,7 +48,6 @@ fil_types = "0.2"
 forest_libp2p = { path = "../forest_libp2p" }
 interpreter = { path = "../../vm/interpreter/" }
 ipld = { package = "forest_ipld", path = "../../ipld", features = ["json"] }
-ipld_amt = "1.0"
 message = { package = "forest_message", version = "0.7", features = [
     "json",
     "blst",
@@ -64,6 +63,7 @@ wallet = { package = "key_management", path = "../../key_management", features =
 ] }
 fvm_shared = { version = "0.7.1", default-features = false }
 fvm_ipld_bitfield = "0.5.2"
+legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

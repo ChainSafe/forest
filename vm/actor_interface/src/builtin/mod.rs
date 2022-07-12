@@ -36,37 +36,37 @@ macro_rules! load_actor_state {
         if $actor.code == *actorv6::$id {
             use anyhow::Context;
             $store
-                .get_anyhow(&$actor.state)?
+                .get_obj(&$actor.state)?
                 .context("Actor state doesn't exist in store")
                 .map(State::V6)
         } else if $actor.code == *actorv5::$id {
             use anyhow::Context;
             $store
-                .get_anyhow(&$actor.state)?
+                .get_obj(&$actor.state)?
                 .context("Actor state doesn't exist in store")
                 .map(State::V5)
         } else if $actor.code == *actorv4::$id {
             use anyhow::Context;
             $store
-                .get_anyhow(&$actor.state)?
+                .get_obj(&$actor.state)?
                 .context("Actor state doesn't exist in store")
                 .map(State::V4)
         } else if $actor.code == *actorv3::$id {
             use anyhow::Context;
             $store
-                .get_anyhow(&$actor.state)?
+                .get_obj(&$actor.state)?
                 .context("Actor state doesn't exist in store")
                 .map(State::V3)
         } else if $actor.code == *actorv2::$id {
             use anyhow::Context;
             $store
-                .get_anyhow(&$actor.state)?
+                .get_obj(&$actor.state)?
                 .context("Actor state doesn't exist in store")
                 .map(State::V2)
         } else if $actor.code == *actorv0::$id {
             use anyhow::Context;
             $store
-                .get_anyhow(&$actor.state)?
+                .get_obj(&$actor.state)?
                 .context("Actor state doesn't exist in store")
                 .map(State::V0)
         } else {

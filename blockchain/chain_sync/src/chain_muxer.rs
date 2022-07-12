@@ -18,9 +18,10 @@ use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
 };
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use message::{SignedMessage, UnsignedMessage};
+use message::SignedMessage;
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 
@@ -322,7 +323,7 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<UnsignedMessage>(m))
+            .map(|m| network.bitswap_get::<Message>(m))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
@@ -887,8 +888,11 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
+    use address::Address;
+    use blocks::{BlockHeader, Tipset};
     use cid::Cid;
     use db::MemoryDB;
+    use networks::{ChainConfig, Height};
     use test_utils::construct_messages;
 
     #[test]
@@ -923,4 +927,16 @@ mod tests {
     //         "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
     //     );
     // }
+
+    #[test]
+    fn compute_base_fee_shouldnt_panic_on_bad_input() {
+        let blockstore = MemoryDB::default();
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let ts = Tipset::new(vec![h0]).unwrap();
+        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
+        assert!(chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
+    }
 }

@@ -37,7 +37,11 @@ No need to install Rust toolchain or other dependencies, you will need only Dock
 
 Follow other instructions for proper `forest` usage. You may need to mount a volume to import a snapshot, e.g.
 ```
-❯ docker run --init -it -v ~/Downloads:/downloads ghcr.io/chainsafe/forest:latest --import-snapshot /downloads/minimal_finality_stateroots_latest.car
+❯ docker run --init -it -v $HOME/Downloads:/downloads ghcr.io/chainsafe/forest:latest --import-snapshot /downloads/minimal_finality_stateroots_latest.car
+```
+Use dockerized Forest with host database:
+```
+❯ docker run --init -it -v $HOME/.forest:/root/.forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
 ```
 
 ## Dependencies

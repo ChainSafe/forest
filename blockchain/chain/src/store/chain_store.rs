@@ -13,18 +13,20 @@ use cid::Cid;
 use cid::Code::Blake2b256;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
-use forest_car::CarHeader;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
+use fvm_ipld_car::CarHeader;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use interpreter::BlockMessages;
-use ipld_amt::Amt;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
+use legacy_ipld_amt::Amt;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
+use message::Message as MessageTrait;
+use message::{ChainMessage, MessageReceipt, SignedMessage};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
@@ -460,7 +462,7 @@ where
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self
                 .blockstore()
-                .get_bytes_anyhow(&cid)?
+                .get_bytes(&cid)?
                 .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
@@ -639,7 +641,7 @@ where
         .iter()
         .map(|c| {
             store
-                .get(c)
+                .get_obj(c)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
@@ -664,13 +666,13 @@ fn block_validation_key(cid: &Cid) -> Vec<u8> {
 pub fn block_messages<DB>(
     db: &DB,
     bh: &BlockHeader,
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, &bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
@@ -681,11 +683,11 @@ pub fn block_messages_from_cids<DB>(
     db: &DB,
     bls_cids: &[Cid],
     secp_cids: &[Cid],
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
 
     Ok((bls_msgs, secp_msgs))
@@ -698,7 +700,7 @@ where
     DB: BlockStore,
 {
     if let Some(roots) = db
-        .get::<TxMeta>(msg_cid)
+        .get_obj::<TxMeta>(msg_cid)
         .map_err(|e| Error::Other(e.to_string()))?
     {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
@@ -720,7 +722,7 @@ where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    db.put(&header, Blake2b256)
+    db.put_obj(&header, Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))
 }
 
@@ -771,7 +773,7 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
 {
-    db.get(key)
+    db.get_obj(key)
         .map_err(|e| Error::Other(e.to_string()))?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
@@ -842,7 +844,7 @@ where
 {
     keys.iter()
         .map(|k| {
-            db.get(k)
+            db.get_obj(k)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
@@ -859,7 +861,7 @@ where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i as u64)?;
+    let receipts = amt.get(i)?;
     Ok(receipts.cloned())
 }
 

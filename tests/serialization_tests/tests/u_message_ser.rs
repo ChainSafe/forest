@@ -5,7 +5,8 @@
 #![cfg(feature = "submodule_tests")]
 
 use encoding::to_vec;
-use forest_message::{unsigned_message, UnsignedMessage};
+use forest_message::message;
+use fvm_shared::message::Message;
 use hex::encode;
 use serde::Deserialize;
 use std::fs::File;
@@ -13,12 +14,12 @@ use std::io::prelude::*;
 
 #[derive(Deserialize)]
 struct TestVector {
-    #[serde(with = "unsigned_message::json")]
-    message: UnsignedMessage,
+    #[serde(with = "message::json")]
+    message: Message,
     hex_cbor: String,
 }
 
-fn encode_assert_cbor(message: &UnsignedMessage, expected: &str) {
+fn encode_assert_cbor(message: &Message, expected: &str) {
     let enc_bz: Vec<u8> = to_vec(message).expect("Cbor serialization failed");
 
     // Assert the message is encoded in same format

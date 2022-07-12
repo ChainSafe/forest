@@ -7,8 +7,9 @@ use cid::Cid;
 use crypto::Signature;
 use encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::message::Message;
 use lru::LruCache;
-use message::{Message, SignedMessage, UnsignedMessage};
+use message::{Message as MessageTrait, SignedMessage};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
 
@@ -37,7 +38,7 @@ pub(crate) fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
 /// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache.
 pub(crate) async fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
-    msg: UnsignedMessage,
+    msg: Message,
 ) -> Result<SignedMessage, Error> {
     let val = bls_sig_cache
         .get(&msg.cid()?)

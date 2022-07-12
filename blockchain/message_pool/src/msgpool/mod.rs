@@ -22,7 +22,7 @@ use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::error;
 use lru::LruCache;
-use message::{Message, SignedMessage};
+use message::{Message as MessageTrait, SignedMessage};
 use networks::ChainConfig;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
@@ -234,7 +234,7 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
                     .await?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
@@ -307,8 +307,9 @@ pub mod tests {
     use blocks::Tipset;
     use crypto::SignatureType;
     use fvm_shared::bigint::BigInt;
+    use fvm_shared::message::Message;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use message::{SignedMessage, UnsignedMessage};
+    use message::SignedMessage;
     use networks::ChainConfig;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
@@ -323,15 +324,15 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg: UnsignedMessage = UnsignedMessage::builder()
-            .to(*to)
-            .from(*from)
-            .sequence(sequence)
-            .gas_limit(gas_limit)
-            .gas_fee_cap((gas_price + 100).into())
-            .gas_premium(gas_price.into())
-            .build()
-            .unwrap();
+        let umsg = Message {
+            to: *to,
+            from: *from,
+            sequence,
+            gas_limit,
+            gas_fee_cap: (gas_price + 100).into(),
+            gas_premium: gas_price.into(),
+            ..Message::default()
+        };
         let msg_signing_bytes = umsg.to_signing_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()

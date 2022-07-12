@@ -9,7 +9,7 @@ use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use paramfetch::{get_params_default, SectorSizeOpt};
+use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
@@ -118,10 +118,6 @@ pub(super) async fn start(config: Config) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    // Initialize database (RocksDb will be default if both features enabled)
-    #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(sled_path(config)).expect("Opening SledDB must succeed");
-
     #[cfg(feature = "rocksdb")]
     let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
@@ -158,8 +154,10 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
+    set_proofs_parameter_cache_dir_env(&config.data_dir);
+
     // Fetch and ensure verification keys are downloaded
-    get_params_default(SectorSizeOpt::Keys, false)
+    get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
         .await
         .unwrap();
 
@@ -292,11 +290,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
 
 fn db_path(config: &Config) -> PathBuf {
     chain_path(config).join("db")
-}
-
-#[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-fn sled_path(config: &Config) -> PathBuf {
-    chain_path(config).join("sled")
 }
 
 fn chain_path(config: &Config) -> PathBuf {

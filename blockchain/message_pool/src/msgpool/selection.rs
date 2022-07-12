@@ -668,7 +668,7 @@ where
                     .await?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
                     .await?;
             }
         }
@@ -1128,7 +1128,7 @@ mod test_selection {
         assert_eq!(msgs.len(), expected_msgs as usize);
 
         for (next_nonce, m) in msgs.into_iter().enumerate() {
-            assert_eq!(m.message().from(), &a1, "Expected message from a1");
+            assert_eq!(m.message().from, a1, "Expected message from a1");
             assert_eq!(
                 m.message().sequence,
                 next_nonce as u64,
@@ -1226,7 +1226,7 @@ mod test_selection {
         let mut next_nonce2 = 0;
 
         for m in msgs {
-            if m.message.from() == &a1 {
+            if m.message.from == a1 {
                 if m.message.sequence != next_nonce1 {
                     panic!(
                         "Expected nonce {}, but got {}",
@@ -1337,7 +1337,7 @@ mod test_selection {
 
         let who_is = |addr| -> usize {
             for (i, a) in actors.iter().enumerate() {
-                if a == addr {
+                if a == &addr {
                     return i;
                 }
             }
@@ -1347,7 +1347,7 @@ mod test_selection {
 
         let mut nonces = vec![0; n_actors as usize];
         for m in &msgs {
-            let who = who_is(m.message.from()) as usize;
+            let who = who_is(m.message.from) as usize;
             if who < 3 {
                 panic!("got message from {}th actor", who);
             }
