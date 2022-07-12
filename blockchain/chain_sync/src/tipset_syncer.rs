@@ -26,7 +26,6 @@ use actor::{is_account_actor, power};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
-use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
 use fil_types::{
@@ -38,6 +37,7 @@ use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
 use forest_cid::Cid;
+use forest_crypto::{verify_bls_aggregate, DomainSeparationTag};
 use forest_libp2p::chain_exchange::TipsetBundle;
 use fvm::gas::price_list_by_network_version;
 use fvm_shared::clock::ChainEpoch;
@@ -1553,7 +1553,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), TipsetRangeSyncerError> {
-    crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
+    forest_crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(

@@ -10,7 +10,7 @@ pbr = "1.0.3"
 forest_blocks = { path = "../blocks", features = ["json"] }
 db = { package = "forest_db", version = "0.1" }
 forest_cid = "0.3"
-crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
+forest_crypto = { version = "0.5", features = ["blst"] }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 serde = { version = "1.0", features = ["derive"] }
 num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }

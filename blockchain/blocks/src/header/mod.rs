@@ -3,13 +3,13 @@
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
-use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use forest_address::Address;
 use forest_cid::{Cid, Code::Blake2b256};
+use forest_crypto::Signature;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -34,7 +34,7 @@ const SHA_256_BITS: usize = 256;
 /// use forest_address::Address;
 /// use forest_cid::{Cid, Code::Identity};
 /// use fvm_shared::bigint::BigInt;
-/// use crypto::Signature;
+/// use forest_crypto::Signature;
 ///
 /// BlockHeader::builder()
 ///     .messages(forest_cid::new_from_cbor(&[], Identity)) // required

@@ -13,7 +13,6 @@ use actor::{
 };
 use beacon::{Beacon, BeaconEntry};
 use bls_signatures::Serialize as SerializeBls;
-use crypto::SignatureType;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
@@ -28,6 +27,7 @@ use forest_blocks::{
     Tipset, TxMeta,
 };
 use forest_cid::{json::CidJson, Cid, Code::Blake2b256};
+use forest_crypto::SignatureType;
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -655,9 +655,9 @@ pub(crate) async fn miner_create_block<
     )?;
 
     let calculated_bls_agg = if bls_sigs.is_empty() {
-        Some(crypto::Signature::new_bls(vec![]))
+        Some(forest_crypto::Signature::new_bls(vec![]))
     } else {
-        Some(crypto::Signature::new_bls(
+        Some(forest_crypto::Signature::new_bls(
             bls_signatures::aggregate(
                 &bls_sigs
                     .iter()

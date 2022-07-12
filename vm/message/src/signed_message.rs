@@ -3,10 +3,10 @@
 
 use super::Message as MessageTrait;
 use crate::message;
-use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
 use forest_address::Address;
+use forest_crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use fvm_shared::message::Message;
 use vm::{MethodNum, Serialized, TokenAmount};
 
@@ -126,8 +126,8 @@ impl Cbor for SignedMessage {
 pub mod json {
     use super::*;
 
-    use crypto::signature;
     use forest_cid::Cid;
+    use forest_crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.

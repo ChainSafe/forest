@@ -57,6 +57,6 @@ fvm_shared = { version = "0.7.1", default-features = false, features = ["testing
 [dev-dependencies]
 forest_address = "0.3"
 num-bigint     = { path = "../../utils/bigint", package = "forest_bigint" }
-crypto         = { package = "forest_crypto", version = "0.5", features = ["blst"] }
+forest_crypto  = { version = "0.5", features = ["blst"] }
 genesis        = { path = "../../utils/genesis", features = ["testing"] }
 async-std      = { version = "1.9", features = ["attributes"] }

@@ -39,7 +39,7 @@ ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 forest_cid = { version = "0.3", features = ["json"] }
-crypto = { package = "forest_crypto", version = "0.5", features = [
+forest_crypto = { version = "0.5", features = [
     "json",
     "blst",
 ] }
