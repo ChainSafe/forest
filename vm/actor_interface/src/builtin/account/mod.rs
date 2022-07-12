@@ -41,10 +41,10 @@ impl State {
         BS: BlockStore,
     {
         if is_v8_account_cid(&actor.code) {
-            return Ok(store
+            return store
                 .get_obj(&actor.state)?
                 .map(State::V8)
-                .context("Actor state doesn't exist in store")?);
+                .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown account actor code {}", actor.code))
     }

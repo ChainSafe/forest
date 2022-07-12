@@ -41,10 +41,10 @@ impl State {
         BS: BlockStore,
     {
         if is_v8_reward_cid(&actor.code) {
-            return Ok(store
+            return store
                 .get_obj(&actor.state)?
                 .map(State::V8)
-                .context("Actor state doesn't exist in store")?);
+                .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
     }
