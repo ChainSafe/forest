@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use actor::is_miner_actor;
 use forest_address::{json::AddressJson, Address};
-use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
+use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,

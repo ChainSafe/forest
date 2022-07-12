@@ -1,13 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_address::Address;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
+use forest_address::Address;
 use forest_json_utils::go_vec_visitor;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;

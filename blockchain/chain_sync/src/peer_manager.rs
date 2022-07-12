@@ -7,7 +7,7 @@ use std::time::Duration;
 use std::{cmp::Ordering, collections::HashSet};
 
 use async_std::sync::RwLock;
-use blocks::Tipset;
+use forest_blocks::Tipset;
 use libp2p::core::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;

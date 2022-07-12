@@ -3,8 +3,8 @@
 
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
-use forest_address::Address;
 use crypto::{Signature, SignatureType};
+use forest_address::Address;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryFrom;

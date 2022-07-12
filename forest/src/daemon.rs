@@ -300,9 +300,9 @@ fn chain_path(config: &Config) -> PathBuf {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
-    use forest_address::Address;
-    use blocks::BlockHeader;
     use db::MemoryDB;
+    use forest_address::Address;
+    use forest_blocks::BlockHeader;
     use networks::ChainConfig;
 
     #[async_std::test]

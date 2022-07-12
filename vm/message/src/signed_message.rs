@@ -3,10 +3,10 @@
 
 use super::Message as MessageTrait;
 use crate::message;
-use forest_address::Address;
 use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
+use forest_address::Address;
 use fvm_shared::message::Message;
 use vm::{MethodNum, Serialized, TokenAmount};
 

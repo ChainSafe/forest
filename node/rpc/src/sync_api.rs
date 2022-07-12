@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use beacon::Beacon;
-use blocks::gossip_block::json::GossipBlockJson;
-use blocks::Tipset;
 use blockstore::BlockStore;
 use chain_sync::SyncState;
 use cid::json::CidJson;
 use encoding::Cbor;
+use forest_blocks::gossip_block::json::GossipBlockJson;
+use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use fvm_shared::message::Message;
 use message::SignedMessage;
@@ -110,15 +110,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forest_address::Address;
     use async_std::channel::{bounded, Receiver};
     use async_std::sync::RwLock;
     use async_std::task;
     use beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
-    use blocks::{BlockHeader, Tipset};
     use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::{MemoryDB, Store};
+    use forest_address::Address;
+    use forest_blocks::{BlockHeader, Tipset};
     use forest_libp2p::NetworkMessage;
     use message_pool::{MessagePool, MpoolRpcProvider};
     use networks::ChainConfig;

@@ -8,7 +8,6 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use actor::*;
-use forest_address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
@@ -19,6 +18,7 @@ use cid::Cid;
 use encoding::Cbor;
 use fil_actors_runtime::runtime::Policy;
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
+use forest_address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_crypto::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};

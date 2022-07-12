@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use forest_address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::{Cid, Code::Blake2b256};
 use crypto::Signature;
@@ -10,6 +9,7 @@ use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
+use forest_address::Address;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -458,9 +458,9 @@ impl fmt::Display for BlockHeader {
 #[cfg(test)]
 mod tests {
     use crate::{errors::Error, BlockHeader};
-    use forest_address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
+    use forest_address::Address;
 
     use std::sync::Arc;
     use std::time::Duration;

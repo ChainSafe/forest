@@ -6,7 +6,7 @@ use forest_address::Address;
 use async_std::channel::bounded;
 use async_std::task;
 use beacon::{BeaconPoint, MockBeacon};
-use blocks::BlockHeader;
+use forest_blocks::BlockHeader;
 use db::MemoryDB;
 use fil_types::verifier::MockVerifier;
 use forest_libp2p::hello::HelloRequest;

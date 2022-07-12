@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::{init, ActorVersion, Map};
-use forest_address::{Address, Protocol};
 use async_std::{channel::bounded, task};
 use cid::{Cid, Code::Blake2b256};
 use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
+use forest_address::{Address, Protocol};
 use fvm_ipld_car::CarHeader;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use std::cell::RefCell;

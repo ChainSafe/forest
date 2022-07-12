@@ -3,16 +3,16 @@
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power};
-use forest_address::Address;
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use cid::Code::Blake2b256;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
+use forest_address::Address;
+use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
 use fvm_ipld_car::CarHeader;
@@ -913,7 +913,7 @@ where
 #[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
-    use blocks::tipset_json::TipsetJson;
+    use forest_blocks::tipset_json::TipsetJson;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -941,9 +941,9 @@ pub mod headchange_json {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forest_address::Address;
     use async_std::sync::Arc;
     use cid::Code::{Blake2b256, Identity};
+    use forest_address::Address;
 
     #[test]
     fn genesis_test() {

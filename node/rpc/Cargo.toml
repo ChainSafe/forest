@@ -32,7 +32,7 @@ auth = { path = "../../utils/auth" }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
     "json",
 ] }
-blocks = { package = "forest_blocks", path = "../../blockchain/blocks", features = [
+forest_blocks = { path = "../../blockchain/blocks", features = [
     "json",
 ] }
 blockstore = { package = "ipld_blockstore", version = "0.1" }

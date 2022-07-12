@@ -23,9 +23,7 @@ use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};
-use forest_address::Address;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
@@ -35,6 +33,10 @@ use encoding::Error as ForestEncodingError;
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK,
+};
+use forest_address::Address;
+use forest_blocks::{
+    Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use fvm::gas::price_list_by_network_version;

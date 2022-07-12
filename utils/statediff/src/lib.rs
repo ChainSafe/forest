@@ -5,12 +5,12 @@
 // use actor::market;
 // use actor::miner;
 // use actor::power;
-use forest_address::Address;
 use blockstore::resolve::resolve_cids_recursive;
 use blockstore::BlockStore;
 use cid::{json::CidJson, Cid};
 use colored::*;
 use difference::{Changeset, Difference};
+use forest_address::Address;
 use ipld::json::{IpldJson, IpldJsonRef};
 use ipld::Ipld;
 use serde::{Deserialize, Serialize};

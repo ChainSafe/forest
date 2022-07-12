@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message;
-use forest_address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
+use forest_address::Address;
 use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -253,8 +253,8 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use forest_address::json::AddressJson;
     use cid::Cid;
+    use forest_address::json::AddressJson;
     use num_bigint::bigint_ser;
     use serde::{de, ser};
 

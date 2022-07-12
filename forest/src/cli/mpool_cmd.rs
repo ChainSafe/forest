@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use forest_address::json::AddressJson;
 use forest_address::Address;
-use blocks::tipset_keys_json::TipsetKeysJson;
+use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use fvm_shared::bigint::BigInt;
 use jsonrpc_v2::Error;
 use message::Message;

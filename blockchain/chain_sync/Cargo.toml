@@ -14,7 +14,7 @@ fvm_ipld_encoding = "0.2"
 legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 forest_address = "0.3"
 vm = { package = "forest_vm", version = "0.3.1" }
-blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
+forest_blocks = { path = "../blocks", features = ["json"] }
 beacon = { path = "../beacon" }
 db = { package = "forest_db", version = "0.1" }
 encoding = { package = "forest_encoding", version = "0.2.1" }

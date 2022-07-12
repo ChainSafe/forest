@@ -13,7 +13,7 @@ use ipld_blockstore::BlockStore;
 
 use crate::resolve_to_key_addr;
 use forest_address::Address;
-use blocks::BlockHeader;
+use forest_blocks::BlockHeader;
 use forest_encoding::Cbor;
 use state_tree::StateTree;
 
