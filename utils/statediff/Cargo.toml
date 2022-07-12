@@ -17,7 +17,7 @@ colored = "2.0"
 # TODO might need to enable feature on other versions (0.1 and local)
 forest_address = { version = "0.3", features = ["json"] }
 serde          = { version = "1.0", features = ["derive"] }
-ipld           = { version = "0.1", package = "forest_ipld", features = ["json"] }
+forest_ipld    = { version = "0.1", features = ["json"] }
 vm             = { package = "forest_vm", version = "0.3" }
 fil_types      = "0.2"
 state_tree     = { path = "../../vm/state_tree/" }

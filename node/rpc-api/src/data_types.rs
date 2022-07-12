@@ -19,13 +19,13 @@ use forest_blocks::{
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
 use forest_cid::{json::CidJson, Cid};
+use forest_ipld::json::IpldJson;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
-use ipld::json::IpldJson;
 use ipld_blockstore::BlockStore;
 use message::{
     message_receipt::json::MessageReceiptJson, signed_message,
