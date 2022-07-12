@@ -7,8 +7,8 @@
 /// `Bytes()`.
 ///
 /// ```
-/// # use forest_ipld::ipld;
-/// # use forest_cid::Cid;
+/// # use cid::ipld;
+/// # use cid::Cid;
 /// #
 /// let value = ipld!({
 ///     "code": 200,
