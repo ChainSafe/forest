@@ -278,16 +278,13 @@ impl Beacon for DrandBeacon {
         network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
     ) -> u64 {
+        let latest_ts =
+            ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
         if network_version <= NetworkVersion::V15 {
             // Algorithm for nv15 and below
-            let latest_ts = ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time)
-                - self.fil_round_time;
             (latest_ts - self.drand_gen_time) / self.interval
         } else {
             // Algorithm for nv16 and above
-            let latest_ts = ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time)
-                - self.fil_round_time;
-
             if latest_ts < self.drand_gen_time {
                 return 1;
             }
