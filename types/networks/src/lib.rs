@@ -5,11 +5,15 @@
 extern crate lazy_static;
 
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use fil_types::NetworkVersion;
-use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fil_actors_runtime::runtime::Policy;
+use fil_types::NetworkVersion;
+use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof};
+
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, cmp::Ordering};
+use std::collections::HashSet;
+use std::sync::Arc;
 
 mod calibnet;
 mod drand;
@@ -163,7 +167,18 @@ impl ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
-            policy: todo!(),
+            policy: Policy {
+                valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
+                    RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                    RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                ]),
+                valid_pre_commit_proof_type: HashSet::<RegisteredSealProof>::from([
+                    RegisteredSealProof::StackedDRG32GiBV1P1,
+                    RegisteredSealProof::StackedDRG64GiBV1P1,
+                ]),
+                minimum_consensus_power: BigInt::from(32 << 30),
+                ..Policy::default()
+            },
         }
     }
 
@@ -236,7 +251,17 @@ impl Default for ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
-            policy: todo!(),
+            policy: Policy {
+                valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
+                    RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                    RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                ]),
+                valid_pre_commit_proof_type: HashSet::<RegisteredSealProof>::from([
+                    RegisteredSealProof::StackedDRG32GiBV1P1,
+                    RegisteredSealProof::StackedDRG64GiBV1P1,
+                ]),
+                ..Policy::default()
+            },
         }
     }
 }
@@ -246,8 +271,8 @@ pub fn default_policy() -> Policy {
 }
 
 pub mod de_policy {
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use fil_actors_runtime::runtime::Policy;
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Policy, D::Error>
     where

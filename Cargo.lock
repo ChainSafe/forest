@@ -5251,7 +5251,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "beacon",
- "fil_actors_runtime 7.5.1",
+ "fil_actors_runtime",
  "fil_types",
  "fvm_shared",
  "lazy_static",
