@@ -11,17 +11,26 @@ use serde::Serialize;
 use anyhow::Context;
 
 /// Init actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::INIT_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(1);
 
 /// Init actor method.
-pub type Method = fil_actor_init_v7::Method;
+pub type Method = fil_actor_init_v8::Method;
+
+pub fn is_v8_init_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
 
 /// Init actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_init_v7::State),
+    V8(fil_actor_init_v8::State),
 }
 
 impl State {
@@ -29,14 +38,13 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/init")) {
-            Ok(store
+        if is_v8_init_cid(&actor.code) {
+            return store
                 .get_obj(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
         }
+        Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
     }
 
     /// Allocates a new ID address and stores a mapping of the argument address to it.
@@ -47,7 +55,7 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Address> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
             }
@@ -70,7 +78,7 @@ impl State {
         addr: &Address,
     ) -> anyhow::Result<Option<Address>> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 st.resolve_address(&fvm_store, addr)
             }
@@ -79,7 +87,7 @@ impl State {
 
     pub fn into_network_name(self) -> String {
         match self {
-            State::V7(st) => st.network_name,
+            State::V8(st) => st.network_name,
         }
     }
 }

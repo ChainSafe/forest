@@ -6,7 +6,7 @@ use ipld_blockstore::BlockStore;
 use serde::Serialize;
 
 /// Multisig actor method.
-pub type Method = fil_actor_multisig_v7::Method;
+pub type Method = fil_actor_multisig_v8::Method;
 
 /// Multisig actor state.
 #[derive(Serialize)]

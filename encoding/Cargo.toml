@@ -9,7 +9,7 @@ repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 serde_ipld_dagcbor = "0.1"
-fvm_shared         = { version = "0.7.1", default-features = false }
+fvm_shared         = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding  = "0.2.1"
 blake2b_simd       = "1.0"
 serde              = { version = "1.0", features = ["derive"] }

@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_address::Address;
+use forest_cid::Cid;
 use fil_types::PaddedPieceSize;
 use forest_address::Address;
 use forest_bigint::bigint_ser::json;
@@ -16,17 +18,26 @@ use std::marker::PhantomData;
 use anyhow::Context;
 
 /// Market actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::STORAGE_MARKET_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(5);
 
 /// Market actor method.
-pub type Method = fil_actor_market_v7::Method;
+pub type Method = fil_actor_market_v8::Method;
+
+pub fn is_v8_market_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
 
 /// Market actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_market_v7::State),
+    V8(fil_actor_market_v8::State),
 }
 
 impl State {
@@ -34,14 +45,13 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/storagemarket")) {
-            Ok(store
+        if is_v8_market_cid(&actor.code) {
+            return store
                 .get_obj(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
         }
+        Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
     }
 
     /// Loads escrow table
@@ -79,7 +89,7 @@ impl State {
     /// Consume state to return just total funds locked
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V7(st) => st.total_locked(),
+            State::V8(st) => st.total_locked(),
         }
     }
 
@@ -97,9 +107,9 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                fil_actor_market_v7::validate_deals_for_activation(
+                fil_actor_market_v8::validate_deals_for_activation(
                     st,
                     &fvm_store,
                     deal_ids,
@@ -108,7 +118,7 @@ impl State {
                     curr_epoch,
                 )
                 .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-            } // _ => unimplemented!(),
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "chain"
+name    = "chain"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -44,5 +44,11 @@ legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 json = []
 
 [dev-dependencies]
-multihash = { version = "0.16.1", default-features = false, features = ["std", "blake2b", "derive"] }
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+multihash = { version = "0.16.1", default-features = false, features = [
+    "std",
+    "blake2b",
+    "derive",
+] }
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
+    "test_constructors",
+] }

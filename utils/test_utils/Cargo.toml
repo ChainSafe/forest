@@ -1,5 +1,5 @@
 [package]
-name = "test_utils"
+name    = "test_utils"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -19,7 +19,7 @@ forest_crypto = { version = "0.5", features = ["blst"] }
 forest_libp2p = { path = "../../node/forest_libp2p/", optional = true }
 encoding = { package = "forest_encoding", version = "0.2" }
 base64 = "0.13"
-fvm_shared = { version = "0.7.1", default-features = false }
+fvm_shared = { version = "0.8.0", default-features = false }
 
 [features]
 test_constructors = ["forest_blocks", "chain", "forest_cid", "forest_message", "forest_libp2p"]

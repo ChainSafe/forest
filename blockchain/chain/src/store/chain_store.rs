@@ -874,7 +874,7 @@ where
     let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
 
     let act = state
-        .get_actor(power::ADDRESS)
+        .get_actor(&power::ADDRESS)
         .map_err(|e| e.to_string())?
         .ok_or("Failed to load power actor for calculating weight")?;
 

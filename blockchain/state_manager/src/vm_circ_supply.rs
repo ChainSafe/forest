@@ -175,7 +175,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 
 fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(reward::ADDRESS)?
+        .get_actor(&reward::ADDRESS)?
         .ok_or_else(|| Error::State("Reward actor address could not be resolved".to_string()))?;
     let state = reward::State::load(state_tree.store(), &actor)?;
 
@@ -186,7 +186,7 @@ fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(market::ADDRESS)?
+        .get_actor(&market::ADDRESS)?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
     let state = market::State::load(state_tree.store(), &actor)?;
 
@@ -197,7 +197,7 @@ fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(power::ADDRESS)?
+        .get_actor(&power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
     let state = power::State::load(state_tree.store(), &actor)?;
 
@@ -208,7 +208,7 @@ fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
-    let reserve_actor = get_actor_state(state_tree, RESERVE_ADDRESS)?;
+    let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
     Ok(fil_reserved - reserve_actor.balance)
@@ -246,14 +246,6 @@ fn get_circulating_supply<'a, DB: BlockStore>(
         &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
         TokenAmount::default(),
     );
-
-    // dbg!(height);
-    // dbg!(&fil_vested);
-    // dbg!(&fil_mined);
-    // dbg!(&fil_burnt);
-    // dbg!(&fil_locked);
-    // dbg!(&fil_reserve_distributed);
-    // dbg!(&fil_circulating);
 
     Ok(fil_circulating)
 }

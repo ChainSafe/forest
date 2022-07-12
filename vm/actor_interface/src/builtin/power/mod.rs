@@ -19,18 +19,27 @@ use anyhow::Context;
 
 /// Power actor address.
 /// TODO: Select based on actors version
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::STORAGE_POWER_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::STORAGE_POWER_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(4);
 
 /// Power actor method.
 /// TODO: Select based on actor version
-pub type Method = fil_actor_power_v7::Method;
+pub type Method = fil_actor_power_v8::Method;
+
+pub fn is_v8_power_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
 
 /// Power actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_power_v7::State),
+    V8(fil_actor_power_v8::State),
 }
 
 /// Converts any `FilterEstimate`, e.g. `actorv0::util::smooth::FilterEstimate` type into
@@ -48,27 +57,26 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/storagepower")) {
-            Ok(store
+        if is_v8_power_cid(&actor.code) {
+            return store
                 .get_obj(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown power actor code {}", actor.code))
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
         }
+        Err(anyhow::anyhow!("Unknown power actor code {}", actor.code))
     }
 
     /// Consume state to return just total quality adj power
     pub fn into_total_quality_adj_power(self) -> StoragePower {
         match self {
-            State::V7(st) => st.total_quality_adj_power,
+            State::V8(st) => st.total_quality_adj_power,
         }
     }
 
     /// Returns the total power claim.
     pub fn total_power(&self) -> Claim {
         match self {
-            State::V7(st) => Claim {
+            State::V8(st) => Claim {
                 raw_byte_power: st.total_raw_byte_power.clone(),
                 quality_adj_power: st.total_quality_adj_power.clone(),
             },
@@ -78,7 +86,7 @@ impl State {
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
         match self {
-            State::V7(st) => st.into_total_locked(),
+            State::V8(st) => st.into_total_locked(),
         }
     }
 
@@ -89,7 +97,7 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
                 Ok(st.miner_power(&fvm_store, miner)?.map(From::from))
             }
@@ -108,9 +116,13 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                st.miner_nominal_power_meets_consensus_minimum(&fvm_store, miner)
+                let policy = fil_actors_runtime_v8::runtime::Policy::default();
+                // FIXME tracker: https://github.com/ChainSafe/forest/issues/1631
+                // policy for calibnet
+                // policy.minimum_consensus_power = fvm_shared::bigint::BigInt::from(32u128 << 30);
+                st.miner_nominal_power_meets_consensus_minimum(&policy, &fvm_store, miner)
             }
         }
     }
@@ -118,14 +130,14 @@ impl State {
     /// Returns this_epoch_qa_power_smoothed from the state.
     pub fn total_power_smoothed(&self) -> FilterEstimate {
         match self {
-            State::V7(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V8(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
         }
     }
 
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V7(st) => st.total_pledge_collateral.clone(),
+            State::V8(st) => st.total_pledge_collateral.clone(),
         }
     }
 }
@@ -140,8 +152,8 @@ pub struct Claim {
     pub quality_adj_power: StoragePower,
 }
 
-impl From<fil_actor_power_v7::Claim> for Claim {
-    fn from(cl: fil_actor_power_v7::Claim) -> Self {
+impl From<fil_actor_power_v8::Claim> for Claim {
+    fn from(cl: fil_actor_power_v8::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,
