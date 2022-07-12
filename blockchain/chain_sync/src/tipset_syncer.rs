@@ -766,6 +766,9 @@ where
     }
 }
 
+/// Sync headers backwards from the proposed head to the current one, requesting missing tipsets from the network.
+/// Once headers are available, download messages going forward on the chain and validate each extension.
+/// Finally set the proposed head as the heaviest tipset.
 #[allow(clippy::too_many_arguments)]
 fn sync_tipset_range<
     DB: BlockStore + Sync + Send + 'static,
@@ -856,6 +859,9 @@ fn sync_tipset_range<
     })
 }
 
+/// Download headers between the proposed head and the current one available locally.
+/// If they turn out to be on different forks, download more headers up to a certain limit
+/// to try to find a common ancestor.
 async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
     tracker: crate::chain_muxer::WorkerState,
     tipset_range_length: u64,
@@ -1031,6 +1037,8 @@ fn sync_tipset<
     })
 }
 
+/// Going forward along the tipsets, try to load the messages in them from the blockstore,
+/// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<
     DB: BlockStore + Send + Sync + 'static,
@@ -1135,6 +1143,9 @@ async fn sync_messages_check_state<
     Ok(())
 }
 
+/// Validates full blocks in the tipset in parallel (since the messages are not executed),
+/// adding the successful ones to the tipset tracker, and the failed ones to the bad block cache,
+/// depending on strategy. Any bad block fails validation.
 async fn validate_tipset<
     DB: BlockStore + Send + Sync + 'static,
     TBeacon: Beacon + Sync + Send + 'static,
@@ -1202,6 +1213,15 @@ async fn validate_tipset<
 /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
 /// Returns the validated block if `Ok`.
 /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
+///
+/// Validation includes:
+/// * Sanity checks
+/// * Timestamps and clock drifts
+/// * Signatures
+/// * Message inclusion (fees, sequences)
+/// * Elections and Proof-of-SpaceTime, Beacon values
+/// * Parent related fields: base fee, weight, the state root
+/// * NB: This is where the messages in the *parent* tipset are executed.
 async fn validate_block<
     DB: BlockStore + Sync + Send + 'static,
     TBeacon: Beacon + Sync + Send + 'static,
@@ -1555,6 +1575,8 @@ async fn validate_block<
     Ok(block)
 }
 
+/// Check that the miner power can be loaded.
+/// Doesn't check that the miner actually has any power.
 fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
@@ -1643,6 +1665,13 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
     })
 }
 
+/// Validate messages in a full block, relative to the parent tipset.
+///
+/// This includes:
+/// * signature checks
+/// * gas limits, and prices
+/// * account nonces
+/// * the message root in the header
 fn check_block_messages<
     DB: BlockStore + Send + Sync + 'static,
     V: ProofVerifier + Sync + Send + 'static,
@@ -1792,7 +1821,9 @@ fn check_block_messages<
     Ok(())
 }
 
-/// Checks optional values in header and returns reference to the values.
+/// Checks optional values in header.
+///
+/// In particular it looks for an election proof and a ticket, along with signatures.
 fn block_sanity_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerError> {
     if header.election_proof().is_none() {
         return Err(TipsetRangeSyncerError::BlockWithoutElectionProof);
@@ -1809,6 +1840,8 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerErro
     Ok(())
 }
 
+/// Check if any CID in `tipset` is a known bad block.
+/// If so, add all their descendants to the bad block cache and return an error.
 async fn validate_tipset_against_cache(
     bad_block_cache: Arc<BadBlockCache>,
     tipset: &TipsetKeys,

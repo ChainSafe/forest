@@ -364,6 +364,8 @@ where
     }
 
     /// Retrieves block messages to be passed through the VM.
+    ///
+    /// It removes duplicate messages which appear in multiple blocks.
     pub fn block_msgs_for_tipset(&self, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
