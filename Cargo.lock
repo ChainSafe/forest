@@ -3111,6 +3111,7 @@ dependencies = [
  "fvm_shared 0.7.1",
  "hex",
  "lazy_static",
+ "log",
  "once_cell",
  "serde",
  "serde_json",
