@@ -16,9 +16,9 @@ use forest_crypto::{
     },
     Signature,
 };
+use key_management::json::KeyInfoJson;
 use rpc_client::wallet_ops::*;
 use utils::read_file_to_string;
-use wallet::json::KeyInfoJson;
 
 use super::{cli_error_and_die, handle_rpc_err};
 

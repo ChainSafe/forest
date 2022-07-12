@@ -172,8 +172,8 @@ where
     }
     let nonce = data.mpool.get_sequence(&from).await?;
     umsg.sequence = nonce;
-    let key = wallet::Key::try_from(wallet::try_find(&key_addr, &mut *keystore)?)?;
-    let sig = wallet::sign(
+    let key = key_management::Key::try_from(key_management::try_find(&key_addr, &mut *keystore)?)?;
+    let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         umsg.to_signing_bytes().as_slice(),

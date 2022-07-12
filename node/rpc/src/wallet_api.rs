@@ -15,9 +15,9 @@ use forest_message::{
 };
 use fvm_shared::bigint::BigUint;
 use ipld_blockstore::BlockStore;
+use key_management::{json::KeyInfoJson, Error, Key};
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
-use wallet::{json::KeyInfoJson, Error, Key};
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, B>(
@@ -63,7 +63,7 @@ where
 {
     let keystore = data.keystore.read().await;
 
-    let addr = wallet::get_default(&*keystore)?;
+    let addr = key_management::get_default(&*keystore)?;
     Ok(addr.to_string())
 }
 
@@ -81,7 +81,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key_info = wallet::export_key_info(&addr, &*keystore)?;
+    let key_info = key_management::export_key_info(&addr, &*keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
@@ -99,7 +99,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key = wallet::find_key(&addr, &*keystore).is_ok();
+    let key = key_management::find_key(&addr, &*keystore).is_ok();
     Ok(key)
 }
 
@@ -112,7 +112,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let key_info: wallet::KeyInfo = match params.first().cloned() {
+    let key_info: key_management::KeyInfo = match params.first().cloned() {
         Some(key_info) => key_info.into(),
         None => return Err(JsonRpcError::INTERNAL_ERROR),
     };
@@ -145,7 +145,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
-    Ok(wallet::list_addrs(&*keystore)?
+    Ok(key_management::list_addrs(&*keystore)?
         .into_iter()
         .map(AddressJson::from)
         .collect())
@@ -162,7 +162,7 @@ where
 {
     let (sig_raw,) = params;
     let mut keystore = data.keystore.write().await;
-    let key = wallet::generate_key(sig_raw.0)?;
+    let key = key_management::generate_key(sig_raw.0)?;
 
     let addr = format!("wallet-{}", key.address);
     keystore.put(addr, key.key_info.clone())?;
@@ -215,15 +215,15 @@ where
         .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
-    let key = match wallet::find_key(&key_addr, keystore) {
+    let key = match key_management::find_key(&key_addr, keystore) {
         Ok(key) => key,
         Err(_) => {
-            let key_info = wallet::try_find(&key_addr, keystore)?;
+            let key_info = key_management::try_find(&key_addr, keystore)?;
             Key::try_from(key_info)?
         }
     };
 
-    let sig = wallet::sign(
+    let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         &base64::decode(msg_string)?,
@@ -247,9 +247,9 @@ where
 
     let keystore = data.keystore.write().await;
 
-    let key = wallet::find_key(&address, &*keystore)?;
+    let key = key_management::find_key(&address, &*keystore)?;
 
-    let sig = wallet::sign(
+    let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         msg_cid.to_bytes().as_slice(),

@@ -540,7 +540,7 @@ mod test {
         let keystore_location = PathBuf::from("/tmp/forest-db");
         let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
 
-        let key = wallet::generate_key(SignatureType::BLS).unwrap();
+        let key = key_management::generate_key(SignatureType::BLS).unwrap();
 
         let addr = format!("wallet-{}", key.address);
         ks.put(addr.clone(), key.key_info).unwrap();

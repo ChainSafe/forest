@@ -44,7 +44,7 @@ fil_types         = "0.2"
 serde_json        = "1.0"
 forest_message    = { version = "0.7", features = ["blst"] }
 message_pool      = { package = "message_pool", path = "../blockchain/message_pool" }
-wallet            = { package = "key_management", path = "../key_management" }
+key_management    = { path = "../key_management" }
 uuid              = { version = "0.8", features = ["v4"] }
 auth              = { path = "../utils/auth" }
 net_utils         = { path = "../utils/net_utils" }

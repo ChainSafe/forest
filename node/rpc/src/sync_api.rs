@@ -120,12 +120,12 @@ mod tests {
     use forest_address::Address;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_libp2p::NetworkMessage;
+    use key_management::{KeyStore, KeyStoreConfig};
     use message_pool::{MessagePool, MpoolRpcProvider};
     use networks::ChainConfig;
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
-    use wallet::{KeyStore, KeyStoreConfig};
 
     const TEST_NET_NAME: &str = "test";
 

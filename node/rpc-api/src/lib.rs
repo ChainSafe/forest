@@ -297,7 +297,7 @@ pub mod wallet_api {
     use forest_address::json::AddressJson;
     use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use forest_message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
-    use wallet::json::KeyInfoJson;
+    use key_management::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);

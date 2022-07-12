@@ -33,9 +33,9 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
+use key_management::KeyStore;
 use message_pool::{MessagePool, MpoolRpcProvider};
 use state_manager::{MiningBaseInfo, StateManager};
-use wallet::KeyStore;
 
 // RPC State
 #[derive(Serialize)]

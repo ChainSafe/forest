@@ -23,7 +23,7 @@ message_pool = { path = "../../blockchain/message_pool" }
 forest_bigint = { path = "../../utils/bigint", version = "0.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 forest_vm = "0.3"
-wallet = { package = "key_management", path = "../../key_management", features = ["json"] }
+key_management = { path = "../../key_management", features = ["json"] }
 # Public
 anyhow = "1.0"
 async-std = { version = "1.9", features = ["attributes"] }
