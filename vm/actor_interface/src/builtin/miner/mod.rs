@@ -223,7 +223,6 @@ pub struct MinerPower {
 
 /// Deadline holds the state for all sectors due at a specific deadline.
 pub enum Deadline {
-    // V7(fil_actor_miner_v7::Deadline),
     V8(fil_actor_miner_v8::Deadline),
 }
 
@@ -258,9 +257,6 @@ impl Deadline {
 
     pub fn partitions_posted(&self) -> &BitField {
         todo!()
-        // match self {
-        //     Deadline::V8(_dl) => todo!(), // &dl.partitions_posted.into(),
-        // }
     }
 }
 

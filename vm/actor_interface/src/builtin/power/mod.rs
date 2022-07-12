@@ -36,7 +36,6 @@ pub fn is_v8_power_cid(cid: &Cid) -> bool {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    // V7(fil_actor_power_v7::State),
     V8(fil_actor_power_v8::State),
 }
 

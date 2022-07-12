@@ -32,7 +32,6 @@ pub fn is_v8_reward_cid(cid: &Cid) -> bool {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    // V7(fil_actor_reward_v7::State),
     V8(fil_actor_reward_v8::State),
 }
 
