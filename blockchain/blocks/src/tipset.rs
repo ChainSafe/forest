@@ -369,12 +369,10 @@ pub mod tipset_json {
 #[cfg(test)]
 mod test {
     use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use address::Address;
-    use cid::Cid;
-    use crypto::VRFProof;
-    use num_bigint::BigInt;
-
-    use std::convert::TryFrom;
+    use forest_address::Address;
+    use forest_bigint::BigInt;
+    use forest_cid::Cid;
+    use forest_crypto::VRFProof;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
