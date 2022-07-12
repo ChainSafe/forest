@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_util::get_error_obj;
-use ::message::message::json::MessageJson;
+use ::forest_message::message::json::MessageJson;
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
 use forest_blocks::{
@@ -10,11 +10,11 @@ use forest_blocks::{
     BlockHeader, Tipset,
 };
 use forest_cid::{json::CidJson, Cid};
+use forest_message::message;
 use fvm_shared::message::Message as FVMMessage;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use log::debug;
-use message::message;
 use networks::Height;
 use rpc_api::{
     chain_api::*,

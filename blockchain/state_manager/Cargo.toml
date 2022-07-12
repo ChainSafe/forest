@@ -33,7 +33,7 @@ async-std = { version = "1.9", features = ["unstable", "tokio1"] }
 async-log = "2.0.0"
 log = "0.4.8"
 fil_types = "0.2"
-message = { package = "forest_message", version = "0.7", features = [
+forest_message = { version = "0.7", features = [
     "json",
     "blst",
 ] }

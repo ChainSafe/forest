@@ -9,7 +9,7 @@ anyhow = "1.0"
 forest_address = "0.3"
 vm = { package = "forest_vm", version = "0.3.1" }
 forest_blocks = { path = "../blocks" }
-message = { package = "forest_message", version = "0.7", features = ["proofs", "json", "blst"] }
+forest_message = { version = "0.7", features = ["proofs", "json", "blst"] }
 thiserror = "1.0"
 forest_cid = "0.3"
 encoding = { package = "forest_encoding", version = "0.2.1" }

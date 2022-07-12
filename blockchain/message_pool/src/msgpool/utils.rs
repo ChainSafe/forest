@@ -6,10 +6,10 @@ use chain::MINIMUM_BASE_FEE;
 use encoding::Cbor;
 use forest_cid::Cid;
 use forest_crypto::Signature;
+use forest_message::{Message as MessageTrait, SignedMessage};
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::message::Message;
 use lru::LruCache;
-use message::{Message as MessageTrait, SignedMessage};
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
 

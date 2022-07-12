@@ -29,10 +29,10 @@ use forest_blocks::{
 use forest_cid::{json::CidJson, Cid, Code::Blake2b256};
 use forest_crypto::SignatureType;
 use forest_ipld::{json::IpldJson, Ipld};
+use forest_message::signed_message::SignedMessage;
 use fvm_shared::bigint::BigInt;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
-use message::signed_message::SignedMessage;
 use networks::Height;
 use rpc_api::{
     data_types::{

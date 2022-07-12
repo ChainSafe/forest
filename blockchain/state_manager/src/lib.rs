@@ -20,6 +20,7 @@ use forest_address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_cid::Cid;
 use forest_crypto::DomainSeparationTag;
+use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
@@ -33,7 +34,6 @@ use interpreter::{
 use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
@@ -53,7 +53,7 @@ type CidPair = (Cid, Cid);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "message::message::json")]
+    #[serde(with = "forest_message::message::json")]
     pub msg: Message,
     #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<MessageReceipt>,

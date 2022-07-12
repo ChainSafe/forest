@@ -22,15 +22,15 @@ use forest_cid::{json::CidJson, Cid};
 use forest_ipld::json::IpldJson;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
+use forest_message::{
+    message_receipt::json::MessageReceiptJson, signed_message,
+    signed_message::json::SignedMessageJson, SignedMessage,
+};
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::{
-    message_receipt::json::MessageReceiptJson, signed_message,
-    signed_message::json::SignedMessageJson, SignedMessage,
-};
 use message_pool::{MessagePool, MpoolRpcProvider};
 use num_bigint::bigint_ser::json;
 use state_manager::{MiningBaseInfo, StateManager};
@@ -74,7 +74,7 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "message::message::json::vec")]
+    #[serde(rename = "BlsMessages", with = "forest_message::message::json::vec")]
     pub bls_msg: Vec<Message>,
     #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
     pub secp_msg: Vec<SignedMessage>,

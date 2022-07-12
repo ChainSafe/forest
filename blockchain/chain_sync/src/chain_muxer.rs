@@ -20,10 +20,10 @@ use forest_cid::Cid;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
 };
+use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use message::SignedMessage;
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 

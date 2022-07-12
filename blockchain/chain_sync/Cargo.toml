@@ -22,7 +22,7 @@ libp2p = { version = "0.40.0-rc.1", default-features = false }
 forest_cid = "0.3"
 ipld_blockstore = "0.1"
 chain = { path = "../chain" }
-message = { package = "forest_message", version = "0.7", features = [
+forest_message = { version = "0.7", features = [
     "proofs",
     "blst",
 ] }

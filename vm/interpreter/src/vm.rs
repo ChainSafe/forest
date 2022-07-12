@@ -12,6 +12,7 @@ use fil_types::{
 use forest_address::Address;
 use forest_cid::Cid;
 use forest_encoding::Cbor;
+use forest_message::{ChainMessage, MessageReceipt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
@@ -22,7 +23,6 @@ use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::Zero;
 use state_tree::StateTree;

@@ -8,9 +8,9 @@ use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
 use forest_cid::json::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
+use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::SignedMessage;
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 

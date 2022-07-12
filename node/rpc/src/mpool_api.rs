@@ -8,9 +8,9 @@ use fil_types::verifier::{FullVerifier, ProofVerifier};
 use forest_address::{Address, Protocol};
 use forest_blocks::TipsetKeys;
 use forest_cid::json::{vec::CidJsonVec, CidJson};
+use forest_message::message::json::MessageJson;
+use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};
 use ipld_blockstore::BlockStore;
-use message::message::json::MessageJson;
-use message::{signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::data_types::RPCState;
 use rpc_api::mpool_api::*;
 

@@ -3,10 +3,10 @@
 
 use encoding::Cbor;
 use forest_blocks::Tipset;
+use forest_message::Message;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
-use message::Message;
 use std::collections::HashSet;
 use types::BLOCK_GAS_LIMIT;
 

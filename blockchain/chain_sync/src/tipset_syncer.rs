@@ -39,12 +39,12 @@ use forest_blocks::{
 use forest_cid::Cid;
 use forest_crypto::{verify_bls_aggregate, DomainSeparationTag};
 use forest_libp2p::chain_exchange::TipsetBundle;
+use forest_message::message::valid_for_block_inclusion;
+use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::message::valid_for_block_inclusion;
-use message::Message as MessageTrait;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;

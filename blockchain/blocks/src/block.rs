@@ -4,8 +4,8 @@
 use super::BlockHeader;
 use encoding::tuple::*;
 use forest_cid::Cid;
+use forest_message::SignedMessage;
 use fvm_shared::message::Message;
-use message::SignedMessage;
 
 /// Limit of bls and secp messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;

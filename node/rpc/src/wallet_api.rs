@@ -10,9 +10,11 @@ use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
 use forest_address::{json::AddressJson, Address};
 use forest_crypto::signature::json::SignatureJson;
+use forest_message::{
+    message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
+};
 use fvm_shared::bigint::BigUint;
 use ipld_blockstore::BlockStore;
-use message::{message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::{data_types::RPCState, wallet_api::*};
 use state_tree::StateTree;
 use wallet::{json::KeyInfoJson, Error, Key};

@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use forest_address::json::AddressJson;
 use forest_address::Address;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_message::Message;
+use forest_message::SignedMessage;
 use fvm_shared::bigint::BigInt;
 use jsonrpc_v2::Error;
-use message::Message;
-use message::SignedMessage;
 use structopt::StructOpt;
 
 use forest_cid::json::vec::CidJsonVec;
