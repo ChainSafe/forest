@@ -15,6 +15,7 @@ use fvm_shared::bigint::{
     BigInt,
 };
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::version::NetworkVersion;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
@@ -362,6 +363,7 @@ impl BlockHeader {
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
     pub async fn validate_block_drand<B: Beacon>(
         &self,
+        network_version: NetworkVersion,
         b_schedule: &BeaconSchedule<B>,
         parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
@@ -390,7 +392,7 @@ impl BlockHeader {
             return Ok(());
         }
 
-        let max_round = curr_beacon.max_beacon_round_for_epoch(self.epoch);
+        let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, self.epoch);
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
                 return Err(Error::Validation(format!(
@@ -461,6 +463,7 @@ mod tests {
     use address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
+    use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;
     use std::time::Duration;
@@ -498,6 +501,7 @@ mod tests {
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
         if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(
+            NetworkVersion::V16,
             &beacon_schedule,
             chain_epoch,
             &beacon_entry,

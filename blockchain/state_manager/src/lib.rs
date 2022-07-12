@@ -184,9 +184,9 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = self.chain_rand(blocks.to_owned());
         match self.get_network_version(round) {
-            NetworkVersion::V15 | NetworkVersion::V14 => {
+            NetworkVersion::V16 | NetworkVersion::V15 | NetworkVersion::V14 => {
                 chain_rand
                     .get_beacon_randomness_v3(blocks, pers, round, entropy)
                     .await
@@ -227,7 +227,7 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = ChainRand::new(blocks.to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = self.chain_rand(blocks.to_owned());
         chain_rand
             .get_chain_randomness(blocks, pers, round, entropy, lookback)
             .await
@@ -246,7 +246,7 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, *state_cid)?
+            .get_actor(&actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -284,7 +284,7 @@ where
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, *state_cid)?
+            .get_actor(&actor::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -553,7 +553,7 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = self.chain_rand(ts.key().to_owned());
         self.call_raw::<V>(message, &chain_rand, &ts)
     }
 
@@ -580,7 +580,7 @@ where
             .tipset_state::<V>(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = ChainRand::new(ts.key().to_owned(), self.cs.clone(), self.beacon.clone());
+        let chain_rand = self.chain_rand(ts.key().to_owned());
 
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
@@ -746,7 +746,7 @@ where
         }
 
         let actor = self
-            .get_actor(actor::power::ADDRESS, *base_tipset.parent_state())?
+            .get_actor(&actor::power::ADDRESS, *base_tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let power_state = power::State::load(self.blockstore(), &actor)?;
@@ -801,7 +801,12 @@ where
             }
         };
         let entries = beacon
-            .beacon_entries_for_block(round, tipset.epoch(), &prev)
+            .beacon_entries_for_block(
+                self.get_network_version(round),
+                round,
+                tipset.epoch(),
+                &prev,
+            )
             .await?;
         let rbase = entries.iter().last().unwrap_or(&prev);
         let (lbts, lbst) = self
@@ -903,7 +908,7 @@ where
 
             let tipset_keys =
                 TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = ChainRand::new(tipset_keys, self.cs.clone(), self.beacon.clone());
+            let chain_rand = self.chain_rand(tipset_keys);
             let base_fee = first_block.parent_base_fee().clone();
 
             let blocks = self
@@ -1277,7 +1282,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(actor::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
@@ -1332,7 +1337,7 @@ where
     /// Checks power actor state for if miner meets consensus minimum requirements.
     pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<bool> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, *ts.parent_state())?
+            .get_actor(&actor::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor)?;
 
@@ -1403,13 +1408,22 @@ where
     /// Return the state of Market Actor.
     pub fn get_market_state(&self, ts: &Tipset) -> anyhow::Result<market::State> {
         let actor = self
-            .get_actor(actor::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&actor::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
 
         let market_state = market::State::load(self.blockstore(), &actor)?;
         Ok(market_state)
+    }
+
+    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            blocks,
+            self.cs.clone(),
+            self.beacon.clone(),
+        )
     }
 }
 

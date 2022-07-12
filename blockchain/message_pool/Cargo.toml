@@ -1,5 +1,5 @@
 [package]
-name = "message_pool"
+name    = "message_pool"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -9,7 +9,11 @@ anyhow = "1.0"
 address = { package = "forest_address", version = "0.3" }
 vm = { package = "forest_vm", version = "0.3.1" }
 blocks = { package = "forest_blocks", path = "../blocks" }
-message = { package = "forest_message", version = "0.7", features = ["proofs", "json", "blst"] }
+message = { package = "forest_message", version = "0.7", features = [
+    "proofs",
+    "json",
+    "blst",
+] }
 thiserror = "1.0"
 cid = { package = "forest_cid", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
@@ -38,9 +42,9 @@ num-rational = "0.4"
 networks = { path = "../../types/networks" }
 slotmap = "1.0"
 rand = "0.8.3"
-fvm_shared = { version = "0.7.1", default-features = false }
-fvm = "0.8"
+fvm_shared = { version = "0.8.0", default-features = false }
+fvm = "1.0"
 
 [dev-dependencies]
-interpreter = { path = "../../vm/interpreter/" }
+interpreter    = { path = "../../vm/interpreter/" }
 key_management = { path = "../../key_management" }

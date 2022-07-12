@@ -6,17 +6,15 @@ edition = "2021"
 
 [dependencies]
 async-std = "1.9"
-actors-v6 = { package = "fil_builtin_actors_bundle", version = "6.1.0" }
-actors-v7 = { package = "fil_builtin_actors_bundle", version = "7.5.1" }
-wasmtime = { version = "0.35", default-features = false }
+wasmtime = { version = "0.37", default-features = false }
 anyhow = "1.0"
-fvm = { version = "0.8", features = [] }
-fvm_shared = { version = "0.7.1", default-features = false }
+fvm = { version = "1.0", features = [] }
+fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding = "0.2"
 fvm_ipld_amt = "0.4.2"
 fvm_ipld_hamt = "0.5.1"
 fvm_ipld_blockstore = "0.1.1"
-fil_actors_runtime = "=7.5.1"
+fil_actors_runtime = "=8.0.0"
 serde_ipld_dagcbor = "0.1"
 address = { package = "forest_address", version = "0.3" }
 actor = { package = "actor_interface", path = "../actor_interface" }
