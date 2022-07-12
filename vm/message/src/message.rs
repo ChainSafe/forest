@@ -56,8 +56,8 @@ pub fn valid_for_block_inclusion(
 pub mod json {
     use super::*;
     use forest_address::json::AddressJson;
+    use forest_bigint::bigint_ser;
     use forest_cid::Cid;
-    use num_bigint::bigint_ser;
     use serde::{de, ser};
 
     /// Wrapper for serializing and deserializing a Message from JSON.

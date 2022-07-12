@@ -9,9 +9,9 @@ use forest_cid::Cid;
 use forest_cid::Code;
 use forest_cid::RAW;
 
+use forest_bigint::bigint_ser::json;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;
-use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use vm::{ActorState, TokenAmount};
 

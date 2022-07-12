@@ -20,7 +20,7 @@ serde_json          = "1.0"
 filecoin-proofs-api = { version = "11.0", default_features = false, optional = true }
 vm                  = { package = "forest_vm", version = "0.3" }
 forest_cid          = { features = ["cbor"], version = "0.3" }
-num-bigint          = { path = "../utils/bigint", package = "forest_bigint", version = "0.1" }
+forest_bigint       = { path = "../utils/bigint", version = "0.1" }
 num-traits          = "0.2"
 num-derive          = "0.3"
 encoding            = { package = "forest_encoding", version = "0.2" }
@@ -32,5 +32,5 @@ git-version         = "0.3"
 rayon               = "1.5"
 
 [features]
-json   = ["base64", "forest_json_utils", "num-bigint/json"]
+json   = ["base64", "forest_json_utils", "forest_bigint/json"]
 proofs = ["filecoin-proofs-api"]

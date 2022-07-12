@@ -19,4 +19,4 @@ async-std       = "1.9"
 fvm_ipld_car    = "0.4.1"
 
 [dev-dependencies]
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+forest_bigint = { path = "../../utils/bigint" }

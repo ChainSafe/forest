@@ -14,7 +14,7 @@ thiserror = "1.0"
 forest_cid = "0.3"
 encoding = { package = "forest_encoding", version = "0.2.1" }
 ipld_blockstore = "0.1"
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+forest_bigint = { path = "../../utils/bigint" }
 lru = "0.7.2"
 forest_crypto = { version = "0.5", features = ["blst"] }
 chain = { path = "../chain" }

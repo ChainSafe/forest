@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_address::{json as addr_json, Address};
+use forest_bigint::bigint_ser::json as bigint_json;
 use fvm_shared::sector::SectorSize;
-use num_bigint::bigint_ser::json as bigint_json;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use vm::TokenAmount;

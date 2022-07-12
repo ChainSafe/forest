@@ -14,6 +14,7 @@ use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_address::{json::AddressJson, Address};
+use forest_bigint::bigint_ser::json;
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
@@ -32,7 +33,6 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use message_pool::{MessagePool, MpoolRpcProvider};
-use num_bigint::bigint_ser::json;
 use state_manager::{MiningBaseInfo, StateManager};
 use vm::{ActorState, TokenAmount};
 use wallet::KeyStore;

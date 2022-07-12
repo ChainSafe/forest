@@ -17,7 +17,7 @@ fvm_ipld_encoding = "0.2"
 vm                = { package = "forest_vm", version = "0.3" }
 forest_address    = "0.3" 
 forest_cid        = "0.3"
-num-bigint        = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1" }
+forest_bigint     = { path = "../../utils/bigint", version = "0.1" }
 encoding          = { package = "forest_encoding", version = "0.2" }
 forest_crypto     = { default-features = false, version = "0.5" }
 derive_builder    = "0.11"
@@ -41,7 +41,7 @@ json = [
     "forest_crypto/json",
     "forest_json_utils",
     "forest_cid/json",
-    "num-bigint/json",
+    "forest_bigint/json",
 ]
 # TODO try to prune out this dependency before releasing
 proofs = ["fil_types"]

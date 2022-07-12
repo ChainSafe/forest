@@ -6,6 +6,7 @@ use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
 use forest_address::Address;
+use forest_bigint::bigint_ser::json;
 use forest_cid::{multihash::MultihashDigest, RAW};
 use forest_cid::{Cid, Code};
 use forest_json_utils::go_vec_visitor;
@@ -14,7 +15,6 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use libp2p::PeerId;
-use num_bigint::bigint_ser::json;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use vm::{ActorState, DealID, TokenAmount};

@@ -54,7 +54,7 @@ forest_message = { version = "0.7", features = [
 ] }
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
-num-bigint = { version = "0.1", package = "forest_bigint" }
+forest_bigint = "0.1"
 rpc-api = { path = "../rpc-api", version = "0.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 state_tree = { path = "../../vm/state_tree" }

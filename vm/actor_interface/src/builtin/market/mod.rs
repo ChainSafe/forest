@@ -3,12 +3,12 @@
 
 use fil_types::PaddedPieceSize;
 use forest_address::Address;
+use forest_bigint::bigint_ser::json;
 use forest_cid::{multihash::MultihashDigest, RAW};
 use forest_cid::{Cid, Code};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
-use num_bigint::bigint_ser::json;
 use serde::Serialize;
 use std::marker::PhantomData;
 use vm::{ActorState, TokenAmount};
