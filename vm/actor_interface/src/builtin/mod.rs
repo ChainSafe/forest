@@ -13,7 +13,7 @@ pub mod system;
 
 use crate::ActorVersion;
 
-use cid::Cid;
+use forest_cid::Cid;
 
 use fil_actors_runtime_v7::builtin::network;
 use fil_actors_runtime_v7::builtin::singletons;

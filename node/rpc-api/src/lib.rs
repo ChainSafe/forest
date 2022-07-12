@@ -164,11 +164,11 @@ pub mod beacon_api {
 pub mod chain_api {
     use crate::data_types::BlockMessages;
     use chain::headchange_json::SubscriptionHeadChange;
-    use cid::json::CidJson;
     use forest_blocks::{
         header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
         TipsetKeys,
     };
+    use forest_cid::json::CidJson;
     use fvm_shared::clock::ChainEpoch;
     use message::message::json::MessageJson;
 
@@ -233,8 +233,8 @@ pub mod chain_api {
 /// Message Pool API
 pub mod mpool_api {
     use crate::data_types::MessageSendSpec;
-    use cid::json::CidJson;
     use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+    use forest_cid::json::CidJson;
     use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
@@ -245,7 +245,7 @@ pub mod mpool_api {
     pub type MpoolGetNonceParams = (String,);
     pub type MpoolGetNonceResult = u64;
 
-    use cid::json::vec::CidJsonVec;
+    use forest_cid::json::vec::CidJsonVec;
     use message::SignedMessage;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
@@ -272,8 +272,8 @@ pub mod mpool_api {
 /// Sync API
 pub mod sync_api {
     use crate::data_types::RPCSyncState;
-    use cid::json::CidJson;
     use forest_blocks::gossip_block::json::GossipBlockJson;
+    use forest_cid::json::CidJson;
 
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
     pub type SyncCheckBadParams = (CidJson,);
@@ -355,12 +355,12 @@ pub mod state_api {
     use actor::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use cid::json::CidJson;
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
     use forest_address::json::AddressJson;
     use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
+    use forest_cid::json::CidJson;
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
     use message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};

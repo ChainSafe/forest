@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
-use cid::multihash::MultihashDigest;
 use fil_types::StoragePower;
 use forest_address::Address;
+use forest_cid::multihash::MultihashDigest;
+use forest_cid::Cid;
+use forest_cid::Code;
+use forest_cid::RAW;
 
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;
@@ -45,9 +48,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code
-            == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagepower"))
-        {
+        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/storagepower")) {
             Ok(store
                 .get_obj(&actor.state)?
                 .map(State::V7)

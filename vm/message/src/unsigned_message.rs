@@ -253,8 +253,8 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use cid::Cid;
     use forest_address::json::AddressJson;
+    use forest_cid::Cid;
     use num_bigint::bigint_ser;
     use serde::{de, ser};
 
@@ -298,7 +298,7 @@ pub mod json {
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
-        #[serde(default, rename = "CID", with = "cid::json::opt")]
+        #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
         cid: Option<Cid>,
     }
 

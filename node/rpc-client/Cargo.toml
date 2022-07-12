@@ -16,7 +16,7 @@ surf = { version = "2.3", default-features = false, features = ["curl-client"] }
 forest_address = { version="0.3", features=["json"] }
 auth = { path="../../utils/auth" }
 forest_blocks = { path="../../blockchain/blocks", features=["json"] }
-cid = { package="forest_cid", version="0.3", features=["json"] }
+forest_cid = { version="0.3", features=["json"] }
 crypto = { package="forest_crypto", version="0.5", features=["json", "blst"] }
 forest_libp2p = { path="../forest_libp2p" }
 message = { package="forest_message", version="0.7", features=["json"] }

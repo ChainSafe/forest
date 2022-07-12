@@ -126,8 +126,8 @@ impl Cbor for SignedMessage {
 pub mod json {
     use super::*;
 
-    use cid::Cid;
     use crypto::signature;
+    use forest_cid::Cid;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
@@ -163,7 +163,7 @@ pub mod json {
             message: &'a Message,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
-            #[serde(default, rename = "CID", with = "cid::json::opt")]
+            #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
             cid: Option<Cid>,
         }
         SignedMessageSer {

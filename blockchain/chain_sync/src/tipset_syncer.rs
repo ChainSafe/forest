@@ -26,7 +26,6 @@ use actor::{is_account_actor, power};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
-use cid::Cid;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
@@ -38,6 +37,7 @@ use forest_address::Address;
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
+use forest_cid::Cid;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use fvm::gas::price_list_by_network_version;
 use fvm_shared::clock::ChainEpoch;

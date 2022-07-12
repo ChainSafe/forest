@@ -3,9 +3,9 @@
 
 use actor::{init, ActorVersion, Map};
 use async_std::{channel::bounded, task};
-use cid::{Cid, Code::Blake2b256};
 use fil_types::{StateInfo0, StateRoot, StateTreeVersion};
 use forest_address::{Address, Protocol};
+use forest_cid::{Cid, Code::Blake2b256};
 use fvm_ipld_car::CarHeader;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use std::cell::RefCell;

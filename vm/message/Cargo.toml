@@ -16,7 +16,7 @@ fvm_shared        = { version = "*", default-features = false, features = ["test
 fvm_ipld_encoding = "0.2"
 vm                = { package = "forest_vm", version = "0.3" }
 forest_address    = "0.3" 
-cid               = { package = "forest_cid", version = "0.3" }
+forest_cid        = "0.3"
 num-bigint        = { path = "../../utils/bigint", package = "forest_bigint", version = "0.1" }
 encoding          = { package = "forest_encoding", version = "0.2" }
 crypto            = { package = "forest_crypto", default-features = false, version = "0.5" }
@@ -40,7 +40,7 @@ json = [
     "base64",
     "crypto/json",
     "forest_json_utils",
-    "cid/json",
+    "forest_cid/json",
     "num-bigint/json",
 ]
 # TODO try to prune out this dependency before releasing

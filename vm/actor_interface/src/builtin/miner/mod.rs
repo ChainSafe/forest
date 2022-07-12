@@ -1,13 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::MultihashDigest;
-use cid::Cid;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
 use forest_address::Address;
+use forest_cid::{multihash::MultihashDigest, RAW};
+use forest_cid::{Cid, Code};
 use forest_json_utils::go_vec_visitor;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::bigint::BigInt;
@@ -37,7 +37,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storageminer")) {
+        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/storageminer")) {
             Ok(store
                 .get_obj(&actor.state)?
                 .map(State::V7)
@@ -305,7 +305,7 @@ pub struct SectorOnChainInfo {
     /// The seal proof type implies the PoSt proofs
     pub seal_proof: RegisteredSealProof,
     /// CommR
-    #[serde(with = "cid::json")]
+    #[serde(with = "forest_cid::json")]
     pub sealed_cid: Cid,
     pub deal_ids: Vec<DealID>,
     /// Epoch during which the sector proof was accepted
@@ -368,7 +368,7 @@ pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     /// CommR
-    #[serde(with = "cid::json", rename = "SealedCID")]
+    #[serde(with = "forest_cid::json", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
     #[serde(with = "go_vec_visitor", rename = "DealIDs")]

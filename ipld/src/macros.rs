@@ -8,7 +8,7 @@
 ///
 /// ```
 /// # use forest_ipld::ipld;
-/// # use cid::Cid;
+/// # use forest_cid::Cid;
 /// #
 /// let value = ipld!({
 ///     "code": 200,

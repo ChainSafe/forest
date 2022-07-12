@@ -13,7 +13,6 @@ use actor::{
 };
 use beacon::{Beacon, BeaconEntry};
 use bls_signatures::Serialize as SerializeBls;
-use cid::{json::CidJson, Cid, Code::Blake2b256};
 use crypto::SignatureType;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
@@ -28,6 +27,7 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset, TxMeta,
 };
+use forest_cid::{json::CidJson, Cid, Code::Blake2b256};
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use ipld_blockstore::{BlockStore, BlockStoreExt};

@@ -12,7 +12,7 @@ use message::Message;
 use message::SignedMessage;
 use structopt::StructOpt;
 
-use cid::json::vec::CidJsonVec;
+use forest_cid::json::vec::CidJsonVec;
 use rpc_client::chain_ops::*;
 use rpc_client::mpool_ops::*;
 use rpc_client::state_ops::state_get_actor;

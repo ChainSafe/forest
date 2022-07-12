@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::MultihashDigest;
-use cid::Cid;
 use forest_address::Address;
+use forest_cid::{multihash::MultihashDigest, RAW};
+use forest_cid::{Cid, Code};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
 use vm::ActorState;
@@ -29,7 +29,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/init")) {
+        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/init")) {
             Ok(store
                 .get_obj(&actor.state)?
                 .map(State::V7)

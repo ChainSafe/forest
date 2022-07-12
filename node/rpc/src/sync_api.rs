@@ -3,10 +3,10 @@
 
 use beacon::Beacon;
 use chain_sync::SyncState;
-use cid::json::CidJson;
 use encoding::Cbor;
 use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
+use forest_cid::json::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;

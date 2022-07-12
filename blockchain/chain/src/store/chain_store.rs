@@ -7,12 +7,12 @@ use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use cid::Cid;
-use cid::Code::Blake2b256;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use forest_cid::Cid;
+use forest_cid::Code::Blake2b256;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
 use fvm_ipld_car::CarHeader;
@@ -942,8 +942,8 @@ pub mod headchange_json {
 mod tests {
     use super::*;
     use async_std::sync::Arc;
-    use cid::Code::{Blake2b256, Identity};
     use forest_address::Address;
+    use forest_cid::Code::{Blake2b256, Identity};
 
     #[test]
     fn genesis_test() {
@@ -953,9 +953,9 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
-            .messages(cid::new_from_cbor(&[], Identity))
-            .message_receipts(cid::new_from_cbor(&[], Identity))
-            .state_root(cid::new_from_cbor(&[], Identity))
+            .messages(forest_cid::new_from_cbor(&[], Identity))
+            .message_receipts(forest_cid::new_from_cbor(&[], Identity))
+            .state_root(forest_cid::new_from_cbor(&[], Identity))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
@@ -971,7 +971,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = cid::new_from_cbor(&[1, 2, 3], Blake2b256);
+        let cid = forest_cid::new_from_cbor(&[1, 2, 3], Blake2b256);
         assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();

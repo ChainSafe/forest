@@ -12,11 +12,11 @@ use crate::validation::{TipsetValidationError, TipsetValidator};
 
 use beacon::{Beacon, BeaconSchedule};
 use chain::{ChainStore, Error as ChainStoreError};
-use cid::Cid;
 use fil_types::verifier::ProofVerifier;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
+use forest_cid::Cid;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
 };
@@ -890,10 +890,10 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
-    use cid::Cid;
     use db::MemoryDB;
     use forest_address::Address;
     use forest_blocks::{BlockHeader, Tipset};
+    use forest_cid::Cid;
     use networks::{ChainConfig, Height};
     use test_utils::construct_messages;
 

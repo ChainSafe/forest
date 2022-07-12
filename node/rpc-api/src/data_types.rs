@@ -12,13 +12,13 @@ use actor::market::{DealProposal, DealState};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
-use cid::{json::CidJson, Cid};
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_address::{json::AddressJson, Address};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
+use forest_cid::{json::CidJson, Cid};
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use fvm_ipld_bitfield::json::BitFieldJson;
@@ -78,7 +78,7 @@ pub struct BlockMessages {
     pub bls_msg: Vec<Message>,
     #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
     pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "cid::json::vec")]
+    #[serde(rename = "Cids", with = "forest_cid::json::vec")]
     pub cids: Vec<Cid>,
 }
 
@@ -116,9 +116,9 @@ pub struct Partition {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateJson {
-    #[serde(with = "cid::json")]
+    #[serde(with = "forest_cid::json")]
     code: Cid,
-    #[serde(with = "cid::json")]
+    #[serde(with = "forest_cid::json")]
     head: Cid,
     nonce: u64,
     #[serde(with = "json")]

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::ForestMachine;
-use cid::Cid;
+use forest_cid::Cid;
 use fvm::call_manager::*;
 use fvm::gas::{Gas, PriceList};
 use fvm::kernel::BlockRegistry;

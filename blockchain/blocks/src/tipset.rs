@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Block, BlockHeader, Error, Ticket};
-use cid::Cid;
 use encoding::Cbor;
+use forest_cid::Cid;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use once_cell::sync::OnceCell;
@@ -258,7 +258,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        cid::json::vec::serialize(m.cids(), serializer)
+        forest_cid::json::vec::serialize(m.cids(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
@@ -266,7 +266,7 @@ pub mod tipset_keys_json {
         D: Deserializer<'de>,
     {
         Ok(TipsetKeys {
-            cids: cid::json::vec::deserialize(deserializer)?,
+            cids: forest_cid::json::vec::deserialize(deserializer)?,
         })
     }
 }

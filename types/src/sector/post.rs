@@ -4,7 +4,7 @@
 use crate::{
     PoStProof, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
 };
-use cid::Cid;
+use forest_cid::Cid;
 
 /// Randomness type used for generating PoSt proof randomness.
 pub type PoStRandomness = Randomness;
@@ -30,7 +30,7 @@ pub mod json {
         #[serde(rename = "SealProof")]
         pub proof: RegisteredSealProof,
         pub sector_number: SectorNumber,
-        #[serde(with = "cid::json")]
+        #[serde(with = "forest_cid::json")]
         #[serde(rename = "SealedCID")]
         pub sealed_cid: Cid,
     }

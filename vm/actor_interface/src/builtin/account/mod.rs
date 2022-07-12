@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::MultihashDigest;
-use cid::Cid;
 use forest_address::Address;
+use forest_cid::multihash::MultihashDigest;
+use forest_cid::{Cid, Code, RAW};
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use vm::ActorState;
@@ -22,7 +22,7 @@ pub enum State {
 }
 
 pub fn account_cid_v7() -> Cid {
-    cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/account"))
+    Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/account"))
 }
 
 impl State {

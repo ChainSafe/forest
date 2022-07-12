@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::MultihashDigest;
-use cid::Cid;
 use fil_types::PaddedPieceSize;
 use forest_address::Address;
+use forest_cid::{multihash::MultihashDigest, RAW};
+use forest_cid::{Cid, Code};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -34,9 +34,7 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code
-            == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storagemarket"))
-        {
+        if actor.code == Cid::new_v1(RAW, Code::Identity.digest(b"fil/7/storagemarket")) {
             Ok(store
                 .get_obj(&actor.state)?
                 .map(State::V7)
@@ -138,7 +136,7 @@ impl<BS> DealProposals<'_, BS> {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposal {
-    #[serde(with = "cid::json", rename = "PieceCID")]
+    #[serde(with = "forest_cid::json", rename = "PieceCID")]
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,

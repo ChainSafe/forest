@@ -3,9 +3,9 @@
 
 use crate::Error;
 use chain::MINIMUM_BASE_FEE;
-use cid::Cid;
 use crypto::Signature;
 use encoding::Cbor;
+use forest_cid::Cid;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::message::Message;
 use lru::LruCache;

@@ -4,9 +4,9 @@
 use crate::bad_block_cache::BadBlockCache;
 
 use chain::ChainStore;
-use cid::{Cid, Code::Blake2b256};
 use encoding::{Cbor, Error as EncodingError};
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
+use forest_cid::{Cid, Code::Blake2b256};
 use fvm_shared::message::Message;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::{Amt, Error as IpldAmtError};
