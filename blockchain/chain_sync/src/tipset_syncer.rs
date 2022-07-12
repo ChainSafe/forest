@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::marker::PhantomData;
@@ -188,21 +188,31 @@ impl TipsetGroup {
     }
 
     fn take_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        self.tipsets
-            .iter()
-            .enumerate()
-            .max_by_key(|(_idx, ts)| ts.weight())
-            .map(|(idx, _)| idx)
-            .map(|idx| self.tipsets.swap_remove(idx))
+        let (index, _) = self.heaviest_weight();
+        Some(self.tipsets.swap_remove(index))
     }
 
-    fn heaviest_weight(&self) -> BigInt {
+    fn heaviest_weight(&self) -> (usize, &BigInt) {
         // Unwrapping is safe because we initialize the struct with at least one tipset
-        self.tipsets
+        let max = self.tipsets.iter().map(|ts| ts.weight()).max().unwrap();
+
+        let ties = self
+            .tipsets
             .iter()
-            .map(|ts| ts.weight().clone())
-            .max()
-            .unwrap()
+            .enumerate()
+            .filter(|(_, ts)| ts.weight() == max);
+
+        let (index, ts) = ties
+            .reduce(|(i, ts), (j, other)| {
+                // break the tie
+                if ts.break_weight_tie(other) {
+                    (i, ts)
+                } else {
+                    (j, other)
+                }
+            })
+            .unwrap();
+        (index, ts.weight())
     }
 
     fn merge(&mut self, other: Self) {
@@ -216,7 +226,22 @@ impl TipsetGroup {
     }
 
     fn is_heavier_than(&self, other: &Self) -> bool {
-        self.heaviest_weight() > other.heaviest_weight()
+        self.weight_cmp(other).is_gt()
+    }
+
+    fn weight_cmp(&self, other: &Self) -> Ordering {
+        let (i, weight) = self.heaviest_weight();
+        let (j, otherw) = other.heaviest_weight();
+        match weight.cmp(otherw) {
+            Ordering::Equal => {
+                if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            }
+            r => r,
+        }
     }
 
     fn tipsets(self) -> Vec<Arc<Tipset>> {
@@ -389,7 +414,7 @@ where
                 // Consume the tipsets received, start syncing the heaviest tipset group, and discard the rest
                 if let Some(((epoch, parents), heaviest_tipset_group)) = grouped_tipsets
                     .into_iter()
-                    .max_by_key(|(_, group)| group.heaviest_weight())
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                 {
                     trace!("Finding range for tipset epoch = {}", epoch);
                     self.state = TipsetProcessorState::FindRange {
@@ -424,8 +449,8 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                     .map(|(_, group)| group)
-                    .max_by_key(|group| group.heaviest_weight())
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
@@ -471,8 +496,8 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                     .map(|(_, group)| group)
-                    .max_by_key(|group| group.heaviest_weight())
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
@@ -1802,4 +1827,62 @@ async fn validate_tipset_against_cache(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use address::Address;
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use cid::Cid;
+    use crypto::VRFProof;
+    use num_bigint::BigInt;
+
+    use super::*;
+    use std::convert::TryFrom;
+
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(id);
+        let cid =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(cid)
+            .messages(cid)
+            .state_root(cid)
+            .weight(weight_inc)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    pub fn test_heaviest_weight() {
+        // ticket_sequence are choosen so that Ticket(b3) < Ticket(b1)
+
+        let b1 = mock_block(1234561, 10, 2);
+        let ts1 = Tipset::new(vec![b1]).unwrap();
+
+        let b2 = mock_block(1234563, 9, 1);
+        let ts2 = Tipset::new(vec![b2]).unwrap();
+
+        let b3 = mock_block(1234562, 10, 1);
+        let ts3 = Tipset::new(vec![b3]).unwrap();
+
+        let mut tsg = TipsetGroup::new(Arc::new(ts1));
+        assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
+        assert!(tsg.try_add_tipset(Arc::new(ts3)).is_none());
+
+        let (index, weight) = tsg.heaviest_weight();
+        assert_eq!(index, 2);
+        assert_eq!(weight, &BigInt::from(10));
+    }
 }

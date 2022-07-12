@@ -6,6 +6,7 @@ use cid::Cid;
 use encoding::Cbor;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use log::info;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
@@ -132,6 +133,27 @@ impl Tipset {
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
+    }
+    /// Returns true if self wins according to the filecoin tie-break rule (FIP-0023)
+    pub fn break_weight_tie(&self, other: &Tipset) -> bool {
+        // blocks are already sorted by ticket
+        let broken = self
+            .blocks()
+            .iter()
+            .zip(other.blocks().iter())
+            .any(|(a, b)| {
+                const MSG: &str =
+                    "The function block_sanity_checks should have been called at this point.";
+                let ticket = a.ticket().as_ref().expect(MSG);
+                let other_ticket = b.ticket().as_ref().expect(MSG);
+                ticket.vrfproof < other_ticket.vrfproof
+            });
+        if broken {
+            info!("weight tie broken in favour of {:?}", self.key());
+        } else {
+            info!("weight tie left unbroken, default to {:?}", other.key());
+        }
+        broken
     }
 }
 
@@ -341,5 +363,72 @@ pub mod tipset_json {
         }
         let TipsetDe { blocks, .. } = Deserialize::deserialize(deserializer)?;
         Tipset::new(blocks).map(Arc::new).map_err(de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use address::Address;
+    use cid::Cid;
+    use crypto::VRFProof;
+    use num_bigint::BigInt;
+
+    use std::convert::TryFrom;
+
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(id);
+        let cid =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(cid)
+            .messages(cid)
+            .state_root(cid)
+            .weight(weight_inc)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_break_weight_tie() {
+        let b1 = mock_block(1234561, 1, 1);
+        let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
+
+        let b2 = mock_block(1234562, 1, 2);
+        let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
+
+        let b3 = mock_block(1234563, 1, 1);
+        let ts3 = Tipset::new(vec![b3]).unwrap();
+
+        // All tipsets have the same weight (but it's not really important here)
+
+        // Can break weight tie
+        assert!(ts1.break_weight_tie(&ts2));
+        // Can not break weight tie (because of same min tickets)
+        assert!(!ts1.break_weight_tie(&ts3));
+
+        // Values are choosen so that Ticket(b4) < Ticket(b5) < Ticket(b1)
+        let b4 = mock_block(1234564, 1, 41);
+        let b5 = mock_block(1234565, 1, 45);
+        let ts4 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
+        let ts5 = Tipset::new(vec![b4.clone(), b5.clone(), b2]).unwrap();
+        // Can break weight tie with several min tickets the same
+        assert!(ts4.break_weight_tie(&ts5));
+
+        let ts6 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();
+        let ts7 = Tipset::new(vec![b4, b5, b1]).unwrap();
+        // Can not break weight tie with all min tickets the same
+        assert!(!ts6.break_weight_tie(&ts7));
     }
 }
