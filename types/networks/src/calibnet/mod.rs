@@ -78,15 +78,15 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     },
     HeightInfo {
         height: Height::Chocolate,
-        epoch: 312746,
+        epoch: 312_746,
     },
     HeightInfo {
         height: Height::OhSnap,
-        epoch: 682006,
+        epoch: 682_006,
     },
     HeightInfo {
         height: Height::Skyr,
-        epoch: 1044660,
+        epoch: 1_044_660,
     },
 ];
 
