@@ -6,7 +6,6 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use beacon::json::BeaconEntryJson;
 use beacon::Beacon;
 use blockstore::BlockStore;
-use fvm_shared::version::NetworkVersion;
 use rpc_api::beacon_api::*;
 use rpc_api::data_types::RPCState;
 

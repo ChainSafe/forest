@@ -11,7 +11,6 @@ use chain::ChainStore;
 use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
 use fvm_shared::clock::ChainEpoch;
-use fvm_shared::version::NetworkVersion;
 use interpreter::Rand;
 use networks::ChainConfig;
 use std::io::Write;

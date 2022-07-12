@@ -463,6 +463,7 @@ mod tests {
     use address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
+    use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;
     use std::time::Duration;
@@ -500,6 +501,7 @@ mod tests {
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
         if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(
+            NetworkVersion::V16,
             &beacon_schedule,
             chain_epoch,
             &beacon_entry,
