@@ -146,7 +146,7 @@ where
     /// Returns the most recent beacon round for the given Filecoin chain epoch.
     fn max_beacon_round_for_epoch(
         &self,
-        network_versoin: NetworkVersion,
+        network_version: NetworkVersion,
         fil_epoch: ChainEpoch,
     ) -> u64;
 }
