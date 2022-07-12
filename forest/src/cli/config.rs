@@ -9,7 +9,7 @@ use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub data_dir: PathBuf,

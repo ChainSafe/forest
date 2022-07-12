@@ -7,8 +7,9 @@ extern crate lazy_static;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fil_types::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
+use fil_actors_runtime::runtime::Policy;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{sync::Arc, cmp::Ordering};
 
 mod calibnet;
 mod drand;
@@ -134,7 +135,7 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChainConfig {
     pub name: String,
@@ -142,6 +143,15 @@ pub struct ChainConfig {
     pub block_delay_secs: u64,
     pub version_schedule: Vec<UpgradeInfo>,
     pub height_infos: Vec<HeightInfo>,
+    #[serde(default = "default_policy")]
+    #[serde(with = "de_policy")]
+    pub policy: Policy,
+}
+
+impl Clone for ChainConfig {
+    fn clone(&self) -> ChainConfig {
+        todo!()
+    }
 }
 
 impl ChainConfig {
@@ -153,6 +163,7 @@ impl ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
+            policy: todo!(),
         }
     }
 
@@ -225,7 +236,31 @@ impl Default for ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
+            policy: todo!(),
         }
+    }
+}
+
+pub fn default_policy() -> Policy {
+    Policy::default()
+}
+
+pub mod de_policy {
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use fil_actors_runtime::runtime::Policy;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Policy, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
+    }
+
+    pub fn serialize<S>(policy: &Policy, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
     }
 }
 

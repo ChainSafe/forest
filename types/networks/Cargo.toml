@@ -12,6 +12,7 @@ beacon = { path = "../../blockchain/beacon" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 fvm_shared = { version = "0.7.1", default-features = false }
+fil_actors_runtime  = "=7.5.1"
 
 [dev-dependencies]
 toml = "0.5"
