@@ -8,21 +8,24 @@ use db::rocks::RocksDb;
 use db::rocks_config::RocksDbConfig;
 use statediff::print_state_diff;
 
+/// Examine the state delta
 #[derive(StructOpt)]
 pub struct ChainCommand {
-    #[structopt(help = "The pre cid object")]
+    /// The pre cid state root
     pre: Cid,
-    #[structopt(help = "The post cid object")]
+    /// The post cid state root
     post: Cid,
-    #[structopt(short, long, help = "The name of the chain", default_value = "mainnet")]
+    /// The name of the chain
+    #[structopt(short, long, default_value = "mainnet")]
     chain: String,
-    #[structopt(short, long, help = "The depth at which ipld links are resolved")]
+    /// The depth at which ipld links are resolved
+    #[structopt(short, long)]
     depth: Option<u64>,
 }
 
 impl ChainCommand {
     pub async fn run(&self) {
-        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
+        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let mut path = dir.data_dir().to_path_buf();
         path.push(&self.chain);
         path.push("db");
@@ -41,7 +44,7 @@ impl ChainCommand {
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 #[structopt(about = "statediff subcommands")]
 enum Subcommand {
-    #[structopt(name = "chain", about = "Examine the state delta")]
+    #[structopt(name = "chain")]
     Chain(ChainCommand),
 }
 
