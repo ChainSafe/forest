@@ -39,7 +39,6 @@ use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
-use types::verifier::ProofVerifier;
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: usize = 40000;
@@ -443,17 +442,16 @@ where
     }
 
     /// Adds a local message returned from the call back function with the current nonce.
-    pub async fn push_with_sequence<V>(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
+    pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
-        V: ProofVerifier,
     {
         let cur_ts = self.cur_tipset.read().await.clone();
         let from_key = match addr.protocol() {
             Protocol::ID => {
                 let api = self.api.read().await;
 
-                api.state_account_key::<V>(addr, &self.cur_tipset.read().await.clone())
+                api.state_account_key(addr, &self.cur_tipset.read().await.clone())
                     .await?
             }
             _ => *addr,

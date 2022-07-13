@@ -7,10 +7,7 @@ use actor::{cron, reward, system, AwardBlockRewardParams};
 use address::Address;
 use cid::Cid;
 use fil_types::BLOCK_GAS_LIMIT;
-use fil_types::{
-    verifier::{FullVerifier, ProofVerifier},
-    DefaultNetworkParams, NetworkParams,
-};
+use fil_types::{DefaultNetworkParams, NetworkParams};
 use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
@@ -89,10 +86,9 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
     registered_actors: HashSet<Cid>,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
-    verifier: PhantomData<V>,
     params: PhantomData<P>,
     heights: Heights,
 }
@@ -113,10 +109,9 @@ pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, C
         .collect()
 }
 
-impl<DB, V, P> VM<DB, V, P>
+impl<DB, P> VM<DB, P>
 where
     DB: BlockStore,
-    V: ProofVerifier,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
@@ -181,7 +176,6 @@ where
         Ok(VM {
             registered_actors,
             fvm_executor: exec,
-            verifier: PhantomData,
             params: PhantomData,
             heights,
         })
