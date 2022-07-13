@@ -5,6 +5,7 @@ use crate::errors::Error;
 use async_std::sync::Arc;
 use async_trait::async_trait;
 use chain::HeadChange;
+use fil_types::verifier::ProofVerifier;
 use forest_address::Address;
 use forest_blocks::BlockHeader;
 use forest_blocks::Tipset;
@@ -20,7 +21,6 @@ use networks::Height;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
-use types::verifier::ProofVerifier;
 
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.

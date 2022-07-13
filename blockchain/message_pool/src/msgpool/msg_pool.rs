@@ -23,6 +23,7 @@ use async_std::task;
 use chain::{HeadChange, MINIMUM_BASE_FEE};
 use db::Store;
 use encoding::Cbor;
+use fil_types::verifier::ProofVerifier;
 use forest_address::{Address, Protocol};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_cid::Cid;
@@ -39,7 +40,6 @@ use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
-use types::verifier::ProofVerifier;
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: usize = 40000;
@@ -325,7 +325,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > &types::TOTAL_FILECOIN {
+        if msg.value() > &fil_types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {

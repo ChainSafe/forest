@@ -400,7 +400,7 @@ where
             break;
         }
         gas_limit += m.gas_limit();
-        if gas_limit > types::BLOCK_GAS_LIMIT {
+        if gas_limit > fil_types::BLOCK_GAS_LIMIT {
             break;
         }
 
