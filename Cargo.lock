@@ -1181,6 +1181,7 @@ dependencies = [
  "lru 0.7.6",
  "message_pool",
  "networks",
+ "nonempty",
  "num-traits",
  "pbr",
  "pretty_env_logger",
@@ -2813,6 +2814,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_consensus"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "beacon",
+ "chain_sync",
+ "fil_types",
+ "forest_blocks",
+ "forest_cid",
+ "ipld_blockstore",
+ "log",
+ "nonempty",
+ "state_manager",
+ "thiserror",
+]
+
+[[package]]
 name = "fil_logger"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2929,14 +2948,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "filecoin_consensus"
-version = "0.1.0"
-dependencies = [
- "chain_sync",
- "thiserror",
-]
-
-[[package]]
 name = "fixedbitset"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3018,6 +3029,7 @@ dependencies = [
  "chain_sync",
  "ctrlc",
  "directories",
+ "fil_consensus",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -5740,6 +5752,12 @@ dependencies = [
  "memchr",
  "minimal-lexical",
 ]
+
+[[package]]
+name = "nonempty"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09f1f8e5676e1a1f2ee8b21f38238e1243c827531c9435624c7bfb305102cee4"
 
 [[package]]
 name = "num-bigint"

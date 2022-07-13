@@ -13,6 +13,7 @@ use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
+use futures::{FutureExt, TryFutureExt};
 use fvm_shared::bigint::BigInt;
 use log::{debug, error, info, trace, warn};
 use thiserror::Error;
@@ -227,34 +228,30 @@ impl TipsetGroup {
 /// The TipsetProcessor receives and prioritizes a stream of Tipsets
 /// for syncing from the ChainMuxer and the SyncSubmitBlock API before syncing.
 /// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
-pub(crate) struct TipsetProcessor<DB, TBeacon, V, C: Consensus> {
-    state: TipsetProcessorState<DB, TBeacon, V, C>,
+pub(crate) struct TipsetProcessor<DB, C: Consensus> {
+    state: TipsetProcessorState<DB, C>,
     tracker: crate::chain_muxer::WorkerState,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the TipsetValidator
     tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
+    consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    beacon: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
-    verifier: PhantomData<V>,
-    _phantom_consensus: PhantomData<C>,
 }
 
-impl<DB, TBeacon, V, C> TipsetProcessor<DB, TBeacon, V, C>
+impl<DB, C> TipsetProcessor<DB, C>
 where
-    TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static + Unpin,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracker: crate::chain_muxer::WorkerState,
         tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
+        consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
-        beacon: Arc<BeaconSchedule<TBeacon>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
@@ -264,24 +261,22 @@ where
             state: TipsetProcessorState::Idle,
             tracker,
             tipsets,
+            consensus,
             state_manager,
-            beacon,
             network,
             chain_store,
             bad_block_cache,
             genesis,
-            verifier: Default::default(),
-            _phantom_consensus: PhantomData,
         }
     }
 
     fn find_range(
         &self,
         mut tipset_group: TipsetGroup,
-    ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB, TBeacon, V, C>, TipsetProcessorError<C>> {
+    ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB, C>, TipsetProcessorError<C>> {
+        let consensus = self.consensus.clone();
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
-        let beacon = self.beacon.clone();
         let network = self.network.clone();
         let bad_block_cache = self.bad_block_cache.clone();
         let tracker = self.tracker.clone();
@@ -302,8 +297,8 @@ where
                 tracker,
                 proposed_head,
                 current_head,
+                consensus,
                 state_manager,
-                beacon,
                 network,
                 chain_store,
                 bad_block_cache,
@@ -319,27 +314,24 @@ where
 
 type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
-enum TipsetProcessorState<DB, TBeacon, V, C: Consensus> {
+enum TipsetProcessorState<DB, C: Consensus> {
     Idle,
     FindRange {
-        range_finder:
-            TipsetProcessorFuture<TipsetRangeSyncer<DB, TBeacon, V, C>, TipsetProcessorError<C>>,
+        range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB, C>, TipsetProcessorError<C>>,
         epoch: i64,
         parents: TipsetKeys,
         current_sync: Option<TipsetGroup>,
         next_sync: Option<TipsetGroup>,
     },
     SyncRange {
-        range_syncer: Pin<Box<TipsetRangeSyncer<DB, TBeacon, V, C>>>,
+        range_syncer: Pin<Box<TipsetRangeSyncer<DB, C>>>,
         next_sync: Option<TipsetGroup>,
     },
 }
 
-impl<DB, TBeacon, V, C> Future for TipsetProcessor<DB, TBeacon, V, C>
+impl<DB, C> Future for TipsetProcessor<DB, C>
 where
-    TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static + Unpin,
     C: Consensus,
 {
     type Output = Result<(), TipsetProcessorError<C>>;
@@ -606,26 +598,22 @@ enum InvalidBlockStrategy {
 type TipsetRangeSyncerFuture<C> =
     Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError<C>>> + Send>>;
 
-pub(crate) struct TipsetRangeSyncer<DB, TBeacon, V, C: Consensus> {
+pub(crate) struct TipsetRangeSyncer<DB, C: Consensus> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,
     tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFuture<C>>>>,
     state_manager: Arc<StateManager<DB>>,
-    beacon: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
-    verifier: PhantomData<V>,
-    _phantom_consensus: PhantomData<C>,
+    consensus: Arc<C>,
 }
 
-impl<DB, TBeacon, V, C> TipsetRangeSyncer<DB, TBeacon, V, C>
+impl<DB, C> TipsetRangeSyncer<DB, C>
 where
-    TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + Unpin + 'static,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
@@ -633,8 +621,8 @@ where
         tracker: crate::chain_muxer::WorkerState,
         proposed_head: Arc<Tipset>,
         current_head: Arc<Tipset>,
+        consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
-        beacon: Arc<BeaconSchedule<TBeacon>>,
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
@@ -648,18 +636,18 @@ where
             return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
         }
 
-        tipset_tasks.push(sync_tipset_range::<_, _, V, C>(
+        tipset_tasks.push(sync_tipset_range(
             proposed_head.clone(),
             current_head.clone(),
             tracker,
             // Casting from i64 -> u64 is safe because we ensured that
             // the value is greater than 0
             tipset_range_length as u64,
+            consensus.clone(),
             state_manager.clone(),
             chain_store.clone(),
             network.clone(),
             bad_block_cache.clone(),
-            beacon.clone(),
             genesis.clone(),
         ));
 
@@ -670,14 +658,12 @@ where
             current_head,
             tipsets_included: HashSet::new(),
             tipset_tasks,
+            consensus,
             state_manager,
-            beacon,
             network,
             chain_store,
             bad_block_cache,
             genesis,
-            verifier: Default::default(),
-            _phantom_consensus: PhantomData,
         })
     }
 
@@ -707,13 +693,13 @@ where
         // Keep track of tipsets included
         self.tipsets_included.insert(new_key);
 
-        self.tipset_tasks.push(sync_tipset::<_, _, V, C>(
+        self.tipset_tasks.push(sync_tipset(
             additional_head,
+            self.consensus.clone(),
             self.state_manager.clone(),
             self.chain_store.clone(),
             self.network.clone(),
             self.bad_block_cache.clone(),
-            self.beacon.clone(),
             self.genesis.clone(),
         ));
         Ok(true)
@@ -728,11 +714,9 @@ where
     }
 }
 
-impl<DB, TBeacon, V, C> Future for TipsetRangeSyncer<DB, TBeacon, V, C>
+impl<DB, C> Future for TipsetRangeSyncer<DB, C>
 where
-    TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
-    V: Sync + Send + Unpin + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetRangeSyncerError<C>>;
@@ -753,21 +737,16 @@ where
 /// Once headers are available, download messages going forward on the chain and validate each extension.
 /// Finally set the proposed head as the heaviest tipset.
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset_range<
-    DB: BlockStore + Sync + Send + 'static,
-    TBeacon: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
-    C: Consensus,
->(
+fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
     tracker: crate::chain_muxer::WorkerState,
     tipset_range_length: u64,
+    consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
-    beacon: Arc<BeaconSchedule<TBeacon>>,
     genesis: Arc<Tipset>,
 ) -> TipsetRangeSyncerFuture<C> {
     Box::pin(async move {
@@ -804,10 +783,10 @@ fn sync_tipset_range<
 
         //  Sync and validate messages from the tipsets
         tracker.write().await.set_stage(SyncStage::Messages);
-        if let Err(why) = sync_messages_check_state::<_, _, V, C>(
+        if let Err(why) = sync_messages_check_state(
             tracker.clone(),
+            consensus,
             state_manager,
-            beacon,
             network,
             chain_store.clone(),
             bad_block_cache,
@@ -969,18 +948,13 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset<
-    DB: BlockStore + Sync + Send + 'static,
-    TBeacon: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
-    C: Consensus,
->(
+fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
+    consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
-    beacon: Arc<BeaconSchedule<TBeacon>>,
     genesis: Arc<Tipset>,
 ) -> TipsetRangeSyncerFuture<C> {
     Box::pin(async move {
@@ -989,11 +963,11 @@ fn sync_tipset<
         persist_objects(chain_store.blockstore(), &headers)?;
 
         // Sync and validate messages from the tipsets
-        if let Err(e) = sync_messages_check_state::<_, _, V, C>(
+        if let Err(e) = sync_messages_check_state(
             // Include a dummy WorkerState
             crate::chain_muxer::WorkerState::default(),
+            consensus,
             state_manager,
-            beacon,
             network,
             chain_store.clone(),
             bad_block_cache,
@@ -1025,15 +999,10 @@ fn sync_tipset<
 /// Going forward along the tipsets, try to load the messages in them from the blockstore,
 /// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
-async fn sync_messages_check_state<
-    DB: BlockStore + Send + Sync + 'static,
-    TBeacon: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
-    C: Consensus,
->(
+async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     tracker: crate::chain_muxer::WorkerState,
+    consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    beacon_scheduler: Arc<BeaconSchedule<TBeacon>>,
     network: SyncNetworkContext<DB>,
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
@@ -1051,9 +1020,9 @@ async fn sync_messages_check_state<
         match chainstore.fill_tipset(&tipset) {
             Some(full_tipset) => {
                 let current_epoch = full_tipset.epoch();
-                validate_tipset::<_, _, V, C>(
+                validate_tipset::<_, C>(
+                    consensus.clone(),
                     state_manager.clone(),
-                    beacon_scheduler.clone(),
                     chainstore.clone(),
                     bad_block_cache.clone(),
                     full_tipset,
@@ -1101,9 +1070,9 @@ async fn sync_messages_check_state<
                     // Validate the tipset and the messages
                     let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
                     let current_epoch = full_tipset.epoch();
-                    validate_tipset::<_, _, V, C>(
+                    validate_tipset::<_, C>(
+                        consensus.clone(),
                         state_manager.clone(),
-                        beacon_scheduler.clone(),
                         chainstore.clone(),
                         bad_block_cache.clone(),
                         full_tipset,
@@ -1132,14 +1101,9 @@ async fn sync_messages_check_state<
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
 /// adding the successful ones to the tipset tracker, and the failed ones to the bad block cache,
 /// depending on strategy. Any bad block fails validation.
-async fn validate_tipset<
-    DB: BlockStore + Send + Sync + 'static,
-    TBeacon: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
-    C: Consensus,
->(
+async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
+    consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    beacon_scheduler: Arc<BeaconSchedule<TBeacon>>,
     chainstore: Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     full_tipset: FullTipset,
@@ -1156,9 +1120,9 @@ async fn validate_tipset<
 
     let mut validations = FuturesUnordered::new();
     for b in full_tipset.into_blocks() {
-        let validation_fn = task::spawn(validate_block::<_, _, V, C>(
+        let validation_fn = task::spawn(validate_block::<_, C>(
+            consensus.clone(),
             state_manager.clone(),
-            beacon_scheduler.clone(),
             Arc::new(b),
         ));
         validations.push(validation_fn);
@@ -1197,16 +1161,50 @@ async fn validate_tipset<
     Ok(())
 }
 
-async fn validate_block<
-    DB: BlockStore + Sync + Send + 'static,
-    TBeacon: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
-    C: Consensus,
->(
+/// Validate the block according to the rules specific to the consensus being used,
+/// and the common rules that pertain to the assumptions of the ChainSync protocol.
+///
+/// Returns the validated block if `Ok`.
+/// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
+///
+/// Common validation includes:
+/// * Sanity checks
+/// * Clock drifts
+/// * Signatures
+/// * Message inclusion (fees, sequences)
+/// * Parent related fields: base fee, weight, the state root
+/// * NB: This is where the messages in the *parent* tipset are executed.
+///
+/// Consensus specific validation should include:
+/// * Checking that the messages in the block correspond to the agreed upon total ordering
+/// * That the block is a deterministic derivative of the underlying consensus
+async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
+    consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    beacon_schedule: Arc<BeaconSchedule<TBeacon>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError<C>)> {
+    let block_cid = block.cid();
+
+    consensus
+        .validate_block(state_manager, block.clone())
+        .map_err(|errs| {
+            // NOTE: Concatentating errors here means the wrapper type of error
+            // never surfaces, yet we always pay the cost of the generic argument.
+            // But there's no reason `validate_block` couldn't return a list of all
+            // errors instead of a single one that has all the error messages,
+            // removing the caller's ability to distinguish between them.
+            let mut msgs = vec![];
+            for err in errs {
+                let wrapped = TipsetRangeSyncerError::<C>::ConsensusError(err);
+                msgs.push(wrapped.to_string());
+            }
+            (
+                *block_cid,
+                TipsetRangeSyncerError::Validation(msgs.join(", ")),
+            )
+        })
+        .await?;
+
     Ok(block)
 }
 

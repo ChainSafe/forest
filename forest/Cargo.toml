@@ -23,6 +23,7 @@ pretty_env_logger = "0.4"
 ctrlc             = "3.1"
 chain_sync        = { path = "../blockchain/chain_sync" }
 state_manager     = { path = "../blockchain/state_manager" }
+fil_consensus     = { path = "../blockchain/fil_consensus" }
 cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
 multibase         = "0.9"
 fvm_ipld_car      = "0.4.1"
