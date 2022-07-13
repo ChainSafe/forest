@@ -333,7 +333,6 @@ where
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
             sm: self,
-            store: self.blockstore(),
             tipset,
             verifier: PhantomData::<V>::default(),
         };
@@ -483,7 +482,6 @@ where
 
             let lb_wrapper = SMLookbackWrapper {
                 sm: self,
-                store: self.blockstore(),
                 tipset,
                 verifier: PhantomData::<V>::default(),
             };
@@ -586,7 +584,6 @@ where
         // state bloat potentially?
         let lb_wrapper = SMLookbackWrapper {
             sm: self,
-            store: self.blockstore(),
             tipset: &ts,
             verifier: PhantomData::<V>::default(),
         };
@@ -1441,29 +1438,18 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {
+struct SMLookbackWrapper<'sm, 'ts, DB, V> {
     sm: &'sm Arc<StateManager<DB>>,
-    store: &'sm BS,
     tipset: &'ts Arc<Tipset>,
     verifier: PhantomData<V>,
 }
 
-impl<'sm, 'ts, DB, BS, V> LookbackStateGetter<'sm, BS> for SMLookbackWrapper<'sm, 'ts, DB, BS, V>
+impl<'sm, 'ts, DB, V> LookbackStateGetter for SMLookbackWrapper<'sm, 'ts, DB, V>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
-    BS: BlockStore + Send + Sync,
     V: ProofVerifier,
 {
-    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, anyhow::Error> {
-        let (_, st) = task::block_on(
-            self.sm
-                .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),
-        )?;
-
-        StateTree::new_from_root(self.store, &st)
-    }
-
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
         let sm = self.sm.clone();
         let tipset = self.tipset.clone();

@@ -15,7 +15,7 @@ use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
-use fvm::state_tree::StateTree as FvmStateTree;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -24,7 +24,6 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
-use state_tree::StateTree;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -48,14 +47,13 @@ pub trait CircSupplyCalc: Clone + 'static {
     fn get_supply<DB: BlockStore>(
         &self,
         height: ChainEpoch,
-        state_tree: &FvmStateTree<DB>,
+        state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter<'db, DB> {
-    /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, anyhow::Error>;
+pub trait LookbackStateGetter {
+    /// Returns the root cid for a given ChainEpoch
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
@@ -113,9 +111,9 @@ where
     where
         R: Rand + Clone + 'static,
         C: CircSupplyCalc,
-        LB: LookbackStateGetter<'db, DB>,
+        LB: LookbackStateGetter,
     {
-        let fvm_state = FvmStateTree::new_from_root(store, &root)?;
+        let fvm_state = StateTree::new_from_root(store, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &fvm_state).unwrap();
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
