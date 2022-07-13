@@ -7,7 +7,6 @@ extern crate lazy_static;
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fil_actors_runtime::runtime::Policy;
 use fil_types::NetworkVersion;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, StoragePower};
 
@@ -227,7 +226,7 @@ impl ChainConfig {
                     RegisteredSealProof::StackedDRG32GiBV1P1,
                     RegisteredSealProof::StackedDRG64GiBV1P1,
                 ]),
-                minimum_consensus_power: BigInt::from(32 << 30),
+                minimum_consensus_power: StoragePower::from(MINIMUM_CONSENSUS_POWER),
                 ..Policy::default()
             },
         }
