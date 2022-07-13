@@ -550,7 +550,7 @@ dependencies = [
 name = "auth"
 version = "0.1.0"
 dependencies = [
- "fvm_shared 0.7.1",
+ "fvm_shared 0.8.0",
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
@@ -4058,7 +4058,7 @@ dependencies = [
  "forest_address",
  "forest_crypto",
  "forest_encoding",
- "fvm_shared 0.7.1",
+ "fvm_shared 0.8.0",
  "libsecp256k1 0.7.0",
  "log",
  "rand 0.8.5",
