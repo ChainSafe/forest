@@ -2483,7 +2483,7 @@ dependencies = [
  "forest_encoding",
  "forest_json_utils",
  "forest_vm",
- "fvm_shared 0.7.1",
+ "fvm_shared 0.8.0",
  "git-version",
  "lazy_static",
  "num-derive",
