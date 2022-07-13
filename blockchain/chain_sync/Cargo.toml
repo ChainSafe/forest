@@ -66,5 +66,4 @@ fvm_ipld_car = "0.4.1"
 hex = "0.4"
 
 [features]
-insecure_post = []
-default       = ["statediff"]
+default = ["statediff"]

@@ -78,6 +78,6 @@ tempfile   = "3"
 [features]
 default       = ["rocksdb"]
 rocksdb       = ["db/rocksdb", "ipld_blockstore/rocksdb"]
-insecure_post = ["chain_sync/insecure_post"]
+insecure_post = ["fil_consensus/insecure_post"]
 testnet       = []
 release       = []

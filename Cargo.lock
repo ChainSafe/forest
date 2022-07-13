@@ -2817,15 +2817,22 @@ dependencies = [
 name = "fil_consensus"
 version = "0.1.0"
 dependencies = [
+ "actor_interface",
  "async-std",
  "async-trait",
  "beacon",
+ "chain",
  "chain_sync",
  "fil_types",
+ "forest_address",
  "forest_blocks",
  "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "futures",
  "ipld_blockstore",
  "log",
+ "networks",
  "nonempty",
  "state_manager",
  "thiserror",

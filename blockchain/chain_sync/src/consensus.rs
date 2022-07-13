@@ -1,12 +1,16 @@
+use async_std::stream::StreamExt;
+use async_std::task;
 use async_trait::async_trait;
-use blocks::Block;
-use ipld_blockstore::BlockStore;
+use futures::stream::FuturesUnordered;
 use nonempty::NonEmpty;
 use state_manager::StateManager;
 use std::{
     fmt::{Debug, Display},
     sync::Arc,
 };
+
+use blocks::Block;
+use ipld_blockstore::BlockStore;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation
 /// and block creation. Behind the scenes they can farm out the total ordering
@@ -33,4 +37,27 @@ pub trait Consensus: Debug + Send + Sync + Unpin + 'static {
     ) -> Result<(), NonEmpty<Self::Error>>
     where
         DB: BlockStore + Sync + Send + 'static;
+}
+
+/// Helper function to collect errors from async validations.
+pub async fn collect_errs<E>(
+    mut handles: FuturesUnordered<task::JoinHandle<Result<(), E>>>,
+) -> Result<(), NonEmpty<E>> {
+    let mut errors = Vec::new();
+
+    while let Some(result) = handles.next().await {
+        if let Err(e) = result {
+            errors.push(e);
+        }
+    }
+
+    let mut errors = errors.into_iter();
+
+    match errors.next() {
+        None => Ok(()),
+        Some(head) => Err(NonEmpty {
+            head,
+            tail: errors.collect(),
+        }),
+    }
 }

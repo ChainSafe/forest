@@ -1,15 +1,18 @@
+use async_trait::async_trait;
 use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
+use thiserror::Error;
 
-use async_trait::async_trait;
 use beacon::{Beacon, BeaconSchedule};
 use blocks::Block;
+use chain::Error as ChainStoreError;
 use chain_sync::Consensus;
+use encoding::Error as ForestEncodingError;
 use fil_types::verifier::ProofVerifier;
 use ipld_blockstore::BlockStore;
 use nonempty::NonEmpty;
+use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
-use thiserror::Error;
 
 mod validation;
 
@@ -23,6 +26,8 @@ pub enum FilecoinConsensusError {
     UnequalBlockTimestamps(u64, u64),
     #[error("Tipset without ticket to verify")]
     TipsetWithoutTicket,
+    #[error("Block is not claiming to be a winner")]
+    NotClaimingWin,
     #[error("Winner election proof verification failed: {0}")]
     WinnerElectionProofVerificationFailed(String),
     #[error("Block miner was slashed or is invalid")]
@@ -41,8 +46,18 @@ pub enum FilecoinConsensusError {
     PowerActorUnavailable,
     #[error("Verifying VRF failed: {0}")]
     VrfValidation(String),
+    #[error("Failed to validate blocks random beacon values: {0}")]
+    BeaconValidation(String),
+    #[error("Failed to verify winning PoSt: {0}")]
+    WinningPoStValidation(String),
     #[error("[INSECURE-POST-VALIDATION] {0}")]
     InsecurePostValidation(String),
+    #[error("Chain store error: {0}")]
+    ChainStore(#[from] ChainStoreError),
+    #[error("StateManager error: {0}")]
+    StateManager(#[from] StateManagerError),
+    #[error("Encoding error: {0}")]
+    ForestEncoding(#[from] ForestEncodingError),
 }
 
 pub struct FilecoinConsensus<B, V> {
@@ -90,6 +105,6 @@ where
     where
         DB: BlockStore + Sync + Send + 'static,
     {
-        validation::validate_block(state_manager, block).await
+        validation::validate_block::<_, _, V>(state_manager, self.beacon.clone(), block).await
     }
 }
