@@ -7,6 +7,8 @@ use fvm::state_tree::StateTree as FvmStateTree;
 use ipld_blockstore::BlockStore;
 use state_tree::StateTree;
 
+// This copy of 'resolve_to_key_addr' will eventually be deleted.
+// Tracking issue: https://github.com/ChainSafe/forest/issues/1653
 /// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
 /// identified by `addr`.
 pub fn resolve_to_key_addr<'st, 'bs, BS, S>(
