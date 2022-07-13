@@ -1197,6 +1197,21 @@ async fn validate_tipset<
     Ok(())
 }
 
+async fn validate_block<
+    DB: BlockStore + Sync + Send + 'static,
+    TBeacon: Beacon + Sync + Send + 'static,
+    V: ProofVerifier + Sync + Send + 'static,
+    C: Consensus,
+>(
+    state_manager: Arc<StateManager<DB>>,
+    beacon_schedule: Arc<BeaconSchedule<TBeacon>>,
+    block: Arc<Block>,
+) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError<C>)> {
+    Ok(block)
+}
+
+/*
+
 /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
 /// Returns the validated block if `Ok`.
 /// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
@@ -1835,9 +1850,11 @@ fn block_sanity_checks<C: Consensus>(
     Ok(())
 }
 
+*/
+
 /// Check if any CID in `tipset` is a known bad block.
 /// If so, add all their descendants to the bad block cache and return an error.
-async fn validate_tipset_against_cache<C>(
+async fn validate_tipset_against_cache<C: Consensus>(
     bad_block_cache: Arc<BadBlockCache>,
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
