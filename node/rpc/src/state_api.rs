@@ -29,7 +29,8 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
-use fvm::state_tree::StateTree as FvmStateTree;
+use fvm::state_tree::StateTree;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use legacy_ipld_amt::Amt;
@@ -43,7 +44,6 @@ use rpc_api::{
     state_api::*,
 };
 use state_manager::{InvocResult, StateManager};
-use state_tree::StateTree;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
@@ -453,7 +453,7 @@ pub(crate) async fn state_account_key<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
-    let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
+    let address = interpreter::fvm_resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
 /// retrieves the ID address of the given address
@@ -477,7 +477,7 @@ pub(crate) async fn state_lookup_id<
     let lookup_result = state.lookup_id(&address)?;
 
     match lookup_result {
-        Some(addr) => Ok(Some(AddressJson(addr))),
+        Some(actor_id) => Ok(Some(AddressJson(Address::new_id(actor_id)))),
         None => Ok(None),
     }
 }
@@ -865,7 +865,6 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (root_cid, _) = data.state_manager.tipset_state::<V>(&ts).await?;
     let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
-    let fvm_state = FvmStateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
@@ -891,7 +890,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 
     let circ_supply = data
         .state_manager
-        .get_circulating_supply(ts.epoch(), &fvm_state)?;
+        .get_circulating_supply(ts.epoch(), &state)?;
 
     let reward_actor = state
         .get_actor(&reward::ADDRESS)?
@@ -927,7 +926,7 @@ pub(crate) async fn miner_get_base_info<
 async fn state_for_ts<DB, V>(
     state_manager: &Arc<StateManager<DB>>,
     ts: Arc<Tipset>,
-) -> Result<StateTree<'_, DB>, JsonRpcError>
+) -> Result<StateTree<&DB>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
