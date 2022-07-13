@@ -76,7 +76,7 @@ impl GenesisCommands {
     }
 }
 
-fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn std::error::Error>> {
+fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), anyhow::Error> {
     let mut genesis_str = String::new();
     File::open(&genesis_path)?.read_to_string(&mut genesis_str)?;
     let mut template: GenesisTemplate = serde_json::from_str(&genesis_str)?;
