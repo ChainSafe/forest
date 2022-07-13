@@ -3779,7 +3779,6 @@ dependencies = [
  "state_migration",
  "state_tree",
  "statediff",
- "wasmtime",
 ]
 
 [[package]]
