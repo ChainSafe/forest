@@ -15,6 +15,7 @@ use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
+use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
@@ -29,7 +30,6 @@ use message::Message as MessageTrait;
 use message::{ChainMessage, MessageReceipt, SignedMessage};
 use num_traits::Zero;
 use serde::Serialize;
-use state_tree::StateTree;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -407,7 +407,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<'_, DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<&DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
