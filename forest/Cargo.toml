@@ -7,6 +7,7 @@ edition     = "2021"
 build       = "build.rs"
 
 [dependencies]
+anyhow            = "1.0"
 fvm               = "1.0"
 address           = { package = "forest_address", version = "0.3" }
 base64            = "0.13"

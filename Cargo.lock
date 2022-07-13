@@ -2612,6 +2612,7 @@ name = "forest"
 version = "0.2.2"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "assert_cmd",
  "async-log",
  "async-std",
@@ -5235,6 +5236,7 @@ dependencies = [
 name = "net_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "futures",
  "isahc 1.7.2",
