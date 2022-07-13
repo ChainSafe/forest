@@ -1456,7 +1456,7 @@ where
         Box::new(move |round| {
             let (_, st) =
                 task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
-                    .unwrap();
+                    .expect("Internal Error. Failed to find root CID for specific epoch.");
             st
         })
     }
