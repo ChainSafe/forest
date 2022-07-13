@@ -1,0 +1,9 @@
+[package]
+name    = "filecoin_consensus"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0"
+chain_sync = { path = "../chain_sync/" }

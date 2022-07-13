@@ -18,5 +18,6 @@ extern crate serde;
 
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::chain_muxer::{ChainMuxer, SyncConfig};
+pub use self::consensus::Consensus;
 pub use self::sync_state::{SyncStage, SyncState};
 pub use self::validation::TipsetValidator;

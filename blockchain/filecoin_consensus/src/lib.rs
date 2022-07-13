@@ -1,4 +1,4 @@
-use super::Consensus;
+use chain_sync::Consensus;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

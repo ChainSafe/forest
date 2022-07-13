@@ -2929,6 +2929,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "filecoin_consensus"
+version = "0.1.0"
+dependencies = [
+ "chain_sync",
+ "thiserror",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
