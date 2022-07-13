@@ -316,11 +316,11 @@ impl Default for ChainConfig {
     }
 }
 
-pub fn default_policy() -> Policy {
+fn default_policy() -> Policy {
     Policy::default()
 }
 
-pub mod serde_policy {
+mod serde_policy {
     use crate::*;
     use num_bigint::bigint_ser::json as bigint_json;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
