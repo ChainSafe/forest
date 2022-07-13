@@ -9,6 +9,7 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use actor::*;
 use address::{Address, Payload, Protocol, BLS_PUB_LEN};
+use anyhow::Context;
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
@@ -99,9 +100,7 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs
-            .genesis()?
-            .ok_or_else(|| anyhow::anyhow!("genesis header was none"))?;
+        let genesis = cs.genesis()?.context("genesis header missing")?;
         let beacon = Arc::new(
             chain_config
                 .get_beacon_schedule(genesis.timestamp())
@@ -125,9 +124,7 @@ where
         chain_subs: Publisher<HeadChange>,
         config: ChainConfig,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs
-            .genesis()?
-            .ok_or_else(|| anyhow::anyhow!("genesis header was none"))?;
+        let genesis = cs.genesis()?.context("genesis header missing")?;
         let chain_config = Arc::new(config);
         let beacon = Arc::new(
             chain_config
