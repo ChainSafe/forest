@@ -38,6 +38,7 @@ use fil_types::{
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
 use fvm::gas::price_list_by_network_version;
+use fvm::state_tree::StateTree;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
@@ -46,7 +47,6 @@ use message::Message as MessageTrait;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
-use state_tree::StateTree;
 
 const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 
@@ -1702,7 +1702,7 @@ fn check_block_messages<
     // Check messages for validity
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
-                         tree: &StateTree<DB>|
+                         tree: &StateTree<&DB>|
      -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
