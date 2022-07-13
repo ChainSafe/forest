@@ -43,8 +43,6 @@ mod tests {
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");
 
-        let expected_json = serde_json::to_string(&expected_config).unwrap();
-        let actual_json = serde_json::to_string(&actual_config).unwrap();
-        assert_eq!(expected_json, actual_json);
+        assert!(expected_config == actual_config);
     }
 }
