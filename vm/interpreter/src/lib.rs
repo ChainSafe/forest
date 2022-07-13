@@ -4,7 +4,6 @@
 extern crate lazy_static;
 
 mod default_runtime;
-mod downcast;
 mod fvm;
 mod gas_block_store;
 mod gas_tracker;

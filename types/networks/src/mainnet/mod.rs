@@ -32,10 +32,10 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 ];
 
 /// Height epochs.
-pub const HEIGHT_INFOS: [HeightInfo; 17] = [
+pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     HeightInfo {
         height: Height::Breeze,
-        epoch: 41280,
+        epoch: 41_280,
     },
     HeightInfo {
         height: Height::Smoke,
@@ -43,63 +43,67 @@ pub const HEIGHT_INFOS: [HeightInfo; 17] = [
     },
     HeightInfo {
         height: Height::Ignition,
-        epoch: 94000,
+        epoch: 94_000,
     },
     HeightInfo {
         height: Height::ActorsV2,
-        epoch: 138720,
+        epoch: 138_720,
     },
     HeightInfo {
         height: Height::Tape,
-        epoch: 140760,
+        epoch: 140_760,
     },
     HeightInfo {
         height: Height::Liftoff,
-        epoch: 148888,
+        epoch: 148_888,
     },
     HeightInfo {
         height: Height::Kumquat,
-        epoch: 170000,
+        epoch: 170_000,
     },
     HeightInfo {
         height: Height::Calico,
-        epoch: 265200,
+        epoch: 265_200,
     },
     HeightInfo {
         height: Height::Persian,
-        epoch: 272400,
+        epoch: 272_400,
     },
     HeightInfo {
         height: Height::Orange,
-        epoch: 336458,
+        epoch: 336_458,
     },
     HeightInfo {
         height: Height::Claus,
-        epoch: 343200,
+        epoch: 343_200,
     },
     HeightInfo {
         height: Height::Trust,
-        epoch: 550321,
+        epoch: 550_321,
     },
     HeightInfo {
         height: Height::Norwegian,
-        epoch: 665280,
+        epoch: 665_280,
     },
     HeightInfo {
         height: Height::Turbo,
-        epoch: 712320,
+        epoch: 712_320,
     },
     HeightInfo {
         height: Height::Hyperdrive,
-        epoch: 892800,
+        epoch: 892_800,
     },
     HeightInfo {
         height: Height::Chocolate,
-        epoch: 1231620,
+        epoch: 1_231_620,
     },
     HeightInfo {
         height: Height::OhSnap,
-        epoch: 1594680,
+        epoch: 1_594_680,
+    },
+    HeightInfo {
+        height: Height::Skyr,
+        epoch: 1_960_320,
     },
 ];
 

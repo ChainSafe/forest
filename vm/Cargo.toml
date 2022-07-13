@@ -14,7 +14,7 @@ features = ["json"]
 serde_ipld_dagcbor = "0.2"
 fvm_shared         = { version = "*", default-features = false }
 fvm_ipld_encoding  = "0.2"
-fvm                = "0.8"
+fvm                = "1.0"
 num-bigint         = { package = "forest_bigint", path = "../utils/bigint", version = "0.1" }
 address            = { package = "forest_address", version = "0.3" }
 encoding           = { package = "forest_encoding", version = "0.2" }

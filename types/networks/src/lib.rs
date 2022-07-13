@@ -15,7 +15,7 @@ mod drand;
 mod mainnet;
 
 /// Newest network version for all networks
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
+pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
 
 const UPGRADE_INFOS: [UpgradeInfo; 16] = [
     UpgradeInfo {
