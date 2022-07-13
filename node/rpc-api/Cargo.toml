@@ -19,10 +19,10 @@ forest_cid = { version = "0.3", features = ["json"] }
 forest_crypto = { version = "0.5", features = ["json", "blst"] }
 fil_types = "0.2"
 forest_libp2p = { path = "../forest_libp2p" }
-forest_ipld = { path = "../../ipld", features = ["json"] }
+forest_ipld = { version = "0.1", features = ["json"] }
 forest_message = { version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
-forest_bigint = { path = "../../utils/bigint", version = "0.1" }
+forest_bigint = "0.1"
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 forest_vm = "0.3"
 key_management = { path = "../../key_management", features = ["json"] }

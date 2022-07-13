@@ -25,7 +25,7 @@ chain             = { path = "../chain" }
 forest_message    = { version = "0.7", features = ["proofs", "blst"] }
 state_tree        = { path = "../../vm/state_tree/" }
 state_manager     = { path = "../state_manager/" }
-forest_bigint     = { path = "../../utils/bigint" }
+forest_bigint     = "0.1"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 log               = "0.4.8"
 async-std         = { version = "1.9", features = ["tokio1", "unstable"] }
@@ -44,7 +44,7 @@ actor             = { package = "actor_interface", path = "../../vm/actor_interf
 interpreter       = { path = "../../vm/interpreter/" }
 message_pool      = { path = "../message_pool" }
 networks          = { path = "../../types/networks" }
-forest_json_utils = { path = "../../utils/json_utils", version = "0.1" }
+forest_json_utils = "0.1"
 time              = { version = "0.3", features = ["serde"] }
 prometheus        = { version = "0.12.0", features = ["process"] }
 lazy_static       = "1.4.0"

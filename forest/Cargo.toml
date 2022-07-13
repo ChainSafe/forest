@@ -30,7 +30,7 @@ fvm_ipld_car      = "0.4.1"
 forest_crypto     = { version = "0.5", features = ["json"] }
 forest_vm         = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
-forest_bigint     = { path = "../utils/bigint" }
+forest_bigint     = "0.1"
 num-rational      = "0.4"
 forest_blocks     = { path = "../blockchain/blocks" }
 ipld_blockstore   = "0.1"
