@@ -1840,7 +1840,7 @@ mod test {
     use address::Address;
     use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use cid::Cid;
-    use crypto::VRFProof;
+    use forest_crypto::VRFProof;
     use num_bigint::BigInt;
 
     use super::*;

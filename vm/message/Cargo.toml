@@ -11,7 +11,7 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-fvm_shared        = { version = "0.7.1", default-features = false, features = ["testing"] }
+fvm_shared        = { version = "0.8", default-features = false, features = ["testing"] }
 fvm_ipld_encoding = "0.2"
 vm                = { package = "forest_vm", version = "0.3" }
 address           = { package = "forest_address", version = "0.3" }

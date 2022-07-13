@@ -371,7 +371,7 @@ mod test {
     use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
     use address::Address;
     use cid::Cid;
-    use crypto::VRFProof;
+    use forest_crypto::VRFProof;
     use num_bigint::BigInt;
 
     use std::convert::TryFrom;
