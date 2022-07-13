@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 async-std = "1.9"
-wasmtime = { version = "0.37", default-features = false }
 anyhow = "1.0"
 fvm = { version = "1.0", features = [] }
 fvm_shared = { version = "0.8.0", default-features = false }
