@@ -221,7 +221,7 @@ fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmou
     Ok(burnt_actor.balance)
 }
 
-fn get_circulating_supply<'a, DB: BlockStore>(
+fn get_circulating_supply<DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<DB>,

@@ -94,7 +94,7 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<'db, R, C, LB>(
+    pub fn new<R, C, LB>(
         root: Cid,
         store: &DB,
         store_arc: Arc<DB>,
@@ -133,8 +133,7 @@ where
                     store_arc,
                     network_version,
                 ),
-            )
-            .unwrap();
+            )?;
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine {
                 machine: fvm,
