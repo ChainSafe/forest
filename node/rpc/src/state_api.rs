@@ -512,7 +512,7 @@ pub(crate) async fn state_market_deals<
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let actor = data
         .state_manager
-        .get_actor(market::ADDRESS, *ts.parent_state())?
+        .get_actor(&market::ADDRESS, *ts.parent_state())?
         .ok_or("Market actor address could not be resolved")?;
     let market_state = market::State::load(data.state_manager.blockstore(), &actor)?;
 
@@ -758,7 +758,7 @@ pub(crate) async fn state_miner_sector_allocated<
         //     .get::<bitfield::BitField>(&m.allocated_sectors)?
         //     .ok_or("allocated sectors bitfield not found")?
         //     .get(sector_num as usize),
-        miner::State::V7(m) => data
+        miner::State::V8(m) => data
             .chain_store
             .db
             .get_obj::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
@@ -823,7 +823,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
-        .get_actor(market::ADDRESS)?
+        .get_actor(&market::ADDRESS)?
         .ok_or("couldnt load market actor")?;
     let (w, vw) = market::State::load(data.state_manager.blockstore(), &actor)?
         .verify_deals_for_activation(
@@ -834,16 +834,16 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = fil_actor_miner_v7::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = fil_actor_miner_v8::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
-        .get_actor(power::ADDRESS)?
+        .get_actor(&power::ADDRESS)?
         .ok_or("couldnt load power actor")?;
     let power_smoothed =
         power::State::load(data.state_manager.blockstore(), &actor)?.total_power_smoothed();
 
     let reward_actor = state
-        .get_actor(reward::ADDRESS)?
+        .get_actor(&reward::ADDRESS)?
         .ok_or("couldnt load reward actor")?;
     let deposit = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
         .pre_commit_deposit_for_power(power_smoothed, &sector_weight);
@@ -867,7 +867,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
-        .get_actor(market::ADDRESS)?
+        .get_actor(&market::ADDRESS)?
         .ok_or("couldnt load market actor")?;
     let (w, vw) = market::State::load(data.state_manager.blockstore(), &actor)?
         .verify_deals_for_activation(
@@ -878,10 +878,10 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
             ts.epoch(),
         )?;
     let duration = pci.expiration - ts.epoch();
-    let sector_weight = fil_actor_miner_v7::qa_power_for_weight(ssize, duration, &w, &vw);
+    let sector_weight = fil_actor_miner_v8::qa_power_for_weight(ssize, duration, &w, &vw);
 
     let actor = state
-        .get_actor(power::ADDRESS)?
+        .get_actor(&power::ADDRESS)?
         .ok_or("couldnt load power actor")?;
     let power_state = power::State::load(data.state_manager.blockstore(), &actor)?;
     let power_smoothed = power_state.total_power_smoothed();
@@ -892,7 +892,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
         .get_circulating_supply(ts.epoch(), &state)?;
 
     let reward_actor = state
-        .get_actor(reward::ADDRESS)?
+        .get_actor(&reward::ADDRESS)?
         .ok_or("couldnt load reward actor")?;
 
     let initial_pledge = reward::State::load(data.state_manager.blockstore(), &reward_actor)?

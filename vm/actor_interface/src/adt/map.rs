@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 
 pub enum Map<'a, BS, V> {
-    V7(fil_actors_runtime_v7::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
+    V8(fil_actors_runtime_v8::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
 }
 
 impl<'a, BS, V> Map<'a, BS, V>
@@ -22,8 +22,8 @@ where
 {
     pub fn new(store: &'a BS, version: ActorVersion) -> Self {
         match version {
-            ActorVersion::V7 => Map::V7(
-                fil_actors_runtime_v7::fvm_ipld_hamt::Hamt::new_with_bit_width(
+            ActorVersion::V8 => Map::V8(
+                fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::new_with_bit_width(
                     FvmRefStore::new(store),
                     HAMT_BIT_WIDTH,
                 ),
@@ -35,8 +35,8 @@ where
     /// Load map with root
     pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
-            ActorVersion::V7 => Ok(Map::V7(
-                fil_actors_runtime_v7::fvm_ipld_hamt::Hamt::load_with_bit_width(
+            ActorVersion::V8 => Ok(Map::V8(
+                fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::load_with_bit_width(
                     cid,
                     FvmRefStore::new(store),
                     HAMT_BIT_WIDTH,
@@ -49,14 +49,14 @@ where
     /// Returns a reference to the underlying store of the `Map`.
     pub fn store(&self) -> &'a BS {
         match self {
-            Map::V7(m) => m.store().bs,
+            Map::V8(m) => m.store().bs,
         }
     }
 
     /// Inserts a key-value pair into the `Map`.
     pub fn set(&mut self, key: BytesKey, value: V) -> Result<(), AnyhowError> {
         match self {
-            Map::V7(m) => {
+            Map::V8(m) => {
                 m.set(key, value)?;
                 Ok(())
             }
@@ -71,7 +71,7 @@ where
         V: DeserializeOwned,
     {
         match self {
-            Map::V7(m) => Ok(m.get(k)?),
+            Map::V8(m) => Ok(m.get(k)?),
         }
     }
 
@@ -82,7 +82,7 @@ where
         Q: Hash + Eq,
     {
         match self {
-            Map::V7(m) => Ok(m.contains_key(k)?),
+            Map::V8(m) => Ok(m.contains_key(k)?),
         }
     }
 
@@ -94,14 +94,14 @@ where
         Q: Hash + Eq,
     {
         match self {
-            Map::V7(m) => Ok(m.delete(k)?),
+            Map::V8(m) => Ok(m.delete(k)?),
         }
     }
 
     /// Flush root and return Cid for `Map`
     pub fn flush(&mut self) -> Result<Cid, AnyhowError> {
         match self {
-            Map::V7(m) => Ok(m.flush()?),
+            Map::V8(m) => Ok(m.flush()?),
         }
     }
 
@@ -112,7 +112,7 @@ where
         F: FnMut(&BytesKey, &V) -> Result<(), anyhow::Error>,
     {
         match self {
-            Map::V7(m) => m
+            Map::V8(m) => m
                 .for_each(|key, val| f(key, val).map_err(|e| anyhow::anyhow!("{}", e)))
                 .map_err(|e| e.into()),
         }

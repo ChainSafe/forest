@@ -296,7 +296,7 @@ where
         }
 
         let init_act = self
-            .get_actor(actor::init::ADDRESS)?
+            .get_actor(&actor::init::ADDRESS)?
             .ok_or_else(|| anyhow::anyhow!("Init actor address could not be resolved"))?;
 
         let state = init::State::load(self.hamt.store(), &init_act)?;
@@ -345,7 +345,7 @@ where
     /// Register a new address through the init actor.
     pub fn register_new_address(&mut self, addr: &Address) -> Result<Address, anyhow::Error> {
         let mut actor: ActorState = self
-            .get_actor(init::ADDRESS)?
+            .get_actor(&init::ADDRESS)?
             .ok_or_else(|| anyhow::anyhow!("Could not retrieve init actor"))?;
 
         let mut ias = init::State::load(self.store(), &actor)?;
@@ -355,7 +355,7 @@ where
         // Set state for init actor in store and update root Cid
         actor.state = self.store().put_obj(&ias, Blake2b256)?;
 
-        self.set_actor(init::ADDRESS, actor)?;
+        self.set_actor(&init::ADDRESS, actor)?;
 
         Ok(new_addr)
     }

@@ -15,7 +15,6 @@ use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
-use fvm_ipld_car::load_car;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -24,9 +23,7 @@ use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
-use num_traits::Zero;
 use state_tree::StateTree;
-use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -90,27 +87,10 @@ impl Heights {
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
 pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
-    registered_actors: HashSet<Cid>,
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     verifier: PhantomData<V>,
     params: PhantomData<P>,
     heights: Heights,
-}
-
-pub fn import_actors(blockstore: &impl BlockStore) -> BTreeMap<NetworkVersion, Cid> {
-    let bundles = [
-        (NetworkVersion::V14, actors_v6::BUNDLE_CAR),
-        (NetworkVersion::V15, actors_v7::BUNDLE_CAR),
-    ];
-    bundles
-        .into_iter()
-        .map(|(nv, car)| {
-            let roots =
-                async_std::task::block_on(async { load_car(blockstore, car).await.unwrap() });
-            assert_eq!(roots.len(), 1);
-            (nv, roots[0])
-        })
-        .collect()
 }
 
 impl<DB, V, P> VM<DB, V, P>
@@ -140,21 +120,9 @@ where
         LB: LookbackStateGetter<'db, DB>,
     {
         let state = StateTree::new_from_root(store, &root)?;
-        let registered_actors = HashSet::new();
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
-        // let fil_vested = circ_supply_calc.get_fil_vested(epoch, store).unwrap();
 
-        // Load the builtin actors bundles into the blockstore.
-        let nv_actors = import_actors(store);
-
-        // Get the builtin actors index for the concrete network version.
-        let builtin_actors = *nv_actors
-            .get(&network_version)
-            .unwrap_or_else(|| panic!("no builtin actors index for nv {}", network_version));
-
-        let mut context = NetworkConfig::new(network_version)
-            .override_actors(builtin_actors)
-            .for_epoch(epoch, root);
+        let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
@@ -179,7 +147,6 @@ where
                 circ_supply: override_circ_supply,
             });
         Ok(VM {
-            registered_actors,
             fvm_executor: exec,
             verifier: PhantomData,
             params: PhantomData,
@@ -187,20 +154,9 @@ where
         })
     }
 
-    /// Registers an actor that is not part of the set of default builtin actors by providing the
-    /// code cid.
-    pub fn register_actor(&mut self, code_cid: Cid) -> bool {
-        self.registered_actors.insert(code_cid)
-    }
-
-    /// Gets registered actors that are not part of the set of default builtin actors.
-    pub fn registered_actors(&self) -> &HashSet<Cid> {
-        &self.registered_actors
-    }
-
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        self.fvm_executor.flush()
+        Ok(self.fvm_executor.flush()?)
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
@@ -219,8 +175,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg = Message {
-            from: **system::ADDRESS,
-            to: **cron::ADDRESS,
+            from: system::ADDRESS,
+            to: cron::ADDRESS,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -312,8 +268,8 @@ where
             })?;
 
             let rew_msg = Message {
-                from: **system::ADDRESS,
-                to: **reward::ADDRESS,
+                from: system::ADDRESS,
+                to: reward::ADDRESS,
                 method_num: reward::Method::AwardBlockReward as u64,
                 params,
                 // Epoch as sequence is intentional
@@ -358,14 +314,11 @@ where
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let mut ret = self.fvm_executor.execute_message(
+        let ret = self.fvm_executor.execute_message(
             msg.clone(),
             fvm::executor::ApplyKind::Implicit,
             raw_length,
         )?;
-        ret.msg_receipt.gas_used = 0;
-        ret.miner_tip = BigInt::zero();
-        ret.penalty = BigInt::zero();
         Ok(ret)
     }
 
@@ -377,12 +330,12 @@ where
         use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let fvm_ret = self.fvm_executor.execute_message(
+        let ret = self.fvm_executor.execute_message(
             unsigned,
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
-        Ok(fvm_ret)
+        Ok(ret)
     }
 }
 

@@ -1,16 +1,16 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use vm::ActorState;
 
 /// System actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::SYSTEM_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::SYSTEM_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(0);
 
 /// System actor method.
-pub type Method = fil_actor_system_v7::Method;
+pub type Method = fil_actor_system_v8::Method;
 
 /// System actor state.
 #[derive(Serialize)]

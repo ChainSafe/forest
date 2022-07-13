@@ -11,7 +11,6 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-fvm               = "0.8"
 fvm_shared        = { version = "0.7.1", default-features = false, features = ["testing"] }
 fvm_ipld_encoding = "0.2"
 vm                = { package = "forest_vm", version = "0.3" }
@@ -27,6 +26,7 @@ num-traits        = "0.2"
 fil_types         = { optional = true, version = "0.2" }
 anyhow            = "1.0"
 forest_crypto     = "0.5" 
+fvm               = "1.0"
 
 [dev-dependencies]
 serde_json = "1.0"

@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::version::NetworkVersion;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
@@ -68,6 +69,7 @@ where
     /// from the last two rounds.
     pub async fn beacon_entries_for_block(
         &self,
+        network_version: NetworkVersion,
         epoch: ChainEpoch,
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
@@ -76,13 +78,13 @@ where
         let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
         if cb_epoch != pb_epoch {
             // Fork logic, take entries from the last two rounds of the new beacon.
-            let round = curr_beacon.max_beacon_round_for_epoch(epoch);
+            let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
             let mut entries = Vec::with_capacity(2);
             entries.push(curr_beacon.entry(round - 1).await?);
             entries.push(curr_beacon.entry(round).await?);
             return Ok(entries);
         }
-        let max_round = curr_beacon.max_beacon_round_for_epoch(epoch);
+        let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
         if max_round == prev.round() {
             // Our chain has encountered two epochs before beacon chain has elapsed one,
             // return no beacon entries for this epoch.
@@ -142,7 +144,11 @@ where
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error>;
 
     /// Returns the most recent beacon round for the given Filecoin chain epoch.
-    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64;
+    fn max_beacon_round_for_epoch(
+        &self,
+        network_version: NetworkVersion,
+        fil_epoch: ChainEpoch,
+    ) -> u64;
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -267,9 +273,26 @@ impl Beacon for DrandBeacon {
         }
     }
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: ChainEpoch) -> u64 {
+    fn max_beacon_round_for_epoch(
+        &self,
+        network_version: NetworkVersion,
+        fil_epoch: ChainEpoch,
+    ) -> u64 {
         let latest_ts =
             ((fil_epoch as u64 * self.fil_round_time) + self.fil_gen_time) - self.fil_round_time;
-        (latest_ts - self.drand_gen_time) / self.interval
+        if network_version <= NetworkVersion::V15 {
+            // Algorithm for nv15 and below
+            (latest_ts - self.drand_gen_time) / self.interval
+        } else {
+            // Algorithm for nv16 and above
+            if latest_ts < self.drand_gen_time {
+                return 1;
+            }
+            let from_genesis = latest_ts - self.drand_gen_time;
+            // we take the time from genesis divided by the periods in seconds, that
+            // gives us the number of periods since genesis.  We also add +1 because
+            // round 1 starts at genesis time.
+            from_genesis / self.interval + 1
+        }
     }
 }
