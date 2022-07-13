@@ -5,7 +5,7 @@ use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use encoding::blake2b_256;
-use std::error::Error;
+use fvm_shared::version::NetworkVersion;
 use std::time::Duration;
 
 /// Mock beacon used for testing. Deterministic based on an interval.
@@ -34,16 +34,16 @@ impl Beacon for MockBeacon {
         &self,
         curr: &BeaconEntry,
         prev: &BeaconEntry,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool, anyhow::Error> {
         let oe = Self::entry_for_index(prev.round());
         Ok(oe.data() == curr.data())
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, Box<dyn Error>> {
+    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
         Ok(Self::entry_for_index(round))
     }
 
-    fn max_beacon_round_for_epoch(&self, fil_epoch: i64) -> u64 {
+    fn max_beacon_round_for_epoch(&self, _network_version: NetworkVersion, fil_epoch: i64) -> u64 {
         fil_epoch as u64
     }
 }

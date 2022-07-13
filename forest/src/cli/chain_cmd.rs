@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::CHAIN_FINALITY;
 use blocks::tipset_keys_json::TipsetKeysJson;
+use fil_actors_runtime::runtime::Policy;
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, handle_rpc_err};
@@ -75,14 +75,15 @@ impl ChainCommands {
                 skip_old_messages,
                 output_path,
             } => {
+                let chain_finality = Policy::default().chain_finality;
                 let recent_stateroots = match recent_stateroots {
                     Some(rsrs) => {
                         let rsrs = rsrs.to_owned();
-                        if rsrs < CHAIN_FINALITY {
+                        if rsrs < chain_finality {
                             return cli_error_and_die(
                                 &format!(
                                     "\recent-stateroots\" must be greater than {}",
-                                    CHAIN_FINALITY
+                                    chain_finality
                                 ),
                                 1,
                             );
@@ -140,7 +141,7 @@ impl ChainCommands {
                     TipsetKeysJson(chain_head.key().clone()),
                 );
 
-                let _ = chain_export(params).await.map_err(handle_rpc_err).unwrap();
+                chain_export(params).await.map_err(handle_rpc_err).unwrap();
 
                 println!("Done!")
             }

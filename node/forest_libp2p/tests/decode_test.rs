@@ -7,17 +7,16 @@ use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use forest_message::{SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use forest_message::SignedMessage;
+use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
-use std::error::Error;
 
 const DUMMY_SIG: [u8; 1] = [0u8];
 
 /// Test struct to generate one byte signature for testing
 struct DummySigner;
 impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, Box<dyn Error>> {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }
@@ -65,26 +64,26 @@ fn tipset_bundle_to_full_tipset() {
         .miner_address(Address::new_id(1))
         .build()
         .unwrap();
-    let ua = UnsignedMessage::builder()
-        .to(Address::new_id(0))
-        .from(Address::new_id(0))
-        .build()
-        .unwrap();
-    let ub = UnsignedMessage::builder()
-        .to(Address::new_id(1))
-        .from(Address::new_id(1))
-        .build()
-        .unwrap();
-    let uc = UnsignedMessage::builder()
-        .to(Address::new_id(2))
-        .from(Address::new_id(2))
-        .build()
-        .unwrap();
-    let ud = UnsignedMessage::builder()
-        .to(Address::new_id(3))
-        .from(Address::new_id(3))
-        .build()
-        .unwrap();
+    let ua = Message {
+        to: Address::new_id(0),
+        from: Address::new_id(0),
+        ..Message::default()
+    };
+    let ub = Message {
+        to: Address::new_id(1),
+        from: Address::new_id(1),
+        ..Message::default()
+    };
+    let uc = Message {
+        to: Address::new_id(2),
+        from: Address::new_id(2),
+        ..Message::default()
+    };
+    let ud = Message {
+        to: Address::new_id(3),
+        from: Address::new_id(3),
+        ..Message::default()
+    };
     let sa = SignedMessage::new(ua.clone(), &DummySigner).unwrap();
     let sb = SignedMessage::new(ub.clone(), &DummySigner).unwrap();
     let sc = SignedMessage::new(uc.clone(), &DummySigner).unwrap();

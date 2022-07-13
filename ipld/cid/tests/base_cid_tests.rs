@@ -113,5 +113,5 @@ fn test_prefix_retrieval() {
     let prefix = Prefix::from(cid);
     assert_eq!(prefix.version, Version::V1);
     assert_eq!(prefix.codec, DAG_CBOR);
-    assert_eq!(prefix.mh_type, Code::Blake2b256.into());
+    assert_eq!(prefix.mh_type, u64::from(Code::Blake2b256));
 }

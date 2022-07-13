@@ -19,7 +19,7 @@ use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::multiaddr::Protocol;
@@ -283,7 +283,7 @@ where
                                 }
                             }
                         },
-                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get(&cid) {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get_obj(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().behaviour_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => {
@@ -364,8 +364,8 @@ where
                                         warn!("Failed to connect to a peer");
                                     }
                                 }
-                                NetRPCMethods::NetDisconnect(response_channel, _peer_id) => {
-                                    warn!("NetDisconnect API not yet implmeneted"); // TODO: implement NetDisconnect - See #1181
+                                NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
+                                    let _ = Swarm::disconnect_peer_id(swarm_stream.get_mut(), peer_id);
 
                                     if response_channel.send(()).is_err() {
                                         warn!("Failed to disconnect from a peer");

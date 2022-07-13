@@ -7,7 +7,7 @@ use encoding::Error as EncodingError;
 use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.
-#[derive(Error, Debug, Clone, PartialEq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("ActorError(fatal: {fatal}, exit_code: {exit_code:?}, msg: {msg})")]
 pub struct ActorError {
     /// Is this a fatal error.
@@ -24,7 +24,7 @@ impl From<fvm::executor::ApplyFailure> for ActorError {
     fn from(ret: fvm::executor::ApplyFailure) -> Self {
         ActorError {
             fatal: true,
-            exit_code: ExitCode::Ok,
+            exit_code: ExitCode::OK,
             msg: ret.to_string(),
             recovered: false,
         }
@@ -44,7 +44,7 @@ impl ActorError {
     pub fn new_fatal(msg: String) -> Self {
         Self {
             fatal: true,
-            exit_code: ExitCode::ErrPlaceholder,
+            exit_code: ExitCode::USR_UNSPECIFIED,
             msg,
             recovered: false,
         }
@@ -74,9 +74,9 @@ impl ActorError {
         self.exit_code
     }
 
-    /// Returns true when the exit code is `Ok`.
+    /// Returns true when the exit code is `OK`.
     pub fn is_ok(&self) -> bool {
-        self.exit_code == ExitCode::Ok
+        self.exit_code == ExitCode::OK
     }
 
     /// Error message of the actor error.
@@ -95,7 +95,7 @@ impl From<EncodingError> for ActorError {
     fn from(e: EncodingError) -> Self {
         Self {
             fatal: false,
-            exit_code: ExitCode::ErrSerialization,
+            exit_code: ExitCode::USR_SERIALIZATION,
             msg: e.to_string(),
             recovered: false,
         }
@@ -106,7 +106,7 @@ impl From<CborError> for ActorError {
     fn from(e: CborError) -> Self {
         Self {
             fatal: false,
-            exit_code: ExitCode::ErrSerialization,
+            exit_code: ExitCode::USR_SERIALIZATION,
             msg: e.to_string(),
             recovered: false,
         }
@@ -151,12 +151,12 @@ mod tests {
     #[test]
     fn error_macro_generation() {
         assert_eq!(
-            actor_error!(SysErrSenderInvalid; "test"),
-            ActorError::new(ExitCode::SysErrSenderInvalid, "test".to_owned())
+            actor_error!(SYS_SENDER_INVALID; "test"),
+            ActorError::new(ExitCode::SYS_SENDER_INVALID, "test".to_owned())
         );
         assert_eq!(
-            actor_error!(SysErrSenderInvalid; "test {}, {}", 8, 10),
-            ActorError::new(ExitCode::SysErrSenderInvalid, format!("test {}, {}", 8, 10))
+            actor_error!(SYS_SENDER_INVALID; "test {}, {}", 8, 10),
+            ActorError::new(ExitCode::SYS_SENDER_INVALID, format!("test {}, {}", 8, 10))
         );
         assert_eq!(
             actor_error!(fatal("test {}, {}", 8, 10)),

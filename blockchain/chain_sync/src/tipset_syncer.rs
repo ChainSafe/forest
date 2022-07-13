@@ -1,10 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::error::Error as StdError;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -14,8 +13,8 @@ use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
+use fvm_shared::bigint::BigInt;
 use log::{debug, error, info, trace, warn};
-use num_bigint::BigInt;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
@@ -30,7 +29,6 @@ use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, 
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use clock::ChainEpoch;
 use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
@@ -39,10 +37,13 @@ use fil_types::{
     TICKET_RANDOMNESS_LOOKBACK,
 };
 use forest_libp2p::chain_exchange::TipsetBundle;
-use interpreter::price_list_by_epoch;
+use fvm::gas::price_list_by_network_version;
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::{Message, UnsignedMessage};
-use networks::{get_network_version_default, BLOCK_DELAY_SECS, UPGRADE_SMOKE_HEIGHT};
+use message::message::valid_for_block_inclusion;
+use message::Message as MessageTrait;
+use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 use state_tree::StateTree;
@@ -187,21 +188,31 @@ impl TipsetGroup {
     }
 
     fn take_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        self.tipsets
-            .iter()
-            .enumerate()
-            .max_by_key(|(_idx, ts)| ts.weight())
-            .map(|(idx, _)| idx)
-            .map(|idx| self.tipsets.swap_remove(idx))
+        let (index, _) = self.heaviest_weight();
+        Some(self.tipsets.swap_remove(index))
     }
 
-    fn heaviest_weight(&self) -> BigInt {
+    fn heaviest_weight(&self) -> (usize, &BigInt) {
         // Unwrapping is safe because we initialize the struct with at least one tipset
-        self.tipsets
+        let max = self.tipsets.iter().map(|ts| ts.weight()).max().unwrap();
+
+        let ties = self
+            .tipsets
             .iter()
-            .map(|ts| ts.weight().clone())
-            .max()
-            .unwrap()
+            .enumerate()
+            .filter(|(_, ts)| ts.weight() == max);
+
+        let (index, ts) = ties
+            .reduce(|(i, ts), (j, other)| {
+                // break the tie
+                if ts.break_weight_tie(other) {
+                    (i, ts)
+                } else {
+                    (j, other)
+                }
+            })
+            .unwrap();
+        (index, ts.weight())
     }
 
     fn merge(&mut self, other: Self) {
@@ -215,7 +226,22 @@ impl TipsetGroup {
     }
 
     fn is_heavier_than(&self, other: &Self) -> bool {
-        self.heaviest_weight() > other.heaviest_weight()
+        self.weight_cmp(other).is_gt()
+    }
+
+    fn weight_cmp(&self, other: &Self) -> Ordering {
+        let (i, weight) = self.heaviest_weight();
+        let (j, otherw) = other.heaviest_weight();
+        match weight.cmp(otherw) {
+            Ordering::Equal => {
+                if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            }
+            r => r,
+        }
     }
 
     fn tipsets(self) -> Vec<Arc<Tipset>> {
@@ -388,7 +414,7 @@ where
                 // Consume the tipsets received, start syncing the heaviest tipset group, and discard the rest
                 if let Some(((epoch, parents), heaviest_tipset_group)) = grouped_tipsets
                     .into_iter()
-                    .max_by_key(|(_, group)| group.heaviest_weight())
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                 {
                     trace!("Finding range for tipset epoch = {}", epoch);
                     self.state = TipsetProcessorState::FindRange {
@@ -423,8 +449,8 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                     .map(|(_, group)| group)
-                    .max_by_key(|group| group.heaviest_weight())
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
@@ -470,8 +496,8 @@ where
                 // Update or replace the next sync
                 if let Some(heaviest_tipset_group) = grouped_tipsets
                     .into_iter()
+                    .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                     .map(|(_, group)| group)
-                    .max_by_key(|group| group.heaviest_weight())
                 {
                     // Find the heaviest tipset group and either merge it with the
                     // tipset group in the next_sync or replace it.
@@ -854,7 +880,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static>(
         // has at least one element
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
-        pb.set((work_to_be_done - total_size).abs() as u64);
+        pb.set((work_to_be_done - total_size).unsigned_abs());
         validate_tipset_against_cache(
             bad_block_cache.clone(),
             oldest_parent.parents(),
@@ -1140,6 +1166,9 @@ async fn validate_tipset<
         validations.push(validation_fn);
     }
 
+    info!("Validating tipset: EPOCH = {epoch}");
+    debug!("Tipset keys: {:?}", full_tipset_key.cids);
+
     while let Some(result) = validations.next().await {
         match result {
             Ok(block) => {
@@ -1167,10 +1196,6 @@ async fn validate_tipset<
             }
         }
     }
-    info!(
-        "Validating tipset: EPOCH = {}, KEY = {:?}",
-        epoch, full_tipset_key.cids,
-    );
     Ok(())
 }
 
@@ -1238,8 +1263,10 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
+    let block_delay = state_manager.chain_config.block_delay_secs;
+    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
-    let target_timestamp = base_tipset.min_timestamp() + BLOCK_DELAY_SECS * (nulls + 1);
+    let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
         return Err((
             *block_cid,
@@ -1266,7 +1293,7 @@ async fn validate_block<
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
     let work_addr = state_manager
-        .get_miner_work_addr(&lookback_state, header.miner_address())
+        .get_miner_work_addr(*lookback_state, header.miner_address())
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Async validations
@@ -1299,9 +1326,11 @@ async fn validate_block<
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
         let base_fee =
-            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
-                TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
-            })?;
+            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(
+                |e| {
+                    TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
+                },
+            )?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
             return Err(TipsetRangeSyncerError::Validation(format!(
@@ -1343,13 +1372,15 @@ async fn validate_block<
             })?;
         if &state_root != header.state_root() {
             #[cfg(feature = "statediff")]
-            if let Err(err) = statediff::print_state_diff(
-                v_state_manager.blockstore(),
-                &state_root,
-                header.state_root(),
-                Some(1),
-            ) {
-                eprintln!("Failed to print state-diff: {}", err);
+            {
+                if let Err(err) = statediff::print_state_diff(
+                    v_state_manager.blockstore(),
+                    &state_root,
+                    header.state_root(),
+                    Some(1),
+                ) {
+                    eprintln!("Failed to print state-diff: {}", err);
+                }
             }
             return Err(TipsetRangeSyncerError::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
@@ -1395,7 +1426,7 @@ async fn validate_block<
         let miner_address_buf = header.miner_address().marshal_cbor()?;
         let vrf_base = state_manager::chain_rand::draw_randomness(
             r_beacon.data(),
-            DomainSeparationTag::ElectionProofProduction,
+            DomainSeparationTag::ElectionProofProduction as i64,
             header.epoch(),
             &miner_address_buf,
         )
@@ -1435,7 +1466,12 @@ async fn validate_block<
         validations.push(task::spawn(async move {
             v_block
                 .header()
-                .validate_block_drand(beacon_schedule.as_ref(), parent_epoch, &v_prev_beacon)
+                .validate_block_drand(
+                    win_p_nv,
+                    beacon_schedule.as_ref(),
+                    parent_epoch,
+                    &v_prev_beacon,
+                )
                 .await
                 .map_err(|e| {
                     TipsetRangeSyncerError::Validation(format!(
@@ -1453,7 +1489,7 @@ async fn validate_block<
         let header = v_block.header();
         let mut miner_address_buf = header.miner_address().marshal_cbor()?;
 
-        if header.epoch() > UPGRADE_SMOKE_HEIGHT {
+        if header.epoch() > smoke_height {
             let vrf_proof = base_tipset
                 .min_ticket()
                 .ok_or(TipsetRangeSyncerError::TipsetWithoutTicket)?
@@ -1466,7 +1502,7 @@ async fn validate_block<
 
         let vrf_base = state_manager::chain_rand::draw_randomness(
             beacon_base.data(),
-            DomainSeparationTag::TicketProduction,
+            DomainSeparationTag::TicketProduction as i64,
             header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
             &miner_address_buf,
         )
@@ -1530,7 +1566,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     tipset_state: &Cid,
 ) -> Result<(), TipsetRangeSyncerError> {
     let actor = state_manager
-        .get_actor(power::ADDRESS, *tipset_state)?
+        .get_actor(&power::ADDRESS, *tipset_state)?
         .ok_or(TipsetRangeSyncerError::PowerActorUnavailable)?;
     let state = power::State::load(state_manager.blockstore(), &actor)
         .map_err(|err| TipsetRangeSyncerError::MinerPowerUnavailable(err.to_string()))?;
@@ -1578,7 +1614,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         .unwrap_or(prev_beacon_entry);
     let rand = state_manager::chain_rand::draw_randomness(
         rand_base.data(),
-        DomainSeparationTag::WinningPoStChallengeSeed,
+        DomainSeparationTag::WinningPoStChallengeSeed as i64,
         header.epoch(),
         &miner_addr_buf,
     )
@@ -1620,7 +1656,9 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = get_network_version_default(block.header.epoch());
+    let network_version = state_manager
+        .chain_config
+        .network_version(block.header.epoch());
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1629,7 +1667,7 @@ fn check_block_messages<
     for m in block.bls_msgs() {
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
-            m.from(),
+            &m.from,
             *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
@@ -1657,47 +1695,50 @@ fn check_block_messages<
     } else {
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
-    let price_list = price_list_by_epoch(base_tipset.epoch());
+
+    let price_list = price_list_by_network_version(network_version);
     let mut sum_gas_limit = 0;
 
     // Check messages for validity
-    let mut check_msg = |msg: &UnsignedMessage,
+    let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
                          tree: &StateTree<DB>|
-     -> Result<(), Box<dyn StdError>> {
+     -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());
-        msg.valid_for_block_inclusion(min_gas.total(), network_version)?;
-        sum_gas_limit += msg.gas_limit();
+        valid_for_block_inclusion(msg, min_gas.total(), network_version)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        sum_gas_limit += msg.gas_limit;
         if sum_gas_limit > BLOCK_GAS_LIMIT {
-            return Err("block gas limit exceeded".into());
+            anyhow::bail!("block gas limit exceeded");
         }
 
         // Phase 2: (Partial) Semantic validation
         // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(msg.from()) {
+        let sequence: u64 = match account_sequences.get(&msg.from) {
             Some(sequence) => *sequence,
             None => {
-                let actor = tree.get_actor(msg.from())?.ok_or({
-                    "Failed to retrieve nonce for addr: Actor does not exist in state"
+                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Failed to retrieve nonce for addr: Actor does not exist in state"
+                    )
                 })?;
                 if !is_account_actor(&actor.code) {
-                    return Err("Sending must be an account actor".into());
+                    anyhow::bail!("Sending must be an account actor");
                 }
                 actor.sequence
             }
         };
 
         // Sequence equality check
-        if sequence != msg.sequence() {
-            return Err(format!(
+        if sequence != msg.sequence {
+            anyhow::bail!(
                 "Message has incorrect sequence (exp: {} got: {})",
                 sequence,
-                msg.sequence()
-            )
-            .into());
+                msg.sequence
+            );
         }
-        account_sequences.insert(*msg.from(), sequence + 1);
+        account_sequences.insert(msg.from, sequence + 1);
         Ok(())
     };
 
@@ -1791,4 +1832,62 @@ async fn validate_tipset_against_cache(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use address::Address;
+    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use cid::Cid;
+    use crypto::VRFProof;
+    use num_bigint::BigInt;
+
+    use super::*;
+    use std::convert::TryFrom;
+
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+        let addr = Address::new_id(id);
+        let cid =
+            Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
+
+        let fmt_str = format!("===={}=====", ticket_sequence);
+        let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
+        let election_proof = ElectionProof {
+            win_count: 0,
+            vrfproof: VRFProof::new(fmt_str.into_bytes()),
+        };
+        let weight_inc = BigInt::from(weight);
+        BlockHeader::builder()
+            .miner_address(addr)
+            .election_proof(Some(election_proof))
+            .ticket(Some(ticket))
+            .message_receipts(cid)
+            .messages(cid)
+            .state_root(cid)
+            .weight(weight_inc)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    pub fn test_heaviest_weight() {
+        // ticket_sequence are choosen so that Ticket(b3) < Ticket(b1)
+
+        let b1 = mock_block(1234561, 10, 2);
+        let ts1 = Tipset::new(vec![b1]).unwrap();
+
+        let b2 = mock_block(1234563, 9, 1);
+        let ts2 = Tipset::new(vec![b2]).unwrap();
+
+        let b3 = mock_block(1234562, 10, 1);
+        let ts3 = Tipset::new(vec![b3]).unwrap();
+
+        let mut tsg = TipsetGroup::new(Arc::new(ts1));
+        assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
+        assert!(tsg.try_add_tipset(Arc::new(ts3)).is_none());
+
+        let (index, weight) = tsg.heaviest_weight();
+        assert_eq!(index, 2);
+        assert_eq!(weight, &BigInt::from(10));
+    }
 }

@@ -6,10 +6,10 @@ use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pService};
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use paramfetch::{get_params_default, SectorSizeOpt};
+use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
@@ -19,7 +19,7 @@ use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
 use db::rocks::RocksDb;
@@ -31,21 +31,15 @@ use std::time;
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     // Set the Address network prefix
-    #[cfg(any(feature = "testnet"))]
-    address::NETWORK_DEFAULT
-        .set(address::Network::Testnet)
-        .unwrap();
-    #[cfg(not(feature = "testnet"))]
-    address::NETWORK_DEFAULT
-        .set(address::Network::Mainnet)
-        .unwrap();
+    let network = config.chain.name.parse().unwrap();
+    address::NETWORK_DEFAULT.set(network).unwrap();
 
     info!(
         "Starting Forest daemon, version {}",
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
     );
 
-    let path: PathBuf = [&config.data_dir, "libp2p"].iter().collect();
+    let path: PathBuf = config.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
         // Keypair not found, generate and save generated keypair
         let gen_keypair = ed25519::Keypair::generate();
@@ -78,7 +72,7 @@ pub(super) async fn start(config: Config) {
                 std::io::stdout().flush().unwrap();
 
                 if passphrase != read_password().unwrap() {
-                    println!("Passphrases do not match. Please retry.");
+                    error!("Passphrases do not match. Please retry.");
                     continue;
                 }
             }
@@ -91,7 +85,7 @@ pub(super) async fn start(config: Config) {
             match key_store_init_result {
                 Ok(ks) => break ks,
                 Err(_) => {
-                    log::error!("Incorrect passphrase entered. Please try again.")
+                    error!("Incorrect passphrase entered. Please try again.")
                 }
             };
         }
@@ -111,8 +105,7 @@ pub(super) async fn start(config: Config) {
         (format!("127.0.0.1:{}", config.metrics_port))
             .parse()
             .unwrap(),
-        PathBuf::from(&config.data_dir)
-            .join("db")
+        db_path(&config)
             .into_os_string()
             .into_string()
             .expect("Failed converting the path to db"),
@@ -121,17 +114,12 @@ pub(super) async fn start(config: Config) {
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
     let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
-    println!("Admin token: {}", token);
+    info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    // Initialize database (RocksDb will be default if both features enabled)
-    #[cfg(all(feature = "sled", not(feature = "rocksdb")))]
-    let db = db::sled::SledDb::open(format!("{}/{}", config.data_dir, "/sled"))
-        .expect("Opening SledDB must succeed");
-
     #[cfg(feature = "rocksdb")]
-    let db = db::rocks::RocksDb::open(PathBuf::from(&config.data_dir).join("db"), &config.rocks_db)
+    let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
@@ -143,13 +131,19 @@ pub(super) async fn start(config: Config) {
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let genesis = read_genesis_header(config.genesis_file.as_ref(), &chain_store)
-        .await
-        .unwrap();
+    let genesis = read_genesis_header(
+        config.genesis_file.as_ref(),
+        config.chain.genesis_bytes(),
+        &chain_store,
+    )
+    .await
+    .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store)).await.unwrap();
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.chain.clone()))
+        .await
+        .unwrap();
     let state_manager = Arc::new(sm);
 
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
@@ -160,10 +154,31 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
+    set_proofs_parameter_cache_dir_env(&config.data_dir);
+
     // Fetch and ensure verification keys are downloaded
-    get_params_default(SectorSizeOpt::Keys, false)
+    get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
         .await
         .unwrap();
+
+    // Override bootstrap peers
+    let config = if config.network.bootstrap_peers.is_empty() {
+        let bootstrap_peers = config
+            .chain
+            .bootstrap_peers
+            .iter()
+            .map(|node| node.parse().unwrap())
+            .collect();
+        Config {
+            network: Libp2pConfig {
+                bootstrap_peers,
+                ..config.network
+            },
+            ..config
+        }
+    } else {
+        config
+    };
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
@@ -183,6 +198,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
+            (*state_manager.chain_config).clone(),
         )
         .await
         .unwrap(),
@@ -215,7 +231,7 @@ pub(super) async fn start(config: Config) {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
-            info!("JSON RPC Endpoint at {}", &rpc_listen);
+            info!("JSON-RPC endpoint started at {}", &rpc_listen);
             start_rpc::<_, _, FullVerifier>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
@@ -234,7 +250,7 @@ pub(super) async fn start(config: Config) {
             .await
         }))
     } else {
-        debug!("RPC disabled");
+        debug!("RPC disabled.");
         None
     };
 
@@ -254,18 +270,30 @@ pub(super) async fn start(config: Config) {
     }
     keystore_write.await;
 
-    info!("Forest finish shutdown");
+    info!("Forest finish shutdown.");
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
     if let Some(path) = &config.snapshot_path {
         let stopwatch = time::Instant::now();
-        let validate_height = if config.snapshot { None } else { Some(0) };
+        let validate_height = if config.snapshot {
+            config.snapshot_height
+        } else {
+            Some(0)
+        };
         import_chain::<FullVerifier, _>(state_manager, path, validate_height, config.skip_load)
             .await
             .expect("Failed miserably while importing chain from snapshot");
         debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
+}
+
+fn db_path(config: &Config) -> PathBuf {
+    chain_path(config).join("db")
+}
+
+fn chain_path(config: &Config) -> PathBuf {
+    PathBuf::from(&config.data_dir).join(&config.chain.name)
 }
 
 #[cfg(test)]
@@ -275,6 +303,7 @@ mod test {
     use address::Address;
     use blocks::BlockHeader;
     use db::MemoryDB;
+    use networks::ChainConfig;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
@@ -286,7 +315,8 @@ mod test {
             .build()
             .unwrap();
         cs.set_genesis(&genesis_header).unwrap();
-        let sm = Arc::new(StateManager::new(cs).await.unwrap());
+        let chain_config = Arc::new(ChainConfig::default());
+        let sm = Arc::new(StateManager::new(cs, chain_config).await.unwrap());
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");

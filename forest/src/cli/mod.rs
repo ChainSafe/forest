@@ -27,9 +27,10 @@ pub(super) use self::wallet_cmd::WalletCommands;
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use fil_types::FILECOIN_PRECISION;
+use fvm_shared::bigint::BigInt;
 use jsonrpc_v2::Error as JsonRpcError;
-use log::{info, warn};
-use num_bigint::BigInt;
+use log::{error, info, warn};
+use networks::ChainConfig;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
@@ -109,7 +110,7 @@ pub struct CliOpts {
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
     #[structopt(short, long, help = "Port used for JSON-RPC communication")]
-    pub port: Option<String>,
+    pub port: Option<u16>,
     #[structopt(
         short,
         long,
@@ -122,6 +123,8 @@ pub struct CliOpts {
     pub kademlia: Option<bool>,
     #[structopt(long, help = "Allow MDNS (default = false)")]
     pub mdns: Option<bool>,
+    #[structopt(long, help = "Validate snapshot at given EPOCH")]
+    pub height: Option<i64>,
     #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
     #[structopt(long, help = "Import a chain from a local CAR file or url")]
@@ -149,6 +152,13 @@ pub struct CliOpts {
     pub target_peer_count: Option<u32>,
     #[structopt(long, help = "Encrypt the keystore (default = true)")]
     pub encrypt_keystore: Option<bool>,
+    #[structopt(
+        long,
+        help = "Choose network chain to sync to",
+        default_value = "mainnet",
+        possible_values = &["mainnet", "calibnet"],
+    )]
+    pub chain: String,
 }
 
 impl CliOpts {
@@ -162,6 +172,12 @@ impl CliOpts {
             }
             None => find_default_config().unwrap_or_default(),
         };
+
+        if self.chain == "calibnet" {
+            // override the chain configuration
+            cfg.chain = ChainConfig::calibnet();
+        }
+
         if let Some(genesis_file) = &self.genesis {
             cfg.genesis_file = Some(genesis_file.to_owned());
         }
@@ -189,6 +205,7 @@ impl CliOpts {
                 cfg.snapshot_path = Some(snapshot_path.to_owned());
                 cfg.snapshot = false;
             }
+            cfg.snapshot_height = self.height;
 
             cfg.skip_load = self.skip_load;
         }
@@ -219,7 +236,7 @@ impl CliOpts {
 fn find_default_config() -> Option<Config> {
     if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
         info!(
-            "FOREST_CONFIG_PATH is set! Using configuration at {}",
+            "FOREST_CONFIG_PATH detected, using configuration at {}",
             config_file
         );
         let path = PathBuf::from(config_file);
@@ -232,12 +249,12 @@ fn find_default_config() -> Option<Config> {
         let mut config_dir = dir.config_dir().to_path_buf();
         config_dir.push("config.toml");
         if config_dir.exists() {
-            info!("Found config file at {}", config_dir.display());
+            info!("Found a config file at {}", config_dir.display());
             return read_config_or_none(config_dir);
         }
     }
 
-    warn!("No configuration found! Using default");
+    warn!("No configurations found, using defaults.");
 
     None
 }
@@ -255,7 +272,7 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
         Ok(cfg) => Some(cfg),
         Err(e) => {
             warn!(
-                "Error reading configuration, opting to default. Error was {} ",
+                "Error reading configuration file, opting to defaults. Error was {} ",
                 e
             );
             None
@@ -272,7 +289,7 @@ pub async fn block_until_sigint() {
     ctrlc::set_handler(move || {
         let prev = running.fetch_add(1, Ordering::SeqCst);
         if prev == 0 {
-            println!("Got interrupt, shutting down...");
+            warn!("Got interrupt, shutting down...");
             // Send sig int in channel to blocking task
             if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
                 ctrlc_send.send(()).expect("Error sending ctrl-c message");
@@ -294,11 +311,11 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) {
             message,
             data: _,
         } => {
-            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            error!("JSON RPC Error: Code: {} Message: {}", code, message);
             process::exit(code as i32);
         }
         JsonRpcError::Provided { code, message } => {
-            println!("JSON RPC Error: Code: {} Message: {}", code, message);
+            error!("JSON RPC Error: Code: {} Message: {}", code, message);
             process::exit(code as i32);
         }
     }
@@ -310,16 +327,19 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 }
 
 /// convert bigint to size string using byte size units (ie KiB, GiB, PiB, etc)
-pub(super) fn to_size_string(bi: &BigInt) -> String {
-    let bi = bi.clone();
-    let byte = Byte::from_bytes(bi.to_string().parse().expect("error parsing string to int"));
-    byte.get_appropriate_unit(false).to_string()
+/// Provided number cannot be negative, otherwise the function will panic.
+pub(super) fn to_size_string(input: &BigInt) -> String {
+    Byte::from_bytes(
+        u128::try_from(input).unwrap_or_else(|e| panic!("error parsing the input {input}: {e}")),
+    )
+    .get_appropriate_unit(true)
+    .to_string()
 }
 
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
 pub(super) fn cli_error_and_die(msg: &str, code: i32) {
-    println!("Error: {}", msg);
+    error!("Error: {}", msg);
     std::process::exit(code);
 }
 
@@ -395,4 +415,44 @@ pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> 
     let p = Float::with_val(64, raw);
 
     Ok(Float::with_val(128, b / p))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use fvm_shared::bigint::Zero;
+
+    #[test]
+    fn to_size_string_valid_input() {
+        let cases = [
+            (BigInt::zero(), "0 B"),
+            (BigInt::from(1 << 10), "1024 B"),
+            (BigInt::from((1 << 10) + 1), "1.00 KiB"),
+            (BigInt::from((1 << 10) + 512), "1.50 KiB"),
+            (BigInt::from(1 << 20), "1024.00 KiB"),
+            (BigInt::from((1 << 20) + 1), "1.00 MiB"),
+            (BigInt::from(1 << 29), "512.00 MiB"),
+            (BigInt::from((1 << 30) + 1), "1.00 GiB"),
+            (BigInt::from((1u64 << 40) + 1), "1.00 TiB"),
+            (BigInt::from((1u64 << 50) + 1), "1.00 PiB"),
+            // ZiB is 2^70, 288230376151711744 is 2^58
+            (BigInt::from(u128::MAX), "288230376151711744.00 ZiB"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(to_size_string(&input), expected.to_string());
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn to_size_string_negative_input_should_fail() {
+        to_size_string(&BigInt::from(-1i8));
+    }
+
+    #[test]
+    #[should_panic]
+    fn to_size_string_too_large_input_should_fail() {
+        to_size_string(&(BigInt::from(u128::MAX) + 1));
+    }
 }

@@ -51,7 +51,7 @@ pub enum BuildType {
 }
 
 /// The type of node that is running.
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug)]
 #[repr(u64)]
 pub enum NodeType {
     Unknown = 0,
@@ -62,7 +62,7 @@ pub enum NodeType {
 
 impl Display for NodeType {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{}", self)
+        write!(f, "{:?}", self)
     }
 }
 
@@ -82,7 +82,7 @@ const fn new_version(major: u32, minor: u32, patch: u32) -> Version {
 
 /// Gets the formatted current user version.
 pub async fn user_version() -> String {
-    BUILD_VERSION.to_owned() + &*BUILD_TYPE.read().await.to_str() + &CURRENT_COMMIT
+    BUILD_VERSION.to_owned() + BUILD_TYPE.read().await.to_str() + &CURRENT_COMMIT
 }
 
 impl Version {

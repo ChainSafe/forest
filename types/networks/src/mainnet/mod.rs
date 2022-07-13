@@ -3,116 +3,16 @@
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET},
-    DrandPoint,
+    DrandPoint, Height, HeightInfo,
 };
-use clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use fil_types::NetworkVersion;
+use fvm_shared::clock::ChainEpoch;
+
+const SMOKE_HEIGHT: ChainEpoch = 51000;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 
-/// V1 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = 41280;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_BREEZE_HEIGHT: ChainEpoch = -15;
-
-/// V2 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_SMOKE_HEIGHT: ChainEpoch = 51000;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_SMOKE_HEIGHT: ChainEpoch = -14;
-
-/// V3 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = 94000;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_IGNITION_HEIGHT: ChainEpoch = -13;
-
-/// V4 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = 138720;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_ACTORS_V2_HEIGHT: ChainEpoch = -12;
-
-/// V5 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = 140760;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_TAPE_HEIGHT: ChainEpoch = -11;
-
-/// Switching to mainnet network name
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_LIFTOFF_HEIGHT: i64 = 148888;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_LIFTOFF_HEIGHT: i64 = -10;
-
-/// V6 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = 170000;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_KUMQUAT_HEIGHT: ChainEpoch = -9;
-
-/// V7 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = 265200;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_CALICO_HEIGHT: ChainEpoch = -8;
-
-/// V8 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = 272400;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_PERSIAN_HEIGHT: ChainEpoch = -7;
-
-/// V9 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = 336458;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_ORANGE_HEIGHT: ChainEpoch = -6;
-
-/// Remove burn on window PoSt fork
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = 343200;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_CLAUS_HEIGHT: ChainEpoch = -5;
-
-/// V10 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = 550321;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_ACTORS_V3_HEIGHT: ChainEpoch = -4;
-
-/// V11 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = 665280;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_NORWEGIAN_HEIGHT: ChainEpoch = -3;
-
-/// V12 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = 712320;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_ACTORS_V4_HEIGHT: ChainEpoch = -2;
-
-/// V13 network upgrade
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = 892800;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_HYPERDRIVE_HEIGHT: ChainEpoch = -1;
-
-/// V14 network update
-#[cfg(feature = "mainnet")]
-pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = 1231620;
-#[cfg(feature = "conformance")]
-pub const UPGRADE_ACTORS_V6_HEIGHT: ChainEpoch = -16;
-
-pub const UPGRADE_PLACEHOLDER_HEIGHT: ChainEpoch = 9999999;
-
-/// Current network version for the network
-pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V14;
-
-/// Bootstrap peer ids
+/// Bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-0.mainnet.filops.net/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj",
     "/dns4/bootstrap-1.mainnet.filops.net/tcp/1347/p2p/12D3KooWCwevHg1yLCvktf2nvLu7L9894mcrJR4MsBCcm4syShVc",
@@ -131,18 +31,91 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-1.ipfsmain.cn/tcp/34723/p2p/12D3KooWMKxMkD5DMpSWsW7dBddKxKT7L2GgbNuckz9otxvkvByP",
 ];
 
+/// Height epochs.
+pub const HEIGHT_INFOS: [HeightInfo; 18] = [
+    HeightInfo {
+        height: Height::Breeze,
+        epoch: 41_280,
+    },
+    HeightInfo {
+        height: Height::Smoke,
+        epoch: SMOKE_HEIGHT,
+    },
+    HeightInfo {
+        height: Height::Ignition,
+        epoch: 94_000,
+    },
+    HeightInfo {
+        height: Height::ActorsV2,
+        epoch: 138_720,
+    },
+    HeightInfo {
+        height: Height::Tape,
+        epoch: 140_760,
+    },
+    HeightInfo {
+        height: Height::Liftoff,
+        epoch: 148_888,
+    },
+    HeightInfo {
+        height: Height::Kumquat,
+        epoch: 170_000,
+    },
+    HeightInfo {
+        height: Height::Calico,
+        epoch: 265_200,
+    },
+    HeightInfo {
+        height: Height::Persian,
+        epoch: 272_400,
+    },
+    HeightInfo {
+        height: Height::Orange,
+        epoch: 336_458,
+    },
+    HeightInfo {
+        height: Height::Claus,
+        epoch: 343_200,
+    },
+    HeightInfo {
+        height: Height::Trust,
+        epoch: 550_321,
+    },
+    HeightInfo {
+        height: Height::Norwegian,
+        epoch: 665_280,
+    },
+    HeightInfo {
+        height: Height::Turbo,
+        epoch: 712_320,
+    },
+    HeightInfo {
+        height: Height::Hyperdrive,
+        epoch: 892_800,
+    },
+    HeightInfo {
+        height: Height::Chocolate,
+        epoch: 1_231_620,
+    },
+    HeightInfo {
+        height: Height::OhSnap,
+        epoch: 1_594_680,
+    },
+    HeightInfo {
+        height: Height::Skyr,
+        epoch: 1_960_320,
+    },
+];
+
 lazy_static! {
     pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
         DrandPoint {
             height: 0,
-            config: &*DRAND_INCENTINET,
+            config: &DRAND_INCENTINET,
         },
         DrandPoint {
-            height: UPGRADE_SMOKE_HEIGHT,
-            config: &*DRAND_MAINNET,
+            height: SMOKE_HEIGHT,
+            config: &DRAND_MAINNET,
         },
     ];
 }
-
-/// Time, in seconds, between each block.
-pub const BLOCK_DELAY_SECS: u64 = EPOCH_DURATION_SECONDS as u64;

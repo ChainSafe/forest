@@ -16,9 +16,9 @@ use crate::{add_to_selected_msgs, remove_from_selected_msgs};
 use address::Address;
 use async_std::sync::{Arc, RwLock};
 use blocks::Tipset;
+use fvm_shared::bigint::BigInt;
 use message::Message;
 use message::SignedMessage;
-use num_bigint::BigInt;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
@@ -84,7 +84,16 @@ where
         // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
-            create_message_chains(&self.api, &actor, &mset, &base_fee, ts, &mut chains).await?;
+            create_message_chains(
+                &self.api,
+                &actor,
+                &mset,
+                &base_fee,
+                ts,
+                &mut chains,
+                &self.chain_config,
+            )
+            .await?;
         }
 
         let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
@@ -131,6 +140,7 @@ where
                 &base_fee,
                 target_tipset,
                 &mut chains,
+                &self.chain_config,
             )
             .await?;
         }
@@ -493,7 +503,16 @@ where
             // remove actor from pending set as we are processing these messages.
             if let Some(mset) = pending.remove(actor) {
                 // create chains for the priority actor
-                create_message_chains(&self.api, actor, &mset, base_fee, ts, &mut chains).await?;
+                create_message_chains(
+                    &self.api,
+                    actor,
+                    &mset,
+                    base_fee,
+                    ts,
+                    &mut chains,
+                    &self.chain_config,
+                )
+                .await?;
             }
         }
 
@@ -649,7 +668,7 @@ where
                     .await?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
                     .await?;
             }
         }
@@ -670,6 +689,7 @@ mod test_selection {
     use db::MemoryDB;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
+    use networks::ChainConfig;
     use std::sync::Arc;
     use types::NetworkParams;
 
@@ -679,7 +699,14 @@ mod test_selection {
         let tma = TestApi::default();
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            MessagePool::new(tma, "mptest".to_string(), tx, Default::default()).await
+            MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                ChainConfig::default(),
+            )
+            .await
         })
         .unwrap()
     }
@@ -1101,7 +1128,7 @@ mod test_selection {
         assert_eq!(msgs.len(), expected_msgs as usize);
 
         for (next_nonce, m) in msgs.into_iter().enumerate() {
-            assert_eq!(m.message().from(), &a1, "Expected message from a1");
+            assert_eq!(m.message().from, a1, "Expected message from a1");
             assert_eq!(
                 m.message().sequence,
                 next_nonce as u64,
@@ -1199,7 +1226,7 @@ mod test_selection {
         let mut next_nonce2 = 0;
 
         for m in msgs {
-            if m.message.from() == &a1 {
+            if m.message.from == a1 {
                 if m.message.sequence != next_nonce1 {
                     panic!(
                         "Expected nonce {}, but got {}",
@@ -1310,7 +1337,7 @@ mod test_selection {
 
         let who_is = |addr| -> usize {
             for (i, a) in actors.iter().enumerate() {
-                if a == addr {
+                if a == &addr {
                     return i;
                 }
             }
@@ -1320,7 +1347,7 @@ mod test_selection {
 
         let mut nonces = vec![0; n_actors as usize];
         for m in &msgs {
-            let who = who_is(m.message.from()) as usize;
+            let who = who_is(m.message.from) as usize;
             if who < 3 {
                 panic!("got message from {}th actor", who);
             }

@@ -8,12 +8,14 @@ use async_trait::async_trait;
 use blocks::BlockHeader;
 use blocks::Tipset;
 use blocks::TipsetKeys;
-use blockstore::BlockStore;
+use blockstore::{BlockStore, BlockStoreExt};
 use chain::HeadChange;
 use cid::Cid;
 use cid::Code::Blake2b256;
-use message::{ChainMessage, SignedMessage, UnsignedMessage};
-use num_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
+use fvm_shared::message::Message;
+use message::{ChainMessage, SignedMessage};
+use networks::Height;
 use state_manager::StateManager;
 use state_tree::StateTree;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -37,7 +39,7 @@ pub trait Provider {
     fn messages_for_block(
         &self,
         h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>;
+    ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
     /// Resolves to the key address
     async fn state_account_key<V>(
         &self,
@@ -89,7 +91,7 @@ where
         let cid = self
             .sm
             .blockstore()
-            .put(msg, Blake2b256)
+            .put_obj(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)
     }
@@ -106,7 +108,7 @@ where
     fn messages_for_block(
         &self,
         h: &BlockHeader,
-    ) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error> {
+    ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
 
@@ -119,7 +121,8 @@ where
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        chain::compute_base_fee(self.sm.blockstore(), ts).map_err(|err| err.into())
+        let smoke_height = self.sm.chain_config.epoch(Height::Smoke);
+        chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height).map_err(|err| err.into())
     }
     async fn state_account_key<V>(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>
     where

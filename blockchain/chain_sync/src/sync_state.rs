@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
 /// Current state of the ChainSyncer using the ChainExchange protocol.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum SyncStage {
     /// Idle state.
     Idle,

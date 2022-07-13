@@ -18,9 +18,10 @@ use fil_types::verifier::ProofVerifier;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
 };
+use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use message::{SignedMessage, UnsignedMessage};
+use message::SignedMessage;
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 
@@ -67,7 +68,7 @@ pub enum ChainMuxerError {
 }
 
 /// Struct that defines syncing configuration options
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
@@ -272,7 +273,7 @@ where
                 match network.hello_request(peer_id, request).await {
                     Ok(response) => response,
                     Err(e) => {
-                        error!("{}", e);
+                        debug!("Hello request failed: {}", e);
                         return;
                     }
                 };
@@ -322,7 +323,7 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<UnsignedMessage>(m))
+            .map(|m| network.bitswap_get::<Message>(m))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
@@ -364,6 +365,7 @@ where
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
+        block_delay: u64,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
@@ -381,7 +383,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        error!("Querying full tipset failed: {}", why);
+                        debug!("Querying full tipset failed: {}", why);
                         return Err(why);
                     }
                 };
@@ -454,6 +456,7 @@ where
                 chain_store.clone(),
                 bad_block_cache.clone(),
                 genesis.clone(),
+                block_delay,
             )
             .await
         {
@@ -490,6 +493,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
+        let block_delay = self.state_manager.chain_config.block_delay_secs;
 
         let evaluator = async move {
             let mut tipsets = vec![];
@@ -497,7 +501,7 @@ where
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        error!("Receiving event from p2p event stream failed: {}", why);
+                        debug!("Receiving event from p2p event stream failed: {}", why);
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -510,6 +514,7 @@ where
                     mem_pool.clone(),
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::Process,
+                    block_delay,
                 )
                 .await
                 {
@@ -607,12 +612,13 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
+        let block_delay = self.state_manager.chain_config.block_delay_secs;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
                     Err(why) => {
-                        error!("Receiving event from p2p event stream failed: {}", why);
+                        debug!("Receiving event from p2p event stream failed: {}", why);
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -625,6 +631,7 @@ where
                     mem_pool.clone(),
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
+                    block_delay,
                 )
                 .await
                 {
@@ -697,12 +704,13 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
+        let block_delay = self.state_manager.chain_config.block_delay_secs;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
                 if let Some(tipset) = tipset_opt {
                     if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
-                        error!("Sending tipset to TipsetProcessor failed: {}", why);
+                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }
@@ -710,7 +718,7 @@ where
                     let event = match p2p_messages.recv().await {
                         Ok(event) => event,
                         Err(why) => {
-                            error!("Receiving event from p2p event stream failed: {}", why);
+                            debug!("Receiving event from p2p event stream failed: {}", why);
                             return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                         }
                     };
@@ -723,6 +731,7 @@ where
                         mem_pool.clone(),
                         genesis.clone(),
                         PubsubMessageProcessingStrategy::Process,
+                        block_delay,
                     )
                     .await
                     {
@@ -748,7 +757,7 @@ where
                     }
 
                     if let Err(why) = tipset_sender.send(Arc::new(tipset.into_tipset())).await {
-                        error!("Sending tipset to TipsetProcessor failed: {}", why);
+                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }
@@ -879,8 +888,11 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
+    use address::Address;
+    use blocks::{BlockHeader, Tipset};
     use cid::Cid;
     use db::MemoryDB;
+    use networks::{ChainConfig, Height};
     use test_utils::construct_messages;
 
     #[test]
@@ -915,4 +927,16 @@ mod tests {
     //         "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
     //     );
     // }
+
+    #[test]
+    fn compute_base_fee_shouldnt_panic_on_bad_input() {
+        let blockstore = MemoryDB::default();
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let ts = Tipset::new(vec![h0]).unwrap();
+        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
+        assert!(chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
+    }
 }

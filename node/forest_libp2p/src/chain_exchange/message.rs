@@ -4,7 +4,8 @@
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
 use forest_cid::Cid;
 use forest_encoding::tuple::*;
-use forest_message::{SignedMessage, UnsignedMessage};
+use forest_message::SignedMessage;
+use fvm_shared::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -15,7 +16,7 @@ pub const HEADERS: u64 = 0b01;
 pub const MESSAGES: u64 = 0b10;
 
 /// The payload that gets sent to another node to request for blocks and messages.
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeRequest {
     /// The tipset [Cid] to start the request from.
     pub start: Vec<Cid>,
@@ -38,7 +39,7 @@ impl ChainExchangeRequest {
 }
 
 /// Status codes of a chain_exchange response.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ChainExchangeResponseStatus {
     /// All is well.
     Success,
@@ -126,10 +127,10 @@ impl ChainExchangeResponse {
     }
 }
 /// Contains all bls and secp messages and their indexes per block
-#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
     /// Unsigned bls messages.
-    pub bls_msgs: Vec<UnsignedMessage>,
+    pub bls_msgs: Vec<Message>,
     /// Describes which block each message belongs to.
     pub bls_msg_includes: Vec<Vec<u64>>,
 

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 pub use fvm_shared::clock::QuantSpec;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ pub const NO_QUANTIZATION: QuantSpec = QuantSpec { unit: 1, offset: 0 };
 /// "Deadline" refers to the window during which proofs may be submitted.
 /// Windows are non-overlapping ranges [Open, Close), but the challenge epoch for a window occurs
 /// before the window opens.
-#[derive(Default, Debug, Serialize, Deserialize, PartialEq, Copy, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, PartialEq, Eq, Copy, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct DeadlineInfo {
     /// Epoch at which this info was calculated.

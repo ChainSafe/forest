@@ -9,7 +9,8 @@ use chain_sync::SyncState;
 use cid::json::CidJson;
 use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
-use message::{SignedMessage, UnsignedMessage};
+use fvm_shared::message::Message;
+use message::SignedMessage;
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 
@@ -73,13 +74,13 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let bls_msgs: Vec<UnsignedMessage> =
+    let bls_msgs: Vec<Message> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
     let secp_msgs: Vec<SignedMessage> =
         chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
     let sm_root = chain_sync::TipsetValidator::compute_msg_root(
         data.state_manager.blockstore(),
-        &bls_msgs,
+        &bls_msgs[..],
         &secp_msgs,
     )?;
     if blk.header.messages() != &sm_root {
@@ -120,6 +121,7 @@ mod tests {
     use db::{MemoryDB, Store};
     use forest_libp2p::NetworkMessage;
     use message_pool::{MessagePool, MpoolRpcProvider};
+    use networks::ChainConfig;
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
@@ -145,7 +147,11 @@ mod tests {
             .build()
             .unwrap();
         cs_arc.set_genesis(&genesis_header).unwrap();
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone()).await.unwrap());
+        let state_manager = Arc::new(
+            StateManager::new(cs_arc.clone(), Arc::new(ChainConfig::default()))
+                .await
+                .unwrap(),
+        );
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();
         let cs_for_chain = cs_arc.clone();
@@ -170,6 +176,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
+                (*state_manager_for_thread.chain_config).clone(),
             )
             .await
             .unwrap()

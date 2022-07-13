@@ -1,23 +1,24 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::{anyhow, bail};
+use anyhow::{bail, Context};
 use async_std::task;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use blake2b_simd::Params;
 use blockstore::BlockStore;
 use byteorder::{BigEndian, WriteBytesExt};
 use chain::ChainStore;
-use clock::ChainEpoch;
 use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
-use forest_crypto::DomainSeparationTag;
+use fvm_shared::clock::ChainEpoch;
 use interpreter::Rand;
+use networks::ChainConfig;
 use std::io::Write;
 use std::sync::Arc;
 
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {
+    chain_config: Arc<ChainConfig>,
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
@@ -26,6 +27,7 @@ pub struct ChainRand<DB> {
 impl<DB> Clone for ChainRand<DB> {
     fn clone(&self) -> Self {
         ChainRand {
+            chain_config: self.chain_config.clone(),
             blks: self.blks.clone(),
             cs: self.cs.clone(),
             beacon: self.beacon.clone(),
@@ -38,11 +40,17 @@ where
     DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(
+        chain_config: Arc<ChainConfig>,
         blks: TipsetKeys,
         cs: Arc<ChainStore<DB>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
     ) -> Self {
-        Self { blks, cs, beacon }
+        Self {
+            chain_config,
+            blks,
+            cs,
+            beacon,
+        }
     }
 
     /// Gets 32 bytes of randomness for ChainRand parameterized by the DomainSeparationTag, ChainEpoch,
@@ -50,7 +58,7 @@ where
     pub async fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
@@ -71,7 +79,7 @@ where
         draw_randomness(
             rand_ts
                 .min_ticket()
-                .ok_or_else(|| anyhow!("No ticket exists for block"))?
+                .context("No ticket exists for block")?
                 .vrfproof
                 .as_bytes(),
             pers,
@@ -84,7 +92,7 @@ where
     pub async fn get_chain_randomness_v1(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -96,7 +104,7 @@ where
     pub async fn get_chain_randomness_v2(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -108,7 +116,7 @@ where
     pub async fn get_beacon_randomness_v1(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -120,7 +128,7 @@ where
     pub async fn get_beacon_randomness_v2(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -132,7 +140,7 @@ where
     pub async fn get_beacon_randomness_v3(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -151,7 +159,7 @@ where
     pub async fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
         lookback: bool,
@@ -172,7 +180,8 @@ where
             .get_beacon_randomness_tipset(blocks, epoch, false)
             .await?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
-        let round = beacon.max_beacon_round_for_epoch(epoch);
+        let round =
+            beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
 
         for _ in 0..20 {
             let cbe = rand_ts.blocks()[0].beacon_entries();
@@ -219,7 +228,7 @@ where
 {
     fn get_chain_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -228,7 +237,7 @@ where
 
     fn get_beacon_randomness(
         &self,
-        pers: DomainSeparationTag,
+        pers: i64,
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
@@ -239,7 +248,7 @@ where
 /// Computes a pseudorandom 32 byte Vec.
 pub fn draw_randomness(
     rbase: &[u8],
-    pers: DomainSeparationTag,
+    pers: i64,
     round: ChainEpoch,
     entropy: &[u8],
 ) -> anyhow::Result<[u8; 32]> {

@@ -1,66 +1,27 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use std::error::Error;
 use vm::ActorState;
 
 /// System actor address.
-pub static ADDRESS: &actorv3::SYSTEM_ACTOR_ADDR = &actorv3::SYSTEM_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(0);
 
 /// System actor method.
-pub type Method = actorv3::system::Method;
+pub type Method = fil_actor_system_v8::Method;
 
 /// System actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
-pub enum State {
-    V0(actorv0::system::State),
-    V2(actorv2::system::State),
-    V3(actorv3::system::State),
-    V4(actorv4::system::State),
-    V5(actorv5::system::State),
-    V6(actorv6::system::State),
-}
+pub enum State {}
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(_store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::SYSTEM_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
-        }
+        Err(anyhow::anyhow!("Unknown system actor code {}", actor.code))
     }
 }

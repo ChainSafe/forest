@@ -9,11 +9,8 @@ use blockstore::BlockStore;
 use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
-use message::Message;
-use message::{
-    signed_message::json::SignedMessageJson, unsigned_message::json::UnsignedMessageJson,
-    SignedMessage,
-};
+use message::message::json::MessageJson;
+use message::{signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::data_types::RPCState;
 use rpc_api::mpool_api::*;
 
@@ -144,9 +141,9 @@ where
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 {
-    let (UnsignedMessageJson(umsg), spec) = params;
+    let (MessageJson(umsg), spec) = params;
 
-    let from = *umsg.from();
+    let from = umsg.from;
 
     let mut keystore = data.keystore.as_ref().write().await;
     let heaviest_tipset = data
@@ -160,13 +157,13 @@ where
         .resolve_to_key_addr::<FullVerifier>(&from, &heaviest_tipset)
         .await?;
 
-    if umsg.sequence() != 0 {
+    if umsg.sequence != 0 {
         return Err(
             "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
         );
     }
     let mut umsg = estimate_message_gas::<DB, B, V>(&data, umsg, spec, Default::default()).await?;
-    if umsg.gas_premium() > umsg.gas_fee_cap() {
+    if umsg.gas_premium > umsg.gas_fee_cap {
         return Err("After estimation, gas premium is greater than gas fee cap".into());
     }
 

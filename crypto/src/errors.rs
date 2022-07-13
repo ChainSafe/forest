@@ -4,11 +4,10 @@
 use address::Error as AddressError;
 use encoding::Error as EncodingError;
 use libsecp256k1::Error as SecpError;
-use std::error;
 use thiserror::Error;
 
 /// Crypto error
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// Failed to produce a signature
     #[error("Failed to sign data {0}")]
@@ -21,8 +20,8 @@ pub enum Error {
     InvalidPubKey(#[from] AddressError),
 }
 
-impl From<Box<dyn error::Error>> for Error {
-    fn from(err: Box<dyn error::Error>) -> Error {
+impl From<anyhow::Error> for Error {
+    fn from(err: anyhow::Error) -> Error {
         // Pass error encountered in signer trait as module error type
         Error::SigningError(err.to_string())
     }

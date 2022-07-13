@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use sodiumoxide::crypto::pwhash::argon2id13 as pwhash;
 use sodiumoxide::crypto::secretbox;
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs::{self, create_dir, File};
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -229,7 +229,15 @@ impl KeyStore {
                 }
             }
             KeyStoreConfig::Encrypted(location, passphrase) => {
+                if !location.exists() {
+                    create_dir(location.clone())?;
+                }
+
                 let file_path = location.join(Path::new(ENCRYPTED_KEYSTORE_NAME));
+
+                if !file_path.exists() {
+                    File::create(file_path.clone())?;
+                }
 
                 match File::open(&file_path) {
                     Ok(file) => {

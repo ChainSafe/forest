@@ -2,74 +2,51 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
+use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use std::error::Error;
 use vm::ActorState;
 
+use anyhow::Context;
+use ipld_blockstore::BlockStoreExt;
+
 /// Account actor method.
-pub type Method = actorv4::account::Method;
+pub type Method = fil_actor_account_v8::Method;
 
 /// Account actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V0(actorv0::account::State),
-    V2(actorv2::account::State),
-    V3(actorv3::account::State),
-    V4(actorv4::account::State),
-    V5(actorv5::account::State),
-    V6(actorv5::account::State),
+    V8(fil_actor_account_v8::State),
+}
+
+pub fn is_v8_account_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacedudbf7fc5va57t3tmo63snmt3en4iaidv4vo3qlyacbxaa6hlx6y").unwrap(),
+    ];
+    known_cids.contains(cid)
 }
 
 impl State {
-    pub fn load<BS>(store: &BS, actor: &ActorState) -> Result<State, Box<dyn Error>>
+    pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
         BS: BlockStore,
     {
-        if actor.code == *actorv0::ACCOUNT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V0)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv2::ACCOUNT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V2)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv3::ACCOUNT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V3)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv4::ACCOUNT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V4)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv5::ACCOUNT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V5)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else if actor.code == *actorv6::ACCOUNT_ACTOR_CODE_ID {
-            Ok(store
-                .get(&actor.state)?
-                .map(State::V6)
-                .ok_or("Actor state doesn't exist in store")?)
-        } else {
-            Err(format!("Unknown actor code {}", actor.code).into())
+        if is_v8_account_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
         }
+        Err(anyhow::anyhow!("Unknown account actor code {}", actor.code))
     }
 
     pub fn pubkey_address(&self) -> Address {
         match self {
-            State::V0(st) => st.address,
-            State::V2(st) => st.address,
-            State::V3(st) => st.address,
-            State::V4(st) => st.address,
-            State::V5(st) => st.address,
-            State::V6(st) => st.address,
+            State::V8(st) => st.address,
         }
     }
 }

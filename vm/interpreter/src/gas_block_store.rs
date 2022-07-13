@@ -1,13 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::gas_tracker::{GasTracker, PriceList};
-use cid::{Cid, Code};
+use cid::Cid;
 use db::{Error, Store};
-use forest_encoding::{de::DeserializeOwned, ser::Serialize, to_vec};
-use ipld_blockstore::BlockStore;
+use fvm::gas::{GasTracker, PriceList};
+use fvm_ipld_blockstore::Blockstore;
 use std::cell::RefCell;
-use std::error::Error as StdError;
 use std::rc::Rc;
 
 /// Blockstore wrapper to charge gas on reads and writes
@@ -17,37 +15,7 @@ pub(crate) struct GasBlockStore<'bs, BS> {
     pub store: &'bs BS,
 }
 
-impl<BS> BlockStore for GasBlockStore<'_, BS>
-where
-    BS: BlockStore,
-{
-    fn get<T>(&self, cid: &Cid) -> Result<Option<T>, Box<dyn StdError>>
-    where
-        T: DeserializeOwned,
-    {
-        self.gas
-            .borrow_mut()
-            .charge_gas(self.price_list.on_ipld_get())?;
-        self.store.get(cid)
-    }
-
-    fn put<S>(&self, obj: &S, code: Code) -> Result<Cid, Box<dyn StdError>>
-    where
-        S: Serialize,
-    {
-        let bytes = to_vec(obj)?;
-        self.gas
-            .borrow_mut()
-            .charge_gas(self.price_list.on_ipld_put(bytes.len()))?;
-
-        self.store.put_raw(bytes, code)
-    }
-}
-
-impl<BS> Store for GasBlockStore<'_, BS>
-where
-    BS: BlockStore,
-{
+impl<BS: Store> Store for GasBlockStore<'_, BS> {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
@@ -94,55 +62,73 @@ where
     }
 }
 
+impl<BS> Blockstore for GasBlockStore<'_, BS>
+where
+    BS: Blockstore,
+{
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        let gas_charge = self.price_list.on_block_open_base();
+        self.gas.borrow_mut().apply_charge(gas_charge)?;
+        self.store.get(k)
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        let gas_charge = self.price_list.on_block_link(block.len());
+        self.gas.borrow_mut().apply_charge(gas_charge)?;
+        self.store.put_keyed(k, block)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::price_list_by_epoch;
     use cid::Code::Blake2b256;
     use db::MemoryDB;
-    use vm::{ActorError, ExitCode};
+    use forest_encoding::to_vec;
+    use fvm::gas::price_list_by_network_version;
+    use fvm::gas::Gas;
+    use ipld_blockstore::BlockStoreExt;
+    use networks::{ChainConfig, Height};
 
     #[test]
     fn gas_blockstore() {
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
+        let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
+        let price_list = price_list_by_network_version(network_version).clone();
         let gbs = GasBlockStore {
-            price_list: PriceList {
-                ipld_get_base: 4,
-                ipld_put_base: 2,
-                ipld_put_per_byte: 1,
-                ..price_list_by_epoch(0)
-            },
-            gas: Rc::new(RefCell::new(GasTracker::new(5000, 0))),
+            price_list: price_list.clone(),
+            gas: Rc::new(RefCell::new(GasTracker::new(
+                Gas::new(i64::MAX),
+                Gas::new(0),
+            ))),
             store: &db,
         };
-        assert_eq!(gbs.gas.borrow().gas_used(), 0);
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
-        let c = gbs.put(&200u8, Blake2b256).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), 2002);
-        gbs.get::<u8>(&c).unwrap();
-        assert_eq!(gbs.gas.borrow().gas_used(), 2006);
+        let c = gbs.put_obj(&200u8, Blake2b256).unwrap();
+        let put_gas = price_list.on_block_link(2).total();
+        assert_eq!(gbs.gas.borrow().gas_used(), put_gas);
+        gbs.get_obj::<u8>(&c).unwrap();
+        let get_gas = price_list.on_block_open_base().total();
+        assert_eq!(gbs.gas.borrow().gas_used(), put_gas + get_gas);
     }
 
     #[test]
     fn gas_blockstore_oog() {
+        let calico_height = ChainConfig::default().epoch(Height::Calico);
+        let network_version = ChainConfig::default().network_version(calico_height);
         let db = MemoryDB::default();
         let gbs = GasBlockStore {
-            price_list: PriceList {
-                ipld_put_base: 12,
-                ..price_list_by_epoch(0)
-            },
-            gas: Rc::new(RefCell::new(GasTracker::new(10, 0))),
+            price_list: price_list_by_network_version(network_version).clone(),
+            gas: Rc::new(RefCell::new(GasTracker::new(Gas::new(10), Gas::new(0)))),
             store: &db,
         };
-        assert_eq!(gbs.gas.borrow().gas_used(), 0);
+        assert_eq!(gbs.gas.borrow().gas_used(), Gas::new(0));
         assert_eq!(to_vec(&200u8).unwrap().len(), 2);
         assert_eq!(
-            gbs.put(&200u8, Blake2b256)
-                .unwrap_err()
-                .downcast::<ActorError>()
-                .unwrap()
-                .exit_code(),
-            ExitCode::SysErrOutOfGas
+            &gbs.put_obj(&200u8, Blake2b256).unwrap_err().to_string(),
+            "out of gas"
         );
     }
 }

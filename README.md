@@ -28,13 +28,29 @@ Our crates:
 | `utils` | the forest toolbox (12 crates) |
 
 
+## Run with Docker
+
+No need to install Rust toolchain or other dependencies, you will need only Docker.
+```
+❯ docker run --init -it ghcr.io/chainsafe/forest:latest --help
+```
+
+Follow other instructions for proper `forest` usage. You may need to mount a volume to import a snapshot, e.g.
+```
+❯ docker run --init -it -v $HOME/Downloads:/downloads ghcr.io/chainsafe/forest:latest --import-snapshot /downloads/minimal_finality_stateroots_latest.car
+```
+Use dockerized Forest with host database:
+```
+❯ docker run --init -it -v $HOME/.forest:/root/.forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
+```
+
 ## Dependencies
 
 * Rust `rustc >= 1.58.1`
 * Rust WASM target `wasm32-unknown-unknown`
 
 ```shell
-rustup install stable
+rustup install nightly
 rustup target add wasm32-unknown-unknown
 ```
 
@@ -44,10 +60,10 @@ rustup target add wasm32-unknown-unknown
 
 ```shell
 # Ubuntu
-sudo apt install build-essential clang ocl-icd-opencl-dev
+sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
 
 # Archlinux
-sudo pacman -S base-devel clang ocl-icd
+sudo pacman -S base-devel clang ocl-icd openssl
 ```
 
 ## Installation
@@ -112,7 +128,7 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 # To run base tests
 cargo test # use `make test-release` for longer compilation but faster execution
 
-# To pull serialization vectors submodule and run serialization and conformance tests
+# To pull serialization vectors submodule and run serialization tests
 make test-vectors
 
 # To run all tests and all features enabled
@@ -121,19 +137,17 @@ make test-all
 
 ### Joining the testnet
 
-Build with the `interopnet` config with:
+Select the builtin calibnet configuration with the `--chain` option:
 
 ```bash
-make interopnet
-
 # Run and import past the state migrations to latest network version
-./target/release/forest --import-snapshot ./types/networks/src/interopnet/snapshot.car
+./target/release/forest --chain calibnet --import-snapshot snapshot.car
 ```
 
 Importing the snapshot only needs to happen during the first run. Following this, to restart the daemon run:
 
 ```bash
-./target/release/forest
+./target/release/forest --chain calibnet
 ```
 
 ### Interacting with Forest via CLI

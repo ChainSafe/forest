@@ -9,15 +9,12 @@ members = [
     "blockchain/beacon",
     "blockchain/message_pool",
     "vm",
-    "vm/actor",
     "vm/actor_interface",
     "vm/address",
     "vm/message",
-    "vm/runtime",
     "vm/state_tree",
     "vm/interpreter",
     "vm/state_migration",
-    "node/clock",
     "node/db",
     "node/rpc",
     "node/rpc-client",
@@ -25,22 +22,15 @@ members = [
     "crypto",
     "encoding",
     "ipld/cid",
-    "ipld/car",
-    "ipld/amt",
+    "ipld/legacy_amt",
     "ipld",
-    "ipld/hamt",
     "ipld/blockstore",
-    # TODO re-enable graphsync when work continues
-    # "ipld/graphsync",
     "key_management",
-    "tests/conformance_tests",
     "tests/serialization_tests",
     "types",
     "types/networks",
     "utils/auth",
     "utils/bigint",
-    "utils/bitfield",
-    "utils/commcid",
     "utils/genesis",
     "utils/hash_utils",
     "utils/json_utils",
@@ -54,25 +44,17 @@ resolver = "2"
 [patch.crates-io]
 ipld_blockstore   = { path = "./ipld/blockstore" }
 fil_types         = { path = "./types" }
-fil_clock         = { path = "./node/clock" }
 forest_db         = { path = "./node/db" }
 forest_crypto     = { path = "./crypto" }
 forest_address    = { path = "./vm/address" }
 forest_bigint     = { path = "./utils/bigint" }
-forest_bitfield   = { path = "./utils/bitfield" }
 forest_cid        = { path = "./ipld/cid" }
 forest_ipld       = { path = "./ipld" }
 forest_encoding   = { path = "./encoding" }
 forest_hash_utils = { path = "./utils/hash_utils" }
 forest_json_utils = { path = "./utils/json_utils" }
-commcid           = { path = "./utils/commcid" }
 forest_vm         = { path = "./vm" }
-forest_runtime    = { path = "./vm/runtime" }
 forest_message    = { path = "./vm/message" }
-fvm               = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "master" }
-fvm_shared        = { git = "https://github.com/filecoin-project/ref-fvm/", branch = "master" }
-# FIXME: Switch to serde_ipld_dagcbor-0.1.2 once it has been released
-serde_ipld_dagcbor = { git = "https://github.com/Stebalien/cbor/", branch = "fix/truncate-error" }
 
 [profile.dev]
 debug = 0

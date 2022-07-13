@@ -57,7 +57,7 @@ impl AuthCommands {
                     Ok(token) => {
                         let mut addr = Multiaddr::empty();
                         addr.push(Protocol::Ip4(DEFAULT_HOST.parse().unwrap()));
-                        addr.push(Protocol::Tcp(cfg.rpc_port.parse().unwrap()));
+                        addr.push(Protocol::Tcp(cfg.rpc_port));
                         addr.push(Protocol::Http);
                         println!(
                             "FULLNODE_API_INFO=\"{}:{}\"",

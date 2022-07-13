@@ -22,8 +22,8 @@ use encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use log::error;
 use lru::LruCache;
-use message::{Message, SignedMessage};
-use networks::BLOCK_DELAY_SECS;
+use message::{Message as MessageTrait, SignedMessage};
+use networks::ChainConfig;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -36,7 +36,6 @@ const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
 const PROPAGATION_DELAY_SECS: u64 = 6;
-const REPUBLISH_INTERVAL: u64 = 10 * BLOCK_DELAY_SECS + PROPAGATION_DELAY_SECS;
 // TODO: Implement guess gas module
 const MIN_GAS: i64 = 1298450;
 
@@ -55,6 +54,7 @@ where
     Ok(base_sequence)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
     network_sender: &Sender<NetworkMessage>,
@@ -63,6 +63,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -94,7 +95,16 @@ where
 
     let mut chains = Chains::new();
     for (actor, mset) in pending_map.iter() {
-        create_message_chains(api, actor, mset, &base_fee_lower_bound, &ts, &mut chains).await?;
+        create_message_chains(
+            api,
+            actor,
+            mset,
+            &base_fee_lower_bound,
+            &ts,
+            &mut chains,
+            chain_config,
+        )
+        .await?;
     }
 
     if chains.is_empty() {
@@ -224,7 +234,7 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
                     .await?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
@@ -296,9 +306,11 @@ pub mod tests {
     use async_std::task;
     use blocks::Tipset;
     use crypto::SignatureType;
+    use fvm_shared::bigint::BigInt;
+    use fvm_shared::message::Message;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use message::{SignedMessage, UnsignedMessage};
-    use num_bigint::BigInt;
+    use message::SignedMessage;
+    use networks::ChainConfig;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;
@@ -312,15 +324,15 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg: UnsignedMessage = UnsignedMessage::builder()
-            .to(*to)
-            .from(*from)
-            .sequence(sequence)
-            .gas_limit(gas_limit)
-            .gas_fee_cap((gas_price + 100).into())
-            .gas_premium(gas_price.into())
-            .build()
-            .unwrap();
+        let umsg = Message {
+            to: *to,
+            from: *from,
+            sequence,
+            gas_limit,
+            gas_fee_cap: (gas_price + 100).into(),
+            gas_premium: gas_price.into(),
+            ..Message::default()
+        };
         let msg_signing_bytes = umsg.to_signing_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
@@ -337,9 +349,15 @@ pub mod tests {
 
         task::block_on(async move {
             let (tx, _rx) = bounded(50);
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
-                .await
-                .unwrap();
+            let mpool = MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                ChainConfig::default(),
+            )
+            .await
+            .unwrap();
             let mut smsg_vec = Vec::new();
             for i in 0..2 {
                 let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
@@ -401,9 +419,15 @@ pub mod tests {
         let (tx, _rx) = bounded(50);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
-                .await
-                .unwrap();
+            let mpool = MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                ChainConfig::default(),
+            )
+            .await
+            .unwrap();
 
             let mut api_temp = mpool.api.write().await;
             api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
@@ -495,9 +519,15 @@ pub mod tests {
         let (tx, _rx) = bounded(50);
 
         task::block_on(async move {
-            let mpool = MessagePool::new(tma, "mptest".to_string(), tx, Default::default())
-                .await
-                .unwrap();
+            let mpool = MessagePool::new(
+                tma,
+                "mptest".to_string(),
+                tx,
+                Default::default(),
+                ChainConfig::default(),
+            )
+            .await
+            .unwrap();
 
             let mut smsg_vec = Vec::new();
             for i in 0..3 {
@@ -544,6 +574,7 @@ pub mod tests {
             let tma = RwLock::new(tma);
             let a = mock_block(1, 1);
             let ts = Tipset::new(vec![a]).unwrap();
+            let chain_config = ChainConfig::default();
 
             // --- Test Chain Aggregations ---
             // Test 1: 10 messages from a1 to a2, with increasing gasPerf; it should
@@ -557,9 +588,17 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i64),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(
                 chains[0].msgs.len(),
@@ -587,9 +626,17 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i64),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 10, "expected 10 chains");
 
             for i in 0..chains.len() {
@@ -623,9 +670,17 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i64), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i64),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 2, "expected 2 chains");
             assert_eq!(chains[0].msgs.len(), 9);
             assert_eq!(chains[1].msgs.len(), 1);
@@ -663,9 +718,17 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
 
             for i in 0..chains.len() {
                 let expected_len = if i > 2 { 1 } else { 3 };
@@ -705,9 +768,17 @@ pub mod tests {
             }
 
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             for (i, m) in chains[0].msgs.iter().enumerate() {
                 assert_eq!(
@@ -736,9 +807,17 @@ pub mod tests {
                 mset.insert(i, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].msgs.len(), 5);
             for (i, m) in chains[0].msgs.iter().enumerate() {
@@ -770,9 +849,17 @@ pub mod tests {
                 mset.insert(i as u64, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].msgs.len(), max_messages as usize);
             for (i, m) in chains[0].msgs.iter().enumerate() {
@@ -797,9 +884,17 @@ pub mod tests {
                 mset.insert(i as u64, msg);
             }
             let mut chains = Chains::new();
-            create_message_chains(&tma, &a1, &mset, &BigInt::from(0i32), &ts, &mut chains)
-                .await
-                .unwrap();
+            create_message_chains(
+                &tma,
+                &a1,
+                &mset,
+                &BigInt::from(0i32),
+                &ts,
+                &mut chains,
+                &chain_config,
+            )
+            .await
+            .unwrap();
             assert_eq!(chains.len(), 1, "expected a single chain");
             assert_eq!(chains[0].msgs.len(), 2);
             for (i, m) in chains[0].msgs.iter().enumerate() {

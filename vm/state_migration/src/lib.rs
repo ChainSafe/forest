@@ -6,7 +6,7 @@
 
 use address::Address;
 use cid::Cid;
-use clock::ChainEpoch;
+use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use state_tree::StateTree;
 use vm::{ActorState, TokenAmount};
@@ -15,7 +15,7 @@ use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
 
-pub mod nv12;
+// pub mod nv12;
 
 pub const ACTORS_COUNT: usize = 11;
 
@@ -156,11 +156,9 @@ impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
             }
         });
 
-        let root_cid = actors_out
+        actors_out
             .flush()
-            .map_err(|e| MigrationError::FlushFailed(e.to_string()));
-
-        root_cid
+            .map_err(|e| MigrationError::FlushFailed(e.to_string()))
     }
 }
 
@@ -235,6 +233,7 @@ struct MigrationJobOutput {
     actor_state: ActorState,
 }
 
+#[allow(dead_code)]
 fn nil_migrator<BS: BlockStore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {

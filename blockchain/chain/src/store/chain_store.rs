@@ -11,24 +11,25 @@ use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use cid::Cid;
 use cid::Code::Blake2b256;
-use clock::ChainEpoch;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
-use forest_car::CarHeader;
 use forest_ipld::recurse_links;
 use futures::AsyncWrite;
+use fvm_ipld_car::CarHeader;
+use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::clock::ChainEpoch;
+use fvm_shared::message::Message;
 use interpreter::BlockMessages;
-use ipld_amt::Amt;
-use ipld_blockstore::BlockStore;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
+use legacy_ipld_amt::Amt;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use message::{ChainMessage, Message, MessageReceipt, SignedMessage, UnsignedMessage};
-use num_bigint::{BigInt, Integer};
+use message::Message as MessageTrait;
+use message::{ChainMessage, MessageReceipt, SignedMessage};
 use num_traits::Zero;
 use serde::Serialize;
 use state_tree::StateTree;
-use std::error::Error as StdError;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -406,7 +407,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk(&self, key: &TipsetKeys) -> Result<StateTree<'_, DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<'_, DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
@@ -424,14 +425,14 @@ where
         &self,
         address: &Address,
         tsk: &TipsetKeys,
-    ) -> Result<miner::State, Error> {
+    ) -> anyhow::Result<miner::State> {
         let state = self.parent_state_tsk(tsk).await?;
         let actor = state
             .get_actor(address)
             .map_err(|_| Error::Other("Failure getting actor".to_string()))?
             .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
 
-        Ok(miner::State::load(self.blockstore(), &actor)?)
+        miner::State::load(self.blockstore(), &actor)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
@@ -462,7 +463,7 @@ where
             let block = self
                 .blockstore()
                 .get_bytes(&cid)?
-                .ok_or_else(|| format!("Cid {} not found in blockstore", cid))?;
+                .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
@@ -578,7 +579,7 @@ where
         mut load_block: F,
     ) -> Result<(), Error>
     where
-        F: FnMut(Cid) -> Result<Vec<u8>, Box<dyn StdError>>,
+        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
     {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -643,7 +644,7 @@ where
         .iter()
         .map(|c| {
             store
-                .get(c)
+                .get_obj(c)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
@@ -668,13 +669,13 @@ fn block_validation_key(cid: &Cid) -> Vec<u8> {
 pub fn block_messages<DB>(
     db: &DB,
     bh: &BlockHeader,
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, &bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
 
     Ok((bls_msgs, secp_msgs))
@@ -685,11 +686,11 @@ pub fn block_messages_from_cids<DB>(
     db: &DB,
     bls_cids: &[Cid],
     secp_cids: &[Cid],
-) -> Result<(Vec<UnsignedMessage>, Vec<SignedMessage>), Error>
+) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: BlockStore,
 {
-    let bls_msgs: Vec<UnsignedMessage> = messages_from_cids(db, bls_cids)?;
+    let bls_msgs: Vec<Message> = messages_from_cids(db, bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
 
     Ok((bls_msgs, secp_msgs))
@@ -702,7 +703,7 @@ where
     DB: BlockStore,
 {
     if let Some(roots) = db
-        .get::<TxMeta>(msg_cid)
+        .get_obj::<TxMeta>(msg_cid)
         .map_err(|e| Error::Other(e.to_string()))?
     {
         let bls_cids = read_amt_cids(db, &roots.bls_message_root)?;
@@ -724,7 +725,7 @@ where
     DB: BlockStore,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    db.put(&header, Blake2b256)
+    db.put_obj(&header, Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))
 }
 
@@ -775,7 +776,7 @@ pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
 {
-    db.get(key)
+    db.get_obj(key)
         .map_err(|e| Error::Other(e.to_string()))?
         .ok_or_else(|| Error::UndefinedKey(key.to_string()))
 }
@@ -846,7 +847,7 @@ where
 {
     keys.iter()
         .map(|k| {
-            db.get(k)
+            db.get_obj(k)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .ok_or_else(|| Error::UndefinedKey(k.to_string()))
         })
@@ -863,7 +864,7 @@ where
     DB: BlockStore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i as u64)?;
+    let receipts = amt.get(i)?;
     Ok(receipts.cloned())
 }
 
@@ -876,7 +877,7 @@ where
     let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
 
     let act = state
-        .get_actor(power::ADDRESS)
+        .get_actor(&power::ADDRESS)
         .map_err(|e| e.to_string())?
         .ok_or("Failed to load power actor for calculating weight")?;
 

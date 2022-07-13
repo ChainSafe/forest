@@ -4,7 +4,8 @@
 use super::BlockHeader;
 use cid::Cid;
 use encoding::tuple::*;
-use message::{SignedMessage, UnsignedMessage};
+use fvm_shared::message::Message;
+use message::SignedMessage;
 
 /// Limit of bls and secp messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
@@ -13,7 +14,7 @@ pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
     pub header: BlockHeader,
-    pub bls_messages: Vec<UnsignedMessage>,
+    pub bls_messages: Vec<Message>,
     pub secp_messages: Vec<SignedMessage>,
 }
 
@@ -22,8 +23,8 @@ impl Block {
     pub fn header(&self) -> &BlockHeader {
         &self.header
     }
-    /// Returns reference to the block's BLS [UnsignedMessage]s.
-    pub fn bls_msgs(&self) -> &[UnsignedMessage] {
+    /// Returns reference to the block's BLS [Message]s.
+    pub fn bls_msgs(&self) -> &[Message] {
         &self.bls_messages
     }
     /// Returns reference to the block's Secp256k1 [SignedMessage]s.

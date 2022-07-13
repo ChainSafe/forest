@@ -8,16 +8,16 @@ mod policy;
 pub use self::adt::*;
 pub use self::builtin::*;
 pub use self::policy::*;
-pub use actorv0;
-pub use actorv2;
-pub use actorv3;
-pub use actorv4;
-pub use actorv5;
-pub use actorv6;
+// pub use actorv0;
+// pub use actorv2;
+// pub use actorv3;
+// pub use actorv4;
+// pub use actorv5;
+// pub use actorv6;
 use fil_types::{NetworkVersion, StateTreeVersion};
 use std::fmt::{self, Display, Formatter};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum ActorVersion {
     V0,
     V2,
@@ -25,6 +25,8 @@ pub enum ActorVersion {
     V4,
     V5,
     V6,
+    V7,
+    V8,
 }
 
 impl Display for ActorVersion {
@@ -36,6 +38,8 @@ impl Display for ActorVersion {
             Self::V4 => write!(f, "V4"),
             Self::V5 => write!(f, "V5"),
             Self::V6 => write!(f, "V6"),
+            Self::V7 => write!(f, "V7"),
+            Self::V8 => write!(f, "V8"),
         }
     }
 }
@@ -56,7 +60,9 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V12 => ActorVersion::V4,
             NetworkVersion::V13 => ActorVersion::V5,
             NetworkVersion::V14 => ActorVersion::V6,
-            NetworkVersion::V15 => panic!("nv15 not supported by native backend"),
+            NetworkVersion::V15 => ActorVersion::V7,
+            NetworkVersion::V16 => ActorVersion::V8,
+            _ => panic!("nv16+ not supported by native backend"),
         }
     }
 }
@@ -68,8 +74,7 @@ impl From<StateTreeVersion> for ActorVersion {
             StateTreeVersion::V1 => ActorVersion::V2,
             StateTreeVersion::V2 => ActorVersion::V3,
             StateTreeVersion::V3 => ActorVersion::V6,
-            StateTreeVersion::V4 => ActorVersion::V6,
-            //StateTreeVersion::V4 => ActorVersion::V6, // TODO: what version should it point to?
+            StateTreeVersion::V4 => ActorVersion::V8,
         }
     }
 }

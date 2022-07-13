@@ -3,6 +3,7 @@
 
 // workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
 pub mod chain_message;
+pub mod message;
 pub mod message_receipt;
 pub mod signed_message;
 pub mod unsigned_message;
