@@ -332,8 +332,8 @@ where
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            tipset,
+            sm: self.clone(),
+            tipset: tipset.clone(),
             verifier: PhantomData::<V>::default(),
         };
 
@@ -481,8 +481,8 @@ where
             let bheight = tipset.epoch();
 
             let lb_wrapper = SMLookbackWrapper {
-                sm: self,
-                tipset,
+                sm: self.clone(),
+                tipset: tipset.clone(),
                 verifier: PhantomData::<V>::default(),
             };
 
@@ -583,8 +583,8 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            tipset: &ts,
+            sm: self.clone(),
+            tipset: ts.clone(),
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
@@ -1438,13 +1438,13 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<'sm, 'ts, DB, V> {
-    sm: &'sm Arc<StateManager<DB>>,
-    tipset: &'ts Arc<Tipset>,
+struct SMLookbackWrapper<DB, V> {
+    sm: Arc<StateManager<DB>>,
+    tipset: Arc<Tipset>,
     verifier: PhantomData<V>,
 }
 
-impl<'sm, 'ts, DB, V> LookbackStateGetter for SMLookbackWrapper<'sm, 'ts, DB, V>
+impl<DB, V> LookbackStateGetter for SMLookbackWrapper<DB, V>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
