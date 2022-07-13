@@ -29,6 +29,7 @@ use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
+use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::bigint::BigInt;
 use ipld::{json::IpldJson, Ipld};
 use legacy_ipld_amt::Amt;
@@ -862,8 +863,9 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 ) -> Result<StateMinerInitialPledgeCollateralResult, JsonRpcError> {
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let (state, _) = data.state_manager.tipset_state::<V>(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let (root_cid, _) = data.state_manager.tipset_state::<V>(&ts).await?;
+    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
+    let fvm_state = FvmStateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
@@ -889,7 +891,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 
     let circ_supply = data
         .state_manager
-        .get_circulating_supply(ts.epoch(), &state)?;
+        .get_circulating_supply(ts.epoch(), &fvm_state)?;
 
     let reward_actor = state
         .get_actor(&reward::ADDRESS)?

@@ -3,15 +3,16 @@
 
 use actor::*;
 use address::Address;
+use anyhow::Context;
 use blockstore::BlockStore;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use interpreter::CircSupplyCalc;
 use networks::{ChainConfig, Height};
 use once_cell::sync::OnceCell;
-use state_tree::StateTree;
 use vm::{ActorState, TokenAmount};
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
@@ -176,7 +177,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
-        .ok_or_else(|| Error::State("Reward actor address could not be resolved".to_string()))?;
+        .context("Reward actor address could not be resolved")?;
     let state = reward::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_storage_power_reward())
@@ -231,7 +232,7 @@ fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmou
 fn get_circulating_supply<'a, DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
-    state_tree: &StateTree<'a, DB>,
+    state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_vested = get_fil_vested(genesis_info, height);
     let fil_mined = get_fil_mined(state_tree)?;

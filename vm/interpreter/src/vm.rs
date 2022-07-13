@@ -15,6 +15,7 @@ use forest_encoding::Cbor;
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
+use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -47,7 +48,7 @@ pub trait CircSupplyCalc: Clone + 'static {
     fn get_supply<DB: BlockStore>(
         &self,
         height: ChainEpoch,
-        state_tree: &StateTree<DB>,
+        state_tree: &FvmStateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error>;
     fn get_fil_vested<DB: BlockStore>(
         &self,
@@ -119,8 +120,8 @@ where
         C: CircSupplyCalc,
         LB: LookbackStateGetter<'db, DB>,
     {
-        let state = StateTree::new_from_root(store, &root)?;
-        let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        let fvm_state = FvmStateTree::new_from_root(store, &root)?;
+        let circ_supply = circ_supply_calc.get_supply(epoch, &fvm_state).unwrap();
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
@@ -161,10 +162,7 @@ where
 
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, anyhow::Error> {
-        match self.fvm_executor.state_tree().get_actor(addr) {
-            Ok(opt_state) => Ok(opt_state.map(vm::ActorState::from)),
-            Err(err) => anyhow::bail!("failed to get actor: {}", err),
-        }
+        Ok(self.fvm_executor.state_tree().get_actor(addr)?)
     }
 
     pub fn run_cron(
