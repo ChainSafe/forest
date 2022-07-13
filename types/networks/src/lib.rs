@@ -157,7 +157,7 @@ impl Clone for ChainConfig {
         ChainConfig {
             name: self.name.clone(),
             bootstrap_peers: self.bootstrap_peers.clone(),
-            block_delay_secs: self.block_delay_secs.clone(),
+            block_delay_secs: self.block_delay_secs,
             version_schedule: self.version_schedule.clone(),
             height_infos: self.height_infos.clone(),
             policy: Policy {
@@ -190,7 +190,9 @@ impl Clone for ChainConfig {
                 min_sector_expiration: self.policy.min_sector_expiration,
                 max_sector_expiration_extension: self.policy.max_sector_expiration_extension,
                 deal_limit_denominator: self.policy.deal_limit_denominator,
-                consensus_fault_ineligibility_duration: self.policy.consensus_fault_ineligibility_duration,
+                consensus_fault_ineligibility_duration: self
+                    .policy
+                    .consensus_fault_ineligibility_duration,
                 new_sectors_per_period_max: self.policy.new_sectors_per_period_max,
                 chain_finality: self.policy.chain_finality,
                 valid_post_proof_type: self.policy.valid_post_proof_type.clone(),
@@ -198,7 +200,9 @@ impl Clone for ChainConfig {
                 minimum_verified_deal_size: self.policy.minimum_verified_deal_size.clone(),
                 deal_updates_interval: self.policy.deal_updates_interval,
                 prov_collateral_percent_supply_num: self.policy.prov_collateral_percent_supply_num,
-                prov_collateral_percent_supply_denom: self.policy.prov_collateral_percent_supply_denom,
+                prov_collateral_percent_supply_denom: self
+                    .policy
+                    .prov_collateral_percent_supply_denom,
                 minimum_consensus_power: self.policy.minimum_consensus_power.clone(),
             },
         }
@@ -419,7 +423,7 @@ pub mod serde_policy {
             deal_updates_interval: policy.deal_updates_interval,
             prov_collateral_percent_supply_num: policy.prov_collateral_percent_supply_num,
             prov_collateral_percent_supply_denom: policy.prov_collateral_percent_supply_denom,
-            minimum_consensus_power: policy.minimum_consensus_power.clone(),
+            minimum_consensus_power: policy.minimum_consensus_power,
         })
     }
 
