@@ -5253,6 +5253,7 @@ dependencies = [
  "beacon",
  "fil_actors_runtime",
  "fil_types",
+ "forest_bigint",
  "fvm_shared",
  "lazy_static",
  "serde",
