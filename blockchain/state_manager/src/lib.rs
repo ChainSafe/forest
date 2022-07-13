@@ -156,8 +156,6 @@ where
         let state =
             FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
-        // let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
-        // Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [Arc] of the state manager's [BlockStore].
@@ -1004,7 +1002,7 @@ where
         if current.epoch() == 0 {
             return Ok(None);
         }
-        let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
+        let state = FvmStateTree::new_from_root(self.blockstore(), current.parent_state())
             .map_err(|e| Err(Error::State(e.to_string())))?;
 
         if let Some(actor_state) = state
@@ -1270,9 +1268,9 @@ where
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
+        let state_tree = FvmStateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        Ok(state_tree.lookup_id(addr)?)
+        Ok(state_tree.lookup_id(addr)?.map(Address::new_id))
     }
 
     /// Retrieves market balance in escrow and locked tables.
