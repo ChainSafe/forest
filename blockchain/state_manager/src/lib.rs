@@ -709,7 +709,7 @@ where
     /// Checks the eligibility of the miner. This is used in the validation that a block's miner
     /// has the requirements to mine a block.
     pub fn eligible_to_mine(
-        self: &Arc<Self>,
+        &self,
         address: &Address,
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,

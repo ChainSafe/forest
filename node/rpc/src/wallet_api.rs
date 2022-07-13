@@ -10,7 +10,6 @@ use beacon::Beacon;
 use blockstore::BlockStore;
 use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
-use fil_types::verifier::FullVerifier;
 use fvm_shared::bigint::BigUint;
 use message::{message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::{data_types::RPCState, wallet_api::*};
@@ -210,7 +209,7 @@ where
         .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = state_manager
-        .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
+        .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
     let key = match wallet::find_key(&key_addr, keystore) {
