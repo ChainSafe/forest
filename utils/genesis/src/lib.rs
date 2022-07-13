@@ -124,7 +124,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     path: &str,
     validate_height: Option<i64>,
     skip_load: bool,
-) -> Result<(), Box<dyn std::error::Error>>
+) -> Result<(), anyhow::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
 {

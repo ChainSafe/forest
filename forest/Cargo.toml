@@ -7,7 +7,8 @@ edition     = "2021"
 build       = "build.rs"
 
 [dependencies]
-fvm               = "1.1"
+anyhow            = "1.0"
+fvm               = "1.0"
 forest_address    = "0.3"
 base64            = "0.13"
 forest_libp2p     = { path = "../node/forest_libp2p" }
@@ -29,7 +30,7 @@ fvm_ipld_car      = "0.4.1"
 forest_crypto     = { version = "0.5", features = ["json"] }
 forest_vm         = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
-forest_bigint        = { path = "../utils/bigint" }
+forest_bigint     = { path = "../utils/bigint" }
 num-rational      = "0.4"
 forest_blocks     = { path = "../blockchain/blocks" }
 ipld_blockstore   = "0.1"
