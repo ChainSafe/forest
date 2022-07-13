@@ -50,11 +50,6 @@ pub trait CircSupplyCalc: Clone + 'static {
         height: ChainEpoch,
         state_tree: &FvmStateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error>;
-    fn get_fil_vested<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        store: &DB,
-    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.

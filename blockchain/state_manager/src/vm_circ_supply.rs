@@ -105,14 +105,6 @@ impl CircSupplyCalc for GenesisInfo {
 
         get_circulating_supply(self, height, state_tree)
     }
-
-    fn get_fil_vested<DB: BlockStore>(
-        &self,
-        _height: ChainEpoch,
-        _store: &DB,
-    ) -> Result<TokenAmount, anyhow::Error> {
-        unimplemented!()
-    }
 }
 
 fn get_actor_state<DB: BlockStore>(
