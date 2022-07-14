@@ -13,7 +13,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use super::errors::Error;
-use crypto::SignatureType;
+use forest_crypto::SignatureType;
 
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
@@ -59,7 +59,7 @@ impl KeyInfo {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use crypto::signature::json::signature_type::SignatureTypeJson;
+    use forest_crypto::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.

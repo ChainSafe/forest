@@ -13,7 +13,7 @@ pub mod system;
 
 use crate::ActorVersion;
 
-use cid::Cid;
+use forest_cid::Cid;
 
 use fil_actors_runtime_v8::builtin::network;
 use fil_actors_runtime_v8::builtin::singletons;
@@ -29,7 +29,7 @@ pub static CHAOS_ACTOR_ADDR: &singletons::CHAOS_ACTOR_ADDR = &singletons::CHAOS_
 pub static BURNT_FUNDS_ACTOR_ADDR: &singletons::BURNT_FUNDS_ACTOR_ADDR =
     &singletons::BURNT_FUNDS_ACTOR_ADDR;
 
-pub static RESERVE_ADDRESS: address::Address = address::Address::new_id(90);
+pub static RESERVE_ADDRESS: forest_address::Address = forest_address::Address::new_id(90);
 
 #[macro_export]
 macro_rules! load_actor_state {

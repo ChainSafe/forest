@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use beacon::Beacon;
-use blocks::gossip_block::json::GossipBlockJson;
-use blocks::Tipset;
-use blockstore::BlockStore;
 use chain_sync::SyncState;
-use cid::json::CidJson;
 use encoding::Cbor;
+use forest_blocks::gossip_block::json::GossipBlockJson;
+use forest_blocks::Tipset;
+use forest_cid::json::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
+use forest_message::SignedMessage;
 use fvm_shared::message::Message;
-use message::SignedMessage;
+use ipld_blockstore::BlockStore;
 use rpc_api::data_types::{RPCState, RPCSyncState};
 use rpc_api::sync_api::*;
 
@@ -110,22 +110,22 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use async_std::channel::{bounded, Receiver};
     use async_std::sync::RwLock;
     use async_std::task;
     use beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
-    use blocks::{BlockHeader, Tipset};
     use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::{MemoryDB, Store};
+    use forest_address::Address;
+    use forest_blocks::{BlockHeader, Tipset};
     use forest_libp2p::NetworkMessage;
+    use key_management::{KeyStore, KeyStoreConfig};
     use message_pool::{MessagePool, MpoolRpcProvider};
     use networks::ChainConfig;
     use serde_json::from_str;
     use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
-    use wallet::{KeyStore, KeyStoreConfig};
 
     const TEST_NET_NAME: &str = "test";
 
