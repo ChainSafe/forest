@@ -15,9 +15,6 @@ pub enum Error {
     /// Unable to perform ecrecover with the given params
     #[error("Could not recover public key from signature: {0}")]
     InvalidRecovery(String),
-    /// Provided public key is not understood
-    #[error("Invalid generated pub key to create address: {0}")]
-    InvalidPubKey(#[from] AddressError),
 }
 
 impl From<anyhow::Error> for Error {
