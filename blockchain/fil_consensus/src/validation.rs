@@ -28,17 +28,12 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 }
 
 /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-/// Returns the validated block if `Ok`.
-/// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
+/// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
 ///
 /// Validation includes:
 /// * Sanity checks
-/// * Timestamps and clock drifts
-/// * Signatures
-/// * Message inclusion (fees, sequences)
+/// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
-/// * Parent related fields: base fee, weight, the state root
-/// * NB: This is where the messages in the *parent* tipset are executed.
 pub(crate) async fn validate_block<
     DB: BlockStore + Sync + Send + 'static,
     B: Beacon + Sync + Send + 'static,

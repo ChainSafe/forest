@@ -20,7 +20,7 @@ use ipld_blockstore::BlockStore;
 /// package the transactions into Filecoin compatible blocks.
 ///
 /// Not all fields will be made use of, however, so the validation of these
-/// block at least partially have to be trusted to the `Consensus` component.
+/// blocks at least partially have to be trusted to the `Consensus` component.
 ///
 /// Common rules for message ordering will be followed, and can be validated
 /// outside by the host system during chain syncrhonization.
