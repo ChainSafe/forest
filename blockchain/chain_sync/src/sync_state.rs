@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
+use forest_blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
 use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -191,9 +191,9 @@ impl<'de> Deserialize<'de> for SyncState {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct SyncStateDe {
-            #[serde(with = "blocks::tipset_json")]
+            #[serde(with = "forest_blocks::tipset_json")]
             base: Arc<Tipset>,
-            #[serde(with = "blocks::tipset_json")]
+            #[serde(with = "forest_blocks::tipset_json")]
             target: Arc<Tipset>,
 
             #[serde(with = "super::SyncStage")]

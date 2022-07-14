@@ -10,9 +10,9 @@ use std::str::FromStr;
 use structopt::StructOpt;
 use uuid::Uuid;
 
-use address::Address;
 use fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
 use fil_types::FILECOIN_PRECISION;
+use forest_address::Address;
 
 const ACCOUNT_START: u64 = 1000;
 #[derive(Debug, StructOpt)]
@@ -76,7 +76,7 @@ impl GenesisCommands {
     }
 }
 
-fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), Box<dyn std::error::Error>> {
+fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), anyhow::Error> {
     let mut genesis_str = String::new();
     File::open(&genesis_path)?.read_to_string(&mut genesis_str)?;
     let mut template: GenesisTemplate = serde_json::from_str(&genesis_str)?;

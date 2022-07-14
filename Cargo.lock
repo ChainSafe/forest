@@ -2612,6 +2612,7 @@ name = "forest"
 version = "0.2.2"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "assert_cmd",
  "async-log",
  "async-std",
@@ -3779,7 +3780,6 @@ dependencies = [
  "state_migration",
  "state_tree",
  "statediff",
- "wasmtime",
 ]
 
 [[package]]
@@ -5235,6 +5235,7 @@ dependencies = [
 name = "net_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "futures",
  "isahc 1.7.2",
@@ -7308,11 +7309,14 @@ name = "statediff"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-std",
  "colored",
  "difference",
+ "directories",
  "fil_types",
  "forest_address",
  "forest_cid",
+ "forest_db",
  "forest_ipld",
  "forest_vm",
  "fvm",
@@ -7323,6 +7327,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_tree",
+ "structopt",
 ]
 
 [[package]]

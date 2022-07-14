@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::*;
-use address::Address;
 use anyhow::Context;
-use blockstore::BlockStore;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;
+use forest_address::Address;
+use forest_vm::{ActorState, TokenAmount};
 use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use interpreter::CircSupplyCalc;
+use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use once_cell::sync::OnceCell;
-use vm::{ActorState, TokenAmount};
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [

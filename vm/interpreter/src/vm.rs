@@ -4,14 +4,16 @@
 use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor::{cron, reward, system, AwardBlockRewardParams};
-use address::Address;
-use cid::Cid;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     DefaultNetworkParams, NetworkParams,
 };
+use forest_address::Address;
+use forest_cid::Cid;
 use forest_encoding::Cbor;
+use forest_message::{ChainMessage, MessageReceipt};
+use forest_vm::{ExitCode, Serialized, TokenAmount};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
@@ -22,12 +24,10 @@ use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use message::{ChainMessage, MessageReceipt};
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use vm::{ExitCode, Serialized, TokenAmount};
 
 // const GAS_OVERUSE_NUM: i64 = 11;
 // const GAS_OVERUSE_DENOM: i64 = 10;
@@ -153,7 +153,10 @@ where
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(&self, addr: &Address) -> Result<Option<vm::ActorState>, anyhow::Error> {
+    pub fn get_actor(
+        &self,
+        addr: &Address,
+    ) -> Result<Option<forest_vm::ActorState>, anyhow::Error> {
         Ok(self.fvm_executor.state_tree().get_actor(addr)?)
     }
 

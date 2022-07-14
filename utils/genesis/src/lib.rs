@@ -3,10 +3,10 @@
 
 use async_std::fs::File;
 use async_std::io::BufReader;
-use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
-use cid::Cid;
 use fil_types::verifier::ProofVerifier;
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_car::{load_car, CarReader};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -124,7 +124,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     path: &str,
     validate_height: Option<i64>,
     skip_load: bool,
-) -> Result<(), Box<dyn std::error::Error>>
+) -> Result<(), anyhow::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
 {

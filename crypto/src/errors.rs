@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Error as AddressError;
 use encoding::Error as EncodingError;
+use forest_address::Error as AddressError;
 use libsecp256k1::Error as SecpError;
 use thiserror::Error;
 

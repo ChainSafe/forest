@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use address::Address;
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
-use cid::{Cid, Code::Blake2b256};
-use crypto::Signature;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
+use forest_address::Address;
+use forest_cid::{Cid, Code::Blake2b256};
+use forest_crypto::Signature;
+use forest_vm::TokenAmount;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -20,7 +21,6 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::fmt;
-use vm::TokenAmount;
 
 #[cfg(feature = "json")]
 pub mod json;
@@ -32,15 +32,15 @@ const SHA_256_BITS: usize = 256;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use address::Address;
-/// use cid::{Cid, Code::Identity};
+/// use forest_address::Address;
+/// use forest_cid::{Cid, Code::Identity};
 /// use fvm_shared::bigint::BigInt;
-/// use crypto::Signature;
+/// use forest_crypto::Signature;
 ///
 /// BlockHeader::builder()
-///     .messages(cid::new_from_cbor(&[], Identity)) // required
-///     .message_receipts(cid::new_from_cbor(&[], Identity)) // required
-///     .state_root(cid::new_from_cbor(&[], Identity)) // required
+///     .messages(forest_cid::new_from_cbor(&[], Identity)) // required
+///     .message_receipts(forest_cid::new_from_cbor(&[], Identity)) // required
+///     .state_root(forest_cid::new_from_cbor(&[], Identity)) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
@@ -286,7 +286,7 @@ impl BlockHeader {
     /// Getter for BlockHeader cid
     pub fn cid(&self) -> &Cid {
         self.cached_cid
-            .get_or_init(|| cid::new_from_cbor(self.cached_bytes(), Blake2b256))
+            .get_or_init(|| forest_cid::new_from_cbor(self.cached_bytes(), Blake2b256))
     }
     /// Getter for BlockHeader parent_base_fee
     pub fn parent_base_fee(&self) -> &BigInt {
@@ -460,9 +460,9 @@ impl fmt::Display for BlockHeader {
 #[cfg(test)]
 mod tests {
     use crate::{errors::Error, BlockHeader};
-    use address::Address;
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
+    use forest_address::Address;
     use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;
