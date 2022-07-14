@@ -8,9 +8,7 @@ pub type PoStRandomness = Randomness;
 
 #[cfg(feature = "json")]
 pub mod json {
-    use crate::{
-        PoStProof, Randomness, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
-    };
+    use crate::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber};
     use cid::Cid;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
