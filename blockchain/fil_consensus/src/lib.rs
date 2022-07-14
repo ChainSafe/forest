@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
