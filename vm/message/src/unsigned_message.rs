@@ -5,6 +5,7 @@ use super::Message;
 use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
+#[cfg(feature = "proofs")]
 use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
