@@ -88,7 +88,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    pub chain_config: Arc<ChainConfig>,
+    chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
 }
 
@@ -150,6 +150,10 @@ where
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         self.chain_config.network_version(epoch)
+    }
+
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
     }
 
     /// Gets actor from given [Cid], if it exists.

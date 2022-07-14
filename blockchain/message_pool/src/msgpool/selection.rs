@@ -689,7 +689,6 @@ mod test_selection {
     use db::MemoryDB;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use message::Message;
-    use networks::ChainConfig;
     use std::sync::Arc;
     use types::NetworkParams;
 
@@ -704,7 +703,7 @@ mod test_selection {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
         })

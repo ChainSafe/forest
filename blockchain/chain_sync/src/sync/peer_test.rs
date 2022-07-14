@@ -27,7 +27,7 @@ fn peer_manager_update() {
         "test".to_string(),
         tx,
         Default::default(),
-        &ChainConfig::default(),
+        Arc::default(),
     ))
     .unwrap();
     let mpool = Arc::new(mpool);

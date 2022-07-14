@@ -73,7 +73,7 @@ pub async fn initialize_genesis<BS>(
 where
     BS: BlockStore + Send + Sync + 'static,
 {
-    let genesis_bytes = state_manager.chain_config.genesis_bytes();
+    let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
     let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
     Ok((ts, network_name))
