@@ -14,7 +14,7 @@ features = ["json"]
 anyhow             = "1.0"
 fvm_shared         = { version = "*", default-features = false }
 fil_actors_runtime = "=8.0.0"
-address            = { package = "forest_address", version = "0.3" }
+forest_address     = "0.3" 
 encoding           = { package = "forest_encoding", version = "0.2" }
 libsecp256k1       = "0.7"
 bls-signatures     = { version = "0.11", default-features = false }

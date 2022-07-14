@@ -9,7 +9,7 @@ build       = "build.rs"
 [dependencies]
 anyhow            = "1.0"
 fvm               = "1.0"
-address           = { package = "forest_address", version = "0.3" }
+forest_address    = "0.3"
 base64            = "0.13"
 forest_libp2p     = { path = "../node/forest_libp2p" }
 utils             = { path = "../node/utils" }
@@ -24,15 +24,15 @@ pretty_env_logger = "0.4"
 ctrlc             = "3.1"
 chain_sync        = { path = "../blockchain/chain_sync" }
 state_manager     = { path = "../blockchain/state_manager" }
-cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
+forest_cid        = { version = "0.3", features = ["json"] }
 multibase         = "0.9"
 fvm_ipld_car      = "0.4.1"
 forest_crypto     = { version = "0.5", features = ["json"] }
-vm                = { package = "forest_vm", version = "0.3" }
+forest_vm         = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
-num-bigint        = { path = "../utils/bigint", package = "forest_bigint" }
+forest_bigint     = "0.1"
 num-rational      = "0.4"
-blocks            = { package = "forest_blocks", path = "../blockchain/blocks" }
+forest_blocks     = { path = "../blockchain/blocks" }
 ipld_blockstore   = "0.1"
 chain             = { path = "../blockchain/chain" }
 structopt         = "0.3"
@@ -43,9 +43,9 @@ rpc_client        = { package = "rpc-client", path = "../node/rpc-client" }
 rpc-api           = { path = "../node/rpc-api", version = "0.1" }
 fil_types         = "0.2"
 serde_json        = "1.0"
-message           = { package = "forest_message", version = "0.7", features = ["blst"] }
+forest_message    = { version = "0.7", features = ["blst"] }
 message_pool      = { package = "message_pool", path = "../blockchain/message_pool" }
-wallet            = { package = "key_management", path = "../key_management" }
+key_management    = { path = "../key_management" }
 uuid              = { version = "0.8", features = ["v4"] }
 auth              = { path = "../utils/auth" }
 net_utils         = { path = "../utils/net_utils" }

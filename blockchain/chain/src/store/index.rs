@@ -3,7 +3,7 @@
 
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::sync::RwLock;
-use blocks::{Tipset, TipsetKeys};
+use forest_blocks::{Tipset, TipsetKeys};
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use lru::LruCache;

@@ -13,24 +13,24 @@ features = ["json"]
 [dependencies]
 anyhow              = "1.0"
 fvm_shared          = { version = "*", default-features = false }
-address             = { package = "forest_address", features = ["json"], version = "0.3" }
+forest_address      = { version = "0.3", features = ["json"] }
 time                = { version = "0.3", features = ["serde", "serde-well-known"] }
 serde               = { version = "1.0", features = ["derive"] }
 serde_json          = "1.0"
 filecoin-proofs-api = { version = "11.0", default_features = false, optional = true }
-vm                  = { package = "forest_vm", version = "0.3" }
-cid                 = { package = "forest_cid", features = ["cbor"], version = "0.3" }
-num-bigint          = { path = "../utils/bigint", package = "forest_bigint", version = "0.1" }
+forest_vm           = "0.3"
+forest_cid          = { features = ["cbor"], version = "0.3" }
+forest_bigint       = "0.1"
 num-traits          = "0.2"
 num-derive          = "0.3"
 encoding            = { package = "forest_encoding", version = "0.2" }
 base64              = { version = "0.13", optional = true }
-forest_json_utils   = { path = "../utils/json_utils", optional = true, version = "0.1" }
+forest_json_utils   = { optional = true, version = "0.1" }
 lazy_static         = "1.4"
 async-std           = "1.9"
 git-version         = "0.3"
 rayon               = "1.5"
 
 [features]
-json   = ["base64", "forest_json_utils", "num-bigint/json"]
+json   = ["base64", "forest_json_utils", "forest_bigint/json"]
 proofs = ["filecoin-proofs-api"]

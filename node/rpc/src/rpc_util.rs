@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use tide::http::headers::HeaderValues;
 
 use beacon::Beacon;
-use blockstore::BlockStore;
+use ipld_blockstore::BlockStore;
 use rpc_api::{
     auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
 };

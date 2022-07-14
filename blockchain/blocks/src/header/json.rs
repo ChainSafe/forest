@@ -4,8 +4,8 @@
 use super::*;
 use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use beacon::beacon_entries;
-use crypto::signature;
 use fil_types::sector::post;
+use forest_crypto::signature;
 use serde::{de, Deserialize, Serialize};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.
@@ -45,11 +45,11 @@ where
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: &'a i64,
-        #[serde(rename = "ParentStateRoot", with = "cid::json")]
+        #[serde(rename = "ParentStateRoot", with = "forest_cid::json")]
         state_root: &'a Cid,
-        #[serde(rename = "ParentMessageReceipts", with = "cid::json")]
+        #[serde(rename = "ParentMessageReceipts", with = "forest_cid::json")]
         message_receipts: &'a Cid,
-        #[serde(with = "cid::json")]
+        #[serde(with = "forest_cid::json")]
         messages: &'a Cid,
         #[serde(rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: &'a Option<Signature>,
@@ -103,11 +103,11 @@ where
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: i64,
-        #[serde(rename = "ParentStateRoot", with = "cid::json")]
+        #[serde(rename = "ParentStateRoot", with = "forest_cid::json")]
         state_root: Cid,
-        #[serde(rename = "ParentMessageReceipts", with = "cid::json")]
+        #[serde(rename = "ParentMessageReceipts", with = "forest_cid::json")]
         message_receipts: Cid,
-        #[serde(with = "cid::json")]
+        #[serde(with = "forest_cid::json")]
         messages: Cid,
         #[serde(default, rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: Option<Signature>,

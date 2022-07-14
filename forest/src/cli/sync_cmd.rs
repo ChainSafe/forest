@@ -7,7 +7,7 @@ use std::{
 };
 
 use chain_sync::SyncStage;
-use cid::{json::CidJson, Cid};
+use forest_cid::{json::CidJson, Cid};
 use rpc_client::*;
 use structopt::StructOpt;
 use ticker::Ticker;

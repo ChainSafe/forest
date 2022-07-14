@@ -8,14 +8,14 @@ use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use key_management::ENCRYPTED_KEYSTORE_NAME;
+use key_management::{KeyStore, KeyStoreConfig};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
 use utils::write_to_file;
-use wallet::ENCRYPTED_KEYSTORE_NAME;
-use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
@@ -296,9 +296,9 @@ fn chain_path(config: &Config) -> PathBuf {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
-    use address::Address;
-    use blocks::BlockHeader;
     use db::MemoryDB;
+    use forest_address::Address;
+    use forest_blocks::BlockHeader;
     use networks::ChainConfig;
 
     #[async_std::test]

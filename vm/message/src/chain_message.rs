@@ -4,12 +4,12 @@
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-use address::Address;
-use cid::Cid;
 use encoding::{Cbor, Error};
+use forest_address::Address;
+use forest_cid::Cid;
+use forest_vm::{MethodNum, Serialized, TokenAmount};
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
-use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Enum to encpasulate signed and unsigned messages. Useful when working with both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
