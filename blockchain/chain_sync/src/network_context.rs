@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::peer_manager::PeerManager;
-use blocks::{FullTipset, Tipset, TipsetKeys};
-use cid::Cid;
 use encoding::de::DeserializeOwned;
+use forest_blocks::{FullTipset, Tipset, TipsetKeys};
+use forest_cid::Cid;
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,

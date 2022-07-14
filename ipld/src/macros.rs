@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-/// Construct a `forest_ipld::Ipld` roughly matching JSON format. This code is a modified version
+/// Construct a `cid::Ipld` roughly matching JSON format. This code is a modified version
 /// of `serde_json::json` macro, with extensions for being able to indicate links and bytes.
 /// These two matterns can be matched by wrapping `Cid` link in `Link(..)` or the `Vec<u8>` in
 /// `Bytes()`.

@@ -3,8 +3,8 @@
 
 use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
-use cid::{Cid, Code::Blake2b256};
 use encoding::{serde_bytes, BytesSer};
+use forest_cid::{Cid, Code::Blake2b256};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use once_cell::unsync::OnceCell;
 use serde::{

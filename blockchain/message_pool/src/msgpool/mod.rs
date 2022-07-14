@@ -12,17 +12,17 @@ use crate::msg_chain::{create_message_chains, Chains};
 use crate::msg_pool::MsgSet;
 use crate::msg_pool::{add_helper, remove};
 use crate::provider::Provider;
-use address::Address;
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
-use blocks::Tipset;
-use cid::Cid;
-use crypto::Signature;
 use encoding::Cbor;
+use forest_address::Address;
+use forest_blocks::Tipset;
+use forest_cid::Cid;
+use forest_crypto::Signature;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
+use forest_message::{Message as MessageTrait, SignedMessage};
 use log::error;
 use lru::LruCache;
-use message::{Message as MessageTrait, SignedMessage};
 use networks::ChainConfig;
 use std::collections::{HashMap, HashSet};
 use std::{borrow::BorrowMut, cmp::Ordering};
@@ -114,7 +114,7 @@ where
     chains.sort(false);
 
     let mut msgs: Vec<SignedMessage> = vec![];
-    let mut gas_limit = types::BLOCK_GAS_LIMIT;
+    let mut gas_limit = fil_types::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
@@ -301,15 +301,15 @@ pub mod tests {
     use super::*;
     use crate::msg_chain::{create_message_chains, Chains};
     use crate::msg_pool::MessagePool;
-    use address::Address;
     use async_std::channel::bounded;
     use async_std::task;
-    use blocks::Tipset;
-    use crypto::SignatureType;
+    use forest_address::Address;
+    use forest_blocks::Tipset;
+    use forest_crypto::SignatureType;
+    use forest_message::SignedMessage;
     use fvm_shared::bigint::BigInt;
     use fvm_shared::message::Message;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use message::SignedMessage;
     use networks::ChainConfig;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
@@ -834,7 +834,7 @@ pub mod tests {
             //         gasPerf; it should create a single chain with the max messages
             let mut mset = HashMap::new();
             let mut smsg_vec = Vec::new();
-            let max_messages = types::BLOCK_GAS_LIMIT / gas_limit;
+            let max_messages = fil_types::BLOCK_GAS_LIMIT / gas_limit;
             let n_messages = max_messages + 1;
             for i in 0..n_messages {
                 let msg = create_smsg(

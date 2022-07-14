@@ -9,33 +9,33 @@ use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 
 use actor::market::{DealProposal, DealState};
-use address::{json::AddressJson, Address};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
-use blocks::{
+use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
+use chain_sync::{BadBlockCache, SyncState};
+use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
+use forest_address::{json::AddressJson, Address};
+use forest_bigint::bigint_ser::json;
+use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
-use blockstore::BlockStore;
-use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
-use chain_sync::{BadBlockCache, SyncState};
-use cid::{json::CidJson, Cid};
-use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
+use forest_cid::{json::CidJson, Cid};
+use forest_ipld::json::IpldJson;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
+use forest_message::{
+    message_receipt::json::MessageReceiptJson, signed_message,
+    signed_message::json::SignedMessageJson, SignedMessage,
+};
+use forest_vm::{ActorState, TokenAmount};
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
-use ipld::json::IpldJson;
-use message::{
-    message_receipt::json::MessageReceiptJson, signed_message,
-    signed_message::json::SignedMessageJson, SignedMessage,
-};
+use ipld_blockstore::BlockStore;
+use key_management::KeyStore;
 use message_pool::{MessagePool, MpoolRpcProvider};
-use num_bigint::bigint_ser::json;
 use state_manager::{MiningBaseInfo, StateManager};
-use vm::{ActorState, TokenAmount};
-use wallet::KeyStore;
 
 // RPC State
 #[derive(Serialize)]
@@ -74,11 +74,11 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "message::message::json::vec")]
+    #[serde(rename = "BlsMessages", with = "forest_message::message::json::vec")]
     pub bls_msg: Vec<Message>,
     #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
     pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "cid::json::vec")]
+    #[serde(rename = "Cids", with = "forest_cid::json::vec")]
     pub cids: Vec<Cid>,
 }
 
@@ -116,9 +116,9 @@ pub struct Partition {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateJson {
-    #[serde(with = "cid::json")]
+    #[serde(with = "forest_cid::json")]
     code: Cid,
-    #[serde(with = "cid::json")]
+    #[serde(with = "forest_cid::json")]
     head: Cid,
     nonce: u64,
     #[serde(with = "json")]
@@ -193,7 +193,7 @@ pub struct MiningBaseInfoJson {
     #[serde(with = "json::option")]
     pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfoJson>,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub worker_key: Address,
     pub sector_size: SectorSize,
     #[serde(with = "beacon::json")]

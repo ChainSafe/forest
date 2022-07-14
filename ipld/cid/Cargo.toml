@@ -24,7 +24,7 @@ multihash = { version = "0.16", default-features = false, features = [
 multibase = "0.9.0"
 integer-encoding = { version = "3.0", default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
-forest_json_utils = { path = "../../utils/json_utils", optional = true, version = "0.1" }
+forest_json_utils = { optional = true, version = "0.1" }
 generic-array = "0.14"
 
 [dev-dependencies]

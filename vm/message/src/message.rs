@@ -53,14 +53,14 @@ pub fn valid_for_block_inclusion(
 
 #[cfg(feature = "json")]
 pub mod json {
-    use address::json::AddressJson;
-    use cid::Cid;
+    use forest_address::json::AddressJson;
+    use forest_bigint::bigint_ser;
+    use forest_cid::Cid;
+    use forest_vm::{Serialized, TokenAmount};
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::message::Message;
-    use num_bigint::bigint_ser;
     use serde::{de, ser};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    use vm::{Serialized, TokenAmount};
 
     /// Wrapper for serializing and deserializing a Message from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -102,7 +102,7 @@ pub mod json {
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
-        #[serde(default, rename = "CID", with = "cid::json::opt")]
+        #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
         cid: Option<Cid>,
     }
 
