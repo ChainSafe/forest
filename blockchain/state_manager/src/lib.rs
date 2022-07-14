@@ -332,8 +332,8 @@ where
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
-            sm: self.clone(),
-            tipset: tipset.clone(),
+            sm: Arc::clone(self),
+            tipset: Arc::clone(tipset),
             verifier: PhantomData::<V>::default(),
         };
 
@@ -345,7 +345,7 @@ where
             VM::<_, V>::new(
                 state_root,
                 db.as_ref(),
-                db.clone(),
+                Arc::clone(&db),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
@@ -481,8 +481,8 @@ where
             let bheight = tipset.epoch();
 
             let lb_wrapper = SMLookbackWrapper {
-                sm: self.clone(),
-                tipset: tipset.clone(),
+                sm: Arc::clone(self),
+                tipset: Arc::clone(tipset),
                 verifier: PhantomData::<V>::default(),
             };
 
@@ -493,7 +493,7 @@ where
             let mut vm = VM::<_, V>::new(
                 *bstate,
                 store_arc.as_ref(),
-                store_arc.clone(),
+                Arc::clone(&store_arc),
                 bheight,
                 rand,
                 0.into(),
@@ -583,8 +583,8 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let lb_wrapper = SMLookbackWrapper {
-            sm: self.clone(),
-            tipset: ts.clone(),
+            sm: Arc::clone(self),
+            tipset: Arc::clone(&ts),
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
@@ -594,7 +594,7 @@ where
         let mut vm = VM::<_, V>::new(
             st,
             store_arc.as_ref(),
-            store_arc.clone(),
+            Arc::clone(&store_arc),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
@@ -913,10 +913,10 @@ where
                 .block_msgs_for_tipset(tipset)
                 .map_err(|e| Error::Other(e.to_string()))?;
 
-            let sm = self.clone();
+            let sm = Arc::clone(self);
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
-            let ts_cloned = tipset.clone();
+            let ts_cloned = Arc::clone(tipset);
             task::spawn_blocking(move || {
                 Ok(sm.apply_blocks::<_, V, _>(
                     parent_epoch,
@@ -1110,7 +1110,7 @@ where
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
         let mut candidate_receipt: Option<MessageReceipt> = None;
 
-        let sm_cloned = self.clone();
+        let sm_cloned = Arc::clone(self);
         let cid = message
             .cid()
             .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
@@ -1134,7 +1134,7 @@ where
 
         let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
-        let sm_cloned = self.clone();
+        let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
         let mut subscriber_poll = task::spawn::<
