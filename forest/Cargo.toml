@@ -35,7 +35,7 @@ num-rational      = "0.4"
 blocks            = { package = "forest_blocks", path = "../blockchain/blocks" }
 ipld_blockstore   = "0.1"
 chain             = { path = "../blockchain/chain" }
-structopt         = { version = "0.3" }
+structopt         = "0.3"
 beacon            = { path = "../blockchain/beacon" }
 hex               = "0.4"
 rpc               = { path = "../node/rpc" }
