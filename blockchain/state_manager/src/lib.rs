@@ -1451,14 +1451,14 @@ where
     V: ProofVerifier,
 {
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
-        let sm = self.sm.clone();
-        let tipset = self.tipset.clone();
+        let sm = Arc::clone(&self.sm);
+        let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
             let (_, st) =
                 task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
-                    .expect(&format!(
-                        "Internal Error. Failed to find root CID for epoch {round}."
-                    ));
+                    .unwrap_or_else(|err| {
+                        panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+                    });
             st
         })
     }
