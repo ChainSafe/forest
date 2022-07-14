@@ -260,7 +260,7 @@ fn validate_winner_election<DB: BlockStore + Sync + Send + 'static>(
     }
 
     let (mpow, tpow) = state_manager
-        .get_power(&lookback_state, Some(header.miner_address()))?
+        .get_power(lookback_state, Some(header.miner_address()))?
         .ok_or(FilecoinConsensusError::MinerPowerNotAvailable)?;
 
     let j = election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
@@ -306,7 +306,7 @@ fn validate_ticket_election<DB: BlockStore + Sync + Send + 'static>(
     .map_err(|e| FilecoinConsensusError::DrawingChainRandomness(e.to_string()))?;
 
     verify_election_post_vrf(
-        &work_addr,
+        work_addr,
         &vrf_base,
         // Safe to unwrap here because of block sanity checks
         header.ticket().as_ref().unwrap().vrfproof.as_bytes(),
