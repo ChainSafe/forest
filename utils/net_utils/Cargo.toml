@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 isahc = "1.6"
 url = "2.1"
 log = "0.4"

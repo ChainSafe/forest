@@ -52,7 +52,7 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
 }
 
 impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
-    type Error = Box<dyn std::error::Error>;
+    type Error = anyhow::Error;
 
     fn try_from(url: Url) -> Result<Self, Self::Error> {
         let client = HttpClient::new()?;
@@ -65,7 +65,7 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
                     .and_then(|ct_len| ct_len.parse().ok())
                     .unwrap_or(0)
             } else {
-                return Err(Box::new(DownloadError::HeaderError));
+                return Err(anyhow::anyhow!(DownloadError::HeaderError));
             }
         };
 
@@ -84,7 +84,7 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
 }
 
 impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
-    type Error = Box<dyn std::error::Error>;
+    type Error = anyhow::Error;
 
     fn try_from(file: File) -> Result<Self, Self::Error> {
         let total_size = async_std::task::block_on(file.metadata())?.len();
