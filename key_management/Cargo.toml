@@ -9,7 +9,8 @@ features = ["json"]
 
 [dependencies]
 thiserror = "1.0"
-address = { package = "forest_address", version = "0.3" }
+forest_address = "0.3"
+forest_crypto = { version = "0.5", features = ["json", "blst"] }
 bls-signatures = { version = "0.11", default-features = false, features = ["blst"] }
 libsecp256k1 = "0.7"
 rand = "0.8"
@@ -22,7 +23,6 @@ log = "0.4"
 sodiumoxide = "0.2"
 utils = { path = "../node/utils" }
 fvm_shared = { version = "0.8", default-features = false }
-forest_crypto = { version = "0.5.2", features = ["json", "blst"] }
 
 [features]
 json = ["forest_crypto/json"]

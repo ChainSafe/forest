@@ -13,7 +13,8 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror = "1.0"
 fvm_shared = { version = "0.8", default-features = false }
 # Internal
-wallet = { package = "key_management", path = "../../key_management" }
+forest_crypto = { version = "0.5", features = ["blst"] }
+key_management = { path = "../../key_management" }
 
 [dependencies.jsonrpc-v2]
 version = "0.10"

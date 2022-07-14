@@ -24,26 +24,28 @@ use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};
-use address::Address;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
-use cid::Cid;
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
-pub use fil_actors_runtime::runtime::DomainSeparationTag;
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK,
 };
+use forest_address::Address;
+use forest_blocks::{
+    Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
+};
+use forest_cid::Cid;
+use forest_crypto::DomainSeparationTag;
 use forest_libp2p::chain_exchange::TipsetBundle;
+use forest_message::message::valid_for_block_inclusion;
+use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::message::valid_for_block_inclusion;
-use message::Message as MessageTrait;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
@@ -1837,11 +1839,11 @@ async fn validate_tipset_against_cache(
 
 #[cfg(test)]
 mod test {
-    use address::Address;
-    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use cid::Cid;
+    use forest_address::Address;
+    use forest_bigint::BigInt;
+    use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use forest_cid::Cid;
     use forest_crypto::VRFProof;
-    use num_bigint::BigInt;
 
     use super::*;
     use std::convert::TryFrom;

@@ -7,9 +7,9 @@ edition = "2021"
 [dependencies]
 anyhow          = "1.0"
 actor           = { package = "actor_interface", path = "../actor_interface" }
-address         = { package = "forest_address", version = "0.3" }
-vm              = { package = "forest_vm", version = "0.3" }
-cid             = { package = "forest_cid", version = "0.3" }
+forest_address  = "0.3"
+forest_vm       = "0.3"
+forest_cid      = "0.3"
 forest_ipld     = "0.1"
 ipld_blockstore = "0.1"
 db              = { package = "forest_db", version = "0.1" }
@@ -19,4 +19,4 @@ async-std       = "1.9"
 fvm_ipld_car    = "0.4.1"
 
 [dev-dependencies]
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
+forest_bigint = "0.1"

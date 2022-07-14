@@ -11,28 +11,28 @@ use actor::{
     power::{self, Claim},
     reward,
 };
-use address::json::AddressJson;
 use beacon::{Beacon, BeaconEntry};
-use blocks::{
-    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
-    tipset_keys_json::TipsetKeysJson,
-};
-use blocks::{
-    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
-    Tipset, TxMeta,
-};
-use blockstore::{BlockStore, BlockStoreExt};
 use bls_signatures::Serialize as SerializeBls;
-use cid::{json::CidJson, Cid, Code::Blake2b256};
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
-use fvm_shared::bigint::BigInt;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use ipld::{json::IpldJson, Ipld};
+use forest_address::json::AddressJson;
+use forest_blocks::{
+    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
+    tipset_keys_json::TipsetKeysJson,
+};
+use forest_blocks::{
+    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
+    Tipset, TxMeta,
+};
+use forest_cid::{json::CidJson, Cid, Code::Blake2b256};
+use forest_ipld::{json::IpldJson, Ipld};
+use forest_message::signed_message::SignedMessage;
+use fvm_shared::crypto::signature::SignatureType;
+use fvm_shared::{bigint::BigInt, crypto::signature::Signature};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
-use message::signed_message::SignedMessage;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -692,8 +692,8 @@ pub(crate) async fn miner_create_block<
         .signature(None)
         .build()?;
 
-    let key = wallet::find_key(&worker, &*data.keystore.as_ref().write().await)?;
-    let sig = wallet::sign(
+    let key = key_management::find_key(&worker, &*data.keystore.as_ref().write().await)?;
+    let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         &next.to_signing_bytes(),

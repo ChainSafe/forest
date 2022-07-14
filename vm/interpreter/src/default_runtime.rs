@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::account;
-use address::{Address, Protocol};
+use forest_address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use state_tree::StateTree;
 

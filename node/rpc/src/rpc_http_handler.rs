@@ -6,7 +6,7 @@ use rpc_api::data_types::JsonRpcServerState;
 use tide::http::{format_err, Error as HttpError, Method};
 
 use beacon::Beacon;
-use blockstore::BlockStore;
+use ipld_blockstore::BlockStore;
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 

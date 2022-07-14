@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message;
-use address::Address;
 use derive_builder::Builder;
 use encoding::Cbor;
+use forest_address::Address;
+use forest_vm::{MethodNum, Serialized, TokenAmount};
 use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Default Unsigned VM message type which includes all data needed for a state transition
 ///
 /// Usage:
 /// ```
 /// use forest_message::{UnsignedMessage, Message};
-/// use vm::{TokenAmount, Serialized, MethodNum};
-/// use address::Address;
+/// use forest_vm::{TokenAmount, Serialized, MethodNum};
+/// use forest_address::Address;
 ///
 /// // Use the builder pattern to generate a message
 /// let message = UnsignedMessage::builder()
@@ -253,9 +253,9 @@ impl Cbor for UnsignedMessage {}
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
-    use address::json::AddressJson;
-    use cid::Cid;
-    use num_bigint::bigint_ser;
+    use forest_address::json::AddressJson;
+    use forest_bigint::bigint_ser;
+    use forest_cid::Cid;
     use serde::{de, ser};
 
     /// Wrapper for serializing and deserializing a UnsignedMessage from JSON.
@@ -298,7 +298,7 @@ pub mod json {
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
-        #[serde(default, rename = "CID", with = "cid::json::opt")]
+        #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
         cid: Option<Cid>,
     }
 
