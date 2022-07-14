@@ -15,6 +15,7 @@ use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
 use log::{debug, error, info, trace, warn};
+use nonempty::NonEmpty;
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
@@ -112,6 +113,17 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(C::Error),
+}
+
+impl<C: Consensus> TipsetRangeSyncerError<C> {
+    /// Concatanate all validation error messages into one comma separated version.
+    fn concat(errs: NonEmpty<TipsetRangeSyncerError<C>>) -> Self {
+        let mut msgs = Vec::with_capacity(errs.len());
+        for err in errs {
+            msgs.push(err.to_string())
+        }
+        TipsetRangeSyncerError::Validation(msgs.join(", "))
+    }
 }
 
 struct TipsetGroup {
@@ -1337,28 +1349,16 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
                 // But there's no reason `validate_block` couldn't return a list of all
                 // errors instead of a single one that has all the error messages,
                 // removing the caller's ability to distinguish between them.
-                let mut msgs = vec![];
-                for err in errs {
-                    let wrapped = TipsetRangeSyncerError::<C>::ConsensusError(err);
-                    msgs.push(wrapped.to_string());
-                }
-                TipsetRangeSyncerError::<C>::Validation(msgs.join(", "))
+                let errs = errs.map(|err| TipsetRangeSyncerError::<C>::ConsensusError(err));
+
+                TipsetRangeSyncerError::<C>::concat(errs)
             })
             .await
     }));
 
     // Collect the errors from the async validations
-    if let Err(error_vec) = collect_errs(validations).await {
-        let error_string = error_vec
-            .into_iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        return Err((
-            *block_cid,
-            TipsetRangeSyncerError::<C>::Validation(error_string),
-        ));
+    if let Err(errs) = collect_errs(validations).await {
+        return Err((*block_cid, TipsetRangeSyncerError::<C>::concat(errs)));
     }
 
     chain_store
