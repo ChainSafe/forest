@@ -30,10 +30,6 @@ use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    // Set the Address network prefix
-    let network = config.chain.name.parse().unwrap();
-    address::NETWORK_DEFAULT.set(network).unwrap();
-
     info!(
         "Starting Forest daemon, version {}",
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
