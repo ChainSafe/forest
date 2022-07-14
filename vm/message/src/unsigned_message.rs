@@ -6,6 +6,7 @@ use derive_builder::Builder;
 use encoding::Cbor;
 use forest_address::Address;
 use forest_vm::{MethodNum, Serialized, TokenAmount};
+#[cfg(feature = "proofs")]
 use fvm::gas::Gas;
 use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
