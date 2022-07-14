@@ -1,11 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_vm::{Serialized, TokenAmount};
+#[cfg(feature = "proofs")]
 use fvm::gas::Gas;
-use fvm_ipld_encoding::Cbor;
+#[cfg(feature = "proofs")]
 use fvm_shared::message::Message;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Semantic validation and validates the message has enough gas.
 #[cfg(feature = "proofs")]
@@ -54,11 +53,14 @@ pub fn valid_for_block_inclusion(
 
 #[cfg(feature = "json")]
 pub mod json {
-    use super::*;
     use forest_address::json::AddressJson;
     use forest_bigint::bigint_ser;
     use forest_cid::Cid;
+    use forest_vm::{Serialized, TokenAmount};
+    use fvm_ipld_encoding::Cbor;
+    use fvm_shared::message::Message;
     use serde::{de, ser};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a Message from JSON.
     #[derive(Deserialize, Serialize, Debug)]

@@ -40,6 +40,7 @@ json = [
     "base64",
     "forest_crypto/json",
     "forest_json_utils",
+    "forest_address/json",
     "forest_cid/json",
     "forest_bigint/json",
 ]
