@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message as MessageTrait;
-use crate::message;
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
 use forest_address::Address;
@@ -125,6 +124,7 @@ impl Cbor for SignedMessage {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use crate::message;
 
     use forest_cid::Cid;
     use forest_crypto::signature;

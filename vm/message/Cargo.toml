@@ -15,7 +15,7 @@ anyhow            = "1.0"
 fvm_shared        = { version = "*", default-features = false, features = ["testing"] }
 fvm_ipld_encoding = "0.2"
 forest_vm         = "0.3"
-forest_address    = "0.3" 
+forest_address    = "0.3"
 forest_cid        = "0.3"
 forest_bigint     = "0.1"
 encoding          = { package = "forest_encoding", version = "0.2" }
@@ -40,6 +40,7 @@ json = [
     "base64",
     "forest_crypto/json",
     "forest_json_utils",
+    "forest_address/json",
     "forest_cid/json",
     "forest_bigint/json",
 ]
