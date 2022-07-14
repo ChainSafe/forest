@@ -1243,15 +1243,17 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     let v_block_store = state_manager.blockstore_cloned();
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
-        let base_fee =
-            chain::compute_base_fee(v_block_store.as_ref(), &v_base_tipset, smoke_height).map_err(
-                |e| {
-                    TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {}", e))
-                },
-            )?;
+        let base_fee = chain::compute_base_fee(
+            v_block_store.as_ref(),
+            &v_base_tipset,
+            smoke_height,
+        )
+        .map_err(|e| {
+            TipsetRangeSyncerError::<C>::Validation(format!("Could not compute base fee: {}", e))
+        })?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "base fee doesn't match: {} (header), {} (computed)",
                 parent_base_fee, base_fee
             )));
@@ -1268,7 +1270,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
         })?;
         if weight != calc_weight {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent weight doesn't match: {} (header), {} (computed)",
                 weight, calc_weight
             )));
@@ -1301,7 +1303,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
                     eprintln!("Failed to print state-diff: {}", err);
                 }
             }
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),
                 state_root,
@@ -1309,7 +1311,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
         }
 
         if &receipt_root != header.message_receipts() {
-            return Err(TipsetRangeSyncerError::Validation(format!(
+            return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent receipt root did not match computed root: {} (header), {} (computed)",
                 header.message_receipts(),
                 receipt_root
@@ -1325,7 +1327,6 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
         Ok(())
     }));
 
-    // Check consensus specific rules
     let v_block = block.clone();
     validations.push(task::spawn(async move {
         consensus
@@ -1341,7 +1342,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
                     let wrapped = TipsetRangeSyncerError::<C>::ConsensusError(err);
                     msgs.push(wrapped.to_string());
                 }
-                TipsetRangeSyncerError::Validation(msgs.join(", "))
+                TipsetRangeSyncerError::<C>::Validation(msgs.join(", "))
             })
             .await
     }));
@@ -1354,7 +1355,10 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             .collect::<Vec<_>>()
             .join(", ");
 
-        return Err((*block_cid, TipsetRangeSyncerError::Validation(error_string)));
+        return Err((
+            *block_cid,
+            TipsetRangeSyncerError::<C>::Validation(error_string),
+        ));
     }
 
     chain_store
@@ -1362,7 +1366,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
         .map_err(|e| {
             (
                 *block_cid,
-                TipsetRangeSyncerError::Validation(format!(
+                TipsetRangeSyncerError::<C>::Validation(format!(
                     "failed to mark block {} as validated {}",
                     block_cid, e
                 )),
@@ -1487,7 +1491,7 @@ fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     // Check validity for BLS messages
     for (i, msg) in block.bls_msgs().iter().enumerate() {
         check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
-            TipsetRangeSyncerError::Validation(format!(
+            TipsetRangeSyncerError::<C>::Validation(format!(
                 "Block had invalid BLS message at index {}: {}",
                 i, e
             ))
@@ -1497,7 +1501,7 @@ fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
-            TipsetRangeSyncerError::Validation(format!(
+            TipsetRangeSyncerError::<C>::Validation(format!(
                 "block had an invalid secp message at index {}: {}",
                 i, e
             ))

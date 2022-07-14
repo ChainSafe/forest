@@ -250,7 +250,7 @@ where
     /// Lists all miners that exist in the power actor state at given [Tipset].
     pub fn list_miner_actors(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error> {
         let actor = self
-            .get_actor(actor::power::ADDRESS, *tipset.parent_state())?
+            .get_actor(&actor::power::ADDRESS, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let power_actor_state = power::State::load(self.blockstore(), &actor)?;
 

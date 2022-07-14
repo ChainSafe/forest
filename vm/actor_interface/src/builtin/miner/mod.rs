@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
-use cid::multihash::MultihashDigest;
 use cid::Cid;
 use encoding::BytesDe;
 use fil_types::{
@@ -23,13 +22,24 @@ use anyhow::Context;
 
 use crate::power::Claim;
 /// Miner actor method.
-pub type Method = fil_actor_miner_v7::Method;
+pub type Method = fil_actor_miner_v8::Method;
+
+pub fn is_v8_miner_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
 
 /// Miner actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_miner_v7::State),
+    // V7(fil_actor_miner_v7::State),
+    V8(fil_actor_miner_v8::State),
 }
 
 impl State {
@@ -37,19 +47,18 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/storageminer")) {
-            Ok(store
+        if is_v8_miner_cid(&actor.code) {
+            return store
                 .get_obj(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
         }
+        Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
     }
 
     pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 let info = st.get_info(&fvm_store)?;
 
@@ -83,12 +92,12 @@ impl State {
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 st.load_deadlines(&fvm_store)?.for_each(
                     &Default::default(),
                     &fvm_store,
-                    |idx, dl| f(idx as u64, Deadline::V7(dl)),
+                    |idx, dl| f(idx as u64, Deadline::V8(dl)),
                 )
             }
         }
@@ -110,7 +119,7 @@ impl State {
         sectors: Option<&BitField>,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         match self {
-            State::V7(st) => {
+            State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 if let Some(sectors) = sectors {
                     Ok(st
@@ -119,7 +128,7 @@ impl State {
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = fil_actor_miner_v7::Sectors::load(&fvm_store, &st.sectors)?;
+                    let sectors = fil_actor_miner_v8::Sectors::load(&fvm_store, &st.sectors)?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
                     sectors.amt.for_each(|_, info| {
                         infos.push(SectorOnChainInfo::from(info.clone()));
@@ -152,22 +161,22 @@ impl State {
     /// Loads deadline at index for a miner's state
     pub fn deadline_info(&self, _epoch: ChainEpoch) -> DeadlineInfo {
         match self {
-            State::V7(_st) => todo!(),
+            State::V8(_st) => todo!(),
         }
     }
 
     /// Gets fee debt of miner state
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
-            State::V7(st) => st.fee_debt.clone(),
+            State::V8(st) => st.fee_debt.clone(),
         }
     }
 
     /// Number of post period deadlines.
     pub fn num_deadlines(&self) -> u64 {
         match self {
-            State::V7(_) => {
-                fil_actors_runtime_v7::runtime::Policy::default().wpost_period_deadlines
+            State::V8(_) => {
+                fil_actors_runtime_v8::runtime::Policy::default().wpost_period_deadlines
             }
         }
     }
@@ -214,7 +223,7 @@ pub struct MinerPower {
 
 /// Deadline holds the state for all sectors due at a specific deadline.
 pub enum Deadline {
-    V7(fil_actor_miner_v7::Deadline),
+    V8(fil_actor_miner_v8::Deadline),
 }
 
 impl Deadline {
@@ -225,10 +234,10 @@ impl Deadline {
         mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            Deadline::V7(dl) => {
+            Deadline::V8(dl) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 dl.for_each(&fvm_store, |idx, part| {
-                    f(idx as u64, Partition::V7(Cow::Borrowed(part)))
+                    f(idx as u64, Partition::V8(Cow::Borrowed(part)))
                 })
             }
         }
@@ -236,7 +245,7 @@ impl Deadline {
 
     pub fn disputable_proof_count<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
-            Deadline::V7(dl) => {
+            Deadline::V8(dl) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 dl.optimistic_proofs_snapshot_amt(&fvm_store)?
                     .count()
@@ -247,41 +256,34 @@ impl Deadline {
     }
 
     pub fn partitions_posted(&self) -> &BitField {
-        match self {
-            Deadline::V7(_dl) => todo!(), // &dl.partitions_posted.into(),
-        }
+        todo!()
     }
 }
 
 #[allow(clippy::large_enum_variant)]
 pub enum Partition<'a> {
-    V7(Cow<'a, fil_actor_miner_v7::Partition>),
+    // V7(Cow<'a, fil_actor_miner_v7::Partition>),
+    V8(Cow<'a, fil_actor_miner_v8::Partition>),
 }
 
 impl Partition<'_> {
     pub fn all_sectors(&self) -> &BitField {
-        match self {
-            Partition::V7(_dl) => todo!(),
-        }
+        todo!()
     }
     pub fn faulty_sectors(&self) -> &BitField {
-        match self {
-            Partition::V7(_dl) => todo!(),
-        }
+        todo!()
     }
     pub fn recovering_sectors(&self) -> &BitField {
-        match self {
-            Partition::V7(_dl) => todo!(),
-        }
+        todo!()
     }
     pub fn live_sectors(&self) -> BitField {
         match self {
-            Partition::V7(dl) => dl.live_sectors(),
+            Partition::V8(dl) => dl.live_sectors(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
         match self {
-            Partition::V7(dl) => dl.active_sectors(),
+            Partition::V8(dl) => dl.active_sectors(),
         }
     }
 }
@@ -329,8 +331,8 @@ pub struct SectorOnChainInfo {
     pub expected_storage_pledge: TokenAmount,
 }
 
-impl From<fil_actor_miner_v7::SectorOnChainInfo> for SectorOnChainInfo {
-    fn from(info: fil_actor_miner_v7::SectorOnChainInfo) -> Self {
+impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_v8::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
             seal_proof: info.seal_proof,

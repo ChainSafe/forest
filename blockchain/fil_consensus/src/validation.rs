@@ -65,6 +65,8 @@ pub(crate) async fn validate_block<
     )
     .map_err(to_errs)?;
 
+    let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
+
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = state_manager
         .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
@@ -126,7 +128,12 @@ pub(crate) async fn validate_block<
         validations.push(task::spawn(async move {
             v_block
                 .header()
-                .validate_block_drand(beacon_schedule.as_ref(), parent_epoch, &v_prev_beacon)
+                .validate_block_drand(
+                    win_p_nv,
+                    beacon_schedule.as_ref(),
+                    parent_epoch,
+                    &v_prev_beacon,
+                )
                 .await
                 .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
         }));
@@ -151,7 +158,6 @@ pub(crate) async fn validate_block<
     let v_block = block.clone();
     let v_prev_beacon = Arc::clone(&prev_beacon);
     validations.push(task::spawn_blocking(move || {
-        let win_p_nv = state_manager.get_network_version(base_tipset.epoch());
         verify_winning_post_proof::<_, V>(
             &state_manager,
             win_p_nv,
@@ -207,7 +213,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     tipset_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
     let actor = state_manager
-        .get_actor(power::ADDRESS, *tipset_state)?
+        .get_actor(&power::ADDRESS, *tipset_state)?
         .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
 
     let state = power::State::load(state_manager.blockstore(), &actor)

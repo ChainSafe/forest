@@ -1,48 +1,54 @@
 [package]
-name = "chain"
+name    = "chain"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-pbr = "1.0.3"
-blocks = { package = "forest_blocks", path = "../blocks", features = ["json"] }
-db = { package = "forest_db", version = "0.1" }
-cid = { package = "forest_cid", version = "0.3" }
-crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
-encoding = { package = "forest_encoding", version = "0.2.1" }
-serde = { version = "1.0", features = ["derive"] }
-num-bigint = { path = "../../utils/bigint", package = "forest_bigint" }
-num-traits = "0.2"
-message = { package = "forest_message", version = "0.7", features = ["blst"] }
+anyhow          = "1.0"
+pbr             = "1.0.3"
+blocks          = { package = "forest_blocks", path = "../blocks", features = ["json"] }
+db              = { package = "forest_db", version = "0.1" }
+cid             = { package = "forest_cid", version = "0.3" }
+crypto          = { package = "forest_crypto", version = "0.5", features = ["blst"] }
+encoding        = { package = "forest_encoding", version = "0.2.1" }
+serde           = { version = "1.0", features = ["derive"] }
+num-bigint      = { path = "../../utils/bigint", package = "forest_bigint" }
+num-traits      = "0.2"
+message         = { package = "forest_message", version = "0.7", features = ["blst"] }
 ipld_blockstore = "0.1"
-thiserror = "1.0"
-log = "0.4.8"
-state_tree = { path = "../../vm/state_tree/" }
-actor = { package = "actor_interface", path = "../../vm/actor_interface" }
-blake2b_simd = "0.5.9"
-byteorder = "1.3.4"
-beacon = { path = "../beacon" }
-tokio = { version = "1.0", features = ["sync"] }
-address = { package = "forest_address", version = "0.3" }
-futures = "0.3.5"
-async-std = { version = "1.9", features = ["tokio1"] }
-types = { package = "fil_types", version = "0.2" }
-lazy_static = "1.4"
-interpreter = { path = "../../vm/interpreter/" }
-lru = "0.7.2"
-fvm_ipld_car = "0.4.1"
-forest_ipld = "0.1.1"
-networks = { path = "../../types/networks" }
-lockfree = "0.5.1"
-crossbeam = "0.8.0"
-fvm_shared = { version = "0.7.1", default-features = false }
+thiserror       = "1.0"
+log             = "0.4.8"
+state_tree      = { path = "../../vm/state_tree/" }
+actor           = { package = "actor_interface", path = "../../vm/actor_interface" }
+blake2b_simd    = "0.5.9"
+byteorder       = "1.3.4"
+beacon          = { path = "../beacon" }
+tokio           = { version = "1.0", features = ["sync"] }
+address         = { package = "forest_address", version = "0.3" }
+futures         = "0.3.5"
+async-std       = { version = "1.9", features = ["tokio1"] }
+types           = { package = "fil_types", version = "0.2" }
+lazy_static     = "1.4"
+interpreter     = { path = "../../vm/interpreter/" }
+lru             = "0.7.2"
+fvm_ipld_car    = "0.4.1"
+forest_ipld     = "0.1.1"
+networks        = { path = "../../types/networks" }
+lockfree        = "0.5.1"
+crossbeam       = "0.8.0"
+fvm_shared      = { version = "0.8.0", default-features = false }
 legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 
 [features]
 json = []
 
 [dev-dependencies]
-multihash = { version = "0.16.1", default-features = false, features = ["std", "blake2b", "derive"] }
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+multihash = { version = "0.16.1", default-features = false, features = [
+    "std",
+    "blake2b",
+    "derive",
+] }
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
+    "test_constructors",
+] }

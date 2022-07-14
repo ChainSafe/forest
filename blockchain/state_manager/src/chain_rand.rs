@@ -12,11 +12,13 @@ use encoding::blake2b_256;
 use forest_blocks::{Tipset, TipsetKeys};
 use fvm_shared::clock::ChainEpoch;
 use interpreter::Rand;
+use networks::ChainConfig;
 use std::io::Write;
 use std::sync::Arc;
 
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {
+    chain_config: Arc<ChainConfig>,
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
@@ -25,6 +27,7 @@ pub struct ChainRand<DB> {
 impl<DB> Clone for ChainRand<DB> {
     fn clone(&self) -> Self {
         ChainRand {
+            chain_config: self.chain_config.clone(),
             blks: self.blks.clone(),
             cs: self.cs.clone(),
             beacon: self.beacon.clone(),
@@ -37,11 +40,17 @@ where
     DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(
+        chain_config: Arc<ChainConfig>,
         blks: TipsetKeys,
         cs: Arc<ChainStore<DB>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
     ) -> Self {
-        Self { blks, cs, beacon }
+        Self {
+            chain_config,
+            blks,
+            cs,
+            beacon,
+        }
     }
 
     /// Gets 32 bytes of randomness for ChainRand parameterized by the DomainSeparationTag, ChainEpoch,
@@ -171,7 +180,8 @@ where
             .get_beacon_randomness_tipset(blocks, epoch, false)
             .await?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
-        let round = beacon.max_beacon_round_for_epoch(epoch);
+        let round =
+            beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
 
         for _ in 0..20 {
             let cbe = rand_ts.blocks()[0].beacon_entries();

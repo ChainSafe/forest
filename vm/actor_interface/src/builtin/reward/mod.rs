@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
-use cid::multihash::MultihashDigest;
+use address::Address;
+use cid::Cid;
 use fil_types::StoragePower;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;
@@ -12,17 +13,26 @@ use vm::{ActorState, TokenAmount};
 use anyhow::Context;
 
 /// Reward actor address.
-pub static ADDRESS: &fil_actors_runtime_v7::builtin::singletons::REWARD_ACTOR_ADDR =
-    &fil_actors_runtime_v7::builtin::singletons::REWARD_ACTOR_ADDR;
+pub const ADDRESS: Address = Address::new_id(2);
 
 /// Reward actor method.
-pub type Method = fil_actor_reward_v7::Method;
+pub type Method = fil_actor_reward_v8::Method;
+
+pub fn is_v8_reward_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet
+        Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap(),
+        // mainnet
+        Cid::try_from("bafk2bzacecwzzxlgjiavnc3545cqqil3cmq4hgpvfp2crguxy2pl5ybusfsbe").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
 
 /// Reward actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V7(fil_actor_reward_v7::State),
+    V8(fil_actor_reward_v8::State),
 }
 
 impl State {
@@ -30,20 +40,19 @@ impl State {
     where
         BS: BlockStore,
     {
-        if actor.code == cid::Cid::new_v1(cid::RAW, cid::Code::Identity.digest(b"fil/7/reward")) {
-            Ok(store
+        if is_v8_reward_cid(&actor.code) {
+            return store
                 .get_obj(&actor.state)?
-                .map(State::V7)
-                .context("Actor state doesn't exist in store")?)
-        } else {
-            Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
         }
+        Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
     }
 
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> StoragePower {
         match self {
-            State::V7(st) => st.into_total_storage_power_reward(),
+            State::V8(st) => st.into_total_storage_power_reward(),
         }
     }
 
@@ -52,9 +61,7 @@ impl State {
         _network_qa_power: FilterEstimate,
         _sector_weight: &StoragePower,
     ) -> TokenAmount {
-        match self {
-            State::V7(_st) => todo!(),
-        }
+        todo!()
     }
 
     pub fn initial_pledge_for_power(
@@ -64,8 +71,6 @@ impl State {
         _network_qa_power: FilterEstimate,
         _circ_supply: &TokenAmount,
     ) -> TokenAmount {
-        match self {
-            State::V7(_st) => todo!(),
-        }
+        todo!()
     }
 }
