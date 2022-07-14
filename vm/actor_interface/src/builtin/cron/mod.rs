@@ -2,26 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use address::Address;
-use ipld_blockstore::BlockStore;
-use serde::Serialize;
-use vm::ActorState;
 
 /// Cron actor address.
 pub const ADDRESS: Address = Address::new_id(3);
 
 /// Cron actor method.
 pub type Method = fil_actor_cron_v8::Method;
-
-/// Cron actor state.
-#[derive(Serialize)]
-#[serde(untagged)]
-pub enum State {}
-
-impl State {
-    pub fn load<BS>(_store: &BS, actor: &ActorState) -> anyhow::Result<State>
-    where
-        BS: BlockStore,
-    {
-        Err(anyhow::anyhow!("Unknown cron actor code {}", actor.code))
-    }
-}
