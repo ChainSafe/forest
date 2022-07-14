@@ -1,16 +1,16 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
-use cid::Cid;
 use fil_types::PaddedPieceSize;
+use forest_address::Address;
+use forest_bigint::bigint_ser::json;
+use forest_cid::Cid;
+use forest_vm::{ActorState, TokenAmount};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
-use num_bigint::bigint_ser::json;
 use serde::Serialize;
 use std::marker::PhantomData;
-use vm::{ActorState, TokenAmount};
 
 use anyhow::Context;
 
@@ -143,13 +143,13 @@ impl<BS> DealProposals<'_, BS> {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposal {
-    #[serde(with = "cid::json", rename = "PieceCID")]
+    #[serde(with = "forest_cid::json", rename = "PieceCID")]
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub client: Address,
-    #[serde(with = "address::json")]
+    #[serde(with = "forest_address::json")]
     pub provider: Address,
     // ! This is the field that requires unsafe unchecked utf8 deserialization
     pub label: String,

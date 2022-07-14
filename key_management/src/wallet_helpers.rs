@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
-use address::Address;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
-use crypto::{Signature, SignatureType};
 use encoding::blake2b_256;
+use forest_address::Address;
+use forest_crypto::{Signature, SignatureType};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 

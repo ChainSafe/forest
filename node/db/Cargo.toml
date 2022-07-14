@@ -1,22 +1,22 @@
 [package]
-name = "forest_db"
+name        = "forest_db"
 description = "Database types used in Forest"
-version = "0.1.0"
-license = "MIT OR Apache-2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+version     = "0.1.0"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-rocksdb = { version = "0.18", optional = true }
-parking_lot = "0.12"
-encoding = { package = "forest_encoding", version = "0.2" }
-thiserror = "1.0"
-num_cpus = "1.13"
-serde = { version = "1.0", features = ["derive"] }
-anyhow = "1"
+rocksdb             = { version = "0.18", optional = true }
+parking_lot         = "0.12"
+encoding            = { package = "forest_encoding", version = "0.2" }
+thiserror           = "1.0"
+num_cpus            = "1.13"
+serde               = { version = "1.0", features = ["derive"] }
+anyhow              = "1"
 fvm_ipld_blockstore = "0.1.1"
-cid = { package = "forest_cid", version = "0.3", features = ["cbor"] }
+forest_cid          = { version = "0.3", features = ["cbor"] }
 
 [dev-dependencies]
 tempfile = "3.3"

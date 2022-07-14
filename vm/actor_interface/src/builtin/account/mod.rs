@@ -1,11 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::Address;
-use cid::Cid;
+use forest_address::Address;
+use forest_cid::Cid;
+use forest_vm::ActorState;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use vm::ActorState;
 
 use anyhow::Context;
 use ipld_blockstore::BlockStoreExt;

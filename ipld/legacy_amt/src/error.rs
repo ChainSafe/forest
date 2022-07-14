@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::anyhow;
-use cid::Error as CidError;
 use encoding::Error as EncodingError;
+use forest_cid::Error as CidError;
 use std::error::Error as StdError;
 use thiserror::Error;
 

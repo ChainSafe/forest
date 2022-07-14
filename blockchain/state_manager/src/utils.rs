@@ -7,16 +7,16 @@ use actor::{
     miner::{self, MinerInfo, Partition, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
 };
-use address::Address;
-use blockstore::BlockStore;
-use cid::Cid;
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, RegisteredSealProof, SectorInfo,
     SectorNumber,
 };
+use forest_address::Address;
 use forest_blocks::Tipset;
+use forest_cid::Cid;
 use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;
+use ipld_blockstore::BlockStore;
 use serde::Serialize;
 use state_tree::StateTree;
 

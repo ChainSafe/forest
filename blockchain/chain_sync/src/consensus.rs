@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-use blocks::Block;
+use forest_blocks::Block;
 use ipld_blockstore::BlockStore;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation

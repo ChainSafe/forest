@@ -3,10 +3,10 @@
 
 use async_std::fs::File;
 use async_std::io::BufReader;
-use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
-use cid::Cid;
 use fil_types::verifier::ProofVerifier;
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_car::{load_car, CarReader};
 use ipld_blockstore::{BlockStore, BlockStoreExt};

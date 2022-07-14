@@ -9,13 +9,13 @@ use crate::{
     AggregateSealVerifyProofAndInfos, PoStProof, Randomness, RegisteredPoStProof, SealVerifyInfo,
     SectorInfo,
 };
-use address::Address;
 use encoding::bytes_32;
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
     post, seal::verify_aggregate_seal_commit_proofs, seal::verify_seal as proofs_verify_seal,
     PublicReplicaInfo,
 };
+use forest_address::Address;
 use fvm_shared::commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1};
 use proofs::seal;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
