@@ -120,11 +120,13 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
 impl<C: Consensus> TipsetRangeSyncerError<C> {
     /// Concatanate all validation error messages into one comma separated version.
     fn concat(errs: NonEmpty<TipsetRangeSyncerError<C>>) -> Self {
-        let mut msgs = Vec::with_capacity(errs.len());
-        for err in errs {
-            msgs.push(err.to_string())
-        }
-        TipsetRangeSyncerError::Validation(msgs.join(", "))
+        let msg = errs
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        TipsetRangeSyncerError::Validation(msg)
     }
 }
 
