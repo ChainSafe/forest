@@ -6462,6 +6462,7 @@ dependencies = [
  "forest_libp2p",
  "forest_message",
  "futures",
+ "fvm",
  "fvm_ipld_bitfield",
  "fvm_shared",
  "hex",

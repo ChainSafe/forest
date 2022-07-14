@@ -11,10 +11,10 @@ use blockstore::BlockStore;
 use crypto::signature::json::SignatureJson;
 use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigUint;
 use message::{message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage};
 use rpc_api::{data_types::RPCState, wallet_api::*};
-use state_tree::StateTree;
 use wallet::{json::KeyInfoJson, Error, Key};
 
 /// Return the balance from StateManager for a given Address
