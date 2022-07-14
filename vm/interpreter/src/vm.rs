@@ -333,11 +333,17 @@ where
         use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = self.fvm_executor.execute_message(
+        let ret = match self.fvm_executor.execute_message(
             unsigned,
             fvm::executor::ApplyKind::Explicit,
             raw_length,
-        )?;
+        ) {
+            Ok(ret) => Ok(ret),
+            Err(e) => {
+                log::warn!("Message execution failed with {}", e.to_string());
+                Err(e)
+            }
+        }?;
         Ok(ret)
     }
 }
