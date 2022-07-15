@@ -1133,7 +1133,6 @@ dependencies = [
  "lru 0.7.7",
  "multihash 0.16.2",
  "networks",
- "num-traits",
  "pbr",
  "serde",
  "test_utils",
@@ -2430,6 +2429,7 @@ name = "fil_cns"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "async-trait",
  "beacon",
@@ -2442,10 +2442,13 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "futures",
+ "fvm",
+ "fvm_shared",
  "ipld_blockstore",
  "log",
  "networks",
  "nonempty",
+ "num-traits",
  "state_manager",
  "thiserror",
 ]

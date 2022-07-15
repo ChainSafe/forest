@@ -3,6 +3,7 @@
 use async_std::stream::StreamExt;
 use async_std::task;
 use async_trait::async_trait;
+use chain::Scale;
 use futures::stream::FuturesUnordered;
 use nonempty::NonEmpty;
 use state_manager::StateManager;
@@ -25,7 +26,7 @@ use ipld_blockstore::BlockStore;
 /// Common rules for message ordering will be followed, and can be validated
 /// outside by the host system during chain synchronization.
 #[async_trait]
-pub trait Consensus: Debug + Send + Sync + Unpin + 'static {
+pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
     type Error: Debug + Display + Send + Sync;
 
     /// Perform block validation asynchronously and return all encountered errors if failed.

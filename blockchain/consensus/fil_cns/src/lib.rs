@@ -1,13 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use anyhow::anyhow;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 use thiserror::Error;
 
 use beacon::{Beacon, BeaconSchedule};
-use blocks::Block;
-use chain::Error as ChainStoreError;
+use blocks::{Block, Tipset};
+use chain::Weight;
+use chain::{Error as ChainStoreError, Scale};
 use chain_sync::Consensus;
 use encoding::Error as ForestEncodingError;
 use fil_types::verifier::ProofVerifier;
@@ -17,6 +19,7 @@ use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
 
 mod validation;
+mod weight;
 
 #[derive(Debug, Error)]
 pub enum FilecoinConsensusError {
@@ -86,6 +89,15 @@ impl<B, V> Debug for FilecoinConsensus<B, V> {
             .field("beacon", &self.beacon.0.len())
             .field("verifier", &self.verifier)
             .finish()
+    }
+}
+
+impl<B, V> Scale for FilecoinConsensus<B, V> {
+    fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+    where
+        DB: BlockStore,
+    {
+        weight::weight(db, ts).map_err(|s| anyhow!(s))
     }
 }
 
