@@ -5,7 +5,7 @@ use crate::BlockHeader;
 use encoding::{tuple::*, Cbor};
 use forest_cid::Cid;
 
-/// Block message used as serialized gossipsub messages for blocks topic.
+/// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,

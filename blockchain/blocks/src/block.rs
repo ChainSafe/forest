@@ -19,25 +19,25 @@ pub struct Block {
 }
 
 impl Block {
-    /// Returns reference to the [BlockHeader].
+    /// Returns reference to the [`BlockHeader`].
     pub fn header(&self) -> &BlockHeader {
         &self.header
     }
-    /// Returns reference to the block's BLS [Message]s.
+    /// Returns reference to the block's BLS [`Message`]s.
     pub fn bls_msgs(&self) -> &[Message] {
         &self.bls_messages
     }
-    /// Returns reference to the block's Secp256k1 [SignedMessage]s.
+    /// Returns reference to the block's secp [`SignedMessage`]s.
     pub fn secp_msgs(&self) -> &[SignedMessage] {
         &self.secp_messages
     }
-    /// Returns block's cid. This cid is the same as the [BlockHeader::cid].
+    /// Returns block's `cid`. This `cid` is the same as the [`BlockHeader::cid`].
     pub fn cid(&self) -> &Cid {
         self.header.cid()
     }
 }
 
-/// Tracks the merkleroots of both secp and bls messages separately.
+/// Tracks the merkle-roots of both secp and bls messages separately.
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxMeta {
     pub bls_message_root: Cid,
