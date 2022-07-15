@@ -3,18 +3,21 @@
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use actor::{miner, power, EPOCHS_IN_DAY};
-use address::Address;
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use cid::Cid;
-use cid::Code::Blake2b256;
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
+use forest_address::Address;
+use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use forest_cid::Cid;
+use forest_cid::Code::Blake2b256;
 use forest_ipld::recurse_links;
+use forest_message::Message as MessageTrait;
+use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
 use futures::AsyncWrite;
+use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
@@ -25,11 +28,8 @@ use legacy_ipld_amt::Amt;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use message::Message as MessageTrait;
-use message::{ChainMessage, MessageReceipt, SignedMessage};
 use num_traits::Zero;
 use serde::Serialize;
-use state_tree::StateTree;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -364,6 +364,8 @@ where
     }
 
     /// Retrieves block messages to be passed through the VM.
+    ///
+    /// It removes duplicate messages which appear in multiple blocks.
     pub fn block_msgs_for_tipset(&self, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
@@ -407,7 +409,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<'_, DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<&DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(&*self.db, ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
@@ -916,7 +918,7 @@ where
 #[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
-    use blocks::tipset_json::TipsetJson;
+    use forest_blocks::tipset_json::TipsetJson;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -944,9 +946,9 @@ pub mod headchange_json {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use address::Address;
     use async_std::sync::Arc;
-    use cid::Code::{Blake2b256, Identity};
+    use forest_address::Address;
+    use forest_cid::Code::{Blake2b256, Identity};
 
     #[test]
     fn genesis_test() {
@@ -956,9 +958,9 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
-            .messages(cid::new_from_cbor(&[], Identity))
-            .message_receipts(cid::new_from_cbor(&[], Identity))
-            .state_root(cid::new_from_cbor(&[], Identity))
+            .messages(forest_cid::new_from_cbor(&[], Identity))
+            .message_receipts(forest_cid::new_from_cbor(&[], Identity))
+            .state_root(forest_cid::new_from_cbor(&[], Identity))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
@@ -974,7 +976,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = cid::new_from_cbor(&[1, 2, 3], Blake2b256);
+        let cid = forest_cid::new_from_cbor(&[1, 2, 3], Blake2b256);
         assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();

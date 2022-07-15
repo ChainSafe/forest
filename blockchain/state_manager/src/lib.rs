@@ -8,43 +8,40 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use actor::*;
-use address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use anyhow::Context;
 use async_log::span;
 use async_std::{sync::RwLock, task};
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
-use blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
-use cid::Cid;
 use encoding::Cbor;
-use fil_actors_runtime::runtime::Policy;
+use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
+use forest_address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_crypto::DomainSeparationTag;
+use forest_cid::Cid;
+use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
+use forest_vm::{ActorState, TokenAmount};
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
-use fvm::state_tree::StateTree as FvmStateTree;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
+use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use state_tree::StateTree;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
-use vm::{ActorState, TokenAmount};
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
@@ -54,7 +51,7 @@ type CidPair = (Cid, Cid);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
-    #[serde(with = "message::message::json")]
+    #[serde(with = "forest_message::message::json")]
     pub msg: Message,
     #[serde(with = "message_receipt::json::opt")]
     pub msg_rct: Option<MessageReceipt>,
@@ -88,7 +85,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    pub chain_config: Arc<ChainConfig>,
+    chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
 }
 
@@ -152,13 +149,14 @@ where
         self.chain_config.network_version(epoch)
     }
 
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
+    }
+
     /// Gets actor from given [Cid], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state =
-            FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
-        // let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
-        // Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [Arc] of the state manager's [BlockStore].
@@ -261,9 +259,6 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        // let state =
-        //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
-        // Ok(state.get_actor(addr)?)
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
 
         let act = state
@@ -297,8 +292,11 @@ where
                 .miner_power(self.blockstore(), maddr)?
                 .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
 
-            let min_pow =
-                spas.miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)?;
+            let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
+                &self.chain_config.policy,
+                self.blockstore(),
+                maddr,
+            )?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
             }
@@ -315,7 +313,7 @@ where
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_blocks<R, V, CB>(
+    pub fn apply_blocks<R, CB>(
         self: &Arc<Self>,
         parent_epoch: ChainEpoch,
         p_state: &Cid,
@@ -328,15 +326,12 @@ where
     ) -> Result<CidPair, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        V: ProofVerifier,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            store: self.blockstore(),
-            tipset,
-            verifier: PhantomData::<V>::default(),
+            sm: Arc::clone(self),
+            tipset: Arc::clone(tipset),
         };
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
@@ -344,10 +339,10 @@ where
         let create_vm = |state_root, epoch| {
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(epoch);
-            VM::<_, V>::new(
+            VM::<_>::new(
                 state_root,
                 db.as_ref(),
-                db.clone(),
+                Arc::clone(&db),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
@@ -359,6 +354,7 @@ where
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
                 heights,
+                self.chain_config.policy.chain_finality,
             )
         };
 
@@ -404,13 +400,10 @@ where
     /// Returns the pair of (parent state root, message receipt root). This will either be cached
     /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
     /// not to be computed twice.
-    pub async fn tipset_state<V>(
+    pub async fn tipset_state(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<CidPair, anyhow::Error> {
         span!("tipset_state", {
             // Get entry in cache, if it exists.
             // Arc is cloned here to avoid holding the entire cache lock until function ends.
@@ -457,7 +450,7 @@ where
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func =
                     None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-                let ts_state = self.compute_tipset_state::<V, _>(tipset, no_func).await?;
+                let ts_state = self.compute_tipset_state(tipset, no_func).await?;
                 debug!("completed tipset state calculation {:?}", tipset.cids());
                 ts_state
             };
@@ -468,34 +461,29 @@ where
         })
     }
 
-    fn call_raw<V>(
+    fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
         rand: &ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> StateCallResult
-    where
-        V: ProofVerifier,
-    {
+    ) -> StateCallResult {
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
 
             let lb_wrapper = SMLookbackWrapper {
-                sm: self,
-                store: self.blockstore(),
-                tipset,
-                verifier: PhantomData::<V>::default(),
+                sm: Arc::clone(self),
+                tipset: Arc::clone(tipset),
             };
 
             let store_arc = self.blockstore_cloned();
 
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(bheight);
-            let mut vm = VM::<_, V>::new(
+            let mut vm = VM::<_>::new(
                 *bstate,
                 store_arc.as_ref(),
-                store_arc.clone(),
+                Arc::clone(&store_arc),
                 bheight,
                 rand,
                 0.into(),
@@ -507,6 +495,7 @@ where
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
                 heights,
+                self.chain_config.policy.chain_finality,
             )?;
 
             if msg.gas_limit == 0 {
@@ -537,14 +526,11 @@ where
     }
 
     /// runs the given message and returns its result without any persisted changes.
-    pub async fn call<V>(
+    pub async fn call(
         self: &Arc<Self>,
         message: &mut Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult
-    where
-        V: ProofVerifier,
-    {
+    ) -> StateCallResult {
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
@@ -554,20 +540,17 @@ where
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let chain_rand = self.chain_rand(ts.key().to_owned());
-        self.call_raw::<V>(message, &chain_rand, &ts)
+        self.call_raw(message, &chain_rand, &ts)
     }
 
     /// Computes message on the given [Tipset] state, after applying other messages and returns
     /// the values computed in the VM.
-    pub async fn call_with_gas<V>(
+    pub async fn call_with_gas(
         self: &Arc<Self>,
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult
-    where
-        V: ProofVerifier,
-    {
+    ) -> StateCallResult {
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
@@ -577,7 +560,7 @@ where
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let (st, _) = self
-            .tipset_state::<V>(&ts)
+            .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = self.chain_rand(ts.key().to_owned());
@@ -585,19 +568,17 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            store: self.blockstore(),
-            tipset: &ts,
-            verifier: PhantomData::<V>::default(),
+            sm: Arc::clone(self),
+            tipset: Arc::clone(&ts),
         };
         let store_arc = self.blockstore_cloned();
         let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
-        let mut vm = VM::<_, V>::new(
+        let mut vm = VM::<_>::new(
             st,
             store_arc.as_ref(),
-            store_arc.clone(),
+            Arc::clone(&store_arc),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
@@ -609,6 +590,7 @@ where
                 .get(&NetworkConfig::new(network_version))
                 .unwrap(),
             heights,
+            self.chain_config.policy.chain_finality,
         )?;
 
         for msg in prior_messages {
@@ -631,14 +613,11 @@ where
 
     /// Replays the given message and returns the result of executing the indicated message,
     /// assuming it was executed in the indicated tipset.
-    pub async fn replay<V>(
+    pub async fn replay(
         self: &Arc<Self>,
         ts: &Arc<Tipset>,
         mcid: Cid,
-    ) -> Result<(Message, ApplyRet), Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<(Message, ApplyRet), Error> {
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
         let outm: OnceCell<Message> = Default::default();
@@ -654,7 +633,7 @@ where
 
             Ok(())
         };
-        let result = self.compute_tipset_state::<V, _>(ts, Some(callback)).await;
+        let result = self.compute_tipset_state(ts, Some(callback)).await;
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -675,20 +654,17 @@ where
     }
 
     /// Gets lookback tipset for block validations.
-    pub async fn get_lookback_tipset_for_round<V>(
+    pub async fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         round: ChainEpoch,
-    ) -> Result<(Arc<Tipset>, Cid), Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<(Arc<Tipset>, Cid), Error> {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
         let version = self.get_network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
-            Policy::default().chain_finality // FIXME: Use correct policy
+            self.chain_config.policy.chain_finality
         };
 
         if round > lb {
@@ -698,7 +674,7 @@ where
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
             let (st, _) = self
-                .tipset_state::<V>(&tipset)
+                .tipset_state(&tipset)
                 .await
                 .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
             return Ok((tipset, st));
@@ -729,12 +705,12 @@ where
     /// Checks the eligibility of the miner. This is used in the validation that a block's miner
     /// has the requirements to mine a block.
     pub fn eligible_to_mine(
-        self: &Arc<Self>,
+        &self,
         address: &Address,
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
-        let hmp = self.miner_has_min_power(address, lookback_tipset)?;
+        let hmp = self.miner_has_min_power(&self.chain_config.policy, address, lookback_tipset)?;
         let version = self.get_network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
@@ -810,7 +786,7 @@ where
             .await?;
         let rbase = entries.iter().last().unwrap_or(&prev);
         let (lbts, lbst) = self
-            .get_lookback_tipset_for_round::<V>(tipset.clone(), round)
+            .get_lookback_tipset_for_round(tipset.clone(), round)
             .await?;
 
         let actor = self
@@ -844,7 +820,7 @@ where
 
         let info = miner_state.info(self.blockstore())?;
 
-        let (st, _) = self.tipset_state::<V>(&lbts).await?;
+        let (st, _) = self.tipset_state(&lbts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
@@ -864,13 +840,12 @@ where
     }
 
     /// Performs a state transition, and returns the state and receipt root of the transition.
-    pub async fn compute_tipset_state<V, CB: 'static>(
+    pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
         callback: Option<CB>,
     ) -> Result<CidPair, Error>
     where
-        V: ProofVerifier,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         span!("compute_tipset_state", {
@@ -916,12 +891,12 @@ where
                 .block_msgs_for_tipset(tipset)
                 .map_err(|e| Error::Other(e.to_string()))?;
 
-            let sm = self.clone();
+            let sm = Arc::clone(self);
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
-            let ts_cloned = tipset.clone();
+            let ts_cloned = Arc::clone(tipset);
             task::spawn_blocking(move || {
-                Ok(sm.apply_blocks::<_, V, _>(
+                Ok(sm.apply_blocks(
                     parent_epoch,
                     &sr,
                     &blocks,
@@ -1113,7 +1088,7 @@ where
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
         let mut candidate_receipt: Option<MessageReceipt> = None;
 
-        let sm_cloned = self.clone();
+        let sm_cloned = Arc::clone(self);
         let cid = message
             .cid()
             .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
@@ -1137,7 +1112,7 @@ where
 
         let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
-        let sm_cloned = self.clone();
+        let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
         let mut subscriber_poll = task::spawn::<
@@ -1272,7 +1247,7 @@ where
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        Ok(state_tree.lookup_id(addr)?)
+        Ok(state_tree.lookup_id(addr)?.map(Address::new_id))
     }
 
     /// Retrieves market balance in escrow and locked tables.
@@ -1311,14 +1286,11 @@ where
 
     /// Similar to `resolve_to_key_addr` in the vm crate but does not allow `Actor` type of addresses.
     /// Uses `ts` to generate the VM state.
-    pub async fn resolve_to_key_addr<V>(
+    pub async fn resolve_to_key_addr(
         self: &Arc<Self>,
         addr: &Address,
         ts: &Arc<Tipset>,
-    ) -> Result<Address, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
             Protocol::Actor => {
@@ -1328,20 +1300,25 @@ where
             }
             _ => {}
         };
-        let (st, _) = self.tipset_state::<V>(ts).await?;
+        let (st, _) = self.tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        interpreter::resolve_to_key_addr(&state, self.blockstore(), addr)
+        resolve_to_key_addr(&state, self.blockstore(), addr)
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
-    pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<bool> {
+    pub fn miner_has_min_power(
+        &self,
+        policy: &Policy,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> anyhow::Result<bool> {
         let actor = self
             .get_actor(&actor::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor)?;
 
-        ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
+        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
     }
 
     pub async fn validate_chain<V: ProofVerifier>(
@@ -1389,7 +1366,7 @@ where
                 ts.epoch(),
                 ts.cids()
             );
-            let (st, msg_root) = self.tipset_state::<V>(ts).await?;
+            let (st, msg_root) = self.tipset_state(ts).await?;
             last_state = st;
             last_receipt = msg_root;
         }
@@ -1400,7 +1377,7 @@ where
     pub fn get_circulating_supply(
         self: &Arc<Self>,
         height: ChainEpoch,
-        state_tree: &StateTree<DB>,
+        state_tree: &StateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }
@@ -1441,36 +1418,24 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {
-    sm: &'sm Arc<StateManager<DB>>,
-    store: &'sm BS,
-    tipset: &'ts Arc<Tipset>,
-    verifier: PhantomData<V>,
+struct SMLookbackWrapper<DB> {
+    sm: Arc<StateManager<DB>>,
+    tipset: Arc<Tipset>,
 }
 
-impl<'sm, 'ts, DB, BS, V> LookbackStateGetter<'sm, BS> for SMLookbackWrapper<'sm, 'ts, DB, BS, V>
+impl<DB> LookbackStateGetter for SMLookbackWrapper<DB>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
-    BS: BlockStore + Send + Sync,
-    V: ProofVerifier,
 {
-    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, anyhow::Error> {
-        let (_, st) = task::block_on(
-            self.sm
-                .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),
-        )?;
-
-        StateTree::new_from_root(self.store, &st)
-    }
-
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
-        let sm = self.sm.clone();
-        let tipset = self.tipset.clone();
+        let sm = Arc::clone(&self.sm);
+        let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
-            let (_, st) =
-                task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
-                    .unwrap();
+            let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+                .unwrap_or_else(|err| {
+                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+                });
             st
         })
     }

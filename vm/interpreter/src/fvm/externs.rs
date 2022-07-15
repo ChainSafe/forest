@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
 use crate::Rand;
-use cid::Cid;
-use fil_actors_runtime::runtime::Policy;
 use fil_types::NetworkVersion;
+use forest_cid::Cid;
 use fvm::externs::{Consensus, Externs};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm_shared::clock::ChainEpoch;
@@ -12,10 +11,10 @@ use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
 
 use crate::resolve_to_key_addr;
-use address::Address;
-use blocks::BlockHeader;
+use forest_address::Address;
+use forest_blocks::BlockHeader;
 use forest_encoding::Cbor;
-use state_tree::StateTree;
+use fvm::state_tree::StateTree;
 
 use anyhow::bail;
 use std::cell::RefCell;
@@ -29,6 +28,7 @@ pub struct ForestExterns<DB> {
     lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
     db: Arc<DB>,
     network_version: NetworkVersion,
+    chain_finality: i64,
 }
 
 impl<DB: BlockStore> ForestExterns<DB> {
@@ -39,6 +39,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
         lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
         db: Arc<DB>,
         network_version: NetworkVersion,
+        chain_finality: i64,
     ) -> Self {
         ForestExterns {
             rand: Box::new(rand),
@@ -47,6 +48,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             lookback,
             db,
             network_version,
+            chain_finality,
         }
     }
 
@@ -55,7 +57,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
         miner_addr: &Address,
         height: ChainEpoch,
     ) -> anyhow::Result<(Address, i64)> {
-        if height < self.epoch - Policy::default().chain_finality {
+        if height < self.epoch - self.chain_finality {
             bail!(
                 "cannot get worker key (current epoch: {}, height: {})",
                 self.epoch,

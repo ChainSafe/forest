@@ -4,14 +4,14 @@
 use std::str::FromStr;
 
 use actor::is_miner_actor;
-use address::{json::AddressJson, Address};
-use blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
+use forest_address::{json::AddressJson, Address};
+use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
+use forest_vm::ActorState;
 use rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,
 };
 use structopt::StructOpt;
-use vm::ActorState;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
 

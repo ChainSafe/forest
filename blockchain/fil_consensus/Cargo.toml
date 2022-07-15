@@ -1,0 +1,32 @@
+[package]
+name    = "fil_consensus"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+
+[dependencies]
+async-std = { version = "1.9", features = ["tokio1", "unstable"] }
+async-trait = "0.1"
+futures = "0.3.5"
+log = "0.4.8"
+nonempty = "0.8.0"
+thiserror = "1.0"
+
+address = { package = "forest_address", version = "0.3" }
+cid = { package = "forest_cid", version = "0.3" }
+crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
+encoding = { package = "forest_encoding", version = "0.2.1" }
+ipld_blockstore = "0.1"
+fil_types = "0.2"
+
+actor = { package = "actor_interface", path = "../../vm/actor_interface" }
+beacon = { path = "../beacon" }
+blocks = { package = "forest_blocks", path = "../blocks" }
+chain = { path = "../chain" }
+chain_sync = { path = "../chain_sync/" }
+state_manager = { path = "../state_manager/" }
+networks = { path = "../../types/networks" }
+
+[features]
+insecure_post = []
+default = []

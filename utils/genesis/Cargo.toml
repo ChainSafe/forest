@@ -14,8 +14,8 @@ async-std       = "1.9"
 log             = "0.4"
 fvm_ipld_car    = "0.4.1"
 state_manager   = { path = "../../blockchain/state_manager" }
-cid             = { package = "forest_cid", version = "0.3" }
-blocks          = { package = "forest_blocks", path = "../../blockchain/blocks" }
+forest_cid      = "0.3"
+forest_blocks   = { path = "../../blockchain/blocks" }
 chain           = { path = "../../blockchain/chain" }
 fil_types       = "0.2"
 encoding        = { package = "forest_encoding", version = "0.2" }

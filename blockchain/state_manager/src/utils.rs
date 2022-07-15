@@ -7,18 +7,18 @@ use actor::{
     miner::{self, MinerInfo, Partition, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
 };
-use address::Address;
-use blockstore::BlockStore;
-use cid::Cid;
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, RegisteredSealProof, SectorInfo,
     SectorNumber,
 };
+use forest_address::Address;
 use forest_blocks::Tipset;
+use forest_cid::Cid;
+use fvm::state_tree::StateTree;
 use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;
+use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use state_tree::StateTree;
 
 impl<DB> StateManager<DB>
 where
@@ -248,10 +248,7 @@ where
     }
 
     /// Lists all miners that exist in the power actor state at given [Tipset].
-    pub fn list_miner_actors<V>(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error>
-    where
-        V: ProofVerifier,
-    {
+    pub fn list_miner_actors(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error> {
         let actor = self
             .get_actor(&actor::power::ADDRESS, *tipset.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
