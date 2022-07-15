@@ -56,7 +56,7 @@ pub(crate) async fn validate_block<
     block_timestamp_checks(
         header,
         base_tipset.as_ref(),
-        state_manager.chain_config.as_ref(),
+        state_manager.chain_config().as_ref(),
     )
     .map_err(to_errs)?;
 
@@ -283,7 +283,7 @@ fn validate_ticket_election<DB: BlockStore + Sync + Send + 'static>(
     state_manager: &StateManager<DB>,
 ) -> Result<(), FilecoinConsensusError> {
     let mut miner_address_buf = header.miner_address().marshal_cbor()?;
-    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
+    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
 
     if header.epoch() > smoke_height {
         let vrf_proof = base_tipset

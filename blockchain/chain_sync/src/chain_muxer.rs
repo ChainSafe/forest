@@ -489,7 +489,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
-        let block_delay = self.state_manager.chain_config.block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
 
         let evaluator = async move {
             let mut tipsets = vec![];
@@ -608,7 +608,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config.block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError<C>> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
@@ -700,7 +700,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config.block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError<C>> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor

@@ -6,6 +6,8 @@ use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 
+pub const MINIMUM_CONSENSUS_POWER: i64 = 32 << 30;
+
 /// Bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWJkikQQkxS58spo76BYzFt4fotaT5NpV2zngvrqm4u5ow",

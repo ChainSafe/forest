@@ -3,10 +3,11 @@
 
 use super::Message as MessageTrait;
 use encoding::tuple::*;
-use encoding::{to_vec, Cbor, Error};
+use encoding::{to_vec, Cbor, Error as CborError};
 use forest_address::Address;
-use forest_crypto::{Error as CryptoError, Signature, SignatureType, Signer};
+use forest_crypto::Signer;
 use forest_vm::{MethodNum, Serialized, TokenAmount};
+use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use fvm_shared::message::Message;
 
 /// Represents a wrapped message with signature bytes.
@@ -21,7 +22,9 @@ impl SignedMessage {
     pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
         let bz = message.to_signing_bytes();
 
-        let signature = signer.sign_bytes(&bz, &message.from)?;
+        let signature = signer
+            .sign_bytes(&bz, &message.from)
+            .map_err(|e| CryptoError::SigningError(e.to_string()))?;
 
         Ok(SignedMessage { message, signature })
     }
@@ -112,7 +115,7 @@ impl MessageTrait for SignedMessage {
 }
 
 impl Cbor for SignedMessage {
-    fn marshal_cbor(&self) -> Result<Vec<u8>, Error> {
+    fn marshal_cbor(&self) -> Result<Vec<u8>, CborError> {
         if self.is_bls() {
             self.message.marshal_cbor()
         } else {

@@ -14,6 +14,7 @@ use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use thiserror::Error;
@@ -34,18 +35,17 @@ use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
 use forest_cid::Cid;
-use forest_crypto::verify_bls_aggregate;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
+use fvm::state_tree::StateTree;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
-use state_tree::StateTree;
 
 const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 
@@ -1250,7 +1250,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     }));
 
     // Base fee check
-    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
+    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_block_store = state_manager.blockstore_cloned();
     let v_block = Arc::clone(&block);
@@ -1391,7 +1391,7 @@ fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     let network_version = state_manager
-        .chain_config
+        .chain_config()
         .network_version(block.header.epoch());
 
     // Do the initial loop here
@@ -1436,7 +1436,7 @@ fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     // Check messages for validity
     let mut check_msg = |msg: &Message,
                          account_sequences: &mut HashMap<Address, u64>,
-                         tree: &StateTree<DB>|
+                         tree: &StateTree<&DB>|
      -> Result<(), anyhow::Error> {
         // Phase 1: Syntactic validation
         let min_gas = price_list.on_chain_message(msg.marshal_cbor().unwrap().len());

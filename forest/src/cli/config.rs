@@ -8,8 +8,9 @@ use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Config {
     pub data_dir: PathBuf,
@@ -30,7 +31,7 @@ pub struct Config {
     pub rocks_db: db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
-    pub chain: ChainConfig,
+    pub chain: Arc<ChainConfig>,
 }
 
 impl Default for Config {
@@ -51,7 +52,7 @@ impl Default for Config {
             encrypt_keystore: true,
             metrics_port: 6116,
             rocks_db: db::rocks_config::RocksDbConfig::default(),
-            chain: ChainConfig::default(),
+            chain: Arc::default(),
         }
     }
 }

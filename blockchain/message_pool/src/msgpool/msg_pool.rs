@@ -26,13 +26,13 @@ use encoding::Cbor;
 use forest_address::{Address, Protocol};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_cid::Cid;
-use forest_crypto::{Signature, SignatureType};
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::{ChainMessage, Message, SignedMessage};
 use futures::{future::select, StreamExt};
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
@@ -157,7 +157,7 @@ pub struct MessagePool<T> {
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
     /// Chain сonfig
-    pub chain_config: ChainConfig,
+    pub chain_config: Arc<ChainConfig>,
 }
 
 impl<T> MessagePool<T>
@@ -170,7 +170,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
-        chain_config: ChainConfig,
+        chain_config: Arc<ChainConfig>,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -203,7 +203,7 @@ where
             config,
             network_sender,
             repub_trigger,
-            chain_config: chain_config.clone(),
+            chain_config: Arc::clone(&chain_config),
         };
 
         mp.load_local().await?;

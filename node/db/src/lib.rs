@@ -63,3 +63,56 @@ pub trait Store {
         keys.iter().try_for_each(|key| self.delete(key))
     }
 }
+
+impl<BS: Store> Store for &BS {
+    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).read(key)
+    }
+
+    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        (*self).write(key, value)
+    }
+
+    fn delete<K>(&self, key: K) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).delete(key)
+    }
+
+    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).exists(key)
+    }
+
+    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).bulk_read(keys)
+    }
+
+    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        (*self).bulk_write(values)
+    }
+
+    fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).bulk_delete(keys)
+    }
+}

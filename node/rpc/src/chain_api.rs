@@ -266,7 +266,7 @@ where
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     let entropy = entropy.unwrap_or_default();
-    let hyperdrive_height = data.state_manager.chain_config.epoch(Height::Hyperdrive);
+    let hyperdrive_height = data.state_manager.chain_config().epoch(Height::Hyperdrive);
     Ok(data
         .state_manager
         .get_chain_randomness(

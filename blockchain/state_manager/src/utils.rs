@@ -14,11 +14,11 @@ use fil_types::{
 use forest_address::Address;
 use forest_blocks::Tipset;
 use forest_cid::Cid;
+use fvm::state_tree::StateTree;
 use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use state_tree::StateTree;
 
 impl<DB> StateManager<DB>
 where

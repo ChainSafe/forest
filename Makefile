@@ -25,7 +25,6 @@ clean:
 	@cargo clean -p forest_vm
 	@cargo clean -p forest_address
 	@cargo clean -p forest_message
-	@cargo clean -p state_tree
 	@cargo clean -p state_manager
 	@cargo clean -p interpreter
 	@cargo clean -p forest_crypto

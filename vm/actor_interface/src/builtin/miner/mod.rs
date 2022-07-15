@@ -171,15 +171,6 @@ impl State {
             State::V8(st) => st.fee_debt.clone(),
         }
     }
-
-    /// Number of post period deadlines.
-    pub fn num_deadlines(&self) -> u64 {
-        match self {
-            State::V8(_) => {
-                fil_actors_runtime_v8::runtime::Policy::default().wpost_period_deadlines
-            }
-        }
-    }
 }
 
 /// Static information about miner

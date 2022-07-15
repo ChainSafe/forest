@@ -50,7 +50,7 @@ where
     use sync_api::*;
     use wallet_api::*;
 
-    let block_delay = state.state_manager.chain_config.block_delay_secs;
+    let block_delay = state.state_manager.chain_config().block_delay_secs;
     let rpc_server = Arc::new(
         Server::new()
             .with_data(Data(state))
