@@ -108,7 +108,12 @@ pub(crate) async fn state_miner_deadlines<
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
 
-    let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
+    let num_deadlines = data
+        .state_manager
+        .chain_config()
+        .policy
+        .wpost_period_deadlines;
+    let mut out = Vec::with_capacity(num_deadlines as usize);
     mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
         out.push(Deadline {
             post_submissions: dl.partitions_posted().clone().into(),
@@ -670,7 +675,7 @@ pub(crate) async fn miner_create_block<
         ))
     };
     let pweight = chain::weight(data.chain_store.blockstore(), pts.as_ref())?;
-    let smoke_height = data.state_manager.chain_config.epoch(Height::Smoke);
+    let smoke_height = data.state_manager.chain_config().epoch(Height::Smoke);
     let base_fee =
         chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
 

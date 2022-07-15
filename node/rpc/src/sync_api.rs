@@ -176,7 +176,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                (*state_manager_for_thread.chain_config).clone(),
+                Arc::clone(state_manager_for_thread.chain_config()),
             )
             .await
             .unwrap()

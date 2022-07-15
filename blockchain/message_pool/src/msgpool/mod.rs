@@ -63,7 +63,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
-    chain_config: &ChainConfig,
+    chain_config: &Arc<ChainConfig>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -354,7 +354,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
             .unwrap();
@@ -424,7 +424,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
             .unwrap();
@@ -524,7 +524,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
             .unwrap();

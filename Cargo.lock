@@ -5254,7 +5254,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "beacon",
+ "fil_actors_runtime",
  "fil_types",
+ "forest_bigint",
  "fvm_shared",
  "lazy_static",
  "serde",

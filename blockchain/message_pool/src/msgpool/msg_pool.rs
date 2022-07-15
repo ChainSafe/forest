@@ -158,7 +158,7 @@ pub struct MessagePool<T> {
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
     /// Chain сonfig
-    pub chain_config: ChainConfig,
+    pub chain_config: Arc<ChainConfig>,
 }
 
 impl<T> MessagePool<T>
@@ -171,7 +171,7 @@ where
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
-        chain_config: ChainConfig,
+        chain_config: Arc<ChainConfig>,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -204,7 +204,7 @@ where
             config,
             network_sender,
             repub_trigger,
-            chain_config: chain_config.clone(),
+            chain_config: Arc::clone(&chain_config),
         };
 
         mp.load_local().await?;

@@ -87,7 +87,7 @@ pub struct StateManager<DB> {
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
-    pub chain_config: Arc<ChainConfig>,
+    chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
 }
 
@@ -149,6 +149,10 @@ where
     /// Returns network version for the given epoch.
     pub fn get_network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         self.chain_config.network_version(epoch)
+    }
+
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
     }
 
     /// Gets actor from given [Cid], if it exists.
@@ -296,8 +300,11 @@ where
                 .miner_power(self.blockstore(), maddr)?
                 .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
 
-            let min_pow =
-                spas.miner_nominal_power_meets_consensus_minimum(self.blockstore(), maddr)?;
+            let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
+                &self.chain_config.policy,
+                self.blockstore(),
+                maddr,
+            )?;
             if min_pow {
                 return Ok(Some((m_pow, t_pow)));
             }
@@ -358,6 +365,7 @@ where
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
                 heights,
+                self.chain_config.policy.chain_finality,
             )
         };
 
@@ -506,6 +514,7 @@ where
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
                 heights,
+                self.chain_config.policy.chain_finality,
             )?;
 
             if msg.gas_limit == 0 {
@@ -608,6 +617,7 @@ where
                 .get(&NetworkConfig::new(network_version))
                 .unwrap(),
             heights,
+            self.chain_config.policy.chain_finality,
         )?;
 
         for msg in prior_messages {
@@ -687,7 +697,7 @@ where
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
-            Policy::default().chain_finality // FIXME: Use correct policy
+            self.chain_config.policy.chain_finality
         };
 
         if round > lb {
@@ -733,7 +743,7 @@ where
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
-        let hmp = self.miner_has_min_power(address, lookback_tipset)?;
+        let hmp = self.miner_has_min_power(&self.chain_config.policy, address, lookback_tipset)?;
         let version = self.get_network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
@@ -1334,13 +1344,18 @@ where
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
-    pub fn miner_has_min_power(&self, addr: &Address, ts: &Tipset) -> anyhow::Result<bool> {
+    pub fn miner_has_min_power(
+        &self,
+        policy: &Policy,
+        addr: &Address,
+        ts: &Tipset,
+    ) -> anyhow::Result<bool> {
         let actor = self
             .get_actor(&actor::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor)?;
 
-        ps.miner_nominal_power_meets_consensus_minimum(self.blockstore(), addr)
+        ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
     }
 
     pub async fn validate_chain<V: ProofVerifier>(

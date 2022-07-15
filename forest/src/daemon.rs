@@ -137,7 +137,7 @@ pub(super) async fn start(config: Config) {
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.chain.clone()))
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))
         .await
         .unwrap();
     let state_manager = Arc::new(sm);
@@ -194,7 +194,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
-            (*state_manager.chain_config).clone(),
+            Arc::clone(state_manager.chain_config()),
         )
         .await
         .unwrap(),
