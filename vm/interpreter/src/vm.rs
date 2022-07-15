@@ -107,6 +107,7 @@ where
         lb_state: &LB,
         engine: Engine,
         heights: Heights,
+        chain_finality: i64,
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
@@ -132,6 +133,7 @@ where
                     lb_state.chain_epoch_root(),
                     store_arc,
                     network_version,
+                    chain_finality,
                 ),
             )?;
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
+use fil_actors_runtime_v8::runtime::Policy;
 use fil_types::StoragePower;
 use forest_address::Address;
 use forest_bigint::bigint_ser::json;
@@ -108,17 +109,14 @@ impl State {
     /// Checks power actor state for if miner meets minimum consensus power.
     pub fn miner_nominal_power_meets_consensus_minimum<BS: BlockStore>(
         &self,
+        policy: &Policy,
         s: &BS,
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
             State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                let policy = fil_actors_runtime_v8::runtime::Policy::default();
-                // FIXME tracker: https://github.com/ChainSafe/forest/issues/1631
-                // policy for calibnet
-                // policy.minimum_consensus_power = fvm_shared::bigint::BigInt::from(32u128 << 30);
-                st.miner_nominal_power_meets_consensus_minimum(&policy, &fvm_store, miner)
+                st.miner_nominal_power_meets_consensus_minimum(policy, &fvm_store, miner)
             }
         }
     }

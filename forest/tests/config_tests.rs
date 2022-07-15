@@ -80,5 +80,5 @@ fn test_reading_configuration_from_file() {
     let actual_config = toml::from_str::<Config>(std::str::from_utf8(output).unwrap())
         .expect("Invalid configuration!");
 
-    assert_eq!(expected_config, actual_config);
+    assert!(expected_config == actual_config);
 }

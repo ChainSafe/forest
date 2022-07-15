@@ -22,6 +22,7 @@ serde_json = "1.0"
 log = "0.4"
 sodiumoxide = "0.2"
 utils = { path = "../node/utils" }
+fvm_shared = { version = "0.8", default-features = false }
 
 [features]
 json = ["forest_crypto/json"]

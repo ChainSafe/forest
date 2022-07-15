@@ -14,6 +14,7 @@ use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use thiserror::Error;
 
@@ -37,7 +38,7 @@ use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
 use forest_cid::Cid;
-use forest_crypto::{verify_bls_aggregate, DomainSeparationTag};
+use forest_crypto::DomainSeparationTag;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
@@ -1265,8 +1266,8 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
-    let block_delay = state_manager.chain_config.block_delay_secs;
-    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
+    let block_delay = state_manager.chain_config().block_delay_secs;
+    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
     let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
@@ -1658,9 +1659,7 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = state_manager
-        .chain_config
-        .network_version(block.header.epoch());
+    let network_version = state_manager.get_network_version(block.header.epoch());
 
     // Do the initial loop here
     // check block message and signatures in them

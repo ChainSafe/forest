@@ -6,12 +6,10 @@ pub mod chain_message;
 pub mod message;
 pub mod message_receipt;
 pub mod signed_message;
-pub mod unsigned_message;
 
 pub use chain_message::ChainMessage;
 pub use message_receipt::MessageReceipt;
 pub use signed_message::SignedMessage;
-pub use unsigned_message::UnsignedMessage;
 
 use forest_address::Address;
 use forest_vm::{MethodNum, Serialized, TokenAmount};
