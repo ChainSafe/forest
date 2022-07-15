@@ -5,6 +5,7 @@
 
 mod bad_block_cache;
 mod chain_muxer;
+mod consensus;
 mod metrics;
 mod network_context;
 mod peer_manager;
@@ -17,5 +18,6 @@ extern crate serde;
 
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::chain_muxer::{ChainMuxer, SyncConfig};
+pub use self::consensus::{collect_errs, Consensus};
 pub use self::sync_state::{SyncStage, SyncState};
 pub use self::validation::TipsetValidator;

@@ -9,6 +9,7 @@ async-trait       = "0.1"
 forest_ipld       = { version = "0.1" }
 pbr               = "1.0.3"
 anyhow            = "1.0"
+nonempty          = "0.8.0"
 fvm_shared        = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding = "0.2"
 legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
@@ -61,5 +62,4 @@ fvm_ipld_car = "0.4.1"
 hex = "0.4"
 
 [features]
-insecure_post = []
-default       = ["statediff"]
+default = ["statediff"]

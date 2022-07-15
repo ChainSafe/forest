@@ -86,9 +86,7 @@ pub(crate) async fn state_call<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    Ok(state_manager
-        .call::<FullVerifier>(&mut message, Some(tipset))
-        .await?)
+    Ok(state_manager.call(&mut message, Some(tipset)).await?)
 }
 
 /// returns all the proving deadlines for the given miner
@@ -351,7 +349,7 @@ pub(crate) async fn state_replay<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let (msg, ret) = state_manager.replay::<FullVerifier>(&tipset, cid).await?;
+    let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
     Ok(InvocResult {
         msg,
@@ -395,7 +393,6 @@ pub(crate) async fn state_get_network_version<
 pub(crate) async fn state_get_actor<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateGetActorParams>,
@@ -408,7 +405,7 @@ pub(crate) async fn state_get_actor<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
+    let state = state_for_ts(state_manager, tipset).await?;
     Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
 }
 
@@ -416,7 +413,6 @@ pub(crate) async fn state_get_actor<
 pub(crate) async fn state_list_actors<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateListActorsParams>,
@@ -429,7 +425,7 @@ pub(crate) async fn state_list_actors<
         .tipset_from_keys(&tipset.into())
         .await?;
 
-    let addresses = data.state_manager.list_miner_actors::<V>(&tipset)?;
+    let addresses = data.state_manager.list_miner_actors(&tipset)?;
 
     let addresses_json = addresses
         .iter()
@@ -443,7 +439,6 @@ pub(crate) async fn state_list_actors<
 pub(crate) async fn state_account_key<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateAccountKeyParams>,
@@ -456,7 +451,7 @@ pub(crate) async fn state_account_key<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
+    let state = state_for_ts(state_manager, tipset).await?;
     let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
@@ -464,7 +459,6 @@ pub(crate) async fn state_account_key<
 pub(crate) async fn state_lookup_id<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateLookupIdParams>,
@@ -477,7 +471,7 @@ pub(crate) async fn state_lookup_id<
         .chain_store()
         .tipset_from_keys(&key.into())
         .await?;
-    let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
+    let state = state_for_ts::<DB>(state_manager, tipset).await?;
     let lookup_result = state.lookup_id(&address)?;
 
     match lookup_result {
@@ -597,7 +591,6 @@ pub(crate) async fn state_wait_msg<
 pub(crate) async fn miner_create_block<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MinerCreateBlockParams>,
@@ -618,10 +611,10 @@ pub(crate) async fn miner_create_block<
         .collect();
 
     let pts = data.chain_store.tipset_from_keys(&parents).await?;
-    let (st, recpts) = data.state_manager.tipset_state::<V>(&pts).await?;
+    let (st, recpts) = data.state_manager.tipset_state(&pts).await?;
     let (_, lbst) = data
         .state_manager
-        .get_lookback_tipset_for_round::<V>(pts.clone(), epoch)
+        .get_lookback_tipset_for_round(pts.clone(), epoch)
         .await?;
     let worker = data.state_manager.get_miner_worker_raw(&lbst, &miner)?;
 
@@ -777,7 +770,6 @@ pub(crate) async fn state_miner_sector_allocated<
 pub(crate) async fn state_miner_power<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPowerParams>,
@@ -816,14 +808,13 @@ pub(crate) async fn state_miner_power<
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPreCommitDepositForPowerParams>,
 ) -> Result<StateMinerPreCommitDepositForPowerResult, JsonRpcError> {
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let (state, _) = data.state_manager.tipset_state::<V>(&ts).await?;
+    let (state, _) = data.state_manager.tipset_state(&ts).await?;
     let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
     let ssize = pci.seal_proof.sector_size()?;
 
@@ -860,14 +851,13 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
 pub(crate) async fn state_miner_initial_pledge_collateral<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerInitialPledgeCollateralParams>,
 ) -> Result<StateMinerInitialPledgeCollateralResult, JsonRpcError> {
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let (root_cid, _) = data.state_manager.tipset_state::<V>(&ts).await?;
+    let (root_cid, _) = data.state_manager.tipset_state(&ts).await?;
     let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
@@ -927,16 +917,15 @@ pub(crate) async fn miner_get_base_info<
 }
 
 /// returns a state tree given a tipset
-async fn state_for_ts<DB, V>(
+async fn state_for_ts<DB>(
     state_manager: &Arc<StateManager<DB>>,
     ts: Arc<Tipset>,
 ) -> Result<StateTree<&DB>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 {
     let block_store = state_manager.blockstore();
-    let (st, _) = state_manager.tipset_state::<V>(&ts).await?;
+    let (st, _) = state_manager.tipset_state(&ts).await?;
     let state_tree = StateTree::new_from_root(block_store, &st)?;
     Ok(state_tree)
 }

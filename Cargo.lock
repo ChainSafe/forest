@@ -1182,6 +1182,7 @@ dependencies = [
  "lru 0.7.7",
  "message_pool",
  "networks",
+ "nonempty",
  "num-traits",
  "pbr",
  "pretty_env_logger",
@@ -2425,6 +2426,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_consensus"
+version = "0.1.0"
+dependencies = [
+ "actor_interface",
+ "async-std",
+ "async-trait",
+ "beacon",
+ "chain",
+ "chain_sync",
+ "fil_types",
+ "forest_address",
+ "forest_blocks",
+ "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "futures",
+ "ipld_blockstore",
+ "log",
+ "networks",
+ "nonempty",
+ "state_manager",
+ "thiserror",
+]
+
+[[package]]
 name = "fil_logger"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2624,6 +2650,7 @@ dependencies = [
  "chain_sync",
  "ctrlc",
  "directories",
+ "fil_consensus",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -5300,6 +5327,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nonempty"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09f1f8e5676e1a1f2ee8b21f38238e1243c827531c9435624c7bfb305102cee4"
+
+[[package]]
 name = "num-bigint"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7941,10 +7974,11 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.19.2"
+version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c51a52ed6686dd62c320f9b89299e9dfb46f730c7a48e635c19f21d116cb1439"
+checksum = "57aec3cfa4c296db7255446efb4928a6be304b431a806216105542a67b6ca82e"
 dependencies = [
+ "autocfg",
  "num_cpus",
  "once_cell",
  "pin-project-lite 0.2.9",

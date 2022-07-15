@@ -40,7 +40,6 @@ use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use vm_circ_supply::GenesisInfo;
@@ -314,7 +313,7 @@ where
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
     /// This function returns the state root and receipt root of the transition.
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_blocks<R, V, CB>(
+    pub fn apply_blocks<R, CB>(
         self: &Arc<Self>,
         parent_epoch: ChainEpoch,
         p_state: &Cid,
@@ -327,14 +326,12 @@ where
     ) -> Result<CidPair, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        V: ProofVerifier,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
             sm: Arc::clone(self),
             tipset: Arc::clone(tipset),
-            verifier: PhantomData::<V>::default(),
         };
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
@@ -342,7 +339,7 @@ where
         let create_vm = |state_root, epoch| {
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(epoch);
-            VM::<_, V>::new(
+            VM::<_>::new(
                 state_root,
                 db.as_ref(),
                 Arc::clone(&db),
@@ -403,13 +400,10 @@ where
     /// Returns the pair of (parent state root, message receipt root). This will either be cached
     /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
     /// not to be computed twice.
-    pub async fn tipset_state<V>(
+    pub async fn tipset_state(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<CidPair, anyhow::Error> {
         span!("tipset_state", {
             // Get entry in cache, if it exists.
             // Arc is cloned here to avoid holding the entire cache lock until function ends.
@@ -456,7 +450,7 @@ where
                 // generic constants are not implemented yet this is a lowcost method for now
                 let no_func =
                     None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-                let ts_state = self.compute_tipset_state::<V, _>(tipset, no_func).await?;
+                let ts_state = self.compute_tipset_state(tipset, no_func).await?;
                 debug!("completed tipset state calculation {:?}", tipset.cids());
                 ts_state
             };
@@ -467,15 +461,12 @@ where
         })
     }
 
-    fn call_raw<V>(
+    fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
         rand: &ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> StateCallResult
-    where
-        V: ProofVerifier,
-    {
+    ) -> StateCallResult {
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
@@ -483,14 +474,13 @@ where
             let lb_wrapper = SMLookbackWrapper {
                 sm: Arc::clone(self),
                 tipset: Arc::clone(tipset),
-                verifier: PhantomData::<V>::default(),
             };
 
             let store_arc = self.blockstore_cloned();
 
             let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(bheight);
-            let mut vm = VM::<_, V>::new(
+            let mut vm = VM::<_>::new(
                 *bstate,
                 store_arc.as_ref(),
                 Arc::clone(&store_arc),
@@ -536,14 +526,11 @@ where
     }
 
     /// runs the given message and returns its result without any persisted changes.
-    pub async fn call<V>(
+    pub async fn call(
         self: &Arc<Self>,
         message: &mut Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult
-    where
-        V: ProofVerifier,
-    {
+    ) -> StateCallResult {
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
@@ -553,20 +540,17 @@ where
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let chain_rand = self.chain_rand(ts.key().to_owned());
-        self.call_raw::<V>(message, &chain_rand, &ts)
+        self.call_raw(message, &chain_rand, &ts)
     }
 
     /// Computes message on the given [Tipset] state, after applying other messages and returns
     /// the values computed in the VM.
-    pub async fn call_with_gas<V>(
+    pub async fn call_with_gas(
         self: &Arc<Self>,
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult
-    where
-        V: ProofVerifier,
-    {
+    ) -> StateCallResult {
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
@@ -576,7 +560,7 @@ where
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let (st, _) = self
-            .tipset_state::<V>(&ts)
+            .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = self.chain_rand(ts.key().to_owned());
@@ -586,13 +570,12 @@ where
         let lb_wrapper = SMLookbackWrapper {
             sm: Arc::clone(self),
             tipset: Arc::clone(&ts),
-            verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
         let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
-        let mut vm = VM::<_, V>::new(
+        let mut vm = VM::<_>::new(
             st,
             store_arc.as_ref(),
             Arc::clone(&store_arc),
@@ -630,14 +613,11 @@ where
 
     /// Replays the given message and returns the result of executing the indicated message,
     /// assuming it was executed in the indicated tipset.
-    pub async fn replay<V>(
+    pub async fn replay(
         self: &Arc<Self>,
         ts: &Arc<Tipset>,
         mcid: Cid,
-    ) -> Result<(Message, ApplyRet), Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<(Message, ApplyRet), Error> {
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
         let outm: OnceCell<Message> = Default::default();
@@ -653,7 +633,7 @@ where
 
             Ok(())
         };
-        let result = self.compute_tipset_state::<V, _>(ts, Some(callback)).await;
+        let result = self.compute_tipset_state(ts, Some(callback)).await;
 
         if let Err(error_message) = result {
             if error_message.to_string() != "halt" {
@@ -674,14 +654,11 @@ where
     }
 
     /// Gets lookback tipset for block validations.
-    pub async fn get_lookback_tipset_for_round<V>(
+    pub async fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         round: ChainEpoch,
-    ) -> Result<(Arc<Tipset>, Cid), Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<(Arc<Tipset>, Cid), Error> {
         let mut lbr: ChainEpoch = ChainEpoch::from(0);
         let version = self.get_network_version(round);
         let lb = if version <= NetworkVersion::V3 {
@@ -697,7 +674,7 @@ where
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
             let (st, _) = self
-                .tipset_state::<V>(&tipset)
+                .tipset_state(&tipset)
                 .await
                 .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
             return Ok((tipset, st));
@@ -728,7 +705,7 @@ where
     /// Checks the eligibility of the miner. This is used in the validation that a block's miner
     /// has the requirements to mine a block.
     pub fn eligible_to_mine(
-        self: &Arc<Self>,
+        &self,
         address: &Address,
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
@@ -809,7 +786,7 @@ where
             .await?;
         let rbase = entries.iter().last().unwrap_or(&prev);
         let (lbts, lbst) = self
-            .get_lookback_tipset_for_round::<V>(tipset.clone(), round)
+            .get_lookback_tipset_for_round(tipset.clone(), round)
             .await?;
 
         let actor = self
@@ -843,7 +820,7 @@ where
 
         let info = miner_state.info(self.blockstore())?;
 
-        let (st, _) = self.tipset_state::<V>(&lbts).await?;
+        let (st, _) = self.tipset_state(&lbts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
         let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
@@ -863,13 +840,12 @@ where
     }
 
     /// Performs a state transition, and returns the state and receipt root of the transition.
-    pub async fn compute_tipset_state<V, CB: 'static>(
+    pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
         callback: Option<CB>,
     ) -> Result<CidPair, Error>
     where
-        V: ProofVerifier,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
         span!("compute_tipset_state", {
@@ -920,7 +896,7 @@ where
             let epoch = first_block.epoch();
             let ts_cloned = Arc::clone(tipset);
             task::spawn_blocking(move || {
-                Ok(sm.apply_blocks::<_, V, _>(
+                Ok(sm.apply_blocks(
                     parent_epoch,
                     &sr,
                     &blocks,
@@ -1310,14 +1286,11 @@ where
 
     /// Similar to `resolve_to_key_addr` in the vm crate but does not allow `Actor` type of addresses.
     /// Uses `ts` to generate the VM state.
-    pub async fn resolve_to_key_addr<V>(
+    pub async fn resolve_to_key_addr(
         self: &Arc<Self>,
         addr: &Address,
         ts: &Arc<Tipset>,
-    ) -> Result<Address, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<Address, anyhow::Error> {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 => return Ok(*addr),
             Protocol::Actor => {
@@ -1327,7 +1300,7 @@ where
             }
             _ => {}
         };
-        let (st, _) = self.tipset_state::<V>(ts).await?;
+        let (st, _) = self.tipset_state(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
@@ -1393,7 +1366,7 @@ where
                 ts.epoch(),
                 ts.cids()
             );
-            let (st, msg_root) = self.tipset_state::<V>(ts).await?;
+            let (st, msg_root) = self.tipset_state(ts).await?;
             last_state = st;
             last_receipt = msg_root;
         }
@@ -1445,27 +1418,24 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<DB, V> {
+struct SMLookbackWrapper<DB> {
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-    verifier: PhantomData<V>,
 }
 
-impl<DB, V> LookbackStateGetter for SMLookbackWrapper<DB, V>
+impl<DB> LookbackStateGetter for SMLookbackWrapper<DB>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
-    V: ProofVerifier,
 {
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
         let sm = Arc::clone(&self.sm);
         let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
-            let (_, st) =
-                task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
-                    .unwrap_or_else(|err| {
-                        panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-                    });
+            let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+                .unwrap_or_else(|err| {
+                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+                });
             st
         })
     }

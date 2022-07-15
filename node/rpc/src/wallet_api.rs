@@ -7,7 +7,6 @@ use std::str::FromStr;
 
 use beacon::Beacon;
 use encoding::Cbor;
-use fil_types::verifier::FullVerifier;
 use forest_address::{json::AddressJson, Address};
 use forest_crypto::signature::json::SignatureJson;
 use forest_message::{
@@ -212,7 +211,7 @@ where
         .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = state_manager
-        .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
+        .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
     let key = match key_management::find_key(&key_addr, keystore) {
