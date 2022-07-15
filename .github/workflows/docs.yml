@@ -23,7 +23,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --offline --no-deps --workspace
+          args: --no-deps --workspace
   publish-docs:
     name: Publish
     runs-on: ubuntu-latest
