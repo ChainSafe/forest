@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message as MessageTrait;
-use crate::message;
-use address::Address;
-use crypto::{Error as CryptoError, Signature, SignatureType, Signer};
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error};
+use forest_address::Address;
+use forest_crypto::{Error as CryptoError, Signature, SignatureType, Signer};
+use forest_vm::{MethodNum, Serialized, TokenAmount};
 use fvm_shared::message::Message;
-use vm::{MethodNum, Serialized, TokenAmount};
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
@@ -125,9 +124,10 @@ impl Cbor for SignedMessage {
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;
+    use crate::message;
 
-    use cid::Cid;
-    use crypto::signature;
+    use forest_cid::Cid;
+    use forest_crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.
@@ -163,7 +163,7 @@ pub mod json {
             message: &'a Message,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
-            #[serde(default, rename = "CID", with = "cid::json::opt")]
+            #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
             cid: Option<Cid>,
         }
         SignedMessageSer {

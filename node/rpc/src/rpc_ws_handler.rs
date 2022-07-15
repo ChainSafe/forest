@@ -9,8 +9,8 @@ use tide::http::headers::HeaderValues;
 use tide_websockets::{Message, WebSocketConnection};
 
 use beacon::Beacon;
-use blockstore::BlockStore;
 use chain::headchange_json::SubscriptionHeadChange;
+use ipld_blockstore::BlockStore;
 use rpc_api::{
     chain_api::*,
     data_types::{JsonRpcServerState, StreamingData},

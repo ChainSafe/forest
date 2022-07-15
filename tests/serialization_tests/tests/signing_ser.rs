@@ -5,9 +5,9 @@
 #![cfg(feature = "submodule_tests")]
 
 use bls_signatures::{PrivateKey, Serialize};
-use cid::Cid;
-use crypto::{signature, Signature};
 use encoding::Cbor;
+use forest_cid::Cid;
+use forest_crypto::{signature, Signature};
 use forest_message::message;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
