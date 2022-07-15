@@ -14,7 +14,7 @@ use crate::resolve_to_key_addr;
 use forest_address::Address;
 use forest_blocks::BlockHeader;
 use forest_encoding::Cbor;
-use state_tree::StateTree;
+use fvm::state_tree::StateTree;
 
 use anyhow::bail;
 use std::cell::RefCell;

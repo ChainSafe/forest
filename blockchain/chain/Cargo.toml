@@ -41,6 +41,7 @@ fvm_shared        = { version = "0.8.0", default-features = false }
 legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
 fvm_ipld_encoding = "0.2"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
+fvm             = "1.0"
 
 [features]
 json = []

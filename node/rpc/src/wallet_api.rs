@@ -7,17 +7,16 @@ use std::str::FromStr;
 
 use beacon::Beacon;
 use encoding::Cbor;
-use fil_types::verifier::FullVerifier;
 use forest_address::{json::AddressJson, Address};
 use forest_crypto::signature::json::SignatureJson;
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
 };
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigUint;
 use ipld_blockstore::BlockStore;
 use key_management::{json::KeyInfoJson, Error, Key};
 use rpc_api::{data_types::RPCState, wallet_api::*};
-use state_tree::StateTree;
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, B>(
@@ -212,7 +211,7 @@ where
         .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = state_manager
-        .resolve_to_key_addr::<FullVerifier>(&address, &heaviest_tipset)
+        .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
     let key = match key_management::find_key(&key_addr, keystore) {

@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::*;
+use anyhow::Context;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;
 use forest_address::Address;
 use forest_vm::{ActorState, TokenAmount};
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use interpreter::CircSupplyCalc;
 use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use once_cell::sync::OnceCell;
-use state_tree::StateTree;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
@@ -104,14 +105,6 @@ impl CircSupplyCalc for GenesisInfo {
 
         get_circulating_supply(self, height, state_tree)
     }
-
-    fn get_fil_vested<DB: BlockStore>(
-        &self,
-        _height: ChainEpoch,
-        _store: &DB,
-    ) -> Result<TokenAmount, anyhow::Error> {
-        unimplemented!()
-    }
 }
 
 fn get_actor_state<DB: BlockStore>(
@@ -176,7 +169,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
-        .ok_or_else(|| Error::State("Reward actor address could not be resolved".to_string()))?;
+        .context("Reward actor address could not be resolved")?;
     let state = reward::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_storage_power_reward())
@@ -228,10 +221,10 @@ fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmou
     Ok(burnt_actor.balance)
 }
 
-fn get_circulating_supply<'a, DB: BlockStore>(
+fn get_circulating_supply<DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
-    state_tree: &StateTree<'a, DB>,
+    state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_vested = get_fil_vested(genesis_info, height);
     let fil_mined = get_fil_mined(state_tree)?;

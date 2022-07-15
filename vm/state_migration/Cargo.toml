@@ -19,11 +19,11 @@ forest_hash_utils = "0.1"
 forest_json_utils = "0.1"
 thiserror         = "1.0"
 futures           = "0.3"
-state_tree        = { path = "../state_tree" }
 async-std         = "1.9"
 actor_interface   = { path = "../actor_interface" }
 crossbeam-channel = "0.5"
 rayon             = "1.5"
 log               = "0.4"
 num_cpus          = "1.13"
+fvm               = "1.0"
 fvm_shared        = { version = "0.8.0", default-features = false }

@@ -23,7 +23,6 @@ use async_std::task;
 use chain::{HeadChange, MINIMUM_BASE_FEE};
 use db::Store;
 use encoding::Cbor;
-use fil_types::verifier::ProofVerifier;
 use forest_address::{Address, Protocol};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_cid::Cid;
@@ -443,17 +442,16 @@ where
     }
 
     /// Adds a local message returned from the call back function with the current nonce.
-    pub async fn push_with_sequence<V>(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
+    pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
     where
         T: Fn(Address, u64) -> Result<SignedMessage, Error>,
-        V: ProofVerifier,
     {
         let cur_ts = self.cur_tipset.read().await.clone();
         let from_key = match addr.protocol() {
             Protocol::ID => {
                 let api = self.api.read().await;
 
-                api.state_account_key::<V>(addr, &self.cur_tipset.read().await.clone())
+                api.state_account_key(addr, &self.cur_tipset.read().await.clone())
                     .await?
             }
             _ => *addr,

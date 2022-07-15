@@ -9,6 +9,7 @@ async-trait       = "0.1"
 forest_ipld       = { version = "0.1" }
 pbr               = "1.0.3"
 anyhow            = "1.0"
+nonempty          = "0.8.0"
 fvm_shared        = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding = "0.2"
 legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
@@ -23,7 +24,6 @@ forest_cid        = "0.3"
 ipld_blockstore   = "0.1"
 chain             = { path = "../chain" }
 forest_message    = { version = "0.7", features = ["proofs", "blst"] }
-state_tree        = { path = "../../vm/state_tree/" }
 state_manager     = { path = "../state_manager/" }
 # forest_bigint     = "0.1"
 num-bigint         = "0.4"
@@ -63,5 +63,4 @@ fvm_ipld_car = "0.4.1"
 hex = "0.4"
 
 [features]
-insecure_post = []
-default       = ["statediff"]
+default = ["statediff"]
