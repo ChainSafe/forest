@@ -27,10 +27,10 @@ use forest_blocks::{
     Tipset, TxMeta,
 };
 use forest_cid::{json::CidJson, Cid, Code::Blake2b256};
-use forest_crypto::SignatureType;
 use forest_ipld::{json::IpldJson, Ipld};
 use forest_message::signed_message::SignedMessage;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::signature::SignatureType;
+use fvm_shared::{bigint::BigInt, crypto::signature::Signature};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
 use networks::Height;
@@ -655,9 +655,9 @@ pub(crate) async fn miner_create_block<
     )?;
 
     let calculated_bls_agg = if bls_sigs.is_empty() {
-        Some(forest_crypto::Signature::new_bls(vec![]))
+        Some(Signature::new_bls(vec![]))
     } else {
-        Some(forest_crypto::Signature::new_bls(
+        Some(Signature::new_bls(
             bls_signatures::aggregate(
                 &bls_sigs
                     .iter()

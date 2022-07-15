@@ -687,8 +687,8 @@ mod test_selection {
     use async_std::task;
     use db::MemoryDB;
     use fil_types::NetworkParams;
-    use forest_crypto::SignatureType;
     use forest_message::Message;
+    use fvm_shared::crypto::signature::SignatureType;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use networks::ChainConfig;
     use std::sync::Arc;

@@ -15,12 +15,11 @@ use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR}
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use encoding::Cbor;
-use fil_actors_runtime::runtime::Policy;
+use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_cid::Cid;
-use forest_crypto::DomainSeparationTag;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_vm::{ActorState, TokenAmount};
 use futures::{channel::oneshot, select, FutureExt};

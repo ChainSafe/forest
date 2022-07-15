@@ -7,11 +7,12 @@ use encoding::to_vec;
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use forest_cid::{new_from_cbor, Cid, Code::Blake2b256};
-use forest_crypto::{Signature, Signer, VRFProof};
+use forest_crypto::{Signer, VRFProof};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
 

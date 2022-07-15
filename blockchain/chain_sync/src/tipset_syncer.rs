@@ -14,6 +14,7 @@ use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use thiserror::Error;
 
@@ -37,7 +38,7 @@ use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
 use forest_cid::Cid;
-use forest_crypto::{verify_bls_aggregate, DomainSeparationTag};
+use forest_crypto::DomainSeparationTag;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;

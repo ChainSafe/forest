@@ -5,7 +5,7 @@ use super::errors::Error;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use encoding::blake2b_256;
 use forest_address::Address;
-use forest_crypto::{Signature, SignatureType};
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 

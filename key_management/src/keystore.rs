@@ -13,7 +13,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use super::errors::Error;
-use forest_crypto::SignatureType;
+use fvm_shared::crypto::signature::SignatureType;
 
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
