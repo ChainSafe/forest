@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
+use crate::consensus::Consensus;
 use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncState;
@@ -10,9 +11,7 @@ use crate::tipset_syncer::{
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
 
-use beacon::{Beacon, BeaconSchedule};
 use chain::{ChainStore, Error as ChainStoreError};
-use fil_types::verifier::ProofVerifier;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
@@ -39,18 +38,18 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use std::sync::Arc;
-use std::{marker::PhantomData, time::SystemTime};
+use std::time::SystemTime;
 
 pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 #[derive(Debug, Error)]
-pub enum ChainMuxerError {
+pub enum ChainMuxerError<C: Consensus> {
     #[error("Tipset processor error: {0}")]
-    TipsetProcessor(#[from] TipsetProcessorError),
+    TipsetProcessor(#[from] TipsetProcessorError<C>),
     #[error("Tipset range syncer error: {0}")]
-    TipsetRangeSyncer(#[from] TipsetRangeSyncerError),
+    TipsetRangeSyncer(#[from] TipsetRangeSyncerError<C>),
     #[error("Tipset validation error: {0}")]
     TipsetValidator(#[from] TipsetValidationError),
     #[error("Sending tipset on channel failed: {0}")]
@@ -121,15 +120,15 @@ enum PubsubMessageProcessingStrategy {
 }
 
 /// The ChainMuxer handles events from the p2p network and orchestrates the chain synchronization.
-pub struct ChainMuxer<DB, TBeacon, V, M> {
+pub struct ChainMuxer<DB, M, C: Consensus> {
     /// State of the ChainSyncer Future implementation
-    state: ChainMuxerState,
+    state: ChainMuxerState<C>,
 
     /// Syncing state of chain sync workers.
     worker_state: WorkerState,
 
-    /// Drand randomness beacon
-    beacon: Arc<BeaconSchedule<TBeacon>>,
+    /// Custom consensus rules.
+    consensus: Arc<C>,
 
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
@@ -147,9 +146,6 @@ pub struct ChainMuxer<DB, TBeacon, V, M> {
     /// Incoming network events to be handled by syncer
     net_handler: Receiver<NetworkEvent>,
 
-    /// Proof verification implementation.
-    verifier: PhantomData<V>,
-
     /// Message pool
     mpool: Arc<MessagePool<M>>,
 
@@ -163,17 +159,16 @@ pub struct ChainMuxer<DB, TBeacon, V, M> {
     sync_config: SyncConfig,
 }
 
-impl<DB, TBeacon, V, M> ChainMuxer<DB, TBeacon, V, M>
+impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static + Unpin,
     M: Provider + Sync + Send + 'static,
+    C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
-        beacon: Arc<BeaconSchedule<TBeacon>>,
         mpool: Arc<MessagePool<M>>,
         network_send: Sender<NetworkMessage>,
         network_rx: Receiver<NetworkEvent>,
@@ -181,7 +176,7 @@ where
         tipset_sender: Sender<Arc<Tipset>>,
         tipset_receiver: Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Result<Self, ChainMuxerError> {
+    ) -> Result<Self, ChainMuxerError<C>> {
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),
@@ -191,13 +186,12 @@ where
         Ok(Self {
             state: ChainMuxerState::Idle,
             worker_state: Default::default(),
-            beacon,
             network,
             genesis,
+            consensus,
             state_manager,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
-            verifier: Default::default(),
             mpool,
             tipset_sender,
             tipset_receiver,
@@ -220,7 +214,7 @@ where
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
         tipset_keys: TipsetKeys,
-    ) -> Result<FullTipset, ChainMuxerError> {
+    ) -> Result<FullTipset, ChainMuxerError<C>> {
         // Attempt to load from the store
         if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
             return Ok(full_tipset);
@@ -235,7 +229,7 @@ where
     async fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKeys,
-    ) -> Result<FullTipset, ChainMuxerError> {
+    ) -> Result<FullTipset, ChainMuxerError<C>> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
         let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
@@ -313,7 +307,7 @@ where
         block: GossipBlock,
         source: PeerId,
         network: SyncNetworkContext<DB>,
-    ) -> Result<FullTipset, ChainMuxerError> {
+    ) -> Result<FullTipset, ChainMuxerError<C>> {
         debug!(
             "Received block over GossipSub: {} height {} from {}",
             block.header.cid(),
@@ -368,7 +362,7 @@ where
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u64,
-    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
+    ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError<C>> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequest { request, source } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -487,7 +481,7 @@ where
         Ok(Some((tipset, source)))
     }
 
-    fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
+    fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError<C>> {
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
@@ -569,23 +563,23 @@ where
         &self,
         network_head: FullTipset,
         local_head: Arc<Tipset>,
-    ) -> ChainMuxerFuture<(), ChainMuxerError> {
+    ) -> ChainMuxerFuture<(), ChainMuxerError<C>> {
         // Instantiate a TipsetRangeSyncer
+        let trs_consensus = self.consensus.clone();
         let trs_state_manager = self.state_manager.clone();
         let trs_bad_block_cache = self.bad_blocks.clone();
         let trs_chain_store = self.state_manager.chain_store().clone();
         let trs_network = self.network.clone();
-        let trs_beacon = self.beacon.clone();
         let trs_tracker = self.worker_state.clone();
         let trs_genesis = self.genesis.clone();
-        let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
+        let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError<C>> = Box::pin(async move {
             let network_head_epoch = network_head.epoch();
-            let tipset_range_syncer = match TipsetRangeSyncer::<DB, TBeacon, V>::new(
+            let tipset_range_syncer = match TipsetRangeSyncer::new(
                 trs_tracker,
                 Arc::new(network_head.into_tipset()),
                 local_head,
+                trs_consensus,
                 trs_state_manager,
-                trs_beacon,
                 trs_network,
                 trs_chain_store,
                 trs_bad_block_cache,
@@ -615,7 +609,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
+        let stream_processor: ChainMuxerFuture<(), ChainMuxerError<C>> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
                     Ok(event) => event,
@@ -666,10 +660,10 @@ where
         })
     }
 
-    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError> {
+    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError<C>> {
         // Instantiate a TipsetProcessor
+        let tp_consensus = self.consensus.clone();
         let tp_state_manager = self.state_manager.clone();
-        let tp_beacon = self.beacon.clone();
         let tp_network = self.network.clone();
         let tp_chain_store = self.state_manager.chain_store().clone();
         let tp_bad_block_cache = self.bad_blocks.clone();
@@ -679,13 +673,13 @@ where
         enum UnexpectedReturnKind {
             TipsetProcessor,
         }
-        let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
+        let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError<C>> =
             Box::pin(async move {
-                TipsetProcessor::<_, _, V>::new(
+                TipsetProcessor::new(
                     tp_tracker,
                     Box::pin(tp_tipset_receiver),
+                    tp_consensus,
                     tp_state_manager,
-                    tp_beacon,
                     tp_network,
                     tp_chain_store,
                     tp_bad_block_cache,
@@ -707,7 +701,7 @@ where
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
-        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
+        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError<C>> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
                 if let Some(tipset) = tipset_opt {
@@ -798,21 +792,20 @@ where
     }
 }
 
-enum ChainMuxerState {
+enum ChainMuxerState<C: Consensus> {
     Idle,
-    Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>),
-    Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
-    Follow(ChainMuxerFuture<(), ChainMuxerError>),
+    Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError<C>>),
+    Bootstrap(ChainMuxerFuture<(), ChainMuxerError<C>>),
+    Follow(ChainMuxerFuture<(), ChainMuxerError<C>>),
 }
 
-impl<DB, TBeacon, V, M> Future for ChainMuxer<DB, TBeacon, V, M>
+impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    TBeacon: Beacon + Sync + Send + 'static,
     DB: BlockStore + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static + Unpin,
     M: Provider + Sync + Send + 'static,
+    C: Consensus,
 {
-    type Output = ChainMuxerError;
+    type Output = ChainMuxerError<C>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
