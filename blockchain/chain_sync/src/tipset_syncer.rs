@@ -61,8 +61,6 @@ pub enum TipsetProcessorError<C: Consensus> {
 
 #[derive(Debug, Error)]
 pub enum TipsetRangeSyncerError<C: Consensus> {
-    // #[error("Tipset added to range syncer does share the same epoch and parents")]
-    // InvalidTipsetAdded,
     #[error("Tipset range length is less than 0")]
     InvalidTipsetRangeLength,
     #[error("Provided tiset does not match epoch for the range")]
@@ -103,8 +101,6 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
     MessageSignatureInvalid(String),
     #[error("Block message root does not match: expected {0}, computed {1}")]
     BlockMessageRootInvalid(String, String),
-    #[error("Message validation for msg {0} failed: {1}")]
-    BlockMessageValidationFailed(usize, String),
     #[error("Computing message root failed: {0}")]
     ComputingMessageRoot(String),
     #[error("Resolving address from message failed: {0}")]
@@ -118,7 +114,7 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
 }
 
 impl<C: Consensus> TipsetRangeSyncerError<C> {
-    /// Concatanate all validation error messages into one comma separated version.
+    /// Concatenate all validation error messages into one comma separated version.
     fn concat(errs: NonEmpty<TipsetRangeSyncerError<C>>) -> Self {
         let msg = errs
             .iter()

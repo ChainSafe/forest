@@ -30,8 +30,6 @@ pub enum FilecoinConsensusError {
     TipsetWithoutTicket,
     #[error("Block is not claiming to be a winner")]
     NotClaimingWin,
-    #[error("Winner election proof verification failed: {0}")]
-    WinnerElectionProofVerificationFailed(String),
     #[error("Block miner was slashed or is invalid")]
     InvalidOrSlashedMiner,
     #[error("Miner power not available for miner address")]
