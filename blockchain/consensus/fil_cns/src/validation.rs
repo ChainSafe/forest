@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use async_std::task::{self};
+use async_std::task;
 use futures::stream::FuturesUnordered;
 
 use actor::power;

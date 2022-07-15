@@ -1818,6 +1818,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "deleg_cns"
+version = "0.1.0"
+dependencies = [
+ "actor_interface",
+ "async-std",
+ "async-trait",
+ "chain",
+ "chain_sync",
+ "fil_types",
+ "forest_address",
+ "forest_blocks",
+ "forest_cid",
+ "forest_encoding",
+ "futures",
+ "ipld_blockstore",
+ "log",
+ "networks",
+ "nonempty",
+ "state_manager",
+ "thiserror",
+]
+
+[[package]]
 name = "derive-getters"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
