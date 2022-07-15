@@ -3,11 +3,12 @@
 
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_crypto::{Signature, Signer};
+use forest_crypto::Signer;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
 

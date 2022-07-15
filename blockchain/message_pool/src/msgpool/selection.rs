@@ -687,10 +687,9 @@ mod test_selection {
     use async_std::task;
     use db::MemoryDB;
     use fil_types::NetworkParams;
-    use forest_crypto::SignatureType;
     use forest_message::Message;
+    use fvm_shared::crypto::signature::SignatureType;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
-    use networks::ChainConfig;
     use std::sync::Arc;
 
     const TEST_GAS_LIMIT: i64 = 6955002;
@@ -704,7 +703,7 @@ mod test_selection {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
         })

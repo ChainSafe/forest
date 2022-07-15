@@ -7,9 +7,10 @@
 use bls_signatures::{PrivateKey, Serialize};
 use encoding::Cbor;
 use forest_cid::Cid;
-use forest_crypto::{signature, Signature};
+use forest_crypto::signature;
 use forest_message::message;
 use forest_message::SignedMessage;
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
 use serde::Deserialize;
 use std::fs::File;

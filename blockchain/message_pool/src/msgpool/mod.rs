@@ -18,9 +18,9 @@ use encoding::Cbor;
 use forest_address::Address;
 use forest_blocks::Tipset;
 use forest_cid::Cid;
-use forest_crypto::Signature;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
+use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use networks::ChainConfig;
@@ -63,7 +63,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &RwLock<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
-    chain_config: &ChainConfig,
+    chain_config: &Arc<ChainConfig>,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -305,9 +305,9 @@ pub mod tests {
     use async_std::task;
     use forest_address::Address;
     use forest_blocks::Tipset;
-    use forest_crypto::SignatureType;
     use forest_message::SignedMessage;
     use fvm_shared::bigint::BigInt;
+    use fvm_shared::crypto::signature::SignatureType;
     use fvm_shared::message::Message;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use networks::ChainConfig;
@@ -354,7 +354,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
             .unwrap();
@@ -424,7 +424,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
             .unwrap();
@@ -524,7 +524,7 @@ pub mod tests {
                 "mptest".to_string(),
                 tx,
                 Default::default(),
-                ChainConfig::default(),
+                Arc::default(),
             )
             .await
             .unwrap();

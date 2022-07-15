@@ -139,11 +139,7 @@ impl Provider for TestApi {
         }
     }
 
-    async fn state_account_key<V>(
-        &self,
-        addr: &Address,
-        _ts: &Arc<Tipset>,
-    ) -> Result<Address, Error> {
+    async fn state_account_key(&self, addr: &Address, _ts: &Arc<Tipset>) -> Result<Address, Error> {
         match addr.protocol() {
             Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
             _ => Err(Error::Other("given address was not a key addr".to_string())),
