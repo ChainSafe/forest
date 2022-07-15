@@ -55,9 +55,11 @@ serde_ipld_dagcbor = "0.1.0"
 fvm_shared = { version = "0.8.0", default-features = false, features = [
     "testing",
 ] }
+fvm_ipld_encoding = "0.2"
+cid = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-forest_crypto = { version = "0.5.2", features = ["blst"] }
+forest_crypto  = { version = "0.5.2", features = ["blst"] }
 forest_address = "0.3"
 genesis        = { path = "../../utils/genesis", features = ["testing"] }
 async-std      = { version = "1.9", features = ["attributes"] }

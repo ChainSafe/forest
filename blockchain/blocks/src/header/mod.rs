@@ -3,13 +3,16 @@
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use forest_address::Address;
-use forest_cid::{Cid, Code::Blake2b256};
 use forest_vm::TokenAmount;
+use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -286,7 +289,7 @@ impl BlockHeader {
     /// Getter for BlockHeader cid
     pub fn cid(&self) -> &Cid {
         self.cached_cid
-            .get_or_init(|| forest_cid::new_from_cbor(self.cached_bytes(), Blake2b256))
+            .get_or_init(|| Cid::new_v1(DAG_CBOR, Blake2b256.digest(self.cached_bytes())))
     }
     /// Getter for BlockHeader parent_base_fee
     pub fn parent_base_fee(&self) -> &BigInt {

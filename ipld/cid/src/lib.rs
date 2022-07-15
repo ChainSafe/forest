@@ -22,4 +22,6 @@ pub fn new_from_cbor(bz: &[u8], code: Code) -> Cid {
     Cid::new_v1(DAG_CBOR, hash)
 }
 
+// Cid::new_v1(DAG_CBOR, code.digest(bz))
+
 pub use cid::Cid;

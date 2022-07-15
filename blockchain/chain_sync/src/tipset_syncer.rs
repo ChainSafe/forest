@@ -1838,10 +1838,10 @@ async fn validate_tipset_against_cache(
 #[cfg(test)]
 mod test {
     use forest_address::Address;
-    use forest_bigint::BigInt;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_cid::Cid;
     use forest_crypto::VRFProof;
+    use num_bigint::BigInt;
 
     use super::*;
     use std::convert::TryFrom;

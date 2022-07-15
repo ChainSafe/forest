@@ -942,8 +942,11 @@ pub mod headchange_json {
 mod tests {
     use super::*;
     use async_std::sync::Arc;
+    use cid::multihash::Code::{Blake2b256, Identity};
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
     use forest_address::Address;
-    use forest_cid::Code::{Blake2b256, Identity};
+    use fvm_ipld_encoding::DAG_CBOR;
 
     #[test]
     fn genesis_test() {
@@ -953,9 +956,9 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
-            .messages(forest_cid::new_from_cbor(&[], Identity))
-            .message_receipts(forest_cid::new_from_cbor(&[], Identity))
-            .state_root(forest_cid::new_from_cbor(&[], Identity))
+            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
@@ -971,7 +974,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = forest_cid::new_from_cbor(&[1, 2, 3], Blake2b256);
+        let cid = Cid::new_v1(DAG_CBOR, Black2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();

@@ -17,6 +17,8 @@ encoding            = { package = "forest_encoding", version = "0.2" }
 forest_ipld         = { optional = true, version = "0.1" }
 byteorder           = "1.3"
 dashmap             = "5.0"
+fvm_ipld_encoding   = "0.2"
+cid                 = { version = "0.8", default-features = false, features = ["std"] }
 
 [features]
 rocksdb = ["db/rocksdb"]
