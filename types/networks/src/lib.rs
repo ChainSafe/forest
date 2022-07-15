@@ -151,6 +151,7 @@ pub struct ChainConfig {
     pub policy: Policy,
 }
 
+// FIXME: remove this trait once builtin-actors Policy have it
 impl PartialEq for ChainConfig {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
