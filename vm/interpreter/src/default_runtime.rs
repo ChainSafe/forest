@@ -8,7 +8,7 @@ use ipld_blockstore::BlockStore;
 
 /// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
 /// identified by `addr`.
-pub fn fvm_resolve_to_key_addr<BS, S>(
+pub fn resolve_to_key_addr<BS, S>(
     st: &FvmStateTree<S>,
     store: &BS,
     addr: &Address,

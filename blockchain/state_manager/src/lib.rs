@@ -30,7 +30,7 @@ use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::{
-    fvm_resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
 use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use legacy_ipld_amt::Amt;
@@ -270,7 +270,7 @@ where
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
-        let addr = fvm_resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
+        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
         Ok(addr)
     }
 
@@ -846,7 +846,7 @@ where
         let (st, _) = self.tipset_state::<V>(&lbts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        let worker_key = fvm_resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
+        let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
 
         let eligible = self.eligible_to_mine(&address, tipset.as_ref(), &lbts)?;
 
@@ -1238,7 +1238,7 @@ where
         state_cid: Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
         let state = StateTree::new_from_root(db, &state_cid)?;
-        let kaddr = fvm_resolve_to_key_addr(&state, db, addr)
+        let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {
@@ -1330,7 +1330,7 @@ where
         let (st, _) = self.tipset_state::<V>(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        fvm_resolve_to_key_addr(&state, self.blockstore(), addr)
+        resolve_to_key_addr(&state, self.blockstore(), addr)
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
