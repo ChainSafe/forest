@@ -25,12 +25,12 @@ use forest_vm::{ActorState, TokenAmount};
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
-use fvm::state_tree::StateTree as FvmStateTree;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
+    fvm_resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
 };
 use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use legacy_ipld_amt::Amt;
@@ -39,7 +39,6 @@ use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use state_tree::StateTree;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -157,8 +156,7 @@ where
 
     /// Gets actor from given [Cid], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state =
-            FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
@@ -262,9 +260,6 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        // let state =
-        //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
-        // Ok(state.get_actor(addr)?)
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
 
         let act = state
@@ -275,7 +270,7 @@ where
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
-        let addr = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
+        let addr = fvm_resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
         Ok(addr)
     }
 
@@ -851,7 +846,7 @@ where
         let (st, _) = self.tipset_state::<V>(&lbts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
+        let worker_key = fvm_resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
 
         let eligible = self.eligible_to_mine(&address, tipset.as_ref(), &lbts)?;
 
@@ -1008,7 +1003,7 @@ where
         if current.epoch() == 0 {
             return Ok(None);
         }
-        let state = FvmStateTree::new_from_root(self.blockstore(), current.parent_state())
+        let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
             .map_err(|e| Err(Error::State(e.to_string())))?;
 
         if let Some(actor_state) = state
@@ -1243,7 +1238,7 @@ where
         state_cid: Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
         let state = StateTree::new_from_root(db, &state_cid)?;
-        let kaddr = resolve_to_key_addr(&state, db, addr)
+        let kaddr = fvm_resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
 
         match kaddr.into_payload() {
@@ -1274,7 +1269,7 @@ where
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
-        let state_tree = FvmStateTree::new_from_root(self.blockstore(), ts.parent_state())
+        let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         Ok(state_tree.lookup_id(addr)?.map(Address::new_id))
     }
@@ -1335,7 +1330,7 @@ where
         let (st, _) = self.tipset_state::<V>(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        interpreter::resolve_to_key_addr(&state, self.blockstore(), addr)
+        fvm_resolve_to_key_addr(&state, self.blockstore(), addr)
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
@@ -1409,7 +1404,7 @@ where
     pub fn get_circulating_supply(
         self: &Arc<Self>,
         height: ChainEpoch,
-        state_tree: &FvmStateTree<&DB>,
+        state_tree: &StateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }

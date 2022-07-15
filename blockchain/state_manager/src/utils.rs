@@ -14,11 +14,11 @@ use fil_types::{
 use forest_address::Address;
 use forest_blocks::Tipset;
 use forest_cid::Cid;
+use fvm::state_tree::StateTree;
 use fvm_ipld_bitfield::BitField;
-use interpreter::resolve_to_key_addr;
+use interpreter::fvm_resolve_to_key_addr;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
-use state_tree::StateTree;
 
 impl<DB> StateManager<DB>
 where
@@ -274,7 +274,11 @@ where
             .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
         let info = mas.info(self.blockstore())?;
-        Ok(resolve_to_key_addr(&st, self.blockstore(), &info.worker())?)
+        Ok(fvm_resolve_to_key_addr(
+            &st,
+            self.blockstore(),
+            &info.worker(),
+        )?)
     }
 }
 

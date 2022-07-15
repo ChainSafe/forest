@@ -10,11 +10,11 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
 
-use crate::resolve_to_key_addr;
+use crate::fvm_resolve_to_key_addr;
 use forest_address::Address;
 use forest_blocks::BlockHeader;
 use forest_encoding::Cbor;
-use state_tree::StateTree;
+use fvm::state_tree::StateTree;
 
 use anyhow::bail;
 use std::cell::RefCell;
@@ -92,7 +92,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let addr =
-            resolve_to_key_addr(&state, &gbs, &worker).map_err(|e| anyhow::anyhow!("{}", e))?;
+            fvm_resolve_to_key_addr(&state, &gbs, &worker).map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let gas_used = tracker.borrow().gas_used();
         Ok((addr, gas_used.round_up()))
