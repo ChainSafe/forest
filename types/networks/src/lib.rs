@@ -152,6 +152,7 @@ pub struct ChainConfig {
 }
 
 // FIXME: remove this trait once builtin-actors Policy have it
+// https://github.com/filecoin-project/builtin-actors/pull/497
 impl PartialEq for ChainConfig {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
