@@ -23,7 +23,7 @@ use ipld_blockstore::BlockStore;
 /// blocks at least partially have to be trusted to the `Consensus` component.
 ///
 /// Common rules for message ordering will be followed, and can be validated
-/// outside by the host system during chain syncrhonization.
+/// outside by the host system during chain synchronization.
 #[async_trait]
 pub trait Consensus: Debug + Send + Sync + Unpin + 'static {
     type Error: Debug + Display + Send + Sync;
