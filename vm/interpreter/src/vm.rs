@@ -319,17 +319,37 @@ where
         use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = match self.fvm_executor.execute_message(
+        let ret = self.fvm_executor.execute_message(
             unsigned,
             fvm::executor::ApplyKind::Explicit,
             raw_length,
-        ) {
-            Ok(ret) => Ok(ret),
-            Err(e) => {
-                log::warn!("Message execution failed with {}", e.to_string());
-                Err(e)
-            }
-        }?;
+        )?;
+
+        let exit_code = ret.msg_receipt.exit_code;
+
+        if !exit_code.is_success() {
+            match exit_code.value() {
+                1..=11 => {
+                    log::debug!(
+                        "Internal message execution failure. Exit code was {}",
+                        exit_code.value()
+                    )
+                }
+                16..=24 => {
+                    log::warn!(
+                        "Message execution failed with exit code {}",
+                        exit_code.value()
+                    )
+                }
+                _ => {
+                    log::warn!(
+                        "A message failed with an unknown exit code. Exit code was {}",
+                        exit_code.value()
+                    )
+                }
+            };
+        }
+
         Ok(ret)
     }
 }
