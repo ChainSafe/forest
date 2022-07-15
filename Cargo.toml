@@ -12,7 +12,6 @@ members = [
     "vm/actor_interface",
     "vm/address",
     "vm/message",
-    "vm/state_tree",
     "vm/interpreter",
     "vm/state_migration",
     "node/db",

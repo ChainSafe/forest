@@ -7,9 +7,9 @@
 use forest_address::Address;
 use forest_cid::Cid;
 use forest_vm::{ActorState, TokenAmount};
+use fvm::state_tree::StateTree;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
-use state_tree::StateTree;
 
 use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;

@@ -457,7 +457,7 @@ pub(crate) async fn state_account_key<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
-    let address = interpreter::fvm_resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
+    let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
 /// retrieves the ID address of the given address

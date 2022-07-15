@@ -14,12 +14,12 @@ use forest_cid::Cid;
 use forest_cid::Code::Blake2b256;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_vm::ActorState;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use networks::Height;
 use state_manager::StateManager;
-use state_tree::StateTree;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do

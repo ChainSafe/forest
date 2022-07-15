@@ -25,7 +25,7 @@ use forest_vm::{ActorState, TokenAmount};
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
-use fvm::state_tree::StateTree as FvmStateTree;
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -39,7 +39,6 @@ use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use state_tree::StateTree;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -157,11 +156,8 @@ where
 
     /// Gets actor from given [Cid], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state =
-            FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
-        // let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
-        // Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [Arc] of the state manager's [BlockStore].
@@ -264,9 +260,6 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        // let state =
-        //     FvmStateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
-        // Ok(state.get_actor(addr)?)
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
 
         let act = state
@@ -1278,7 +1271,7 @@ where
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        Ok(state_tree.lookup_id(addr)?)
+        Ok(state_tree.lookup_id(addr)?.map(Address::new_id))
     }
 
     /// Retrieves market balance in escrow and locked tables.
@@ -1337,7 +1330,7 @@ where
         let (st, _) = self.tipset_state::<V>(ts).await?;
         let state = StateTree::new_from_root(self.blockstore(), &st)?;
 
-        interpreter::resolve_to_key_addr(&state, self.blockstore(), addr)
+        resolve_to_key_addr(&state, self.blockstore(), addr)
     }
 
     /// Checks power actor state for if miner meets consensus minimum requirements.
@@ -1411,7 +1404,7 @@ where
     pub fn get_circulating_supply(
         self: &Arc<Self>,
         height: ChainEpoch,
-        state_tree: &FvmStateTree<&DB>,
+        state_tree: &StateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }

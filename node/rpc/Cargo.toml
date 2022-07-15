@@ -49,7 +49,6 @@ networks = { path = "../../types/networks" }
 forest_bigint = "0.1"
 rpc-api = { path = "../rpc-api", version = "0.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
-state_tree = { path = "../../vm/state_tree" }
 key_management = { path = "../../key_management", features = ["json"] }
 fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield = "0.5.2"

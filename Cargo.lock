@@ -1121,6 +1121,7 @@ dependencies = [
  "forest_ipld",
  "forest_message",
  "futures",
+ "fvm",
  "fvm_ipld_car",
  "fvm_shared",
  "interpreter",
@@ -1135,7 +1136,6 @@ dependencies = [
  "num-traits",
  "pbr",
  "serde",
- "state_tree",
  "test_utils",
  "thiserror",
  "tokio",
@@ -1190,7 +1190,6 @@ dependencies = [
  "serde",
  "smallvec",
  "state_manager",
- "state_tree",
  "statediff",
  "test_utils",
  "thiserror",
@@ -3779,7 +3778,6 @@ dependencies = [
  "rayon",
  "serde_ipld_dagcbor 0.1.2",
  "state_migration",
- "state_tree",
  "statediff",
 ]
 
@@ -5006,7 +5004,6 @@ dependencies = [
  "serde",
  "slotmap",
  "state_manager",
- "state_tree",
  "statrs",
  "thiserror",
  "tokio",
@@ -6486,7 +6483,6 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
- "state_tree",
  "test_utils",
  "tide",
  "tide-websockets",
@@ -7255,7 +7251,6 @@ dependencies = [
  "num-traits",
  "once_cell",
  "serde",
- "state_tree",
  "statediff",
  "thiserror",
  "tokio",
@@ -7277,6 +7272,7 @@ dependencies = [
  "forest_json_utils",
  "forest_vm",
  "futures",
+ "fvm",
  "fvm_ipld_bitfield",
  "fvm_shared",
  "ipld_blockstore",
@@ -7285,27 +7281,7 @@ dependencies = [
  "num_cpus",
  "rayon",
  "serde",
- "state_tree",
  "thiserror",
-]
-
-[[package]]
-name = "state_tree"
-version = "0.1.0"
-dependencies = [
- "actor_interface",
- "anyhow",
- "async-std",
- "fil_types",
- "forest_address",
- "forest_bigint",
- "forest_cid",
- "forest_db",
- "forest_ipld",
- "forest_vm",
- "futures",
- "fvm_ipld_car",
- "ipld_blockstore",
 ]
 
 [[package]]
@@ -7330,7 +7306,6 @@ dependencies = [
  "ipld_blockstore",
  "serde",
  "serde_json",
- "state_tree",
  "structopt",
 ]
 

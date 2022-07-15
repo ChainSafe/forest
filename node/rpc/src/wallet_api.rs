@@ -13,11 +13,11 @@ use forest_crypto::signature::json::SignatureJson;
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
 };
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigUint;
 use ipld_blockstore::BlockStore;
 use key_management::{json::KeyInfoJson, Error, Key};
 use rpc_api::{data_types::RPCState, wallet_api::*};
-use state_tree::StateTree;
 
 /// Return the balance from StateManager for a given Address
 pub(crate) async fn wallet_balance<DB, B>(
