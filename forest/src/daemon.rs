@@ -5,6 +5,7 @@ use super::cli::{block_until_sigint, Config};
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
+use fil_consensus::FilecoinConsensus;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -137,7 +138,7 @@ pub(super) async fn start(config: Config) {
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.chain.clone()))
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))
         .await
         .unwrap();
     let state_manager = Arc::new(sm);
@@ -194,18 +195,22 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
-            (*state_manager.chain_config).clone(),
+            Arc::clone(state_manager.chain_config()),
         )
         .await
         .unwrap(),
     );
 
+    // Initialize Consensus
+    let consensus: FilecoinConsensus<_, FullVerifier> =
+        FilecoinConsensus::new(state_manager.beacon_schedule());
+
     // Initialize ChainMuxer
     let (tipset_sink, tipset_stream) = bounded(20);
     let chain_muxer_tipset_sink = tipset_sink.clone();
-    let chain_muxer = ChainMuxer::<_, _, FullVerifier, _>::new(
+    let chain_muxer = ChainMuxer::new(
+        Arc::new(consensus),
         Arc::clone(&state_manager),
-        state_manager.beacon_schedule(),
         Arc::clone(&mpool),
         network_send.clone(),
         network_rx,

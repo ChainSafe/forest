@@ -551,6 +551,7 @@ name = "auth"
 version = "0.1.0"
 dependencies = [
  "forest_crypto",
+ "fvm_shared",
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
@@ -1120,6 +1121,7 @@ dependencies = [
  "forest_ipld",
  "forest_message",
  "futures",
+ "fvm",
  "fvm_ipld_car",
  "fvm_shared",
  "interpreter",
@@ -1134,7 +1136,6 @@ dependencies = [
  "num-traits",
  "pbr",
  "serde",
- "state_tree",
  "test_utils",
  "thiserror",
  "tokio",
@@ -1181,6 +1182,7 @@ dependencies = [
  "lru 0.7.7",
  "message_pool",
  "networks",
+ "nonempty",
  "num-traits",
  "pbr",
  "pretty_env_logger",
@@ -1189,7 +1191,6 @@ dependencies = [
  "serde",
  "smallvec",
  "state_manager",
- "state_tree",
  "statediff",
  "test_utils",
  "thiserror",
@@ -2425,6 +2426,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_consensus"
+version = "0.1.0"
+dependencies = [
+ "actor_interface",
+ "async-std",
+ "async-trait",
+ "beacon",
+ "chain",
+ "chain_sync",
+ "fil_types",
+ "forest_address",
+ "forest_blocks",
+ "forest_cid",
+ "forest_crypto",
+ "forest_encoding",
+ "futures",
+ "ipld_blockstore",
+ "log",
+ "networks",
+ "nonempty",
+ "state_manager",
+ "thiserror",
+]
+
+[[package]]
 name = "fil_logger"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2624,6 +2650,7 @@ dependencies = [
  "chain_sync",
  "ctrlc",
  "directories",
+ "fil_consensus",
  "fil_types",
  "forest_address",
  "forest_bigint",
@@ -3778,7 +3805,6 @@ dependencies = [
  "rayon",
  "serde_ipld_dagcbor 0.1.2",
  "state_migration",
- "state_tree",
  "statediff",
 ]
 
@@ -3994,6 +4020,7 @@ dependencies = [
  "forest_address",
  "forest_crypto",
  "forest_encoding",
+ "fvm_shared",
  "libsecp256k1 0.7.0",
  "log",
  "rand 0.8.5",
@@ -5004,7 +5031,6 @@ dependencies = [
  "serde",
  "slotmap",
  "state_manager",
- "state_tree",
  "statrs",
  "thiserror",
  "tokio",
@@ -5252,7 +5278,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "beacon",
+ "fil_actors_runtime",
  "fil_types",
+ "forest_bigint",
  "fvm_shared",
  "lazy_static",
  "serde",
@@ -5297,6 +5325,12 @@ dependencies = [
  "memchr",
  "minimal-lexical",
 ]
+
+[[package]]
+name = "nonempty"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09f1f8e5676e1a1f2ee8b21f38238e1243c827531c9435624c7bfb305102cee4"
 
 [[package]]
 name = "num-bigint"
@@ -6462,6 +6496,7 @@ dependencies = [
  "forest_libp2p",
  "forest_message",
  "futures",
+ "fvm",
  "fvm_ipld_bitfield",
  "fvm_shared",
  "hex",
@@ -6481,7 +6516,6 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
- "state_tree",
  "test_utils",
  "tide",
  "tide-websockets",
@@ -7250,7 +7284,6 @@ dependencies = [
  "num-traits",
  "once_cell",
  "serde",
- "state_tree",
  "statediff",
  "thiserror",
  "tokio",
@@ -7272,6 +7305,7 @@ dependencies = [
  "forest_json_utils",
  "forest_vm",
  "futures",
+ "fvm",
  "fvm_ipld_bitfield",
  "fvm_shared",
  "ipld_blockstore",
@@ -7280,27 +7314,7 @@ dependencies = [
  "num_cpus",
  "rayon",
  "serde",
- "state_tree",
  "thiserror",
-]
-
-[[package]]
-name = "state_tree"
-version = "0.1.0"
-dependencies = [
- "actor_interface",
- "anyhow",
- "async-std",
- "fil_types",
- "forest_address",
- "forest_bigint",
- "forest_cid",
- "forest_db",
- "forest_ipld",
- "forest_vm",
- "futures",
- "fvm_ipld_car",
- "ipld_blockstore",
 ]
 
 [[package]]
@@ -7325,7 +7339,6 @@ dependencies = [
  "ipld_blockstore",
  "serde",
  "serde_json",
- "state_tree",
  "structopt",
 ]
 
@@ -7961,10 +7974,11 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.19.2"
+version = "1.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c51a52ed6686dd62c320f9b89299e9dfb46f730c7a48e635c19f21d116cb1439"
+checksum = "57aec3cfa4c296db7255446efb4928a6be304b431a806216105542a67b6ca82e"
 dependencies = [
+ "autocfg",
  "num_cpus",
  "once_cell",
  "pin-project-lite 0.2.9",

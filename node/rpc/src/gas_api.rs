@@ -7,7 +7,7 @@ use rand_distr::{Distribution, Normal};
 
 use beacon::Beacon;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use fil_types::{verifier::ProofVerifier, BLOCK_GAS_LIMIT};
+use fil_types::BLOCK_GAS_LIMIT;
 use forest_address::json::AddressJson;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_message::{message::json::MessageJson, ChainMessage};
@@ -175,20 +175,19 @@ where
 }
 
 /// Estimate the gas limit
-pub(crate) async fn gas_estimate_gas_limit<DB, B, V>(
+pub(crate) async fn gas_estimate_gas_limit<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateGasLimitParams>,
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 {
     let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
-    estimate_gas_limit::<DB, B, V>(&data, msg, tsk).await
+    estimate_gas_limit::<DB, B>(&data, msg, tsk).await
 }
 
-async fn estimate_gas_limit<DB, B, V>(
+async fn estimate_gas_limit<DB, B>(
     data: &Data<RPCState<DB, B>>,
     msg: Message,
     _: TipsetKeys,
@@ -196,7 +195,6 @@ async fn estimate_gas_limit<DB, B, V>(
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 {
     let mut msg = msg;
     msg.gas_limit = BLOCK_GAS_LIMIT;
@@ -211,7 +209,7 @@ where
         .ok_or("cant find the current heaviest tipset")?;
     let from_a = data
         .state_manager
-        .resolve_to_key_addr::<V>(&msg.from, &curr_ts)
+        .resolve_to_key_addr(&msg.from, &curr_ts)
         .await?;
 
     let pending = data.mpool.pending_for(&from_a).await;
@@ -221,7 +219,7 @@ where
 
     let res = data
         .state_manager
-        .call_with_gas::<V>(
+        .call_with_gas(
             &mut ChainMessage::Unsigned(msg),
             &prior_messages,
             Some(data.mpool.cur_tipset.as_ref().read().await.clone()),
@@ -241,22 +239,21 @@ where
 }
 
 /// Estimates the gas paramaters for a given message
-pub(crate) async fn gas_estimate_message_gas<DB, B, V>(
+pub(crate) async fn gas_estimate_message_gas<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateMessageGasParams>,
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 {
     let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
-    estimate_message_gas::<DB, B, V>(&data, msg, spec, tsk)
+    estimate_message_gas::<DB, B>(&data, msg, spec, tsk)
         .await
         .map(MessageJson::from)
 }
 
-pub(crate) async fn estimate_message_gas<DB, B, V>(
+pub(crate) async fn estimate_message_gas<DB, B>(
     data: &Data<RPCState<DB, B>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
@@ -265,11 +262,10 @@ pub(crate) async fn estimate_message_gas<DB, B, V>(
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {
-        let gl = estimate_gas_limit::<DB, B, V>(data, msg.clone(), tsk.clone()).await?;
+        let gl = estimate_gas_limit::<DB, B>(data, msg.clone(), tsk.clone()).await?;
         msg.gas_limit = gl;
     }
     if msg.gas_premium.is_zero() {

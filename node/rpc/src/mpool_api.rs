@@ -4,7 +4,6 @@
 use super::gas_api::estimate_message_gas;
 use beacon::Beacon;
 use encoding::Cbor;
-use fil_types::verifier::{FullVerifier, ProofVerifier};
 use forest_address::{Address, Protocol};
 use forest_blocks::TipsetKeys;
 use forest_cid::json::{vec::CidJsonVec, CidJson};
@@ -132,14 +131,13 @@ where
 }
 
 /// Sign given UnsignedMessage and add it to mpool, return SignedMessage
-pub(crate) async fn mpool_push_message<DB, B, V>(
+pub(crate) async fn mpool_push_message<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
 {
     let (MessageJson(umsg), spec) = params;
 
@@ -154,7 +152,7 @@ where
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = data
         .state_manager
-        .resolve_to_key_addr::<FullVerifier>(&from, &heaviest_tipset)
+        .resolve_to_key_addr(&from, &heaviest_tipset)
         .await?;
 
     if umsg.sequence != 0 {
@@ -162,7 +160,7 @@ where
             "Expected nonce for MpoolPushMessage is 0, and will be calculated for you.".into(),
         );
     }
-    let mut umsg = estimate_message_gas::<DB, B, V>(&data, umsg, spec, Default::default()).await?;
+    let mut umsg = estimate_message_gas::<DB, B>(&data, umsg, spec, Default::default()).await?;
     if umsg.gas_premium > umsg.gas_fee_cap {
         return Err("After estimation, gas premium is greater than gas fee cap".into());
     }

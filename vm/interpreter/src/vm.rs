@@ -5,10 +5,7 @@ use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor::{cron, reward, system, AwardBlockRewardParams};
 use fil_types::BLOCK_GAS_LIMIT;
-use fil_types::{
-    verifier::{FullVerifier, ProofVerifier},
-    DefaultNetworkParams, NetworkParams,
-};
+use fil_types::{DefaultNetworkParams, NetworkParams};
 use forest_address::Address;
 use forest_cid::Cid;
 use forest_encoding::Cbor;
@@ -17,6 +14,7 @@ use forest_vm::{ExitCode, Serialized, TokenAmount};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -24,7 +22,6 @@ use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use networks::{ChainConfig, Height};
-use state_tree::StateTree;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -49,17 +46,11 @@ pub trait CircSupplyCalc: Clone + 'static {
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error>;
-    fn get_fil_vested<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        store: &DB,
-    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter<'db, DB> {
-    /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, anyhow::Error>;
+pub trait LookbackStateGetter {
+    /// Returns the root cid for a given ChainEpoch
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
@@ -86,21 +77,19 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<DB: BlockStore + 'static, V = FullVerifier, P = DefaultNetworkParams> {
+pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
-    verifier: PhantomData<V>,
     params: PhantomData<P>,
     heights: Heights,
 }
 
-impl<DB, V, P> VM<DB, V, P>
+impl<DB, P> VM<DB, P>
 where
     DB: BlockStore,
-    V: ProofVerifier,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<'db, R, C, LB>(
+    pub fn new<R, C, LB>(
         root: Cid,
         store: &DB,
         store_arc: Arc<DB>,
@@ -113,11 +102,12 @@ where
         lb_state: &LB,
         engine: Engine,
         heights: Heights,
+        chain_finality: i64,
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
         C: CircSupplyCalc,
-        LB: LookbackStateGetter<'db, DB>,
+        LB: LookbackStateGetter,
     {
         let state = StateTree::new_from_root(store, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
@@ -138,9 +128,9 @@ where
                     lb_state.chain_epoch_root(),
                     store_arc,
                     network_version,
+                    chain_finality,
                 ),
-            )
-            .unwrap();
+            )?;
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine {
                 machine: fvm,
@@ -148,7 +138,6 @@ where
             });
         Ok(VM {
             fvm_executor: exec,
-            verifier: PhantomData,
             params: PhantomData,
             heights,
         })
@@ -163,11 +152,8 @@ where
     pub fn get_actor(
         &self,
         addr: &Address,
-    ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
-        match self.fvm_executor.state_tree().get_actor(addr) {
-            Ok(opt_state) => Ok(opt_state.map(fvm::state_tree::ActorState::from)),
-            Err(err) => anyhow::bail!("failed to get actor: {}", err),
-        }
+    ) -> Result<Option<forest_vm::ActorState>, anyhow::Error> {
+        Ok(self.fvm_executor.state_tree().get_actor(addr)?)
     }
 
     pub fn run_cron(

@@ -1,11 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod errors;
-mod network;
-pub use self::errors::Error;
-pub use self::network::Network;
-
 // use data_encoding::Encoding;
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};

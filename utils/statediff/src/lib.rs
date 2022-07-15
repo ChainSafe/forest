@@ -12,10 +12,10 @@ use forest_cid::{json::CidJson, Cid};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_ipld::Ipld;
 use forest_vm::ActorState;
+use fvm::state_tree::StateTree;
 use ipld_blockstore::resolve::resolve_cids_recursive;
 use ipld_blockstore::BlockStore;
 use serde::{Deserialize, Serialize};
-use state_tree::StateTree;
 
 use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;

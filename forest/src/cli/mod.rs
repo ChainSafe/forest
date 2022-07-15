@@ -175,7 +175,7 @@ impl CliOpts {
 
         if self.chain == "calibnet" {
             // override the chain configuration
-            cfg.chain = ChainConfig::calibnet();
+            cfg.chain = Arc::new(ChainConfig::calibnet());
         }
 
         if let Some(genesis_file) = &self.genesis {
