@@ -24,7 +24,7 @@ pretty_env_logger = "0.4"
 ctrlc             = "3.1"
 chain_sync        = { path = "../blockchain/chain_sync" }
 state_manager     = { path = "../blockchain/state_manager" }
-fil_consensus     = { path = "../blockchain/fil_consensus" }
+fil_cns           = { path = "../blockchain/consensus/fil_cns" }
 forest_cid        = { version = "0.3", features = ["json"] }
 multibase         = "0.9"
 fvm_ipld_car      = "0.4.1"
@@ -79,6 +79,6 @@ tempfile   = "3"
 [features]
 default       = ["rocksdb"]
 rocksdb       = ["db/rocksdb", "ipld_blockstore/rocksdb"]
-insecure_post = ["fil_consensus/insecure_post"]
+insecure_post = ["fil_cns/insecure_post"]
 testnet       = []
 release       = []

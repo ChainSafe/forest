@@ -5,7 +5,7 @@ use super::cli::{block_until_sigint, Config};
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
-use fil_consensus::FilecoinConsensus;
+use fil_cns::FilecoinConsensus;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
