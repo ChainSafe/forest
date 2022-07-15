@@ -17,6 +17,7 @@ use forest_vm::{ExitCode, Serialized, TokenAmount};
 use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
+use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -24,7 +25,6 @@ use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
 use networks::{ChainConfig, Height};
-use state_tree::StateTree;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -49,17 +49,11 @@ pub trait CircSupplyCalc: Clone + 'static {
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error>;
-    fn get_fil_vested<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        store: &DB,
-    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter<'db, DB> {
-    /// Returns a state tree from the given epoch.
-    fn state_lookback(&self, epoch: ChainEpoch) -> Result<StateTree<'db, DB>, anyhow::Error>;
+pub trait LookbackStateGetter {
+    /// Returns the root cid for a given ChainEpoch
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
@@ -100,7 +94,7 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<'db, R, C, LB>(
+    pub fn new<R, C, LB>(
         root: Cid,
         store: &DB,
         store_arc: Arc<DB>,
@@ -118,7 +112,7 @@ where
     where
         R: Rand + Clone + 'static,
         C: CircSupplyCalc,
-        LB: LookbackStateGetter<'db, DB>,
+        LB: LookbackStateGetter,
     {
         let state = StateTree::new_from_root(store, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
@@ -141,8 +135,7 @@ where
                     network_version,
                     chain_finality,
                 ),
-            )
-            .unwrap();
+            )?;
         let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
             fvm::executor::DefaultExecutor::new(ForestMachine {
                 machine: fvm,
@@ -165,11 +158,8 @@ where
     pub fn get_actor(
         &self,
         addr: &Address,
-    ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
-        match self.fvm_executor.state_tree().get_actor(addr) {
-            Ok(opt_state) => Ok(opt_state.map(fvm::state_tree::ActorState::from)),
-            Err(err) => anyhow::bail!("failed to get actor: {}", err),
-        }
+    ) -> Result<Option<forest_vm::ActorState>, anyhow::Error> {
+        Ok(self.fvm_executor.state_tree().get_actor(addr)?)
     }
 
     pub fn run_cron(

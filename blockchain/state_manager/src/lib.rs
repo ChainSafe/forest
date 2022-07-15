@@ -339,9 +339,8 @@ where
     {
         let db = self.blockstore_cloned();
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            store: self.blockstore(),
-            tipset,
+            sm: Arc::clone(self),
+            tipset: Arc::clone(tipset),
             verifier: PhantomData::<V>::default(),
         };
 
@@ -353,7 +352,7 @@ where
             VM::<_, V>::new(
                 state_root,
                 db.as_ref(),
-                db.clone(),
+                Arc::clone(&db),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
@@ -489,9 +488,8 @@ where
             let bheight = tipset.epoch();
 
             let lb_wrapper = SMLookbackWrapper {
-                sm: self,
-                store: self.blockstore(),
-                tipset,
+                sm: Arc::clone(self),
+                tipset: Arc::clone(tipset),
                 verifier: PhantomData::<V>::default(),
             };
 
@@ -502,7 +500,7 @@ where
             let mut vm = VM::<_, V>::new(
                 *bstate,
                 store_arc.as_ref(),
-                store_arc.clone(),
+                Arc::clone(&store_arc),
                 bheight,
                 rand,
                 0.into(),
@@ -593,9 +591,8 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let lb_wrapper = SMLookbackWrapper {
-            sm: self,
-            store: self.blockstore(),
-            tipset: &ts,
+            sm: Arc::clone(self),
+            tipset: Arc::clone(&ts),
             verifier: PhantomData::<V>::default(),
         };
         let store_arc = self.blockstore_cloned();
@@ -605,7 +602,7 @@ where
         let mut vm = VM::<_, V>::new(
             st,
             store_arc.as_ref(),
-            store_arc.clone(),
+            Arc::clone(&store_arc),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
@@ -925,10 +922,10 @@ where
                 .block_msgs_for_tipset(tipset)
                 .map_err(|e| Error::Other(e.to_string()))?;
 
-            let sm = self.clone();
+            let sm = Arc::clone(self);
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
-            let ts_cloned = tipset.clone();
+            let ts_cloned = Arc::clone(tipset);
             task::spawn_blocking(move || {
                 Ok(sm.apply_blocks::<_, V, _>(
                     parent_epoch,
@@ -1122,7 +1119,7 @@ where
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
         let mut candidate_receipt: Option<MessageReceipt> = None;
 
-        let sm_cloned = self.clone();
+        let sm_cloned = Arc::clone(self);
         let cid = message
             .cid()
             .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
@@ -1146,7 +1143,7 @@ where
 
         let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
-        let sm_cloned = self.clone();
+        let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
         let mut subscriber_poll = task::spawn::<
@@ -1414,7 +1411,7 @@ where
     pub fn get_circulating_supply(
         self: &Arc<Self>,
         height: ChainEpoch,
-        state_tree: &StateTree<DB>,
+        state_tree: &FvmStateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }
@@ -1455,36 +1452,27 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<'sm, 'ts, DB, BS, V> {
-    sm: &'sm Arc<StateManager<DB>>,
-    store: &'sm BS,
-    tipset: &'ts Arc<Tipset>,
+struct SMLookbackWrapper<DB, V> {
+    sm: Arc<StateManager<DB>>,
+    tipset: Arc<Tipset>,
     verifier: PhantomData<V>,
 }
 
-impl<'sm, 'ts, DB, BS, V> LookbackStateGetter<'sm, BS> for SMLookbackWrapper<'sm, 'ts, DB, BS, V>
+impl<DB, V> LookbackStateGetter for SMLookbackWrapper<DB, V>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
-    BS: BlockStore + Send + Sync,
     V: ProofVerifier,
 {
-    fn state_lookback(&self, round: ChainEpoch) -> Result<StateTree<'sm, BS>, anyhow::Error> {
-        let (_, st) = task::block_on(
-            self.sm
-                .get_lookback_tipset_for_round::<V>(self.tipset.clone(), round),
-        )?;
-
-        StateTree::new_from_root(self.store, &st)
-    }
-
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
-        let sm = self.sm.clone();
-        let tipset = self.tipset.clone();
+        let sm = Arc::clone(&self.sm);
+        let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
             let (_, st) =
                 task::block_on(sm.get_lookback_tipset_for_round::<V>(tipset.clone(), round))
-                    .unwrap();
+                    .unwrap_or_else(|err| {
+                        panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+                    });
             st
         })
     }
