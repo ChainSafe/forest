@@ -11,28 +11,29 @@ use actor::{
     power::{self, Claim},
     reward,
 };
-use address::json::AddressJson;
 use beacon::{Beacon, BeaconEntry};
-use blocks::{
-    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
-    tipset_keys_json::TipsetKeysJson,
-};
-use blocks::{
-    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
-    Tipset, TxMeta,
-};
-use blockstore::{BlockStore, BlockStoreExt};
 use bls_signatures::Serialize as SerializeBls;
-use cid::{json::CidJson, Cid, Code::Blake2b256};
-use crypto::SignatureType;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
 };
-use fvm_shared::bigint::BigInt;
-use ipld::{json::IpldJson, Ipld};
+use forest_address::json::AddressJson;
+use forest_blocks::{
+    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
+    tipset_keys_json::TipsetKeysJson,
+};
+use forest_blocks::{
+    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
+    Tipset, TxMeta,
+};
+use forest_cid::{json::CidJson, Cid, Code::Blake2b256};
+use forest_ipld::{json::IpldJson, Ipld};
+use forest_message::signed_message::SignedMessage;
+use fvm::state_tree::StateTree;
+use fvm_shared::crypto::signature::SignatureType;
+use fvm_shared::{address::Address, bigint::BigInt, crypto::signature::Signature};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
-use message::signed_message::SignedMessage;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -42,7 +43,6 @@ use rpc_api::{
     state_api::*,
 };
 use state_manager::{InvocResult, StateManager};
-use state_tree::StateTree;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
@@ -108,7 +108,12 @@ pub(crate) async fn state_miner_deadlines<
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
 
-    let mut out = Vec::with_capacity(mas.num_deadlines() as usize);
+    let num_deadlines = data
+        .state_manager
+        .chain_config()
+        .policy
+        .wpost_period_deadlines;
+    let mut out = Vec::with_capacity(num_deadlines as usize);
     mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
         out.push(Deadline {
             post_submissions: dl.partitions_posted().clone().into(),
@@ -452,7 +457,7 @@ pub(crate) async fn state_account_key<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts::<DB, V>(state_manager, tipset).await?;
-    let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
+    let address = interpreter::fvm_resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
 /// retrieves the ID address of the given address
@@ -476,7 +481,7 @@ pub(crate) async fn state_lookup_id<
     let lookup_result = state.lookup_id(&address)?;
 
     match lookup_result {
-        Some(addr) => Ok(Some(AddressJson(addr))),
+        Some(actor_id) => Ok(Some(AddressJson(Address::new_id(actor_id)))),
         None => Ok(None),
     }
 }
@@ -655,9 +660,9 @@ pub(crate) async fn miner_create_block<
     )?;
 
     let calculated_bls_agg = if bls_sigs.is_empty() {
-        Some(crypto::Signature::new_bls(vec![]))
+        Some(Signature::new_bls(vec![]))
     } else {
-        Some(crypto::Signature::new_bls(
+        Some(Signature::new_bls(
             bls_signatures::aggregate(
                 &bls_sigs
                     .iter()
@@ -670,7 +675,7 @@ pub(crate) async fn miner_create_block<
         ))
     };
     let pweight = chain::weight(data.chain_store.blockstore(), pts.as_ref())?;
-    let smoke_height = data.state_manager.chain_config.epoch(Height::Smoke);
+    let smoke_height = data.state_manager.chain_config().epoch(Height::Smoke);
     let base_fee =
         chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
 
@@ -692,8 +697,8 @@ pub(crate) async fn miner_create_block<
         .signature(None)
         .build()?;
 
-    let key = wallet::find_key(&worker, &*data.keystore.as_ref().write().await)?;
-    let sig = wallet::sign(
+    let key = key_management::find_key(&worker, &*data.keystore.as_ref().write().await)?;
+    let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         &next.to_signing_bytes(),
@@ -862,8 +867,8 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 ) -> Result<StateMinerInitialPledgeCollateralResult, JsonRpcError> {
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let (state, _) = data.state_manager.tipset_state::<V>(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let (root_cid, _) = data.state_manager.tipset_state::<V>(&ts).await?;
+    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
@@ -925,7 +930,7 @@ pub(crate) async fn miner_get_base_info<
 async fn state_for_ts<DB, V>(
     state_manager: &Arc<StateManager<DB>>,
     ts: Arc<Tipset>,
-) -> Result<StateTree<'_, DB>, JsonRpcError>
+) -> Result<StateTree<&DB>, JsonRpcError>
 where
     DB: BlockStore + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,

@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_api::estimate_message_gas;
-use address::{Address, Protocol};
 use beacon::Beacon;
-use blocks::TipsetKeys;
-use blockstore::BlockStore;
-use cid::json::{vec::CidJsonVec, CidJson};
 use encoding::Cbor;
 use fil_types::verifier::{FullVerifier, ProofVerifier};
-use message::message::json::MessageJson;
-use message::{signed_message::json::SignedMessageJson, SignedMessage};
+use forest_address::{Address, Protocol};
+use forest_blocks::TipsetKeys;
+use forest_cid::json::{vec::CidJsonVec, CidJson};
+use forest_message::message::json::MessageJson;
+use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};
+use ipld_blockstore::BlockStore;
 use rpc_api::data_types::RPCState;
 use rpc_api::mpool_api::*;
 
@@ -172,8 +172,8 @@ where
     }
     let nonce = data.mpool.get_sequence(&from).await?;
     umsg.sequence = nonce;
-    let key = wallet::Key::try_from(wallet::try_find(&key_addr, &mut *keystore)?)?;
-    let sig = wallet::sign(
+    let key = key_management::Key::try_from(key_management::try_find(&key_addr, &mut *keystore)?)?;
+    let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         umsg.to_signing_bytes().as_slice(),

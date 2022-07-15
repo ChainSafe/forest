@@ -3,10 +3,10 @@
 
 use async_std::fs::File;
 use async_std::io::BufReader;
-use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::ChainStore;
-use cid::Cid;
 use fil_types::verifier::ProofVerifier;
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_cid::Cid;
 use futures::AsyncRead;
 use fvm_ipld_car::{load_car, CarReader};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -73,7 +73,7 @@ pub async fn initialize_genesis<BS>(
 where
     BS: BlockStore + Send + Sync + 'static,
 {
-    let genesis_bytes = state_manager.chain_config.genesis_bytes();
+    let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
     let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
     Ok((ts, network_name))
@@ -124,7 +124,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     path: &str,
     validate_height: Option<i64>,
     skip_load: bool,
-) -> Result<(), Box<dyn std::error::Error>>
+) -> Result<(), anyhow::Error>
 where
     DB: BlockStore + Send + Sync + 'static,
 {

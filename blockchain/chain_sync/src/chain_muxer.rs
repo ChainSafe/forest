@@ -11,17 +11,19 @@ use crate::tipset_syncer::{
 use crate::validation::{TipsetValidationError, TipsetValidator};
 
 use beacon::{Beacon, BeaconSchedule};
-use blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys};
 use chain::{ChainStore, Error as ChainStoreError};
-use cid::Cid;
 use fil_types::verifier::ProofVerifier;
+use forest_blocks::{
+    Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
+};
+use forest_cid::Cid;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
 };
+use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
 use libp2p::core::PeerId;
-use message::SignedMessage;
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 
@@ -493,7 +495,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
-        let block_delay = self.state_manager.chain_config.block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
 
         let evaluator = async move {
             let mut tipsets = vec![];
@@ -612,7 +614,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config.block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv().await {
@@ -704,7 +706,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config.block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -888,10 +890,10 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
-    use address::Address;
-    use blocks::{BlockHeader, Tipset};
-    use cid::Cid;
     use db::MemoryDB;
+    use forest_address::Address;
+    use forest_blocks::{BlockHeader, Tipset};
+    use forest_cid::Cid;
     use networks::{ChainConfig, Height};
     use test_utils::construct_messages;
 

@@ -11,9 +11,10 @@ once_cell = "1.7"
 rand = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror = "1.0"
+fvm_shared = { version = "0.8", default-features = false }
 # Internal
-crypto = { package = "forest_crypto", version = "0.5", features = ["blst"] }
-wallet = { package = "key_management", path = "../../key_management" }
+forest_crypto = { version = "0.5", features = ["blst"] }
+key_management = { path = "../../key_management" }
 
 [dependencies.jsonrpc-v2]
 version = "0.10"

@@ -23,14 +23,8 @@ pub mod repr {
 
 pub use fvm_ipld_encoding::{bytes_32, Byte32De, BytesDe, BytesSer};
 
-/// lotus use cbor-gen for generating codec for types, it has a length limit of generic array
-/// for `8192`
-///
-/// https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L14
-pub const GENERIC_ARRAY_MAX_LEN: usize = 8192;
-
 /// lotus use cbor-gen for generating codec for types, it has a length limit for byte
 /// array as `2 << 20`
 ///
 /// https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L16
-pub const BYTE_ARRAY_MAX_LEN: usize = 2097152;
+pub const BYTE_ARRAY_MAX_LEN: usize = 2 << 20;

@@ -14,6 +14,7 @@ use async_std::stream::{Stream, StreamExt};
 use async_std::task::{self, Context, Poll};
 use futures::stream::FuturesUnordered;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use thiserror::Error;
 
@@ -23,27 +24,29 @@ use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
 use actor::{is_account_actor, power};
-use address::Address;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys};
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
-use cid::Cid;
-use crypto::{verify_bls_aggregate, DomainSeparationTag};
 use encoding::Cbor;
 use encoding::Error as ForestEncodingError;
 use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
     TICKET_RANDOMNESS_LOOKBACK,
 };
+use forest_address::Address;
+use forest_blocks::{
+    Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
+};
+use forest_cid::Cid;
+use forest_crypto::DomainSeparationTag;
 use forest_libp2p::chain_exchange::TipsetBundle;
+use forest_message::message::valid_for_block_inclusion;
+use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use message::message::valid_for_block_inclusion;
-use message::Message as MessageTrait;
 use networks::Height;
 use state_manager::Error as StateManagerError;
 use state_manager::StateManager;
@@ -1263,8 +1266,8 @@ async fn validate_block<
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Timestamp checks
-    let block_delay = state_manager.chain_config.block_delay_secs;
-    let smoke_height = state_manager.chain_config.epoch(Height::Smoke);
+    let block_delay = state_manager.chain_config().block_delay_secs;
+    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
     let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
@@ -1581,7 +1584,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), TipsetRangeSyncerError> {
-    crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
+    forest_crypto::verify_vrf(worker, rand, evrf).map_err(TipsetRangeSyncerError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(
@@ -1656,9 +1659,7 @@ fn check_block_messages<
     block: &Block,
     base_tipset: &Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let network_version = state_manager
-        .chain_config
-        .network_version(block.header.epoch());
+    let network_version = state_manager.get_network_version(block.header.epoch());
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1836,11 +1837,11 @@ async fn validate_tipset_against_cache(
 
 #[cfg(test)]
 mod test {
-    use address::Address;
-    use blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use cid::Cid;
-    use crypto::VRFProof;
-    use num_bigint::BigInt;
+    use forest_address::Address;
+    use forest_bigint::BigInt;
+    use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use forest_cid::Cid;
+    use forest_crypto::VRFProof;
 
     use super::*;
     use std::convert::TryFrom;

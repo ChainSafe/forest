@@ -8,14 +8,14 @@ use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use key_management::ENCRYPTED_KEYSTORE_NAME;
+use key_management::{KeyStore, KeyStoreConfig};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
 use utils::write_to_file;
-use wallet::ENCRYPTED_KEYSTORE_NAME;
-use wallet::{KeyStore, KeyStoreConfig};
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use libp2p::identity::{ed25519, Keypair};
@@ -30,10 +30,6 @@ use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    // Set the Address network prefix
-    let network = config.chain.name.parse().unwrap();
-    address::NETWORK_DEFAULT.set(network).unwrap();
-
     info!(
         "Starting Forest daemon, version {}",
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
@@ -141,7 +137,7 @@ pub(super) async fn start(config: Config) {
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::new(config.chain.clone()))
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))
         .await
         .unwrap();
     let state_manager = Arc::new(sm);
@@ -198,7 +194,7 @@ pub(super) async fn start(config: Config) {
             network_name.clone(),
             network_send.clone(),
             MpoolConfig::load_config(db.as_ref()).unwrap(),
-            (*state_manager.chain_config).clone(),
+            Arc::clone(state_manager.chain_config()),
         )
         .await
         .unwrap(),
@@ -300,9 +296,9 @@ fn chain_path(config: &Config) -> PathBuf {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
-    use address::Address;
-    use blocks::BlockHeader;
     use db::MemoryDB;
+    use forest_address::Address;
+    use forest_blocks::BlockHeader;
     use networks::ChainConfig;
 
     #[async_std::test]

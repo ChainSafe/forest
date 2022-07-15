@@ -21,8 +21,8 @@ use log::info;
 use tide_websockets::WebSocket;
 
 use beacon::Beacon;
-use blockstore::BlockStore;
 use fil_types::verifier::ProofVerifier;
+use ipld_blockstore::BlockStore;
 use rpc_api::data_types::RPCState;
 
 use crate::rpc_http_handler::rpc_http_handler;
@@ -50,7 +50,7 @@ where
     use sync_api::*;
     use wallet_api::*;
 
-    let block_delay = state.state_manager.chain_config.block_delay_secs;
+    let block_delay = state.state_manager.chain_config().block_delay_secs;
     let rpc_server = Arc::new(
         Server::new()
             .with_data(Data(state))

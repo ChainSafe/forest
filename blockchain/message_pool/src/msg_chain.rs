@@ -4,14 +4,14 @@
 use super::errors::Error;
 use crate::provider::Provider;
 use crate::utils::{get_gas_perf, get_gas_reward};
-use address::Address;
 use async_std::sync::RwLock;
-use blocks::Tipset;
 use encoding::Cbor;
+use forest_address::Address;
+use forest_blocks::Tipset;
+use forest_message::{Message, SignedMessage};
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::BigInt;
 use log::warn;
-use message::{Message, SignedMessage};
 use networks::ChainConfig;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
@@ -400,7 +400,7 @@ where
             break;
         }
         gas_limit += m.gas_limit();
-        if gas_limit > types::BLOCK_GAS_LIMIT {
+        if gas_limit > fil_types::BLOCK_GAS_LIMIT {
             break;
         }
 

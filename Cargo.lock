@@ -551,6 +551,7 @@ name = "auth"
 version = "0.1.0"
 dependencies = [
  "forest_crypto",
+ "fvm_shared",
  "jsonrpc-v2",
  "jsonwebtoken",
  "key_management",
@@ -2613,6 +2614,7 @@ name = "forest"
 version = "0.2.2"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "assert_cmd",
  "async-log",
  "async-std",
@@ -3780,7 +3782,6 @@ dependencies = [
  "state_migration",
  "state_tree",
  "statediff",
- "wasmtime",
 ]
 
 [[package]]
@@ -3995,6 +3996,7 @@ dependencies = [
  "forest_address",
  "forest_crypto",
  "forest_encoding",
+ "fvm_shared",
  "libsecp256k1 0.7.0",
  "log",
  "rand 0.8.5",
@@ -5236,6 +5238,7 @@ dependencies = [
 name = "net_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-std",
  "futures",
  "isahc 1.7.2",
@@ -5252,7 +5255,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "beacon",
+ "fil_actors_runtime",
  "fil_types",
+ "forest_bigint",
  "fvm_shared",
  "lazy_static",
  "serde",
@@ -7309,11 +7314,14 @@ name = "statediff"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-std",
  "colored",
  "difference",
+ "directories",
  "fil_types",
  "forest_address",
  "forest_cid",
+ "forest_db",
  "forest_ipld",
  "forest_vm",
  "fvm",
@@ -7324,6 +7332,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_tree",
+ "structopt",
 ]
 
 [[package]]

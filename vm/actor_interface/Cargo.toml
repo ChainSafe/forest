@@ -20,14 +20,14 @@ anyhow            = "1.0"
 fvm_shared        = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield = "0.5.2"
 fil_types         = "0.2"
-vm                = { package = "forest_vm", version = "0.3.1" }
+forest_vm          = "0.3.1"
 ipld_blockstore   = "0.1"
-address           = { package = "forest_address", version = "0.3" }
+forest_address    = "0.3" 
 serde             = { version = "1.0", features = ["derive"] }
-cid               = { package = "forest_cid", version = "0.3", features = ["json"] }
+forest_cid        = { version = "0.3", features = ["json"] }
 encoding          = { package = "forest_encoding", version = "0.2" }
 libp2p            = { version = "0.40.0-rc.1", default-features = false }
-num-bigint        = { version = "0.1", package = "forest_bigint", features = ["json"] }
+forest_bigint     = { version = "0.1", features = ["json"] }
 forest_hash_utils = "0.1"
 forest_json_utils = "0.1"
 

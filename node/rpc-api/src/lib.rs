@@ -163,14 +163,14 @@ pub mod beacon_api {
 /// Chain API
 pub mod chain_api {
     use crate::data_types::BlockMessages;
-    use blocks::{
+    use chain::headchange_json::SubscriptionHeadChange;
+    use forest_blocks::{
         header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
         TipsetKeys,
     };
-    use chain::headchange_json::SubscriptionHeadChange;
-    use cid::json::CidJson;
+    use forest_cid::json::CidJson;
+    use forest_message::message::json::MessageJson;
     use fvm_shared::clock::ChainEpoch;
-    use message::message::json::MessageJson;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
@@ -233,9 +233,9 @@ pub mod chain_api {
 /// Message Pool API
 pub mod mpool_api {
     use crate::data_types::MessageSendSpec;
-    use blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
-    use cid::json::CidJson;
-    use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
+    use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+    use forest_cid::json::CidJson;
+    use forest_message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
     pub type MpoolEstimateGasPriceParams = (u64, String, u64, TipsetKeys);
@@ -245,8 +245,8 @@ pub mod mpool_api {
     pub type MpoolGetNonceParams = (String,);
     pub type MpoolGetNonceResult = u64;
 
-    use cid::json::vec::CidJsonVec;
-    use message::SignedMessage;
+    use forest_cid::json::vec::CidJsonVec;
+    use forest_message::SignedMessage;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub type MpoolPendingParams = (CidJsonVec,);
@@ -272,8 +272,8 @@ pub mod mpool_api {
 /// Sync API
 pub mod sync_api {
     use crate::data_types::RPCSyncState;
-    use blocks::gossip_block::json::GossipBlockJson;
-    use cid::json::CidJson;
+    use forest_blocks::gossip_block::json::GossipBlockJson;
+    use forest_cid::json::CidJson;
 
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
     pub type SyncCheckBadParams = (CidJson,);
@@ -294,10 +294,10 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use address::json::AddressJson;
-    use crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
-    use message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
-    use wallet::json::KeyInfoJson;
+    use forest_address::json::AddressJson;
+    use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+    use forest_message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
+    use key_management::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);
@@ -355,15 +355,15 @@ pub mod state_api {
     use actor::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use address::json::AddressJson;
-    use blocks::{
+    use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use forest_address::json::AddressJson;
+    use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
-    use cid::json::CidJson;
-    use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use forest_cid::json::CidJson;
+    use forest_message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
-    use message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use state_manager::{InvocResult, MarketBalance};
 
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
@@ -486,9 +486,9 @@ pub mod state_api {
 /// Gas API
 pub mod gas_api {
     use crate::data_types::MessageSendSpec;
-    use address::json::AddressJson;
-    use blocks::tipset_keys_json::TipsetKeysJson;
-    use message::message::json::MessageJson;
+    use forest_address::json::AddressJson;
+    use forest_blocks::tipset_keys_json::TipsetKeysJson;
+    use forest_message::message::json::MessageJson;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
     pub type GasEstimateFeeCapParams = (MessageJson, i64, TipsetKeysJson);

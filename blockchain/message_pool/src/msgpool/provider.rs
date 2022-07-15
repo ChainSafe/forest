@@ -2,25 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::errors::Error;
-use address::Address;
 use async_std::sync::Arc;
 use async_trait::async_trait;
-use blocks::BlockHeader;
-use blocks::Tipset;
-use blocks::TipsetKeys;
-use blockstore::{BlockStore, BlockStoreExt};
 use chain::HeadChange;
-use cid::Cid;
-use cid::Code::Blake2b256;
+use fil_types::verifier::ProofVerifier;
+use forest_address::Address;
+use forest_blocks::BlockHeader;
+use forest_blocks::Tipset;
+use forest_blocks::TipsetKeys;
+use forest_cid::Cid;
+use forest_cid::Code::Blake2b256;
+use forest_message::{ChainMessage, SignedMessage};
+use forest_vm::ActorState;
 use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
-use message::{ChainMessage, SignedMessage};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use networks::Height;
 use state_manager::StateManager;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
-use types::verifier::ProofVerifier;
-use vm::ActorState;
 
 /// Provider Trait. This trait will be used by the messagepool to interact with some medium in order to do
 /// the operations that are listed below that are required for the messagepool.
@@ -121,7 +121,7 @@ where
         Ok(ts)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
-        let smoke_height = self.sm.chain_config.epoch(Height::Smoke);
+        let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height).map_err(|err| err.into())
     }
     async fn state_account_key<V>(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>
