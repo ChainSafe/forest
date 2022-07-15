@@ -5,8 +5,8 @@ use async_std::sync::RwLock;
 use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc};
 
-use blocks::{BlockHeader, Tipset};
-use cid::Cid;
+use forest_blocks::{BlockHeader, Tipset};
+use forest_cid::Cid;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 

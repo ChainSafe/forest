@@ -5,7 +5,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use beacon::json::BeaconEntryJson;
 use beacon::Beacon;
-use blockstore::BlockStore;
+use ipld_blockstore::BlockStore;
 use rpc_api::beacon_api::*;
 use rpc_api::data_types::RPCState;
 

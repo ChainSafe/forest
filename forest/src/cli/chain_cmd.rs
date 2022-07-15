@@ -4,7 +4,7 @@
 use structopt::StructOpt;
 
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
-use cid::{json::CidJson, Cid};
+use forest_cid::{json::CidJson, Cid};
 use rpc_client::chain_ops::*;
 
 #[derive(Debug, StructOpt)]

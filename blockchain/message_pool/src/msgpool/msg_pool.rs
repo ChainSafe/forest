@@ -16,30 +16,30 @@ use crate::msgpool::PROPAGATION_DELAY_SECS;
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
-use address::{Address, Protocol};
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
 use async_std::sync::{Arc, RwLock};
 use async_std::task;
-use blocks::{BlockHeader, Tipset, TipsetKeys};
 use chain::{HeadChange, MINIMUM_BASE_FEE};
-use cid::Cid;
-use crypto::{Signature, SignatureType};
 use db::Store;
 use encoding::Cbor;
+use fil_types::verifier::ProofVerifier;
+use forest_address::{Address, Protocol};
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_cid::Cid;
+use forest_crypto::{Signature, SignatureType};
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
+use forest_message::message::valid_for_block_inclusion;
+use forest_message::{ChainMessage, Message, SignedMessage};
 use futures::{future::select, StreamExt};
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_shared::bigint::{BigInt, Integer};
 use log::warn;
 use lru::LruCache;
-use message::message::valid_for_block_inclusion;
-use message::{ChainMessage, Message, SignedMessage};
 use networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
-use types::verifier::ProofVerifier;
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: usize = 40000;
@@ -325,7 +325,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > &types::TOTAL_FILECOIN {
+        if msg.value() > &fil_types::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {

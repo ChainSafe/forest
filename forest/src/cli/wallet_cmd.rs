@@ -8,7 +8,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use address::{json::AddressJson, Address};
+use forest_address::{json::AddressJson, Address};
 use forest_crypto::{
     signature::{
         json::{signature_type::SignatureTypeJson, SignatureJson},
@@ -16,9 +16,9 @@ use forest_crypto::{
     },
     Signature,
 };
+use key_management::json::KeyInfoJson;
 use rpc_client::wallet_ops::*;
 use utils::read_file_to_string;
-use wallet::json::KeyInfoJson;
 
 use super::{cli_error_and_die, handle_rpc_err};
 

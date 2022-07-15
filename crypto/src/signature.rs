@@ -1,11 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use address::{Address, Protocol};
 use bls_signatures::{
     verify_messages, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
 use encoding::{blake2b_256, de, repr::*, ser, serde_bytes};
+use forest_address::{Address, Protocol};
 use libsecp256k1::{recover, Message, RecoveryId, Signature as EcsdaSignature};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;

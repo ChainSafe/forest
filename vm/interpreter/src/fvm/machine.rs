@@ -1,13 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::fvm::externs::ForestExterns;
-use cid::Cid;
+use forest_cid::Cid;
+use forest_vm::TokenAmount;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
 use fvm_shared::ActorID;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmStore;
-use vm::TokenAmount;
 
 pub struct ForestMachine<DB: 'static> {
     pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>>,
