@@ -13,7 +13,7 @@ use serde::{de, Deserialize, Serialize};
 #[serde(transparent)]
 pub struct BlockHeaderJson(#[serde(with = "self")] pub BlockHeader);
 
-/// Wrapper for serializing a BlockHeader reference to JSON.
+/// Wrapper for serializing a `BlockHeader` reference to JSON.
 #[derive(Serialize)]
 #[serde(transparent)]
 pub struct BlockHeaderJsonRef<'a>(#[serde(with = "self")] pub &'a BlockHeader);

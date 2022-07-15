@@ -335,7 +335,7 @@ impl BlockHeader {
 
         Ok(())
     }
-    /// Returns true if (h(vrfout) * totalPower) < (e * sectorSize * 2^256)
+    /// Returns true if `(h(vrfout) * totalPower) < (e * sectorSize * 2^256)`
     pub fn is_ticket_winner(ticket: &Ticket, mpow: BigInt, net_pow: BigInt) -> bool {
         /*
         Need to check that
