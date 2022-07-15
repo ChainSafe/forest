@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crypto::{Signature, Signer};
 use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset};
+use forest_crypto::{Signature, Signer};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
