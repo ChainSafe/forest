@@ -813,7 +813,7 @@ fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             current_head.epoch(),
             proposed_head.key()
         );
-        if let Err(why) = chain_store.put_tipset(&proposed_head).await {
+        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head).await {
             error!(
                 "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
                 proposed_head.epoch(),
@@ -987,7 +987,7 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
 
         // Add the tipset to the store. The tipset will be expanded with other blocks with
         // the same [epoch, parents] before updating the heaviest Tipset in the store.
-        if let Err(why) = chain_store.put_tipset(&proposed_head).await {
+        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head).await {
             error!(
                 "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
                 proposed_head.epoch(),
@@ -1278,7 +1278,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(task::spawn_blocking(move || {
-        let calc_weight = chain::weight(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
+        let calc_weight = C::weight(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
         })?;
         if weight != calc_weight {

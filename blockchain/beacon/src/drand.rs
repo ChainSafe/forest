@@ -153,7 +153,7 @@ where
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
 /// Contains all the info about a Drand beacon chain.
-/// API reference: https://drand.love/developer/http-api/#info
+/// API reference: <https://drand.love/developer/http-api/#info>
 /// note: groupHash does not exist in docs currently, but is returned.
 pub struct ChainInfo<'a> {
     pub public_key: Cow<'a, str>,
@@ -166,7 +166,7 @@ pub struct ChainInfo<'a> {
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
 /// Json beacon entry format. This matches the drand round JSON serialization
-/// API reference: https://drand.love/developer/http-api/#public-round.
+/// API reference: <https://drand.love/developer/http-api/#public-round>.
 pub struct BeaconEntryJson {
     round: u64,
     randomness: String,

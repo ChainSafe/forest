@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use chain::Scale;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -591,6 +592,7 @@ pub(crate) async fn state_wait_msg<
 pub(crate) async fn miner_create_block<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
+    S: Scale,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MinerCreateBlockParams>,
@@ -667,7 +669,7 @@ pub(crate) async fn miner_create_block<
             .as_bytes(),
         ))
     };
-    let pweight = chain::weight(data.chain_store.blockstore(), pts.as_ref())?;
+    let pweight = S::weight(data.chain_store.blockstore(), pts.as_ref())?;
     let smoke_height = data.state_manager.chain_config().epoch(Height::Smoke);
     let base_fee =
         chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;

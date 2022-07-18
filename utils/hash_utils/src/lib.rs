@@ -7,7 +7,7 @@ pub use self::key::BytesKey;
 use std::hash::Hasher;
 use std::{mem, slice};
 
-/// Custom trait to avoid issues like https://github.com/rust-lang/rust/issues/27108.
+/// Custom trait to avoid issues like <https://github.com/rust-lang/rust/issues/27108>.
 pub trait Hash {
     fn hash<H: Hasher>(&self, state: &mut H);
 
