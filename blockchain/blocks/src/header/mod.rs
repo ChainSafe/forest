@@ -10,9 +10,9 @@ use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
-use fvm_shared::address::Address;
 use forest_vm::TokenAmount;
 use fvm_ipld_encoding::DAG_CBOR;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,

@@ -294,8 +294,8 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use forest_json::address::json::AddressJson;
     use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+    use forest_json::address::json::AddressJson;
     use forest_message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
     use key_management::json::KeyInfoJson;
 
@@ -356,10 +356,10 @@ pub mod state_api {
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
-    use forest_json::address::json::AddressJson;
     use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
+    use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
     use forest_message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use fvm_ipld_bitfield::json::BitFieldJson;
@@ -486,8 +486,8 @@ pub mod state_api {
 /// Gas API
 pub mod gas_api {
     use crate::data_types::MessageSendSpec;
-    use forest_json::address::json::AddressJson;
     use forest_blocks::tipset_keys_json::TipsetKeysJson;
+    use forest_json::address::json::AddressJson;
     use forest_message::message::json::MessageJson;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";

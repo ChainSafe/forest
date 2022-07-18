@@ -29,8 +29,8 @@ pub struct HelloResponse {
 mod tests {
     use super::*;
     use cid::multihash::Code::Identity;
-    use forest_encoding::*;
     use cid::multihash::MultihashDigest;
+    use forest_encoding::*;
     use fvm_ipld_encoding::DAG_CBOR;
 
     #[test]

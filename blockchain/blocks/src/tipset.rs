@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Block, BlockHeader, Error, Ticket};
-use encoding::Cbor;
 use cid::Cid;
+use encoding::Cbor;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
@@ -369,9 +369,9 @@ pub mod tipset_json {
 #[cfg(test)]
 mod test {
     use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use fvm_shared::address::Address;
     use cid::Cid;
     use forest_crypto::VRFProof;
+    use fvm_shared::address::Address;
     use num_bigint::BigInt;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {

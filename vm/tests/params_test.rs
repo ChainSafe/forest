@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use encoding::{from_slice, to_vec};
-use fvm_shared::address::Address;
 use forest_vm::Serialized;
+use fvm_shared::address::Address;
 
 #[test]
 fn serialized_deserialize() {

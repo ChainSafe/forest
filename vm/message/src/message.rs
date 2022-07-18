@@ -53,9 +53,9 @@ pub fn valid_for_block_inclusion(
 
 #[cfg(feature = "json")]
 pub mod json {
+    use cid::Cid;
     use forest_json::address::json::AddressJson;
     use forest_json::bigint;
-    use cid::Cid;
     use forest_vm::{Serialized, TokenAmount};
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::message::Message;

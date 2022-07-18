@@ -1,16 +1,16 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
-use fvm_shared::address::Address;
 use forest_json::bigint::json;
-use cid::Cid;
 use forest_json_utils::go_vec_visitor;
 use forest_vm::{ActorState, DealID, TokenAmount};
 use fvm_ipld_bitfield::BitField;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};

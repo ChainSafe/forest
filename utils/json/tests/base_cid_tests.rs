@@ -3,9 +3,9 @@
 
 use cid::multihash::Code;
 use cid::{Cid, Error, Version};
+use fvm_ipld_encoding::DAG_CBOR;
 use multihash::{self, MultihashDigest};
 use std::convert::TryFrom;
-use fvm_ipld_encoding::DAG_CBOR;
 
 #[test]
 fn basic_marshalling() {

@@ -4,9 +4,9 @@
 #![cfg(feature = "submodule_tests")]
 
 use async_trait::async_trait;
-use db::MemoryDB;
-use cid::Cid;
 use cid::multihash::Code::Blake2b256;
+use cid::Cid;
+use db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
 use forest_ipld::{Ipld, Path};

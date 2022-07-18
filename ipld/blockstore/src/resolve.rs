@@ -4,8 +4,8 @@
 use super::BlockStore;
 use crate::BlockStoreExt;
 use cid::Cid;
-use fvm_ipld_encoding::DAG_CBOR;
 use forest_ipld::Ipld;
+use fvm_ipld_encoding::DAG_CBOR;
 
 /// Resolves link to recursively resolved [Ipld] with no hash links.
 pub fn resolve_cids_recursive<BS>(

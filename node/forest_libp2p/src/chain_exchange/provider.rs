@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chain::{ChainStore, Error as ChainError};
-use forest_blocks::{Tipset, TipsetKeys};
 use cid::Cid;
+use forest_blocks::{Tipset, TipsetKeys};
 use ipld_blockstore::BlockStore;
 use log::debug;
 use std::collections::HashMap;

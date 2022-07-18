@@ -117,9 +117,9 @@ mod tests {
     use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::{MemoryDB, Store};
-    use fvm_shared::address::Address;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_libp2p::NetworkMessage;
+    use fvm_shared::address::Address;
     use key_management::{KeyStore, KeyStoreConfig};
     use message_pool::{MessagePool, MpoolRpcProvider};
     use networks::ChainConfig;

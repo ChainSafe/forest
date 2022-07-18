@@ -7,7 +7,6 @@ use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use encoding::to_vec;
-use fvm_shared::address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use forest_crypto::{Signer, VRFProof};
 use forest_libp2p::chain_exchange::{
@@ -15,6 +14,7 @@ use forest_libp2p::chain_exchange::{
 };
 use forest_message::SignedMessage;
 use fvm_ipld_encoding::DAG_CBOR;
+use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;

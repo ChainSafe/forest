@@ -12,9 +12,9 @@ use crate::{
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
 use chain::ChainStore;
-use forest_blocks::GossipBlock;
-use cid::Cid;
 use cid::multihash::Code::Blake2b256;
+use cid::Cid;
+use forest_blocks::GossipBlock;
 use forest_encoding::from_slice;
 use forest_message::SignedMessage;
 use futures::channel::oneshot::Sender as OneShotSender;
