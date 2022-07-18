@@ -6874,6 +6874,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
+ "cid",
  "forest_blocks",
  "forest_crypto",
  "forest_encoding",

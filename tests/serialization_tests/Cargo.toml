@@ -20,3 +20,4 @@ bls-signatures = { version = "0.11", default-features = false, features = [
     "blst",
 ] }
 fvm_shared = { version = "0.8.0", default-features = false }
+cid = { version = "0.8", default-features = false, features = ["std"] }
