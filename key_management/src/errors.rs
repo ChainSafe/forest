@@ -9,7 +9,7 @@ pub enum Error {
     /// info that corresponds to key does not exist
     #[error("Key info not found")]
     KeyInfo,
-    /// Key already exists in keystore
+    /// Key already exists in key store
     #[error("Key already exists")]
     KeyExists,
     #[error("Key does not exist")]

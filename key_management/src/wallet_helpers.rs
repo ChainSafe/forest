@@ -9,7 +9,7 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 
-/// Return the public key for a given private_key and SignatureType
+/// Return the public key for a given private key and `SignatureType`
 pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>, Error> {
     match sig_type {
         SignatureType::BLS => Ok(BlsPrivate::from_bytes(private_key)
@@ -25,7 +25,7 @@ pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>,
     }
 }
 
-/// Return a new Address that is of a given SignatureType and uses the supplied public_key
+/// Return a new Address that is of a given `SignatureType` and uses the supplied public key
 pub fn new_address(sig_type: SignatureType, public_key: &[u8]) -> Result<Address, Error> {
     match sig_type {
         SignatureType::BLS => {
@@ -40,7 +40,7 @@ pub fn new_address(sig_type: SignatureType, public_key: &[u8]) -> Result<Address
     }
 }
 
-/// Sign takes in SignatureType, private key and message. Returns a Signature for that message
+/// Sign takes in `SignatureType`, private key and message. Returns a Signature for that message
 pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<Signature, Error> {
     match sig_type {
         SignatureType::BLS => {
