@@ -4,7 +4,7 @@
 //! Contains routines for message selection APIs.
 //! Whenever a miner is ready to create a block for a tipset, it invokes the select_messages API
 //! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
-//! See https://docs.filecoin.io/mine/lotus/message-pool/#message-selection for more details
+//! See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
 use super::msg_pool::MessagePool;
 use super::provider::Provider;

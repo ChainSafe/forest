@@ -5,5 +5,7 @@
 extern crate lazy_static;
 
 mod store;
+mod weight;
 
 pub use self::store::*;
+pub use self::weight::*;

@@ -16,6 +16,7 @@ mod sync_api;
 mod wallet_api;
 
 use async_std::sync::Arc;
+use chain::Scale;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use log::info;
 use tide_websockets::WebSocket;
@@ -34,7 +35,7 @@ use rpc_api::{
     state_api::*, sync_api::*, wallet_api::*,
 };
 
-pub async fn start_rpc<DB, B, V>(
+pub async fn start_rpc<DB, B, V, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: &str,
 ) -> Result<(), JSONRPCError>
@@ -42,6 +43,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
+    S: Scale + 'static,
 {
     use auth_api::*;
     use chain_api::*;
@@ -138,7 +140,7 @@ where
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB, B>)
-            .with_method(MINER_CREATE_BLOCK, miner_create_block::<DB, B>)
+            .with_method(MINER_CREATE_BLOCK, miner_create_block::<DB, B, S>)
             .with_method(
                 STATE_MINER_SECTOR_ALLOCATED,
                 state_miner_sector_allocated::<DB, B>,
