@@ -23,16 +23,14 @@ clean:
 	@cargo clean -p forest_blocks
 	@cargo clean -p chain_sync
 	@cargo clean -p forest_vm
-	@cargo clean -p forest_address
 	@cargo clean -p forest_message
 	@cargo clean -p state_manager
 	@cargo clean -p interpreter
 	@cargo clean -p forest_crypto
 	@cargo clean -p forest_encoding
-	@cargo clean -p forest_cid
 	@cargo clean -p forest_ipld
 	@cargo clean -p legacy_ipld_amt
-	@cargo clean -p forest_bigint
+	@cargo clean -p forest_json
 	@cargo clean -p fil_types
 	@cargo clean -p ipld_blockstore
 	@cargo clean -p rpc
