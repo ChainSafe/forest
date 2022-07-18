@@ -9,6 +9,21 @@ on:
       - main
 
 jobs:
+  check-docs:
+    name: Check API documentation
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-Dwarnings"
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+      - name: Cargo Doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps --workspace
   publish-docs:
     name: Publish
     runs-on: ubuntu-latest
