@@ -36,6 +36,7 @@ use rug::Float;
 use serde::Serialize;
 use std::cell::RefCell;
 use std::io::{self, Write};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -117,8 +118,11 @@ pub struct CliOpts {
         help = "Client JWT token to use for JSON-RPC authentication"
     )]
     pub token: Option<String>,
-    #[structopt(long, help = "Port used for metrics collection server")]
-    pub metrics_port: Option<u16>,
+    #[structopt(
+        long,
+        help = "Address used for metrics collection server. By defaults binds on all interfaces on port 6116."
+    )]
+    pub metrics_address: Option<SocketAddr>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
     #[structopt(long, help = "Allow MDNS (default = false)")]
@@ -191,8 +195,8 @@ impl CliOpts {
         } else {
             cfg.enable_rpc = false;
         }
-        if let Some(metrics_port) = self.metrics_port {
-            cfg.metrics_port = metrics_port;
+        if let Some(metrics_address) = self.metrics_address {
+            cfg.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             panic!("Can't set import_snapshot and import_chain at the same time!");

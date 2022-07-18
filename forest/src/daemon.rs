@@ -100,9 +100,7 @@ pub(super) async fn start(config: Config) {
 
     // Start Prometheus server port
     let prometheus_server_task = task::spawn(metrics::init_prometheus(
-        (format!("127.0.0.1:{}", config.metrics_port))
-            .parse()
-            .unwrap(),
+        config.metrics_address,
         db_path(&config)
             .into_os_string()
             .into_string()
