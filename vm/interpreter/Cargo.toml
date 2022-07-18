@@ -45,6 +45,8 @@ statediff = { path = "../../utils/statediff" }
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }
+chain = { path = "../../blockchain/chain" }
+state_manager = { path = "../../blockchain/state_manager" }
 
 [features]
 test_vectors = []
