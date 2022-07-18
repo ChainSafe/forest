@@ -3,9 +3,10 @@
 
 use super::cli::{block_until_sigint, Config};
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
+use beacon::DrandBeacon;
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
-use fil_consensus::FilecoinConsensus;
+use fil_cns::FilecoinConsensus;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -202,8 +203,8 @@ pub(super) async fn start(config: Config) {
     );
 
     // Initialize Consensus
-    let consensus: FilecoinConsensus<_, FullVerifier> =
-        FilecoinConsensus::new(state_manager.beacon_schedule());
+    type FullConsensus = FilecoinConsensus<DrandBeacon, FullVerifier>;
+    let consensus: FullConsensus = FilecoinConsensus::new(state_manager.beacon_schedule());
 
     // Initialize ChainMuxer
     let (tipset_sink, tipset_stream) = bounded(20);
@@ -233,7 +234,7 @@ pub(super) async fn start(config: Config) {
         let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
         Some(task::spawn(async move {
             info!("JSON-RPC endpoint started at {}", &rpc_listen);
-            start_rpc::<_, _, FullVerifier>(
+            start_rpc::<_, _, FullVerifier, FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
                     keystore: keystore_rpc,
