@@ -17,13 +17,16 @@ encoding        = { package = "forest_encoding", version = "0.2.1" }
 ipld_blockstore = "0.1"
 fil_types       = "0.2"
 cid             = { version = "0.8", default-features = false, features = ["std"] }
-actor           = { package = "actor_interface", path = "../../vm/actor_interface" }
-beacon          = { path = "../beacon" }
-blocks          = { package = "forest_blocks", path = "../blocks" }
-chain           = { path = "../chain" }
-chain_sync      = { path = "../chain_sync/" }
-state_manager   = { path = "../state_manager/" }
-networks        = { path = "../../types/networks" }
+anyhow          = "1.0"
+num-traits      = "0.2"
+fvm             = "1.0"
+actor           = { package = "actor_interface", path = "../../../vm/actor_interface" }
+beacon          = { path = "../../beacon" }
+blocks          = { package = "forest_blocks", path = "../../blocks" }
+chain           = { path = "../../chain" }
+chain_sync      = { path = "../../chain_sync/" }
+state_manager   = { path = "../../state_manager/" }
+networks        = { path = "../../../types/networks" }
 
 [features]
 insecure_post = []

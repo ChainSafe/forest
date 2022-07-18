@@ -21,7 +21,7 @@ use futures::AsyncWrite;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::BlockMessages;

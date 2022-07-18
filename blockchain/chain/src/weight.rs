@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use forest_bigint::BigInt;
+use fvm_shared::bigint::BigInt;
 use forest_blocks::Tipset;
 use ipld_blockstore::BlockStore;
 
