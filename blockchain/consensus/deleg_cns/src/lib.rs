@@ -2,6 +2,9 @@ use address::Address;
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_trait::async_trait;
+use blocks::Tipset;
+use chain::Scale;
+use chain::Weight;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -11,6 +14,7 @@ use blocks::Block;
 use chain::Error as ChainStoreError;
 use chain_sync::Consensus;
 use encoding::Error as ForestEncodingError;
+use forest_bigint::BigInt;
 use ipld_blockstore::BlockStore;
 use nonempty::NonEmpty;
 use state_manager::Error as StateManagerError;
@@ -59,6 +63,20 @@ impl Default for DelegatedConsensus {
         Self {
             chosen_one: Address::from_str("t0100").unwrap(),
         }
+    }
+}
+
+impl Scale for DelegatedConsensus {
+    fn weight<DB>(_: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+    where
+        DB: BlockStore,
+    {
+        let header = ts.blocks().first().expect("Tipset is never empty.");
+        // We don't have a height, only epoch, which is not exactly the same as there can be "null" epochs
+        // without blocks. Maybe we can use the `ticket` field to maintain a header. Since there can be only
+        // one block producer, it sounds like epoch should be fine to be used as weight. After all if they
+        // wanted they could produce a sting of empty blocks at each height and achieve the same weight.
+        Ok(BigInt::from(header.epoch()))
     }
 }
 

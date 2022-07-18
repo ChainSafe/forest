@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+anyhow          = "1.0"
 async-std = { version = "1.9", features = ["tokio1", "unstable"] }
 async-trait = "0.1"
 futures = "0.3.5"
@@ -17,6 +18,7 @@ cid = { package = "forest_cid", version = "0.3" }
 encoding = { package = "forest_encoding", version = "0.2.1" }
 ipld_blockstore = "0.1"
 fil_types = "0.2"
+forest_bigint   = "0.1"
 
 actor = { package = "actor_interface", path = "../../../vm/actor_interface" }
 blocks = { package = "forest_blocks", path = "../../blocks" }

@@ -1822,12 +1822,14 @@ name = "deleg_cns"
 version = "0.1.0"
 dependencies = [
  "actor_interface",
+ "anyhow",
  "async-std",
  "async-trait",
  "chain",
  "chain_sync",
  "fil_types",
  "forest_address",
+ "forest_bigint",
  "forest_blocks",
  "forest_cid",
  "forest_encoding",
