@@ -120,7 +120,7 @@ pub struct CliOpts {
     pub token: Option<String>,
     #[structopt(
         long,
-        help = "Address used for metrics collection server. By defaults binds on all interfaces on port 6116."
+        help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
     )]
     pub metrics_address: Option<SocketAddr>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
