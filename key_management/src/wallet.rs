@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-/// A Key, this contains a key_info, address, and public_key which holds the key type and private key
+/// A key, this contains a `KeyInfo`, an address, and a public key.
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct Key {
     pub key_info: KeyInfo,
@@ -33,9 +33,10 @@ impl TryFrom<KeyInfo> for Key {
     }
 }
 
-/// This is a Wallet, it contains 2 HashMaps:
-/// - keys which is a HashMap of Keys resolved by their Address
-/// - keystore which is a HashMap of KeyInfos resolved by their Address
+// This is a Wallet, it contains 2 HashMaps:
+// - keys which is a HashMap of Keys resolved by their Address
+// - keystore which is a HashMap of KeyInfos resolved by their Address
+/// A wallet is a collection of private keys with optional persistence and optional encryption.
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Wallet {
     keys: HashMap<Address, Key>,
@@ -43,7 +44,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    /// Return a new Wallet with a given KeyStore
+    /// Return a new wallet with a given `KeyStore`
     pub fn new(keystore: KeyStore) -> Self {
         Wallet {
             keys: HashMap::new(),
@@ -51,8 +52,7 @@ impl Wallet {
         }
     }
 
-    /// Return a wallet from a given amount of keys. This wallet will not use the
-    /// generic keystore trait, but rather specifically use a MemKeyStore
+    /// Return a wallet from a given amount of keys.
     pub fn new_from_keys(keystore: KeyStore, key_vec: impl IntoIterator<Item = Key>) -> Self {
         let mut keys: HashMap<Address, Key> = HashMap::new();
         for item in key_vec.into_iter() {
@@ -61,9 +61,9 @@ impl Wallet {
         Wallet { keys, keystore }
     }
 
-    /// Return the Key that is resolved by a given Address,
-    /// If this key does not exist in the keys hashmap, check if this key is in
-    /// the keystore, if it is, then add it to keys, otherwise return Error
+    // If this key does not exist in the keys hashmap, check if this key is in
+    // the keystore, if it is, then add it to keys, otherwise return Error
+    /// Return the key that is resolved by a given address,
     pub fn find_key(&mut self, addr: &Address) -> Result<Key, Error> {
         if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
@@ -82,7 +82,7 @@ impl Wallet {
         Ok(new_key)
     }
 
-    /// Return the resultant Signature after signing a given message
+    /// Return the resultant `Signature` after signing a given message
     pub fn sign(&mut self, addr: &Address, msg: &[u8]) -> Result<Signature, Error> {
         // this will return an error if the key cannot be found in either the keys hashmap or it
         // is not found in the keystore
@@ -90,13 +90,13 @@ impl Wallet {
         wallet_helpers::sign(*key.key_info.key_type(), key.key_info.private_key(), msg)
     }
 
-    /// Return the KeyInfo for a given Address
+    /// Return the `KeyInfo` for a given address
     pub fn export(&mut self, addr: &Address) -> Result<KeyInfo, Error> {
         let k = self.find_key(addr)?;
         Ok(k.key_info)
     }
 
-    /// Add Key_Info to the Wallet, return the Address that resolves to this newly added KeyInfo
+    /// Add `KeyInfo` to the wallet, return the address that resolves to this newly added `KeyInfo`
     pub fn import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
         let k = Key::try_from(key_info)?;
         let addr = format!("wallet-{}", k.address);
@@ -104,19 +104,19 @@ impl Wallet {
         Ok(k.address)
     }
 
-    /// Return a Vec that contains all of the Addresses in the Wallet's KeyStore
+    /// Return a vector that contains all of the addresses in the wallet's `KeyStore`
     pub fn list_addrs(&self) -> Result<Vec<Address>, Error> {
         list_addrs(&self.keystore)
     }
 
-    /// Return the Address of the default KeyInfo in the Wallet
+    /// Return the address of the default `KeyInfo` in the wallet
     pub fn get_default(&self) -> Result<Address, Error> {
         let key_info = self.keystore.get("default")?;
         let k = Key::try_from(key_info)?;
         Ok(k.address)
     }
 
-    /// Set a default KeyInfo to the Wallet
+    /// Set a default `KeyInfo` to the wallet
     pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
         let addr_string = format!("wallet-{}", addr);
         let key_info = self.keystore.get(&addr_string)?;
@@ -127,7 +127,7 @@ impl Wallet {
         Ok(())
     }
 
-    /// Generate a new Address that fits the requirement of the given SignatureType
+    /// Generate a new address that fits the requirement of the given `SignatureType`
     pub fn generate_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
         let key = generate_key(typ)?;
         let addr = format!("wallet-{}", key.address);
@@ -143,20 +143,20 @@ impl Wallet {
         Ok(key.address)
     }
 
-    /// Return whether or not the Wallet contains a Key that is resolved by the supplied Address
+    /// Return whether or not the Wallet contains a key that is resolved by the supplied address
     pub fn has_key(&mut self, addr: &Address) -> bool {
         self.find_key(addr).is_ok()
     }
 }
 
-/// Return the default Address for KeyStore
+/// Return the default address for `KeyStore`
 pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
     let key_info = keystore.get("default")?;
     let k = Key::try_from(key_info)?;
     Ok(k.address)
 }
 
-/// Return Vec of Addresses sorted by their string representation in KeyStore
+/// Return vector of addresses sorted by their string representation in `KeyStore`
 pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     let mut all = keystore.list();
     all.sort();
@@ -172,7 +172,7 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     Ok(out)
 }
 
-/// Return Key corresponding to given Address in KeyStore
+/// Returns a key corresponding to given address
 pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
     let key_string = format!("wallet-{}", addr);
     let key_info = keystore.get(&key_string)?;
@@ -200,20 +200,20 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
     }
 }
 
-/// Return keyInfo for given Address in KeyStore
+/// Return `KeyInfo` for given address in `KeyStore`
 pub fn export_key_info(addr: &Address, keystore: &KeyStore) -> Result<KeyInfo, Error> {
     let key = find_key(addr, keystore)?;
     Ok(key.key_info)
 }
 
-/// Generate new Key of given SignatureType
+/// Generate new key of given `SignatureType`
 pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
     let private_key = wallet_helpers::generate(typ)?;
     let key_info = KeyInfo::new(typ, private_key);
     Key::try_from(key_info)
 }
 
-/// Import KeyInfo into KeyStore
+/// Import `KeyInfo` into `KeyStore`
 pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> Result<Address, Error> {
     let k = Key::try_from(key_info)?;
     let addr = format!("wallet-{}", k.address);

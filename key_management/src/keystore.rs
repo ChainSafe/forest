@@ -18,11 +18,10 @@ use fvm_shared::crypto::signature::SignatureType;
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
-/// KeyInfo struct, this contains the type of key (stored as a string) and the private key.
-/// note how the private key is stored as a byte vector
-///
-/// TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
-/// jwt secret
+// TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
+// jwt secret
+/// `KeyInfo` structure, this contains the type of key (stored as a string) and the private key.
+/// Note how the private key is stored as a byte vector
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
@@ -37,7 +36,7 @@ pub struct PersistentKeyInfo {
 }
 
 impl KeyInfo {
-    /// Return a new KeyInfo given the key_type and private_key
+    /// Return a new `KeyInfo` given the key type and private key
     pub fn new(key_type: SignatureType, private_key: Vec<u8>) -> Self {
         KeyInfo {
             key_type,
@@ -45,12 +44,12 @@ impl KeyInfo {
         }
     }
 
-    /// Return a reference to the key_type
+    /// Return a reference to the key's signature type
     pub fn key_type(&self) -> &SignatureType {
         &self.key_type
     }
 
-    /// Return a reference to the private_key
+    /// Return a reference to the private key
     pub fn private_key(&self) -> &Vec<u8> {
         &self.private_key
     }
@@ -62,12 +61,12 @@ pub mod json {
     use forest_crypto::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and de-serializing a `KeyInfo` from JSON.
     #[derive(Clone, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `KeyInfo` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
@@ -111,19 +110,7 @@ pub mod json {
     }
 }
 
-/// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
-pub trait Store {
-    /// Return all of the keys that are stored in the KeyStore
-    fn list(&self) -> Vec<String>;
-    /// Return Keyinfo that corresponds to a given key
-    fn get(&self, k: &str) -> Result<KeyInfo, Error>;
-    /// Save a key key_info pair to the KeyStore
-    fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error>;
-    /// Remove the Key and corresponding key_info from the KeyStore
-    fn remove(&mut self, key: String) -> Result<KeyInfo, Error>;
-}
-
-/// KeyStore struct, this contains a HashMap that is a set of KeyInfos resolved by their Address
+/// `KeyStore` structure, this contains a set of `KeyInfos` indexed by address.
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct KeyStore {
     key_info: HashMap<String, KeyInfo>,
@@ -137,15 +124,15 @@ pub enum KeyStoreConfig {
     Encrypted(PathBuf, String),
 }
 
-/// Persistent KeyStore in JSON cleartext in KEYSTORE_LOCATION
+/// Persistent `KeyStore` in JSON clear text in `KEYSTORE_LOCATION`
 #[derive(Clone, PartialEq, Debug, Eq)]
 struct PersistentKeyStore {
     file_path: PathBuf,
 }
 
-/// Encrypted KeyStore
-/// Argon2id hash key derivation
-/// XSalsa20Poly1305 authenticated encryption
+/// Encrypted `KeyStore`
+/// `Argon2id` hash key derivation
+/// `XSalsa20Poly1305` authenticated encryption
 /// CBOR encoding
 #[derive(Clone, PartialEq, Debug, Eq)]
 struct EncryptedKeyStore {
@@ -158,10 +145,10 @@ pub enum EncryptedKeyStoreError {
     /// Possibly indicates incorrect passphrase
     #[error("Error decrypting data")]
     DecryptionError,
-    /// An error occured while encrypting keys
+    /// An error occurred while encrypting keys
     #[error("Error encrypting data")]
     EncryptionError,
-    /// Unlock called without `encrypted_keystore` being enabled in config.toml
+    /// Unlock called without `encrypted_keystore` being enabled in `config.toml`
     #[error("Error with forest configuration")]
     ConfigurationError,
 }
@@ -387,17 +374,17 @@ impl KeyStore {
         }
     }
 
-    /// Return all of the keys that are stored in the KeyStore
+    /// Return all of the keys that are stored in the `KeyStore`
     pub fn list(&self) -> Vec<String> {
         self.key_info.iter().map(|(key, _)| key.clone()).collect()
     }
 
-    /// Return Keyinfo that corresponds to a given key
+    /// Return `KeyInfo` that corresponds to a given key
     pub fn get(&self, k: &str) -> Result<KeyInfo, Error> {
         self.key_info.get(k).cloned().ok_or(Error::KeyInfo)
     }
 
-    /// Save a key key_info pair to the KeyStore
+    /// Save a key/`KeyInfo` pair to the `KeyStore`
     pub fn put(&mut self, key: String, key_info: KeyInfo) -> Result<(), Error> {
         if self.key_info.contains_key(&key) {
             return Err(Error::KeyExists);
@@ -411,7 +398,7 @@ impl KeyStore {
         Ok(())
     }
 
-    /// Remove the Key and corresponding key_info from the KeyStore
+    /// Remove the key and corresponding `KeyInfo` from the `KeyStore`
     pub fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
 
