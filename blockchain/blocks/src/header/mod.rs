@@ -36,14 +36,17 @@ const SHA_256_BITS: usize = 256;
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
 /// use fvm_shared::address::Address;
-/// use forest_cid::{Cid, Code::Identity};
+/// use cid::Cid;
+/// use cid::multihash::Code::Identity;
 /// use fvm_shared::bigint::BigInt;
 /// use fvm_shared::crypto::signature::Signature;
+/// use fvm_ipld_encoding::DAG_CBOR;
+/// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
-///     .messages(forest_cid::new_from_cbor(&[], Identity)) // required
-///     .message_receipts(forest_cid::new_from_cbor(&[], Identity)) // required
-///     .state_root(forest_cid::new_from_cbor(&[], Identity)) // required
+///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
