@@ -7,7 +7,9 @@ use forest_libp2p::Libp2pConfig;
 use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -27,7 +29,8 @@ pub struct Config {
     /// Will use the cids in the header of the file to index the chain.
     pub skip_load: bool,
     pub encrypt_keystore: bool,
-    pub metrics_port: u16,
+    /// Metrics bind, e.g. 0.0.0.0:6116
+    pub metrics_address: SocketAddr,
     pub rocks_db: db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
@@ -50,7 +53,7 @@ impl Default for Config {
             skip_load: false,
             sync: SyncConfig::default(),
             encrypt_keystore: true,
-            metrics_port: 6116,
+            metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rocks_db: db::rocks_config::RocksDbConfig::default(),
             chain: Arc::default(),
         }
