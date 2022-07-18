@@ -30,11 +30,11 @@ use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use encoding::Cbor;
 use fil_types::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
-use forest_cid::Cid;
+use cid::Cid;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
@@ -1593,9 +1593,9 @@ async fn validate_tipset_against_cache<C: Consensus>(
 
 #[cfg(test)]
 mod test {
-    use forest_address::Address;
+    use fvm_shared::address::Address;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use forest_cid::Cid;
+    use cid::Cid;
     use forest_crypto::VRFProof;
     use num_bigint::BigInt;
 

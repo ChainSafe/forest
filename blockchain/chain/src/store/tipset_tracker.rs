@@ -6,7 +6,7 @@ use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc};
 
 use forest_blocks::{BlockHeader, Tipset};
-use forest_cid::Cid;
+use cid::Cid;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 

@@ -27,7 +27,6 @@ tide = "0.16"
 tide-websockets = "0.4"
 fil_actor_miner_v8 = { package = "fil_actor_miner", version = "=8.0.0" }
 actor = { package = "actor_interface", path = "../../vm/actor_interface" }
-forest_address = { version = "0.3", features = ["json"] }
 auth = { path = "../../utils/auth" }
 beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
     "json",
@@ -36,7 +35,6 @@ forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
 ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
-forest_cid = { version = "0.3", features = ["json"] }
 forest_crypto = { version = "0.5", features = ["json", "blst"] }
 encoding = { package = "forest_encoding", version = "0.2" }
 fil_types = "0.2"
@@ -46,13 +44,14 @@ forest_ipld = { version = "0.1", features = ["json"] }
 forest_message = { version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
-forest_bigint = "0.1"
 rpc-api = { path = "../rpc-api", version = "0.1" }
 state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
 key_management = { path = "../../key_management", features = ["json"] }
 fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield = "0.5.2"
 legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
+forest_json = { version = "0.1.0", path = "../../utils/json/" }
+cid = { version = "0.8", default-features = false, features = ["std"] }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

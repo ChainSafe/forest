@@ -7,7 +7,8 @@ use std::str::FromStr;
 
 use beacon::Beacon;
 use encoding::Cbor;
-use forest_address::{json::AddressJson, Address};
+use fvm_shared::address::Address;
+use forest_json::address::json::AddressJson;
 use forest_crypto::signature::json::SignatureJson;
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,

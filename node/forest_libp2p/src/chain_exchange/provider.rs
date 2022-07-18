@@ -3,7 +3,7 @@
 
 use chain::{ChainStore, Error as ChainError};
 use forest_blocks::{Tipset, TipsetKeys};
-use forest_cid::Cid;
+use cid::Cid;
 use ipld_blockstore::BlockStore;
 use log::debug;
 use std::collections::HashMap;

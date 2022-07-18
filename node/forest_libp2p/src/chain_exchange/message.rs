@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
-use forest_cid::Cid;
+use cid::Cid;
 use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;

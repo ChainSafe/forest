@@ -14,7 +14,7 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName, HelloRequest, HelloResponse},
 };
-use forest_cid::Cid;
+use cid::Cid;
 use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};

@@ -6,7 +6,7 @@ use crate::provider::Provider;
 use crate::utils::{get_gas_perf, get_gas_reward};
 use async_std::sync::RwLock;
 use encoding::Cbor;
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use fvm::gas::{price_list_by_network_version, Gas};

@@ -4,9 +4,9 @@
 use crate::FilterEstimate;
 use fil_actors_runtime_v8::runtime::Policy;
 use fil_types::StoragePower;
-use forest_address::Address;
-use forest_bigint::bigint_ser::json;
-use forest_cid::Cid;
+use fvm_shared::address::Address;
+use forest_json::bigint::json;
+use cid::Cid;
 use forest_vm::{ActorState, TokenAmount};
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;

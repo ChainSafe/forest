@@ -3,7 +3,7 @@
 
 use anyhow::anyhow;
 use encoding::Error as EncodingError;
-use forest_cid::Error as CidError;
+use cid::Error as CidError;
 use std::error::Error as StdError;
 use thiserror::Error;
 

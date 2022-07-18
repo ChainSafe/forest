@@ -7,8 +7,8 @@ use std::{
     str::{self, FromStr},
 };
 use structopt::StructOpt;
-
-use forest_address::{json::AddressJson, Address};
+use fvm_shared::address::Address;
+use forest_json::address::json::AddressJson;
 use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use key_management::json::KeyInfoJson;

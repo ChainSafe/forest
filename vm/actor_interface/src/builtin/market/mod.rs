@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fil_types::PaddedPieceSize;
-use forest_address::Address;
-use forest_bigint::bigint_ser::json;
-use forest_cid::Cid;
+use fvm_shared::address::Address;
+use forest_json::bigint::json;
+use cid::Cid;
 use forest_vm::{ActorState, TokenAmount};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -143,13 +143,13 @@ impl<BS> DealProposals<'_, BS> {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposal {
-    #[serde(with = "forest_cid::json", rename = "PieceCID")]
+    #[serde(with = "forest_json::cid", rename = "PieceCID")]
     pub piece_cid: Cid,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-    #[serde(with = "forest_address::json")]
+    #[serde(with = "forest_json::address::json")]
     pub client: Address,
-    #[serde(with = "forest_address::json")]
+    #[serde(with = "forest_json::address::json")]
     pub provider: Address,
     // ! This is the field that requires unsafe unchecked utf8 deserialization
     pub label: String,

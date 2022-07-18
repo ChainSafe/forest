@@ -7,7 +7,7 @@ use async_std::task::{self};
 use futures::stream::FuturesUnordered;
 
 use actor::power;
-use address::Address;
+use fvm_shared::address::Address;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use blocks::{Block, BlockHeader, Tipset};
 use chain_sync::collect_errs;

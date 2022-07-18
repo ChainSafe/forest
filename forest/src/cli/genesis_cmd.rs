@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
 use fil_types::FILECOIN_PRECISION;
-use forest_address::Address;
+use fvm_shared::address::Address;
 
 const ACCOUNT_START: u64 = 1000;
 #[derive(Debug, StructOpt)]

@@ -3,8 +3,8 @@
 
 use crate::FilterEstimate;
 use fil_types::StoragePower;
-use forest_address::Address;
-use forest_cid::Cid;
+use fvm_shared::address::Address;
+use cid::Cid;
 use forest_vm::{ActorState, TokenAmount};
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;

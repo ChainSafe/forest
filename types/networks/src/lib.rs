@@ -331,7 +331,7 @@ fn default_policy() -> Policy {
 
 mod serde_policy {
     use crate::*;
-    use num_bigint::bigint_ser::json as bigint_json;
+    use forest_json::bigint::json as bigint_json;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     #[derive(Serialize, Deserialize)]

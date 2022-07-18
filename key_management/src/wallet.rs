@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

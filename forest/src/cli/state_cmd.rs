@@ -4,7 +4,8 @@
 use std::str::FromStr;
 
 use actor::is_miner_actor;
-use forest_address::{json::AddressJson, Address};
+use fvm_shared::address::Address;
+use forest_json::address::json::AddressJson;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use forest_vm::ActorState;
 use rpc_client::{

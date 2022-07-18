@@ -3,9 +3,9 @@
 
 #![cfg(feature = "json")]
 
-use forest_cid::{
+use cid::Cid;
+use forest_json::cid::{
     json::{self, CidJson, CidJsonRef},
-    Cid,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};

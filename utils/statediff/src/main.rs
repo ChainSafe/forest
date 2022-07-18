@@ -5,7 +5,7 @@ use structopt::StructOpt;
 
 use db::rocks::RocksDb;
 use db::rocks_config::RocksDbConfig;
-use forest_cid::Cid;
+use cid::Cid;
 use statediff::print_state_diff;
 
 /// Examine the state delta

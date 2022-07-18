@@ -4,7 +4,7 @@
 use super::errors::Error;
 use super::Store;
 use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, RocksDbConfig};
-use forest_cid::Cid;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::path::Path;

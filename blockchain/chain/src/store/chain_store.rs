@@ -9,10 +9,10 @@ use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_cid::Cid;
-use forest_cid::Code::Blake2b256;
+use cid::Cid;
+use cid::multihash::Code::Blake2b256;
 use forest_ipld::recurse_links;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
@@ -947,7 +947,7 @@ mod tests {
     use cid::multihash::Code::{Blake2b256, Identity};
     use cid::multihash::MultihashDigest;
     use cid::Cid;
-    use forest_address::Address;
+    use fvm_shared::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
 
     #[test]
@@ -976,7 +976,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = Cid::new_v1(DAG_CBOR, Black2b256.digest(&[1, 2, 3]));
+        let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();

@@ -5,12 +5,8 @@
 #[allow(unused_imports)]
 use data_encoding_macro::{internal_new_encoding, new_encoding};
 
-pub use fvm_shared::address::{
-    checksum, validate_checksum, Address, Payload, Protocol, BLS_PUB_LEN, CHECKSUM_HASH_LEN,
-    PAYLOAD_HASH_LEN, SECP_PUB_LEN,
-};
+use fvm_shared::address::Address;
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use serde::{de, Serialize};
@@ -55,10 +51,9 @@ pub mod json {
         Address::from_str(&address_as_string).map_err(de::Error::custom)
     }
 
-    #[cfg(feature = "json")]
     pub mod vec {
         use super::*;
-        use crate::json::{AddressJson, AddressJsonRef};
+        use super::{AddressJson, AddressJsonRef};
         use forest_json_utils::GoVecVisitor;
         use serde::ser::SerializeSeq;
 

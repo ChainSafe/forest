@@ -7,8 +7,9 @@
 // use actor::power;
 use colored::*;
 use difference::{Changeset, Difference};
-use forest_address::Address;
-use forest_cid::{json::CidJson, Cid};
+use fvm_shared::address::Address;
+use cid::Cid;
+use forest_json::cid::CidJson;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_ipld::Ipld;
 use forest_vm::ActorState;

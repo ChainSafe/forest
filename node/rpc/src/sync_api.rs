@@ -6,7 +6,7 @@ use chain_sync::SyncState;
 use encoding::Cbor;
 use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
-use forest_cid::json::CidJson;
+use forest_json::cid::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
@@ -117,7 +117,7 @@ mod tests {
     use chain::ChainStore;
     use chain_sync::SyncStage;
     use db::{MemoryDB, Store};
-    use forest_address::Address;
+    use fvm_shared::address::Address;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_libp2p::NetworkMessage;
     use key_management::{KeyStore, KeyStoreConfig};

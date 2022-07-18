@@ -14,7 +14,7 @@ use crate::msgpool::MIN_GAS;
 use crate::Error;
 use crate::{add_to_selected_msgs, remove_from_selected_msgs};
 use async_std::sync::{Arc, RwLock};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_blocks::Tipset;
 use forest_message::Message;
 use forest_message::SignedMessage;

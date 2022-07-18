@@ -10,7 +10,7 @@ use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_vm::TokenAmount;
 use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::bigint::{
@@ -35,7 +35,7 @@ const SHA_256_BITS: usize = 256;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use forest_address::Address;
+/// use fvm_shared::address::Address;
 /// use forest_cid::{Cid, Code::Identity};
 /// use fvm_shared::bigint::BigInt;
 /// use fvm_shared::crypto::signature::Signature;
@@ -465,7 +465,7 @@ mod tests {
     use crate::{errors::Error, BlockHeader};
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
-    use forest_address::Address;
+    use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;

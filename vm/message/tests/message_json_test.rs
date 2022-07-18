@@ -3,7 +3,7 @@
 
 #![cfg(feature = "json")]
 
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_crypto::Signer;
 use forest_message::message;
 use forest_message::message::json::{MessageJson, MessageJsonRef};

@@ -4,9 +4,9 @@
 use super::gas_api::estimate_message_gas;
 use beacon::Beacon;
 use encoding::Cbor;
-use forest_address::{Address, Protocol};
+use fvm_shared::address::{Address, Protocol};
 use forest_blocks::TipsetKeys;
-use forest_cid::json::{vec::CidJsonVec, CidJson};
+use forest_json::cid::{vec::CidJsonVec, CidJson};
 use forest_message::message::json::MessageJson;
 use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};
 use ipld_blockstore::BlockStore;

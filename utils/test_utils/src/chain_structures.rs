@@ -7,7 +7,7 @@ use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use encoding::to_vec;
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use forest_crypto::{Signer, VRFProof};
 use forest_libp2p::chain_exchange::{
@@ -21,7 +21,7 @@ use std::convert::TryFrom;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
-    Cid::new_v1(DAG_CBOR, Blake2b256.digest(data));
+    Cid::new_v1(DAG_CBOR, Blake2b256.digest(data))
 }
 
 /// Defines a block header used in testing

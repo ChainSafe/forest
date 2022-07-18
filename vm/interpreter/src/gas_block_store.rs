@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use db::{Error, Store};
-use forest_cid::Cid;
+use cid::Cid;
 use fvm::gas::{GasTracker, PriceList};
 use fvm_ipld_blockstore::Blockstore;
 use std::cell::RefCell;
@@ -83,7 +83,7 @@ where
 mod tests {
     use super::*;
     use db::MemoryDB;
-    use forest_cid::Code::Blake2b256;
+    use cid::multihash::Code::Blake2b256;
     use forest_encoding::to_vec;
     use fvm::gas::price_list_by_network_version;
     use fvm::gas::Gas;

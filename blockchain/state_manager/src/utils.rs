@@ -11,9 +11,9 @@ use fil_types::{
     verifier::ProofVerifier, NetworkVersion, Randomness, RegisteredSealProof, SectorInfo,
     SectorNumber,
 };
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_blocks::Tipset;
-use forest_cid::Cid;
+use cid::Cid;
 use fvm::state_tree::StateTree;
 use fvm_ipld_bitfield::BitField;
 use interpreter::resolve_to_key_addr;

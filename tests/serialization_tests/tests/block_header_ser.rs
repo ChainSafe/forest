@@ -5,7 +5,7 @@
 
 use encoding::to_vec;
 use forest_blocks::{header, BlockHeader};
-use forest_cid::Cid;
+use cid::Cid;
 use hex::encode;
 use serde::Deserialize;
 use std::fs::File;

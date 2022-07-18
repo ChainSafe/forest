@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::account;
-use forest_address::{Address, Protocol};
+use fvm_shared::address::{Address, Protocol};
 use fvm::state_tree::StateTree as FvmStateTree;
 use ipld_blockstore::BlockStore;
 

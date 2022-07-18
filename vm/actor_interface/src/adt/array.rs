@@ -3,7 +3,7 @@
 
 use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
-use forest_cid::Cid;
+use cid::Cid;
 use ipld_blockstore::BlockStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::marker::PhantomData;

@@ -9,7 +9,8 @@ use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use forest_cid::{json::CidJson, Cid};
+use cid::Cid;
+use forest_json::cid::CidJson;
 use forest_message::message;
 use fvm_shared::message::Message as FVMMessage;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -26,7 +27,7 @@ use std::sync::Arc;
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct Message {
-    #[serde(with = "forest_cid::json")]
+    #[serde(with = "forest_json::cid")]
     cid: Cid,
     #[serde(with = "message::json")]
     message: FVMMessage,

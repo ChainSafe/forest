@@ -5,7 +5,7 @@ use actor::*;
 use anyhow::Context;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;
-use forest_address::Address;
+use fvm_shared::address::Address;
 use forest_vm::{ActorState, TokenAmount};
 use fvm::state_tree::StateTree;
 use fvm_shared::bigint::BigInt;

@@ -3,7 +3,7 @@
 
 use crate::BlockHeader;
 use encoding::{tuple::*, Cbor};
-use forest_cid::Cid;
+use cid::Cid;
 
 /// Block message used as serialized gossipsub messages for blocks topic.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -40,9 +40,9 @@ pub mod json {
         struct GossipBlockSer<'a> {
             #[serde(with = "header::json")]
             pub header: &'a BlockHeader,
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub bls_messages: &'a [Cid],
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub secpk_messages: &'a [Cid],
         }
         GossipBlockSer {
@@ -62,9 +62,9 @@ pub mod json {
         struct GossipBlockDe {
             #[serde(with = "header::json")]
             pub header: BlockHeader,
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub bls_messages: Vec<Cid>,
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub secpk_messages: Vec<Cid>,
         }
         let GossipBlockDe {

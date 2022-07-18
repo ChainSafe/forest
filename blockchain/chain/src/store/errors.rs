@@ -4,7 +4,7 @@
 use db::Error as DbErr;
 use encoding::{error::Error as SerdeErr, Error as EncErr};
 use forest_blocks::Error as BlkErr;
-use forest_cid::Error as CidErr;
+use cid::Error as CidErr;
 use legacy_ipld_amt::Error as AmtErr;
 use thiserror::Error;
 
