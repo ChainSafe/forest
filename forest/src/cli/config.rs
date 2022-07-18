@@ -29,7 +29,7 @@ pub struct Config {
     /// Will use the cids in the header of the file to index the chain.
     pub skip_load: bool,
     pub encrypt_keystore: bool,
-    /// Metrics bind, e.g. 0.0.0.0:6116
+    /// Metrics bind, e.g. 127.0.0.1:6116
     pub metrics_address: SocketAddr,
     pub rocks_db: db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
@@ -53,7 +53,7 @@ impl Default for Config {
             skip_load: false,
             sync: SyncConfig::default(),
             encrypt_keystore: true,
-            metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
+            metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
             rocks_db: db::rocks_config::RocksDbConfig::default(),
             chain: Arc::default(),
         }
