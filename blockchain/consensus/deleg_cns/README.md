@@ -223,3 +223,18 @@ $ cd genesis-files && ls | grep -v pre-seal | grep -v genesis | xargs rm -rf && 
 $ ls genesis-files
 genesis.car  genesis.json  pre-seal-t01000.json  pre-seal-t01000.key
 ```
+
+### All together now
+
+The [scripts/generate-genesis-files.sh](scripts/generate-genesis-files.sh) file is a convenience script that runs all the above commands assuming that `lotus-seed` is on the `PATH`, which may be the case if we already have Lotus or Eudico installed. If so, we can run the script directly, giving it the output directory (which must exist) to write the genesis files to.
+
+And similarly we can use the docker image we prepared here to run all the above commands as a single step:
+
+```bash
+docker run -it --rm \
+  -v $PWD/genesis-files:/out \
+  -v $PWD/scripts:/scripts \
+  --user $(id -u):$(id -g) \
+  --entrypoint /scripts/generate-genesis-files.sh \
+  filecoin/lotus-test /out
+```
