@@ -7,8 +7,7 @@ use crate::{
     node::{CollapsedNode, Link},
     nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
 };
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use cid::{multihash::Code::Blake2b256, Cid};
 use encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use itertools::sorted;

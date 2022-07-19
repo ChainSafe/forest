@@ -4,8 +4,7 @@
 use crate::bad_block_cache::BadBlockCache;
 
 use chain::ChainStore;
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use cid::{multihash::Code::Blake2b256, Cid};
 use encoding::{Cbor, Error as EncodingError};
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_message::SignedMessage;

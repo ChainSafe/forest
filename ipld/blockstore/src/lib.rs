@@ -7,9 +7,10 @@
 /// structure, or this would lead to ambiguity of the data.
 pub mod resolve;
 
-use cid::multihash::Code;
-use cid::multihash::MultihashDigest;
-use cid::Cid;
+use cid::{
+    multihash::{Code, MultihashDigest},
+    Cid,
+};
 use db::Store;
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use fvm_ipld_blockstore::Blockstore;

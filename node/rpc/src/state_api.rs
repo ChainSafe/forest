@@ -14,8 +14,7 @@ use actor::{
 };
 use beacon::{Beacon, BeaconEntry};
 use bls_signatures::Serialize as SerializeBls;
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use cid::{multihash::Code::Blake2b256, Cid};
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
