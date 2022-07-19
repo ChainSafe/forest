@@ -1,8 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::Scale;
+
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use actor::{miner, power};
+use actor::miner;
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
@@ -19,7 +21,7 @@ use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
 use futures::AsyncWrite;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
-use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::BlockMessages;
@@ -28,7 +30,6 @@ use legacy_ipld_amt::Amt;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use num_traits::Zero;
 use serde::Serialize;
 use std::sync::Arc;
 use std::{
@@ -40,13 +41,6 @@ use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
 const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
-
-// constants for Weight calculation
-/// The ratio of weight contributed by short-term vs long-term factors in a given round
-const W_RATIO_NUM: u64 = 1;
-const W_RATIO_DEN: u64 = 2;
-/// Blocks epoch allowed
-const BLOCKS_PER_EPOCH: u64 = 5;
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -136,7 +130,10 @@ where
 
     /// Writes tipset block headers to data store and updates heaviest tipset with other
     /// compatible tracked headers.
-    pub async fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
+    pub async fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
+    where
+        S: Scale,
+    {
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
         // blockstore reads
@@ -144,7 +141,7 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
-        self.update_heaviest(Arc::new(expanded)).await?;
+        self.update_heaviest::<S>(Arc::new(expanded)).await?;
         Ok(())
     }
 
@@ -203,18 +200,23 @@ where
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    async fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
+    where
+        S: Scale,
+    {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = self
             .heaviest
             .read()
             .await
             .as_ref()
-            .map(|ts| weight(self.db.as_ref(), ts.as_ref()));
+            .map(|ts| S::weight(self.blockstore(), ts.as_ref()));
+
         match heaviest_weight {
             Some(heaviest) => {
-                let new_weight = weight(self.blockstore(), ts.as_ref())?;
+                let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
                 let curr_weight = heaviest?;
+
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset: {:?}", ts.key());
@@ -409,9 +411,12 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<&DB>, Error> {
+    async fn parent_state_tsk<'a>(
+        &'a self,
+        key: &TipsetKeys,
+    ) -> anyhow::Result<StateTree<&'a DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
-        StateTree::new_from_root(&*self.db, ts.parent_state())
+        StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
     }
 
@@ -865,51 +870,6 @@ where
     let amt = Amt::load(block_header.message_receipts(), db)?;
     let receipts = amt.get(i)?;
     Ok(receipts.cloned())
-}
-
-/// Returns the weight of provided [Tipset]. This function will load power actor state
-/// and calculate the total weight of the [Tipset].
-pub fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
-where
-    DB: BlockStore,
-{
-    let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
-
-    let act = state
-        .get_actor(&power::ADDRESS)
-        .map_err(|e| e.to_string())?
-        .ok_or("Failed to load power actor for calculating weight")?;
-
-    let state = power::State::load(db, &act).map_err(|e| e.to_string())?;
-
-    let tpow = state.into_total_quality_adj_power();
-
-    let log2_p = if tpow > BigInt::zero() {
-        BigInt::from(tpow.bits() - 1)
-    } else {
-        return Err(
-            "All power in the net is gone. You network might be disconnected, or the net is dead!"
-                .to_owned(),
-        );
-    };
-
-    let mut total_j = 0;
-    for b in ts.blocks() {
-        total_j += b
-            .election_proof()
-            .as_ref()
-            .ok_or("Block contained no election proof when calculating weight")?
-            .win_count;
-    }
-
-    let mut out = ts.weight().to_owned();
-    out += &log2_p << 8;
-    let mut e_weight: BigInt = log2_p * W_RATIO_NUM;
-    e_weight <<= 8;
-    e_weight *= total_j;
-    e_weight = e_weight.div_floor(&(BigInt::from(BLOCKS_PER_EPOCH * W_RATIO_DEN)));
-    out += &e_weight;
-    Ok(out)
 }
 
 #[cfg(feature = "json")]

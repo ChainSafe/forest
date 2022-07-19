@@ -8,12 +8,6 @@ mod policy;
 pub use self::adt::*;
 pub use self::builtin::*;
 pub use self::policy::*;
-// pub use actorv0;
-// pub use actorv2;
-// pub use actorv3;
-// pub use actorv4;
-// pub use actorv5;
-// pub use actorv6;
 use fil_types::{NetworkVersion, StateTreeVersion};
 use std::fmt::{self, Display, Formatter};
 

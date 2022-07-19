@@ -66,7 +66,7 @@ pub mod json {
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
-    /// Wrapper for serializing and de-serializing a `KeyInfo` reference to JSON.
+    /// Wrapper for serializing a `KeyInfo` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct KeyInfoJsonRef<'a>(#[serde(with = "self")] pub &'a KeyInfo);
