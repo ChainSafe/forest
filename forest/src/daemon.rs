@@ -301,8 +301,8 @@ fn chain_path(config: &Config) -> PathBuf {
 mod test {
     use super::*;
     use db::MemoryDB;
-    use forest_address::Address;
     use forest_blocks::BlockHeader;
+    use fvm_shared::address::Address;
     use networks::ChainConfig;
 
     #[async_std::test]

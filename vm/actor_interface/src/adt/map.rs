@@ -3,8 +3,8 @@
 
 use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
+use cid::Cid;
 use fil_types::HAMT_BIT_WIDTH;
-use forest_cid::Cid;
 use forest_hash_utils::{BytesKey, Hash};
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmRefStore;

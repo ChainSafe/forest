@@ -12,11 +12,9 @@ anyhow            = "1.0"
 fvm               = "1.0"
 serde_json        = "1.0"
 ipld_blockstore   = { version = "0.1", features = ["resolve", "rocksdb"] }
-forest_cid        = { version = "0.3", features = ["cbor", "json"] }
 difference        = "2.0"
 colored           = "2.0"
 # TODO might need to enable feature on other versions (0.1 and local)
-forest_address = { version = "0.3", features = ["json"] }
 serde          = { version = "1.0", features = ["derive"] }
 forest_ipld    = { version = "0.1", features = ["json"] }
 forest_vm      = "0.3"
@@ -25,6 +23,8 @@ structopt      = "0.3"
 async-std      = { version = "1.9", features = ["attributes", "tokio1"] }
 db             = { package = "forest_db", version = "0.1" }
 directories    = "4.0.1"
+forest_json    = { version = "0.1.0", path = "../../utils/json/" }
+cid            = { version = "0.8", default-features = false, features = ["std"] }
 
 [features]
 default = ["rocksdb"]

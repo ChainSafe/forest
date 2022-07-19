@@ -8,16 +8,15 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-forest_address    = "0.3"
 beacon            = { path = "../beacon" }
 byteorder         = "1.3.4"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_message    = { version = "0.7", features = ["blst"] }
-forest_cid        = { version = "0.3", features = ["cbor"] }
+forest_json       = { version = "0.1.0", path = "../../utils/json/" }
 derive_builder    = "0.10"
 serde             = { version = "1.0", features = ["derive"] }
 encoding          = { package = "forest_encoding", version = "0.2.1" }
-forest_bigint     = "0.1"
+num-bigint        = "0.4"
 fvm_shared        = { version = "0.8.0", default-features = false }
 sha2              = { version = "0.9", default-features = false }
 thiserror         = "1.0"
@@ -28,6 +27,8 @@ forest_json_utils = { version = "0.1", optional = true }
 lazy_static       = "1.4.0"
 once_cell         = "1.5.2"
 log               = "0.4.8"
+fvm_ipld_encoding = "0.2"
+cid               = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 base64 = "0.13"
@@ -44,6 +45,5 @@ json = [
     "forest_crypto/json",
     "forest_json_utils",
     "beacon/json",
-    "forest_cid/json",
     "fil_types/json",
 ]

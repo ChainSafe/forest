@@ -4,9 +4,9 @@
 use super::Message as MessageTrait;
 use encoding::tuple::*;
 use encoding::{to_vec, Cbor, Error as CborError};
-use forest_address::Address;
 use forest_crypto::Signer;
 use forest_vm::{MethodNum, Serialized, TokenAmount};
+use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use fvm_shared::message::Message;
 
@@ -129,7 +129,7 @@ pub mod json {
     use super::*;
     use crate::message;
 
-    use forest_cid::Cid;
+    use cid::Cid;
     use forest_crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -166,7 +166,7 @@ pub mod json {
             message: &'a Message,
             #[serde(with = "signature::json")]
             signature: &'a Signature,
-            #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
+            #[serde(default, rename = "CID", with = "forest_json::cid::opt")]
             cid: Option<Cid>,
         }
         SignedMessageSer {

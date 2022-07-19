@@ -45,11 +45,11 @@ where
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: &'a i64,
-        #[serde(rename = "ParentStateRoot", with = "forest_cid::json")]
+        #[serde(rename = "ParentStateRoot", with = "forest_json::cid")]
         state_root: &'a Cid,
-        #[serde(rename = "ParentMessageReceipts", with = "forest_cid::json")]
+        #[serde(rename = "ParentMessageReceipts", with = "forest_json::cid")]
         message_receipts: &'a Cid,
-        #[serde(with = "forest_cid::json")]
+        #[serde(with = "forest_json::cid")]
         messages: &'a Cid,
         #[serde(rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: &'a Option<Signature>,
@@ -103,11 +103,11 @@ where
         #[serde(rename = "ParentWeight")]
         weight: String,
         height: i64,
-        #[serde(rename = "ParentStateRoot", with = "forest_cid::json")]
+        #[serde(rename = "ParentStateRoot", with = "forest_json::cid")]
         state_root: Cid,
-        #[serde(rename = "ParentMessageReceipts", with = "forest_cid::json")]
+        #[serde(rename = "ParentMessageReceipts", with = "forest_json::cid")]
         message_receipts: Cid,
-        #[serde(with = "forest_cid::json")]
+        #[serde(with = "forest_json::cid")]
         messages: Cid,
         #[serde(default, rename = "BLSAggregate", with = "signature::json::opt")]
         bls_aggregate: Option<Signature>,

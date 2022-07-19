@@ -30,7 +30,7 @@ where
             }
         }
         Ipld::Link(cid) => {
-            if cid.codec() == cid::DAG_CBOR {
+            if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                 if !walked.insert(*cid) {
                     return Ok(());
                 }
@@ -57,7 +57,7 @@ where
         // Cid has already been traversed
         return Ok(());
     }
-    if root.codec() != cid::DAG_CBOR {
+    if root.codec() != fvm_ipld_encoding::DAG_CBOR {
         return Ok(());
     }
 

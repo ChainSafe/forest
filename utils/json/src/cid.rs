@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Cid;
+use cid::Cid;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Wrapper for serializing and deserializing a Cid from JSON.
