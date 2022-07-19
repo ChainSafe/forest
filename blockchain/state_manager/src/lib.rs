@@ -232,9 +232,16 @@ where
             .await
     }
 
-    /// Returns the network name from the init actor state.
+    // This function used to do this: Returns the network name from the init actor state.
+    /// Returns the internal, protocol-level network name.
     pub fn get_network_name(&self, _st: &Cid) -> Result<String, Error> {
-        Ok("cannot get name".into())
+        if self.chain_config.name == "calibnet" {
+            return Ok("calibrationnet".to_owned());
+        }
+        if self.chain_config.name == "mainnet" {
+            return Ok("testnetnet".to_owned());
+        }
+        Err(Error::Other("Cannot guess network name".to_owned()))
         // let init_act = self
         //     .get_actor(actor::init::ADDRESS, *st)?
         //     .ok_or_else(|| Error::State("Init actor address could not be resolved".to_string()))?;
