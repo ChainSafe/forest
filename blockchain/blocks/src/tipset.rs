@@ -134,7 +134,7 @@ impl Tipset {
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
-    /// Returns true if self wins according to the filecoin tie-break rule (FIP-0023)
+    /// Returns true if self wins according to the Filecoin tie-break rule (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
