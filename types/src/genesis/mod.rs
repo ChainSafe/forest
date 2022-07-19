@@ -1,9 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_address::{json as addr_json, Address};
-use forest_bigint::bigint_ser::json as bigint_json;
+use forest_json::address::json as addr_json;
+use forest_json::bigint::json as bigint_json;
 use forest_vm::TokenAmount;
+use fvm_shared::address::Address;
 use fvm_shared::sector::SectorSize;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;

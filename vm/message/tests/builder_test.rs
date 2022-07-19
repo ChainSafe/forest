@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_address::Address;
 use forest_message::SignedMessage;
+use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
 

@@ -3,15 +3,18 @@
 
 #![cfg(feature = "cbor")]
 
-use forest_cid::{Cid, Code::Blake2b256};
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
+use fvm_ipld_encoding::DAG_CBOR;
 use serde_ipld_dagcbor::{from_slice, to_vec};
 
 #[test]
 fn vector_cid_serialize_round() {
     let cids = vec![
-        forest_cid::new_from_cbor(&[0, 1], Blake2b256),
-        forest_cid::new_from_cbor(&[1, 2], Blake2b256),
-        forest_cid::new_from_cbor(&[3, 2], Blake2b256),
+        Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[0, 1])),
+        Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2])),
+        Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[3, 2])),
     ];
 
     // Serialize cids with cbor

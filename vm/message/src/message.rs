@@ -53,9 +53,9 @@ pub fn valid_for_block_inclusion(
 
 #[cfg(feature = "json")]
 pub mod json {
-    use forest_address::json::AddressJson;
-    use forest_bigint::bigint_ser;
-    use forest_cid::Cid;
+    use cid::Cid;
+    use forest_json::address::json::AddressJson;
+    use forest_json::bigint;
     use forest_vm::{Serialized, TokenAmount};
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::message::Message;
@@ -92,17 +92,17 @@ pub mod json {
         from: AddressJson,
         #[serde(rename = "Nonce")]
         sequence: u64,
-        #[serde(with = "bigint_ser::json")]
+        #[serde(with = "bigint::json")]
         value: TokenAmount,
         gas_limit: i64,
-        #[serde(with = "bigint_ser::json")]
+        #[serde(with = "bigint::json")]
         gas_fee_cap: TokenAmount,
-        #[serde(with = "bigint_ser::json")]
+        #[serde(with = "bigint::json")]
         gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
-        #[serde(default, rename = "CID", with = "forest_cid::json::opt")]
+        #[serde(default, rename = "CID", with = "forest_json::cid::opt")]
         cid: Option<Cid>,
     }
 

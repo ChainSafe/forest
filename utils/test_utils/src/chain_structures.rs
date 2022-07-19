@@ -3,22 +3,25 @@
 
 #![cfg(feature = "test_constructors")]
 
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use encoding::to_vec;
-use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
-use forest_cid::{new_from_cbor, Cid, Code::Blake2b256};
 use forest_crypto::{Signer, VRFProof};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
+use fvm_ipld_encoding::DAG_CBOR;
+use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
 
 /// Defines a TipsetKey used in testing
 pub fn template_key(data: &[u8]) -> Cid {
-    new_from_cbor(data, Blake2b256)
+    Cid::new_v1(DAG_CBOR, Blake2b256.digest(data))
 }
 
 /// Defines a block header used in testing
@@ -74,7 +77,7 @@ pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
         .unwrap(),
     };
     let bz = to_vec(&meta).unwrap();
-    let msg_root = new_from_cbor(&bz, Blake2b256);
+    let msg_root = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&bz));
 
     vec![
         template_header(data0, 1, epoch, msg_root, weight),
@@ -166,9 +169,9 @@ pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
 pub fn construct_dummy_header() -> BlockHeader {
     BlockHeader::builder()
         .miner_address(Address::new_id(1000))
-        .messages(new_from_cbor(&[1, 2, 3], Blake2b256))
-        .message_receipts(new_from_cbor(&[1, 2, 3], Blake2b256))
-        .state_root(new_from_cbor(&[1, 2, 3], Blake2b256))
+        .messages(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])))
+        .message_receipts(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])))
+        .state_root(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])))
         .build()
         .unwrap()
 }

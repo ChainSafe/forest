@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_address::Address;
+use fvm_shared::address::Address;
 
 /// Cron actor address.
 pub const ADDRESS: Address = Address::new_id(3);

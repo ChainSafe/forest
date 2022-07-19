@@ -1,16 +1,16 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
 use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
-use forest_address::Address;
-use forest_bigint::bigint_ser::json;
-use forest_cid::Cid;
+use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;
 use forest_vm::{ActorState, DealID, TokenAmount};
 use fvm_ipld_bitfield::BitField;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -177,13 +177,13 @@ impl State {
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfo {
-    #[serde(with = "forest_address::json")]
+    #[serde(with = "forest_json::address::json")]
     pub owner: Address,
-    #[serde(with = "forest_address::json")]
+    #[serde(with = "forest_json::address::json")]
     pub worker: Address,
-    #[serde(with = "forest_address::json::opt")]
+    #[serde(with = "forest_json::address::json::opt")]
     pub new_worker: Option<Address>,
-    #[serde(with = "forest_address::json::vec")]
+    #[serde(with = "forest_json::address::json::vec")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
     #[serde(with = "peer_id_json")]
@@ -298,7 +298,7 @@ pub struct SectorOnChainInfo {
     /// The seal proof type implies the PoSt proofs
     pub seal_proof: RegisteredSealProof,
     /// CommR
-    #[serde(with = "forest_cid::json")]
+    #[serde(with = "forest_json::cid")]
     pub sealed_cid: Cid,
     pub deal_ids: Vec<DealID>,
     /// Epoch during which the sector proof was accepted
@@ -361,7 +361,7 @@ pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
     /// CommR
-    #[serde(with = "forest_cid::json", rename = "SealedCID")]
+    #[serde(with = "forest_json::cid", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
     #[serde(with = "go_vec_visitor", rename = "DealIDs")]

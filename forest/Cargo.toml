@@ -9,7 +9,6 @@ build       = "build.rs"
 [dependencies]
 anyhow            = "1.0"
 fvm               = "1.0"
-forest_address    = "0.3"
 base64            = "0.13"
 forest_libp2p     = { path = "../node/forest_libp2p" }
 utils             = { path = "../node/utils" }
@@ -25,13 +24,11 @@ ctrlc             = "3.1"
 chain_sync        = { path = "../blockchain/chain_sync" }
 state_manager     = { path = "../blockchain/state_manager" }
 fil_cns           = { path = "../blockchain/consensus/fil_cns" }
-forest_cid        = { version = "0.3", features = ["json"] }
 multibase         = "0.9"
 fvm_ipld_car      = "0.4.1"
 forest_crypto     = { version = "0.5", features = ["json"] }
 forest_vm         = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
-forest_bigint     = "0.1"
 num-rational      = "0.4"
 forest_blocks     = { path = "../blockchain/blocks" }
 ipld_blockstore   = "0.1"
@@ -65,6 +62,8 @@ rug               = "1.13"
 toml              = "0.5"
 directories       = "4.0.1"
 fvm_shared        = { version = "0.8.0", default-features = false }
+forest_json       = { version = "0.1.0", path = "../utils/json/" }
+cid               = { version = "0.8", default-features = false, features = ["std"] }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

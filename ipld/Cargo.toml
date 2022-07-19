@@ -22,11 +22,7 @@ multibase         = { version = "0.9", optional = true }
 async-trait       = "0.1"
 async-recursion   = "1.0"
 indexmap          = { version = "1.8", features = ["serde-1"] }
-
-[dependencies.cid]
-package  = "forest_cid"
-features = ["cbor", "json"]
-version  = "0.3"
+cid               = { version = "0.8", default-features = false, features = ["std"] }
 
 [features]
 json            = ["multibase"]

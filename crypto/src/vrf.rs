@@ -3,7 +3,7 @@
 
 use crate::signature::verify_bls_sig;
 use encoding::{blake2b_256, serde_byte_array};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_cid::Cid;
+use cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -28,13 +28,15 @@ pub struct HelloResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forest_cid::Code::Identity;
+    use cid::multihash::Code::Identity;
+    use cid::multihash::MultihashDigest;
     use forest_encoding::*;
+    use fvm_ipld_encoding::DAG_CBOR;
 
     #[test]
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
-            genesis_hash: forest_cid::new_from_cbor(&[], Identity),
+            genesis_hash: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             heaviest_tipset_weight: Default::default(),
             heaviest_tipset_height: Default::default(),
             heaviest_tip_set: Default::default(),

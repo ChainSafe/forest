@@ -3,7 +3,7 @@
 
 use super::{Error, Store};
 use anyhow::Result;
-use forest_cid::Cid;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};

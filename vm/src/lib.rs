@@ -20,15 +20,18 @@ pub use fvm_shared::error::ExitCode;
 
 #[macro_use]
 extern crate lazy_static;
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use encoding::to_vec;
-use forest_cid::{Cid, Code::Blake2b256};
+use fvm_ipld_encoding::DAG_CBOR;
 
 lazy_static! {
     /// Cbor bytes of an empty array serialized.
     pub static ref EMPTY_ARR_BYTES: Vec<u8> = to_vec::<[(); 0]>(&[]).unwrap();
 
     /// Cid of the empty array Cbor bytes (`EMPTY_ARR_BYTES`).
-    pub static ref EMPTY_ARR_CID: Cid = forest_cid::new_from_cbor(&EMPTY_ARR_BYTES, Blake2b256);
+    pub static ref EMPTY_ARR_CID: Cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&EMPTY_ARR_BYTES));
 }
 
 #[cfg(test)]

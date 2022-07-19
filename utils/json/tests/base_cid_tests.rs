@@ -1,7 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_cid::{Cid, Code, Error, Version, DAG_CBOR};
+use cid::multihash::Code;
+use cid::{Cid, Error, Version};
+use fvm_ipld_encoding::DAG_CBOR;
 use multihash::{self, MultihashDigest};
 use std::convert::TryFrom;
 

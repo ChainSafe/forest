@@ -3,7 +3,9 @@
 
 use data_encoding::{DecodeError, DecodeKind};
 use encoding::{from_slice, Cbor};
-use forest_address::{checksum, validate_checksum, Address, Protocol, BLS_PUB_LEN, SECP_PUB_LEN};
+use fvm_shared::address::{
+    checksum, validate_checksum, Address, Protocol, BLS_PUB_LEN, SECP_PUB_LEN,
+};
 use fvm_shared::address::{Error, Network};
 use std::str::FromStr;
 

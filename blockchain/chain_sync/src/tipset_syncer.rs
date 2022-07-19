@@ -28,18 +28,18 @@ use crate::validation::TipsetValidator;
 use actor::is_account_actor;
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
+use cid::Cid;
 use encoding::Cbor;
 use fil_types::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
-use forest_address::Address;
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
-use forest_cid::Cid;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
+use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
@@ -1593,11 +1593,11 @@ async fn validate_tipset_against_cache<C: Consensus>(
 
 #[cfg(test)]
 mod test {
-    use forest_address::Address;
-    use forest_bigint::BigInt;
+    use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use forest_cid::Cid;
     use forest_crypto::VRFProof;
+    use fvm_shared::address::Address;
+    use num_bigint::BigInt;
 
     use super::*;
     use std::convert::TryFrom;

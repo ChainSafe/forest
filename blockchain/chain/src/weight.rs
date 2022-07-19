@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use forest_bigint::BigInt;
 use forest_blocks::Tipset;
+use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;
 
 pub type Weight = BigInt;
