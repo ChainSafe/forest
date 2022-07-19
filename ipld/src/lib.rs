@@ -10,9 +10,6 @@ pub mod util;
 #[cfg(feature = "json")]
 pub mod json;
 
-#[macro_use]
-mod macros;
-
 pub use self::error::Error;
 pub use path::Path;
 pub use path_segment::PathSegment;

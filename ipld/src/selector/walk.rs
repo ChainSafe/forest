@@ -208,7 +208,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipld;
+    use libipld_macro::ipld;
 
     #[async_std::test]
     async fn basic_walk() {

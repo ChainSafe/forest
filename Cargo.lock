@@ -2802,6 +2802,7 @@ dependencies = [
  "fvm_shared",
  "indexmap",
  "libipld-core",
+ "libipld-macro",
  "multibase 0.9.1",
  "serde",
  "serde_json",
@@ -4070,6 +4071,15 @@ dependencies = [
  "multihash 0.16.2",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "libipld-macro"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6c4cb1056262ef4056ad9e5fb41f252c45f55009888e21b7837ac051f38814a"
+dependencies = [
+ "libipld-core",
 ]
 
 [[package]]
