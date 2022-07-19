@@ -3,7 +3,6 @@
 
 mod error;
 mod path;
-mod path_segment;
 pub mod selector;
 pub mod util;
 
@@ -12,18 +11,14 @@ pub mod json;
 
 pub use self::error::Error;
 pub use path::Path;
-pub use path_segment::PathSegment;
 pub use util::*;
 
 pub use libipld_core::ipld::Ipld;
 
-fn lookup_segment<'a>(ipld: &'a Ipld, segment: &PathSegment) -> Option<&'a Ipld> {
+fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
     match ipld {
-        Ipld::Map(map) => match segment {
-            PathSegment::String(s) => map.get(s),
-            PathSegment::Int(i) => map.get(&i.to_string()),
-        },
-        Ipld::List(list) => list.get(segment.to_index()?),
+        Ipld::Map(map) => map.get(segment),
+        Ipld::List(list) => list.get(segment.parse::<usize>().ok()?),
         _ => None,
     }
 }

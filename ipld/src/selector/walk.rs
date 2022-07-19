@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::{lookup_segment, Error, Ipld, Path, PathSegment};
+use super::super::{lookup_segment, Error, Ipld, Path};
 use super::Selector;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
@@ -163,14 +163,14 @@ where
                 match ipld {
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
-                            let ps = PathSegment::from(k.as_ref());
+                            let ps = k.clone();
                             self.traverse_node(ipld, selector.clone(), callback, ps, v)
                                 .await?;
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
-                            let ps = PathSegment::from(i);
+                            let ps = i.to_string();
                             self.traverse_node(ipld, selector.clone(), callback, ps, v)
                                 .await?;
                         }
@@ -190,16 +190,17 @@ where
         ipld: &Ipld,
         selector: Selector,
         callback: &F,
-        ps: PathSegment,
+        ps: String,
         v: &Ipld,
     ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
         if let Some(next_selector) = selector.explore(ipld, &ps) {
-            self.path.push(ps);
+            let prev = self.path.clone();
+            self.path.join(ps);
             self.walk_all(v, next_selector, callback).await?;
-            self.path.pop();
+            self.path = prev;
         }
         Ok(())
     }
