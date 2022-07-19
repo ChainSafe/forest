@@ -100,8 +100,12 @@ pub(super) async fn start(config: Config) {
     }
 
     // Start Prometheus server port
+    let prometheus_listener = TcpListener::bind(config.metrics_address)
+        .await
+        .unwrap_or_else(|_| panic!("could not bind to {}", config.metrics_address));
+    info!("Prometheus server started at {}", config.metrics_address);
     let prometheus_server_task = task::spawn(metrics::init_prometheus(
-        config.metrics_address,
+        prometheus_listener,
         db_path(&config)
             .into_os_string()
             .into_string()
