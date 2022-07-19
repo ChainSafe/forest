@@ -7,10 +7,10 @@ use forest_cid::Cid;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 
-/// Limit of bls and secp messages combined in a block.
+/// Limit of BLS and SECP messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 
-/// A complete Filecoin block. This contains the block header as well as all bls and secp messages.
+/// A complete Filecoin block. This contains the block header as well as all BLS and SECP messages.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
     pub header: BlockHeader,
@@ -27,7 +27,7 @@ impl Block {
     pub fn bls_msgs(&self) -> &[Message] {
         &self.bls_messages
     }
-    /// Returns reference to the block's secp [`SignedMessage`]s.
+    /// Returns reference to the block's SECP [`SignedMessage`]s.
     pub fn secp_msgs(&self) -> &[SignedMessage] {
         &self.secp_messages
     }
@@ -37,7 +37,7 @@ impl Block {
     }
 }
 
-/// Tracks the merkle-roots of both secp and bls messages separately.
+/// Tracks the Merkle roots of both SECP and BLS messages separately.
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct TxMeta {
     pub bls_message_root: Cid,

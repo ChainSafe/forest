@@ -89,7 +89,7 @@ pub struct BlockHeader {
     miner_address: Address,
 
     // STATE
-    /// `messages` contains the `cid` to the merkle links for `bls_messages` and `secp_messages`
+    /// `messages` contains the `cid` to the Merkle links for `bls_messages` and `secp_messages`
     #[builder(default)]
     messages: Cid,
 
