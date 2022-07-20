@@ -119,9 +119,9 @@ pub trait Proposer {
 #[async_trait]
 pub trait MessagePoolApi {
     /// Select the set of suitable signed messages based on a tipset we are about to build the next block on.
-    fn select_signed<DB>(
+    async fn select_signed<DB>(
         &self,
-        state_manager: Arc<StateManager<DB>>,
+        state_manager: &StateManager<DB>,
         base: &Tipset,
     ) -> anyhow::Result<Vec<&SignedMessage>>
     where

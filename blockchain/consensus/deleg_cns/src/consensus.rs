@@ -65,7 +65,9 @@ impl DelegatedConsensus {
         &self,
         keystore: Arc<RwLock<KeyStore>>,
     ) -> Result<DelegatedProposer, key_management::Error> {
-        let key = key_management::find_key(&&self.chosen_one, &*keystore.as_ref().read().await)?;
+        // XXX: This is wrong, I think we should be using the "worker" here,
+        // which we can look up in the Genesis state.
+        let key = key_management::find_key(&self.chosen_one, &*keystore.as_ref().read().await)?;
         Ok(DelegatedProposer::new(self.chosen_one, key))
     }
 }
