@@ -381,14 +381,14 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod test {
-    use crate::{BlockHeader, ElectionProof, Ticket, Tipset, Error, TipsetKeys};
+    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
+    use cid::multihash::Code::Identity;
+    use cid::multihash::MultihashDigest;
     use cid::Cid;
     use forest_crypto::VRFProof;
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
     use num_bigint::BigInt;
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
@@ -456,7 +456,10 @@ mod test {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        assert!(Tipset::new(vec![h0, h1]).unwrap_err() == Error::InvalidTipset("miner_addresses are not distinct".to_string()));
+        assert!(
+            Tipset::new(vec![h0, h1]).unwrap_err()
+                == Error::InvalidTipset("miner_addresses are not distinct".to_string())
+        );
     }
 
     #[test]
@@ -471,7 +474,10 @@ mod test {
             .epoch(2)
             .build()
             .unwrap();
-        assert!(Tipset::new(vec![h0, h1]).unwrap_err() == Error::InvalidTipset("epochs are not equal".to_string()));
+        assert!(
+            Tipset::new(vec![h0, h1]).unwrap_err()
+                == Error::InvalidTipset("epochs are not equal".to_string())
+        );
     }
 
     #[test]
@@ -486,7 +492,10 @@ mod test {
             .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[1])))
             .build()
             .unwrap();
-        assert!(Tipset::new(vec![h0, h1]).unwrap_err() == Error::InvalidTipset("state_roots are not equal".to_string()));
+        assert!(
+            Tipset::new(vec![h0, h1]).unwrap_err()
+                == Error::InvalidTipset("state_roots are not equal".to_string())
+        );
     }
 
     #[test]
@@ -498,13 +507,18 @@ mod test {
             .unwrap();
         let h1 = BlockHeader::builder()
             .miner_address(Address::new_id(1))
-            .parents(TipsetKeys::new(
-                vec![Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]))
+            .parents(TipsetKeys::new(vec![Cid::new_v1(
+                DAG_CBOR,
+                Identity.digest(&[]),
+            )]))
             .build()
             .unwrap();
-        assert!(Tipset::new(vec![h0, h1]).unwrap_err() == Error::InvalidTipset("parent cids are not equal".to_string()));
+        assert!(
+            Tipset::new(vec![h0, h1]).unwrap_err()
+                == Error::InvalidTipset("parent cids are not equal".to_string())
+        );
     }
-    
+
     #[test]
     fn ensure_there_are_blocks() {
         assert!(Tipset::new(vec![]).unwrap_err() == Error::NoBlocks);
