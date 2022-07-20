@@ -73,9 +73,9 @@ impl Scale for DelegatedConsensus {
     {
         let header = ts.blocks().first().expect("Tipset is never empty.");
         // We don't have a height, only epoch, which is not exactly the same as there can be "null" epochs
-        // without blocks. Maybe we can use the `ticket` field to maintain a header. Since there can be only
-        // one block producer, it sounds like epoch should be fine to be used as weight. After all if they
-        // wanted they could produce a sting of empty blocks at each height and achieve the same weight.
+        // without blocks. Maybe we can use the `ticket` field to maintain a height.
+        // But since there can be only one block producer, it sounds like epoch should be fine to be used as weight.
+        // After all if they wanted they could produce a series of empty blocks at each height and achieve the same weight.
         Ok(BigInt::from(header.epoch()))
     }
 }
