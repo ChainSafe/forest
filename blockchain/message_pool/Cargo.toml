@@ -6,15 +6,12 @@ edition = "2021"
 
 [dependencies]
 anyhow          = "1.0"
-forest_address  = "0.3"
 forest_vm       = "0.3.1"
 forest_blocks   = { path = "../blocks" }
 forest_message  = { version = "0.7", features = ["proofs", "json", "blst"] }
 thiserror       = "1.0"
-forest_cid      = "0.3"
 encoding        = { package = "forest_encoding", version = "0.2.1" }
 ipld_blockstore = "0.1"
-forest_bigint   = "0.1"
 lru             = "0.7.2"
 forest_crypto   = { version = "0.5", features = ["blst"] }
 chain           = { path = "../chain" }
@@ -39,6 +36,7 @@ slotmap         = "1.0"
 rand            = "0.8.3"
 fvm_shared      = { version = "0.8.0", default-features = false }
 fvm             = "1.0"
+cid             = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 interpreter    = { path = "../../vm/interpreter/" }

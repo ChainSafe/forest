@@ -4,7 +4,7 @@
 use bls_signatures::{
     verify_messages, PublicKey as BlsPubKey, Serialize, Signature as BlsSignature,
 };
-use forest_address::Address;
+use fvm_shared::address::Address;
 
 /// Returns `String` error if a bls signature is invalid.
 pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {

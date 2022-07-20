@@ -13,10 +13,8 @@ serde = "1.0"
 serde_json = "1.0"
 surf = { version = "2.3", default-features = false, features = ["curl-client"] }
 # Internal
-forest_address = { version="0.3", features=["json"] }
 auth = { path="../../utils/auth" }
 forest_blocks = { path="../../blockchain/blocks", features=["json"] }
-forest_cid = { version="0.3", features=["json"] }
 forest_crypto = { version="0.5", features=["json", "blst"] }
 forest_libp2p = { path="../forest_libp2p" }
 forest_message = { version="0.7", features=["json"] }

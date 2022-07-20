@@ -9,18 +9,17 @@ use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
+use cid::{multihash::Code::Blake2b256, Cid};
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
-use forest_address::Address;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_cid::Cid;
-use forest_cid::Code::Blake2b256;
 use forest_ipld::recurse_links;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
 use futures::AsyncWrite;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -904,8 +903,11 @@ pub mod headchange_json {
 mod tests {
     use super::*;
     use async_std::sync::Arc;
-    use forest_address::Address;
-    use forest_cid::Code::{Blake2b256, Identity};
+    use cid::multihash::Code::{Blake2b256, Identity};
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use fvm_shared::address::Address;
 
     #[test]
     fn genesis_test() {
@@ -915,9 +917,9 @@ mod tests {
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
-            .messages(forest_cid::new_from_cbor(&[], Identity))
-            .message_receipts(forest_cid::new_from_cbor(&[], Identity))
-            .state_root(forest_cid::new_from_cbor(&[], Identity))
+            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
@@ -933,7 +935,7 @@ mod tests {
 
         let cs = ChainStore::new(Arc::new(db));
 
-        let cid = forest_cid::new_from_cbor(&[1, 2, 3], Blake2b256);
+        let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();

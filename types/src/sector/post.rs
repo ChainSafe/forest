@@ -9,7 +9,7 @@ pub type PoStRandomness = Randomness;
 #[cfg(feature = "json")]
 pub mod json {
     use crate::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber};
-    use forest_cid::Cid;
+    use cid::Cid;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing a PoStProof to JSON.
@@ -28,7 +28,7 @@ pub mod json {
         #[serde(rename = "SealProof")]
         pub proof: RegisteredSealProof,
         pub sector_number: SectorNumber,
-        #[serde(with = "forest_cid::json")]
+        #[serde(with = "forest_json::cid")]
         #[serde(rename = "SealedCID")]
         pub sealed_cid: Cid,
     }

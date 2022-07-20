@@ -3,8 +3,8 @@
 
 use crate::Error;
 use chain::MINIMUM_BASE_FEE;
+use cid::Cid;
 use encoding::Cbor;
-use forest_cid::Cid;
 use forest_message::{Message as MessageTrait, SignedMessage};
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::Signature;

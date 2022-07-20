@@ -33,9 +33,9 @@ pub mod json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateSer<'a> {
-            #[serde(with = "forest_cid::json")]
+            #[serde(with = "forest_json::cid")]
             pub code: &'a Cid,
-            #[serde(rename = "Head", with = "forest_cid::json")]
+            #[serde(rename = "Head", with = "forest_json::cid")]
             pub state: &'a Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,
@@ -57,9 +57,9 @@ pub mod json {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateDe {
-            #[serde(with = "forest_cid::json")]
+            #[serde(with = "forest_json::cid")]
             pub code: Cid,
-            #[serde(rename = "Head", with = "forest_cid::json")]
+            #[serde(rename = "Head", with = "forest_json::cid")]
             pub state: Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,

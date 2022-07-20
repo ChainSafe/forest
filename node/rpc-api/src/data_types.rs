@@ -12,15 +12,16 @@ use actor::market::{DealProposal, DealState};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
+use cid::Cid;
 use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
-use forest_address::{json::AddressJson, Address};
-use forest_bigint::bigint_ser::json;
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
-use forest_cid::{json::CidJson, Cid};
 use forest_ipld::json::IpldJson;
+use forest_json::address::json::AddressJson;
+use forest_json::bigint::json;
+use forest_json::cid::CidJson;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use forest_message::{
@@ -29,6 +30,7 @@ use forest_message::{
 };
 use forest_vm::{ActorState, TokenAmount};
 use fvm_ipld_bitfield::json::BitFieldJson;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -78,7 +80,7 @@ pub struct BlockMessages {
     pub bls_msg: Vec<Message>,
     #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
     pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "forest_cid::json::vec")]
+    #[serde(rename = "Cids", with = "forest_json::cid::vec")]
     pub cids: Vec<Cid>,
 }
 
@@ -116,9 +118,9 @@ pub struct Partition {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateJson {
-    #[serde(with = "forest_cid::json")]
+    #[serde(with = "forest_json::cid")]
     code: Cid,
-    #[serde(with = "forest_cid::json")]
+    #[serde(with = "forest_json::cid")]
     head: Cid,
     nonce: u64,
     #[serde(with = "json")]
@@ -193,7 +195,7 @@ pub struct MiningBaseInfoJson {
     #[serde(with = "json::option")]
     pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfoJson>,
-    #[serde(with = "forest_address::json")]
+    #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,
     pub sector_size: SectorSize,
     #[serde(with = "beacon::json")]

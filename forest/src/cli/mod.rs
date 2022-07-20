@@ -44,8 +44,8 @@ use std::sync::Arc;
 use structopt::StructOpt;
 
 use crate::cli::config_cmd::ConfigCommands;
+use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_cid::Cid;
 use utils::{read_file_to_string, read_toml};
 
 /// CLI structure generated when interacting with Forest binary

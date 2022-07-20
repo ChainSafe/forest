@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Block, BlockHeader, Error, Ticket};
+use cid::Cid;
 use encoding::Cbor;
-use forest_cid::Cid;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
@@ -280,7 +280,7 @@ pub mod tipset_keys_json {
     where
         S: Serializer,
     {
-        forest_cid::json::vec::serialize(m.cids(), serializer)
+        forest_json::cid::vec::serialize(m.cids(), serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TipsetKeys, D::Error>
@@ -288,7 +288,7 @@ pub mod tipset_keys_json {
         D: Deserializer<'de>,
     {
         Ok(TipsetKeys {
-            cids: forest_cid::json::vec::deserialize(deserializer)?,
+            cids: forest_json::cid::vec::deserialize(deserializer)?,
         })
     }
 }
@@ -369,10 +369,10 @@ pub mod tipset_json {
 #[cfg(test)]
 mod test {
     use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
-    use forest_address::Address;
-    use forest_bigint::BigInt;
-    use forest_cid::Cid;
+    use cid::Cid;
     use forest_crypto::VRFProof;
+    use fvm_shared::address::Address;
+    use num_bigint::BigInt;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);

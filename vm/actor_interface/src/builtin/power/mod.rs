@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
+use cid::Cid;
 use fil_actors_runtime_v8::runtime::Policy;
 use fil_types::StoragePower;
-use forest_address::Address;
-use forest_bigint::bigint_ser::json;
-use forest_cid::Cid;
+use forest_json::bigint::json;
 use forest_vm::{ActorState, TokenAmount};
+use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::BlockStoreExt;
 use serde::{Deserialize, Serialize};

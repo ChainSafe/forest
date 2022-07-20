@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "json")]
 pub mod json {
     use num_bigint::BigInt;
     use serde::{Deserialize, Serialize};

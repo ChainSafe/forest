@@ -7,10 +7,14 @@
 /// structure, or this would lead to ambiguity of the data.
 pub mod resolve;
 
+use cid::{
+    multihash::{Code, MultihashDigest},
+    Cid,
+};
 use db::Store;
 use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
-use forest_cid::{Cid, Code};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::DAG_CBOR;
 use std::sync::Arc;
 
 pub trait BlockStore: Blockstore + Store {}
@@ -45,7 +49,7 @@ pub trait BlockStoreExt: BlockStore {
 
     /// Put raw bytes in the block store and return the Cid identifier.
     fn put_raw(&self, bytes: Vec<u8>, code: Code) -> anyhow::Result<Cid> {
-        let cid = forest_cid::new_from_cbor(&bytes, code);
+        let cid = Cid::new_v1(DAG_CBOR, code.digest(&bytes));
         self.put_keyed(&cid, &bytes)?;
         Ok(cid)
     }
@@ -61,7 +65,7 @@ pub trait BlockStoreExt: BlockStore {
             .into_iter()
             .map(|value| {
                 let bytes = to_vec(value)?;
-                let cid = forest_cid::new_from_cbor(&bytes, code);
+                let cid = Cid::new_v1(DAG_CBOR, code.digest(&bytes));
                 Ok((cid, bytes))
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
