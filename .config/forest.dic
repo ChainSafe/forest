@@ -10,4 +10,4 @@ Filecoin
 APIs
 CBOR
 codec
-blake2b
+BLAKE2b
