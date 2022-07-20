@@ -10,8 +10,8 @@ use log::info;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
-/// A set of CIDs forming a unique key for a Tipset.
-/// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
+/// A set of `CIDs` forming a unique key for a Tipset.
+/// Equal keys will have equivalent iteration order, but note that the `CIDs` are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -24,7 +24,7 @@ impl TipsetKeys {
         Self { cids }
     }
 
-    /// Returns tipset header cids
+    /// Returns tipset header `cids`
     pub fn cids(&self) -> &[Cid] {
         &self.cids
     }
@@ -64,7 +64,7 @@ impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
     /// specify identical epoch, parents, weight, height, state root, receipt root;
-    /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
+    /// content-id for headers are supposed to be distinct but until encoding is added will be equal.
     pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
@@ -87,7 +87,7 @@ impl Tipset {
     pub fn blocks(&self) -> &[BlockHeader] {
         &self.headers
     }
-    /// Consumes Tipset to convert into a vector of [BlockHeader].
+    /// Consumes tipset to convert into a vector of [`BlockHeader`].
     pub fn into_blocks(self) -> Vec<BlockHeader> {
         self.headers
     }
@@ -118,11 +118,11 @@ impl Tipset {
             TipsetKeys::new(self.headers.iter().map(BlockHeader::cid).cloned().collect())
         })
     }
-    /// Returns slice of Cids for the current tipset
+    /// Returns slice of `CIDs` for the current tipset
     pub fn cids(&self) -> &[Cid] {
         self.key().cids()
     }
-    /// Returns the CIDs of the parents of the blocks in the tipset.
+    /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKeys {
         self.min_ticket_block().parents()
     }
@@ -134,7 +134,7 @@ impl Tipset {
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
-    /// Returns true if self wins according to the filecoin tie-break rule (FIP-0023)
+    /// Returns true if self wins according to the Filecoin tie-break rule (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
@@ -157,7 +157,7 @@ impl Tipset {
     }
 }
 
-/// FullTipset is an expanded version of the Tipset that contains all the blocks and messages
+/// `FullTipset` is an expanded version of a tipset that contains all the blocks and messages
 #[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
@@ -299,12 +299,12 @@ pub mod tipset_json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::Arc;
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and de-serializing a `Tipset` from JSON.
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetJson(#[serde(with = "self")] pub Arc<Tipset>);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `Tipset` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
