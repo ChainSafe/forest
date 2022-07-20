@@ -454,6 +454,7 @@ mod test {
         );
     }
 
+    // specifically test the case when we are distinct from miner_address 0, but not 1
     #[test]
     fn ensure_multiple_miner_addresses_are_distinct() {
         let h0 = BlockHeader::builder()
