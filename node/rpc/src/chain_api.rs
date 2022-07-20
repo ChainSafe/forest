@@ -85,17 +85,17 @@ where
 
     hasher.update(data);
     let hash_result = hasher.finalize();
+    log::info!("hash result {}", hex::encode(hash_result));
 
     let checksum_path = format!("{}.{}", &out, "sha256sum");
-    let checksum_file = File::create(checksum_path)
+    let checksum_string = format!("{}  {}\n", hex::encode(hash_result), &out);
+
+    let mut checksum_file = File::create(checksum_path)
         .await
         .map_err(JsonRpcError::from)?;
 
-    let mut writer = BufWriter::new(checksum_file);
-
-    let checksum_string = format!("{}  {}", hex::encode(hash_result), &out);
-    writer
-        .write(checksum_string.as_bytes())
+    checksum_file
+        .write_all(checksum_string.as_bytes())
         .await
         .map_err(JsonRpcError::from)?;
 
