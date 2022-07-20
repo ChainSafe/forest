@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
+use crate::cli_error_and_die;
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use beacon::DrandBeacon;
 use chain::ChainStore;
@@ -113,6 +114,13 @@ pub(super) async fn start(config: Config) {
     info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
+
+    if !db_path(&config).exists() && config.snapshot_path.is_none() {
+        cli_error_and_die(
+            "\n\nNeed to bootstrap Forest with a snapshot on the first run. To download a snapshot, use the following command \n\ncurl -sI https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car | perl -ne '/x-amz-website-redirect-location:\\s(.+)\\.car/ && print \"$1.sha256sum\n$1.car\"' | xargs wget",
+            1,
+        );
+    }
 
     #[cfg(feature = "rocksdb")]
     let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
