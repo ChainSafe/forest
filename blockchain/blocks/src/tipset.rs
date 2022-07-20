@@ -448,9 +448,9 @@ mod test {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        assert!(
-            Tipset::new(vec![h0, h1]).unwrap_err()
-                == Error::InvalidTipset("miner_addresses are not distinct".to_string())
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("miner_addresses are not distinct".to_string())
         );
     }
 
@@ -469,9 +469,9 @@ mod test {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        assert!(
-            Tipset::new(vec![h0, h1, h2]).unwrap_err()
-                == Error::InvalidTipset("miner_addresses are not distinct".to_string())
+        assert_eq!(
+            Tipset::new(vec![h0, h1, h2]).unwrap_err(),
+            Error::InvalidTipset("miner_addresses are not distinct".to_string())
         );
     }
 
@@ -487,9 +487,9 @@ mod test {
             .epoch(2)
             .build()
             .unwrap();
-        assert!(
-            Tipset::new(vec![h0, h1]).unwrap_err()
-                == Error::InvalidTipset("epochs are not equal".to_string())
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("epochs are not equal".to_string())
         );
     }
 
@@ -505,9 +505,9 @@ mod test {
             .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[1])))
             .build()
             .unwrap();
-        assert!(
-            Tipset::new(vec![h0, h1]).unwrap_err()
-                == Error::InvalidTipset("state_roots are not equal".to_string())
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("state_roots are not equal".to_string())
         );
     }
 
@@ -526,9 +526,9 @@ mod test {
             )]))
             .build()
             .unwrap();
-        assert!(
-            Tipset::new(vec![h0, h1]).unwrap_err()
-                == Error::InvalidTipset("parent cids are not equal".to_string())
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("parent cids are not equal".to_string())
         );
     }
 
