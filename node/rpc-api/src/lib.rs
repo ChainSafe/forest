@@ -163,6 +163,8 @@ pub mod beacon_api {
 
 /// Chain API
 pub mod chain_api {
+    use std::path::PathBuf;
+
     use crate::data_types::BlockMessages;
     use chain::headchange_json::SubscriptionHeadChange;
     use forest_blocks::{
@@ -179,7 +181,7 @@ pub mod chain_api {
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
     pub type ChainExportParams = (ChainEpoch, i64, bool, String, TipsetKeysJson);
-    pub type ChainExportResult = ();
+    pub type ChainExportResult = PathBuf;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
     pub type ChainReadObjParams = (CidJson,);

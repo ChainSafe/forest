@@ -22,7 +22,7 @@ use rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -59,7 +59,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
-    let file = File::create(out).await.unwrap();
+    let file = File::create(&out).await.map_err(JsonRpcError::from)?;
     let writer = BufWriter::new(file);
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
@@ -69,7 +69,9 @@ where
     data.chain_store
         .export(&start_ts, recent_roots, skip_old_msgs, writer)
         .await
-        .map_err(JsonRpcError::from)
+        .map_err(JsonRpcError::from)?;
+
+    Ok(PathBuf::from(out))
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(

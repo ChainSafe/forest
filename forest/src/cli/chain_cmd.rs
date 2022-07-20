@@ -77,9 +77,9 @@ impl ChainCommands {
             } => {
                 let chain_finality = Policy::default().chain_finality;
                 let recent_stateroots = match recent_stateroots {
-                    Some(rsrs) => {
-                        let rsrs = rsrs.to_owned();
-                        if rsrs < chain_finality {
+                    Some(recent_stateroots) => {
+                        let recent_stateroots = recent_stateroots.to_owned();
+                        if recent_stateroots < chain_finality {
                             return cli_error_and_die(
                                 &format!(
                                     "\recent-stateroots\" must be greater than {}",
@@ -89,17 +89,24 @@ impl ChainCommands {
                             );
                         }
 
-                        if rsrs == 0 && *skip_old_messages {
+                        if recent_stateroots == 0 && *skip_old_messages {
                             return cli_error_and_die(
-                                "must pass recent stateroots along with skip-old-messages",
+                                "must pass recent-stateroots along with skip-old-messages",
                                 1,
                             );
                         }
 
-                        rsrs
+                        recent_stateroots
                     }
                     None => 0,
                 };
+
+                if recent_stateroots == 0 && *skip_old_messages {
+                    return cli_error_and_die(
+                        "Must pass recent stateroots along with skip-old-messages",
+                        1,
+                    );
+                }
 
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
@@ -120,18 +127,7 @@ impl ChainCommands {
                     }
                 };
 
-                let epoch = if let Some(epoch) = tipset {
-                    *epoch
-                } else {
-                    chain_head.epoch()
-                };
-
-                if recent_stateroots == 0 && *skip_old_messages {
-                    return cli_error_and_die(
-                        "Must pass recent stateroots along with skip-old-messages",
-                        1,
-                    );
-                }
+                let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let params = (
                     epoch,
@@ -141,9 +137,12 @@ impl ChainCommands {
                     TipsetKeysJson(chain_head.key().clone()),
                 );
 
-                chain_export(params).await.map_err(handle_rpc_err).unwrap();
+                let out = chain_export(params)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .expect("errors ara handled by handle_rpc_error. This is safe");
 
-                println!("Done!")
+                println!("Export completed. Snapshot located at {}", out.display());
             }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);
