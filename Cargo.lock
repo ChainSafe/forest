@@ -1108,6 +1108,7 @@ dependencies = [
  "async-std",
  "beacon",
  "blake2b_simd 0.5.11",
+ "bls-signatures",
  "byteorder 1.4.3",
  "crossbeam",
  "fil_types",
