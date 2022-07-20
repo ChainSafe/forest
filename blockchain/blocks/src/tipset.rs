@@ -505,4 +505,8 @@ mod test {
         assert!(Tipset::new(vec![h0, h1]).unwrap_err() == Error::InvalidTipset("parent cids are not equal".to_string()));
     }
     
+    #[test]
+    fn ensure_there_are_blocks() {
+        assert!(Tipset::new(vec![]).unwrap_err() == Error::NoBlocks);
+    }
 }
