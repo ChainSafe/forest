@@ -257,7 +257,7 @@ where
     }
 
     verify(
-        headers_len != headers_set.len(),
+        headers_len == headers_set.len(),
         "miner_addresses are not distinct",
     )?;
 
