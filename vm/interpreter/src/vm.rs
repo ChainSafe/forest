@@ -332,19 +332,16 @@ where
                 1..=11 => {
                     log::debug!(
                         "Internal message execution failure. Exit code was {}",
-                        exit_code.value()
+                        exit_code
                     )
                 }
                 16..=24 => {
-                    log::warn!(
-                        "Message execution failed with exit code {}",
-                        exit_code.value()
-                    )
+                    log::warn!("Message execution failed with exit code {}", exit_code)
                 }
                 _ => {
                     log::warn!(
                         "A message failed with an unknown exit code. Exit code was {}",
-                        exit_code.value()
+                        exit_code
                     )
                 }
             };
@@ -364,29 +361,4 @@ fn check_message(msg: &Message) -> Result<(), anyhow::Error> {
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod test {
-    use std::sync::Arc;
-
-    use chain::ChainStore;
-    use db::rocks_config::RocksDbConfig;
-    use networks::ChainConfig;
-    use state_manager::StateManager;
-
-    #[async_std::test]
-    async fn test_failing_message_logs_warning() {
-        let db = db::rocks::RocksDb::open("/tmp/message_test.db", &RocksDbConfig::default())
-            .expect("Opening RocksDB must succeed");
-        let db = Arc::new(db);
-        let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
-
-        let chain_config = Arc::new(ChainConfig::default());
-
-        let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&chain_config))
-            .await
-            .unwrap();
-        let state_manager = Arc::new(sm);
-    }
 }
