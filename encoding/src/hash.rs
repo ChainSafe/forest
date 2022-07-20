@@ -3,7 +3,7 @@
 
 use blake2b_simd::Params;
 
-/// Generates blake2b hash of fixed 32 bytes size.
+/// Generates BLAKE2b hash of fixed 32 bytes size.
 ///
 /// # Example
 /// ```

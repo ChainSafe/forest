@@ -9,3 +9,5 @@ Merkle
 Filecoin
 APIs
 CBOR
+codec
+BLAKE2b
