@@ -88,9 +88,9 @@ pub trait Proposer {
     /// concern, the dependencies to implement a suitable network later must
     /// come from somewhere else, because they are not common across all
     /// consensus variants.
-    async fn run<DB>(
+    async fn run<DB, MP>(
         self,
-        mpool: impl MessagePoolApi,
+        mpool: &MP,
         // NOTE: We will need access to the `ChainStore` as well, or, ideally
         // a wrapper over it that only allows us to do what we need to, but
         // for example not reset the Genesis. But since the `StateManager`
@@ -103,7 +103,8 @@ pub trait Proposer {
         block_submitter: Sender<GossipBlock>,
     ) -> anyhow::Result<()>
     where
-        DB: BlockStore + Sync + Send + 'static;
+        DB: BlockStore + Sync + Send + 'static,
+        MP: MessagePoolApi + Sync + Send + 'static;
 }
 
 /// The `MessagePoolApi` is the window of consensus to the contents of the `MessagePool`.

@@ -692,7 +692,7 @@ pub(crate) async fn miner_create_block<
         .signature(None)
         .build()?;
 
-    let key = key_management::find_key(&worker, &*data.keystore.as_ref().write().await)?;
+    let key = key_management::find_key(&worker, &*data.keystore.as_ref().read().await)?;
     let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),

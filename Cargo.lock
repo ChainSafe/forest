@@ -1835,6 +1835,7 @@ dependencies = [
  "forest_encoding",
  "futures",
  "ipld_blockstore",
+ "key_management",
  "log",
  "networks",
  "nonempty",
