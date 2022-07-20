@@ -43,8 +43,6 @@ cid = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 interpreter = { path = "../interpreter/" }
-chain = { path = "../../blockchain/chain" }
-state_manager = { path = "../../blockchain/state_manager" }
 
 [features]
 test_vectors = []

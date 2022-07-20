@@ -3745,7 +3745,6 @@ dependencies = [
  "anyhow",
  "async-std",
  "byteorder 1.4.3",
- "chain",
  "cid",
  "fil_actors_runtime",
  "fil_types",
@@ -3771,7 +3770,6 @@ dependencies = [
  "num_cpus",
  "rayon",
  "serde_ipld_dagcbor 0.1.2",
- "state_manager",
  "state_migration",
  "statediff",
 ]
