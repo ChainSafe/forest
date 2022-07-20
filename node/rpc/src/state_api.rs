@@ -615,7 +615,7 @@ pub(crate) async fn miner_create_block<
         .state_manager
         .get_lookback_tipset_for_round(pts.clone(), epoch)
         .await?;
-    let worker = data.state_manager.get_miner_worker_raw(&lbst, &miner)?;
+    let worker = data.state_manager.get_miner_work_addr(lbst, &miner)?;
 
     let persisted =
         chain::persist_block_messages(data.chain_store.blockstore(), messages.iter().collect())?;
