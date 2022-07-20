@@ -3,7 +3,10 @@
 
 use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
-use async_std::{fs::File, io::BufWriter};
+use async_std::{
+    fs::File,
+    io::{BufReader, BufWriter, ReadExt},
+};
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
 use cid::Cid;
@@ -13,6 +16,7 @@ use forest_blocks::{
 };
 use forest_json::cid::CidJson;
 use forest_message::message;
+use futures::AsyncWriteExt;
 use fvm_shared::message::Message as FVMMessage;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
@@ -23,6 +27,7 @@ use rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Serialize, Deserialize)]
@@ -61,7 +66,7 @@ where
 {
     let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
-    let writer = BufWriter::new(file);
+    let writer = BufWriter::new(file.clone());
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
 
@@ -69,6 +74,28 @@ where
 
     data.chain_store
         .export(&start_ts, recent_roots, skip_old_msgs, writer)
+        .await
+        .map_err(JsonRpcError::from)?;
+
+    let mut reader = BufReader::new(file);
+
+    let mut hasher = Sha256::new();
+    let mut data = Vec::new();
+    let _ = reader.read_to_end(&mut data).await;
+
+    hasher.update(data);
+    let hash_result = hasher.finalize();
+
+    let checksum_path = format!("{}.{}", &out, "sha256sum");
+    let checksum_file = File::create(checksum_path)
+        .await
+        .map_err(JsonRpcError::from)?;
+
+    let mut writer = BufWriter::new(checksum_file);
+
+    let checksum_string = format!("{}  {}", hex::encode(hash_result), &out);
+    writer
+        .write(checksum_string.as_bytes())
         .await
         .map_err(JsonRpcError::from)?;
 
