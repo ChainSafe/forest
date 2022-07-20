@@ -533,6 +533,6 @@ mod test {
 
     #[test]
     fn ensure_there_are_blocks() {
-        assert!(Tipset::new(vec![]).unwrap_err() == Error::NoBlocks);
+        assert_eq!(Tipset::new(vec![]).unwrap_err(), Error::NoBlocks);
     }
 }
