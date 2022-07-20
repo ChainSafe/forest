@@ -4,11 +4,12 @@
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use encoding::Cbor;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::{address::Address, bigint::BigInt};
 use log::info;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 /// A set of CIDs forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
@@ -233,6 +234,10 @@ where
         }
     };
 
+    let mut headers_set: HashSet<Address> = HashSet::new();
+
+    let mut headers_len = 0;
+
     for header in headers {
         verify(
             header.parents() == first_header.parents(),
@@ -246,11 +251,15 @@ where
             header.epoch() == first_header.epoch(),
             "epochs are not equal",
         )?;
-        verify(
-            header.miner_address() != first_header.miner_address(),
-            "miner_addresses are not distinct",
-        )?;
+
+        headers_len += 1;
+        headers_set.insert(*header.miner_address());
     }
+
+    verify(
+        headers_len != headers_set.len(),
+        "miner_addresses are not distinct",
+    )?;
 
     Ok(())
 }
