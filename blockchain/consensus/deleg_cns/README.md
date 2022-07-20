@@ -33,7 +33,7 @@ Lotus will generate quite a few different files, so let's create a directory to 
 mkdir -p genesis-files
 ```
 
-The first file we generate will be the `preseal.json`, which contain the worker keys to that we want to put in the `genesis.json` file later.
+The first file we generate will be the `preseal.json`, which contains the worker keys to that we want to put in the `genesis.json` file later.
 
 ```bash
 docker run -it --rm \

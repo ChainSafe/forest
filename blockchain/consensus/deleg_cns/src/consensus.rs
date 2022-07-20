@@ -1,11 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use address::Address;
+use anyhow::anyhow;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
-use blocks::Tipset;
-use chain::Scale;
-use chain::Weight;
 use key_management::KeyStore;
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -13,7 +11,10 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use blocks::Block;
+use blocks::Tipset;
 use chain::Error as ChainStoreError;
+use chain::Scale;
+use chain::Weight;
 use chain_sync::consensus::Consensus;
 use encoding::Error as ForestEncodingError;
 use forest_bigint::BigInt;
@@ -61,14 +62,28 @@ impl DelegatedConsensus {
 
     /// Create an instance of the proposer on the node
     /// which has the private key to sign blocks.
-    pub async fn proposer(
+    ///
+    /// If the key is not found in the keystore, then
+    /// we assume this is *not* the node which should
+    /// be doing the proposing and nothing is returned.
+    pub async fn proposer<DB>(
         &self,
         keystore: Arc<RwLock<KeyStore>>,
-    ) -> Result<DelegatedProposer, key_management::Error> {
-        // XXX: This is wrong, I think we should be using the "worker" here,
-        // which we can look up in the Genesis state.
-        let key = key_management::find_key(&self.chosen_one, &*keystore.as_ref().read().await)?;
-        Ok(DelegatedProposer::new(self.chosen_one, key))
+        state_manager: &Arc<StateManager<DB>>,
+    ) -> anyhow::Result<Option<DelegatedProposer>>
+    where
+        DB: BlockStore + Sync + Send + 'static,
+    {
+        let genesis = state_manager.chain_store().genesis()?;
+        let genesis = genesis.ok_or_else(|| anyhow!("Genesis not set!"))?;
+        let state_cid = genesis.state_root();
+        let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one)?;
+
+        match key_management::find_key(&work_addr, &*keystore.as_ref().read().await) {
+            Ok(key) => Ok(Some(DelegatedProposer::new(self.chosen_one, key))),
+            Err(key_management::Error::KeyInfo) => Ok(None),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 }
 
@@ -77,13 +92,16 @@ impl Default for DelegatedConsensus {
         Self {
             // The eudico version used `t0100` but the genesis.car
             // file prepared by Lotus/Forest start from 1000.
+            // TODO: Or actually it might be that `t0100` is the account
+            // address, and `t01000` is the miner ID, both referring to
+            // the same entity.
             chosen_one: Address::from_str("t01000").unwrap(),
         }
     }
 }
 
 impl Scale for DelegatedConsensus {
-    fn weight<DB>(_: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
+    fn weight<DB>(_: &DB, ts: &Tipset) -> anyhow::Result<Weight>
     where
         DB: BlockStore,
     {
