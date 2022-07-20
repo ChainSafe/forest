@@ -32,7 +32,7 @@ pub enum ChainCommands {
             help = "specify the number of recent state roots to include in the export"
         )]
         recent_stateroots: Option<i64>,
-        #[structopt(short, help = "default: false")]
+        #[structopt(short, help = "Skips old messages")]
         skip_old_messages: bool,
         #[structopt(short, help = "path of the file to export to")]
         output_path: Option<String>,
@@ -83,7 +83,7 @@ impl ChainCommands {
                         if recent_stateroots < chain_finality {
                             return cli_error_and_die(
                                 &format!(
-                                    "\recent-stateroots\" must be greater than {}",
+                                    "\"recent-stateroots\" must be greater than {}",
                                     chain_finality
                                 ),
                                 1,
