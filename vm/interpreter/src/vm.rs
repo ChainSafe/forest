@@ -329,20 +329,14 @@ where
 
         if !exit_code.is_success() {
             match exit_code.value() {
-                1..=11 => {
+                1..=ExitCode::FIRST_USER_EXIT_CODE => {
                     log::debug!(
                         "Internal message execution failure. Exit code was {}",
                         exit_code
                     )
                 }
-                16..=24 => {
-                    log::warn!("Message execution failed with exit code {}", exit_code)
-                }
                 _ => {
-                    log::warn!(
-                        "A message failed with an unknown exit code. Exit code was {}",
-                        exit_code
-                    )
+                    log::warn!("Message execution failed with exit code {}", exit_code)
                 }
             };
         }
