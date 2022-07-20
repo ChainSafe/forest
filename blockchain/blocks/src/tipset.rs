@@ -237,8 +237,6 @@ where
     let mut headers_set: HashSet<Address> = HashSet::new();
     headers_set.insert(*first_header.miner_address());
 
-    let mut headers_len = 1;
-
     for header in headers {
         verify(
             header.parents() == first_header.parents(),
@@ -253,17 +251,11 @@ where
             "epochs are not equal",
         )?;
 
-        headers_len += 1;
         verify(
             headers_set.insert(*header.miner_address()),
             "miner_addresses are not distinct",
         )?;
     }
-
-    verify(
-        headers_len == headers_set.len(),
-        "miner_addresses are not distinct",
-    )?;
 
     Ok(())
 }
@@ -458,6 +450,26 @@ mod test {
             .unwrap();
         assert!(
             Tipset::new(vec![h0, h1]).unwrap_err()
+                == Error::InvalidTipset("miner_addresses are not distinct".to_string())
+        );
+    }
+
+    #[test]
+    fn ensure_multiple_miner_addresses_are_distinct() {
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(1))
+            .build()
+            .unwrap();
+        let h1 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let h2 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        assert!(
+            Tipset::new(vec![h0, h1, h2]).unwrap_err()
                 == Error::InvalidTipset("miner_addresses are not distinct".to_string())
         );
     }
