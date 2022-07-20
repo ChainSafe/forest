@@ -163,7 +163,7 @@ where
                 match ipld {
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
-                            self.traverse_node(ipld, selector.clone(), callback, &k, v)
+                            self.traverse_node(ipld, selector.clone(), callback, k, v)
                                 .await?;
                         }
                     }
