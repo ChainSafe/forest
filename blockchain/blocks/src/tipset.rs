@@ -531,7 +531,6 @@ mod test {
             Error::InvalidTipset("parent cids are not equal".to_string())
         );
     }
-    
 
     #[test]
     fn ensure_there_are_blocks() {
