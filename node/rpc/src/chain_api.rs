@@ -3,12 +3,10 @@
 
 use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
-use async_std::{
-    fs::File,
-    io::{BufReader, BufWriter, ReadExt},
-};
+use async_std::{fs::File, io::BufWriter};
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
+use checksums::{hash_file, Algorithm};
 use cid::Cid;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -27,7 +25,6 @@ use rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Serialize, Deserialize)]
@@ -77,18 +74,10 @@ where
         .await
         .map_err(JsonRpcError::from)?;
 
-    let mut reader = BufReader::new(file);
-
-    let mut hasher = Sha256::new();
-    let mut data = Vec::new();
-    let _ = reader.read_to_end(&mut data).await;
-
-    hasher.update(data);
-    let hash_result = hasher.finalize();
-    log::info!("hash result {}", hex::encode(hash_result));
+    let hash = hash_file(&PathBuf::from(&out), Algorithm::SHA2256);
 
     let checksum_path = format!("{}.{}", &out, "sha256sum");
-    let checksum_string = format!("{}  {}\n", hex::encode(hash_result), &out);
+    let checksum_string = format!("{}  {}\n", hash, &out);
 
     let mut checksum_file = File::create(checksum_path)
         .await
