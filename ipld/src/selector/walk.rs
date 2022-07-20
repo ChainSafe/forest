@@ -154,7 +154,7 @@ where
                         Some(ipld) => ipld,
                         None => continue,
                     };
-                    self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                    self.traverse_node(ipld, selector.clone(), callback, &ps, v)
                         .await?;
                 }
                 Ok(())
@@ -163,15 +163,14 @@ where
                 match ipld {
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
-                            let ps = k.clone();
-                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.traverse_node(ipld, selector.clone(), callback, &k, v)
                                 .await?;
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
                             let ps = i.to_string();
-                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.traverse_node(ipld, selector.clone(), callback, &ps, v)
                                 .await?;
                         }
                     }
@@ -190,13 +189,13 @@ where
         ipld: &Ipld,
         selector: Selector,
         callback: &F,
-        ps: String,
+        ps: &str,
         v: &Ipld,
     ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
-        if let Some(next_selector) = selector.explore(ipld, &ps) {
+        if let Some(next_selector) = selector.explore(ipld, ps) {
             let prev = self.path.clone();
             self.path.join(ps);
             self.walk_all(v, next_selector, callback).await?;
