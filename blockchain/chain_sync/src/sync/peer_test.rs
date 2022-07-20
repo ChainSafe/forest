@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use forest_address::Address;
+use fvm_shared::address::Address;
 use async_std::channel::bounded;
 use async_std::task;
 use beacon::{BeaconPoint, MockBeacon};
@@ -40,8 +40,8 @@ fn peer_manager_update() {
     let dummy_header = BlockHeader::builder()
         .miner_address(Address::new_id(1000))
         .messages(msg_root)
-        .message_receipts(forest_cid::new_from_cbor(&[1, 2, 3], Blake2b256))
-        .state_root(forest_cid::new_from_cbor(&[1, 2, 3], Blake2b256))
+        .message_receipts(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])))
+        .state_root(Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3])))
         .build()
         .unwrap();
     let gen_hash = chain_store.set_genesis(&dummy_header).unwrap();

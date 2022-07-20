@@ -9,7 +9,6 @@ features = ["json"]
 
 [dependencies]
 thiserror = "1.0"
-forest_address = "0.3"
 forest_crypto = { version = "0.5", features = ["json", "blst"] }
 bls-signatures = { version = "0.11", default-features = false, features = ["blst"] }
 libsecp256k1 = "0.7"

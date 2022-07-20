@@ -3,7 +3,6 @@
 
 #![cfg(feature = "json")]
 
-use forest_address::Address;
 use forest_crypto::Signer;
 use forest_message::message;
 use forest_message::message::json::{MessageJson, MessageJsonRef};
@@ -13,6 +12,7 @@ use forest_message::signed_message::{
     SignedMessage,
 };
 use forest_vm::Serialized;
+use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};

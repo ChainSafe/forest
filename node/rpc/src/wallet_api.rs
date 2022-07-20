@@ -7,12 +7,13 @@ use std::str::FromStr;
 
 use beacon::Beacon;
 use encoding::Cbor;
-use forest_address::{json::AddressJson, Address};
 use forest_crypto::signature::json::SignatureJson;
+use forest_json::address::json::AddressJson;
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
 };
 use fvm::state_tree::StateTree;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigUint;
 use ipld_blockstore::BlockStore;
 use key_management::{json::KeyInfoJson, Error, Key};

@@ -3,13 +3,16 @@
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
-use forest_address::Address;
-use forest_cid::{Cid, Code::Blake2b256};
 use forest_vm::TokenAmount;
+use fvm_ipld_encoding::DAG_CBOR;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -32,15 +35,18 @@ const SHA_256_BITS: usize = 256;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use forest_address::Address;
-/// use forest_cid::{Cid, Code::Identity};
+/// use fvm_shared::address::Address;
+/// use cid::Cid;
+/// use cid::multihash::Code::Identity;
 /// use fvm_shared::bigint::BigInt;
 /// use fvm_shared::crypto::signature::Signature;
+/// use fvm_ipld_encoding::DAG_CBOR;
+/// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
-///     .messages(forest_cid::new_from_cbor(&[], Identity)) // required
-///     .message_receipts(forest_cid::new_from_cbor(&[], Identity)) // required
-///     .state_root(forest_cid::new_from_cbor(&[], Identity)) // required
+///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
@@ -286,7 +292,7 @@ impl BlockHeader {
     /// Getter for BlockHeader cid
     pub fn cid(&self) -> &Cid {
         self.cached_cid
-            .get_or_init(|| forest_cid::new_from_cbor(self.cached_bytes(), Blake2b256))
+            .get_or_init(|| Cid::new_v1(DAG_CBOR, Blake2b256.digest(self.cached_bytes())))
     }
     /// Getter for BlockHeader parent_base_fee
     pub fn parent_base_fee(&self) -> &BigInt {
@@ -462,7 +468,7 @@ mod tests {
     use crate::{errors::Error, BlockHeader};
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
-    use forest_address::Address;
+    use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;
