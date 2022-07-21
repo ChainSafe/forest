@@ -1,11 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::BlockStore;
-use crate::BlockStoreExt;
+use anyhow::Context;
 use cid::Cid;
 use forest_ipld::Ipld;
 use fvm_ipld_encoding::DAG_CBOR;
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 
 /// Resolves link to recursively resolved [Ipld] with no hash links.
 pub fn resolve_cids_recursive<BS>(
@@ -18,7 +18,7 @@ where
 {
     let mut ipld = bs
         .get_obj(cid)?
-        .ok_or_else(|| anyhow::anyhow!("Cid does not exist in blockstore"))?;
+        .context("Cid does not exist in blockstore")?;
 
     resolve_ipld(bs, &mut ipld, depth)?;
 
@@ -26,11 +26,7 @@ where
 }
 
 /// Resolves [Ipld] links recursively, building an [Ipld] structure with no hash links.
-pub fn resolve_ipld<BS>(
-    bs: &BS,
-    ipld: &mut Ipld,
-    mut depth: Option<u64>,
-) -> Result<(), anyhow::Error>
+fn resolve_ipld<BS>(bs: &BS, ipld: &mut Ipld, mut depth: Option<u64>) -> Result<(), anyhow::Error>
 where
     BS: BlockStore,
 {

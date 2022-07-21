@@ -11,18 +11,24 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json"]
 
 [dependencies]
-anyhow            = "1.0"
-fvm_shared        = { version = "0.8.0", default-features = false }
+anyhow = "1.0"
+fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_encoding = "0.2"
-libipld-core      = { version = "0.13", features = ["serde-codec"] }
-encoding          = { package = "forest_encoding", version = "0.2" }
-serde             = { version = "1.0", features = ["derive"] }
-thiserror         = "1.0"
-multibase         = { version = "0.9", optional = true }
-async-trait       = "0.1"
-async-recursion   = "1.0"
-indexmap          = { version = "1.8", features = ["serde-1"] }
-cid               = { version = "0.8", default-features = false, features = ["std"] }
+libipld-core = { version = "0.13", features = ["serde-codec"] }
+libipld-macro = { version = "0.13" }
+libipld = { version = "0.13", default-features = false, features = [
+    "dag-cbor",
+    "dag-json",
+    "derive",
+] }
+encoding = { package = "forest_encoding", version = "0.2" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+multibase = { version = "0.9", optional = true }
+async-trait = "0.1"
+async-recursion = "1.0"
+indexmap = { version = "1.8", features = ["serde-1"] }
+cid = { version = "0.8", default-features = false, features = ["std"] }
 
 [features]
 json            = ["multibase"]
@@ -31,3 +37,4 @@ submodule_tests = ["json"]
 [dev-dependencies]
 serde_json = "1.0"
 async-std  = { version = "1.9", features = ["attributes"] }
+multihash  = { version = "0.16.2", features = ["identity"] }

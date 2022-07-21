@@ -1,12 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "resolve")]
-/// This module is used for resolving Cids and Ipld recursively. This is generally only needed
-/// for testing because links should generally not be collapsed to generate a singular data
-/// structure, or this would lead to ambiguity of the data.
-pub mod resolve;
-
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
