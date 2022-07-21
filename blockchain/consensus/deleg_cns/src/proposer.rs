@@ -61,6 +61,7 @@ impl DelegatedProposer {
 
         let parent_weight = DelegatedConsensus::weight(state_manager.blockstore(), base)?;
         let msgs = mpool.select_signed(state_manager, base).await?;
+        let msgs = msgs.iter().map(|m| m.as_ref()).collect();
         let persisted = chain::persist_block_messages(state_manager.blockstore(), msgs)?;
 
         let mut header = BlockHeader::builder()

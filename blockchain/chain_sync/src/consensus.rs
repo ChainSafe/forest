@@ -6,7 +6,9 @@ use async_trait::async_trait;
 use chain::Scale;
 use forest_message::SignedMessage;
 use futures::stream::FuturesUnordered;
+use message_pool::MessagePool;
 use nonempty::NonEmpty;
+use std::borrow::Cow;
 use std::{
     fmt::{Debug, Display},
     sync::Arc,
@@ -118,12 +120,37 @@ pub trait Proposer {
 /// which were included in blocks on its own.
 #[async_trait]
 pub trait MessagePoolApi {
-    /// Select the set of suitable signed messages based on a tipset we are about to build the next block on.
+    /// Select the set of suitable signed messages based on a tipset we are about
+    /// to build the next block on.
+    ///
+    /// The result is a `Cow` in case the source can avoid cloning messages and just
+    /// return a reference. They will be sent to the datastore for storage, but a
+    /// reference is enough for that.
     async fn select_signed<DB>(
         &self,
         state_manager: &StateManager<DB>,
         base: &Tipset,
-    ) -> anyhow::Result<Vec<&SignedMessage>>
+    ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
         DB: BlockStore + Sync + Send + 'static;
+}
+
+#[async_trait]
+impl<P> MessagePoolApi for MessagePool<P>
+where
+    P: message_pool::Provider + Send + Sync + 'static,
+{
+    async fn select_signed<DB>(
+        &self,
+        _: &StateManager<DB>,
+        base: &Tipset,
+    ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
+    where
+        DB: BlockStore + Sync + Send + 'static,
+    {
+        self.select_messages_for_block(base)
+            .await
+            .map_err(|e| e.into())
+            .map(|v| v.into_iter().map(Cow::Owned).collect())
+    }
 }
