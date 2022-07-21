@@ -208,7 +208,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indexmap::IndexMap;
     use libipld_macro::ipld;
+    use multihash::Code::Blake2b256;
+    use multihash::MultihashDigest;
 
     #[async_std::test]
     async fn basic_walk() {
@@ -217,6 +220,55 @@ mod tests {
         selector
             .walk_matching::<(), _>(&ipld!("Some IPLD data!"), None, |_progress, ipld| {
                 assert_eq!(ipld, &ipld!("Some IPLD data!"));
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    #[async_std::test]
+    async fn explore_fields() {
+        let selector = Selector::ExploreFields {
+            fields: IndexMap::from([("name".to_owned(), Selector::Matcher)]),
+        };
+        let details = Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+        let src = ipld!({"details": Ipld::Link(details), "name": "Test"});
+        selector
+            .walk_matching::<(), _>(&src, None, |_progress, ipld| {
+                assert_eq!(&ipld!("Test"), ipld);
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    #[async_std::test]
+    async fn explore_index() {
+        let selector = Selector::ExploreIndex {
+            index: 2,
+            next: Box::new(Selector::Matcher),
+        };
+        let src = ipld!(["A", "B", "C", "D", "E"]);
+        selector
+            .walk_matching::<(), _>(&src, None, |_progress, ipld| {
+                assert_eq!(&ipld!("C"), ipld);
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    #[async_std::test]
+    async fn explore_range() {
+        let selector = Selector::ExploreRange {
+            start: 2,
+            end: 4,
+            next: Box::new(Selector::Matcher),
+        };
+        let src = ipld!(["A", "B", "C", "D", "E"]);
+        selector
+            .walk_matching::<(), _>(&src, None, |_progress, ipld| {
+                assert!(&ipld!("C") == ipld || &ipld!("D") == ipld || &ipld!("E") == ipld);
                 Ok(())
             })
             .await
