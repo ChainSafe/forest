@@ -129,7 +129,7 @@ pub(super) async fn start(config: Config) {
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
 
-    // Terminate if no snapshot provided and DB isn't at latest network
+    // Terminate if no snapshot is provided and DB isn't at latest network
     if config.snapshot_path.is_none() {
         let head = chain_store.heaviest_tipset().await;
         if head.is_none() {
