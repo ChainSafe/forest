@@ -119,7 +119,6 @@ impl ChainCommands {
                     .expect("errors ara handled by handle_rpc_error. This is safe");
 
                 println!("Export completed. Snapshot located at {}", out.display());
-                println!("\nYou can check the snapshot's integrity using the provided checksum in the same directory by issuing the following command.\n\n`sha256sum --check {}.sha256sum`", out.display());
             }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);
