@@ -2815,6 +2815,7 @@ dependencies = [
  "libipld-core",
  "libipld-macro",
  "multibase 0.9.1",
+ "multihash 0.16.2",
  "serde",
  "serde_json",
  "thiserror",
