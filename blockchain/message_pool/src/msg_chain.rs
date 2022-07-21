@@ -26,7 +26,7 @@ new_key_type! {
 /// Chains is an abstraction of a list of message chain nodes.
 /// It wraps a slotmap instance. key_vec is an additional requirement in order to satisfy
 /// optimal msg selection use cases, such as iteration in insertion order.
-/// The slotamap serves as a lookup table for nodes to get around the borrow checker rules.
+/// The slotmap serves as a lookup table for nodes to get around the borrow checker rules.
 /// Each MsgChainNode contains only pointers as `NodeKey` to the entries in the map
 /// With this design, we get around the borrow checker rule issues when
 /// implementing the optimal selection algorithm.
