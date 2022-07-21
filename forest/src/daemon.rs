@@ -120,13 +120,6 @@ pub(super) async fn start(config: Config) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    if !db_path(&config).exists() && config.snapshot_path.is_none() {
-        cli_error_and_die(
-            "\n\nNeed to bootstrap Forest with a snapshot on the first run. To download a snapshot, use the following command \n\ncurl -sI https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car | perl -ne '/x-amz-website-redirect-location:\\s(.+)\\.car/ && print \"$1.sha256sum\n$1.car\"' | xargs wget",
-            1,
-        );
-    }
-
     #[cfg(feature = "rocksdb")]
     let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
@@ -135,6 +128,29 @@ pub(super) async fn start(config: Config) {
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
+
+    // Terminate if no snapshot provided and DB isn't at latest network
+    if config.snapshot_path.is_none() {
+        let head = chain_store.heaviest_tipset().await;
+        if head.is_none() {
+            cli_error_and_die(
+                "\n\nNeed to bootstrap Forest with a snapshot on the first run. To download a snapshot, use the following command \n\ncurl -sI https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car | perl -ne '/x-amz-website-redirect-location:\\s(.+)\\.car/ && print \"$1.sha256sum\n$1.car\"' | xargs wget",
+                1,
+            );
+        }
+
+        let head = head.unwrap();
+
+        let latest_upgrade = config
+            .chain
+            .height_infos
+            .last()
+            .expect("height_infos is always populated");
+
+        if latest_upgrade.epoch > head.epoch() {
+            cli_error_and_die("Forest is not synced up to the latest network version. A snapshot needs to be imported", 1);
+        }
+    }
 
     let publisher = chain_store.publisher();
 
