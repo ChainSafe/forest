@@ -685,8 +685,8 @@ mod test_selection {
     use crate::msgpool::tests::create_smsg;
     use async_std::channel::bounded;
     use async_std::task;
-    use db::MemoryDB;
     use fil_types::NetworkParams;
+    use forest_db::MemoryDB;
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};

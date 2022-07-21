@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use db::Error as DbErr;
+use forest_db::Error as DbErr;
 use thiserror::Error;
 
 /// State manager error
@@ -38,8 +38,8 @@ impl From<anyhow::Error> for Error {
     }
 }
 
-impl From<encoding::error::Error> for Error {
-    fn from(e: encoding::error::Error) -> Self {
+impl From<forest_encoding::error::Error> for Error {
+    fn from(e: forest_encoding::error::Error) -> Self {
         Error::Other(e.to_string())
     }
 }

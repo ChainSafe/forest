@@ -7,9 +7,9 @@ use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use derive_builder::Builder;
-use encoding::blake2b_256;
-use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
+use forest_encoding::blake2b_256;
+use forest_encoding::{Cbor, Error as EncodingError};
 use forest_vm::TokenAmount;
 use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::address::Address;
@@ -317,8 +317,9 @@ impl BlockHeader {
     }
     /// Updates cache and returns mutable reference of header back
     fn cached_bytes(&self) -> &Vec<u8> {
-        self.cached_bytes
-            .get_or_init(|| encoding::to_vec(self).expect("header serialization cannot fail"))
+        self.cached_bytes.get_or_init(|| {
+            forest_encoding::to_vec(self).expect("header serialization cannot fail")
+        })
     }
     /// Check to ensure block signature is valid
     pub fn check_block_signature(&self, addr: &Address) -> Result<(), Error> {
@@ -452,7 +453,7 @@ impl BlockHeader {
         blk.cached_cid = Default::default();
 
         // * Intentionally not using cache here, to avoid using cached bytes with signature encoded.
-        encoding::to_vec(&blk).expect("block serialization cannot fail")
+        forest_encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
 }
 
@@ -467,7 +468,7 @@ impl fmt::Display for BlockHeader {
 mod tests {
     use crate::{errors::Error, BlockHeader};
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use encoding::Cbor;
+    use forest_encoding::Cbor;
     use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;
 

@@ -3,7 +3,7 @@
 
 use super::BlockHeader;
 use cid::Cid;
-use encoding::tuple::*;
+use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 

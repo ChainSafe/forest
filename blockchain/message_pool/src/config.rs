@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use db::Store;
-use encoding::{from_slice, to_vec};
+use forest_db::Store;
+use forest_encoding::{from_slice, to_vec};
 use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

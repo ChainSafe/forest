@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{blake2b_256, tuple::*};
 use fil_types::BLOCKS_PER_EPOCH;
 use forest_crypto::VRFProof;
+use forest_encoding::{blake2b_256, tuple::*};
 use fvm_shared::bigint::{BigInt, Integer, ParseBigIntError, Sign};
 
 const PRECISION: u64 = 256;

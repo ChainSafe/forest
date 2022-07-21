@@ -4,7 +4,7 @@
 use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-use encoding::blake2b_256;
+use forest_encoding::blake2b_256;
 use fvm_shared::version::NetworkVersion;
 use std::time::Duration;
 

@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{from_slice, to_vec};
 use forest_blocks::*;
+use forest_encoding::{from_slice, to_vec};
 use test_utils::construct_ticket;
 
 // From Lotus
