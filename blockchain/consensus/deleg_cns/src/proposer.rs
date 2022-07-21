@@ -117,7 +117,7 @@ impl Proposer for DelegatedProposer {
                         let cid = *block.header.cid();
                         let msg_cnt = block.secpk_messages.len() + block.bls_messages.len();
                         match submitter.submit_block(block).await {
-                            Ok(()) => info!("Proposed a block ({}) with {} messages", cid, msg_cnt),
+                            Ok(()) => info!("Proposed block {} with {} messages", cid, msg_cnt),
                             Err(e) => error!("Failed to submit block: {}", e),
                         }
                     }

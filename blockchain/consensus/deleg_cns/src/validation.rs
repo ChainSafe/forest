@@ -61,7 +61,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), DelegatedConsensusErr
     Ok(())
 }
 
-/// Check the timetamp corresponds exactly to the number of epochs since the parents.
+/// Check the timestamp corresponds exactly to the number of epochs since the parents.
 ///
 /// This is the same as in the default `FilecoinConsensus`.
 fn block_timestamp_checks(
