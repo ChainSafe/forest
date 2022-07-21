@@ -139,7 +139,7 @@ pub(super) async fn start(config: Config) {
             );
         }
 
-        let head = head.unwrap();
+        let head = head.expect("None value is already checked");
 
         let latest_upgrade = config
             .chain
