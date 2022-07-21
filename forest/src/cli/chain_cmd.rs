@@ -79,6 +79,8 @@ impl ChainCommands {
                     Err(_) => return cli_error_and_die("Could not get network head", 1),
                 };
 
+                let epoch = tipset.unwrap_or(chain_head.epoch());
+
                 let output_path = match output_path {
                     Some(path) => path.to_owned(),
                     None => {
@@ -88,12 +90,10 @@ impl ChainCommands {
                             now.year(),
                             now.month(),
                             now.day(),
-                            chain_head.epoch()
+                            epoch,
                         )
                     }
                 };
-
-                let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let params = (
                     epoch,
