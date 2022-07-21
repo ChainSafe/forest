@@ -34,13 +34,13 @@ use crate::DelegatedConsensus;
 /// key corresponding to the ID of the only actor allowed to sign
 /// blocks.
 pub struct DelegatedProposer {
-    actor_id: Address,
+    miner_addr: Address,
     key: Key,
 }
 
 impl DelegatedProposer {
-    pub(crate) fn new(actor_id: Address, key: Key) -> Self {
-        Self { actor_id, key }
+    pub(crate) fn new(miner_addr: Address, key: Key) -> Self {
+        Self { miner_addr, key }
     }
 
     async fn create_block<DB>(
@@ -66,7 +66,7 @@ impl DelegatedProposer {
         let mut header = BlockHeader::builder()
             .messages(persisted.msg_cid)
             .bls_aggregate(Some(persisted.bls_agg))
-            .miner_address(self.actor_id)
+            .miner_address(self.miner_addr)
             .weight(parent_weight)
             .parent_base_fee(parent_base_fee)
             .parents(base.key().clone())

@@ -13,7 +13,7 @@ At the time of this writing _Forest_ doesn't have the necessary machinery to pre
 
 Ideally we could avoid having to build Lotus just for this purpose, and use the published [Docker image](https://hub.docker.com/r/filecoin/lotus). However, not all commands that we need are part of the image; for example `lotus-seed` is only available in the [lotus-test](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/Dockerfile.lotus#L232) build target.
 
-Still, we can use docker to build the CLI without having to install all necessary build dependencies ourselves. Assuming that we already have Lotus cloned from Github and we are in the top level `lotus` directory, we can use the following command to build an image we need:
+Still, we can use docker to build the CLI without having to install all necessary build dependencies ourselves. Assuming that we already have [Lotus](https://github.com/filecoin-project/lotus) cloned from Github and we are in the top level `lotus` directory, we can use the following command to build an image we need:
 
 ```bash
 docker build -t filecoin/lotus-test -f Dockerfile.lotus --target lotus-test .
@@ -211,6 +211,10 @@ and we have our Genesis file:
 $ ls -lh genesis-files/*.car
 -rw-r--r-- 1 aakoshh aakoshh 5.3M Jul 19 14:38 genesis-files/genesis.car
 ```
+
+If we look carefully at the log we can see that it says `init set t3w3...ivjq t0100`, which is _not_ the `t01000` ID we might have expected. This is because a miner has two Actors representing it in the system: one with a `miner::State` and another with an `account::State`; the latter is identified by `t0100`, which is the first ID issued by the system.
+
+For now we work within the common validation framework of Forest, which expects to see a miner ID in the header, not the account ID, but this works differently in Eudico, where they use the account ID directly. Both can be resolved to a public key, to check the block signature.
 
 ### Clean Up
 

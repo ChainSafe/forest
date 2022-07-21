@@ -49,10 +49,24 @@ pub enum DelegatedConsensusError {
 #[derive(Debug)]
 pub struct DelegatedConsensus {
     /// Address of the only miner eligible to propose blocks.
-    ///
-    /// Historically this has been hardcoded to `t0100`,
-    /// which is the ID of the first actor created by the system.
     chosen_one: Address,
+}
+
+impl Default for DelegatedConsensus {
+    fn default() -> Self {
+        Self {
+            // The default _Miner ID_ assigned by Lotus will be `t01000` , because the miner sequence
+            // starts from 1000. The corresponding default _Account ID_ will be `t0100`, which is the
+            // first assigned by the system when it creates an account for the first miner in Genesis.
+            // These will be two different `Actor` instances created for the Miner.
+            //
+            // In Eudico they use the _Account ID_ directly and not create a _Miner Actor_, but in
+            // Forest we go through the common machinery, and validation will call [get_miner_work_addr],
+            // which will treat the state pointed at by the `ActorState` as `miner::State`, so we _have_
+            // to use the _Miner ID_ in this version, becuase the data would not deserialise as `account::State`.
+            chosen_one: Address::from_str("t01000").unwrap(),
+        }
+    }
 }
 
 impl DelegatedConsensus {
@@ -83,19 +97,6 @@ impl DelegatedConsensus {
             Ok(key) => Ok(Some(DelegatedProposer::new(self.chosen_one, key))),
             Err(key_management::Error::KeyInfo) => Ok(None),
             Err(e) => Err(anyhow!(e)),
-        }
-    }
-}
-
-impl Default for DelegatedConsensus {
-    fn default() -> Self {
-        Self {
-            // The eudico version used `t0100` but the genesis.car
-            // file prepared by Lotus/Forest start from 1000.
-            // TODO: Or actually it might be that `t0100` is the account
-            // address, and `t01000` is the miner ID, both referring to
-            // the same entity.
-            chosen_one: Address::from_str("t01000").unwrap(),
         }
     }
 }
