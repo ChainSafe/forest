@@ -1,7 +1,7 @@
 10
 JWT
 JSON
-tipset/M
+tipset/SM
 BLS
 SECP
 Algorand/M
@@ -11,3 +11,9 @@ APIs
 CBOR
 codec
 BLAKE2b
+VM
+multisig
+tuple
+mutex
+RPC
+parameterize/D

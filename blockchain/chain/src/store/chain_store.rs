@@ -842,7 +842,7 @@ where
     })
 }
 
-/// Returns messages from key-value store based on a slice of [Cid]s.
+/// Returns messages from key-value store based on a slice of [`Cid`]s.
 pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
     DB: BlockStore,
