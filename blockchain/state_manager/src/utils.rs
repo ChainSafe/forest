@@ -167,7 +167,7 @@ where
         precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))
     }
 
-    /// Returns miner info at the given `[Tipset]`'s state.
+    /// Returns miner info at the given [`Tipset`]'s state.
     pub fn get_miner_info<V>(&self, tipset: &Tipset, address: &Address) -> anyhow::Result<MinerInfo>
     where
         V: ProofVerifier,
@@ -247,7 +247,7 @@ where
         Ok(out)
     }
 
-    /// Lists all miners that exist in the power actor state at given `[Tipset]`.
+    /// Lists all miners that exist in the power actor state at given [`Tipset`].
     pub fn list_miner_actors(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error> {
         let actor = self
             .get_actor(&actor::power::ADDRESS, *tipset.parent_state())?

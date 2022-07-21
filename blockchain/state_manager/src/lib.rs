@@ -72,7 +72,7 @@ pub struct MarketBalance {
 }
 
 /// State manager handles all interactions with the internal Filecoin actors state.
-/// This encapsulates the `[ChainStore]` functionality, which only handles chain data, to
+/// This encapsulates the [`ChainStore`] functionality, which only handles chain data, to
 /// allow for interactions with the underlying state of the chain. The state manager not only
 /// allows interfacing with state, but also is used when performing state transitions.
 pub struct StateManager<DB> {
@@ -153,23 +153,23 @@ where
         &self.chain_config
     }
 
-    /// Gets actor from given `[Cid]`, if it exists.
+    /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
-    /// Returns the cloned `[Arc]` of the state manager's `[BlockStore]`.
+    /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
     pub fn blockstore_cloned(&self) -> Arc<DB> {
         self.cs.blockstore_cloned()
     }
 
-    /// Returns a reference to the state manager's `[BlockStore]`.
+    /// Returns a reference to the state manager's [`BlockStore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
     }
 
-    /// Returns reference to the state manager's `[ChainStore]`.
+    /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
     }
@@ -312,7 +312,7 @@ where
         Ok(None)
     }
 
-    /// Subscribes to the `[HeadChange]`s observed by the state manager.
+    /// Subscribes to the [`HeadChange`]s observed by the state manager.
     pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
         self.publisher.as_ref().map(|p| p.subscribe())
     }
