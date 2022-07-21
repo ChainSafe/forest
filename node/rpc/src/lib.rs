@@ -15,6 +15,7 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
+use async_std::net::TcpListener;
 use async_std::sync::Arc;
 use chain::Scale;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
@@ -37,7 +38,7 @@ use rpc_api::{
 
 pub async fn start_rpc<DB, B, V, S>(
     state: Arc<RPCState<DB, B>>,
-    rpc_endpoint: &str,
+    rpc_endpoint: TcpListener,
 ) -> Result<(), JSONRPCError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -177,7 +178,6 @@ where
         .post(rpc_http_handler::<DB, B>);
 
     info!("Ready for RPC connections");
-
     app.listen(rpc_endpoint).await?;
 
     info!("Stopped accepting RPC connections");

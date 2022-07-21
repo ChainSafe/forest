@@ -4,14 +4,15 @@
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
 use encoding::Cbor;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::{address::Address, bigint::BigInt};
 use log::info;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
-/// A set of CIDs forming a unique key for a Tipset.
-/// Equal keys will have equivalent iteration order, but note that the CIDs are *not* maintained in
+/// A set of `CIDs` forming a unique key for a Tipset.
+/// Equal keys will have equivalent iteration order, but note that the `CIDs` are *not* maintained in
 /// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -24,7 +25,7 @@ impl TipsetKeys {
         Self { cids }
     }
 
-    /// Returns tipset header cids
+    /// Returns tipset header `cids`
     pub fn cids(&self) -> &[Cid] {
         &self.cids
     }
@@ -64,7 +65,7 @@ impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
     /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
     /// specify identical epoch, parents, weight, height, state root, receipt root;
-    /// contentID for headers are supposed to be distinct but until encoding is added will be equal.
+    /// content-id for headers are supposed to be distinct but until encoding is added will be equal.
     pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
@@ -87,7 +88,7 @@ impl Tipset {
     pub fn blocks(&self) -> &[BlockHeader] {
         &self.headers
     }
-    /// Consumes Tipset to convert into a vector of [BlockHeader].
+    /// Consumes tipset to convert into a vector of [`BlockHeader`].
     pub fn into_blocks(self) -> Vec<BlockHeader> {
         self.headers
     }
@@ -118,11 +119,11 @@ impl Tipset {
             TipsetKeys::new(self.headers.iter().map(BlockHeader::cid).cloned().collect())
         })
     }
-    /// Returns slice of Cids for the current tipset
+    /// Returns slice of `CIDs` for the current tipset
     pub fn cids(&self) -> &[Cid] {
         self.key().cids()
     }
-    /// Returns the CIDs of the parents of the blocks in the tipset.
+    /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKeys {
         self.min_ticket_block().parents()
     }
@@ -134,7 +135,7 @@ impl Tipset {
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
-    /// Returns true if self wins according to the filecoin tie-break rule (FIP-0023)
+    /// Returns true if self wins according to the Filecoin tie-break rule (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
@@ -157,7 +158,7 @@ impl Tipset {
     }
 }
 
-/// FullTipset is an expanded version of the Tipset that contains all the blocks and messages
+/// `FullTipset` is an expanded version of a tipset that contains all the blocks and messages
 #[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
@@ -233,6 +234,9 @@ where
         }
     };
 
+    let mut headers_set: HashSet<Address> = HashSet::new();
+    headers_set.insert(*first_header.miner_address());
+
     for header in headers {
         verify(
             header.parents() == first_header.parents(),
@@ -246,8 +250,9 @@ where
             header.epoch() == first_header.epoch(),
             "epochs are not equal",
         )?;
+
         verify(
-            header.miner_address() != first_header.miner_address(),
+            headers_set.insert(*header.miner_address()),
             "miner_addresses are not distinct",
         )?;
     }
@@ -299,12 +304,12 @@ pub mod tipset_json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::Arc;
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and de-serializing a `Tipset` from JSON.
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct TipsetJson(#[serde(with = "self")] pub Arc<Tipset>);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `Tipset` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct TipsetJsonRef<'a>(#[serde(with = "self")] pub &'a Tipset);
@@ -368,9 +373,12 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod test {
-    use crate::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
+    use cid::multihash::Code::Identity;
+    use cid::multihash::MultihashDigest;
     use cid::Cid;
     use forest_crypto::VRFProof;
+    use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
     use num_bigint::BigInt;
 
@@ -428,5 +436,104 @@ mod test {
         let ts7 = Tipset::new(vec![b4, b5, b1]).unwrap();
         // Can not break weight tie with all min tickets the same
         assert!(!ts6.break_weight_tie(&ts7));
+    }
+
+    #[test]
+    fn ensure_miner_addresses_are_distinct() {
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let h1 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("miner_addresses are not distinct".to_string())
+        );
+    }
+
+    // specifically test the case when we are distinct from miner_address 0, but not 1
+    #[test]
+    fn ensure_multiple_miner_addresses_are_distinct() {
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(1))
+            .build()
+            .unwrap();
+        let h1 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let h2 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        assert_eq!(
+            Tipset::new(vec![h0, h1, h2]).unwrap_err(),
+            Error::InvalidTipset("miner_addresses are not distinct".to_string())
+        );
+    }
+
+    #[test]
+    fn ensure_epochs_are_equal() {
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .epoch(1)
+            .build()
+            .unwrap();
+        let h1 = BlockHeader::builder()
+            .miner_address(Address::new_id(1))
+            .epoch(2)
+            .build()
+            .unwrap();
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("epochs are not equal".to_string())
+        );
+    }
+
+    #[test]
+    fn ensure_state_roots_are_equal() {
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .build()
+            .unwrap();
+        let h1 = BlockHeader::builder()
+            .miner_address(Address::new_id(1))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[1])))
+            .build()
+            .unwrap();
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("state_roots are not equal".to_string())
+        );
+    }
+
+    #[test]
+    fn ensure_parent_cids_are_equal() {
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .parents(TipsetKeys::default())
+            .build()
+            .unwrap();
+        let h1 = BlockHeader::builder()
+            .miner_address(Address::new_id(1))
+            .parents(TipsetKeys::new(vec![Cid::new_v1(
+                DAG_CBOR,
+                Identity.digest(&[]),
+            )]))
+            .build()
+            .unwrap();
+        assert_eq!(
+            Tipset::new(vec![h0, h1]).unwrap_err(),
+            Error::InvalidTipset("parent cids are not equal".to_string())
+        );
+    }
+
+    #[test]
+    fn ensure_there_are_blocks() {
+        assert_eq!(Tipset::new(vec![]).unwrap_err(), Error::NoBlocks);
     }
 }

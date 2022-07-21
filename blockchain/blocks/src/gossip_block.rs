@@ -5,7 +5,7 @@ use crate::BlockHeader;
 use cid::Cid;
 use encoding::{tuple::*, Cbor};
 
-/// Block message used as serialized gossipsub messages for blocks topic.
+/// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,
@@ -21,12 +21,12 @@ pub mod json {
     use crate::header;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a GossipBlock from JSON.
+    /// Wrapper for serializing and de-serializing a `GossipBlock` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct GossipBlockJson(#[serde(with = "self")] pub GossipBlock);
 
-    /// Wrapper for serializing a GossipBlock reference to JSON.
+    /// Wrapper for serializing a `GossipBlock` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct GossipBlockJsonRef<'a>(#[serde(with = "self")] pub &'a GossipBlock);

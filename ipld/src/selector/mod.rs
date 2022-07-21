@@ -5,7 +5,7 @@ mod empty_map;
 mod walk;
 pub use self::walk::*;
 
-use super::{Ipld, PathSegment};
+use super::Ipld;
 use encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -198,20 +198,18 @@ pub enum Condition {
 
 impl Selector {
     /// Returns a vector of all sectors of interest, `None` variant is synonymous with all.
-    pub fn interests(&self) -> Option<Vec<PathSegment>> {
+    pub fn interests(&self) -> Option<Vec<String>> {
         match self {
             ExploreAll { .. } => None,
-            ExploreFields { fields } => {
-                Some(fields.keys().cloned().map(PathSegment::from).collect())
-            }
-            ExploreIndex { index, .. } => Some(vec![(*index).into()]),
+            ExploreFields { fields } => Some(fields.keys().cloned().collect()),
+            ExploreIndex { index, .. } => Some(vec![index.to_string()]),
             ExploreRange { start, end, .. } => {
                 if end < start {
                     return None;
                 }
                 let mut inter = Vec::with_capacity(end - start);
                 for i in *start..*end {
-                    inter.push(PathSegment::from(i));
+                    inter.push(i.to_string());
                 }
                 Some(inter)
             }
@@ -248,38 +246,28 @@ impl Selector {
     }
 
     /// Processes and returns resultant selector node
-    pub fn explore(self, ipld: &Ipld, p: &PathSegment) -> Option<Selector> {
+    pub fn explore(self, ipld: &Ipld, p: &str) -> Option<Selector> {
         match self {
             ExploreAll { next } => Some(*next),
             ExploreFields { mut fields } => match ipld {
-                Ipld::Map(m) => match p {
-                    // Check if field exists on ipld, then explore selector
-                    PathSegment::String(s) => {
-                        m.get(s)?;
-                        fields.remove(s)
+                Ipld::Map(m) => {
+                        m.get(p)?;
+                        fields.remove(p)
                     }
-                    PathSegment::Int(i) => {
-                        let key = i.to_string();
-                        m.get(&key)?;
-                        fields.remove(&key)
-                    }
-                },
+                ,
                 // Using ExploreFields for list is supported feature in go impl
                 Ipld::List(l) => {
                     // Check to make sure index is within bounds
-                    if p.to_index()? >= l.len() {
+                    if p.parse::<usize>().ok()? >= l.len() {
                         return None;
                     }
-                    match p {
-                        PathSegment::String(s) => fields.remove(s),
-                        PathSegment::Int(i) => fields.remove(&i.to_string()),
-                    }
+                    fields.remove(p)
                 }
                 _ => None,
             },
             ExploreIndex { index, next } => match ipld {
                 Ipld::List(l) => {
-                    let i = p.to_index()?;
+                    let i = p.parse::<usize>().ok()?;
                     if i != index || i >= l.len() {
                         None
                     } else {
@@ -292,7 +280,7 @@ impl Selector {
             ExploreRange { start, end, next } => {
                 match ipld {
                     Ipld::List(l) => {
-                        let i = p.to_index()?;
+                        let i = p.parse::<usize>().ok()?;
                         // Check to make sure index is within list bounds
                         if i < start || i >= end || i >= l.len() {
                             None

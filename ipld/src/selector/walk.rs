@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::{lookup_segment, Error, Ipld, Path, PathSegment};
+use super::super::{lookup_segment, Error, Ipld, Path};
 use super::Selector;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
@@ -154,7 +154,7 @@ where
                         Some(ipld) => ipld,
                         None => continue,
                     };
-                    self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                    self.traverse_node(ipld, selector.clone(), callback, &ps, v)
                         .await?;
                 }
                 Ok(())
@@ -163,15 +163,14 @@ where
                 match ipld {
                     Ipld::Map(m) => {
                         for (k, v) in m.iter() {
-                            let ps = PathSegment::from(k.as_ref());
-                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                            self.traverse_node(ipld, selector.clone(), callback, k, v)
                                 .await?;
                         }
                     }
                     Ipld::List(list) => {
                         for (i, v) in list.iter().enumerate() {
-                            let ps = PathSegment::from(i);
-                            self.traverse_node(ipld, selector.clone(), callback, ps, v)
+                            let ps = i.to_string();
+                            self.traverse_node(ipld, selector.clone(), callback, &ps, v)
                                 .await?;
                         }
                     }
@@ -190,16 +189,17 @@ where
         ipld: &Ipld,
         selector: Selector,
         callback: &F,
-        ps: PathSegment,
+        ps: &str,
         v: &Ipld,
     ) -> Result<(), Error>
     where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
-        if let Some(next_selector) = selector.explore(ipld, &ps) {
-            self.path.push(ps);
+        if let Some(next_selector) = selector.explore(ipld, ps) {
+            let prev = self.path.clone();
+            self.path.join(ps);
             self.walk_all(v, next_selector, callback).await?;
-            self.path.pop();
+            self.path = prev;
         }
         Ok(())
     }
@@ -208,7 +208,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipld;
+    use indexmap::IndexMap;
+    use libipld_macro::ipld;
+    use multihash::Code::Blake2b256;
+    use multihash::MultihashDigest;
 
     #[async_std::test]
     async fn basic_walk() {
@@ -217,6 +220,55 @@ mod tests {
         selector
             .walk_matching::<(), _>(&ipld!("Some IPLD data!"), None, |_progress, ipld| {
                 assert_eq!(ipld, &ipld!("Some IPLD data!"));
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    #[async_std::test]
+    async fn explore_fields() {
+        let selector = Selector::ExploreFields {
+            fields: IndexMap::from([("name".to_owned(), Selector::Matcher)]),
+        };
+        let details = Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+        let src = ipld!({"details": Ipld::Link(details), "name": "Test"});
+        selector
+            .walk_matching::<(), _>(&src, None, |_progress, ipld| {
+                assert_eq!(&ipld!("Test"), ipld);
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    #[async_std::test]
+    async fn explore_index() {
+        let selector = Selector::ExploreIndex {
+            index: 2,
+            next: Box::new(Selector::Matcher),
+        };
+        let src = ipld!(["A", "B", "C", "D", "E"]);
+        selector
+            .walk_matching::<(), _>(&src, None, |_progress, ipld| {
+                assert_eq!(&ipld!("C"), ipld);
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+
+    #[async_std::test]
+    async fn explore_range() {
+        let selector = Selector::ExploreRange {
+            start: 2,
+            end: 4,
+            next: Box::new(Selector::Matcher),
+        };
+        let src = ipld!(["A", "B", "C", "D", "E"]);
+        selector
+            .walk_matching::<(), _>(&src, None, |_progress, ipld| {
+                assert!(&ipld!("C") == ipld || &ipld!("D") == ipld || &ipld!("E") == ipld);
                 Ok(())
             })
             .await

@@ -3,6 +3,7 @@
 
 use super::cli::{block_until_sigint, Config};
 use crate::cli_error_and_die;
+use async_std::net::TcpListener;
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use beacon::DrandBeacon;
 use chain::ChainStore;
@@ -100,8 +101,12 @@ pub(super) async fn start(config: Config) {
     }
 
     // Start Prometheus server port
+    let prometheus_listener = TcpListener::bind(config.metrics_address)
+        .await
+        .unwrap_or_else(|_| panic!("could not bind to {}", config.metrics_address));
+    info!("Prometheus server started at {}", config.metrics_address);
     let prometheus_server_task = task::spawn(metrics::init_prometheus(
-        config.metrics_address,
+        prometheus_listener,
         db_path(&config)
             .into_os_string()
             .into_string()
@@ -237,9 +242,13 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = format!("127.0.0.1:{}", &config.rpc_port);
+        let rpc_address = format!("127.0.0.1:{}", config.rpc_port);
+        let rpc_listen = TcpListener::bind(&rpc_address)
+            .await
+            .unwrap_or_else(|_| panic!("could not bind to {rpc_address}"));
+
         Some(task::spawn(async move {
-            info!("JSON-RPC endpoint started at {}", &rpc_listen);
+            info!("JSON-RPC endpoint started at {}", rpc_address);
             start_rpc::<_, _, FullVerifier, FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
@@ -253,7 +262,7 @@ pub(super) async fn start(config: Config) {
                     chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),
-                &rpc_listen,
+                rpc_listen,
             )
             .await
         }))

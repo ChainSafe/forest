@@ -5,8 +5,9 @@ use cid::multihash::Code::{Blake2b256, Identity};
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use encoding::{from_slice, to_vec};
-use forest_ipld::{ipld, to_ipld, Ipld};
+use forest_ipld::{to_ipld, Ipld};
 use fvm_ipld_encoding::DAG_CBOR;
+use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -34,7 +35,7 @@ fn encode_new_type() {
     let ipld_decoded: Ipld = from_slice(&struct_encoded).unwrap();
     assert_eq!(
         &ipld_decoded,
-        &ipld!({"details": Link(details), "name": "Test"})
+        &ipld!({"details": Ipld::Link(details), "name": "Test"})
     );
 }
 
@@ -47,10 +48,10 @@ fn cid_conversions_ipld() {
     };
     assert_eq!(
         to_ipld(&m_s).unwrap(),
-        ipld!({"name": "s", "details": Link(cid) })
+        ipld!({"name": "s", "details": Ipld::Link(cid) })
     );
     let serialized = to_vec(&cid).unwrap();
-    let ipld = ipld!(Link(cid));
+    let ipld = ipld!(Ipld::Link(cid));
     let ipld2 = to_ipld(&cid).unwrap();
     assert_eq!(ipld, ipld2);
     assert_eq!(to_vec(&ipld).unwrap(), serialized);
@@ -58,7 +59,7 @@ fn cid_conversions_ipld() {
 
     // Test with identity hash (different length prefix for cbor)
     let cid = Cid::new_v1(DAG_CBOR, Identity.digest(&[1, 2]));
-    let ipld = ipld!(Link(cid));
+    let ipld = ipld!(Ipld::Link(cid));
     let ipld2 = to_ipld(&cid).unwrap();
     assert_eq!(ipld, ipld2);
 }

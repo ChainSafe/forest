@@ -5,11 +5,11 @@ use crate::BYTE_ARRAY_MAX_LEN;
 use serde::{de, ser, Deserializer, Serializer};
 use serde_bytes::{Deserialize, Serialize};
 
-/// serde_bytes with max length check
+/// `serde_bytes` with max length check
 pub mod serde_byte_array {
     use super::*;
 
-    /// checked if input > `crate::BYTE_ARRAY_MAX_LEN`
+    /// checked if `input > crate::BYTE_ARRAY_MAX_LEN`
     pub fn serialize<T, S>(bytes: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         T: ?Sized + Serialize + AsRef<[u8]>,
@@ -25,7 +25,7 @@ pub mod serde_byte_array {
         Serialize::serialize(bytes, serializer)
     }
 
-    /// checked if output > `crate::ByteArrayMaxLen`
+    /// checked if `output > crate::ByteArrayMaxLen`
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
     where
         T: Deserialize<'de> + AsRef<[u8]>,

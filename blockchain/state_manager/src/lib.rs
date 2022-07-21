@@ -58,7 +58,7 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 
-/// An alias Result that represents an InvocResult and an Error.
+/// An alias Result that represents an `InvocResult` and an Error.
 type StateCallResult = Result<InvocResult, Error>;
 
 /// External format for returning market balance from state.
@@ -72,7 +72,7 @@ pub struct MarketBalance {
 }
 
 /// State manager handles all interactions with the internal Filecoin actors state.
-/// This encapsulates the [ChainStore] functionality, which only handles chain data, to
+/// This encapsulates the [`ChainStore`] functionality, which only handles chain data, to
 /// allow for interactions with the underlying state of the chain. The state manager not only
 /// allows interfacing with state, but also is used when performing state transitions.
 pub struct StateManager<DB> {
@@ -115,7 +115,7 @@ where
         })
     }
 
-    /// Creates a constructor that passes in a HeadChange publisher.
+    /// Creates a constructor that passes in a `HeadChange` publisher.
     pub async fn new_with_publisher(
         cs: Arc<ChainStore<DB>>,
         chain_subs: Publisher<HeadChange>,
@@ -153,28 +153,28 @@ where
         &self.chain_config
     }
 
-    /// Gets actor from given [Cid], if it exists.
+    /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
         let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
-    /// Returns the cloned [Arc] of the state manager's [BlockStore].
+    /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
     pub fn blockstore_cloned(&self) -> Arc<DB> {
         self.cs.blockstore_cloned()
     }
 
-    /// Returns a reference to the state manager's [BlockStore].
+    /// Returns a reference to the state manager's [`BlockStore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
     }
 
-    /// Returns reference to the state manager's [ChainStore].
+    /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
     }
 
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
     /// Entropy from the latest beacon entry.
     pub async fn get_beacon_randomness(
         &self,
@@ -216,7 +216,7 @@ where
         }
     }
 
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
     /// Entropy from the ticket chain.
     pub async fn get_chain_randomness(
         &self,
@@ -312,7 +312,7 @@ where
         Ok(None)
     }
 
-    /// Subscribes to the [HeadChange]s observed by the state manager.
+    /// Subscribes to the [`HeadChange`]s observed by the state manager.
     pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
         self.publisher.as_ref().map(|p| p.subscribe())
     }
@@ -660,7 +660,7 @@ where
         Ok((out_mes, out_ret))
     }
 
-    /// Gets lookback tipset for block validations.
+    /// Gets look-back tipset for block validations.
     pub async fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
@@ -762,7 +762,7 @@ where
         Ok(true)
     }
 
-    /// Get's a miner's base info from state, based on the address provided.
+    /// Gets a miner's base info from state, based on the address provided.
     pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
         self: &Arc<Self>,
         beacon: &BeaconSchedule<B>,
@@ -1042,7 +1042,7 @@ where
             };
         }
     }
-    /// Returns a message receipt from a given tipset and message cid.
+    /// Returns a message receipt from a given tipset and message CID.
     pub async fn get_receipt(&self, tipset: &Tipset, msg: Cid) -> Result<MessageReceipt, Error> {
         let m = chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
@@ -1067,7 +1067,7 @@ where
         Ok(message_receipt)
     }
 
-    /// WaitForMessage blocks until a message appears on chain. It looks backwards in the
+    /// `WaitForMessage` blocks until a message appears on chain. It looks backwards in the
     /// chain to see if this has already happened. It guarantees that the message has been on chain
     /// for at least confidence epochs without being reverted before returning.
     pub async fn wait_for_message(
@@ -1214,7 +1214,7 @@ where
         }
     }
 
-    /// Returns a bls public key from provided address
+    /// Returns a BLS public key from provided address
     pub fn get_bls_public_key(
         db: &DB,
         addr: &Address,
@@ -1243,7 +1243,7 @@ where
         self.get_balance(addr, *cid)
     }
 
-    /// Return the balance of a given address and state_cid
+    /// Return the balance of a given address and `state_cid`
     pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<BigInt, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
@@ -1291,7 +1291,7 @@ where
         Ok(out)
     }
 
-    /// Similar to `resolve_to_key_addr` in the vm crate but does not allow `Actor` type of addresses.
+    /// Similar to `resolve_to_key_addr` in the `forest_vm` crate but does not allow `Actor` type of addresses.
     /// Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr(
         self: &Arc<Self>,

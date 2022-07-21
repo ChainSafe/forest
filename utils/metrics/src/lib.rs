@@ -3,7 +3,7 @@
 
 pub mod db;
 
-use log::info;
+use async_std::net::TcpListener;
 use prometheus::{Encoder, TextEncoder};
 use thiserror::Error;
 
@@ -25,11 +25,9 @@ pub enum Error {
 }
 
 pub async fn init_prometheus(
-    prometheus_addr: SocketAddr,
+    prometheus_listener: TcpListener,
     db_directory: String,
 ) -> Result<(), Error> {
-    info!("Prometheus server started at {}", prometheus_addr);
-
     let registry = prometheus::default_registry();
 
     // Add the DBCollector to the registry
@@ -43,7 +41,7 @@ pub async fn init_prometheus(
     server.at("/metrics").get(collect_metrics);
 
     // Wait for server to exit
-    server.listen(prometheus_addr).await.map_err(Error::Io)
+    server.listen(prometheus_listener).await.map_err(Error::Io)
 }
 
 async fn collect_metrics(_req: tide::Request<()>) -> tide::Result {

@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod resolve;
+
 // use actor::account;
 // use actor::market;
 // use actor::miner;
@@ -14,8 +16,8 @@ use forest_json::cid::CidJson;
 use forest_vm::ActorState;
 use fvm::state_tree::StateTree;
 use fvm_shared::address::Address;
-use ipld_blockstore::resolve::resolve_cids_recursive;
 use ipld_blockstore::BlockStore;
+use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
