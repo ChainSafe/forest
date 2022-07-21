@@ -88,7 +88,7 @@ where
         )
     }
 
-    /// network v0-12
+    /// network version 0-12
     pub async fn get_chain_randomness_v1(
         &self,
         blocks: &TipsetKeys,
@@ -100,7 +100,7 @@ where
             .await
     }
 
-    /// network v13 onward
+    /// network version 13 onward
     pub async fn get_chain_randomness_v2(
         &self,
         blocks: &TipsetKeys,
@@ -112,7 +112,7 @@ where
             .await
     }
 
-    /// network v0-12; with look back
+    /// network version 0-12; with look back
     pub async fn get_beacon_randomness_v1(
         &self,
         blocks: &TipsetKeys,
@@ -124,7 +124,7 @@ where
             .await
     }
 
-    /// network v13; without look back
+    /// network version 13; without look back
     pub async fn get_beacon_randomness_v2(
         &self,
         blocks: &TipsetKeys,
@@ -136,7 +136,7 @@ where
             .await
     }
 
-    /// network v14 onward
+    /// network version 14 onward
     pub async fn get_beacon_randomness_v3(
         &self,
         blocks: &TipsetKeys,
