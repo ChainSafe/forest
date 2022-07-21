@@ -8,7 +8,7 @@ use fil_types::SectorSize;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 
-use actor::market::{DealProposal, DealState};
+use actor_interface::market::{DealProposal, DealState};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};

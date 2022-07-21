@@ -13,7 +13,7 @@ use anyhow::Context;
 pub const ADDRESS: Address = Address::new_id(1);
 
 /// Init actor method.
-pub type Method = fil_actor_init_v8::Method;
+pub type Method = fil_actor_init::Method;
 
 pub fn is_v8_init_cid(cid: &Cid) -> bool {
     let known_cids = vec![
@@ -29,7 +29,7 @@ pub fn is_v8_init_cid(cid: &Cid) -> bool {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V8(fil_actor_init_v8::State),
+    V8(fil_actor_init::State),
 }
 
 impl State {

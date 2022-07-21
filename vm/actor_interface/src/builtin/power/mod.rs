@@ -3,7 +3,7 @@
 
 use crate::FilterEstimate;
 use cid::Cid;
-use fil_actors_runtime_v8::runtime::Policy;
+use fil_actors_runtime::runtime::Policy;
 use fil_types::StoragePower;
 use forest_json::bigint::json;
 use forest_vm::{ActorState, TokenAmount};
@@ -20,7 +20,7 @@ pub const ADDRESS: Address = Address::new_id(4);
 
 /// Power actor method.
 /// TODO: Select based on actor version
-pub type Method = fil_actor_power_v8::Method;
+pub type Method = fil_actor_power::Method;
 
 pub fn is_v8_power_cid(cid: &Cid) -> bool {
     let known_cids = vec![
@@ -36,7 +36,7 @@ pub fn is_v8_power_cid(cid: &Cid) -> bool {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V8(fil_actor_power_v8::State),
+    V8(fil_actor_power::State),
 }
 
 /// Converts any `FilterEstimate`, e.g. `actorv0::util::smooth::FilterEstimate` type into
@@ -146,8 +146,8 @@ pub struct Claim {
     pub quality_adj_power: StoragePower,
 }
 
-impl From<fil_actor_power_v8::Claim> for Claim {
-    fn from(cl: fil_actor_power_v8::Claim) -> Self {
+impl From<fil_actor_power::Claim> for Claim {
+    fn from(cl: fil_actor_power::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,

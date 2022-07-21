@@ -5,8 +5,8 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use db::Store;
-use encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
+use forest_db::Store;
+use forest_encoding::{de::DeserializeOwned, from_slice, ser::Serialize, to_vec};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use std::sync::Arc;

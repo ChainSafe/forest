@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
+use forest_encoding::BytesDe;
 use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;
 use forest_vm::{ActorState, DealID, TokenAmount};
@@ -22,7 +22,7 @@ use anyhow::Context;
 
 use crate::power::Claim;
 /// Miner actor method.
-pub type Method = fil_actor_miner_v8::Method;
+pub type Method = fil_actor_miner::Method;
 
 pub fn is_v8_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
@@ -39,7 +39,7 @@ pub fn is_v8_miner_cid(cid: &Cid) -> bool {
 #[serde(untagged)]
 pub enum State {
     // V7(fil_actor_miner_v7::State),
-    V8(fil_actor_miner_v8::State),
+    V8(fil_actor_miner::State),
 }
 
 impl State {
@@ -128,7 +128,7 @@ impl State {
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = fil_actor_miner_v8::Sectors::load(&fvm_store, &st.sectors)?;
+                    let sectors = fil_actor_miner::Sectors::load(&fvm_store, &st.sectors)?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
                     sectors.amt.for_each(|_, info| {
                         infos.push(SectorOnChainInfo::from(info.clone()));
@@ -214,7 +214,7 @@ pub struct MinerPower {
 
 /// Deadline holds the state for all sectors due at a specific deadline.
 pub enum Deadline {
-    V8(fil_actor_miner_v8::Deadline),
+    V8(fil_actor_miner::Deadline),
 }
 
 impl Deadline {
@@ -254,7 +254,7 @@ impl Deadline {
 #[allow(clippy::large_enum_variant)]
 pub enum Partition<'a> {
     // V7(Cow<'a, fil_actor_miner_v7::Partition>),
-    V8(Cow<'a, fil_actor_miner_v8::Partition>),
+    V8(Cow<'a, fil_actor_miner::Partition>),
 }
 
 impl Partition<'_> {
@@ -322,8 +322,8 @@ pub struct SectorOnChainInfo {
     pub expected_storage_pledge: TokenAmount,
 }
 
-impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
-    fn from(info: fil_actor_miner_v8::SectorOnChainInfo) -> Self {
+impl From<fil_actor_miner::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
             seal_proof: info.seal_proof,

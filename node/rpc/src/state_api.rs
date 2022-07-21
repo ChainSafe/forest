@@ -6,7 +6,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use actor::{
+use actor_interface::{
     market,
     miner::{self, MinerPower, SectorOnChainInfo},
     power::{self, Claim},

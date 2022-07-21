@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
-use encoding::blake2b_256;
+use forest_encoding::blake2b_256;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};

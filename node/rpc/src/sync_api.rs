@@ -3,9 +3,9 @@
 
 use beacon::Beacon;
 use chain_sync::SyncState;
-use encoding::Cbor;
 use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
+use forest_encoding::Cbor;
 use forest_json::cid::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
@@ -116,8 +116,8 @@ mod tests {
     use beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use chain::ChainStore;
     use chain_sync::SyncStage;
-    use db::{MemoryDB, Store};
     use forest_blocks::{BlockHeader, Tipset};
+    use forest_db::{MemoryDB, Store};
     use forest_libp2p::NetworkMessage;
     use fvm_shared::address::Address;
     use key_management::{KeyStore, KeyStoreConfig};

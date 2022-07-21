@@ -3,7 +3,7 @@
 
 use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
-use actor::{cron, reward, system, AwardBlockRewardParams};
+use actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use cid::Cid;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{DefaultNetworkParams, NetworkParams};

@@ -84,7 +84,8 @@ impl<DB: BlockStore> ForestExterns<DB> {
             store: self.db.as_ref(),
         };
 
-        let ms = actor::miner::State::load(&gbs, &actor).map_err(|e| anyhow::anyhow!("{}", e))?;
+        let ms = actor_interface::miner::State::load(&gbs, &actor)
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let worker = ms.info(&gbs).map_err(|e| anyhow::anyhow!("{}", e))?.worker;
 

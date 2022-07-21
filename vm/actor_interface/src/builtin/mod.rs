@@ -15,10 +15,10 @@ use crate::ActorVersion;
 
 use cid::Cid;
 
-use fil_actors_runtime_v8::builtin::network;
-use fil_actors_runtime_v8::builtin::singletons;
+use fil_actors_runtime::builtin::network;
+use fil_actors_runtime::builtin::singletons;
 
-pub use fil_actor_reward_v8::AwardBlockRewardParams;
+pub use fil_actor_reward::AwardBlockRewardParams;
 
 pub use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 pub use fvm_shared::smooth::FilterEstimate;

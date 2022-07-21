@@ -26,9 +26,9 @@ serde_json = "1.0"
 tide = "0.16"
 tide-websockets = "0.4"
 fil_actor_miner_v8 = { package = "fil_actor_miner", version = "=8.0.0" }
-actor = { package = "actor_interface", path = "../../vm/actor_interface" }
+actor_interface = { path = "../../vm/actor_interface" }
 auth = { path = "../../utils/auth" }
-beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
+beacon = { path = "../../blockchain/beacon", features = [
     "json",
 ] }
 forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
@@ -36,7 +36,7 @@ ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain", features = ["json"] }
 chain_sync = { path = "../../blockchain/chain_sync" }
 forest_crypto = { version = "0.5", features = ["json", "blst"] }
-encoding = { package = "forest_encoding", version = "0.2" }
+forest_encoding = "0.2"
 fil_types = "0.2"
 forest_libp2p = { path = "../forest_libp2p" }
 interpreter = { path = "../../vm/interpreter/" }
@@ -45,7 +45,7 @@ forest_message = { version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
 networks = { path = "../../types/networks" }
 rpc-api = { path = "../rpc-api", version = "0.1" }
-state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
+state_manager = { path = "../../blockchain/state_manager" }
 key_management = { path = "../../key_management", features = ["json"] }
 fvm_shared = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield = "0.5.2"
@@ -59,7 +59,7 @@ features         = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
 
 [dev-dependencies]
-db = { package = "forest_db", version = "0.1" }
+forest_db = "0.1"
 futures = "0.3"
 hex = "0.4"
 test_utils = { version = "0.1", path = "../../utils/test_utils/", features = [
