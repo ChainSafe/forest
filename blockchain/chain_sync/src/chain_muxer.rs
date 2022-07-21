@@ -886,7 +886,8 @@ mod tests {
     use cid::Cid;
     use db::MemoryDB;
     use forest_blocks::{BlockHeader, Tipset};
-    use fvm_shared::address::Address;
+    use forest_message::SignedMessage;
+    use fvm_shared::{address::Address, message::Message};
     use networks::{ChainConfig, Height};
     use test_utils::construct_messages;
 
@@ -905,23 +906,20 @@ mod tests {
         assert_eq!(root, expected_root);
     }
 
-    // FIXME: IPLD format changed. Figure out what this test was supposed to do.
-    // Tracking issue: https://github.com/ChainSafe/forest/issues/1477
-    // #[test]
-    // fn empty_msg_meta_vector() {
-    //     let blockstore = MemoryDB::default();
-    //     let usm: Vec<UnsignedMessage> =
-    //         encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
-    //     let sm: Vec<SignedMessage> =
-    //         encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+    #[test]
+    fn empty_msg_meta_vector() {
+        let blockstore = MemoryDB::default();
+        let usm: Vec<Message> = encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+        let sm: Vec<SignedMessage> =
+            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
 
-    //     assert_eq!(
-    //         TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
-    //             .expect("Computing message root should succeed")
-    //             .to_string(),
-    //         "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
-    //     );
-    // }
+        assert_eq!(
+            TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
+                .expect("Computing message root should succeed")
+                .to_string(),
+            "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
+        );
+    }
 
     #[test]
     fn compute_base_fee_shouldnt_panic_on_bad_input() {
