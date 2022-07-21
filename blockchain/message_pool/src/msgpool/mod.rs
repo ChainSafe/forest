@@ -89,7 +89,7 @@ where
     }
     drop(local_addrs);
 
-    let msgs = select_messages_for_block(api, ts.as_ref(), chain_config, pending_map).await?;
+    let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map).await?;
 
     drop(ts);
 
@@ -118,8 +118,8 @@ where
 /// sequences and the overall number of them should observe block gas limits.
 async fn select_messages_for_block<T>(
     api: &RwLock<T>,
-    base: &Tipset,
     chain_config: &ChainConfig,
+    base: &Tipset,
     pending: HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<Vec<SignedMessage>, Error>
 where

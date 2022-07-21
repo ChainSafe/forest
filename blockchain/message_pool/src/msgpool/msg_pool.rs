@@ -10,9 +10,9 @@ use crate::config::MpoolConfig;
 use crate::errors::Error;
 use crate::head_change;
 use crate::msgpool::recover_sig;
-use crate::msgpool::republish_pending_messages;
 use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
 use crate::msgpool::PROPAGATION_DELAY_SECS;
+use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
@@ -633,6 +633,30 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
         self.config = cfg;
         Ok(())
+    }
+
+    /// Select messages that can be included in a block built on a given base tipset.
+    pub async fn select_messages_for_block(
+        &self,
+        base: &Tipset,
+    ) -> Result<Vec<SignedMessage>, Error> {
+        // Take a snapshot of the pending messages.
+        let pending: HashMap<Address, HashMap<u64, SignedMessage>> = {
+            let pending = self.pending.read().await;
+            pending
+                .iter()
+                .filter_map(|(actor, mset)| {
+                    if mset.msgs.is_empty() {
+                        None
+                    } else {
+                        Some((*actor, mset.msgs.clone()))
+                    }
+                })
+                .collect()
+        };
+
+        select_messages_for_block(self.api.as_ref(), self.chain_config.as_ref(), base, pending)
+            .await
     }
 }
 
