@@ -228,6 +228,13 @@ $ ls genesis-files
 genesis.car  genesis.json  pre-seal-t01000.json  pre-seal-t01000.key
 ```
 
+Optionally the Docker image can be removed as well:
+
+```bash
+docker rmi filecoin/lotus-test
+docker system prune -f
+```
+
 ### All together now
 
 The [scripts/generate-genesis-files.sh](scripts/generate-genesis-files.sh) file is a convenience script that runs all the above commands assuming that `lotus-seed` is on the `PATH`, which may be the case if we already have Lotus or Eudico installed. If so, we can run the script directly, giving it the output directory (which must exist) to write the genesis files to.
@@ -242,3 +249,19 @@ docker run -it --rm \
   --entrypoint /scripts/generate-genesis-files.sh \
   filecoin/lotus-test /out
 ```
+
+
+## Build Forest
+
+To enable _Delegated Consensus_ instead of the default _Filecoin Consensus_, Forest has to be built with the `deleg_cns` feature, for example:
+
+```bash
+cargo clippy --all-targets --features deleg_cns -- -D warnings
+cargo build --release --features deleg_cns
+```
+
+## Add the private key to a wallet
+
+One of the Forest processes we start will need access to the private key, and normally it looks for it in the wallet.
+
+_TODO: How do we add a custom key to the wallet?_
