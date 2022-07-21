@@ -762,7 +762,7 @@ where
         Ok(true)
     }
 
-    /// Get's a miner's base info from state, based on the address provided.
+    /// Gets a miner's base info from state, based on the address provided.
     pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
         self: &Arc<Self>,
         beacon: &BeaconSchedule<B>,
