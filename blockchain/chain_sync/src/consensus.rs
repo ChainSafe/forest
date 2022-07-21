@@ -4,6 +4,8 @@ use async_std::task;
 use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
 use chain::Scale;
+use encoding::Cbor;
+use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
 use futures::stream::FuturesUnordered;
 use message_pool::MessagePool;
@@ -92,7 +94,6 @@ pub trait Proposer {
     /// consensus variants.
     async fn run<DB, MP>(
         self,
-        mpool: &MP,
         // NOTE: We will need access to the `ChainStore` as well, or, ideally
         // a wrapper over it that only allows us to do what we need to, but
         // for example not reset the Genesis. But since the `StateManager`
@@ -100,9 +101,8 @@ pub trait Proposer {
         // accessed during validation for example, I think we can defer
         // these for later refactoring and just use the same pattern.
         state_manager: Arc<StateManager<DB>>,
-        // Send a created block to something like `sync_api.sync_submit_block`,
-        // which gossips it and forwards it to the `ChainMuxer`.
-        block_submitter: Sender<GossipBlock>,
+        mpool: &MP,
+        submitter: &SyncGossipSubmitter,
     ) -> anyhow::Result<()>
     where
         DB: BlockStore + Sync + Send + 'static,
@@ -152,5 +152,40 @@ where
             .await
             .map_err(|e| e.into())
             .map(|v| v.into_iter().map(Cow::Owned).collect())
+    }
+}
+
+/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the local chain sycnhronizer.
+///
+/// Similar to `sync_api::sync_submit_block` but assumes that the block is correct and already persisted.
+pub struct SyncGossipSubmitter {
+    network_name: String,
+    network_tx: Sender<NetworkMessage>,
+    tipset_tx: Sender<Arc<Tipset>>,
+}
+
+impl SyncGossipSubmitter {
+    pub fn new(
+        network_name: String,
+        network_tx: Sender<NetworkMessage>,
+        tipset_tx: Sender<Arc<Tipset>>,
+    ) -> Self {
+        Self {
+            network_name,
+            network_tx,
+            tipset_tx,
+        }
+    }
+
+    pub async fn submit_block(&self, block: GossipBlock) -> anyhow::Result<()> {
+        let data = block.marshal_cbor()?;
+        let ts = Arc::new(Tipset::new(vec![block.header])?);
+        let msg = NetworkMessage::PubsubMessage {
+            topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name)),
+            message: data,
+        };
+        self.tipset_tx.send(ts).await?;
+        self.network_tx.send(msg).await?;
+        Ok(())
     }
 }

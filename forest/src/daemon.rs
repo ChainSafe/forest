@@ -2,20 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
-use anyhow::anyhow;
-use async_std::channel::{Receiver, Sender};
-use async_std::prelude::StreamExt;
 use async_std::task::JoinHandle;
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
+use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
-use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
-use forest_blocks::{GossipBlock, Tipset};
-use forest_libp2p::{
-    get_keypair, Libp2pConfig, Libp2pService, NetworkMessage, Topic, PUBSUB_BLOCK_STR,
-};
-use futures::TryFutureExt;
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
 use key_management::{KeyStore, KeyStoreConfig};
@@ -212,19 +205,11 @@ pub(super) async fn start(config: Config) {
     // Mining may or may not happen, depending on the consensus type.
     let mining_task: Option<JoinHandle<anyhow::Result<()>>>;
 
-    // For consensus types that do mining, create a function to submit their proposals.
-    // Similar to `sync_api::sync_submit_block` but assumes that the block is already persisted.
-    let (submit_tx, submit_rx) = async_std::channel::unbounded();
-
-    // Run the submission task in the background.
-    let submit_task = task::spawn(
-        submit_blocks(
-            network_name.clone(),
-            network_send.clone(),
-            tipset_sink.clone(),
-            submit_rx,
-        )
-        .inspect_err(|e| error!("block submission stopped: {}", e)),
+    // For consensus types that do mining, create a component to submit their proposals.
+    let submitter = SyncGossipSubmitter::new(
+        network_name.clone(),
+        network_send.clone(),
+        tipset_sink.clone(),
     );
 
     // Initialize Consensus
@@ -233,6 +218,7 @@ pub(super) async fn start(config: Config) {
     #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
     let consensus: FullConsensus = {
         mining_task = None;
+        drop(submitter);
         fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
     };
 
@@ -241,16 +227,19 @@ pub(super) async fn start(config: Config) {
     #[cfg(feature = "deleg_cns")]
     let consensus: FullConsensus = {
         use chain_sync::consensus::Proposer;
+        use futures::TryFutureExt;
         let consensus = deleg_cns::DelegatedConsensus::default();
         if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
-            let mp = mpool.clone();
             let sm = state_manager.clone();
+            let mp = mpool.clone();
             mining_task = Some(task::spawn(async move {
                 proposer
-                    .run(mp.as_ref(), sm, submit_tx)
+                    .run(sm, mp.as_ref(), &submitter)
                     .inspect_err(|e| error!("block proposal stopped: {}", e))
                     .await
             }));
+        } else {
+            mining_task = None
         }
         consensus
     };
@@ -312,16 +301,11 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    if let Some(task) = mining_task {
-        task.cancel().await;
-    }
-    submit_task.cancel().await;
+    maybe_cancel(mining_task).await;
     prometheus_server_task.cancel().await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
-    if let Some(task) = rpc_task {
-        task.cancel().await;
-    }
+    maybe_cancel(rpc_task).await;
     keystore_write.await;
 
     info!("Forest finish shutdown.");
@@ -342,27 +326,10 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
     }
 }
 
-/// Keep relaying blocks proposed by the miner process to the network and the syncer.
-/// Submission stop if any errors are encountered; although it could go on, it would
-/// probably keep failing.
-async fn submit_blocks(
-    network_name: String,
-    network_tx: Sender<NetworkMessage>,
-    tipset_tx: Sender<Arc<Tipset>>,
-    mut submit_rx: Receiver<GossipBlock>,
-) -> anyhow::Result<()> {
-    let topic = Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, network_name));
-    while let Some(block) = submit_rx.next().await {
-        let data = block.marshal_cbor().map_err(|e| anyhow!(e))?;
-        let ts = Arc::new(Tipset::new(vec![block.header])?);
-        let msg = NetworkMessage::PubsubMessage {
-            topic: topic.clone(),
-            message: data,
-        };
-        tipset_tx.send(ts).await?;
-        network_tx.send(msg).await?;
+async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
+    if let Some(t) = mt {
+        t.cancel().await;
     }
-    Ok(())
 }
 
 fn db_path(config: &Config) -> PathBuf {

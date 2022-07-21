@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use address::Address;
 use anyhow::anyhow;
-use async_std::channel::Sender;
 use async_std::stream::interval;
 use async_trait::async_trait;
 use chain::Scale;
@@ -13,7 +12,7 @@ use networks::Height;
 use std::sync::Arc;
 
 use blocks::{BlockHeader, GossipBlock, Tipset};
-use chain_sync::consensus::{MessagePoolApi, Proposer};
+use chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use ipld_blockstore::BlockStore;
 use key_management::Key;
 use state_manager::StateManager;
@@ -97,9 +96,9 @@ impl DelegatedProposer {
 impl Proposer for DelegatedProposer {
     async fn run<DB, MP>(
         self,
-        mpool: &MP,
         state_manager: Arc<StateManager<DB>>,
-        block_submitter: Sender<GossipBlock>,
+        mpool: &MP,
+        submitter: &SyncGossipSubmitter,
     ) -> anyhow::Result<()>
     where
         DB: BlockStore + Sync + Send + 'static,
@@ -117,9 +116,9 @@ impl Proposer for DelegatedProposer {
                     Ok(block) => {
                         let cid = *block.header.cid();
                         let msg_cnt = block.secpk_messages.len() + block.bls_messages.len();
-                        match block_submitter.send(block).await {
+                        match submitter.submit_block(block).await {
                             Ok(()) => info!("Proposed a block ({}) with {} messages", cid, msg_cnt),
-                            Err(_) => error!("Failed to submit block."),
+                            Err(e) => error!("Failed to submit block: {}", e),
                         }
                     }
                     Err(e) => {
