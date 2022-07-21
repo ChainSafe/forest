@@ -1,7 +1,7 @@
 10
 JWT
 JSON
-tipset/M
+tipset/SM
 BLS
 SECP
 Algorand/M
@@ -19,7 +19,6 @@ onwards
 parameterized
 tuple
 mutex
-tipsets
 RPC
 v13
 v14
