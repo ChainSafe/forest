@@ -4,9 +4,8 @@
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
-use crate::cli::{cli_error_and_die, handle_rpc_err};
-
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
 use forest_json::cid::CidJson;
 use rpc_client::chain_ops::*;
@@ -75,15 +74,6 @@ impl ChainCommands {
                 skip_old_messages,
                 output_path,
             } => {
-                let recent_stateroots = recent_stateroots.unwrap_or(0);
-
-                if recent_stateroots == 0 && *skip_old_messages {
-                    return cli_error_and_die(
-                        "Must pass recent stateroots along with skip-old-messages",
-                        1,
-                    );
-                }
-
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
                     Err(_) => return cli_error_and_die("Could not get network head", 1),
@@ -107,7 +97,7 @@ impl ChainCommands {
 
                 let params = (
                     epoch,
-                    recent_stateroots,
+                    *recent_stateroots,
                     *skip_old_messages,
                     output_path.clone(),
                     TipsetKeysJson(chain_head.key().clone()),

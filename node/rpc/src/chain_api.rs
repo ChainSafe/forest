@@ -62,6 +62,7 @@ where
     let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
+    let recent_roots = recent_roots.unwrap_or(chain_finality);
     if recent_roots < chain_finality {
         Err(&format!(
             "\"recent-stateroots\" must be greater than {}",
