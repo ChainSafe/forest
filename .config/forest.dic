@@ -13,7 +13,6 @@ codec
 BLAKE2b
 VM
 multisig
-precommitted
 PoSt
 onwards
 parameterized

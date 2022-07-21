@@ -149,7 +149,7 @@ where
         Ok(mas.get_sector(self.blockstore(), sector_number)?)
     }
 
-    /// Returns the precommitted sector info for a miner's sector.
+    /// Returns the pre-committed sector info for a miner's sector.
     pub fn precommit_info<V>(
         &self,
         address: &Address,
