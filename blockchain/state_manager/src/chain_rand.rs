@@ -100,7 +100,7 @@ where
             .await
     }
 
-    /// network v13 onwards
+    /// network v13 onward
     pub async fn get_chain_randomness_v2(
         &self,
         blocks: &TipsetKeys,
@@ -136,7 +136,7 @@ where
             .await
     }
 
-    /// network v14 onwards
+    /// network v14 onward
     pub async fn get_beacon_randomness_v3(
         &self,
         blocks: &TipsetKeys,
