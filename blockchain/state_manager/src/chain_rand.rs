@@ -53,7 +53,7 @@ where
         }
     }
 
-    /// Gets 32 bytes of randomness for ChainRand parameterized by the DomainSeparationTag, ChainEpoch,
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
     /// Entropy from the ticket chain.
     pub async fn get_chain_randomness(
         &self,
@@ -112,7 +112,7 @@ where
             .await
     }
 
-    /// network v0-12; with lookback
+    /// network v0-12; with look back
     pub async fn get_beacon_randomness_v1(
         &self,
         blocks: &TipsetKeys,
@@ -124,7 +124,7 @@ where
             .await
     }
 
-    /// network v13; without lookback
+    /// network v13; without look back
     pub async fn get_beacon_randomness_v2(
         &self,
         blocks: &TipsetKeys,
@@ -154,7 +154,7 @@ where
         draw_randomness(beacon_entry.data(), pers, round, entropy)
     }
 
-    /// Gets 32 bytes of randomness for ChainRand paramaterized by the DomainSeparationTag, ChainEpoch,
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
     /// Entropy from the latest beacon entry.
     pub async fn get_beacon_randomness(
         &self,
@@ -245,7 +245,7 @@ where
     }
 }
 
-/// Computes a pseudorandom 32 byte Vec.
+/// Computes a pseudo random 32 byte `Vec`.
 pub fn draw_randomness(
     rbase: &[u8],
     pers: i64,
