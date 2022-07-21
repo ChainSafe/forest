@@ -6,7 +6,6 @@ use ::forest_message::message::json::MessageJson;
 use async_std::{fs::File, io::BufWriter};
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
-use checksums::{hash_file, Algorithm};
 use cid::Cid;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -14,7 +13,6 @@ use forest_blocks::{
 };
 use forest_json::cid::CidJson;
 use forest_message::message;
-use futures::AsyncWriteExt;
 use fvm_shared::message::Message as FVMMessage;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
@@ -71,20 +69,6 @@ where
 
     data.chain_store
         .export(&start_ts, recent_roots, skip_old_msgs, writer)
-        .await
-        .map_err(JsonRpcError::from)?;
-
-    let hash = hash_file(&PathBuf::from(&out), Algorithm::SHA2256);
-
-    let checksum_path = format!("{}.{}", &out, "sha256sum");
-    let checksum_string = format!("{}  {}\n", hash, &out);
-
-    let mut checksum_file = File::create(checksum_path)
-        .await
-        .map_err(JsonRpcError::from)?;
-
-    checksum_file
-        .write_all(checksum_string.as_bytes())
         .await
         .map_err(JsonRpcError::from)?;
 
