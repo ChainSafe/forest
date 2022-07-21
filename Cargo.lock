@@ -2679,6 +2679,7 @@ dependencies = [
  "chain",
  "chain_sync",
  "ctrlc",
+ "deleg_cns",
  "directories",
  "fil_cns",
  "fil_types",

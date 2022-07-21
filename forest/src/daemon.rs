@@ -2,13 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
+use anyhow::anyhow;
+use async_std::channel::{Receiver, Sender};
+use async_std::prelude::StreamExt;
+use async_std::task::JoinHandle;
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
-use beacon::DrandBeacon;
 use chain::ChainStore;
 use chain_sync::ChainMuxer;
-use fil_cns::FilecoinConsensus;
+use encoding::Cbor;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
+use forest_blocks::{GossipBlock, Tipset};
+use forest_libp2p::{
+    get_keypair, Libp2pConfig, Libp2pService, NetworkMessage, Topic, PUBSUB_BLOCK_STR,
+};
+use futures::TryFutureExt;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
 use key_management::{KeyStore, KeyStoreConfig};
@@ -186,6 +193,8 @@ pub(super) async fn start(config: Config) {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
+    let (tipset_sink, tipset_stream) = bounded(20);
+
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
     let mpool = Arc::new(
@@ -200,12 +209,53 @@ pub(super) async fn start(config: Config) {
         .unwrap(),
     );
 
+    // Mining may or may not happen, depending on the consensus type.
+    let mining_task: Option<JoinHandle<anyhow::Result<()>>>;
+
+    // For consensus types that do mining, create a function to submit their proposals.
+    // Similar to `sync_api::sync_submit_block` but assumes that the block is already persisted.
+    let (submit_tx, submit_rx) = async_std::channel::unbounded();
+
+    // Run the submission task in the background.
+    let submit_task = task::spawn(
+        submit_blocks(
+            network_name.clone(),
+            network_send.clone(),
+            tipset_sink.clone(),
+            submit_rx,
+        )
+        .inspect_err(|e| error!("block submission stopped: {}", e)),
+    );
+
     // Initialize Consensus
-    type FullConsensus = FilecoinConsensus<DrandBeacon, FullVerifier>;
-    let consensus: FullConsensus = FilecoinConsensus::new(state_manager.beacon_schedule());
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    type FullConsensus = fil_cns::FilecoinConsensus<beacon::DrandBeacon, FullVerifier>;
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    let consensus: FullConsensus = {
+        mining_task = None;
+        fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
+    };
+
+    #[cfg(feature = "deleg_cns")]
+    type FullConsensus = deleg_cns::DelegatedConsensus;
+    #[cfg(feature = "deleg_cns")]
+    let consensus: FullConsensus = {
+        use chain_sync::consensus::Proposer;
+        let consensus = deleg_cns::DelegatedConsensus::default();
+        if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
+            let mp = mpool.clone();
+            let sm = state_manager.clone();
+            mining_task = Some(task::spawn(async move {
+                proposer
+                    .run(mp.as_ref(), sm, submit_tx)
+                    .inspect_err(|e| error!("block proposal stopped: {}", e))
+                    .await
+            }));
+        }
+        consensus
+    };
 
     // Initialize ChainMuxer
-    let (tipset_sink, tipset_stream) = bounded(20);
     let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
         Arc::new(consensus),
@@ -262,6 +312,10 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
+    if let Some(task) = mining_task {
+        task.cancel().await;
+    }
+    submit_task.cancel().await;
     prometheus_server_task.cancel().await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
@@ -286,6 +340,29 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             .expect("Failed miserably while importing chain from snapshot");
         debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
+}
+
+/// Keep relaying blocks proposed by the miner process to the network and the syncer.
+/// Submission stop if any errors are encountered; although it could go on, it would
+/// probably keep failing.
+async fn submit_blocks(
+    network_name: String,
+    network_tx: Sender<NetworkMessage>,
+    tipset_tx: Sender<Arc<Tipset>>,
+    mut submit_rx: Receiver<GossipBlock>,
+) -> anyhow::Result<()> {
+    let topic = Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, network_name));
+    while let Some(block) = submit_rx.next().await {
+        let data = block.marshal_cbor().map_err(|e| anyhow!(e))?;
+        let ts = Arc::new(Tipset::new(vec![block.header])?);
+        let msg = NetworkMessage::PubsubMessage {
+            topic: topic.clone(),
+            message: data,
+        };
+        tipset_tx.send(ts).await?;
+        network_tx.send(msg).await?;
+    }
+    Ok(())
 }
 
 fn db_path(config: &Config) -> PathBuf {

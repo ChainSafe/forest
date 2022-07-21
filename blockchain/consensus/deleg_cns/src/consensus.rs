@@ -82,7 +82,7 @@ impl DelegatedConsensus {
     /// be doing the proposing and nothing is returned.
     pub async fn proposer<DB>(
         &self,
-        keystore: Arc<RwLock<KeyStore>>,
+        keystore: &Arc<RwLock<KeyStore>>,
         state_manager: &Arc<StateManager<DB>>,
     ) -> anyhow::Result<Option<DelegatedProposer>>
     where
