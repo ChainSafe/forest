@@ -4,7 +4,7 @@ skip_readme  = false
 [hunspell]
 lang                    = "en_US"
 search_dirs             = ["."]
-skip_os_lookups         = false
+skip_os_lookups         = true
 use_builtin             = true
 tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…"
 extra_dictionaries      = ["forest.dic"]
