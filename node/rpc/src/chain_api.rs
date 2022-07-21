@@ -60,6 +60,19 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
+
+    let chain_finality = data.state_manager.chain_config().policy.chain_finality;
+    if recent_roots < chain_finality {
+        Err(&format!(
+            "\"recent-stateroots\" must be greater than {}",
+            chain_finality
+        ))?;
+    }
+
+    if recent_roots == 0 && skip_old_msgs {
+        Err("must pass recent-stateroots along with skip-old-messages")?;
+    }
+
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
     let writer = BufWriter::new(file.clone());
 

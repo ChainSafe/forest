@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actors_runtime::runtime::Policy;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
@@ -76,31 +75,7 @@ impl ChainCommands {
                 skip_old_messages,
                 output_path,
             } => {
-                let chain_finality = Policy::default().chain_finality;
-                let recent_stateroots = match recent_stateroots {
-                    Some(recent_stateroots) => {
-                        let recent_stateroots = recent_stateroots.to_owned();
-                        if recent_stateroots < chain_finality {
-                            return cli_error_and_die(
-                                &format!(
-                                    "\"recent-stateroots\" must be greater than {}",
-                                    chain_finality
-                                ),
-                                1,
-                            );
-                        }
-
-                        if recent_stateroots == 0 && *skip_old_messages {
-                            return cli_error_and_die(
-                                "must pass recent-stateroots along with skip-old-messages",
-                                1,
-                            );
-                        }
-
-                        recent_stateroots
-                    }
-                    None => 0,
-                };
+                let recent_stateroots = recent_stateroots.unwrap_or(0);
 
                 if recent_stateroots == 0 && *skip_old_messages {
                     return cli_error_and_die(
