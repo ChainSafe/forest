@@ -152,6 +152,7 @@ where
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
         &self.chain_config
     }
+    
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
