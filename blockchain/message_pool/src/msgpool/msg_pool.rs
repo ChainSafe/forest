@@ -140,7 +140,7 @@ pub struct MessagePool<T> {
     pub min_gas_price: BigInt,
     /// This is max number of messages in the pool.
     pub max_tx_pool_size: i64,
-    /// TO DO
+    // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: Sender<NetworkMessage>,
@@ -152,7 +152,7 @@ pub struct MessagePool<T> {
     pub republished: Arc<RwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
     pub repub_trigger: Sender<()>,
-    /// TO DO look into adding a cap to `local_msgs`
+    // TODO look into adding a cap to `local_msgs`
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
