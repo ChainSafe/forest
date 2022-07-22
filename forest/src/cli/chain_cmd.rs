@@ -23,16 +23,17 @@ pub enum ChainCommands {
     /// Export a snapshot of the chain to <output_path>
     #[structopt(about = "Export chain snapshot to file")]
     Export {
-        #[structopt(short, help = "Tipset to start the export from, default is @HEAD")]
+        /// Tipset to start the export from, default is @HEAD
+        #[structopt(short)]
         tipset: Option<i64>,
-        #[structopt(
-            short,
-            help = "specify the number of recent state roots to include in the export"
-        )]
+        /// Specify the number of recent state roots to include in the export
+        #[structopt(short)]
         recent_stateroots: Option<i64>,
-        #[structopt(short, help = "Skips old messages")]
+        /// Skip old messages
+        #[structopt(short)]
         skip_old_messages: bool,
-        #[structopt(short, help = "path of the file to export to")]
+        /// Snapshot output path. Default to `forest_snapshot_{year}-{month}-{day}_height_{height}.car`
+        #[structopt(short)]
         output_path: Option<String>,
     },
 
