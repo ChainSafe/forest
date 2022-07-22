@@ -13,7 +13,6 @@ use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
 use key_management::{KeyStore, KeyStoreConfig};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
@@ -150,12 +149,16 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
-    set_proofs_parameter_cache_dir_env(&config.data_dir);
-
     // Fetch and ensure verification keys are downloaded
-    get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
-        .await
-        .unwrap();
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    {
+        use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
+        set_proofs_parameter_cache_dir_env(&config.data_dir);
+
+        get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
+            .await
+            .unwrap();
+    }
 
     // Override bootstrap peers
     let config = if config.network.bootstrap_peers.is_empty() {
