@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use tokio::sync::broadcast;
 
-/// Struct used for creating a provider when writing tests involving message pool
+/// Structure used for creating a provider when writing tests involving message pool
 pub struct TestApi {
     bmsgs: HashMap<Cid, Vec<SignedMessage>>,
     state_sequence: HashMap<Address, u64>,

@@ -44,7 +44,7 @@ use tokio::sync::broadcast::error::RecvError;
 const BLS_SIG_CACHE_SIZE: usize = 40000;
 const SIG_VAL_CACHE_SIZE: usize = 32000;
 
-/// Simple struct that contains a hash-map of messages where k: a message from address, v: a message
+/// Simple structure that contains a hash-map of messages where k: a message from address, v: a message
 /// which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
@@ -140,7 +140,7 @@ pub struct MessagePool<T> {
     pub min_gas_price: BigInt,
     /// This is max number of messages in the pool.
     pub max_tx_pool_size: i64,
-    /// TODO
+    /// TO DO
     pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: Sender<NetworkMessage>,
@@ -152,11 +152,11 @@ pub struct MessagePool<T> {
     pub republished: Arc<RwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
     pub repub_trigger: Sender<()>,
-    /// TODO look into adding a cap to `local_msgs`
+    /// TO DO look into adding a cap to `local_msgs`
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    /// Chain сonfig
+    /// Chain сonfiguration
     pub chain_config: Arc<ChainConfig>,
 }
 
