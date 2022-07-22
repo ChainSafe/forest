@@ -103,10 +103,8 @@ impl ChainCommands {
                     TipsetKeysJson(chain_head.key().clone()),
                 );
 
-                let out = chain_export(params)
-                    .await
-                    .map_err(handle_rpc_err)
-                    .expect("errors ara handled by handle_rpc_error. This is safe");
+                // infallible unwrap
+                let out = chain_export(params).await.map_err(handle_rpc_err).unwrap();
 
                 println!("Export completed. Snapshot located at {}", out.display());
             }

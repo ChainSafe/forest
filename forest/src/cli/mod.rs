@@ -308,7 +308,7 @@ pub async fn block_until_sigint() {
 }
 
 /// Print a stringified JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) {
+pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
     match e {
         JsonRpcError::Full {
             code,
