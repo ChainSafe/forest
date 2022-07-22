@@ -76,8 +76,6 @@ rand       = "0.8"
 tempfile   = "3"
 
 [features]
-default       = ["rocksdb"]
-rocksdb       = ["db/rocksdb", "ipld_blockstore/rocksdb"]
 insecure_post = ["fil_cns/insecure_post"]
 testnet       = []
 release       = []
