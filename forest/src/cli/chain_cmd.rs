@@ -86,7 +86,7 @@ impl ChainCommands {
                     None => {
                         let now = OffsetDateTime::now_utc();
                         format!(
-                            "forest_snapshot_{}_{}_{}_height_{}.car",
+                            "forest_snapshot_{}-{}-{}_height_{}.car",
                             now.year(),
                             now.month(),
                             now.day(),
