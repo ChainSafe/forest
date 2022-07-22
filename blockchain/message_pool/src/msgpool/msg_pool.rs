@@ -156,7 +156,7 @@ pub struct MessagePool<T> {
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    /// Chain сonfiguration
+    /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
 }
 
