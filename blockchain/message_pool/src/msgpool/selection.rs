@@ -4,7 +4,7 @@
 //! Contains routines for message selection APIs.
 //! Whenever a miner is ready to create a block for a tipset, it invokes the select_messages API
 //! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
-//! See https://docs.filecoin.io/mine/lotus/message-pool/#message-selection for more details
+//! See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
 use super::msg_pool::MessagePool;
 use super::provider::Provider;
@@ -14,10 +14,10 @@ use crate::msgpool::MIN_GAS;
 use crate::Error;
 use crate::{add_to_selected_msgs, remove_from_selected_msgs};
 use async_std::sync::{Arc, RwLock};
-use forest_address::Address;
 use forest_blocks::Tipset;
 use forest_message::Message;
 use forest_message::SignedMessage;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;

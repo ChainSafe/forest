@@ -4,10 +4,10 @@
 #![cfg(feature = "json")]
 
 use forest_ipld::{
-    ipld,
     json::{self, IpldJson, IpldJsonRef},
     Ipld,
 };
+use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
 
@@ -30,8 +30,8 @@ fn deserialize_json_symmetric() {
     }
     "#;
     let expected = ipld!({
-        "link": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
-        "bytes": Bytes(vec![0x54, 0x68, 0x65, 0x20, 0x71, 0x75, 0x69]),
+        "link": Ipld::Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
+        "bytes": Ipld::Bytes(vec![0x54, 0x68, 0x65, 0x20, 0x71, 0x75, 0x69]),
         "string": "Some data",
         "float": 10.5,
         "integer": 8,
@@ -39,7 +39,7 @@ fn deserialize_json_symmetric() {
         "null": null,
         "list": [
             null,
-            Link("bafy2bzaceaa466o2jfc4g4ggrmtf55ygigvkmxvkr5mvhy4qbwlxetbmlkqjk".parse().unwrap()),
+            Ipld::Link("bafy2bzaceaa466o2jfc4g4ggrmtf55ygigvkmxvkr5mvhy4qbwlxetbmlkqjk".parse().unwrap()),
             1,
         ],
     });
@@ -70,7 +70,7 @@ fn annotating_struct_json() {
         "#;
     let expected = TestStruct {
         one: ipld!([
-            Link(
+            Ipld::Link(
                 "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
                     .parse()
                     .unwrap()
@@ -89,7 +89,7 @@ fn link_edge_case() {
     // Test ported from go-ipld-prime (making sure edge case is handled)
     let test_json = r#"{"/":{"/":"QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"}}"#;
     let expected =
-        ipld!({"/": Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap())});
+        ipld!({"/": Ipld::Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap())});
 
     let IpldJson(ipld_d) = from_str(test_json).unwrap();
     assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");

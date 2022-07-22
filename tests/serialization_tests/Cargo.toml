@@ -11,7 +11,6 @@ submodule_tests = []
 serde = { version = "1.0", features = ["derive"] }
 forest_crypto = { version = "0.5", features = ["blst"] }
 base64 = { version = "0.13" }
-forest_cid = { version = "0.3", features = ["cbor", "json"] }
 serde_json = "1.0"
 hex = "0.4"
 forest_message = { version = "0.7", features = ["json", "blst"] }
@@ -21,3 +20,4 @@ bls-signatures = { version = "0.11", default-features = false, features = [
     "blst",
 ] }
 fvm_shared = { version = "0.8.0", default-features = false }
+cid = { version = "0.8", default-features = false, features = ["std"] }

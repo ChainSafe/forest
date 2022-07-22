@@ -3,7 +3,7 @@
 
 use db::Store;
 use encoding::{from_slice, to_vec};
-use forest_address::Address;
+use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 

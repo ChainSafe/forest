@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
-use forest_cid::Cid;
+use cid::Cid;
 use lru::LruCache;
 
 /// Threadsafe cache for tracking bad blocks.

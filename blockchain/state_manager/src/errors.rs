@@ -7,7 +7,7 @@ use thiserror::Error;
 /// State manager error
 #[derive(Debug, PartialEq, Error)]
 pub enum Error {
-    /// Error orginating from state
+    /// Error originating from state
     #[error("{0}")]
     State(String),
     /// Error from VM execution
@@ -16,7 +16,7 @@ pub enum Error {
     /// Actor for given address not found
     #[error("Actor for address: {0} does not exist")]
     ActorNotFound(String),
-    /// Actor state not found at given cid
+    /// Actor state not found at given CID
     #[error("Actor state with cid {0} not found")]
     ActorStateNotFound(String),
     /// Error originating from key-value store

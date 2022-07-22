@@ -3,13 +3,16 @@
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
+use cid::Cid;
 use derive_builder::Builder;
 use encoding::blake2b_256;
 use encoding::{Cbor, Error as EncodingError};
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
-use forest_address::Address;
-use forest_cid::{Cid, Code::Blake2b256};
 use forest_vm::TokenAmount;
+use fvm_ipld_encoding::DAG_CBOR;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
     BigInt,
@@ -32,15 +35,18 @@ const SHA_256_BITS: usize = 256;
 /// Usage:
 /// ```
 /// use forest_blocks::{BlockHeader, TipsetKeys, Ticket};
-/// use forest_address::Address;
-/// use forest_cid::{Cid, Code::Identity};
+/// use fvm_shared::address::Address;
+/// use cid::Cid;
+/// use cid::multihash::Code::Identity;
 /// use fvm_shared::bigint::BigInt;
 /// use fvm_shared::crypto::signature::Signature;
+/// use fvm_ipld_encoding::DAG_CBOR;
+/// use cid::multihash::MultihashDigest;
 ///
 /// BlockHeader::builder()
-///     .messages(forest_cid::new_from_cbor(&[], Identity)) // required
-///     .message_receipts(forest_cid::new_from_cbor(&[], Identity)) // required
-///     .state_root(forest_cid::new_from_cbor(&[], Identity)) // required
+///     .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
+///     .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[]))) // required
 ///     .miner_address(Address::new_id(0)) // optional
 ///     .beacon_entries(Vec::new()) // optional
 ///     .winning_post_proof(Vec::new()) // optional
@@ -66,38 +72,38 @@ pub struct BlockHeader {
     #[builder(default)]
     parents: TipsetKeys,
 
-    /// weight is the aggregate chain weight of the parent set
+    /// `weight` is the aggregate chain weight of the parent set
     #[builder(default)]
     weight: BigInt,
 
-    /// epoch is the period in which a new block is generated.
+    /// `epoch` is the period in which a new block is generated.
     /// There may be multiple rounds in an epoch.
     #[builder(default)]
     epoch: ChainEpoch,
 
-    /// BeaconEntries contain the verifiable oracle randomness used to elect
+    /// `beacon_entries` contain the verifiable oracle randomness used to elect
     /// this block's author leader
     #[builder(default)]
     beacon_entries: Vec<BeaconEntry>,
 
-    /// PoStProofs are the winning post proofs
+    /// `PoStProofs` are the winning post proofs
     #[builder(default)]
     winning_post_proof: Vec<PoStProof>,
 
     // MINER INFO
-    /// miner_address is the address of the miner actor that mined this block
+    /// `miner_address` is the address of the miner actor that mined this block
     miner_address: Address,
 
     // STATE
-    /// messages contains the Cid to the merkle links for bls_messages and secp_messages
+    /// `messages` contains the `cid` to the Merkle links for `bls_messages` and `secp_messages`
     #[builder(default)]
     messages: Cid,
 
-    /// message_receipts is the Cid of the root of an array of MessageReceipts
+    /// `message_receipts` is the `cid` of the root of an array of `MessageReceipts`
     #[builder(default)]
     message_receipts: Cid,
 
-    /// state_root is a cid pointer to the parent state root after calculating parent tipset.
+    /// `state_root` is a `cid` pointer to the parent state root after calculating parent tipset.
     #[builder(default)]
     state_root: Cid,
 
@@ -125,7 +131,7 @@ pub struct BlockHeader {
     #[builder(default)]
     parent_base_fee: TokenAmount,
     // CACHE
-    /// stores the cid for the block after the first call to `cid()`
+    /// stores the `cid` for the block after the first call to `cid()`
     #[builder(default, setter(skip))]
     cached_cid: OnceCell<Cid>,
 
@@ -231,76 +237,76 @@ impl<'de> Deserialize<'de> for BlockHeader {
 }
 
 impl BlockHeader {
-    /// Generates a BlockHeader builder as a constructor
+    /// Generates a `BlockHeader` builder as a constructor
     pub fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
     }
-    /// Getter for BlockHeader parents
+    /// Getter for `BlockHeader` parents
     pub fn parents(&self) -> &TipsetKeys {
         &self.parents
     }
-    /// Getter for BlockHeader weight
+    /// Getter for `BlockHeader` weight
     pub fn weight(&self) -> &BigInt {
         &self.weight
     }
-    /// Getter for BlockHeader epoch
+    /// Getter for `BlockHeader` epoch
     pub fn epoch(&self) -> ChainEpoch {
         self.epoch
     }
-    /// Getter for Drand BeaconEntry
+    /// Getter for `Drand` `BeaconEntry`
     pub fn beacon_entries(&self) -> &[BeaconEntry] {
         &self.beacon_entries
     }
-    /// Getter for winning PoSt proof
+    /// Getter for winning `PoSt` proof
     pub fn winning_post_proof(&self) -> &[PoStProof] {
         &self.winning_post_proof
     }
-    /// Getter for BlockHeader miner_address
+    /// Getter for `BlockHeader.miner_address`
     pub fn miner_address(&self) -> &Address {
         &self.miner_address
     }
-    /// Getter for BlockHeader messages
+    /// Getter for `BlockHeader.messages`
     pub fn messages(&self) -> &Cid {
         &self.messages
     }
-    /// Getter for BlockHeader message_receipts
+    /// Getter for `BlockHeader.message_receipts`
     pub fn message_receipts(&self) -> &Cid {
         &self.message_receipts
     }
-    /// Getter for BlockHeader state_root
+    /// Getter for `BlockHeader.state_root`
     pub fn state_root(&self) -> &Cid {
         &self.state_root
     }
-    /// Getter for BlockHeader timestamp
+    /// Getter for `BlockHeader.timestamp`
     pub fn timestamp(&self) -> u64 {
         self.timestamp
     }
-    /// Getter for BlockHeader ticket
+    /// Getter for `BlockHeader.ticket`
     pub fn ticket(&self) -> &Option<Ticket> {
         &self.ticket
     }
-    /// Getter for BlockHeader bls_aggregate
+    /// Getter for `BlockHeader.bls_aggregate`
     pub fn bls_aggregate(&self) -> &Option<Signature> {
         &self.bls_aggregate
     }
-    /// Getter for BlockHeader cid
+    /// Getter for `BlockHeader.cid`
     pub fn cid(&self) -> &Cid {
         self.cached_cid
-            .get_or_init(|| forest_cid::new_from_cbor(self.cached_bytes(), Blake2b256))
+            .get_or_init(|| Cid::new_v1(DAG_CBOR, Blake2b256.digest(self.cached_bytes())))
     }
-    /// Getter for BlockHeader parent_base_fee
+    /// Getter for `BlockHeader.parent_base_fee`
     pub fn parent_base_fee(&self) -> &BigInt {
         &self.parent_base_fee
     }
-    /// Getter for BlockHeader fork_signal
+    /// Getter for `BlockHeader.fork_signal`
     pub fn fork_signal(&self) -> u64 {
         self.fork_signal
     }
-    /// Getter for BlockHeader epost_verify
+    /// Getter for `BlockHeader.election_proof`
     pub fn election_proof(&self) -> &Option<ElectionProof> {
         &self.election_proof
     }
-    /// Getter for BlockHeader signature
+    /// Getter for `BlockHeader.signature`
     pub fn signature(&self) -> &Option<Signature> {
         &self.signature
     }
@@ -335,7 +341,7 @@ impl BlockHeader {
 
         Ok(())
     }
-    /// Returns true if (h(vrfout) * totalPower) < (e * sectorSize * 2^256)
+    /// Returns true if `(h(vrfout) * totalPower) < (e * sectorSize * 2^256)`
     pub fn is_ticket_winner(ticket: &Ticket, mpow: BigInt, net_pow: BigInt) -> bool {
         /*
         Need to check that
@@ -462,7 +468,7 @@ mod tests {
     use crate::{errors::Error, BlockHeader};
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use encoding::Cbor;
-    use forest_address::Address;
+    use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;

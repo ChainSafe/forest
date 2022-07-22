@@ -1,6 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use address::Address;
 use anyhow::anyhow;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
@@ -17,7 +16,8 @@ use chain::Scale;
 use chain::Weight;
 use chain_sync::consensus::Consensus;
 use encoding::Error as ForestEncodingError;
-use forest_bigint::BigInt;
+use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;
 use nonempty::NonEmpty;
 use state_manager::Error as StateManagerError;

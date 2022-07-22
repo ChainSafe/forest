@@ -3,16 +3,16 @@
 
 use std::collections::HashMap;
 
-use forest_address::json::AddressJson;
-use forest_address::Address;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_json::address::json::AddressJson;
 use forest_message::Message;
 use forest_message::SignedMessage;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use jsonrpc_v2::Error;
 use structopt::StructOpt;
 
-use forest_cid::json::vec::CidJsonVec;
+use forest_json::cid::vec::CidJsonVec;
 use rpc_client::chain_ops::*;
 use rpc_client::mpool_ops::*;
 use rpc_client::state_ops::state_get_actor;

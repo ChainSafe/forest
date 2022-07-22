@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::BlockHeader;
+use cid::Cid;
 use encoding::{tuple::*, Cbor};
-use forest_cid::Cid;
 
-/// Block message used as serialized gossipsub messages for blocks topic.
+/// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,
@@ -21,12 +21,12 @@ pub mod json {
     use crate::header;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a GossipBlock from JSON.
+    /// Wrapper for serializing and de-serializing a `GossipBlock` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct GossipBlockJson(#[serde(with = "self")] pub GossipBlock);
 
-    /// Wrapper for serializing a GossipBlock reference to JSON.
+    /// Wrapper for serializing a `GossipBlock` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct GossipBlockJsonRef<'a>(#[serde(with = "self")] pub &'a GossipBlock);
@@ -40,9 +40,9 @@ pub mod json {
         struct GossipBlockSer<'a> {
             #[serde(with = "header::json")]
             pub header: &'a BlockHeader,
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub bls_messages: &'a [Cid],
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub secpk_messages: &'a [Cid],
         }
         GossipBlockSer {
@@ -62,9 +62,9 @@ pub mod json {
         struct GossipBlockDe {
             #[serde(with = "header::json")]
             pub header: BlockHeader,
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub bls_messages: Vec<Cid>,
-            #[serde(with = "forest_cid::json::vec")]
+            #[serde(with = "forest_json::cid::vec")]
             pub secpk_messages: Vec<Cid>,
         }
         let GossipBlockDe {

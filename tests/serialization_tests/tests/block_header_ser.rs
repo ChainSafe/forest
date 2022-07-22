@@ -3,9 +3,9 @@
 
 #![cfg(feature = "submodule_tests")]
 
+use cid::Cid;
 use encoding::to_vec;
 use forest_blocks::{header, BlockHeader};
-use forest_cid::Cid;
 use hex::encode;
 use serde::Deserialize;
 use std::fs::File;

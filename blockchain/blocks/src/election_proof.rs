@@ -51,7 +51,7 @@ lazy_static! {
     .unwrap();
 }
 
-/// expneg accepts x in Q.256 format and computes e^-x.
+/// `expneg` accepts x in Q.256 format and computes e^-x.
 /// It is most precise within [0, 1.725) range, where error is less than 3.4e-30.
 /// Over the [0, 5) range its error is less than 4.6e-15.
 /// Output is in Q.256 format.
@@ -62,7 +62,7 @@ fn expneg(x: &BigInt) -> BigInt {
     (num << PRECISION).div_floor(&deno)
 }
 
-/// polyval evaluates a polynomial given by coefficients `p` in Q.256 format
+/// `poly_val` evaluates a polynomial given by coefficients `p` in Q.256 format
 /// at point `x` in Q.256 format. Output is in Q.256.
 /// Coefficients should be ordered from the highest order coefficient to the lowest.
 fn poly_val(poly: &[BigInt], x: &BigInt) -> BigInt {
@@ -81,7 +81,7 @@ fn lambda(power: &BigInt, total_power: &BigInt) -> BigInt {
     ((power * BLOCKS_PER_EPOCH) << PRECISION).div_floor(total_power)
 }
 
-/// Poisson inverted CDF
+/// Poisson inverted `CDF`
 /// lambda is in Q.256 format
 struct Poiss {
     lam: BigInt,
@@ -133,7 +133,7 @@ pub struct ElectionProof {
 }
 
 impl ElectionProof {
-    /// Uses VRFProof to compute number of wins.
+    /// Uses `VRFProof` to compute number of wins.
     /// The algorithm is based on Algorand's Sortition with Binomial distribution
     /// replaced by Poisson distribution.
     pub fn compute_win_count(&self, power: &BigInt, total_power: &BigInt) -> i64 {
@@ -171,12 +171,12 @@ pub mod json {
     use forest_crypto::vrf;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a ElectionProof from JSON.
+    /// Wrapper for serializing and de-serializing a `ElectionProof` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct ElectionProofJson(#[serde(with = "self")] pub ElectionProof);
 
-    /// Wrapper for serializing a ElectionProof reference to JSON.
+    /// Wrapper for serializing a `ElectionProof` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct ElectionProofJsonRef<'a>(#[serde(with = "self")] pub &'a ElectionProof);

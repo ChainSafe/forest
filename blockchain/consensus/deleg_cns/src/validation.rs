@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use address::Address;
 use blocks::{Block, BlockHeader, Tipset};
+use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use networks::ChainConfig;
 use state_manager::StateManager;

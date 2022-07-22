@@ -4,8 +4,8 @@
 #![cfg(feature = "submodule_tests")]
 
 use async_trait::async_trait;
+use cid::{multihash::Code::Blake2b256, Cid};
 use db::MemoryDB;
-use forest_cid::{Cid, Code::Blake2b256};
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
 use forest_ipld::{Ipld, Path};
@@ -34,7 +34,7 @@ enum IpldValue {
     List,
     #[serde(rename = "map")]
     Map,
-    #[serde(rename = "link", with = "forest_cid::json")]
+    #[serde(rename = "link", with = "forest_json::cid")]
     Link(Cid),
 }
 
@@ -64,7 +64,7 @@ mod path_json {
 mod last_block_json {
     use super::LastBlockInfo;
     use super::Path;
-    use forest_cid::Cid;
+    use cid::Cid;
     use serde::{Deserialize, Deserializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<LastBlockInfo>, D::Error>
@@ -75,7 +75,7 @@ mod last_block_json {
         struct LastBlockDe {
             #[serde(with = "super::path_json")]
             path: Path,
-            #[serde(with = "forest_cid::json")]
+            #[serde(with = "forest_json::cid")]
             link: Cid,
         }
         match Deserialize::deserialize(deserializer)? {

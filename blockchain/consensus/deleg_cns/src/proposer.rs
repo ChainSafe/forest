@@ -1,20 +1,20 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use address::Address;
 use anyhow::anyhow;
 use async_std::stream::interval;
 use async_trait::async_trait;
-use chain::Scale;
 use core::time::Duration;
 use futures::StreamExt;
 use log::{error, info};
-use networks::Height;
 use std::sync::Arc;
 
 use blocks::{BlockHeader, GossipBlock, Tipset};
+use chain::Scale;
 use chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use key_management::Key;
+use networks::Height;
 use state_manager::StateManager;
 
 use crate::DelegatedConsensus;

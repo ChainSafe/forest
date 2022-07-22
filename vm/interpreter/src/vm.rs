@@ -4,10 +4,9 @@
 use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor::{cron, reward, system, AwardBlockRewardParams};
+use cid::Cid;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{DefaultNetworkParams, NetworkParams};
-use forest_address::Address;
-use forest_cid::Cid;
 use forest_encoding::Cbor;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_vm::{ExitCode, Serialized, TokenAmount};
@@ -15,6 +14,7 @@ use fvm::executor::ApplyRet;
 use fvm::machine::NetworkConfig;
 use fvm::machine::{Engine, Machine};
 use fvm::state_tree::StateTree;
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
@@ -324,6 +324,23 @@ where
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
+
+        let exit_code = ret.msg_receipt.exit_code;
+
+        if !exit_code.is_success() {
+            match exit_code.value() {
+                1..=ExitCode::FIRST_USER_EXIT_CODE => {
+                    log::debug!(
+                        "Internal message execution failure. Exit code was {}",
+                        exit_code
+                    )
+                }
+                _ => {
+                    log::warn!("Message execution failed with exit code {}", exit_code)
+                }
+            };
+        }
+
         Ok(ret)
     }
 }

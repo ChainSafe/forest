@@ -4,10 +4,10 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
-use forest_address::Address;
-use forest_cid::Cid;
+use cid::Cid;
 use forest_vm::{ActorState, TokenAmount};
 use fvm::state_tree::StateTree;
+use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 

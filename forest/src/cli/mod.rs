@@ -44,8 +44,8 @@ use std::sync::Arc;
 use structopt::StructOpt;
 
 use crate::cli::config_cmd::ConfigCommands;
+use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_cid::Cid;
 use utils::{read_file_to_string, read_toml};
 
 /// CLI structure generated when interacting with Forest binary
@@ -120,7 +120,7 @@ pub struct CliOpts {
     pub token: Option<String>,
     #[structopt(
         long,
-        help = "Address used for metrics collection server. By defaults binds on all interfaces on port 6116."
+        help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
     )]
     pub metrics_address: Option<SocketAddr>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]

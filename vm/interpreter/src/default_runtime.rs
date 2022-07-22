@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use actor::account;
-use forest_address::{Address, Protocol};
 use fvm::state_tree::StateTree as FvmStateTree;
+use fvm_shared::address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 
 /// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
