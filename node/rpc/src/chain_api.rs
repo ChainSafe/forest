@@ -65,7 +65,7 @@ where
     let recent_roots = recent_roots.unwrap_or(chain_finality);
     if recent_roots < chain_finality {
         Err(&format!(
-            "\"recent-stateroots\" must be greater than {}",
+            "recent-stateroots must be greater than {}",
             chain_finality
         ))?;
     }
