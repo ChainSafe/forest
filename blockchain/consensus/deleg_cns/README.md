@@ -432,11 +432,45 @@ I don't have a better idea than to edit the file and change the prefixes:
 sed -i s/wallet-f/wallet-t/ ~/.local/share/forest/keystore.json
 ```
 
-## Build Forest
+## Build Forest with Delegated Consensus
 
 To enable _Delegated Consensus_ instead of the default _Filecoin Consensus_, Forest has to be built with the `deleg_cns` feature, for example:
 
 ```bash
 cargo clippy --all-targets --features deleg_cns -- -D warnings
-cargo build --release --features deleg_cns
+cargo build --features deleg_cns --bin forest
 ```
+
+Now let's try to run a node; it would be the one eligible for mining, since we have the private key in the wallet. We'll point others at different
+data directories to they don't have access to it.
+
+What we don't want is for this node to start syncing with the testnet, becuase it won't be able to validate those block (they were created by other miners after all), so network discovery is disabled and the number of peers is set to zero. This won't work if we want to use this node to let
+others bootstrap from it, but maybe at that point we can point test nodes to each other.
+
+This is the time for us to use our custom `genesis.car` file as well.
+
+```console
+$ rm -rf ~/.local/shared/forest/calibnet
+$ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --chain calibnet --target-peer-count 0 --kademlia false --snapshot blockchain/consensus/deleg_cns/genesis-files/genesis.car
+ 2022-07-22T14:46:08.334Z WARN  forest::cli > No configurations found, using defaults., fn_name=forest::cli::find_default_config::hce1f9afe18052660
+ 2022-07-22T14:46:08.335Z INFO  forest::daemon > Starting Forest daemon, version v0.2.2/unstable/2b20acfb, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
+ 2022-07-22T14:46:08.335Z INFO  forest_libp2p::service > Recovered libp2p keypair from "/home/aakoshh/.local/share/forest/libp2p/keypair", fn_name=forest_libp2p::service::get_keypair::h99ed6c6ce34645e8
+ 2022-07-22T14:46:08.336Z WARN  forest::daemon         > Warning: Keystore encryption disabled!, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
+ 2022-07-22T14:46:08.337Z INFO  metrics                > Prometheus server started at 0.0.0.0:6116, fn_name=metrics::init_prometheus::{{closure}}::h5e34e0d5569c88b6
+ 2022-07-22T14:46:08.337Z INFO  forest::daemon         > Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.1zvrh2cLDyJl9K3fXeURy4sLZyEQPwHa7-p26VA_ztg, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
+ 2022-07-22T14:46:08.486Z INFO  genesis                > Initialized genesis: BlockHeader: Cid(bafy2bzacecd372hwzypyklyxqdib3zava5av77yvi2zhto4nf3f43qlpx6qha), fn_name=genesis::read_genesis_header::{{closure}}::he72a53f4e30d5477
+ 2022-07-22T14:46:08.534Z INFO  forest::daemon         > Using network :: cannot get name, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
+ 2022-07-22T14:46:08.539Z WARN  forest_libp2p::service > Failed to bootstrap with Kademlia: Kademlia is not activated, fn_name=forest_libp2p::service::Libp2pService<DB>::new::he277f49f745948a6
+thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Unknown miner actor code bafk2bzacebze3elvppssc6v5457ukszzy6ndrg6xgaojfsqfbbtg3xfwo4rbs
+
+Stack backtrace:
+   0: anyhow::error::<impl core::convert::From<E> for anyhow::Error>::from
+   1: <core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual
+   2: deleg_cns::consensus::DelegatedConsensus::proposer::{{closure}}
+
+   ...
+```
+
+Alas, it looks like Forest is not happy with the Genesis file. It could be becuase it doesn't support that format any more. Indeed, the [error](https://github.com/ChainSafe/forest/blob/d4c25e53c02bc8e319d73c47e8f6bc16a714bdec/vm/actor_interface/src/builtin/miner/mod.rs#L50-L56) indicates that Forest doesn't expect anything less than V8 of the actor state.
+
+It looks like all our efforst have been in vain. We have to be able to generate a genesis file that Forest can read directly to be able to spin up a custom network.
