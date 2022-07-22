@@ -29,6 +29,9 @@ async-trait = "0.1"
 async-recursion = "1.0"
 indexmap = { version = "1.8", features = ["serde-1"] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
+forest_json = { version = "0.1.0", path = "../utils/json/" }
+forest_db = "0.1"
+fvm_ipld_blockstore = "0.1.1"
 
 [features]
 json            = ["multibase"]

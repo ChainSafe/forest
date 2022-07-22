@@ -1,15 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "submodule_tests")]
+// #![cfg(feature = "submodule_tests")]
 
 use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
-use db::MemoryDB;
+use forest_db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
 use forest_ipld::{Ipld, Path};
-use ipld_blockstore::BlockStore;
+use fvm_ipld_blockstore::Blockstore;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -124,7 +124,7 @@ struct TestLinkResolver(MemoryDB);
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
     async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
-        self.0.get(link).map_err(|e| e.to_string())
+        self.0.get(link).map().map_err(|e| e.to_string())
     }
 }
 
