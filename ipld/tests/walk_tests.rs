@@ -6,10 +6,10 @@
 use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
 use db::MemoryDB;
-use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
-use forest_ipld::{Ipld, Path};
 use ipld_blockstore::BlockStore;
+use libipld::Path;
+use libipld_core::ipld::Ipld;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -88,11 +88,10 @@ mod last_block_json {
 #[derive(Deserialize)]
 struct TestVector {
     description: Option<String>,
-    #[serde(with = "json")]
     ipld: Ipld,
     selector: Selector,
     expect_visit: Vec<ExpectVisit>,
-    cbor_ipld_storage: Option<Vec<IpldJson>>,
+    cbor_ipld_storage: Option<Vec<Ipld>>,
 }
 
 fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
@@ -132,7 +131,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     // Setup resolver with any ipld nodes to store
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
-        for IpldJson(i) in ipld_storage {
+        for i in ipld_storage {
             storage.put(&i, Blake2b256).unwrap();
         }
         TestLinkResolver(storage)
