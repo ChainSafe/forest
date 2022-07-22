@@ -100,7 +100,7 @@ impl ChainCommands {
                     epoch,
                     *recent_stateroots,
                     *skip_old_messages,
-                    output_path.clone(),
+                    output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                 );
 
