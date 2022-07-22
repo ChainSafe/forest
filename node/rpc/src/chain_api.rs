@@ -75,7 +75,7 @@ where
     }
 
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
-    let writer = BufWriter::new(file.clone());
+    let writer = BufWriter::new(file);
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
 
