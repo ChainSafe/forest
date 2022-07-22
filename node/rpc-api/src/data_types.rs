@@ -9,8 +9,7 @@ use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
 use cid::Cid;
-use fil_types::SectorSize;
-use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
+use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson, SectorSize};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
