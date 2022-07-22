@@ -4,7 +4,8 @@
 #![cfg(feature = "submodule_tests")]
 
 use forest_ipld::selector::Selector;
-use forest_ipld::{json, Ipld, PathSegment};
+use libipld_core::ipld::Ipld;
+use forest_ipld::PathSegment;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
