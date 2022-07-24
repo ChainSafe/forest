@@ -8,12 +8,13 @@ use cid::{multihash::Code::Blake2b256, Cid};
 use forest_db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
-use forest_ipld::{Ipld, Path};
+use forest_ipld::{Ipld, Path, from_ipld};
 use fvm_ipld_blockstore::Blockstore;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use libipld_core::serde::to_ipld;
 
 /// Type to ignore the specifics of a list or map for JSON tests
 #[derive(Deserialize, Debug, Clone)]
@@ -92,7 +93,7 @@ struct TestVector {
     ipld: Ipld,
     selector: Selector,
     expect_visit: Vec<ExpectVisit>,
-    cbor_ipld_storage: Option<Vec<IpldJson>>,
+    cbor_ipld_storage: Option<Vec<Ipld>>,
 }
 
 fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
@@ -124,7 +125,13 @@ struct TestLinkResolver(MemoryDB);
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
     async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
-        self.0.get(link).map(|item| ).map_err(|e| e.to_string())
+        self.0.get(link)
+        .map(|inner| 
+            inner.map( 
+            |value| 
+            to_ipld(value)
+            ).transpose().ok()?
+        ).map_err(|e| e.to_string())
     }
 }
 
@@ -132,8 +139,8 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     // Setup resolver with any ipld nodes to store
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
-        for IpldJson(i) in ipld_storage {
-            storage.put(&i, Blake2b256).unwrap();
+        for i in ipld_storage {
+            storage.put(Blake2b256, &i).unwrap();
         }
         TestLinkResolver(storage)
     });
