@@ -12,7 +12,7 @@
 //! | ----------- | ------------ |
 //! |```{ "/": { "bytes": "mVGhlIHF1aQ" } }```|```{ "/": { "bytes": "VGhlIHF1aQ" } }```|
 //!
-//! As `Lotus` is using `multihash-base64` and our serializer is using it as well.
+//! Since `Lotus` is also using `multihash-base64` and we're trying to be compatible, we cannot switch to `libipld-json`. It may be worthwhile to reconsider whether we want to stay compatible with Lotus in the future.
 use super::Ipld;
 use libipld_macro::ipld;
 use multibase::Base;
