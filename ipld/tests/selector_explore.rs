@@ -42,8 +42,7 @@ fn test_equal(s1: &Option<Selector>, s2: &Option<Selector>) -> bool {
     {
         s1 == s2 && l1 == l2 && st1 == st2
     } else {
-        let b = s1 == s2;
-        b
+        s1 == s2
     }
 }
 
