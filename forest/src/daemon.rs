@@ -119,7 +119,6 @@ pub(super) async fn start(config: Config) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    #[cfg(feature = "rocksdb")]
     let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 

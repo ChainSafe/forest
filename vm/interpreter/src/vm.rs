@@ -324,6 +324,23 @@ where
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
+
+        let exit_code = ret.msg_receipt.exit_code;
+
+        if !exit_code.is_success() {
+            match exit_code.value() {
+                1..=ExitCode::FIRST_USER_EXIT_CODE => {
+                    log::debug!(
+                        "Internal message execution failure. Exit code was {}",
+                        exit_code
+                    )
+                }
+                _ => {
+                    log::warn!("Message execution failed with exit code {}", exit_code)
+                }
+            };
+        }
+
         Ok(ret)
     }
 }

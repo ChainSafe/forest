@@ -3,10 +3,7 @@
 
 #![cfg(feature = "json")]
 
-use forest_ipld::{
-    json::{self, IpldJson, IpldJsonRef},
-    Ipld,
-};
+use libipld_core::ipld::Ipld;
 use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
@@ -49,8 +46,8 @@ fn deserialize_json_symmetric() {
     assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
 
     // Symmetric tests
-    let ser_json = to_string(&IpldJsonRef(&expected)).unwrap();
-    let IpldJson(ipld_d) = from_str(&ser_json).unwrap();
+    let ser_json = to_string(&expected).unwrap();
+    let ipld_d = from_str(&ser_json).unwrap();
     assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
 }
 
@@ -58,7 +55,6 @@ fn deserialize_json_symmetric() {
 fn annotating_struct_json() {
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestStruct {
-        #[serde(with = "json")]
         one: Ipld,
         other: String,
     }
@@ -91,6 +87,6 @@ fn link_edge_case() {
     let expected =
         ipld!({"/": Ipld::Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap())});
 
-    let IpldJson(ipld_d) = from_str(test_json).unwrap();
+    let ipld_d = from_str(test_json).unwrap();
     assert_eq!(&ipld_d, &expected, "Deserialized ipld does not match");
 }

@@ -27,7 +27,6 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset, TxMeta,
 };
-use forest_ipld::{json::IpldJson, Ipld};
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
@@ -36,6 +35,7 @@ use fvm_shared::crypto::signature::SignatureType;
 use fvm_shared::{address::Address, bigint::BigInt, crypto::signature::Signature};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
+use libipld_core::ipld::Ipld;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -586,7 +586,7 @@ pub(crate) async fn state_wait_msg<
         tipset: tipset.key().clone().into(),
         height: tipset.epoch(),
         message: CidJson(cid),
-        return_dec: IpldJson(ipld),
+        return_dec: ipld,
     })
 }
 
