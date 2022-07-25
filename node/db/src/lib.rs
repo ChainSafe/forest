@@ -4,10 +4,7 @@
 mod errors;
 mod memory;
 
-#[cfg(feature = "rocksdb")]
 pub mod rocks;
-
-#[cfg(feature = "rocksdb")]
 pub mod rocks_config;
 
 pub use errors::Error;

@@ -4,7 +4,7 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use actor::miner;
+use actor::{miner, EPOCHS_IN_DAY};
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
@@ -603,6 +603,9 @@ where
 
             if current_min_height > h.epoch() {
                 current_min_height = h.epoch();
+                if current_min_height % EPOCHS_IN_DAY == 0 {
+                    info!(target: "chain_api", "export at: {}", current_min_height);
+                }
             }
 
             if !skip_old_msgs || h.epoch() > incl_roots_epoch {

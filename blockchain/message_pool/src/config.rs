@@ -14,7 +14,7 @@ const PRUNE_COOLDOWN: Duration = Duration::from_secs(60); // 1 minute
 const REPLACE_BY_FEE_RATIO: f64 = 1.25;
 const GAS_LIMIT_OVERESTIMATION: f64 = 1.25;
 
-/// Config available for the [MessagePool].
+/// Configuration available for the [`crate::MessagePool`].
 ///
 /// [MessagePool]: crate::MessagePool
 #[derive(Clone, Serialize, Deserialize)]
@@ -72,12 +72,12 @@ impl MpoolConfig {
         })
     }
 
-    /// Saves message pool config to the database, to easily reload.
+    /// Saves message pool `config` to the database, to easily reload.
     pub fn save_config<DB: Store>(&self, store: &DB) -> Result<(), anyhow::Error> {
         Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
     }
 
-    /// Load config from store, if exists. If there is no config, uses default.
+    /// Load `config` from store, if exists. If there is no `config`, uses default.
     pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
         match store.read(MPOOL_CONFIG_KEY)? {
             Some(v) => Ok(from_slice(&v)?),
