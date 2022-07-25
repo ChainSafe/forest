@@ -21,7 +21,7 @@ use std::error::Error as StdError;
 /// ```
 /// use legacy_ipld_amt::Amt;
 ///
-/// let db = db::MemoryDB::default();
+/// let db = forest_db::MemoryDB::default();
 /// let mut amt = Amt::new(&db);
 ///
 /// // Insert or remove any serializable values
@@ -277,7 +277,7 @@ where
     /// ```
     /// use legacy_ipld_amt::Amt;
     ///
-    /// let store = db::MemoryDB::default();
+    /// let store = forest_db::MemoryDB::default();
     ///
     /// let mut map: Amt<String, _> = Amt::new(&store);
     /// map.set(1, "One".to_owned()).unwrap();
