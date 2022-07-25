@@ -1,19 +1,24 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::market::{DealProposal, DealState};
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
 use beacon::BeaconEntry;
+use fil_types::SectorSize;
+use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+use serde::{Deserialize, Serialize};
+
+use actor::market::{DealProposal, DealState};
 use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use chain_sync::{BadBlockCache, SyncState};
 use cid::Cid;
-use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson, SectorSize};
+use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
+use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::bigint::json;
 use forest_json::cid::CidJson;
@@ -30,11 +35,8 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use key_management::KeyStore;
-use libipld_core::ipld::Ipld;
 use message_pool::{MessagePool, MpoolRpcProvider};
-use serde::{Deserialize, Serialize};
 use state_manager::{MiningBaseInfo, StateManager};
 
 // RPC State
@@ -168,7 +170,7 @@ pub struct MessageLookup {
     pub tipset: TipsetKeysJson,
     pub height: i64,
     pub message: CidJson,
-    pub return_dec: Ipld,
+    pub return_dec: IpldJson,
 }
 
 #[derive(Deserialize)]

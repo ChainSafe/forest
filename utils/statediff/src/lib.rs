@@ -10,13 +10,13 @@ mod resolve;
 use cid::Cid;
 use colored::*;
 use difference::{Changeset, Difference};
+use forest_ipld::json::{IpldJson, IpldJsonRef};
+use forest_ipld::Ipld;
 use forest_json::cid::CidJson;
 use forest_vm::ActorState;
 use fvm::state_tree::StateTree;
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
-use libipld_core::ipld::Ipld;
-use libipld_core::serde::from_ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 
@@ -164,7 +164,7 @@ struct ActorStateResolved {
     code: CidJson,
     sequence: u64,
     balance: String,
-    state: Ipld,
+    state: IpldJson,
 }
 
 fn actor_to_resolved(
@@ -175,7 +175,7 @@ fn actor_to_resolved(
     let resolved =
         resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
     ActorStateResolved {
-        state: resolved,
+        state: IpldJson(resolved),
         code: CidJson(actor.code),
         balance: actor.balance.to_string(),
         sequence: actor.sequence,
@@ -251,26 +251,26 @@ fn pp_actor_state(
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
     let resolved = actor_to_resolved(bs, state, depth);
-    let ipld = &resolved.state;
+    let ipld = &resolved.state.0;
     let mut buffer = String::new();
 
     writeln!(&mut buffer, "{:?}", state)?;
 
     // FIXME: Use the actor interface to load and pretty print the actor states.
     //        Tracker: https://github.com/ChainSafe/forest/issues/1561
-    if let Ok(miner_state) = from_ipld::<MinerState>(ipld.clone()) {
+    if let Ok(miner_state) = forest_ipld::from_ipld::<MinerState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", miner_state)?;
         return Ok(buffer);
     }
-    if let Ok(cron_state) = from_ipld::<CronState>(ipld.clone()) {
+    if let Ok(cron_state) = forest_ipld::from_ipld::<CronState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", cron_state)?;
         return Ok(buffer);
     }
-    if let Ok(account_state) = from_ipld::<AccountState>(ipld.clone()) {
+    if let Ok(account_state) = forest_ipld::from_ipld::<AccountState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", account_state)?;
         return Ok(buffer);
     }
-    if let Ok(state) = from_ipld::<PowerState>(ipld.clone()) {
+    if let Ok(state) = forest_ipld::from_ipld::<PowerState>(ipld.clone()) {
         write!(&mut buffer, "{:?}", state)?;
         return Ok(buffer);
     }
@@ -332,8 +332,8 @@ where
         let expected = resolve_cids_recursive(bs, expected_root, depth)?;
         let actual = resolve_cids_recursive(bs, root, depth)?;
 
-        let expected_json = serde_json::to_string_pretty(&expected)?;
-        let actual_json = serde_json::to_string_pretty(&actual)?;
+        let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
+        let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
 
         let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
         let stdout = stdout();
