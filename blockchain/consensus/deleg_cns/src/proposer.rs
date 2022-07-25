@@ -8,9 +8,9 @@ use futures::StreamExt;
 use log::{error, info};
 use std::sync::Arc;
 
-use blocks::{BlockHeader, GossipBlock, Tipset};
 use chain::Scale;
 use chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use key_management::Key;

@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use blocks::{Block, BlockHeader, Tipset};
+use forest_blocks::{Block, BlockHeader, Tipset};
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use networks::ChainConfig;

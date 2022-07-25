@@ -9,13 +9,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
 
-use blocks::Block;
-use blocks::Tipset;
 use chain::Error as ChainStoreError;
 use chain::Scale;
 use chain::Weight;
 use chain_sync::consensus::Consensus;
 use encoding::Error as ForestEncodingError;
+use forest_blocks::{Block, Tipset};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;
