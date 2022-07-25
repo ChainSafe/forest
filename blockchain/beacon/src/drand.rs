@@ -15,10 +15,10 @@ use sha2::Digest;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-/// Enviromental Variable to ignore Drand. Lotus parallel is LOTUS_IGNORE_DRAND
+/// Environmental Variable to ignore Drand. Lotus parallel is `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
-/// Coeffiencients of the publicly available Drand keys.
+/// Coefficients of the publicly available Drand keys.
 /// This is shared by all participants on the Drand network.
 #[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
 pub struct DrandPublic {
@@ -33,7 +33,7 @@ impl DrandPublic {
     }
 }
 
-/// Type of the Drand network. In general only Mainnet and its chain information
+/// Type of the Drand network. In general only Main-net and its chain information
 /// should be considered stable.
 #[derive(PartialEq, Eq, Clone)]
 pub enum DrandNetwork {
@@ -42,9 +42,9 @@ pub enum DrandNetwork {
 }
 
 #[derive(Clone)]
-/// Config used when initializing a Drand beacon.
+/// Configuration used when initializing a Drand beacon.
 pub struct DrandConfig<'a> {
-    /// Url endpoint to send JSON http requests to.
+    /// URL endpoint to send JSON HTTP requests to.
     pub server: &'static str,
     /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
@@ -52,14 +52,14 @@ pub struct DrandConfig<'a> {
     pub network_type: DrandNetwork,
 }
 
-/// Contains the vector of BeaconPoints, which are mappings of epoch to the Randomness beacons used.
+/// Contains the vector of `BeaconPoints`, which are mappings of epoch to the `Randomness` beacons used.
 pub struct BeaconSchedule<T>(pub Vec<BeaconPoint<T>>);
 
 impl<T> BeaconSchedule<T>
 where
     T: Beacon,
 {
-    /// Constructs a new, empty BeaconSchedule<T> with the specified capacity.
+    /// Constructs a new, empty `BeaconSchedule<T>` with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         BeaconSchedule(Vec::with_capacity(capacity))
     }
@@ -139,7 +139,7 @@ where
         prev: &BeaconEntry,
     ) -> Result<bool, anyhow::Error>;
 
-    /// Returns a BeaconEntry given a round. It fetches the BeaconEntry from a Drand node over GRPC
+    /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a Drand node over GRPC
     /// In the future, we will cache values, and support streaming.
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error>;
 
@@ -154,7 +154,7 @@ where
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone, PartialEq, Eq, Default)]
 /// Contains all the info about a Drand beacon chain.
 /// API reference: <https://drand.love/developer/http-api/#info>
-/// note: groupHash does not exist in docs currently, but is returned.
+/// note: `groupHash` does not exist in docs currently, but is returned.
 pub struct ChainInfo<'a> {
     pub public_key: Cow<'a, str>,
     pub period: i32,
@@ -165,7 +165,7 @@ pub struct ChainInfo<'a> {
 }
 
 #[derive(SerdeDeserialize, SerdeSerialize, Debug, Clone)]
-/// Json beacon entry format. This matches the drand round JSON serialization
+/// JSON beacon entry format. This matches the drand round JSON serialization
 /// API reference: <https://drand.love/developer/http-api/#public-round>.
 pub struct BeaconEntryJson {
     round: u64,
@@ -191,7 +191,7 @@ pub struct DrandBeacon {
 }
 
 impl DrandBeacon {
-    /// Construct a new DrandBeacon.
+    /// Construct a new `DrandBeacon`.
     pub async fn new(
         genesis_ts: u64,
         interval: u64,
