@@ -16,7 +16,7 @@ use anyhow::Context;
 pub const ADDRESS: Address = Address::new_id(2);
 
 /// Reward actor method.
-pub type Method = fil_actor_reward::Method;
+pub type Method = fil_actor_reward_v8::Method;
 
 pub fn is_v8_reward_cid(cid: &Cid) -> bool {
     let known_cids = vec![
@@ -32,7 +32,7 @@ pub fn is_v8_reward_cid(cid: &Cid) -> bool {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V8(fil_actor_reward::State),
+    V8(fil_actor_reward_v8::State),
 }
 
 impl State {

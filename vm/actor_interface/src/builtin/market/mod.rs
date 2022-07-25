@@ -18,7 +18,7 @@ use anyhow::Context;
 pub const ADDRESS: Address = Address::new_id(5);
 
 /// Market actor method.
-pub type Method = fil_actor_market::Method;
+pub type Method = fil_actor_market_v8::Method;
 
 pub fn is_v8_market_cid(cid: &Cid) -> bool {
     let known_cids = vec![
@@ -34,7 +34,7 @@ pub fn is_v8_market_cid(cid: &Cid) -> bool {
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V8(fil_actor_market::State),
+    V8(fil_actor_market_v8::State),
 }
 
 impl State {
@@ -106,7 +106,7 @@ impl State {
         match self {
             State::V8(st) => {
                 let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                fil_actor_market::validate_deals_for_activation(
+                fil_actor_market_v8::validate_deals_for_activation(
                     st,
                     &fvm_store,
                     deal_ids,

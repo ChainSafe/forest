@@ -11,13 +11,13 @@ use anyhow::Context;
 use ipld_blockstore::BlockStoreExt;
 
 /// Account actor method.
-pub type Method = fil_actor_account::Method;
+pub type Method = fil_actor_account_v8::Method;
 
 /// Account actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
-    V8(fil_actor_account::State),
+    V8(fil_actor_account_v8::State),
 }
 
 pub fn is_v8_account_cid(cid: &Cid) -> bool {

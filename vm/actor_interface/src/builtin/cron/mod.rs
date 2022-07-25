@@ -7,4 +7,4 @@ use fvm_shared::address::Address;
 pub const ADDRESS: Address = Address::new_id(3);
 
 /// Cron actor method.
-pub type Method = fil_actor_cron::Method;
+pub type Method = fil_actor_cron_v8::Method;
