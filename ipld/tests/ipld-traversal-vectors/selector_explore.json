@@ -11,7 +11,7 @@
         "explore": [
             {
                 "ipld": null,
-                "path_segment": 0
+                "path_segment": "0"
             }
         ],
         "result_selector": {
@@ -57,7 +57,7 @@
                 "ipld": {
                     "0": {}
                 },
-                "path_segment": 0
+                "path_segment": "0"
             }
         ],
         "result_selector": null
@@ -78,7 +78,7 @@
                 "ipld": {
                     "0": null
                 },
-                "path_segment": 0
+                "path_segment": "0"
             }
         ],
         "result_selector": {
@@ -99,7 +99,7 @@
         "explore": [
             {
                 "ipld": "Not a map or list",
-                "path_segment": 0
+                "path_segment": "0"
             }
         ],
         "result_selector": null
@@ -120,7 +120,7 @@
                 "ipld": [
                     null
                 ],
-                "path_segment": 0
+                "path_segment": "0"
             }
         ],
         "result_selector": {
@@ -144,7 +144,7 @@
                     1,
                     2
                 ],
-                "path_segment": 2
+                "path_segment": "2"
             }
         ],
         "result_selector": {
@@ -164,7 +164,7 @@
         "explore": [
             {
                 "ipld": "not a list",
-                "path_segment": 0
+                "path_segment": "0"
             }
         ],
         "result_selector": null
@@ -186,7 +186,7 @@
                     1,
                     2
                 ],
-                "path_segment": 1
+                "path_segment": "1"
             }
         ],
         "result_selector": null
@@ -210,7 +210,7 @@
                     2,
                     3
                 ],
-                "path_segment": 2
+                "path_segment": "2"
             }
         ],
         "result_selector": null
@@ -229,7 +229,7 @@
         "explore": [
             {
                 "ipld": {},
-                "path_segment": 2
+                "path_segment": "2"
             }
         ],
         "result_selector": null
@@ -272,7 +272,7 @@
                     2,
                     3
                 ],
-                "path_segment": 3
+                "path_segment": "3"
             }
         ],
         "result_selector": {
@@ -293,7 +293,7 @@
         "explore": [
             {
                 "ipld": [],
-                "path_segment": 3
+                "path_segment": "3"
             }
         ],
         "result_selector": null
@@ -323,7 +323,7 @@
         "explore": [
             {
                 "ipld": null,
-                "path_segment": 0
+                "path_segment": "0"
             },
             {
                 "ipld": {
@@ -333,7 +333,7 @@
             },
             {
                 "ipld": null,
-                "path_segment": 0
+                "path_segment": "0"
             },
             {
                 "ipld": {
@@ -369,7 +369,7 @@
         "explore": [
             {
                 "ipld": null,
-                "path_segment": 0
+                "path_segment": "0"
             },
             {
                 "ipld": {
@@ -424,7 +424,7 @@
         "explore": [
             {
                 "ipld": null,
-                "path_segment": 0
+                "path_segment": "0"
             },
             {
                 "ipld": {
@@ -434,7 +434,7 @@
             },
             {
                 "ipld": null,
-                "path_segment": 0
+                "path_segment": "0"
             },
             {
                 "ipld": {
@@ -472,7 +472,7 @@
         "explore": [
             {
                 "ipld": null,
-                "path_segment": 4
+                "path_segment": "4"
             }
         ],
         "result_selector": null
@@ -511,7 +511,7 @@
                     4,
                     5
                 ],
-                "path_segment": 5
+                "path_segment": "5"
             }
         ],
         "result_selector": {
