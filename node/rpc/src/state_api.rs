@@ -26,13 +26,13 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset,
 };
+use forest_ipld::{json::IpldJson, Ipld};
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
 use fvm::state_tree::StateTree;
 use fvm_shared::{address::Address, bigint::BigInt};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
-use libipld_core::ipld::Ipld;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -583,7 +583,7 @@ pub(crate) async fn state_wait_msg<
         tipset: tipset.key().clone().into(),
         height: tipset.epoch(),
         message: CidJson(cid),
-        return_dec: ipld,
+        return_dec: IpldJson(ipld),
     })
 }
 
