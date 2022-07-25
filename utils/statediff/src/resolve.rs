@@ -3,9 +3,9 @@
 
 use anyhow::Context;
 use cid::Cid;
+use forest_ipld::Ipld;
 use fvm_ipld_encoding::DAG_CBOR;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
-use libipld_core::ipld::Ipld;
 
 /// Resolves link to recursively resolved [Ipld] with no hash links.
 pub fn resolve_cids_recursive<BS>(
