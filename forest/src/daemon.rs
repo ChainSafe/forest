@@ -3,18 +3,17 @@
 
 use super::cli::{block_until_sigint, Config};
 use async_std::net::TcpListener;
+use async_std::task::JoinHandle;
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
-use beacon::DrandBeacon;
 use chain::ChainStore;
+use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
-use fil_cns::FilecoinConsensus;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
 use key_management::{KeyStore, KeyStoreConfig};
 use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
@@ -154,12 +153,16 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
-    set_proofs_parameter_cache_dir_env(&config.data_dir);
-
     // Fetch and ensure verification keys are downloaded
-    get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
-        .await
-        .unwrap();
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    {
+        use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
+        set_proofs_parameter_cache_dir_env(&config.data_dir);
+
+        get_params_default(&config.data_dir, SectorSizeOpt::Keys, false)
+            .await
+            .unwrap();
+    }
 
     // Override bootstrap peers
     let config = if config.network.bootstrap_peers.is_empty() {
@@ -190,6 +193,8 @@ pub(super) async fn start(config: Config) {
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
+    let (tipset_sink, tipset_stream) = bounded(20);
+
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
     let mpool = Arc::new(
@@ -204,12 +209,51 @@ pub(super) async fn start(config: Config) {
         .unwrap(),
     );
 
+    // Mining may or may not happen, depending on the consensus type.
+    let mining_task: Option<JoinHandle<anyhow::Result<()>>>;
+
+    // For consensus types that do mining, create a component to submit their proposals.
+    let submitter = SyncGossipSubmitter::new(
+        network_name.clone(),
+        network_send.clone(),
+        tipset_sink.clone(),
+    );
+
     // Initialize Consensus
-    type FullConsensus = FilecoinConsensus<DrandBeacon, FullVerifier>;
-    let consensus: FullConsensus = FilecoinConsensus::new(state_manager.beacon_schedule());
+    #[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
+    compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
+
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    type FullConsensus = fil_cns::FilecoinConsensus<beacon::DrandBeacon, FullVerifier>;
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    let consensus: FullConsensus = {
+        mining_task = None;
+        drop(submitter);
+        fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
+    };
+    #[cfg(feature = "deleg_cns")]
+    type FullConsensus = deleg_cns::DelegatedConsensus;
+    #[cfg(feature = "deleg_cns")]
+    let consensus: FullConsensus = {
+        use chain_sync::consensus::Proposer;
+        use futures::TryFutureExt;
+        let consensus = deleg_cns::DelegatedConsensus::default();
+        if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
+            let sm = state_manager.clone();
+            let mp = mpool.clone();
+            mining_task = Some(task::spawn(async move {
+                proposer
+                    .run(sm, mp.as_ref(), &submitter)
+                    .inspect_err(|e| error!("block proposal stopped: {}", e))
+                    .await
+            }));
+        } else {
+            mining_task = None
+        }
+        consensus
+    };
 
     // Initialize ChainMuxer
-    let (tipset_sink, tipset_stream) = bounded(20);
     let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
         Arc::new(consensus),
@@ -270,12 +314,11 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
+    maybe_cancel(mining_task).await;
     prometheus_server_task.cancel().await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
-    if let Some(task) = rpc_task {
-        task.cancel().await;
-    }
+    maybe_cancel(rpc_task).await;
     keystore_write.await;
 
     info!("Forest finish shutdown.");
@@ -293,6 +336,12 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             .await
             .expect("Failed miserably while importing chain from snapshot");
         debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+    }
+}
+
+async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
+    if let Some(t) = mt {
+        t.cancel().await;
     }
 }
 

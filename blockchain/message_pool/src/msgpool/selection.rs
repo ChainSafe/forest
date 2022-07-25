@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Contains routines for message selection APIs.
-//! Whenever a miner is ready to create a block for a tipset, it invokes the select_messages API
+//! Whenever a miner is ready to create a block for a tipset, it invokes the `select_messages` API
 //! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
 //! See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
@@ -620,7 +620,7 @@ fn merge_and_trim(
     (result, gas_limit)
 }
 
-/// Like head_change, except it doesnt change the state of the MessagePool.
+/// Like `head_change`, except it doesn't change the state of the `MessagePool`.
 /// It simulates a head change call.
 pub(crate) async fn run_head_change<T>(
     api: &RwLock<T>,

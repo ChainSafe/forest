@@ -9,6 +9,10 @@ pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockRe
     call(CHAIN_GET_BLOCK, cid).await
 }
 
+pub async fn chain_export(params: ChainExportParams) -> Result<ChainExportResult, Error> {
+    call(CHAIN_EXPORT, params).await
+}
+
 pub async fn chain_get_genesis() -> Result<ChainGetGenesisResult, Error> {
     call(CHAIN_GET_GENESIS, ()).await
 }

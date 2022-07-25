@@ -1,12 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
 use forest_json::cid::CidJson;
 use rpc_client::chain_ops::*;
+use time::OffsetDateTime;
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -15,6 +18,23 @@ pub enum ChainCommands {
     Block {
         #[structopt(short, help = "Input a valid CID")]
         cid: String,
+    },
+
+    /// Export a snapshot of the chain to <output_path>
+    #[structopt(about = "Export chain snapshot to file")]
+    Export {
+        /// Tipset to start the export from, default is @HEAD
+        #[structopt(short)]
+        tipset: Option<i64>,
+        /// Specify the number of recent state roots to include in the export
+        #[structopt(short)]
+        recent_stateroots: Option<i64>,
+        /// Skip old messages
+        #[structopt(short)]
+        skip_old_messages: bool,
+        /// Snapshot output path. Default to `forest_snapshot_{year}-{month}-{day}_height_{height}.car`
+        #[structopt(short)]
+        output_path: Option<String>,
     },
 
     /// Prints out the genesis tipset
@@ -48,6 +68,46 @@ impl ChainCommands {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res_pretty(chain_get_block((CidJson(cid),)).await);
+            }
+            Self::Export {
+                tipset,
+                recent_stateroots,
+                skip_old_messages,
+                output_path,
+            } => {
+                let chain_head = match chain_head().await {
+                    Ok(head) => head.0,
+                    Err(_) => return cli_error_and_die("Could not get network head", 1),
+                };
+
+                let epoch = tipset.unwrap_or(chain_head.epoch());
+
+                let output_path = match output_path {
+                    Some(path) => path.to_owned(),
+                    None => {
+                        let now = OffsetDateTime::now_utc();
+                        format!(
+                            "forest_snapshot_{}-{}-{}_height_{}.car",
+                            now.year(),
+                            now.month(),
+                            now.day(),
+                            epoch,
+                        )
+                    }
+                };
+
+                let params = (
+                    epoch,
+                    *recent_stateroots,
+                    *skip_old_messages,
+                    output_path,
+                    TipsetKeysJson(chain_head.key().clone()),
+                );
+
+                // infallible unwrap
+                let out = chain_export(params).await.map_err(handle_rpc_err).unwrap();
+
+                println!("Export completed. Snapshot located at {}", out.display());
             }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis().await);

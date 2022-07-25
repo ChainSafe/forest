@@ -1,15 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "submodule_tests")]
-
 use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
-use db::MemoryDB;
+use forest_db::MemoryDB;
+use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
-use ipld_blockstore::BlockStore;
-use libipld::Path;
-use libipld_core::ipld::Ipld;
+use forest_ipld::{Ipld, Path};
+use ipld_blockstore::BlockStoreExt;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -88,10 +86,11 @@ mod last_block_json {
 #[derive(Deserialize)]
 struct TestVector {
     description: Option<String>,
+    #[serde(with = "json")]
     ipld: Ipld,
     selector: Selector,
     expect_visit: Vec<ExpectVisit>,
-    cbor_ipld_storage: Option<Vec<Ipld>>,
+    cbor_ipld_storage: Option<Vec<IpldJson>>,
 }
 
 fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
@@ -123,7 +122,7 @@ struct TestLinkResolver(MemoryDB);
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
     async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
-        self.0.get(link).map_err(|e| e.to_string())
+        self.0.get_obj(link).map_err(|e| e.to_string())
     }
 }
 
@@ -131,8 +130,8 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
     // Setup resolver with any ipld nodes to store
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
-        for i in ipld_storage {
-            storage.put(&i, Blake2b256).unwrap();
+        for IpldJson(i) in ipld_storage {
+            storage.put_obj(&i, Blake2b256).unwrap();
         }
         TestLinkResolver(storage)
     });

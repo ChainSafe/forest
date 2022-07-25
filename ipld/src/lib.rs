@@ -5,7 +5,6 @@ mod error;
 pub mod selector;
 pub mod util;
 
-#[cfg(feature = "json")]
 pub mod json;
 
 pub use self::error::Error;
