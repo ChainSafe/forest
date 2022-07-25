@@ -20,9 +20,9 @@ cid             = { version = "0.8", default-features = false, features = ["std"
 anyhow          = "1.0"
 num-traits      = "0.2"
 fvm             = "1.0"
-actor           = { package = "actor_interface", path = "../../../vm/actor_interface" }
+actor_interface = { path = "../../../vm/actor_interface" }
 beacon          = { path = "../../beacon" }
-blocks          = { package = "forest_blocks", path = "../../blocks" }
+forest_blocks   = { path = "../../blocks" }
 chain           = { path = "../../chain" }
 chain_sync      = { path = "../../chain_sync/" }
 state_manager   = { path = "../../state_manager/" }

@@ -6,15 +6,15 @@ use std::sync::Arc;
 use async_std::task;
 use futures::stream::FuturesUnordered;
 
-use actor::power;
+use actor_interface::power;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, Tipset};
 use chain_sync::collect_errs;
 use cid::Cid;
 use crypto::DomainSeparationTag;
 use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
 use fil_types::{NetworkVersion, Randomness, TICKET_RANDOMNESS_LOOKBACK};
+use forest_blocks::{Block, BlockHeader, Tipset};
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
