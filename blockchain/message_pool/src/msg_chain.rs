@@ -24,10 +24,10 @@ new_key_type! {
 }
 
 /// Chains is an abstraction of a list of message chain nodes.
-/// It wraps a slotmap instance. key_vec is an additional requirement in order to satisfy
-/// optimal msg selection use cases, such as iteration in insertion order.
-/// The slotamap serves as a lookup table for nodes to get around the borrow checker rules.
-/// Each MsgChainNode contains only pointers as `NodeKey` to the entries in the map
+/// It wraps a `SlotMap` instance. `key_vec` is an additional requirement in order to satisfy
+/// optimal `msg` selection use cases, such as iteration in insertion order.
+/// The `SlotMap` serves as a lookup table for nodes to get around the borrow checker rules.
+/// Each `MsgChainNode` contains only pointers as `NodeKey` to the entries in the map
 /// With this design, we get around the borrow checker rule issues when
 /// implementing the optimal selection algorithm.
 pub(crate) struct Chains {
@@ -43,7 +43,7 @@ impl Chains {
         }
     }
 
-    /// Pushes a msg chain node into slotmap and places the key in the `node_vec` passed as parameter.
+    /// Pushes a `msg` chain node into slot map and places the key in the `node_vec` passed as parameter.
     pub(crate) fn push_with(&mut self, cur_chain: MsgChainNode, node_vec: &mut Vec<NodeKey>) {
         let key = self.map.insert(cur_chain);
         node_vec.push(key);
@@ -76,7 +76,7 @@ impl Chains {
         let _ = mem::replace(&mut self.key_vec, chains);
     }
 
-    // Sort by effective perf on a range
+    // Sort by effective `perf` on a range
     pub(crate) fn sort_range_effective(&mut self, range: std::ops::RangeFrom<usize>) {
         let mut chains = mem::take(&mut self.key_vec);
         chains[range].sort_by(|a, b| {
@@ -88,12 +88,12 @@ impl Chains {
         let _ = mem::replace(&mut self.key_vec, chains);
     }
 
-    /// Retrieves the msg chain node by the given NodeKey
+    /// Retrieves the `msg` chain node by the given `NodeKey`
     pub(crate) fn get_mut(&mut self, k: NodeKey) -> Option<&mut MsgChainNode> {
         self.map.get_mut(k)
     }
 
-    /// Retrieves the msg chain node by the given NodeKey along with the data
+    /// Retrieves the `msg` chain node by the given `NodeKey` along with the data
     /// required from previous chain (if exists) to set effective performance of this node.
     pub(crate) fn get_mut_with_prev_eff(
         &mut self,
@@ -115,12 +115,12 @@ impl Chains {
         (node, prev)
     }
 
-    /// Retrieves the msg chain node by the given NodeKey
+    /// Retrieves the `msg` chain node by the given `NodeKey`
     pub(crate) fn get(&self, k: NodeKey) -> Option<&MsgChainNode> {
         self.map.get(k)
     }
 
-    /// Retrieves the msg chain node at the given index
+    /// Retrieves the `msg` chain node at the given index
     pub(crate) fn get_mut_at(&mut self, i: usize) -> Option<&mut MsgChainNode> {
         if i < self.key_vec.len() {
             let key = self.key_vec[i];
@@ -149,7 +149,7 @@ impl Chains {
         }
     }
 
-    /// Retrieves the msg chain node at the given index
+    /// Retrieves the `msg` chain node at the given index
     pub(crate) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
         let key = self.key_vec[i];
         self.map.get(key)
@@ -161,12 +161,12 @@ impl Chains {
     }
 
     /// Returns true is the chain is empty and otherwise. We check the map as the source of truth
-    /// as key_vec can be extended time to time.
+    /// as `key_vec` can be extended time to time.
     pub(crate) fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
 
-    /// Removes messages from the given index and resets effective perfs
+    /// Removes messages from the given index and resets effective `perfs`
     pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: i64, base_fee: &BigInt) {
         let prev = match idx {
             0 => None,
@@ -252,7 +252,7 @@ impl IndexMut<usize> for Chains {
     }
 }
 
-/// Represents a node in the MsgChain.
+/// Represents a node in the `MsgChain`.
 #[derive(Clone, Debug)]
 pub struct MsgChainNode {
     pub msgs: Vec<SignedMessage>,

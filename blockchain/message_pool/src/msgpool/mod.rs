@@ -39,7 +39,7 @@ const PROPAGATION_DELAY_SECS: u64 = 6;
 // TODO: Implement guess gas module
 const MIN_GAS: i64 = 1298450;
 
-/// Get the state of the base_sequence for a given address in the current Tipset
+/// Get the state of the `base_sequence` for a given address in the current Tipset
 async fn get_state_sequence<T>(
     api: &RwLock<T>,
     addr: &Address,
@@ -261,8 +261,8 @@ where
     Ok(())
 }
 
-/// This is a helper function for head_change. This method will remove a sequence for a from address
-/// from the messages selected by priority hashmap. It also removes the 'from' address and sequence from the MessagePool.
+/// This is a helper function for `head_change`. This method will remove a sequence for a from address
+/// from the messages selected by priority hash-map. It also removes the 'from' address and sequence from the `MessagePool`.
 pub(crate) async fn remove_from_selected_msgs(
     from: &Address,
     pending: &RwLock<HashMap<Address, MsgSet>>,
@@ -281,8 +281,8 @@ pub(crate) async fn remove_from_selected_msgs(
     Ok(())
 }
 
-/// This is a helper function for head_change. This method will add a signed message to
-/// the given messages selected by priority HashMap.
+/// This is a helper function for `head_change`. This method will add a signed message to
+/// the given messages selected by priority `HashMap`.
 pub(crate) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,

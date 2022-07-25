@@ -14,7 +14,7 @@ fn poiss_pdf(x: f64, mu: f64, cond: f64) -> f64 {
     E.powf(exponent)
 }
 
-/// Calculate the number of winners for each block number, up to [MAX_BLOCKS].
+/// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`].
 // * This will be needed for optimal message selection
 #[allow(dead_code)]
 // TODO following two can be lazy_static
@@ -24,7 +24,7 @@ fn no_winners_prob() -> Vec<f64> {
         .collect()
 }
 
-/// Calculate the number of winners for each block number, up to [MAX_BLOCKS], assuming at least
+/// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`], assuming at least
 /// one winner.
 fn no_winners_prob_assuming_more_than_one() -> Vec<f64> {
     let cond = (E.powf(5.0) - 1.0).log(E);

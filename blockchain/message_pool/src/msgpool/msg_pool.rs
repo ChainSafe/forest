@@ -44,7 +44,7 @@ use tokio::sync::broadcast::error::RecvError;
 const BLS_SIG_CACHE_SIZE: usize = 40000;
 const SIG_VAL_CACHE_SIZE: usize = 32000;
 
-/// Simple struct that contains a hashmap of messages where k: a message from address, v: a message
+/// Simple structure that contains a hash-map of messages where k: a message from address, v: a message
 /// which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
@@ -54,7 +54,7 @@ pub struct MsgSet {
 }
 
 impl MsgSet {
-    /// Generate a new MsgSet with an empty hashmap and setting the sequence specifically.
+    /// Generate a new `MsgSet` with an empty hash-map and setting the sequence specifically.
     pub fn new(sequence: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
@@ -63,7 +63,7 @@ impl MsgSet {
         }
     }
 
-    /// Add a signed message to the MsgSet. Increase next_sequence if the message has a
+    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the message has a
     /// sequence greater than any existing message sequence.
     pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
@@ -140,7 +140,7 @@ pub struct MessagePool<T> {
     pub min_gas_price: BigInt,
     /// This is max number of messages in the pool.
     pub max_tx_pool_size: i64,
-    /// TODO
+    // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: Sender<NetworkMessage>,
@@ -152,11 +152,11 @@ pub struct MessagePool<T> {
     pub republished: Arc<RwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
     pub repub_trigger: Sender<()>,
-    /// TODO look into adding a cap to local_msgs
+    // TODO look into adding a cap to `local_msgs`
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
-    /// Chain сonfig
+    /// Chain configuration
     pub chain_config: Arc<ChainConfig>,
 }
 
@@ -164,7 +164,7 @@ impl<T> MessagePool<T>
 where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
-    /// Creates a new MessagePool instance.
+    /// Creates a new `MessagePool` instance.
     pub async fn new(
         mut api: T,
         network_name: String,
@@ -298,7 +298,7 @@ where
         Ok(())
     }
 
-    /// Push a signed message to the MessagePool. Additionally performs
+    /// Push a signed message to the `MessagePool`. Additionally performs
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
@@ -334,7 +334,7 @@ where
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
-    /// to be pushed to the MessagePool.
+    /// to be pushed to the `MessagePool`.
     pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg).await?;
 
@@ -344,7 +344,7 @@ where
         Ok(())
     }
 
-    /// Add a SignedMessage without doing any of the checks.
+    /// Add a `SignedMessage` without doing any of the checks.
     pub async fn add_skip_checks(&mut self, m: SignedMessage) -> Result<(), Error> {
         self.add_helper(m).await
     }
@@ -365,8 +365,8 @@ where
         Ok(())
     }
 
-    /// Verify the state_sequence and balance for the sender of the message given then
-    /// call add_locked to finish adding the signed_message to pending.
+    /// Verify the `state_sequence` and balance for the sender of the message given then
+    /// call `add_locked` to finish adding the `signed_message` to pending.
     async fn add_tipset(
         &self,
         msg: SignedMessage,
@@ -391,9 +391,9 @@ where
         Ok(publish)
     }
 
-    /// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
-    /// in the hashmap does not yet exist, create a new mset that will correspond to the from
-    /// message and push it to the pending hashmap.
+    /// Finish verifying signed message before adding it to the pending `mset` hash-map. If an entry
+    /// in the hash-map does not yet exist, create a new `mset` that will correspond to the from
+    /// message and push it to the pending hash-map.
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
         let cur_ts = self.cur_tipset.read().await.clone();
@@ -428,7 +428,7 @@ where
         }
     }
 
-    /// Get the state of the sequence for a given address in cur_ts.
+    /// Get the state of the sequence for a given address in `cur_ts`.
     async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
         let actor = self.api.read().await.get_actor_after(addr, cur_ts)?;
         Ok(actor.sequence)
@@ -504,7 +504,7 @@ where
         Ok(())
     }
 
-    /// Remove a message given a sequence and address from the messagepool.
+    /// Remove a message given a sequence and address from the message pool.
     pub async fn remove(
         &mut self,
         from: &Address,
@@ -536,7 +536,7 @@ where
     }
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
-    /// each messsage's sequence. If no corresponding messages found, return None result type.
+    /// each `messsage`'s sequence. If no corresponding messages found, return None result type.
     pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read().await;
         let mset = pending.get(a)?;
@@ -638,9 +638,9 @@ where
 
 // Helpers for MessagePool
 
-/// Finish verifying signed message before adding it to the pending mset hashmap. If an entry
-/// in the hashmap does not yet exist, create a new mset that will correspond to the from message
-/// and push it to the pending hashmap.
+/// Finish verifying signed message before adding it to the pending `mset` hash-map. If an entry
+/// in the hash-map does not yet exist, create a new `mset` that will correspond to the from message
+/// and push it to the pending hash-map.
 pub(crate) async fn add_helper<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
