@@ -10,6 +10,7 @@ use chain::ChainStore;
 use chain_sync::ChainMuxer;
 use fil_cns::FilecoinConsensus;
 use fil_types::verifier::FullVerifier;
+use fil_types::NetworkVersion;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -128,29 +129,6 @@ pub(super) async fn start(config: Config) {
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
 
-    // Terminate if no snapshot is provided and DB isn't at latest network
-    if config.snapshot_path.is_none() {
-        let head = chain_store.heaviest_tipset().await;
-        if head.is_none() {
-            cli_error_and_die(
-                "\n\nNeed to bootstrap Forest with a snapshot on the first run. Refer to the documentation to download and import one.",
-                1,
-            );
-        }
-
-        let head = head.expect("None value is already checked");
-
-        let latest_upgrade = config
-            .chain
-            .height_infos
-            .last()
-            .expect("height_infos is always populated");
-
-        if latest_upgrade.epoch > head.epoch() {
-            cli_error_and_die("Forest is not synced up to the latest network version. Refer to the documentation to download and import one.", 1);
-        }
-    }
-
     let publisher = chain_store.publisher();
 
     // Read Genesis file
@@ -177,6 +155,26 @@ pub(super) async fn start(config: Config) {
     info!("Using network :: {}", network_name);
 
     sync_from_snapshot(&config, &state_manager).await;
+
+    // Terminate if no snapshot is provided and DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => {
+            cli_error_and_die(
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                1,
+            );
+        }
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                cli_error_and_die(
+                   "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    1,
+                );
+            }
+        }
+    }
 
     set_proofs_parameter_cache_dir_env(&config.data_dir);
 
