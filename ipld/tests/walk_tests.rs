@@ -5,16 +5,20 @@
 
 use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
+use encoding::{to_vec, from_slice};
 use forest_db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
-use forest_ipld::{Ipld, Path, from_ipld};
+use forest_ipld::{Ipld, Path};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::DAG_CBOR;
+use multihash::MultihashDigest;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use libipld_core::serde::to_ipld;
+use libipld_core::serde::from_ipld;
 
 /// Type to ignore the specifics of a list or map for JSON tests
 #[derive(Deserialize, Debug, Clone)]
@@ -125,22 +129,28 @@ struct TestLinkResolver(MemoryDB);
 #[async_trait]
 impl LinkResolver for TestLinkResolver {
     async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
-        self.0.get(link)
-        .map(|inner| 
-            inner.map( 
-            |value| 
-            to_ipld(value)
-            ).transpose().ok()?
-        ).map_err(|e| e.to_string())
+        let res = self.0.get(link).map_err(|e| e.to_string())?;
+        println!("res is {:?}", res);
+        match res {
+            Some(bz) => Ok(Some(from_slice(&bz).map_err(|e| e.to_string())?)),
+            None => Ok(None),
+        }
     }
 }
 
 async fn process_vector(tv: TestVector) -> Result<(), String> {
     // Setup resolver with any ipld nodes to store
+    // println!("process_vector tv.cbor_ipld_storage  {:?}", tv.cbor_ipld_storage);
     let resolver = tv.cbor_ipld_storage.map(|ipld_storage| {
         let storage = MemoryDB::default();
+        println!("!!!!! ipld_storage is {:?}", ipld_storage);
         for i in ipld_storage {
-            storage.put(Blake2b256, &i).unwrap();
+            
+            let bz: Vec<u8> = to_vec(&i).unwrap();
+            // println!("process_vector cid is = {:?}", Cid::new_v1(DAG_CBOR, Blake2b256.digest(&bz)));
+            // println!("process_vector bz {:?}", bz);
+            println!("process_vector i {:?}", i);
+            storage.put_keyed(&Cid::new_v1(DAG_CBOR, Blake2b256.digest(&bz)), &bz).unwrap();
         }
         TestLinkResolver(storage)
     });
@@ -152,6 +162,9 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
         .description
         .clone()
         .unwrap_or_else(|| "unnamed test case".to_owned());
+
+    println!("description is {}", description);
+    println!("tv.ipld is {:?}", tv.ipld);
 
     tv.selector
         .walk_all(
@@ -192,6 +205,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
                         exp.last_block
                     ));
                 }
+                println!("index is {:?}", index);
                 index.fetch_add(1, Ordering::Relaxed);
                 Ok(())
             },
@@ -201,6 +215,11 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
 
     // Ensure all expected traversals were checked
     let current_idx = index.into_inner();
+
+    let a: Vec<_> = expect.clone().into_iter().map(|item| item.node).collect();
+
+    println!("expect is {:?}", a);
+
     if expect.len() != current_idx {
         Err(format!(
             "{}: Did not traverse all expected nodes (expected: {}) (current: {})",
@@ -218,7 +237,9 @@ async fn process_file(file: &str) -> Result<(), String> {
     let reader = BufReader::new(file);
     let vectors: Vec<TestVector> =
         serde_json::from_reader(reader).expect("Test vector deserialization failed");
-    for tv in vectors.into_iter() {
+    for (i, tv) in vectors.into_iter().enumerate() {
+        println!("tv index is {}", i);
+        println!("tv is {:?}", i);
         process_vector(tv).await?
     }
 

@@ -114,16 +114,21 @@ where
         F: Fn(&Progress<L>, &Ipld, VisitReason) -> Result<(), String> + Sync,
     {
         // Resolve any links transparently before traversing
+
+        println!("walk_all ipld is {:?}", ipld);
         if let Ipld::Link(cid) = ipld {
             if let Some(resolver) = &mut self.resolver {
                 self.last_block = Some(LastBlockInfo {
                     path: self.path.clone(),
                     link: *cid,
                 });
+                println!("cid walk_all ipld is {:?}", cid);
                 let mut node = resolver.load_link(cid).await.map_err(Error::Link)?;
                 while let Some(Ipld::Link(c)) = node {
                     node = resolver.load_link(&c).await.map_err(Error::Link)?;
                 }
+
+                println!("node walk_all ipld is {:?}", node);
 
                 if let Some(n) = node {
                     return self.walk_all(&n, selector, callback).await;
