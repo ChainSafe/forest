@@ -4,7 +4,7 @@ use async_std::task;
 use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
 use chain::Scale;
-use encoding::Cbor;
+use forest_encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
 use futures::stream::FuturesUnordered;

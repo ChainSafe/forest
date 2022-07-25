@@ -14,7 +14,7 @@ chain             = { path = "../../blockchain/chain/", optional = true }
 forest_message    = { version = "0.7", optional = true, features = ["blst"] }
 forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_libp2p     = { path = "../../node/forest_libp2p/", optional = true }
-encoding          = { package = "forest_encoding", version = "0.2" }
+forest_encoding   = "0.2"
 base64            = "0.13"
 fvm_shared        = { version = "0.8.0", default-features = false }
 cid               = { version = "0.8", default-features = false, features = ["std"] }

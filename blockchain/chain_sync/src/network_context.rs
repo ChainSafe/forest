@@ -3,8 +3,8 @@
 
 use super::peer_manager::PeerManager;
 use cid::Cid;
-use encoding::de::DeserializeOwned;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
+use forest_encoding::de::DeserializeOwned;
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,

@@ -18,7 +18,7 @@ libipld = { version = "0.13", default-features = false, features = [
     "dag-json",
     "derive",
 ] }
-encoding = { package = "forest_encoding", version = "0.2" }
+forest_encoding = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 multibase = { version = "0.9" }

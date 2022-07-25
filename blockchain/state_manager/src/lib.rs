@@ -7,7 +7,7 @@ mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
-use actor::*;
+use actor_interface::*;
 use anyhow::Context;
 use async_log::span;
 use async_std::{sync::RwLock, task};
@@ -15,10 +15,10 @@ use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR}
 use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
-use encoding::Cbor;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_encoding::Cbor;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_vm::{ActorState, TokenAmount};
 use futures::{channel::oneshot, select, FutureExt};
@@ -252,7 +252,7 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
-            .get_actor(&actor::power::ADDRESS, *state_cid)?
+            .get_actor(&actor_interface::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -287,7 +287,7 @@ where
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(&actor::power::ADDRESS, *state_cid)?
+            .get_actor(&actor_interface::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -729,7 +729,10 @@ where
         }
 
         let actor = self
-            .get_actor(&actor::power::ADDRESS, *base_tipset.parent_state())?
+            .get_actor(
+                &actor_interface::power::ADDRESS,
+                *base_tipset.parent_state(),
+            )?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let power_state = power::State::load(self.blockstore(), &actor)?;
@@ -1264,7 +1267,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(&actor::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&actor_interface::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
@@ -1321,7 +1324,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
         let actor = self
-            .get_actor(&actor::power::ADDRESS, *ts.parent_state())?
+            .get_actor(&actor_interface::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor)?;
 
@@ -1392,7 +1395,7 @@ where
     /// Return the state of Market Actor.
     pub fn get_market_state(&self, ts: &Tipset) -> anyhow::Result<market::State> {
         let actor = self
-            .get_actor(&actor::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&actor_interface::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;

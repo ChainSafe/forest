@@ -41,7 +41,7 @@ bytes = "1.0"
 fnv = "1.0"
 smallvec = "1.1"
 chain = { path = "../../blockchain/chain" }
-db = { package = "forest_db", version = "0.1" }
+forest_db = "0.1"
 fvm_ipld_car = "0.4.1"
 libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
 tiny-cid = "0.2"

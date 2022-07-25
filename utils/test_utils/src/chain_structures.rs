@@ -6,9 +6,9 @@
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use encoding::to_vec;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
 use forest_crypto::{Signer, VRFProof};
+use forest_encoding::to_vec;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };

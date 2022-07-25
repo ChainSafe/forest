@@ -11,8 +11,8 @@ repository  = "https://github.com/ChainSafe/forest"
 anyhow              = "1.0"
 fvm_shared          = { version = "0.8.0", default-features = false }
 fvm_ipld_blockstore = "0.1.1"
-db                  = { package = "forest_db", version = "0.1" }
-encoding            = { package = "forest_encoding", version = "0.2" }
+forest_db           = "0.1"
+forest_encoding     = "0.2"
 forest_ipld         = { optional = true, version = "0.1" }
 byteorder           = "1.3"
 dashmap             = "5.0"

@@ -884,8 +884,8 @@ mod tests {
 
     use crate::validation::TipsetValidator;
     use cid::Cid;
-    use db::MemoryDB;
     use forest_blocks::{BlockHeader, Tipset};
+    use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use fvm_shared::{address::Address, message::Message};
     use networks::{ChainConfig, Height};
@@ -909,9 +909,10 @@ mod tests {
     #[test]
     fn empty_msg_meta_vector() {
         let blockstore = MemoryDB::default();
-        let usm: Vec<Message> = encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+        let usm: Vec<Message> =
+            forest_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
         let sm: Vec<SignedMessage> =
-            encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            forest_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
             TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)

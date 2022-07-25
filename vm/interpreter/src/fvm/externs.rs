@@ -66,12 +66,10 @@ impl<DB: BlockStore> ForestExterns<DB> {
         }
 
         let prev_root = (self.lookback)(height);
-        let lb_state = StateTree::new_from_root(self.db.as_ref(), &prev_root)
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let lb_state = StateTree::new_from_root(self.db.as_ref(), &prev_root)?;
 
         let actor = lb_state
-            .get_actor(miner_addr)
-            .map_err(|e| anyhow::anyhow!("{}", e))?
+            .get_actor(miner_addr)?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tracker = Rc::new(RefCell::new(GasTracker::new(
@@ -84,15 +82,13 @@ impl<DB: BlockStore> ForestExterns<DB> {
             store: self.db.as_ref(),
         };
 
-        let ms = actor::miner::State::load(&gbs, &actor).map_err(|e| anyhow::anyhow!("{}", e))?;
+        let ms = actor_interface::miner::State::load(&gbs, &actor)?;
 
-        let worker = ms.info(&gbs).map_err(|e| anyhow::anyhow!("{}", e))?.worker;
+        let worker = ms.info(&gbs)?.worker;
 
-        let state = StateTree::new_from_root(self.db.as_ref(), &self.root)
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let state = StateTree::new_from_root(self.db.as_ref(), &self.root)?;
 
-        let addr =
-            resolve_to_key_addr(&state, &gbs, &worker).map_err(|e| anyhow::anyhow!("{}", e))?;
+        let addr = resolve_to_key_addr(&state, &gbs, &worker)?;
 
         let gas_used = tracker.borrow().gas_used();
         Ok((addr, gas_used.round_up()))

@@ -23,7 +23,7 @@ extern crate lazy_static;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use encoding::to_vec;
+use forest_encoding::to_vec;
 use fvm_ipld_encoding::DAG_CBOR;
 
 lazy_static! {

@@ -16,7 +16,7 @@ fvm_shared = { version = "0.8", default-features = false, features = [
 ] }
 fvm_ipld_encoding = "0.2"
 forest_vm = "0.3"
-encoding = { package = "forest_encoding", version = "0.2" }
+forest_encoding = "0.2"
 forest_crypto = { default-features = false, version = "0.5" }
 derive_builder = "0.11"
 serde = { version = "1.0", features = ["derive"] }

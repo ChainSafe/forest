@@ -8,17 +8,17 @@ edition = "2021"
 anyhow            = "1.0"
 pbr               = "1.0.3"
 forest_blocks     = { path = "../blocks", features = ["json"] }
-db                = { package = "forest_db", version = "0.1" }
+forest_db         = "0.1"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 bls-signatures    = { version = "0.11", default-features = false, features = ["blst"] }
-encoding          = { package = "forest_encoding", version = "0.2.1" }
+forest_encoding   = "0.2.1"
 serde             = { version = "1.0", features = ["derive"] }
 num-traits        = "0.2"
 forest_message    = { version = "0.7", features = ["blst"] }
 ipld_blockstore   = "0.1"
 thiserror         = "1.0"
 log               = "0.4.8"
-actor             = { package = "actor_interface", path = "../../vm/actor_interface" }
+actor_interface   = { path = "../../vm/actor_interface" }
 blake2b_simd      = "0.5.9"
 byteorder         = "1.3.4"
 beacon            = { path = "../beacon" }

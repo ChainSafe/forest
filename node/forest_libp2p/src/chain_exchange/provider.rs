@@ -152,7 +152,7 @@ mod tests {
     use super::super::{HEADERS, MESSAGES};
     use super::*;
     use async_std::io::BufReader;
-    use db::MemoryDB;
+    use forest_db::MemoryDB;
     use fvm_ipld_car::load_car;
     use genesis::EXPORT_SR_40;
     use std::sync::Arc;

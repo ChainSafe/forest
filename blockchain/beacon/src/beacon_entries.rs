@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{serde_byte_array, tuple::*};
+use forest_encoding::{serde_byte_array, tuple::*};
 
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of

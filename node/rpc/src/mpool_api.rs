@@ -3,8 +3,8 @@
 
 use super::gas_api::estimate_message_gas;
 use beacon::Beacon;
-use encoding::Cbor;
 use forest_blocks::TipsetKeys;
+use forest_encoding::Cbor;
 use forest_json::cid::{vec::CidJsonVec, CidJson};
 use forest_message::message::json::MessageJson;
 use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};

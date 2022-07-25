@@ -6,10 +6,8 @@ edition = "2021"
 
 [dependencies]
 # Internal
-actor = { package = "actor_interface", path = "../../vm/actor_interface" }
-beacon = { package = "beacon", path = "../../blockchain/beacon", features = [
-    "json",
-] }
+actor_interface = { path = "../../vm/actor_interface" }
+beacon = { path = "../../blockchain/beacon", features = ["json"] }
 forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
 ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain", features = ["json"] }
@@ -21,7 +19,7 @@ forest_libp2p = { path = "../forest_libp2p" }
 forest_ipld = { version = "0.1" }
 forest_message = { version = "0.7", features = ["json", "blst"] }
 message_pool = { path = "../../blockchain/message_pool" }
-state_manager = { package = "state_manager", path = "../../blockchain/state_manager" }
+state_manager = { path = "../../blockchain/state_manager" }
 forest_vm = "0.3"
 key_management = { path = "../../key_management", features = ["json"] }
 # Public

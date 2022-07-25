@@ -4,7 +4,7 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use actor::{miner, EPOCHS_IN_DAY};
+use actor_interface::{miner, EPOCHS_IN_DAY};
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
@@ -12,8 +12,8 @@ use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use crossbeam::atomic::AtomicCell;
-use encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use forest_encoding::{de::DeserializeOwned, from_slice, Cbor};
 use forest_ipld::recurse_links;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
@@ -987,7 +987,7 @@ mod tests {
 
     #[test]
     fn genesis_test() {
-        let db = db::MemoryDB::default();
+        let db = forest_db::MemoryDB::default();
 
         let cs = ChainStore::new(Arc::new(db));
         let gen_block = BlockHeader::builder()
@@ -1007,7 +1007,7 @@ mod tests {
 
     #[test]
     fn block_validation_cache_basic() {
-        let db = db::MemoryDB::default();
+        let db = forest_db::MemoryDB::default();
 
         let cs = ChainStore::new(Arc::new(db));
 

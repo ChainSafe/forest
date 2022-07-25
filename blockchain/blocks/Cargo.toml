@@ -15,7 +15,7 @@ forest_message    = { version = "0.7", features = ["blst"] }
 forest_json       = { version = "0.1.0", path = "../../utils/json/" }
 derive_builder    = "0.10"
 serde             = { version = "1.0", features = ["derive"] }
-encoding          = { package = "forest_encoding", version = "0.2.1" }
+forest_encoding   = "0.2.1"
 num-bigint        = "0.4"
 fvm_shared        = { version = "0.8.0", default-features = false }
 sha2              = { version = "0.9", default-features = false }

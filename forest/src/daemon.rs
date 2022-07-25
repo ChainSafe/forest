@@ -24,7 +24,7 @@ use libp2p::identity::{ed25519, Keypair};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
-use db::rocks::RocksDb;
+use forest_db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -118,7 +118,7 @@ pub(super) async fn start(config: Config) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
+    let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
     let db = Arc::new(db);
@@ -357,8 +357,8 @@ fn chain_path(config: &Config) -> PathBuf {
 #[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
-    use db::MemoryDB;
     use forest_blocks::BlockHeader;
+    use forest_db::MemoryDB;
     use fvm_shared::address::Address;
     use networks::ChainConfig;
 

@@ -4,8 +4,8 @@ use directories::ProjectDirs;
 use structopt::StructOpt;
 
 use cid::Cid;
-use db::rocks::RocksDb;
-use db::rocks_config::RocksDbConfig;
+use forest_db::rocks::RocksDb;
+use forest_db::rocks_config::RocksDbConfig;
 use statediff::print_state_diff;
 
 /// Examine the state delta
