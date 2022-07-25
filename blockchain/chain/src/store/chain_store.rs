@@ -9,6 +9,7 @@ use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
 use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
+use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use crossbeam::atomic::AtomicCell;
 use encoding::{de::DeserializeOwned, from_slice, Cbor};
@@ -22,6 +23,7 @@ use fvm_ipld_car::CarHeader;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::message::Message;
 use interpreter::BlockMessages;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
@@ -900,6 +902,77 @@ pub mod headchange_json {
             }
         }
     }
+}
+
+/// Result of persisting a vector of `SignedMessage`s that are to be included in a block.
+///
+/// The fields are public so they can be partially moved, but they should not be modified.
+pub struct PersistedBlockMessages {
+    /// Overall CID to be included in the `BlockHeader`.
+    pub msg_cid: Cid,
+    /// All CIDs of Secp256k1 messages, to be included in `BlockMsg`.
+    pub secp_cids: Vec<Cid>,
+    /// All CIDs of BLS messages, to be included in `BlockMsg`.
+    pub bls_cids: Vec<Cid>,
+    /// Aggregated signature of all BLS messages, to be included in the `BlockHeader`.
+    pub bls_agg: Signature,
+}
+
+/// Partition the messages into Secp256k1 and BLS variants, store them individually in the IPLD store,
+/// and the corresponding `TxMeta` as well, returning its CID so that it can be put in a block header.
+/// Also return the aggregated BLS signature of all BLS messages.
+pub fn persist_block_messages<DB: BlockStore>(
+    db: &DB,
+    messages: Vec<&SignedMessage>,
+) -> anyhow::Result<PersistedBlockMessages> {
+    let mut bls_cids = Vec::new();
+    let mut secp_cids = Vec::new();
+
+    let mut bls_sigs = Vec::new();
+    for msg in messages {
+        if msg.signature().signature_type() == SignatureType::BLS {
+            let c = db.put_obj(&msg.message, Blake2b256)?;
+            bls_cids.push(c);
+            bls_sigs.push(&msg.signature);
+        } else {
+            let c = db.put_obj(&msg, Blake2b256)?;
+            secp_cids.push(c);
+        }
+    }
+
+    let bls_msg_root = Amt::new_from_iter(db, bls_cids.iter().copied())?;
+    let secp_msg_root = Amt::new_from_iter(db, secp_cids.iter().copied())?;
+
+    let mmcid = db.put_obj(
+        &TxMeta {
+            bls_message_root: bls_msg_root,
+            secp_message_root: secp_msg_root,
+        },
+        Blake2b256,
+    )?;
+
+    let bls_agg = if bls_sigs.is_empty() {
+        Signature::new_bls(vec![])
+    } else {
+        Signature::new_bls(
+            bls_signatures::aggregate(
+                &bls_sigs
+                    .iter()
+                    .map(|s| s.bytes())
+                    .map(bls_signatures::Signature::from_bytes)
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .unwrap()
+            .as_bytes(),
+        )
+    };
+
+    Ok(PersistedBlockMessages {
+        msg_cid: mmcid,
+        secp_cids,
+        bls_cids,
+        bls_agg,
+    })
 }
 
 #[cfg(test)]

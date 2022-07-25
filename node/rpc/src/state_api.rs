@@ -13,8 +13,7 @@ use actor::{
     reward,
 };
 use beacon::{Beacon, BeaconEntry};
-use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::Cid;
 use fil_types::{
     verifier::{FullVerifier, ProofVerifier},
     PoStProof,
@@ -25,17 +24,15 @@ use forest_blocks::{
 };
 use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
-    Tipset, TxMeta,
+    Tipset,
 };
 use forest_ipld::{json::IpldJson, Ipld};
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
 use fvm::state_tree::StateTree;
-use fvm_shared::crypto::signature::SignatureType;
-use fvm_shared::{address::Address, bigint::BigInt, crypto::signature::Signature};
+use fvm_shared::{address::Address, bigint::BigInt};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
-use legacy_ipld_amt::Amt;
 use networks::Height;
 use rpc_api::{
     data_types::{
@@ -619,65 +616,19 @@ pub(crate) async fn miner_create_block<
         .state_manager
         .get_lookback_tipset_for_round(pts.clone(), epoch)
         .await?;
-    let worker = data.state_manager.get_miner_worker_raw(&lbst, &miner)?;
+    let worker = data.state_manager.get_miner_work_addr(lbst, &miner)?;
 
-    let mut bls_msgs = Vec::new();
-    let mut secp_msgs = Vec::new();
-    let mut bls_cids = Vec::new();
-    let mut secp_cids = Vec::new();
+    let persisted =
+        chain::persist_block_messages(data.chain_store.blockstore(), messages.iter().collect())?;
 
-    let mut bls_sigs = Vec::new();
-    for msg in messages {
-        if msg.signature().signature_type() == SignatureType::BLS {
-            let c = data
-                .chain_store
-                .blockstore()
-                .put_obj(&msg.message, Blake2b256)?;
-            bls_sigs.push(msg.signature);
-            bls_msgs.push(msg.message);
-            bls_cids.push(c);
-        } else {
-            let c = data.chain_store.blockstore().put_obj(&msg, Blake2b256)?;
-            secp_cids.push(c);
-            secp_msgs.push(msg);
-        }
-    }
-
-    let bls_msg_root = Amt::new_from_iter(data.chain_store.blockstore(), bls_cids.iter().copied())?;
-    let secp_msg_root =
-        Amt::new_from_iter(data.chain_store.blockstore(), secp_cids.iter().copied())?;
-
-    let mmcid = data.chain_store.blockstore().put_obj(
-        &TxMeta {
-            bls_message_root: bls_msg_root,
-            secp_message_root: secp_msg_root,
-        },
-        Blake2b256,
-    )?;
-
-    let calculated_bls_agg = if bls_sigs.is_empty() {
-        Some(Signature::new_bls(vec![]))
-    } else {
-        Some(Signature::new_bls(
-            bls_signatures::aggregate(
-                &bls_sigs
-                    .iter()
-                    .map(|s| s.bytes())
-                    .map(bls_signatures::Signature::from_bytes)
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-            .unwrap()
-            .as_bytes(),
-        ))
-    };
     let pweight = S::weight(data.chain_store.blockstore(), pts.as_ref())?;
     let smoke_height = data.state_manager.chain_config().epoch(Height::Smoke);
     let base_fee =
         chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
 
     let mut next = BlockHeader::builder()
-        .messages(mmcid)
-        .bls_aggregate(calculated_bls_agg)
+        .messages(persisted.msg_cid)
+        .bls_aggregate(Some(persisted.bls_agg))
         .miner_address(miner)
         .weight(pweight)
         .parent_base_fee(base_fee)
@@ -693,7 +644,7 @@ pub(crate) async fn miner_create_block<
         .signature(None)
         .build()?;
 
-    let key = key_management::find_key(&worker, &*data.keystore.as_ref().write().await)?;
+    let key = key_management::find_key(&worker, &*data.keystore.as_ref().read().await)?;
     let sig = key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
@@ -703,8 +654,8 @@ pub(crate) async fn miner_create_block<
 
     Ok(BlockMsgJson(BlockMsg {
         header: next,
-        bls_messages: bls_cids,
-        secpk_messages: secp_cids,
+        bls_messages: persisted.bls_cids,
+        secpk_messages: persisted.secp_cids,
     }))
 }
 

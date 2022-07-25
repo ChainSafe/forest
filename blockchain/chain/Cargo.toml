@@ -10,6 +10,7 @@ pbr               = "1.0.3"
 forest_blocks     = { path = "../blocks", features = ["json"] }
 db                = { package = "forest_db", version = "0.1" }
 forest_crypto     = { version = "0.5", features = ["blst"] }
+bls-signatures    = { version = "0.11", default-features = false, features = ["blst"] }
 encoding          = { package = "forest_encoding", version = "0.2.1" }
 serde             = { version = "1.0", features = ["derive"] }
 num-traits        = "0.2"

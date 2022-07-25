@@ -69,11 +69,11 @@ where
     T: Provider,
 {
     let ts = cur_tipset.read().await;
-    let base_fee = api.read().await.chain_compute_base_fee(&ts)?;
-    let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
     republished.write().await.clear();
+
+    // Only republish messages from local addresses, ie. transactions which were sent to this node directly.
     let local_addrs = local_addrs.read().await;
     for actor in local_addrs.iter() {
         if let Some(mset) = pending.read().await.get(actor) {
@@ -89,18 +89,59 @@ where
     }
     drop(local_addrs);
 
-    if pending_map.is_empty() {
-        return Ok(());
+    let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map).await?;
+
+    drop(ts);
+
+    for m in msgs.iter() {
+        let mb = m.marshal_cbor()?;
+        network_sender
+            .send(NetworkMessage::PubsubMessage {
+                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
+                message: mb,
+            })
+            .await
+            .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
+    }
+
+    let mut republished_t = HashSet::new();
+    for m in msgs.iter() {
+        republished_t.insert(m.cid()?);
+    }
+    *republished.write().await = republished_t;
+
+    Ok(())
+}
+
+/// Select messages from the mempool to be included in the next block that builds on
+/// a given base tipset. The messages should be eligible for inclusion based on their
+/// sequences and the overall number of them should observe block gas limits.
+async fn select_messages_for_block<T>(
+    api: &RwLock<T>,
+    chain_config: &ChainConfig,
+    base: &Tipset,
+    pending: HashMap<Address, HashMap<u64, SignedMessage>>,
+) -> Result<Vec<SignedMessage>, Error>
+where
+    T: Provider,
+{
+    let mut msgs: Vec<SignedMessage> = vec![];
+
+    let base_fee = api.read().await.chain_compute_base_fee(base)?;
+    let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
+
+    if pending.is_empty() {
+        return Ok(msgs);
     }
 
     let mut chains = Chains::new();
-    for (actor, mset) in pending_map.iter() {
+    for (actor, mset) in pending.iter() {
         create_message_chains(
             api,
             actor,
             mset,
             &base_fee_lower_bound,
-            &ts,
+            base,
             &mut chains,
             chain_config,
         )
@@ -108,12 +149,11 @@ where
     }
 
     if chains.is_empty() {
-        return Ok(());
+        return Ok(msgs);
     }
 
     chains.sort(false);
 
-    let mut msgs: Vec<SignedMessage> = vec![];
     let mut gas_limit = fil_types::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
@@ -163,25 +203,8 @@ where
             j += 1;
         }
     }
-    drop(ts);
-    for m in msgs.iter() {
-        let mb = m.marshal_cbor()?;
-        network_sender
-            .send(NetworkMessage::PubsubMessage {
-                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
-                message: mb,
-            })
-            .await
-            .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
-    }
 
-    let mut republished_t = HashSet::new();
-    for m in msgs.iter() {
-        republished_t.insert(m.cid()?);
-    }
-    *republished.write().await = republished_t;
-
-    Ok(())
+    Ok(msgs)
 }
 
 /// This function will revert and/or apply tipsets to the message pool. This function should be

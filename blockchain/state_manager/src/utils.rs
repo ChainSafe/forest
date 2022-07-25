@@ -13,10 +13,8 @@ use fil_types::{
     SectorNumber,
 };
 use forest_blocks::Tipset;
-use fvm::state_tree::StateTree;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
-use interpreter::resolve_to_key_addr;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 
@@ -257,21 +255,6 @@ where
         let miners = power_actor_state.list_all_miners(self.blockstore())?;
 
         Ok(miners)
-    }
-
-    /// Gets miner's worker address from state.
-    pub fn get_miner_worker_raw(
-        &self,
-        state: &Cid,
-        miner_addr: &Address,
-    ) -> anyhow::Result<Address, Error> {
-        let st = StateTree::new_from_root(self.blockstore(), state)?;
-        let actor = st
-            .get_actor(miner_addr)?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-        let info = mas.info(self.blockstore())?;
-        Ok(resolve_to_key_addr(&st, self.blockstore(), &info.worker())?)
     }
 }
 
