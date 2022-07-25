@@ -3,7 +3,7 @@
 
 use encoding::{serde_byte_array, tuple::*};
 
-/// The result from getting an entry from Drand.
+/// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of
 /// randomness.
 /// This beacon entry is stored on chain in the block header.
@@ -22,7 +22,7 @@ impl BeaconEntry {
     pub fn round(&self) -> u64 {
         self.round
     }
-    /// The signature of message H(prev_round, prev_round.data, round).
+    /// The signature of message `H(prev_round, prev_round.data, round)`.
     pub fn data(&self) -> &[u8] {
         &self.data
     }
@@ -33,12 +33,12 @@ pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a BeaconEntry from JSON.
+    /// Wrapper for serializing and de-serializing a `BeaconEntry` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJson(#[serde(with = "self")] pub BeaconEntry);
 
-    /// Wrapper for serializing a BeaconEntry reference to JSON.
+    /// Wrapper for serializing a `BeaconEntry` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct BeaconEntryJsonRef<'a>(#[serde(with = "self")] pub &'a BeaconEntry);
