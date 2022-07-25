@@ -13,7 +13,7 @@ use chain::Error as ChainStoreError;
 use chain::Scale;
 use chain::Weight;
 use chain_sync::consensus::Consensus;
-use encoding::Error as ForestEncodingError;
+use forest_encoding::Error as ForestEncodingError;
 use forest_blocks::{Block, Tipset};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
