@@ -52,7 +52,7 @@ pub struct DrandConfig<'a> {
     pub network_type: DrandNetwork,
 }
 
-/// Contains the vector of `BeaconPoints`, which are mappings of epoch to the `Randomness` beacons used.
+/// Contains the vector of `BeaconPoint`, which are mappings of epoch to the `Randomness` beacons used.
 pub struct BeaconSchedule<T>(pub Vec<BeaconPoint<T>>);
 
 impl<T> BeaconSchedule<T>
