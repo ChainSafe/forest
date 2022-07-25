@@ -221,7 +221,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize Consensus
     #[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
-    error!("No consensus feature has been enabled; use e.g. `--feature fil_cns` to pick one.");
+    compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
 
     #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
     type FullConsensus = fil_cns::FilecoinConsensus<beacon::DrandBeacon, FullVerifier>;
