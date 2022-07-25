@@ -3,7 +3,7 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_ipld::Ipld;
+use libipld_core::ipld::Ipld;
 use fvm_ipld_encoding::DAG_CBOR;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 

@@ -27,7 +27,7 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset, TxMeta,
 };
-use forest_ipld::{json::IpldJson, Ipld};
+use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
@@ -45,6 +45,7 @@ use rpc_api::{
     state_api::*,
 };
 use state_manager::{InvocResult, StateManager};
+use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
