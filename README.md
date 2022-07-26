@@ -66,7 +66,7 @@ sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
 sudo pacman -S base-devel clang ocl-icd openssl
 
 # Fedora (36)
-sudo dnf install -y clang-devel ocl-icd-devel
+sudo dnf install -y clang-devel ocl-icd-devel cmake
 ```
 
 ## Installation
