@@ -109,7 +109,7 @@ where
         cs
     }
 
-    /// Sets heaviest tipset within `ChainStore` and store its tipset CIDs under `HEAD_KEY`
+    /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
     pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.write().await = Some(ts.clone());
