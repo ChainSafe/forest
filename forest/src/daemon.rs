@@ -9,12 +9,7 @@ use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
-<<<<<<< HEAD
-use fil_cns::FilecoinConsensus;
 use fil_types::{verifier::FullVerifier, NetworkVersion};
-=======
-use fil_types::verifier::FullVerifier;
->>>>>>> main
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
