@@ -31,10 +31,10 @@ use async_std::future;
 const RPC_TIMEOUT: u64 = 5;
 
 /// Context used in chain sync to handle network requests.
-/// This contains the peer manager, p2p service interface, and [BlockStore] required to make
+/// This contains the peer manager, P2P service interface, and [`BlockStore`] required to make
 /// network requests.
 pub(crate) struct SyncNetworkContext<DB> {
-    /// Channel to send network messages through p2p service
+    /// Channel to send network messages through P2P service
     network_send: Sender<NetworkMessage>,
 
     /// Manages peers to send requests to and updates request stats for the respective peers.
@@ -73,7 +73,7 @@ where
         self.peer_manager.as_ref()
     }
 
-    /// Send a chain_exchange request for only block headers (ignore messages).
+    /// Send a `chain_exchange` request for only block headers (ignore messages).
     /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
     pub async fn chain_exchange_headers(
         &self,
@@ -84,7 +84,7 @@ where
         self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
             .await
     }
-    /// Send a chain_exchange request for only messages (ignore block headers).
+    /// Send a `chain_exchange` request for only messages (ignore block headers).
     /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
     pub async fn chain_exchange_messages(
         &self,
@@ -96,7 +96,7 @@ where
             .await
     }
 
-    /// Send a chain_exchange request for a single full tipset (includes messages)
+    /// Send a `chain_exchange` request for a single full tipset (includes messages)
     /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
     pub async fn chain_exchange_fts(
         &self,
@@ -116,8 +116,8 @@ where
         Ok(fts.remove(0))
     }
 
-    /// Requests that some content with a particular Cid get fetched over Bitswap if it doesn't
-    /// exist in the BlockStore.
+    /// Requests that some content with a particular `Cid` get fetched over `Bitswap` if it doesn't
+    /// exist in the `BlockStore`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
         content: Cid,
@@ -217,7 +217,7 @@ where
         Ok(bs_res)
     }
 
-    /// Send a chain_exchange request to the network and await response.
+    /// Send a `chain_exchange` request to the network and await response.
     async fn chain_exchange_request(
         &self,
         peer_id: PeerId,
