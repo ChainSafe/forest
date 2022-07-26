@@ -342,8 +342,8 @@ pub(super) fn to_size_string(input: &BigInt) -> String {
 
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
-pub(super) fn cli_error_and_die(msg: &str, code: i32) {
-    error!("Error: {}", msg);
+pub(super) fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
+    error!("Error: {}", msg.as_ref());
     std::process::exit(code);
 }
 
