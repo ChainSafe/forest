@@ -10,13 +10,13 @@ forest_vm       = "0.3.1"
 forest_blocks   = { path = "../blocks" }
 forest_message  = { version = "0.7", features = ["proofs", "json", "blst"] }
 thiserror       = "1.0"
-encoding        = { package = "forest_encoding", version = "0.2.1" }
+forest_encoding = "0.2.1"
 ipld_blockstore = "0.1"
 lru             = "0.7.2"
 forest_crypto   = { version = "0.5", features = ["blst"] }
 chain           = { path = "../chain" }
 serde           = { version = "1.0", features = ["derive"] }
-db              = { package = "forest_db", version = "0.1" }
+forest_db       = "0.1"
 tokio           = { version = "1.0", features = ["sync"] }
 futures         = "0.3.5"
 libsecp256k1    = "0.6"

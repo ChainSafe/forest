@@ -25,15 +25,15 @@ use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
-use actor::is_account_actor;
+use actor_interface::is_account_actor;
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use encoding::Cbor;
 use fil_types::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
+use forest_encoding::Cbor;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;

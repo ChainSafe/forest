@@ -16,8 +16,8 @@ legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
 forest_vm         = "0.3.1"
 forest_blocks     = { path = "../blocks", features = ["json"] }
 beacon            = { path = "../beacon" }
-db                = { package = "forest_db", version = "0.1" }
-encoding          = { package = "forest_encoding", version = "0.2.1" }
+forest_db         = "0.1"
+forest_encoding   = "0.2.1"
 libp2p            = { version = "0.40.0-rc.1", default-features = false }
 ipld_blockstore   = "0.1"
 chain             = { path = "../chain" }
@@ -38,7 +38,7 @@ serde             = { version = "1.0", features = ["derive", "rc"] }
 tokio             = { version = "1.0", features = ["sync"] }
 rand              = "0.7.3"
 smallvec          = "1.1.0"
-actor             = { package = "actor_interface", path = "../../vm/actor_interface" }
+actor_interface   = { path = "../../vm/actor_interface" }
 interpreter       = { path = "../../vm/interpreter/" }
 message_pool      = { path = "../message_pool" }
 networks          = { path = "../../types/networks" }

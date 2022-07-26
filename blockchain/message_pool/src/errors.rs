@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chain::Error as ChainError;
-use encoding::Error as EncodeError;
+use forest_encoding::Error as EncodeError;
 use thiserror::Error;
 
 /// `MessagePool` error.

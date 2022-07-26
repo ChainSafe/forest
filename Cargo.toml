@@ -9,6 +9,7 @@ members = [
     "blockchain/beacon",
     "blockchain/message_pool",
     "blockchain/consensus/fil_cns",
+    "blockchain/consensus/deleg_cns",
     "vm",
     "vm/actor_interface",
     "vm/message",

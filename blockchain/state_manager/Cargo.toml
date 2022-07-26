@@ -14,11 +14,11 @@ fvm_shared          = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield   = "0.5.2"
 legacy_ipld_amt     = { path = "../../ipld/legacy_amt" }
 fil_actors_runtime  = "=8.0.0"
-actor               = { package = "actor_interface", path = "../../vm/actor_interface" }
+actor_interface     = { path = "../../vm/actor_interface" }
 blake2b_simd        = "0.5.9"
 byteorder           = "1.3.4"
-db                  = { package = "forest_db", version = "0.1" }
-encoding            = { package = "forest_encoding", version = "0.2.1" }
+forest_db           = "0.1"
+forest_encoding     = "0.2.1"
 ipld_blockstore     = "0.1"
 forest_blocks       = { path = "../../blockchain/blocks" }
 beacon              = { path = "../../blockchain/beacon" }

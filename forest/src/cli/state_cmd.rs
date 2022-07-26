@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use actor::is_miner_actor;
+use actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use forest_json::address::json::AddressJson;
 use forest_vm::ActorState;
