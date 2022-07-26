@@ -11,12 +11,12 @@ use cid::Cid;
 use colored::*;
 use difference::{Changeset, Difference};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_ipld::Ipld;
 use forest_json::cid::CidJson;
 use forest_vm::ActorState;
 use fvm::state_tree::StateTree;
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
+use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 
