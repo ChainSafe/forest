@@ -778,8 +778,8 @@ where
         .transpose()?)
 }
 
-/// Attempts to `deserialize` to unsigned message or signed message and then returns it at as a
-// [ChainMessage].
+/// Attempts to de-serialize to unsigned message or signed message and then returns it as a
+/// [`ChainMessage`].
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
