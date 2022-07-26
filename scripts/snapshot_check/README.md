@@ -6,10 +6,13 @@ Fedora Linux 36 (Cloud Edition) x86_64
 8 vCPUs
 16GB / 320GB Disk
 ```
+* git installed,
 * `s3fs-fuse` installed,
 * Slack webhook: follow the instructions [here](https://api.slack.com/messaging/webhooks) to set up notifications.
 
 ## Installation
+* Put Digital Ocean Spaces password in `.passwd-s3fs`
+* `git clone https://github.com/ChainSafe/forest.git`
 * Download manually mainnet snapshot and put it in `$HOME/snapshots`. 
 * Mount `forest-snapshots` Space. You can use the `mount_snapshot.sh` for this (make sure to setup the credentials beforehand).
 * `git clone` the repository and go to this directory. Ensure the defaults in the `.env` file are correct, if not override them (you **must** provide a Slack hook if you want to send notifications).
