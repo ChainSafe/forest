@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use encoding::BytesDe;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
+use forest_encoding::BytesDe;
 use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;
 use forest_vm::{ActorState, DealID, TokenAmount};

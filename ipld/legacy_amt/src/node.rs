@@ -4,7 +4,7 @@
 use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{multihash::Code::Blake2b256, Cid};
-use encoding::{serde_bytes, BytesSer};
+use forest_encoding::{cs_serde_bytes, BytesSer};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use once_cell::unsync::OnceCell;
 use serde::{
@@ -115,7 +115,7 @@ where
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct CollapsedNode<V>(#[serde(with = "serde_bytes")] Vec<u8>, Vec<Cid>, Vec<V>);
+pub(crate) struct CollapsedNode<V>(#[serde(with = "cs_serde_bytes")] Vec<u8>, Vec<Cid>, Vec<V>);
 
 impl<V> CollapsedNode<V> {
     pub(crate) fn expand(self, bit_width: usize) -> Result<Node<V>, Error> {
@@ -552,7 +552,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use encoding::{from_slice, to_vec};
+    use forest_encoding::{from_slice, to_vec};
 
     #[test]
     fn serialize_node_symmetric() {

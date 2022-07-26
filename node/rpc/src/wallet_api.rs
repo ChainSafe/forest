@@ -6,8 +6,8 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use beacon::Beacon;
-use encoding::Cbor;
 use forest_crypto::signature::json::SignatureJson;
+use forest_encoding::Cbor;
 use forest_json::address::json::AddressJson;
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,

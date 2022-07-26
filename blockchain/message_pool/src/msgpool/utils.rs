@@ -4,7 +4,7 @@
 use crate::Error;
 use chain::MINIMUM_BASE_FEE;
 use cid::Cid;
-use encoding::Cbor;
+use forest_encoding::Cbor;
 use forest_message::{Message as MessageTrait, SignedMessage};
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::Signature;
@@ -35,7 +35,7 @@ pub(crate) fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
     a.to_f64().unwrap()
 }
 
-/// Attempt to get a signed message that corresponds to an unsigned message in bls_sig_cache.
+/// Attempt to get a signed message that corresponds to an unsigned message in `bls_sig_cache`.
 pub(crate) async fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
     msg: Message,

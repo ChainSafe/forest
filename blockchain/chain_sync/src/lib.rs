@@ -5,7 +5,7 @@
 
 mod bad_block_cache;
 mod chain_muxer;
-mod consensus;
+pub mod consensus;
 mod metrics;
 mod network_context;
 mod peer_manager;

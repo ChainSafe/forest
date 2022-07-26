@@ -8,7 +8,7 @@ use crate::{
     nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
 };
 use cid::{multihash::Code::Blake2b256, Cid};
-use encoding::{de::DeserializeOwned, ser::Serialize};
+use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use itertools::sorted;
 use std::error::Error as StdError;
@@ -21,7 +21,7 @@ use std::error::Error as StdError;
 /// ```
 /// use legacy_ipld_amt::Amt;
 ///
-/// let db = db::MemoryDB::default();
+/// let db = forest_db::MemoryDB::default();
 /// let mut amt = Amt::new(&db);
 ///
 /// // Insert or remove any serializable values
@@ -277,7 +277,7 @@ where
     /// ```
     /// use legacy_ipld_amt::Amt;
     ///
-    /// let store = db::MemoryDB::default();
+    /// let store = forest_db::MemoryDB::default();
     ///
     /// let mut map: Amt<String, _> = Amt::new(&store);
     /// map.set(1, "One".to_owned()).unwrap();

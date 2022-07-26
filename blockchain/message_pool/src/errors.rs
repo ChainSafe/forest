@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chain::Error as ChainError;
-use encoding::Error as EncodeError;
+use forest_encoding::Error as EncodeError;
 use thiserror::Error;
 
-/// MessagePool error.
+/// `MessagePool` error.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
     /// Error indicating message that's too large

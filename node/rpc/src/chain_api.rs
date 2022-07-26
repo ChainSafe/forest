@@ -3,6 +3,7 @@
 
 use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
+use async_std::{fs::File, io::BufWriter};
 use beacon::Beacon;
 use chain::headchange_json::HeadChangeJson;
 use cid::Cid;
@@ -22,7 +23,7 @@ use rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -48,6 +49,44 @@ where
         .get_obj(&msg_cid)?
         .ok_or("can't find message with that cid")?;
     Ok(MessageJson(ret))
+}
+
+pub(crate) async fn chain_export<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainExportParams>,
+) -> Result<ChainExportResult, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
+
+    let chain_finality = data.state_manager.chain_config().policy.chain_finality;
+    let recent_roots = recent_roots.unwrap_or(chain_finality);
+    if recent_roots < chain_finality {
+        Err(&format!(
+            "recent-stateroots must be greater than {}",
+            chain_finality
+        ))?;
+    }
+
+    if recent_roots == 0 && skip_old_msgs {
+        Err("must pass recent-stateroots along with skip-old-messages")?;
+    }
+
+    let file = File::create(&out).await.map_err(JsonRpcError::from)?;
+    let writer = BufWriter::new(file);
+
+    let head = data.chain_store.tipset_from_keys(&tsk).await?;
+
+    let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
+
+    data.chain_store
+        .export(&start_ts, recent_roots, skip_old_msgs, writer)
+        .await
+        .map_err(JsonRpcError::from)?;
+
+    Ok(PathBuf::from(out))
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(

@@ -1,0 +1,28 @@
+[package]
+name    = "deleg_cns"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+
+[dependencies]
+anyhow          = "1.0"
+async-std = { version = "1.9", features = ["tokio1", "unstable"] }
+async-trait = "0.1"
+futures = "0.3.5"
+log = "0.4.8"
+nonempty = "0.8.0"
+thiserror = "1.0"
+
+cid = { version = "0.8", default-features = false, features = ["std"] }
+forest_encoding = { version = "0.2.1" }
+fvm_shared = { version = "0.8.0", default-features = false }
+ipld_blockstore = "0.1"
+fil_types = "0.2"
+
+actor_interface = { path = "../../../vm/actor_interface" }
+forest_blocks = { path = "../../blocks" }
+chain = { path = "../../chain" }
+chain_sync = { path = "../../chain_sync/" }
+key_management = { path = "../../../key_management" }
+state_manager = { path = "../../state_manager/" }
+networks = { path = "../../../types/networks" }

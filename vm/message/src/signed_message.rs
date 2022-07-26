@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message as MessageTrait;
-use encoding::tuple::*;
-use encoding::{to_vec, Cbor, Error as CborError};
 use forest_crypto::Signer;
+use forest_encoding::tuple::*;
+use forest_encoding::{to_vec, Cbor, Error as CborError};
 use forest_vm::{MethodNum, Serialized, TokenAmount};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};

@@ -12,7 +12,7 @@ fvm               = "1.0"
 base64            = "0.13"
 forest_libp2p     = { path = "../node/forest_libp2p" }
 utils             = { path = "../node/utils" }
-db                = { package = "forest_db", version = "0.1" }
+forest_db         = "0.1"
 libp2p            = { version = "0.41", default-features = false, features = ["identify"] }
 futures           = "0.3"
 log               = "0.4"
@@ -23,7 +23,8 @@ pretty_env_logger = "0.4"
 ctrlc             = "3.1"
 chain_sync        = { path = "../blockchain/chain_sync" }
 state_manager     = { path = "../blockchain/state_manager" }
-fil_cns           = { path = "../blockchain/consensus/fil_cns" }
+fil_cns           = { path = "../blockchain/consensus/fil_cns", optional = true }
+deleg_cns         = { path = "../blockchain/consensus/deleg_cns", optional = true }
 multibase         = "0.9"
 fvm_ipld_car      = "0.4.1"
 forest_crypto     = { version = "0.5", features = ["json"] }
@@ -37,21 +38,21 @@ structopt         = "0.3"
 beacon            = { path = "../blockchain/beacon" }
 hex               = "0.4"
 rpc               = { path = "../node/rpc" }
-rpc_client        = { package = "rpc-client", path = "../node/rpc-client" }
+rpc-client        = { path = "../node/rpc-client" }
 rpc-api           = { path = "../node/rpc-api", version = "0.1" }
 fil_types         = "0.2"
 serde_json        = "1.0"
 forest_message    = { version = "0.7", features = ["blst"] }
-message_pool      = { package = "message_pool", path = "../blockchain/message_pool" }
+message_pool      = { path = "../blockchain/message_pool" }
 key_management    = { path = "../key_management" }
 uuid              = { version = "0.8", features = ["v4"] }
 auth              = { path = "../utils/auth" }
 net_utils         = { path = "../utils/net_utils" }
 metrics           = { path = "../utils/metrics" }
-actor             = { package = "actor_interface", path = "../vm/actor_interface" }
+actor_interface   = { path = "../vm/actor_interface" }
 genesis           = { path = "../utils/genesis" }
 paramfetch        = { path = "../utils/paramfetch" }
-encoding          = { package = "forest_encoding", version = "0.2" }
+forest_encoding   = "0.2"
 networks          = { path = "../types/networks" }
 rpassword         = "6.0"
 rayon             = "1.5"
@@ -64,6 +65,7 @@ directories       = "4.0.1"
 fvm_shared        = { version = "0.8.0", default-features = false }
 forest_json       = { version = "0.1.0", path = "../utils/json/" }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
+time              = "0.3"
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"
@@ -76,8 +78,9 @@ rand       = "0.8"
 tempfile   = "3"
 
 [features]
-default       = ["rocksdb"]
-rocksdb       = ["db/rocksdb", "ipld_blockstore/rocksdb"]
+default       = ["fil_cns"]
 insecure_post = ["fil_cns/insecure_post"]
 testnet       = []
 release       = []
+fil_cns       = ["dep:fil_cns"]
+deleg_cns     = ["dep:deleg_cns"]

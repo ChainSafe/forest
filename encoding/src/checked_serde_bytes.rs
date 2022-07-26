@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::BYTE_ARRAY_MAX_LEN;
+use cs_serde_bytes::{Deserialize, Serialize};
 use serde::{de, ser, Deserializer, Serializer};
-use serde_bytes::{Deserialize, Serialize};
 
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {

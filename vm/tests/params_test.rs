@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::{from_slice, to_vec};
+use forest_encoding::{from_slice, to_vec};
 use forest_vm::Serialized;
 use fvm_shared::address::Address;
 

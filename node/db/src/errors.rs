@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use encoding::error::Error as CborError;
+use forest_encoding::error::Error as CborError;
 use thiserror::Error;
 
 /// Database error
@@ -11,7 +11,6 @@ pub enum Error {
     InvalidBulkLen,
     #[error("Cannot use unopened database")]
     Unopened,
-    #[cfg(feature = "rocksdb")]
     #[error(transparent)]
     Database(#[from] rocksdb::Error),
     #[error(transparent)]
@@ -27,7 +26,6 @@ impl PartialEq for Error {
         match (self, other) {
             (&InvalidBulkLen, &InvalidBulkLen) => true,
             (&Unopened, &Unopened) => true,
-            #[cfg(feature = "rocksdb")]
             (&Database(_), &Database(_)) => true,
             (&Encoding(_), &Encoding(_)) => true,
             (&Other(ref a), &Other(ref b)) => a == b,

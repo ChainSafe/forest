@@ -1,10 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "submodule_tests")]
-
 use forest_ipld::selector::Selector;
-use forest_ipld::{json, Ipld, PathSegment};
+use forest_ipld::{json, Ipld};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
@@ -13,7 +11,7 @@ use std::io::BufReader;
 struct ExploreParams {
     #[serde(with = "json")]
     ipld: Ipld,
-    path_segment: PathSegment,
+    path_segment: String,
 }
 
 #[derive(Deserialize)]
@@ -44,8 +42,7 @@ fn test_equal(s1: &Option<Selector>, s2: &Option<Selector>) -> bool {
     {
         s1 == s2 && l1 == l2 && st1 == st2
     } else {
-        let b = s1 == s2;
-        b
+        s1 == s2
     }
 }
 

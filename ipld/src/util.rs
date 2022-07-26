@@ -30,6 +30,13 @@ where
             }
         }
         Ipld::Link(cid) => {
+            // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
+            if cid.codec() == fvm_shared::IPLD_RAW {
+                if !walked.insert(*cid) {
+                    return Ok(());
+                }
+                let _ = load_block(*cid)?;
+            }
             if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                 if !walked.insert(*cid) {
                     return Ok(());

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::account;
+use actor_interface::account;
 use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_shared::address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
