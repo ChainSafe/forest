@@ -76,7 +76,7 @@ impl DelegatedConsensus {
     /// Create an instance of the proposer on the node
     /// which has the private key to sign blocks.
     ///
-    /// If the key is not found in the keystore, then
+    /// If the key is not found in the `keystore`, then
     /// we assume this is *not* the node which should
     /// be doing the proposing and nothing is returned.
     pub async fn proposer<DB>(

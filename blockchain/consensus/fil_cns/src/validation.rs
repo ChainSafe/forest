@@ -181,7 +181,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusErro
     Ok(())
 }
 
-/// Check the timetamp corresponds exactly to the number of epochs since the parents.
+/// Check the timestamp corresponds exactly to the number of epochs since the parents.
 fn block_timestamp_checks(
     header: &BlockHeader,
     base_tipset: &Tipset,
