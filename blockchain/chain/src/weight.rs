@@ -9,7 +9,7 @@ pub type Weight = BigInt;
 /// The `Scale` trait abstracts away the logic of assigning a weight to a chain,
 /// which can be consensus specific. For example it can depend on the stake and
 /// power of validators, or it can be as simple as the height of the blocks in
-/// a Nakamoto style consensus.
+/// a `Nakamoto` style consensus.
 pub trait Scale {
     /// Calculate the weight of a tipset.
     fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>

@@ -19,3 +19,12 @@ RPC
 parameterize/D
 timestamp/SM
 synchronizer
+pointer/S
+validator/S
+threadsafe
+blockchain
+CID
+CIDs
+tipsetkey/S
+Secp256k1
+IPLD

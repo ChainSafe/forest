@@ -13,7 +13,7 @@ use std::collections::HashSet;
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: i64 = BLOCK_GAS_LIMIT / 2;
 
-/// Limits gas base fee change to 12.5% of the change.
+/// Limits gas base fee change to 12.5 percent of the change.
 pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8;
 
 /// Genesis base fee.
@@ -54,7 +54,7 @@ fn compute_next_base_fee(
         };
     }
 
-    // cap change at 12.5% (BaseFeeMaxChangeDenom) by capping delta
+    // cap change at 12.5 percent (BaseFeeMaxChangeDenom) by capping delta
     let change: BigInt = (base_fee * delta)
         .div_floor(&BLOCK_GAS_TARGET_BIG)
         .div_floor(&BASE_FEE_MAX_CHANGE_DENOM_BIG);
