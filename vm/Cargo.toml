@@ -15,7 +15,7 @@ serde_ipld_dagcbor = "0.2"
 fvm_shared         = { version = "0.8", default-features = false }
 fvm_ipld_encoding  = "0.2"
 fvm                = "1.1"
-encoding           = { package = "forest_encoding", version = "0.2" }
+forest_encoding    = "0.2"
 serde              = { version = "1.0", features = ["derive"] }
 num-traits         = "0.2"
 num-derive         = "0.3"

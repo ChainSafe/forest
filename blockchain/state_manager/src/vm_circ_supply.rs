@@ -1,7 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor::*;
+use actor_interface::{
+    market, power, reward, BURNT_FUNDS_ACTOR_ADDR, EPOCHS_IN_DAY, RESERVE_ADDRESS,
+};
 use anyhow::Context;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;
@@ -15,9 +17,9 @@ use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use once_cell::sync::OnceCell;
 
-const EPOCHS_IN_YEAR: ChainEpoch = 365 * actor::EPOCHS_IN_DAY;
+const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
-    (183 * actor::EPOCHS_IN_DAY, 82_717_041),
+    (183 * EPOCHS_IN_DAY, 82_717_041),
     (EPOCHS_IN_YEAR, 22_421_712),
     (2 * EPOCHS_IN_YEAR, 7_223_364),
     (3 * EPOCHS_IN_YEAR, 87_637_883),
@@ -25,7 +27,7 @@ const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
 ];
 const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
     (0, 10_632_000),
-    (183 * actor::EPOCHS_IN_DAY, 19_015_887 + 32_787_700),
+    (183 * EPOCHS_IN_DAY, 19_015_887 + 32_787_700),
     (EPOCHS_IN_YEAR, 22_421_712 + 9_400_000),
     (2 * EPOCHS_IN_YEAR, 7_223_364),
     (3 * EPOCHS_IN_YEAR, 87_637_883 + 898_958),

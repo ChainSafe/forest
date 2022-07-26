@@ -3,18 +3,18 @@
 
 use std::sync::Arc;
 
-use async_std::task::{self};
+use async_std::task;
 use futures::stream::FuturesUnordered;
 
-use actor::power;
+use actor_interface::power;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use blocks::{Block, BlockHeader, Tipset};
 use chain_sync::collect_errs;
 use cid::Cid;
-use crypto::DomainSeparationTag;
-use encoding::Cbor;
 use fil_types::verifier::ProofVerifier;
 use fil_types::{NetworkVersion, Randomness, TICKET_RANDOMNESS_LOOKBACK};
+use forest_blocks::{Block, BlockHeader, Tipset};
+use forest_crypto::DomainSeparationTag;
+use forest_encoding::Cbor;
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
@@ -320,7 +320,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), FilecoinConsensusError> {
-    crypto::verify_vrf(worker, rand, evrf).map_err(FilecoinConsensusError::VrfValidation)
+    forest_crypto::verify_vrf(worker, rand, evrf).map_err(FilecoinConsensusError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(

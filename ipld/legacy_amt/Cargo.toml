@@ -9,8 +9,8 @@ repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 anyhow          = "1.0"
-db              = { package = "forest_db", version = "0.1" }
-encoding        = { package = "forest_encoding", version = "0.2" }
+forest_db       = "0.1"
+forest_encoding = "0.2"
 serde           = { version = "1.0", features = ["derive"] }
 ipld_blockstore = "0.1"
 thiserror       = "1.0"

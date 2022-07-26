@@ -359,7 +359,7 @@ pub mod state_api {
         ActorStateJson, BlockTemplate, Deadline, Fault, MarketDeal, MessageLookup,
         MiningBaseInfoJson, Partition,
     };
-    use actor::miner::{
+    use actor_interface::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
     use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};

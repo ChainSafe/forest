@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::ExitCode;
-use encoding::error::Error as CborError;
-use encoding::Error as EncodingError;
+use forest_encoding::error::Error as CborError;
+use forest_encoding::Error as EncodingError;
 use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.

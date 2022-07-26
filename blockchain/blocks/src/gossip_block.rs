@@ -3,7 +3,7 @@
 
 use crate::BlockHeader;
 use cid::Cid;
-use encoding::{tuple::*, Cbor};
+use forest_encoding::{tuple::*, Cbor};
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]

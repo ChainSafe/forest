@@ -4,8 +4,8 @@
 mod checked_serde_bytes;
 mod hash;
 
+pub use cs_serde_bytes;
 pub use serde::{de, ser};
-pub use serde_bytes;
 pub use serde_ipld_dagcbor::error;
 
 pub use self::checked_serde_bytes::serde_byte_array;

@@ -18,7 +18,7 @@ Our crates:
 | - | - |
 | `forest` | the command-line interface and daemon (1 crate/workspace) |
 | `node` | the networking stack and storage (7 crates) |
-| `blockchain` | the chain structure and synchronization (7 crates) |
+| `blockchain` | the chain structure and synchronization (8 crates) |
 | `vm` | state transition and actors, messages, addresses (9 crates) |
 | `key_management` | Filecoin account management (1 crate) |
 | `crypto` | cryptographic functions, signatures, and verification (1 crate) |
