@@ -161,7 +161,7 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
-    // Terminate if no snapshot is provided and DB isn't recent enough
+    // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
         None => {
             cli_error_and_die(
