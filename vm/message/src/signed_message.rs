@@ -55,7 +55,7 @@ impl SignedMessage {
         self.signature.signature_type() == SignatureType::BLS
     }
 
-    /// Checks if the signed message is a Secp256k1 message.
+    /// Checks if the signed message is a SECP message.
     pub fn is_secp256k1(&self) -> bool {
         self.signature.signature_type() == SignatureType::Secp256k1
     }

@@ -48,7 +48,7 @@ const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
 
-/// Enum for pubsub channel that defines message type variant and data contained in message type.
+/// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
@@ -57,7 +57,7 @@ pub enum HeadChange {
 }
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
-/// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
+/// This structure is thread-safe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
@@ -69,7 +69,7 @@ pub struct ChainStore<DB> {
     /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
     subscriptions_count: AtomicCell<usize>,
 
-    /// key-value datastore.
+    /// key-value `datastore`.
     pub db: Arc<DB>,
 
     /// Tipset at the head of the best-known chain.
@@ -78,7 +78,7 @@ pub struct ChainStore<DB> {
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
 
-    /// Used as a cache for tipset lookbacks.
+    /// Used as a cache for tipset `lookbacks`.
     chain_index: ChainIndex<DB>,
 
     /// Tracks blocks for the purpose of forming tipsets.
@@ -109,7 +109,7 @@ where
         cs
     }
 
-    /// Sets heaviest tipset within ChainStore and store its tipset cids under HEAD_KEY
+    /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
     pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.write().await = Some(ts.clone());
@@ -119,12 +119,12 @@ where
         Ok(())
     }
 
-    /// Writes genesis to blockstore.
+    /// Writes genesis to `blockstore`.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         set_genesis(self.blockstore(), header)
     }
 
-    /// Adds a [BlockHeader] to the tipset tracker, which tracks valid headers.
+    /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid headers.
     pub async fn add_to_tipset_tracker(&self, header: &BlockHeader) {
         self.tipset_tracker.add(header).await;
     }
@@ -137,7 +137,7 @@ where
     {
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
-        // blockstore reads
+        // `blockstore` reads
         persist_objects(self.blockstore(), ts.blocks())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
@@ -151,7 +151,7 @@ where
         self.tipset_tracker.expand(header).await
     }
 
-    /// Loads heaviest tipset from datastore and sets as heaviest in chainstore.
+    /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.
     async fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
             Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
@@ -166,7 +166,7 @@ where
         Ok(())
     }
 
-    /// Returns genesis [BlockHeader] from the store based on a static key.
+    /// Returns genesis [`BlockHeader`] from the store based on a static key.
     pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
         genesis(self.blockstore())
     }
@@ -187,12 +187,12 @@ where
         &self.db
     }
 
-    /// Clones blockstore `Arc`.
+    /// Clones `blockstore` `Arc`.
     pub fn blockstore_cloned(&self) -> Arc<DB> {
         self.db.clone()
     }
 
-    /// Returns Tipset from key-value store from provided cids
+    /// Returns Tipset from key-value store from provided CIDs
     pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset().await.unwrap());
@@ -664,7 +664,7 @@ where
     Ok(ts)
 }
 
-/// Helper to ensure consistent Cid -> db key translation.
+/// Helper to ensure consistent CID to db key translation.
 fn block_validation_key(cid: &Cid) -> Vec<u8> {
     let mut key = Vec::new();
     key.extend_from_slice(BLOCK_VAL_PREFIX);
@@ -672,8 +672,8 @@ fn block_validation_key(cid: &Cid) -> Vec<u8> {
     key
 }
 
-/// Returns a Tuple of bls messages of type UnsignedMessage and secp messages
-/// of type SignedMessage
+/// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
+/// of type `SignedMessage`
 pub fn block_messages<DB>(
     db: &DB,
     bh: &BlockHeader,
@@ -689,7 +689,7 @@ where
     Ok((bls_msgs, secp_msgs))
 }
 
-/// Returns a tuple of UnsignedMessage and SignedMessages from their Cid
+/// Returns a tuple of `UnsignedMessage` and `SignedMessages` from their CID
 pub fn block_messages_from_cids<DB>(
     db: &DB,
     bls_cids: &[Cid],
@@ -704,7 +704,7 @@ where
     Ok((bls_msgs, secp_msgs))
 }
 
-/// Returns a tuple of cids for both Unsigned and Signed messages
+/// Returns a tuple of CIDs for both unsigned and signed messages
 // TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
@@ -725,9 +725,9 @@ where
     }
 }
 
-/// Sets the genesis key in the BlockStore. Be careful if using this outside of
-/// the ChainStore as it will not update what the ChainStore thinks is the genesis
-/// after the ChainStore has been created.
+/// Sets the genesis key in the `BlockStore`. Be careful if using this outside of
+/// the `ChainStore` as it will not update what the `ChainStore` thinks is the genesis
+/// after the `ChainStore` has been created.
 pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: BlockStore,
@@ -737,7 +737,7 @@ where
         .map_err(|e| Error::Other(e.to_string()))
 }
 
-/// Persists slice of serializable objects to blockstore.
+/// Persists slice of `serializable` objects to `blockstore`.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
     DB: BlockStore,
@@ -750,7 +750,7 @@ where
     Ok(())
 }
 
-/// Returns a vector of cids from provided root cid
+/// Returns a vector of CIDs from provided root CID
 fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
     DB: BlockStore,
@@ -778,8 +778,8 @@ where
         .transpose()?)
 }
 
-/// Attempts to deserialize to unsigend message or signed message and then returns it at as a
-// [ChainMessage].
+/// Attempts to de-serialize to unsigned message or signed message and then returns it as a
+/// [`ChainMessage`].
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: BlockStore,
@@ -862,7 +862,7 @@ where
         .collect()
 }
 
-/// Returns parent message receipt given block_header and message index.
+/// Returns parent message receipt given `block_header` and message index.
 pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
@@ -910,7 +910,7 @@ pub mod headchange_json {
 pub struct PersistedBlockMessages {
     /// Overall CID to be included in the `BlockHeader`.
     pub msg_cid: Cid,
-    /// All CIDs of Secp256k1 messages, to be included in `BlockMsg`.
+    /// All CIDs of SECP messages, to be included in `BlockMsg`.
     pub secp_cids: Vec<Cid>,
     /// All CIDs of BLS messages, to be included in `BlockMsg`.
     pub bls_cids: Vec<Cid>,
@@ -918,7 +918,7 @@ pub struct PersistedBlockMessages {
     pub bls_agg: Signature,
 }
 
-/// Partition the messages into Secp256k1 and BLS variants, store them individually in the IPLD store,
+/// Partition the messages into SECP and BLS variants, store them individually in the IPLD store,
 /// and the corresponding `TxMeta` as well, returning its CID so that it can be put in a block header.
 /// Also return the aggregated BLS signature of all BLS messages.
 pub fn persist_block_messages<DB: BlockStore>(
