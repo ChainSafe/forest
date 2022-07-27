@@ -57,7 +57,7 @@ pub enum HeadChange {
 }
 
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
-/// This structure is threadsafe, and all caches are wrapped in a mutex to allow a consistent
+/// This structure is thread-safe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
