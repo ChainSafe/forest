@@ -8,13 +8,12 @@ use actor_interface::{
     power,
 };
 use cid::Cid;
-use fil_types::{
-    verifier::ProofVerifier, NetworkVersion, Randomness, RegisteredSealProof, SectorInfo,
-    SectorNumber,
-};
+use fil_types::{verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber};
 use forest_blocks::Tipset;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
+use fvm_shared::randomness::Randomness;
+use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
 

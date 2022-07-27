@@ -29,7 +29,6 @@ use actor_interface::is_account_actor;
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use fil_types::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
@@ -42,6 +41,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
+use fvm_shared::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
 use ipld_blockstore::BlockStore;
 use networks::Height;
 use state_manager::Error as StateManagerError;

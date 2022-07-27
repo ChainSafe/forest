@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_types::BLOCKS_PER_EPOCH;
 use forest_crypto::VRFProof;
 use forest_encoding::{blake2b_256, tuple::*};
 use fvm_shared::bigint::{BigInt, Integer, ParseBigIntError, Sign};
+use fvm_shared::BLOCKS_PER_EPOCH;
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;

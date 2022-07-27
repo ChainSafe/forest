@@ -163,7 +163,7 @@ where
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = fil_types::BLOCK_GAS_LIMIT;
+            let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
@@ -493,7 +493,7 @@ where
         ts: &Tipset,
     ) -> Result<(Vec<SignedMessage>, i64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let gas_limit = fil_types::BLOCK_GAS_LIMIT;
+        let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains

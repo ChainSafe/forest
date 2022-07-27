@@ -362,7 +362,7 @@ pub mod state_api {
     use actor_interface::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use fil_types::{deadlines::DeadlineInfo, NetworkVersion, SectorNumber};
+    use fil_types::{deadlines::DeadlineInfo, SectorNumber};
     use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
@@ -371,6 +371,7 @@ pub mod state_api {
     use forest_message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
+    use fvm_shared::version::NetworkVersion;
     use state_manager::{InvocResult, MarketBalance};
 
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
