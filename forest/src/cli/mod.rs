@@ -23,6 +23,7 @@ pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
+pub(super) use self::state_cmd::DecodeCommands;
 
 use byte_unit::Byte;
 use directories::ProjectDirs;
@@ -99,6 +100,9 @@ pub enum Subcommand {
 
     #[structopt(name = "config", about = "Manage node configuration")]
     Config(ConfigCommands),
+
+    #[structopt(name = "decode", about = "Decode filecoin chain data")]
+    Decode(DecodeCommands),
 }
 
 /// CLI options

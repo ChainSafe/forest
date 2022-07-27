@@ -175,3 +175,34 @@ impl StateCommands {
         }
     }
 }
+
+#[derive(Debug, StructOpt)]
+pub enum DecodeCommands {
+    #[structopt(about = "Decode cid bytes")]
+    Cid {
+        #[structopt(about = "Hex bytes of the cid to decode")]
+        cid_hex: String,
+    },
+   
+}
+
+
+impl DecodeCommands {
+    pub async fn run(&self) {
+        match self {
+            Self::Cid { cid_hex } => {
+                let cid_bytes_vec = hex::decode(cid_hex).unwrap_or_else(|_| {
+                    panic!("Failed to parse argument as hex")
+                });
+                let cid_bytes: &[u8] = &cid_bytes_vec;
+
+                //let c = cid::CidGeneric::default();
+                let c = cid::CidGeneric::<64>::read_bytes::<&[u8]>(cid_bytes).unwrap_or_else(|_| {
+                    panic!("Failed to read cid bytes")
+                });
+                println!("{}", c);
+            },
+        }
+    }
+}
+    
