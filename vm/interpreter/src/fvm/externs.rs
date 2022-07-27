@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
 use cid::Cid;
-use fvm::externs::Rand;
-use fvm::externs::{Consensus, Externs};
+use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;

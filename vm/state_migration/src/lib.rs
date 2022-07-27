@@ -6,8 +6,7 @@
 
 use cid::Cid;
 use forest_vm::TokenAmount;
-use fvm::state_tree::ActorState;
-use fvm::state_tree::StateTree;
+use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
