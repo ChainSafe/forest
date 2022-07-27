@@ -910,9 +910,9 @@ mod tests {
     fn empty_msg_meta_vector() {
         let blockstore = MemoryDB::default();
         let usm: Vec<Message> =
-            forest_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            fvm_ipld_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
         let sm: Vec<SignedMessage> =
-            forest_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            fvm_ipld_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
             TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
