@@ -200,6 +200,8 @@ impl DecodeCommands {
                 let c = cid::CidGeneric::<64>::read_bytes::<&[u8]>(cid_bytes).unwrap_or_else(|_| {
                     panic!("Failed to read cid bytes")
                 });
+                let c = cid::CidGeneric::<64>::default();
+                let c: cid::CidGeneric::<64> = cid::CidGeneric::try_from(cid_bytes_vec).unwrap();
                 println!("{}", c);
             },
         }
