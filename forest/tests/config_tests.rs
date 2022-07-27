@@ -3,7 +3,7 @@
 use assert_cmd::Command;
 use forest::cli::Config;
 use rand::Rng;
-use std::{io::Write, net::SocketAddr, str::FromStr};
+use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
@@ -75,6 +75,34 @@ fn test_reading_configuration_from_file() {
         .arg("Azazello")
         .arg("--config")
         .arg(config_file.path())
+        .arg("config")
+        .arg("dump")
+        .assert()
+        .success();
+
+    let output = &cmd.get_output().stdout;
+    let actual_config = toml::from_str::<Config>(std::str::from_utf8(output).unwrap())
+        .expect("Invalid configuration!");
+
+    assert!(expected_config == actual_config);
+}
+
+#[test]
+fn test_config_env_var() {
+    let expected_config = Config {
+        rpc_token: Some("some_rpc_token".into()),
+        data_dir: PathBuf::from("some_path_buf"),
+        ..Config::default()
+    };
+
+    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
+    config_file
+        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .expect("Failed writing configuration!");
+
+    let cmd = Command::cargo_bin("forest")
+        .unwrap()
+        .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("config")
         .arg("dump")
         .assert()
