@@ -14,7 +14,7 @@ const DEFAULT_CHAIN_INDEX_CACHE_SIZE: usize = 32 << 10;
 /// Configuration which sets the length of tipsets to skip in between each cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
 
-/// Lookback entry to cache in the `ChainIndex`. Stores all relevant info when doing lookbacks.
+/// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when doing `lookbacks`.
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct LookbackEntry {
     tipset: Arc<Tipset>,
@@ -23,16 +23,16 @@ pub(crate) struct LookbackEntry {
     target: TipsetKeys,
 }
 
-/// Keeps lookback tipsets in cache at a given interval `skip_length` and can be used to lookback
+/// Keeps look-back tipsets in cache at a given interval `skip_length` and can be used to look-back
 /// at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
-    /// Cache of lookback entries to speed up lookup.
+    /// Cache of look-back entries to speed up lookup.
     skip_cache: RwLock<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
 
-    /// BlockStore pointer needed to load tipsets from cold storage.
+    /// `BlockStore` pointer needed to load tipsets from cold storage.
     db: Arc<BS>,
 }
 
@@ -52,8 +52,8 @@ where
         tipset_from_keys(self.ts_cache.as_ref(), self.db.as_ref(), tsk).await
     }
 
-    /// Loads tipset at `to` [ChainEpoch], loading from sparse cache and/or loading parents
-    /// from the blockstore.
+    /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
+    /// from the `blockstore`.
     pub(crate) async fn get_tipset_by_height(
         &self,
         from: Arc<Tipset>,
@@ -103,7 +103,7 @@ where
         self.walk_back(from, to).await
     }
 
-    /// Fills cache with lookback entry, and returns inserted entry.
+    /// Fills cache with look-back entry, and returns inserted entry.
     async fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
         let tipset = self.load_tipset(&tsk).await?;
 
@@ -149,7 +149,7 @@ where
         self.walk_back(ts, target).await
     }
 
-    /// Load parent tipsets until the `to` [ChainEpoch].
+    /// Load parent tipsets until the `to` [`ChainEpoch`].
     async fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
         if to > from.epoch() {
             return Err(Error::Other(

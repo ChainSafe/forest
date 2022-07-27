@@ -64,7 +64,7 @@ pub enum FilecoinConsensusError {
 }
 
 pub struct FilecoinConsensus<B, V> {
-    /// Drand randomness beacon
+    /// `Drand` randomness beacon
     ///
     /// NOTE: The `StateManager` makes available a beacon as well,
     /// but it potentially has a different type.

@@ -24,3 +24,4 @@ forest_db         = "0.1"
 directories       = "4.0.1"
 forest_json       = { version = "0.1.0", path = "../../utils/json/" }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
+libipld-core      = "0.13.1"

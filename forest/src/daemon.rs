@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{block_until_sigint, Config};
+use crate::cli_error_and_die;
 use async_std::net::TcpListener;
 use async_std::task::JoinHandle;
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
-use fil_types::verifier::FullVerifier;
+use fil_types::{verifier::FullVerifier, NetworkVersion};
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -101,7 +102,9 @@ pub(super) async fn start(config: Config) {
     // Start Prometheus server port
     let prometheus_listener = TcpListener::bind(config.metrics_address)
         .await
-        .unwrap_or_else(|_| panic!("could not bind to {}", config.metrics_address));
+        .unwrap_or_else(|_| {
+            cli_error_and_die(format!("could not bind to {}", config.metrics_address), 1)
+        });
     info!("Prometheus server started at {}", config.metrics_address);
     let prometheus_server_task = task::spawn(metrics::init_prometheus(
         prometheus_listener,
@@ -152,6 +155,26 @@ pub(super) async fn start(config: Config) {
     info!("Using network :: {}", network_name);
 
     sync_from_snapshot(&config, &state_manager).await;
+
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => {
+            cli_error_and_die(
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                1,
+            );
+        }
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                cli_error_and_die(
+                   "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    1,
+                );
+            }
+        }
+    }
 
     // Fetch and ensure verification keys are downloaded
     #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
@@ -280,7 +303,7 @@ pub(super) async fn start(config: Config) {
         let rpc_address = format!("127.0.0.1:{}", config.rpc_port);
         let rpc_listen = TcpListener::bind(&rpc_address)
             .await
-            .unwrap_or_else(|_| panic!("could not bind to {rpc_address}"));
+            .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         Some(task::spawn(async move {
             info!("JSON-RPC endpoint started at {}", rpc_address);
