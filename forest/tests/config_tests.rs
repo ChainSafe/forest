@@ -100,10 +100,9 @@ fn test_config_env_var() {
         .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    std::env::set_var("FOREST_CONFIG_PATH", config_file.path());
-
     let cmd = Command::cargo_bin("forest")
         .unwrap()
+        .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("config")
         .arg("dump")
         .assert()
