@@ -9,4 +9,3 @@ pub mod vrf;
 pub use self::errors::Error;
 pub use self::signer::Signer;
 pub use self::vrf::*;
-pub use fil_actors_runtime::runtime::DomainSeparationTag;

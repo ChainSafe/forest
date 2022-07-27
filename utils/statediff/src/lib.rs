@@ -12,7 +12,7 @@ use colored::*;
 use difference::{Changeset, Difference};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
-use forest_vm::ActorState;
+use fvm::state_tree::ActorState;
 use fvm::state_tree::StateTree;
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;

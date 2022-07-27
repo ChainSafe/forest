@@ -4,8 +4,8 @@
 use super::Message as MessageTrait;
 use forest_crypto::Signer;
 use forest_encoding::tuple::*;
-use forest_encoding::{to_vec, Cbor, Error as CborError};
 use forest_vm::{MethodNum, Serialized, TokenAmount};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use fvm_shared::message::Message;

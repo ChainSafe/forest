@@ -10,7 +10,7 @@ use forest_blocks::BlockHeader;
 use forest_blocks::Tipset;
 use forest_blocks::TipsetKeys;
 use forest_message::{ChainMessage, SignedMessage};
-use forest_vm::ActorState;
+use fvm::state_tree::ActorState;
 use fvm::state_tree::StateTree;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;

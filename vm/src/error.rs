@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::ExitCode;
 use forest_encoding::error::Error as CborError;
-use forest_encoding::Error as EncodingError;
+use fvm_ipld_encoding::Error as EncodingError;
+use fvm_shared::error::ExitCode;
 use thiserror::Error;
 
 /// The error type that gets returned by actor method calls.

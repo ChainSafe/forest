@@ -9,9 +9,9 @@ use cid::Cid;
 use derive_builder::Builder;
 use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
 use forest_encoding::blake2b_256;
-use forest_encoding::{Cbor, Error as EncodingError};
 use forest_vm::TokenAmount;
 use fvm_ipld_encoding::DAG_CBOR;
+use fvm_ipld_encoding::{Cbor, Error as EncodingError};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
@@ -318,7 +318,7 @@ impl BlockHeader {
     /// Updates cache and returns mutable reference of header back
     fn cached_bytes(&self) -> &Vec<u8> {
         self.cached_bytes.get_or_init(|| {
-            forest_encoding::to_vec(self).expect("header serialization cannot fail")
+            fvm_ipld_encoding::to_vec(self).expect("header serialization cannot fail")
         })
     }
     /// Check to ensure block signature is valid
@@ -453,7 +453,7 @@ impl BlockHeader {
         blk.cached_cid = Default::default();
 
         // * Intentionally not using cache here, to avoid using cached bytes with signature encoded.
-        forest_encoding::to_vec(&blk).expect("block serialization cannot fail")
+        fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
 }
 
@@ -468,7 +468,7 @@ impl fmt::Display for BlockHeader {
 mod tests {
     use crate::{errors::Error, BlockHeader};
     use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use forest_encoding::Cbor;
+    use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;
 

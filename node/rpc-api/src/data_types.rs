@@ -25,7 +25,8 @@ use forest_message::{
     message_receipt::json::MessageReceiptJson, signed_message,
     signed_message::json::SignedMessageJson, SignedMessage,
 };
-use forest_vm::{ActorState, TokenAmount};
+use forest_vm::TokenAmount;
+use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;

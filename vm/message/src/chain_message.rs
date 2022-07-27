@@ -5,8 +5,8 @@ use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
 use cid::Cid;
-use forest_encoding::{Cbor, Error};
 use forest_vm::{MethodNum, Serialized, TokenAmount};
+use fvm_ipld_encoding::{Cbor, Error};
 use fvm_shared::address::Address;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
