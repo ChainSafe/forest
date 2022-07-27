@@ -23,10 +23,10 @@ pub(crate) struct LookbackEntry {
     target: TipsetKeys,
 }
 
-/// Keeps `lookback` tipsets in cache at a given interval `skip_length` and can be used to `lookback`
+/// Keeps look-back tipsets in cache at a given interval `skip_length` and can be used to look-back
 /// at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
-    /// Cache of `lookback` entries to speed up lookup.
+    /// Cache of look-back entries to speed up lookup.
     skip_cache: RwLock<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
@@ -103,7 +103,7 @@ where
         self.walk_back(from, to).await
     }
 
-    /// Fills cache with `lookback` entry, and returns inserted entry.
+    /// Fills cache with look-back entry, and returns inserted entry.
     async fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
         let tipset = self.load_tipset(&tsk).await?;
 
