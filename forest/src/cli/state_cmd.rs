@@ -125,6 +125,7 @@ impl StateCommands {
                     );
                     println!("Nonce:  \t{}", a.sequence);
                     println!("Code:   \t{}", a.code);
+                    println!("Head: \t{}", a.state);
                 } else {
                     println!("No information for actor found")
                 }
