@@ -89,16 +89,18 @@ fn test_reading_configuration_from_file() {
 
 #[test]
 fn test_config_env_var() {
-    let path_buf =
-        std::fs::canonicalize(&std::path::Path::new("./test_files/test_config.toml")).unwrap();
-
-    std::env::set_var("FOREST_CONFIG_PATH", path_buf);
-
     let expected_config = Config {
         rpc_token: Some("some_rpc_token".into()),
         data_dir: PathBuf::from("some_path_buf"),
         ..Config::default()
     };
+
+    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
+    config_file
+        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .expect("Failed writing configuration!");
+
+    std::env::set_var("FOREST_CONFIG_PATH", config_file.path());
 
     let cmd = Command::cargo_bin("forest")
         .unwrap()
