@@ -1,0 +1,120 @@
+[chain]
+name = "butterflynet"
+bootstrap_peers = [
+  "/dns4/bootstrap-0.butterfly.fildev.network/tcp/1347/p2p/12D3KooWSUZhAY3eyoPUboJ1ZWe4dNPFWTr1EPoDjbTDSAN15uhY",
+  "/dns4/bootstrap-1.butterfly.fildev.network/tcp/1347/p2p/12D3KooWDfvNrSRVGWAGbn3sm9C8z98W2x25qCZjaXGHXmGiH24e"
+]
+block_delay_secs = 30
+
+[[chain.height_infos]]
+height = "Breeze"
+epoch = -1
+
+[[chain.height_infos]]
+height = "Smoke"
+epoch = -2
+
+[[chain.height_infos]]
+height = "Ignition"
+epoch = -3
+
+[[chain.height_infos]]
+height = "ActorsV2"
+epoch = -4
+
+[[chain.height_infos]]
+height = "Tape"
+epoch = -6
+
+[[chain.height_infos]]
+height = "Liftoff"
+epoch = -7
+
+[[chain.height_infos]]
+height = "Kumquat"
+epoch = -8
+
+[[chain.height_infos]]
+height = "Calico"
+epoch = -9
+
+[[chain.height_infos]]
+height = "Persian"
+epoch = -10
+
+[[chain.height_infos]]
+height = "Orange"
+epoch = -11
+
+[[chain.height_infos]]
+height = "Claus"
+epoch = -12
+
+[[chain.height_infos]]
+height = "Trust"
+epoch = -13
+
+[[chain.height_infos]]
+height = "Norwegian"
+epoch = -14
+
+[[chain.height_infos]]
+height = "Turbo"
+epoch = -15
+
+[[chain.height_infos]]
+height = "Hyperdrive"
+epoch = -16
+
+[[chain.height_infos]]
+height = "Chocolate"
+epoch = -17
+
+[[chain.height_infos]]
+height = "OhSnap"
+epoch = -18
+
+[[chain.height_infos]]
+height = "Skyr"
+epoch = 50
+
+[chain.policy]
+max_aggregated_sectors = 819
+min_aggregated_sectors = 4
+max_aggregated_proof_size = 81960
+max_replica_update_proof_size = 4096
+pre_commit_sector_batch_max_size = 256
+prove_replica_updates_max_size = 256
+expired_pre_commit_clean_up_delay = 960
+wpost_proving_period = 2880
+wpost_challenge_window = 60
+wpost_period_deadlines = 48
+wpost_max_chain_commit_age = 60
+wpost_dispute_window = 1800
+sectors_max = 33554432
+max_partitions_per_deadline = 3000
+max_control_addresses = 10
+max_peer_id_length = 128
+max_multiaddr_data = 1024
+addressed_partitions_max = 3000
+declarations_max = 3000
+addressed_sectors_max = 25000
+max_pre_commit_randomness_lookback = 3780
+pre_commit_challenge_delay = 150
+wpost_challenge_lookback = 20
+fault_declaration_cutoff = 70
+fault_max_age = 120960
+worker_key_change_delay = 900
+min_sector_expiration = 518400
+max_sector_expiration_extension = 1555200
+deal_limit_denominator = 134217728
+consensus_fault_ineligibility_duration = 900
+new_sectors_per_period_max = 131072
+chain_finality = 900
+valid_post_proof_type = [7, 8, 9]
+valid_pre_commit_proof_type = [9, 8]
+minimum_verified_deal_size = "1048576"
+deal_updates_interval = 2880
+prov_collateral_percent_supply_num = 1
+prov_collateral_percent_supply_denom = 100
+minimum_consensus_power = "2147483648"
