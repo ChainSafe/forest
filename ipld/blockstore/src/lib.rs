@@ -8,8 +8,7 @@ use cid::{
 use forest_db::Store;
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::DAG_CBOR;
-use fvm_ipld_encoding::{from_slice, to_vec};
+use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use std::sync::Arc;
 
 pub trait BlockStore: Blockstore + Store {}
