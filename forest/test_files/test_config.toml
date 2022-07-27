@@ -1,0 +1,209 @@
+data_dir = "some_path_buf"
+enable_rpc = true
+rpc_port = 1234
+rpc_token = "some_rpc_token"
+snapshot = false
+skip_load = false
+encrypt_keystore = true
+metrics_address = "127.0.0.1:6116"
+
+[rocks_db]
+create_if_missing = true
+parallelism = 8
+write_buffer_size = 268435456
+max_open_files = 1024
+compression_type = "lz4"
+enable_statistics = false
+
+[network]
+listening_multiaddr = "/ip4/0.0.0.0/tcp/0"
+bootstrap_peers = []
+mdns = false
+kademlia = true
+target_peer_count = 75
+
+[sync]
+req_window = 200
+tipset_sample_size = 5
+
+[chain]
+name = "mainnet"
+bootstrap_peers = ["/dns4/bootstrap-0.mainnet.filops.net/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj", "/dns4/bootstrap-1.mainnet.filops.net/tcp/1347/p2p/12D3KooWCwevHg1yLCvktf2nvLu7L9894mcrJR4MsBCcm4syShVc", "/dns4/bootstrap-2.mainnet.filops.net/tcp/1347/p2p/12D3KooWEWVwHGn2yR36gKLozmb4YjDJGerotAPGxmdWZx2nxMC4", "/dns4/bootstrap-3.mainnet.filops.net/tcp/1347/p2p/12D3KooWKhgq8c7NQ9iGjbyK7v7phXvG6492HQfiDaGHLHLQjk7R", "/dns4/bootstrap-4.mainnet.filops.net/tcp/1347/p2p/12D3KooWL6PsFNPhYftrJzGgF5U18hFoaVhfGk7xwzD8yVrHJ3Uc", "/dns4/bootstrap-5.mainnet.filops.net/tcp/1347/p2p/12D3KooWLFynvDQiUpXoHroV1YxKHhPJgysQGH2k3ZGwtWzR4dFH", "/dns4/bootstrap-6.mainnet.filops.net/tcp/1347/p2p/12D3KooWP5MwCiqdMETF9ub1P3MbCvQCcfconnYHbWg6sUJcDRQQ", "/dns4/bootstrap-7.mainnet.filops.net/tcp/1347/p2p/12D3KooWRs3aY1p3juFjPy8gPN95PEQChm2QKGUCAdcDCC4EBMKf", "/dns4/bootstrap-8.mainnet.filops.net/tcp/1347/p2p/12D3KooWScFR7385LTyR4zU1bYdzSiiAb5rnNABfVahPvVSzyTkR", "/dns4/lotus-bootstrap.forceup.cn/tcp/41778/p2p/12D3KooWFQsv3nRMUevZNWWsY1Wu6NUzUbawnWU5NcRhgKuJA37C", "/dns4/bootstrap-0.starpool.in/tcp/12757/p2p/12D3KooWGHpBMeZbestVEWkfdnC9u7p6uFHXL1n7m1ZBqsEmiUzz", "/dns4/bootstrap-1.starpool.in/tcp/12757/p2p/12D3KooWQZrGH1PxSNZPum99M1zNvjNFM33d1AAu5DcvdHptuU7u", "/dns4/node.glif.io/tcp/1235/p2p/12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt", "/dns4/bootstrap-0.ipfsmain.cn/tcp/34721/p2p/12D3KooWQnwEGNqcM2nAcPtRR9rAX8Hrg4k9kJLCHoTR5chJfz6d", "/dns4/bootstrap-1.ipfsmain.cn/tcp/34723/p2p/12D3KooWMKxMkD5DMpSWsW7dBddKxKT7L2GgbNuckz9otxvkvByP"]
+block_delay_secs = 30
+
+[[chain.version_schedule]]
+height = "Breeze"
+version = "V1"
+
+[[chain.version_schedule]]
+height = "Smoke"
+version = "V2"
+
+[[chain.version_schedule]]
+height = "Ignition"
+version = "V3"
+
+[[chain.version_schedule]]
+height = "ActorsV2"
+version = "V4"
+
+[[chain.version_schedule]]
+height = "Tape"
+version = "V5"
+
+[[chain.version_schedule]]
+height = "Kumquat"
+version = "V6"
+
+[[chain.version_schedule]]
+height = "Calico"
+version = "V7"
+
+[[chain.version_schedule]]
+height = "Persian"
+version = "V8"
+
+[[chain.version_schedule]]
+height = "Orange"
+version = "V9"
+
+[[chain.version_schedule]]
+height = "Trust"
+version = "V10"
+
+[[chain.version_schedule]]
+height = "Norwegian"
+version = "V11"
+
+[[chain.version_schedule]]
+height = "Turbo"
+version = "V12"
+
+[[chain.version_schedule]]
+height = "Hyperdrive"
+version = "V13"
+
+[[chain.version_schedule]]
+height = "Chocolate"
+version = "V14"
+
+[[chain.version_schedule]]
+height = "OhSnap"
+version = "V15"
+
+[[chain.version_schedule]]
+height = "Skyr"
+version = "V16"
+
+[[chain.height_infos]]
+height = "Breeze"
+epoch = 41280
+
+[[chain.height_infos]]
+height = "Smoke"
+epoch = 51000
+
+[[chain.height_infos]]
+height = "Ignition"
+epoch = 94000
+
+[[chain.height_infos]]
+height = "ActorsV2"
+epoch = 138720
+
+[[chain.height_infos]]
+height = "Tape"
+epoch = 140760
+
+[[chain.height_infos]]
+height = "Liftoff"
+epoch = 148888
+
+[[chain.height_infos]]
+height = "Kumquat"
+epoch = 170000
+
+[[chain.height_infos]]
+height = "Calico"
+epoch = 265200
+
+[[chain.height_infos]]
+height = "Persian"
+epoch = 272400
+
+[[chain.height_infos]]
+height = "Orange"
+epoch = 336458
+
+[[chain.height_infos]]
+height = "Claus"
+epoch = 343200
+
+[[chain.height_infos]]
+height = "Trust"
+epoch = 550321
+
+[[chain.height_infos]]
+height = "Norwegian"
+epoch = 665280
+
+[[chain.height_infos]]
+height = "Turbo"
+epoch = 712320
+
+[[chain.height_infos]]
+height = "Hyperdrive"
+epoch = 892800
+
+[[chain.height_infos]]
+height = "Chocolate"
+epoch = 1231620
+
+[[chain.height_infos]]
+height = "OhSnap"
+epoch = 1594680
+
+[[chain.height_infos]]
+height = "Skyr"
+epoch = 1960320
+
+[chain.policy]
+max_aggregated_sectors = 819
+min_aggregated_sectors = 4
+max_aggregated_proof_size = 81960
+max_replica_update_proof_size = 4096
+pre_commit_sector_batch_max_size = 256
+prove_replica_updates_max_size = 256
+expired_pre_commit_clean_up_delay = 960
+wpost_proving_period = 2880
+wpost_challenge_window = 60
+wpost_period_deadlines = 48
+wpost_max_chain_commit_age = 60
+wpost_dispute_window = 1800
+sectors_max = 33554432
+max_partitions_per_deadline = 3000
+max_control_addresses = 10
+max_peer_id_length = 128
+max_multiaddr_data = 1024
+addressed_partitions_max = 3000
+declarations_max = 3000
+addressed_sectors_max = 25000
+max_pre_commit_randomness_lookback = 3780
+pre_commit_challenge_delay = 150
+wpost_challenge_lookback = 20
+fault_declaration_cutoff = 70
+fault_max_age = 120960
+worker_key_change_delay = 900
+min_sector_expiration = 518400
+max_sector_expiration_extension = 1555200
+deal_limit_denominator = 134217728
+consensus_fault_ineligibility_duration = 900
+new_sectors_per_period_max = 131072
+chain_finality = 900
+valid_post_proof_type = [8, 9]
+valid_pre_commit_proof_type = [8, 9]
+minimum_verified_deal_size = "1048576"
+deal_updates_interval = 2880
+prov_collateral_percent_supply_num = 1
+prov_collateral_percent_supply_denom = 100
+minimum_consensus_power = "10995116277760"
