@@ -3,7 +3,7 @@
 use assert_cmd::Command;
 use forest::cli::Config;
 use rand::Rng;
-use std::{io::Write, net::SocketAddr, str::FromStr, path::PathBuf};
+use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
@@ -89,8 +89,8 @@ fn test_reading_configuration_from_file() {
 
 #[test]
 fn test_config_env_var() {
-
-    let path_buf = std::fs::canonicalize(&std::path::Path::new("./test_files/test_config.toml")).unwrap();
+    let path_buf =
+        std::fs::canonicalize(&std::path::Path::new("./test_files/test_config.toml")).unwrap();
 
     std::env::set_var("FOREST_CONFIG_PATH", path_buf);
 
