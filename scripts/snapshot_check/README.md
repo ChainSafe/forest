@@ -7,8 +7,9 @@ Fedora Linux 36 (Cloud Edition) x86_64
 16GB / 320GB Disk
 ```
 * git installed,
-* `s3fs-fuse` installed,
 * Slack webhook: follow the instructions [here](https://api.slack.com/messaging/webhooks) to set up notifications.
+
+
 
 ## Installation
 * Put Digital Ocean Spaces password in `.passwd-s3fs`
