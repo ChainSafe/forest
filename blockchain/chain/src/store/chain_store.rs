@@ -910,7 +910,7 @@ pub mod headchange_json {
 pub struct PersistedBlockMessages {
     /// Overall CID to be included in the `BlockHeader`.
     pub msg_cid: Cid,
-    /// All CIDs of Secp256k1 messages, to be included in `BlockMsg`.
+    /// All CIDs of SECP messages, to be included in `BlockMsg`.
     pub secp_cids: Vec<Cid>,
     /// All CIDs of BLS messages, to be included in `BlockMsg`.
     pub bls_cids: Vec<Cid>,
@@ -918,7 +918,7 @@ pub struct PersistedBlockMessages {
     pub bls_agg: Signature,
 }
 
-/// Partition the messages into Secp256k1 and BLS variants, store them individually in the IPLD store,
+/// Partition the messages into SECP and BLS variants, store them individually in the IPLD store,
 /// and the corresponding `TxMeta` as well, returning its CID so that it can be put in a block header.
 /// Also return the aggregated BLS signature of all BLS messages.
 pub fn persist_block_messages<DB: BlockStore>(
