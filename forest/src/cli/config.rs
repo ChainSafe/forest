@@ -37,9 +37,6 @@ pub struct Config {
     pub chain: Arc<ChainConfig>,
 }
 
-// 127.0.0.1
-const LOCALHOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-
 impl Default for Config {
     fn default() -> Self {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
@@ -55,8 +52,8 @@ impl Default for Config {
             skip_load: false,
             sync: SyncConfig::default(),
             encrypt_keystore: true,
-            metrics_address: SocketAddr::new(LOCALHOST, 6116),
-            rpc_address: SocketAddr::new(LOCALHOST, DEFAULT_PORT),
+            metrics_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 6116),
+            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             rocks_db: forest_db::rocks_config::RocksDbConfig::default(),
             chain: Arc::default(),
         }
