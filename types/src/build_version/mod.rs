@@ -108,6 +108,8 @@ impl std::convert::TryFrom<&NodeType> for Version {
 
 /// Returns version string at build time, e.g., `0.2.2-unstable+git.21146f40`
 pub fn version() -> String {
+    // FIXME: this is no good because crate version (so fil_types) will be
+    // taken and not forest version one.
     let git_hash = match Command::new("git")
         .args(&["rev-parse", "--short", "HEAD"])
         .output()
