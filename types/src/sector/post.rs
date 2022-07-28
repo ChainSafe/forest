@@ -6,7 +6,6 @@ use crate::Randomness;
 /// Randomness type used for generating PoSt proof randomness.
 pub type PoStRandomness = Randomness;
 
-#[cfg(feature = "json")]
 pub mod json {
     use crate::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber};
     use cid::Cid;

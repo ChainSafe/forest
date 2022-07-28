@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "json")]
 pub mod json {
-    use super::*;
     use crate::TokenAmount;
+    use cid::Cid;
+    use fvm::state_tree::ActorState;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
 

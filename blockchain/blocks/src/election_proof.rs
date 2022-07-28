@@ -165,7 +165,6 @@ impl ElectionProof {
     }
 }
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use forest_crypto::vrf;
