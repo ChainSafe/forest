@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
-use git_version::git_version;
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
+use serde::Serialize;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::process::Command;
 
@@ -13,9 +13,6 @@ const RELEASE_TRACK: &str = "unstable";
 
 #[cfg(feature = "release")]
 const RELEASE_TRACK: &str = "alpha";
-
-use serde::Serialize;
-const BUILD_VERSION: &str = "0.10.2";
 
 // masks
 const MINOR_MASK: u32 = 0xffff00;
@@ -29,8 +26,6 @@ const MINER_API_VERSION: Version = new_version(0, 15, 0);
 const WORKER_API_VERSION: Version = new_version(0, 15, 0);
 
 lazy_static! {
-    pub static ref CURRENT_COMMIT: String = git_version!(fallback = "unknown").to_string();
-    pub static ref BUILD_TYPE: RwLock<BuildType> = RwLock::new(BuildType::BuildDefault);
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 }
 
@@ -48,15 +43,6 @@ pub struct APIVersion {
 #[derive(Serialize)]
 pub struct Version(u32);
 
-/// Build type for the node. This shares which build type the node is from the RPC API.
-#[derive(FromPrimitive)]
-#[repr(u64)]
-pub enum BuildType {
-    BuildDefault = 0x0,
-    Build2k = 0x1,
-    BuildDebug = 0x2,
-}
-
 /// The type of node that is running.
 #[derive(FromPrimitive, Debug)]
 #[repr(u64)]
@@ -73,23 +59,13 @@ impl Display for NodeType {
     }
 }
 
-impl BuildType {
-    fn to_str(&self) -> &str {
-        match self {
-            BuildType::BuildDefault => "",
-            BuildType::Build2k => "+debug",
-            BuildType::BuildDebug => "+2k",
-        }
-    }
-}
-
 const fn new_version(major: u32, minor: u32, patch: u32) -> Version {
     Version(major << 16 | minor << 8 | patch)
 }
 
 /// Gets the formatted current user version.
 pub async fn user_version() -> String {
-    BUILD_VERSION.to_owned() + BUILD_TYPE.read().await.to_str() + &CURRENT_COMMIT
+    version()
 }
 
 impl Version {
