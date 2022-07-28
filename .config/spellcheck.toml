@@ -10,7 +10,10 @@ tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…"
 extra_dictionaries      = ["forest.dic"]
 
 [hunspell.quirks]
-transform_regex     = []
+transform_regex     = [
+  # 10.7%
+  "^[0-9_]+(?:\\.[0-9]*)?%$",
+]
 allow_concatenation = false
 allow_dashes        = false
 allow_emojis        = true

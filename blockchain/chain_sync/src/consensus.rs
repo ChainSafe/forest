@@ -37,7 +37,7 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
     /// Perform block validation asynchronously and return all encountered errors if failed.
     ///
     /// Being asynchronous gives the method a chance to construct a pipeline of
-    /// validations, ie. do some common ones before branching out.
+    /// validations, i.e. do some common ones before branching out.
     async fn validate_block<DB>(
         &self,
         state_manager: Arc<StateManager<DB>>,
@@ -84,7 +84,7 @@ pub async fn collect_errs<E>(
 pub trait Proposer {
     /// Start proposing blocks in the background and never return, unless
     /// something went horribly wrong. Broadly, they should select messages
-    /// from the mempool, come up with a total ordering for them, then create
+    /// from the `mempool`, come up with a total ordering for them, then create
     /// blocks and publish them to the network.
     ///
     /// To establish total ordering, the proposer might have to communicate
@@ -124,7 +124,7 @@ pub trait MessagePoolApi {
     /// to build the next block on.
     ///
     /// The result is a `Cow` in case the source can avoid cloning messages and just
-    /// return a reference. They will be sent to the datastore for storage, but a
+    /// return a reference. They will be sent to the data store for storage, but a
     /// reference is enough for that.
     async fn select_signed<DB>(
         &self,
@@ -155,7 +155,7 @@ where
     }
 }
 
-/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the local chain sycnhronizer.
+/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the local chain synchronizer.
 ///
 /// Similar to `sync_api::sync_submit_block` but assumes that the block is correct and already persisted.
 pub struct SyncGossipSubmitter {

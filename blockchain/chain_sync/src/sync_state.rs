@@ -8,7 +8,7 @@ use std::fmt;
 use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
-/// Current state of the ChainSyncer using the ChainExchange protocol.
+/// Current state of the `ChainSyncer` using the `ChainExchange` protocol.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum SyncStage {
     /// Idle state.
@@ -19,9 +19,9 @@ pub enum SyncStage {
     PersistHeaders,
     /// Syncing messages and performing state transitions.
     Messages,
-    /// ChainSync completed and is following chain.
+    /// `ChainSync` completed and is following chain.
     Complete,
-    /// Error has occured while syncing.
+    /// Error has occurred while syncing.
     Error,
 }
 
@@ -74,7 +74,7 @@ impl<'de> Deserialize<'de> for SyncStage {
 }
 
 /// State of the node's syncing process.
-/// This state is different from the general state of the ChainSync process.
+/// This state is different from the general state of the `ChainSync` process.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SyncState {
     base: Option<Arc<Tipset>>,
@@ -99,22 +99,22 @@ impl SyncState {
         }
     }
 
-    /// Get the current [SyncStage] of the Syncer
+    /// Get the current [`SyncStage`] of the `Syncer`
     pub fn stage(&self) -> SyncStage {
         self.stage
     }
 
-    /// Returns the current [Tipset]
+    /// Returns the current [`Tipset`]
     pub fn target(&self) -> &Option<Arc<Tipset>> {
         &self.target
     }
 
-    /// Return a reference to the base [Tipset]
+    /// Return a reference to the base [`Tipset`]
     pub fn base(&self) -> &Option<Arc<Tipset>> {
         &self.base
     }
 
-    /// Return the current [ChainEpoch]
+    /// Return the current [`ChainEpoch`]
     pub fn epoch(&self) -> ChainEpoch {
         self.epoch
     }

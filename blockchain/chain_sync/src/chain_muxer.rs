@@ -68,7 +68,7 @@ pub enum ChainMuxerError<C: Consensus> {
     NetworkFollowingFailure(String),
 }
 
-/// Struct that defines syncing configuration options
+/// Structure that defines syncing configuration options
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
@@ -111,7 +111,7 @@ enum NetworkHeadEvaluation {
     InSync,
 }
 
-/// Repesents whether received messages should be added to message pool
+/// Represents whether received messages should be added to message pool
 enum PubsubMessageProcessingStrategy {
     /// Messages should be added to the message pool
     Process,
@@ -119,9 +119,9 @@ enum PubsubMessageProcessingStrategy {
     DoNotProcess,
 }
 
-/// The ChainMuxer handles events from the p2p network and orchestrates the chain synchronization.
+/// The `ChainMuxer` handles events from the P2P network and orchestrates the chain synchronization.
 pub struct ChainMuxer<DB, M, C: Consensus> {
-    /// State of the ChainSyncer Future implementation
+    /// State of the `ChainSyncer` `Future` implementation
     state: ChainMuxerState<C>,
 
     /// Syncing state of chain sync workers.
@@ -133,17 +133,17 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
     /// manages retrieving and updates state objects
     state_manager: Arc<StateManager<DB>>,
 
-    /// Context to be able to send requests to p2p network
+    /// Context to be able to send requests to P2P network
     network: SyncNetworkContext<DB>,
 
     /// Genesis tipset
     genesis: Arc<Tipset>,
 
     /// Bad blocks cache, updates based on invalid state transitions.
-    /// Will mark any invalid blocks and all childen as bad in this bounded cache
+    /// Will mark any invalid blocks and all children as bad in this bounded cache
     bad_blocks: Arc<BadBlockCache>,
 
-    /// Incoming network events to be handled by syncer
+    /// Incoming network events to be handled by synchronizer
     net_handler: Receiver<NetworkEvent>,
 
     /// Message pool
