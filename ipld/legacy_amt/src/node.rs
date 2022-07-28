@@ -4,7 +4,8 @@
 use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{multihash::Code::Blake2b256, Cid};
-use forest_encoding::{cs_serde_bytes, BytesSer};
+use forest_encoding::cs_serde_bytes;
+use fvm_ipld_encoding::BytesSer;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use once_cell::unsync::OnceCell;
 use serde::{
@@ -552,7 +553,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forest_encoding::{from_slice, to_vec};
+    use fvm_ipld_encoding::{from_slice, to_vec};
 
     #[test]
     fn serialize_node_symmetric() {

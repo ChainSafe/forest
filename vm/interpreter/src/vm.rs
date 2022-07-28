@@ -1,22 +1,22 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Rand;
 use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
 use actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use cid::Cid;
 use fil_types::BLOCK_GAS_LIMIT;
 use fil_types::{DefaultNetworkParams, NetworkParams};
-use forest_encoding::Cbor;
 use forest_message::{ChainMessage, MessageReceipt};
-use forest_vm::{ExitCode, Serialized, TokenAmount};
+use forest_vm::{Serialized, TokenAmount};
 use fvm::executor::ApplyRet;
-use fvm::machine::NetworkConfig;
-use fvm::machine::{Engine, Machine};
+use fvm::externs::Rand;
+use fvm::machine::{Engine, Machine, NetworkConfig};
 use fvm::state_tree::StateTree;
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
@@ -152,7 +152,7 @@ where
     pub fn get_actor(
         &self,
         addr: &Address,
-    ) -> Result<Option<forest_vm::ActorState>, anyhow::Error> {
+    ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
         Ok(self.fvm_executor.state_tree().get_actor(addr)?)
     }
 

@@ -33,12 +33,12 @@ use fil_types::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
-use forest_encoding::Cbor;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;

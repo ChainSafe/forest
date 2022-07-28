@@ -29,6 +29,8 @@ forest_hash_utils = "0.1"
 forest_json_utils = "0.1"
 forest_json       = { version = "0.1.0", path = "../../utils/json/" }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
+fvm               = "1.0"
+fvm_ipld_encoding = "0.2"
 
 [features]
 devnet     = []

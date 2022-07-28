@@ -16,14 +16,12 @@ pub use self::error::*;
 pub use self::method::*;
 pub use self::token::*;
 
-pub use fvm_shared::error::ExitCode;
-
 #[macro_use]
 extern crate lazy_static;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use forest_encoding::to_vec;
+use fvm_ipld_encoding::to_vec;
 use fvm_ipld_encoding::DAG_CBOR;
 
 lazy_static! {

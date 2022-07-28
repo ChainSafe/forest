@@ -18,19 +18,20 @@ use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
 use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_encoding::Cbor;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
-use forest_vm::{ActorState, TokenAmount};
+use forest_vm::TokenAmount;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
+use fvm::externs::Rand;
 use fvm::machine::NetworkConfig;
-use fvm::state_tree::StateTree;
+use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, Rand, VM,
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, VM,
 };
 use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
 use legacy_ipld_amt::Amt;

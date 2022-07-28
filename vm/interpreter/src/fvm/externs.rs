@@ -1,18 +1,17 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
-use crate::Rand;
 use cid::Cid;
 use fil_types::NetworkVersion;
-use fvm::externs::{Consensus, Externs};
+use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use ipld_blockstore::BlockStore;
 
 use crate::resolve_to_key_addr;
 use forest_blocks::BlockHeader;
-use forest_encoding::Cbor;
 use fvm::state_tree::StateTree;
 use fvm_shared::address::Address;
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_db::Store;
-use forest_encoding::{from_slice, to_vec};
+use fvm_ipld_encoding::{from_slice, to_vec};
 use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

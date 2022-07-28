@@ -16,7 +16,7 @@ use forest_crypto::VRFProof;
 use forest_message::ChainMessage;
 use forest_message::Message as MessageTrait;
 use forest_message::SignedMessage;
-use forest_vm::ActorState;
+use fvm::state_tree::ActorState;
 use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;

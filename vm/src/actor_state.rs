@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub use fvm::state_tree::ActorState;
-
 #[cfg(feature = "json")]
 pub mod json {
     use super::*;

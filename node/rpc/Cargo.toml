@@ -28,9 +28,7 @@ tide-websockets = "0.4"
 fil_actor_miner_v8 = { package = "fil_actor_miner", version = "=8.0.0" }
 actor_interface = { path = "../../vm/actor_interface" }
 auth = { path = "../../utils/auth" }
-beacon = { path = "../../blockchain/beacon", features = [
-    "json",
-] }
+beacon = { path = "../../blockchain/beacon", features = ["json"] }
 forest_blocks = { path = "../../blockchain/blocks", features = ["json"] }
 ipld_blockstore = "0.1"
 chain = { path = "../../blockchain/chain", features = ["json"] }
@@ -53,6 +51,7 @@ legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 forest_json = { version = "0.1.0", path = "../../utils/json/" }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 libipld-core = "0.13.1"
+fvm_ipld_encoding = "0.2"
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

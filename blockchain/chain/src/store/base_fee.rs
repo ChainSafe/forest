@@ -3,8 +3,8 @@
 
 use fil_types::BLOCK_GAS_LIMIT;
 use forest_blocks::Tipset;
-use forest_encoding::Cbor;
 use forest_message::Message;
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;

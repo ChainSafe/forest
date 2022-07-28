@@ -5,28 +5,30 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-async-std       = { version = "1.9", features = ["tokio1", "unstable"] }
-async-trait     = "0.1"
-futures         = "0.3.5"
-log             = "0.4.8"
-nonempty        = "0.8.0"
-thiserror       = "1.0"
-fvm_shared      = { version = "0.8.0", default-features = false }
-forest_crypto   = { version = "0.5", features = ["blst"] }
-forest_encoding = "0.2.1"
-ipld_blockstore = "0.1"
-fil_types       = "0.2"
-cid             = { version = "0.8", default-features = false, features = ["std"] }
-anyhow          = "1.0"
-num-traits      = "0.2"
-fvm             = "1.0"
-actor_interface = { path = "../../../vm/actor_interface" }
-beacon          = { path = "../../beacon" }
-forest_blocks   = { path = "../../blocks" }
-chain           = { path = "../../chain" }
-chain_sync      = { path = "../../chain_sync/" }
-state_manager   = { path = "../../state_manager/" }
-networks        = { path = "../../../types/networks" }
+async-std          = { version = "1.9", features = ["tokio1", "unstable"] }
+async-trait        = "0.1"
+futures            = "0.3.5"
+log                = "0.4.8"
+nonempty           = "0.8.0"
+thiserror          = "1.0"
+fvm_shared         = { version = "0.8.0", default-features = false }
+forest_crypto      = { version = "0.5", features = ["blst"] }
+forest_encoding    = "0.2.1"
+ipld_blockstore    = "0.1"
+fil_types          = "0.2"
+cid                = { version = "0.8", default-features = false, features = ["std"] }
+anyhow             = "1.0"
+num-traits         = "0.2"
+fvm                = "1.0"
+actor_interface    = { path = "../../../vm/actor_interface" }
+beacon             = { path = "../../beacon" }
+forest_blocks      = { path = "../../blocks" }
+chain              = { path = "../../chain" }
+chain_sync         = { path = "../../chain_sync/" }
+state_manager      = { path = "../../state_manager/" }
+networks           = { path = "../../../types/networks" }
+fvm_ipld_encoding  = "0.2"
+fil_actors_runtime = "=8.0.0"
 
 [features]
 insecure_post = []
