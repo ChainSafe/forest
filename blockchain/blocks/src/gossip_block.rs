@@ -15,7 +15,6 @@ pub struct GossipBlock {
 
 impl Cbor for GossipBlock {}
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use crate::header;

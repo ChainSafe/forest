@@ -876,7 +876,6 @@ where
     Ok(receipts.cloned())
 }
 
-#[cfg(feature = "json")]
 pub mod headchange_json {
     use super::*;
     use forest_blocks::tipset_json::TipsetJson;

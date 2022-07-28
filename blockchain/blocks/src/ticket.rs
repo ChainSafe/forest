@@ -20,7 +20,6 @@ impl Ticket {
     }
 }
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};

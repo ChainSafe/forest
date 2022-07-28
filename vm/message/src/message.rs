@@ -51,7 +51,6 @@ pub fn valid_for_block_inclusion(
     Ok(())
 }
 
-#[cfg(feature = "json")]
 pub mod json {
     use cid::Cid;
     use forest_json::address::json::AddressJson;

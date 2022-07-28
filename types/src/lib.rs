@@ -5,7 +5,6 @@ pub mod build_version;
 pub mod deadlines;
 pub mod sector;
 
-#[cfg(feature = "json")]
 pub mod genesis;
 
 #[cfg(feature = "proofs")]

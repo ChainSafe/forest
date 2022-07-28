@@ -25,7 +25,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;
 use std::fmt;
 
-#[cfg(feature = "json")]
 pub mod json;
 
 const SHA_256_BITS: usize = 256;

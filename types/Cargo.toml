@@ -21,8 +21,8 @@ forest_vm           = "0.3"
 num-traits          = "0.2"
 num-derive          = "0.3"
 forest_encoding     = "0.2"
-base64              = { version = "0.13", optional = true }
-forest_json_utils   = { optional = true, version = "0.1" }
+base64              = "0.13"
+forest_json_utils   = "0.1"
 lazy_static         = "1.4"
 async-std           = "1.9"
 git-version         = "0.3"
@@ -31,5 +31,4 @@ forest_json         = { version = "0.1.0", path = "../utils/json/" }
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
 
 [features]
-json   = ["base64", "forest_json_utils"]
 proofs = ["filecoin-proofs-api"]

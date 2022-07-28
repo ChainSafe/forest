@@ -124,7 +124,6 @@ impl Cbor for SignedMessage {
     }
 }
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use crate::message;

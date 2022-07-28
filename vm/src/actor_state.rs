@@ -3,10 +3,10 @@
 
 pub use fvm::state_tree::ActorState;
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use crate::TokenAmount;
+    use cid::Cid;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
 
