@@ -18,7 +18,6 @@ use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
-use std::net::SocketAddr;
 use utils::write_to_file;
 
 use async_std::{channel::bounded, sync::RwLock, task};
@@ -301,13 +300,12 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_address = SocketAddr::new(config.rpc_ip, config.rpc_port);
-        let rpc_listen = TcpListener::bind(&rpc_address)
+        let rpc_listen = TcpListener::bind(&config.rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         Some(task::spawn(async move {
-            info!("JSON-RPC endpoint started at {}", rpc_address);
+            info!("JSON-RPC endpoint started at {}", config.rpc_address);
             start_rpc::<_, _, FullVerifier, FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),

@@ -110,8 +110,6 @@ pub struct CliOpts {
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
-    #[structopt(short, long, help = "Port used for JSON-RPC communication")]
-    pub port: Option<u16>,
     #[structopt(
         short,
         long,
@@ -123,6 +121,11 @@ pub struct CliOpts {
         help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
     )]
     pub metrics_address: Option<SocketAddr>,
+    #[structopt(
+        long,
+        help = "Address used for RPC. By defaults binds on localhost on port 1234."
+    )]
+    pub rpc_address: Option<SocketAddr>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
     #[structopt(long, help = "Allow MDNS (default = false)")]
@@ -187,7 +190,9 @@ impl CliOpts {
         }
         if self.rpc.unwrap_or(cfg.enable_rpc) {
             cfg.enable_rpc = true;
-            cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
+            if let Some(rpc_address) = self.rpc_address {
+                cfg.rpc_address = rpc_address;
+            }
 
             if self.token.is_some() {
                 cfg.rpc_token = self.token.to_owned();
