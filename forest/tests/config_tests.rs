@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use assert_cmd::Command;
-use forest::cli::Config;
+use forest::cli::{Config, Miscellaneous};
 use rand::Rng;
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
@@ -56,9 +56,12 @@ fn test_reading_configuration_from_file() {
 
     let expected_config = Config {
         metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
-        rpc_token: Some("Azazello".into()),
-        genesis_file: Some("cthulhu".into()),
-        encrypt_keystore: false,
+        miscellaneous: Miscellaneous {
+            rpc_token: Some("Azazello".into()),
+            genesis_file: Some("cthulhu".into()),
+            encrypt_keystore: false,
+            ..Miscellaneous::default()
+        },
         ..Config::default()
     };
 
@@ -90,8 +93,11 @@ fn test_reading_configuration_from_file() {
 #[test]
 fn test_config_env_var() {
     let expected_config = Config {
-        rpc_token: Some("some_rpc_token".into()),
-        data_dir: PathBuf::from("some_path_buf"),
+        miscellaneous: Miscellaneous {
+            rpc_token: Some("some_rpc_token".into()),
+            data_dir: PathBuf::from("some_path_buf"),
+            ..Miscellaneous::default()
+        },
         ..Config::default()
     };
 
