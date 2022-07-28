@@ -7,7 +7,7 @@ use forest_libp2p::Libp2pConfig;
 use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -31,6 +31,8 @@ pub struct Config {
     pub encrypt_keystore: bool,
     /// Metrics bind, e.g. 127.0.0.1:6116
     pub metrics_address: SocketAddr,
+    /// RPC bind, e.g. 127.0.0.1
+    pub rpc_ip: IpAddr,
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
@@ -54,6 +56,7 @@ impl Default for Config {
             sync: SyncConfig::default(),
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
+            rpc_ip: FromStr::from_str("127.0.0.1").unwrap(),
             rocks_db: forest_db::rocks_config::RocksDbConfig::default(),
             chain: Arc::default(),
         }

@@ -18,6 +18,7 @@ use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use rpc::start_rpc;
 use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
+use std::net::SocketAddr;
 use utils::write_to_file;
 
 use async_std::{channel::bounded, sync::RwLock, task};
@@ -300,7 +301,7 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_address = format!("127.0.0.1:{}", config.rpc_port);
+        let rpc_address = SocketAddr::new(config.rpc_ip, config.rpc_port);
         let rpc_listen = TcpListener::bind(&rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
