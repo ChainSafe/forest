@@ -4,7 +4,7 @@
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 use forest_libp2p::{Multiaddr, Protocol};
 use jsonrpc_v2::Error as JsonRpcError;
-use rpc_client::{auth_new, DEFAULT_HOST};
+use rpc_client::auth_new;
 use structopt::StructOpt;
 
 use auth::*;
@@ -56,8 +56,8 @@ impl AuthCommands {
                 match auth_new((perms,)).await {
                     Ok(token) => {
                         let mut addr = Multiaddr::empty();
-                        addr.push(Protocol::Ip4(DEFAULT_HOST.parse().unwrap()));
-                        addr.push(Protocol::Tcp(cfg.rpc_port));
+                        addr.push(cfg.rpc_address.ip().into());
+                        addr.push(Protocol::Tcp(cfg.rpc_address.port()));
                         addr.push(Protocol::Http);
                         println!(
                             "FULLNODE_API_INFO=\"{}:{}\"",

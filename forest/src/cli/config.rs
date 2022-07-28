@@ -7,9 +7,8 @@ use forest_libp2p::Libp2pConfig;
 use networks::ChainConfig;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -18,7 +17,6 @@ pub struct Config {
     pub data_dir: PathBuf,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
-    pub rpc_port: u16,
     pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
@@ -31,6 +29,8 @@ pub struct Config {
     pub encrypt_keystore: bool,
     /// Metrics bind, e.g. 127.0.0.1:6116
     pub metrics_address: SocketAddr,
+    /// RPC bind, e.g. 127.0.0.1:1234
+    pub rpc_address: SocketAddr,
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
@@ -45,7 +45,6 @@ impl Default for Config {
             data_dir: dir.data_dir().to_path_buf(),
             genesis_file: None,
             enable_rpc: true,
-            rpc_port: DEFAULT_PORT,
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
@@ -53,7 +52,8 @@ impl Default for Config {
             skip_load: false,
             sync: SyncConfig::default(),
             encrypt_keystore: true,
-            metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
+            metrics_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 6116),
+            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             rocks_db: forest_db::rocks_config::RocksDbConfig::default(),
             chain: Arc::default(),
         }
