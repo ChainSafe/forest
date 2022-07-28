@@ -198,7 +198,7 @@ impl CliOpts {
             cfg.miscellaneous.enable_rpc = false;
         }
         if let Some(metrics_address) = self.metrics_address {
-            cfg.metrics_address = metrics_address;
+            cfg.miscellaneous.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             panic!("Can't set import_snapshot and import_chain at the same time!");

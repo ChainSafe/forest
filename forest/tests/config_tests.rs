@@ -45,7 +45,7 @@ fn test_overrides_are_reflected_in_configuration_dump() {
         .expect("Invalid configuration!");
 
     assert_eq!(
-        config.metrics_address,
+        config.miscellaneous.metrics_address,
         SocketAddr::from_str(&randomized_metrics_host).unwrap()
     );
 }
@@ -55,11 +55,12 @@ fn test_reading_configuration_from_file() {
     let mut rng = rand::thread_rng();
 
     let expected_config = Config {
-        metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
         miscellaneous: Miscellaneous {
             rpc_token: Some("Azazello".into()),
             genesis_file: Some("cthulhu".into()),
             encrypt_keystore: false,
+            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>()))
+                .unwrap(),
             ..Miscellaneous::default()
         },
         ..Config::default()

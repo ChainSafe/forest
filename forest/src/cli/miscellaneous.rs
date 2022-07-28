@@ -4,7 +4,7 @@
 use directories::ProjectDirs;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf, str::FromStr};
 
 #[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -23,6 +23,8 @@ pub struct Miscellaneous {
     /// Will use the cids in the header of the file to index the chain.
     pub skip_load: bool,
     pub encrypt_keystore: bool,
+    /// Metrics bind, e.g. 127.0.0.1:6116
+    pub metrics_address: SocketAddr,
 }
 
 impl Default for Miscellaneous {
@@ -39,6 +41,7 @@ impl Default for Miscellaneous {
             snapshot_height: None,
             skip_load: false,
             encrypt_keystore: true,
+            metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
         }
     }
 }
