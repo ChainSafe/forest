@@ -65,7 +65,9 @@ const fn new_version(major: u32, minor: u32, patch: u32) -> Version {
 
 /// Gets the formatted current user version.
 pub async fn user_version() -> String {
-    version()
+    option_env!("FOREST_VERSION")
+        .unwrap_or(env!("CARGO_PKG_VERSION"))
+        .to_string()
 }
 
 impl Version {
