@@ -67,6 +67,9 @@ forest_json       = { version = "0.1.0", path = "../utils/json/" }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 time              = "0.3"
 
+[build-dependencies]
+fil_types         = "0.2"
+
 [dependencies.jsonrpc-v2]
 version          = "0.10"
 features         = ["easy-errors", "macros", "bytes-v05"]

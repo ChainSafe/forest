@@ -6,6 +6,13 @@ use git_version::git_version;
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::process::Command;
+
+#[cfg(not(feature = "release"))]
+const RELEASE_TRACK: &str = "unstable";
+
+#[cfg(feature = "release")]
+const RELEASE_TRACK: &str = "alpha";
 
 use serde::Serialize;
 const BUILD_VERSION: &str = "0.10.2";
@@ -119,4 +126,22 @@ impl std::convert::TryFrom<&NodeType> for Version {
             _ => Err(format!("unknown node type {}", node_type)),
         }
     }
+}
+
+/// Returns version string at build time, e.g., `0.2.2-unstable+git.21146f40`
+pub fn version() -> String {
+    let git_hash = match Command::new("git")
+        .args(&["rev-parse", "--short", "HEAD"])
+        .output()
+    {
+        Ok(output) => String::from_utf8(output.stdout).unwrap_or_default(),
+        _ => "unknown".to_owned(),
+    };
+    // TODO: add network name when possible, ie +mainnet, +calibnet, etc
+    format!(
+        "{}-{}+git.{}",
+        env!("CARGO_PKG_VERSION"),
+        RELEASE_TRACK,
+        git_hash,
+    )
 }
