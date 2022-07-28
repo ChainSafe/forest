@@ -7,6 +7,7 @@ mod config;
 mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
+mod miscellaneous;
 mod mpool_cmd;
 mod net_cmd;
 mod state_cmd;
@@ -183,17 +184,17 @@ impl CliOpts {
         }
 
         if let Some(genesis_file) = &self.genesis {
-            cfg.genesis_file = Some(genesis_file.to_owned());
+            cfg.miscellaneous.genesis_file = Some(genesis_file.to_owned());
         }
-        if self.rpc.unwrap_or(cfg.enable_rpc) {
-            cfg.enable_rpc = true;
-            cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
+        if self.rpc.unwrap_or(cfg.miscellaneous.enable_rpc) {
+            cfg.miscellaneous.enable_rpc = true;
+            cfg.miscellaneous.rpc_port = self.port.to_owned().unwrap_or(cfg.miscellaneous.rpc_port);
 
             if self.token.is_some() {
-                cfg.rpc_token = self.token.to_owned();
+                cfg.miscellaneous.rpc_token = self.token.to_owned();
             }
         } else {
-            cfg.enable_rpc = false;
+            cfg.miscellaneous.enable_rpc = false;
         }
         if let Some(metrics_address) = self.metrics_address {
             cfg.metrics_address = metrics_address;
@@ -202,16 +203,16 @@ impl CliOpts {
             panic!("Can't set import_snapshot and import_chain at the same time!");
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
-                cfg.snapshot_path = Some(snapshot_path.to_owned());
-                cfg.snapshot = true;
+                cfg.miscellaneous.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.miscellaneous.snapshot = true;
             }
             if let Some(snapshot_path) = &self.import_chain {
-                cfg.snapshot_path = Some(snapshot_path.to_owned());
-                cfg.snapshot = false;
+                cfg.miscellaneous.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.miscellaneous.snapshot = false;
             }
-            cfg.snapshot_height = self.height;
+            cfg.miscellaneous.snapshot_height = self.height;
 
-            cfg.skip_load = self.skip_load;
+            cfg.miscellaneous.skip_load = self.skip_load;
         }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
@@ -230,7 +231,7 @@ impl CliOpts {
             cfg.sync.tipset_sample_size = tipset_sample_size.into();
         }
         if let Some(encrypt_keystore) = self.encrypt_keystore {
-            cfg.encrypt_keystore = encrypt_keystore;
+            cfg.miscellaneous.encrypt_keystore = encrypt_keystore;
         }
 
         Ok(cfg)
