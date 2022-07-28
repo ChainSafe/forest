@@ -21,7 +21,7 @@ check_env () {
 
 check_env "AWS_ACCESS_KEY_ID"
 check_env "AWS_SECRET_ACCESS_KEY"
-check_env "FOREST_CHECK_SLACK_HOOK"
+check_env "SLACK_HOOK"
 
 if [ "$error" -ne "0" ]; then
     echo "Please set the required environment variables and try again."
@@ -45,6 +45,6 @@ s3fs forest-snapshots $S3_FOLDER \
     -o allow_other
 
 ## Transfer control to forest script
-cp run_forest.sh $BASE_FOLDER
-chmod +x $BASE_FOLDER/run_forest.sh
+cp sync_check.sh health_check.sh $BASE_FOLDER
+#chmod +x $BASE_FOLDER/run_forest.sh
 docker-compose up

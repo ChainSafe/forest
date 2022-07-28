@@ -13,58 +13,51 @@ services:
       - type: bind
         source: ${BASE_FOLDER}
         target: ${BASE_FOLDER}
-    entrypoint: '${BASE_FOLDER}/run_forest.sh'
-    # command:
-    #   # Uncomment on the first-run to boostrap the db.
-    #   - '--import-snapshot'
-    #   - ${FOREST_TARGET_SNAPSHOTS}/calibnet.car
-    #   - '--chain'
-    #   - 'calibnet'
-    #   - '--config'
-    #   - ${FOREST_TARGET_DATA}/sync_check.toml
-    environment:
-      - BASE_FOLDER
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        cd $BASE_FOLDER
+        RECENT_SNAPSHOT=s3/calibnet/`ls -Atr1 s3/calibnet/ | tail -n 1`
+        forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain calibnet --import-snapshot $${RECENT_SNAPSHOT}
     restart: on-failure
     labels:
       com.centurylinklabs.watchtower.enable: true
   # Probe container to validate Forest syncing. Needs to be on the same network.
-  # forest_tester:
-  #   image: fedora:36
-  #   networks:
-  #     - mainnet
-  #     - calibnet
-  #   volumes:
-  #     - type: bind
-  #       read_only: true
-  #       source: .
-  #       target: ${FOREST_TARGET_SCRIPTS}
-  #     - type: bind
-  #       source: ${FOREST_HOST_LOGS}
-  #       target: ${FOREST_TARGET_LOGS}
-  #   environment:
-  #     - SLACK_HOOK=${FOREST_CHECK_SLACK_HOOK}
-  #   entrypoint: ["/bin/bash","-c"]
-  #   command:
-  #     - |
-  #       #bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-calibnet
-  #       #bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-mainnet
-  #       sleep infinity
-  #   depends_on:
-  #     # - forest_mainnet
-  #     - forest_calibnet
-  #   labels:
-  #     com.centurylinklabs.watchtower.enable: true
-  #     com.centurylinklabs.watchtower.depends-on: "forest-calibnet"
+  forest_tester:
+    image: fedora:36
+    networks:
+      - mainnet
+      - calibnet
+    volumes:
+      - type: bind
+        source: ${BASE_FOLDER}
+        target: ${BASE_FOLDER}
+      - type: bind
+        source: ${FOREST_HOST_LOGS}
+        target: ${FOREST_TARGET_LOGS}
+    environment:
+      - BASE_FOLDER
+      - SLACK_HOOK
+      - FOREST_TARGET_LOGS
+    entrypoint: ["/bin/bash","-c"]
+    command:
+      - |
+        dnf install docker-client
+        bash ${BASE_FOLDER}/sync_check.sh forest-calibnet
+        sleep infinity
+    depends_on:
+      # - forest_mainnet
+      - forest_calibnet
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+      com.centurylinklabs.watchtower.depends-on: "forest-calibnet"
   watchtower:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.docker/config.json:/config.json
-    command: --label-enable --include-stopped --interval 30
+    command: --label-enable --include-stopped --interval 3600
     restart: unless-stopped
-
-volumes:
-  forest_data: {}
 
 networks:
   mainnet:

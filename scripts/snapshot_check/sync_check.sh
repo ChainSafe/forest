@@ -23,19 +23,19 @@ if [ -z "$SLACK_HOOK" ]; then
 fi
 
 # Directory where the nightly check logs are kept
-export SCRIPTS_DIR=/opt/scripts
-export LOG_DIR=/opt/logs
+export SCRIPTS_DIR=$BASE_FOLDER
+export LOG_DIR=$FOREST_TARGET_LOGS
 
 DATE=$(date +"%FT%H:%M:%S")
 mkdir -p "$LOG_DIR"
 export LOG_FILE_CHECK="$LOG_DIR/forest_check_$DATE.log"
 
 function send_success_notification() {
-  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"✅ $FOREST_HOSTNAME check successfully passed! 💪🌲!\"}" "$SLACK_HOOK"
+  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"✅ $FOREST_HOSTNAME snapshot export passed! 💪🌲!\"}" "$SLACK_HOOK"
 }
 
 function send_failure_notification() {
-  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"❌  $FOREST_HOSTNAME check miserably failed!\n $(tail -n20 "$LOG_FILE_CHECK")\"}" "$SLACK_HOOK"
+  curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"❌  $FOREST_HOSTNAME snapshot export failure!\n $(tail -n20 "$LOG_FILE_CHECK")\"}" "$SLACK_HOOK"
 }
 
 echo "Running the health check..."

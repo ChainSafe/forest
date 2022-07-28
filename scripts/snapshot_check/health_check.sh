@@ -18,7 +18,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Governs how long the health check will run to assert Forest condition
-HEALTH_CHECK_DURATION_SECONDS=${HEALTH_CHECK_DURATION_SECONDS:-"120"}
+HEALTH_CHECK_DURATION_SECONDS=${HEALTH_CHECK_DURATION_SECONDS:-"600"}
 # Forest metrics endpoint path
 FOREST_METRICS_ENDPOINT=${FOREST_METRICS_ENDPOINT:-"http://$1:6116/metrics"}
 # Initial sync timeout (in seconds) after which the health check will fail
@@ -67,7 +67,7 @@ echo "✅ Forest started syncing"
 
 # Let Forest run for the health check period
 echo "⏳ Waiting for the health probe to finish..."
-sleep "$HEALTH_CHECK_DURATION_SECONDS"
+docker run --init -it ghcr.io/chainsafe/forest:latest sync wait
 
 # Grab last synced tipset epoch
 update_metrics
@@ -100,6 +100,7 @@ fi
 
 if [ "$ret" -eq "$RET_OK" ]; then
   echo "✅ Health check passed"
+  docker run --init -it ghcr.io/chainsafe/forest:latest chain export
 else
   echo "❌ Health check failed"
 fi
