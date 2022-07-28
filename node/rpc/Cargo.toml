@@ -51,6 +51,7 @@ legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
 forest_json = { version = "0.1.0", path = "../../utils/json/" }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 libipld-core = "0.13.1"
+fvm_ipld_encoding = "0.2"
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

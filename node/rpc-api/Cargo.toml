@@ -32,6 +32,7 @@ libp2p            = { version = "0.40.0-rc.1", default-features = false }
 fvm_shared        = { version = "0.8.0", default-features = false }
 fvm_ipld_bitfield = { version = "0.5.2", features = ["json"] }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
+fvm               = "1.0"
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"

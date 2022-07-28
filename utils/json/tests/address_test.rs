@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use data_encoding::{DecodeError, DecodeKind};
-use forest_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::address::{
     checksum, validate_checksum, Address, Protocol, BLS_PUB_LEN, SECP_PUB_LEN,
 };

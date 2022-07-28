@@ -14,7 +14,7 @@ use chain::Scale;
 use chain::Weight;
 use chain_sync::consensus::Consensus;
 use forest_blocks::{Block, Tipset};
-use forest_encoding::Error as ForestEncodingError;
+use fvm_ipld_encoding::Error as ForestEncodingError;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use ipld_blockstore::BlockStore;

@@ -4,7 +4,8 @@
 use cid::Cid;
 use fil_types::PaddedPieceSize;
 use forest_json::bigint::json;
-use forest_vm::{ActorState, TokenAmount};
+use forest_vm::TokenAmount;
+use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;

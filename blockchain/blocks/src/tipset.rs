@@ -3,7 +3,7 @@
 
 use super::{Block, BlockHeader, Error, Ticket};
 use cid::Cid;
-use forest_encoding::Cbor;
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::{address::Address, bigint::BigInt};
 use log::info;

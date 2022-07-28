@@ -4,8 +4,8 @@
 use crate::Error;
 use chain::MINIMUM_BASE_FEE;
 use cid::Cid;
-use forest_encoding::Cbor;
 use forest_message::{Message as MessageTrait, SignedMessage};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;

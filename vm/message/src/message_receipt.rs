@@ -8,8 +8,8 @@ pub type MessageReceipt = Receipt;
 
 pub mod json {
     use super::*;
-    use forest_vm::ExitCode;
     use fvm_ipld_encoding::RawBytes;
+    use fvm_shared::error::ExitCode;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and deserializing a SignedMessage from JSON.

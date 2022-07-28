@@ -4,9 +4,8 @@
 use cid::multihash::Code::{Blake2b256, Identity};
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use forest_encoding::{from_slice, to_vec};
 use forest_ipld::{to_ipld, Ipld};
-use fvm_ipld_encoding::DAG_CBOR;
+use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};
 

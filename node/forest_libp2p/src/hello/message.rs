@@ -30,8 +30,8 @@ mod tests {
     use super::*;
     use cid::multihash::Code::Identity;
     use cid::multihash::MultihashDigest;
-    use forest_encoding::*;
     use fvm_ipld_encoding::DAG_CBOR;
+    use fvm_ipld_encoding::{from_slice, to_vec};
 
     #[test]
     fn hello_default_ser() {

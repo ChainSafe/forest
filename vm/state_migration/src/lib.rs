@@ -5,8 +5,8 @@
 //! Each network upgrade / state migration code lives in their own module.
 
 use cid::Cid;
-use forest_vm::{ActorState, TokenAmount};
-use fvm::state_tree::StateTree;
+use forest_vm::TokenAmount;
+use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;

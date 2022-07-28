@@ -5,11 +5,12 @@ use cid::Cid;
 use fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
-use forest_encoding::BytesDe;
 use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;
-use forest_vm::{ActorState, DealID, TokenAmount};
+use forest_vm::{DealID, TokenAmount};
+use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
+use fvm_ipld_encoding::BytesDe;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;

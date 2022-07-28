@@ -4,10 +4,10 @@
 use super::gas_api::estimate_message_gas;
 use beacon::Beacon;
 use forest_blocks::TipsetKeys;
-use forest_encoding::Cbor;
 use forest_json::cid::{vec::CidJsonVec, CidJson};
 use forest_message::message::json::MessageJson;
 use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
 use ipld_blockstore::BlockStore;
 use rpc_api::data_types::RPCState;

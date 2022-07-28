@@ -12,7 +12,7 @@ use chain::{Error as ChainStoreError, Scale};
 use chain_sync::Consensus;
 use fil_types::verifier::ProofVerifier;
 use forest_blocks::{Block, Tipset};
-use forest_encoding::Error as ForestEncodingError;
+use fvm_ipld_encoding::Error as ForestEncodingError;
 use ipld_blockstore::BlockStore;
 use nonempty::NonEmpty;
 use state_manager::Error as StateManagerError;

@@ -7,8 +7,8 @@ use actor_interface::{
 use anyhow::Context;
 use chain::*;
 use fil_types::FILECOIN_PRECISION;
-use forest_vm::{ActorState, TokenAmount};
-use fvm::state_tree::StateTree;
+use forest_vm::TokenAmount;
+use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;

@@ -13,9 +13,6 @@ mod sync_state;
 mod tipset_syncer;
 mod validation;
 
-// workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
-extern crate serde;
-
 pub use self::bad_block_cache::BadBlockCache;
 pub use self::chain_muxer::{ChainMuxer, SyncConfig};
 pub use self::consensus::{collect_errs, Consensus};

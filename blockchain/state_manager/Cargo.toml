@@ -42,6 +42,7 @@ forest_crypto       = { version = "0.5", features = ["blst"] }
 networks            = { path = "../../types/networks" }
 statediff           = { path = "../../utils/statediff", optional = true }
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
+fvm_ipld_encoding   = "0.2"
 
 [features]
 default = ["statediff"]

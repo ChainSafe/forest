@@ -6,7 +6,7 @@ use std::str::FromStr;
 use actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use forest_json::address::json::AddressJson;
-use forest_vm::ActorState;
+use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
