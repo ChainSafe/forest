@@ -22,6 +22,4 @@ num-derive         = "0.3"
 thiserror          = "1.0"
 lazy_static        = "1.4"
 cid                = { version = "0.8", default-features = false, features = ["std"] }
-
-[features]
-json = []
+forest_json        = { version = "0.1.0", path = "../utils/json/" }

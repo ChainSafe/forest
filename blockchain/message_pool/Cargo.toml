@@ -8,7 +8,7 @@ edition = "2021"
 anyhow            = "1.0"
 forest_vm         = "0.3.1"
 forest_blocks     = { path = "../blocks" }
-forest_message    = { version = "0.7", features = ["proofs", "json", "blst"] }
+forest_message    = { version = "0.7", features = ["proofs", "blst"] }
 thiserror         = "1.0"
 forest_encoding   = "0.2.1"
 ipld_blockstore   = "0.1"

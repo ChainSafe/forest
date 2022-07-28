@@ -260,7 +260,6 @@ where
     Ok(())
 }
 
-#[cfg(feature = "json")]
 pub mod tipset_keys_json {
     use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -298,7 +297,6 @@ pub mod tipset_keys_json {
     }
 }
 
-#[cfg(feature = "json")]
 pub mod tipset_json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};

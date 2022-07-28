@@ -6,7 +6,6 @@ use fvm_shared::receipt::Receipt;
 /// Result of a state transition from a message
 pub type MessageReceipt = Receipt;
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use fvm_ipld_encoding::RawBytes;
