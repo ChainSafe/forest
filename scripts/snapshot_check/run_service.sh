@@ -34,17 +34,17 @@ fi
 # 2. Run forest script with docker-compose.
 
 ## Setup s3
-mkdir --parents $S3_FOLDER
+mkdir --parents "$S3_FOLDER"
 function cleanup {
   echo "unmounting s3 folder"
-  fusermount -u -q $S3_FOLDER
+  fusermount -u -q "$S3_FOLDER"
 }
 trap cleanup EXIT
-s3fs forest-snapshots $S3_FOLDER \
+s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
 
 ## Transfer control to forest script
-cp sync_check.sh health_check.sh $BASE_FOLDER
+cp sync_check.sh health_check.sh "$BASE_FOLDER"
 #chmod +x $BASE_FOLDER/run_forest.sh
 docker-compose up
