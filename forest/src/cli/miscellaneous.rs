@@ -1,3 +1,6 @@
+// Copyright 2019-2022 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 use directories::ProjectDirs;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
