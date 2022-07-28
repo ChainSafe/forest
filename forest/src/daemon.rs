@@ -38,7 +38,7 @@ pub(super) async fn start(config: Config) {
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
     );
 
-    let path: PathBuf = config.miscellaneous.data_dir.join("libp2p");
+    let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
         // Keypair not found, generate and save generated keypair
         let gen_keypair = ed25519::Keypair::generate();
@@ -58,7 +58,7 @@ pub(super) async fn start(config: Config) {
         Keypair::Ed25519(gen_keypair)
     });
 
-    let mut ks = if config.miscellaneous.encrypt_keystore {
+    let mut ks = if config.client.encrypt_keystore {
         loop {
             print!("Enter the keystore passphrase: ");
             std::io::stdout().flush().unwrap();
@@ -66,7 +66,7 @@ pub(super) async fn start(config: Config) {
             let passphrase = read_password().expect("Error reading passphrase");
 
             let data_dir =
-                PathBuf::from(&config.miscellaneous.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
+                PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
                 print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
@@ -78,7 +78,7 @@ pub(super) async fn start(config: Config) {
             }
 
             let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
-                PathBuf::from(&config.miscellaneous.data_dir),
+                PathBuf::from(&config.client.data_dir),
                 passphrase,
             ));
 
@@ -92,7 +92,7 @@ pub(super) async fn start(config: Config) {
     } else {
         warn!("Warning: Keystore encryption disabled!");
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(
-            &config.miscellaneous.data_dir,
+            &config.client.data_dir,
         )))
         .expect("Error initializing keystore")
     };
@@ -103,17 +103,17 @@ pub(super) async fn start(config: Config) {
     }
 
     // Start Prometheus server port
-    let prometheus_listener = TcpListener::bind(config.miscellaneous.metrics_address)
+    let prometheus_listener = TcpListener::bind(config.client.metrics_address)
         .await
         .unwrap_or_else(|_| {
             cli_error_and_die(
-                format!("could not bind to {}", config.miscellaneous.metrics_address),
+                format!("could not bind to {}", config.client.metrics_address),
                 1,
             )
         });
     info!(
         "Prometheus server started at {}",
-        config.miscellaneous.metrics_address
+        config.client.metrics_address
     );
     let prometheus_server_task = task::spawn(metrics::init_prometheus(
         prometheus_listener,
@@ -143,7 +143,7 @@ pub(super) async fn start(config: Config) {
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
     let genesis = read_genesis_header(
-        config.miscellaneous.genesis_file.as_ref(),
+        config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
         &chain_store,
     )
@@ -189,9 +189,9 @@ pub(super) async fn start(config: Config) {
     #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
     {
         use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
-        set_proofs_parameter_cache_dir_env(&config.miscellaneous.data_dir);
+        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
-        get_params_default(&config.miscellaneous.data_dir, SectorSizeOpt::Keys, false)
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
             .await
             .unwrap();
     }
@@ -307,9 +307,9 @@ pub(super) async fn start(config: Config) {
     let p2p_task = task::spawn(async {
         p2p_service.run().await;
     });
-    let rpc_task = if config.miscellaneous.enable_rpc {
+    let rpc_task = if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_address = format!("127.0.0.1:{}", config.miscellaneous.rpc_port);
+        let rpc_address = format!("127.0.0.1:{}", config.client.rpc_port);
         let rpc_listen = TcpListener::bind(&rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
@@ -357,10 +357,10 @@ pub(super) async fn start(config: Config) {
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
-    if let Some(path) = &config.miscellaneous.snapshot_path {
+    if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
-        let validate_height = if config.miscellaneous.snapshot {
-            config.miscellaneous.snapshot_height
+        let validate_height = if config.client.snapshot {
+            config.client.snapshot_height
         } else {
             Some(0)
         };
@@ -368,7 +368,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             state_manager,
             path,
             validate_height,
-            config.miscellaneous.skip_load,
+            config.client.skip_load,
         )
         .await
         .expect("Failed miserably while importing chain from snapshot");
@@ -387,7 +387,7 @@ fn db_path(config: &Config) -> PathBuf {
 }
 
 fn chain_path(config: &Config) -> PathBuf {
-    PathBuf::from(&config.miscellaneous.data_dir).join(&config.chain.name)
+    PathBuf::from(&config.client.data_dir).join(&config.chain.name)
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@ use std::{net::SocketAddr, path::PathBuf, str::FromStr};
 
 #[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
-pub struct Miscellaneous {
+pub struct Client {
     pub data_dir: PathBuf,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
@@ -27,7 +27,7 @@ pub struct Miscellaneous {
     pub metrics_address: SocketAddr,
 }
 
-impl Default for Miscellaneous {
+impl Default for Client {
     fn default() -> Self {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
         Self {

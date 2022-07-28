@@ -7,12 +7,12 @@ use networks::ChainConfig;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::miscellaneous::Miscellaneous;
+use super::client::Client;
 
 #[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
-    pub miscellaneous: Miscellaneous,
+    pub client: Client,
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
