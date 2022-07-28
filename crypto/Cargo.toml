@@ -31,4 +31,4 @@ rand_chacha = "0.3"
 [features]
 default = ["blst"]
 blst    = ["bls-signatures/blst", "fvm_shared/blst"]
-pairing = ["bls-signatures/pairing", "fvm_shared/pairing"]
+pairing = ["fvm_shared/pairing"]
