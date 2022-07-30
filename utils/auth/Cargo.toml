@@ -14,7 +14,7 @@ thiserror = "1.0"
 fvm_shared = { version = "0.8", default-features = false }
 # Internal
 forest_crypto = { version = "0.5", features = ["blst"] }
-key_management = { path = "../../key_management" }
+key_management = "0.1.0"
 
 [dependencies.jsonrpc-v2]
 version = "0.10"

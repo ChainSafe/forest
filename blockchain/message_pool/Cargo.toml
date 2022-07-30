@@ -7,14 +7,14 @@ edition = "2021"
 [dependencies]
 anyhow            = "1.0"
 forest_vm         = "0.3.1"
-forest_blocks     = { path = "../blocks" }
+forest_blocks     = "0.1.0"
 forest_message    = { version = "0.7", features = ["proofs", "blst"] }
 thiserror         = "1.0"
 forest_encoding   = "0.2.1"
 ipld_blockstore   = "0.1"
 lru               = "0.7.2"
 forest_crypto     = { version = "0.5", features = ["blst"] }
-chain             = { path = "../chain" }
+chain             = "0.1.0"
 serde             = { version = "1.0", features = ["derive"] }
 forest_db         = "0.1"
 tokio             = { version = "1.0", features = ["sync"] }
@@ -23,15 +23,15 @@ libsecp256k1      = "0.6"
 blake2b_simd      = "0.5.10"
 log               = "0.4.8"
 async-std         = { version = "1.9", features = ["tokio1"] }
-state_manager     = { path = "../state_manager" }
+state_manager     = "0.1.0"
 async-trait       = "0.1"
-interpreter       = { path = "../../vm/interpreter/" }
+interpreter       = "0.1.0"
 fil_types         = "0.2"
-forest_libp2p     = { path = "../../node/forest_libp2p" }
+forest_libp2p     = "0.1.0"
 num-traits        = "0.2"
 statrs            = "0.15"
 num-rational      = "0.4"
-networks          = { path = "../../types/networks" }
+networks          = "0.1.0"
 slotmap           = "1.0"
 rand              = "0.8.3"
 fvm_shared        = { version = "0.8.0", default-features = false }
@@ -40,5 +40,5 @@ cid               = { version = "0.8", default-features = false, features = ["st
 fvm_ipld_encoding = "0.2"
 
 [dev-dependencies]
-interpreter    = { path = "../../vm/interpreter/" }
-key_management = { path = "../../key_management" }
+interpreter    = "0.1.0"
+key_management = "0.1.0"

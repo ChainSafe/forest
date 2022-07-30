@@ -27,7 +27,7 @@ lazy_static         = "1.4"
 async-std           = "1.9"
 git-version         = "0.3"
 rayon               = "1.5"
-forest_json         = { version = "0.1.0", path = "../utils/json/" }
+forest_json         = "0.1.0"
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
 fvm_ipld_encoding   = "0.2"
 

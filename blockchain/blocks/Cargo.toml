@@ -8,11 +8,11 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-beacon            = { path = "../beacon" }
+beacon            = "0.1.0"
 byteorder         = "1.3.4"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_message    = { version = "0.7", features = ["blst"] }
-forest_json       = { version = "0.1.0", path = "../../utils/json/" }
+forest_json       = "0.1.0"
 derive_builder    = "0.10"
 serde             = { version = "1.0", features = ["derive"] }
 forest_encoding   = "0.2.1"
@@ -31,10 +31,8 @@ fvm_ipld_encoding = "0.2"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-base64 = "0.13"
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors",
-] }
-hex = "0.4.2"
+base64     = "0.13"
+test_utils = { version = "0.1.0", features = ["test_constructors"] }
+hex        = "0.4.2"
 serde_json = "1.0"
-async-std = "1.9"
+async-std  = "1.9"

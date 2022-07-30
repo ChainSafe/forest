@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-utils = { path = "../utils" }
-networks = { path = "../../types/networks" }
+utils = "0.1.0"
+networks = "0.1.0"
 libp2p = { version = "0.40.0-rc.1", default-features = false, features = [
     "gossipsub",
     "kad",
@@ -34,13 +34,13 @@ asynchronous-codec = "0.6"
 log = "0.4"
 async-std = "1.9"
 serde = { version = "1.0", features = ["derive"] }
-forest_blocks = { path = "../../blockchain/blocks" }
+forest_blocks = "0.1.0"
 forest_message = "0.7"
 forest_encoding = "0.2"
 bytes = "1.0"
 fnv = "1.0"
 smallvec = "1.1"
-chain = { path = "../../blockchain/chain" }
+chain = "0.1.0"
 forest_db = "0.1"
 fvm_ipld_car = "0.4.1"
 libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
@@ -57,6 +57,6 @@ fvm_ipld_encoding = "0.2"
 cid = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-forest_crypto  = { version = "0.5.2", features = ["blst"] }
-genesis        = { path = "../../utils/genesis", features = ["testing"] }
-async-std      = { version = "1.9", features = ["attributes"] }
+forest_crypto = { version = "0.5.2", features = ["blst"] }
+genesis       = { version = "0.1.0", features = ["testing"] }
+async-std     = { version = "1.9", features = ["attributes"] }

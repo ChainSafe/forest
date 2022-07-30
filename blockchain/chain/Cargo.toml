@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 pbr = "1.0.3"
-forest_blocks = { path = "../blocks" }
+forest_blocks = "0.1.0"
 forest_db = "0.1"
 forest_crypto = { version = "0.5", features = ["blst"] }
 bls-signatures = { version = "0.11", default-features = false, features = [
@@ -20,24 +20,24 @@ forest_message = { version = "0.7", features = ["blst"] }
 ipld_blockstore = "0.1"
 thiserror = "1.0"
 log = "0.4.8"
-actor_interface = { path = "../../vm/actor_interface" }
+actor_interface = "0.1.0"
 blake2b_simd = "0.5.9"
 byteorder = "1.3.4"
-beacon = { path = "../beacon" }
+beacon = "0.1.0"
 tokio = { version = "1.0", features = ["sync"] }
 futures = "0.3.5"
 async-std = { version = "1.9", features = ["tokio1"] }
 fil_types = "0.2"
 lazy_static = "1.4"
-interpreter = { path = "../../vm/interpreter/" }
+interpreter = "0.1.0"
 lru = "0.7.2"
 fvm_ipld_car = "0.4.1"
 forest_ipld = "0.1.1"
-networks = { path = "../../types/networks" }
+networks = "0.1.0"
 lockfree = "0.5.1"
 crossbeam = "0.8.0"
 fvm_shared = { version = "0.8.0", default-features = false }
-legacy_ipld_amt = { path = "../../ipld/legacy_amt" }
+legacy_ipld_amt = "0.2.0"
 fvm_ipld_encoding = "0.2"
 cid = { version = "0.8", default-features = false, features = ["std"] }
 fvm = "1.0"
@@ -48,6 +48,4 @@ multihash = { version = "0.16.1", default-features = false, features = [
     "blake2b",
     "derive",
 ] }
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors",
-] }
+test_utils = { version = "0.1.0", features = ["test_constructors"] }

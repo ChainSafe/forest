@@ -28,7 +28,7 @@ indexmap = { version = "1.8", features = ["serde-1"] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-forest_json     = { path = "../utils/json/" }
+forest_json     = "0.1.0"
 ipld_blockstore = "0.1.1"
 forest_db       = "0.1.0"
 serde_json      = "1.0"
