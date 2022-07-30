@@ -114,3 +114,29 @@ fn test_config_env_var() {
 
     assert!(expected_config == actual_config);
 }
+
+#[test]
+fn test_download_location_of_proof_parameter_files() {
+    let mut rng = rand::thread_rng();
+    let expected_config = Config {
+        metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
+        rpc_token: Some("Azazello".into()),
+        genesis_file: Some("cthulhu".into()),
+        encrypt_keystore: false,
+        ..Config::default()
+    };
+
+    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
+    config_file
+        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .expect("Failed writing configuration!");
+
+    let cmd = Command::cargo_bin("forest")
+        .unwrap()
+        .env("FOREST_CONFIG_PATH", config_file.path())
+        .env("FIL_PROOFS_PARAMETER_CACHE", "/Users/rostyslav.tyshko/work/chainsafe-work/forest/temp_folder")
+        .arg("fetch-params")
+        .arg("--all")
+        .assert()
+        .success();
+}
