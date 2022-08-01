@@ -7,21 +7,21 @@ edition = "2021"
 [dependencies]
 # Internal
 actor_interface = { path = "../../vm/actor_interface" }
-beacon          = { path = "../../blockchain/beacon", features = ["json"] }
-forest_blocks   = { path = "../../blockchain/blocks", features = ["json"] }
+beacon = { path = "../../blockchain/beacon" }
+forest_blocks = { path = "../../blockchain/blocks" }
 ipld_blockstore = "0.1"
-chain           = { path = "../../blockchain/chain", features = ["json"] }
-chain_sync      = { path = "../../blockchain/chain_sync" }
-forest_json     = { version = "0.1.0", path = "../../utils/json/" }
-forest_crypto   = { version = "0.5", features = ["json", "blst"] }
-fil_types       = "0.2"
-forest_libp2p   = { path = "../forest_libp2p" }
-forest_ipld     = { version = "0.1" }
-forest_message  = { version = "0.7", features = ["json", "blst"] }
-message_pool    = { path = "../../blockchain/message_pool" }
-state_manager   = { path = "../../blockchain/state_manager" }
-forest_vm       = "0.3"
-key_management  = { path = "../../key_management", features = ["json"] }
+chain = { path = "../../blockchain/chain" }
+chain_sync = { path = "../../blockchain/chain_sync" }
+forest_json = { version = "0.1.0", path = "../../utils/json/" }
+forest_crypto = { version = "0.5", features = ["blst"] }
+fil_types = "0.2"
+forest_libp2p = { path = "../forest_libp2p" }
+forest_ipld = { version = "0.1" }
+forest_message = { version = "0.7", features = ["blst"] }
+message_pool = { path = "../../blockchain/message_pool" }
+state_manager = { path = "../../blockchain/state_manager" }
+forest_vm = "0.3"
+key_management = { path = "../../key_management" }
 # Public
 anyhow            = "1.0"
 async-std         = { version = "1.9", features = ["attributes"] }

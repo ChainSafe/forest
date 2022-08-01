@@ -28,8 +28,8 @@ pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
 use directories::ProjectDirs;
-use fil_types::FILECOIN_PRECISION;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
 use networks::ChainConfig;
@@ -112,8 +112,6 @@ pub struct CliOpts {
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
-    #[structopt(short, long, help = "Port used for JSON-RPC communication")]
-    pub port: Option<u16>,
     #[structopt(
         short,
         long,
@@ -125,6 +123,11 @@ pub struct CliOpts {
         help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
     )]
     pub metrics_address: Option<SocketAddr>,
+    #[structopt(
+        long,
+        help = "Address used for RPC. By defaults binds on localhost on port 1234."
+    )]
+    pub rpc_address: Option<SocketAddr>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
     #[structopt(long, help = "Allow MDNS (default = false)")]

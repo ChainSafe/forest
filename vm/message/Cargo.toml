@@ -20,8 +20,8 @@ forest_encoding = "0.2"
 forest_crypto = { default-features = false, version = "0.5" }
 derive_builder = "0.11"
 serde = { version = "1.0", features = ["derive"] }
-base64 = { version = "0.13", optional = true }
-forest_json_utils = { optional = true, version = "0.1" }
+base64 = "0.13"
+forest_json_utils = "0.1"
 num-traits = "0.2"
 fil_types = { optional = true, version = "0.2" }
 anyhow = "1.0"
@@ -37,10 +37,5 @@ default = ["blst"]
 blst    = ["forest_crypto/blst", "fvm_shared/blst"]
 pairing = ["forest_crypto/pairing", "fvm_shared/pairing"]
 
-json = [
-    "base64",
-    "forest_crypto/json",
-    "forest_json_utils",
-]
 # TODO try to prune out this dependency before releasing
 proofs = ["fil_types"]

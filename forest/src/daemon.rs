@@ -9,8 +9,9 @@ use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
-use fil_types::{verifier::FullVerifier, NetworkVersion};
+use fil_types::verifier::FullVerifier;
 use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
+use fvm_shared::version::NetworkVersion;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
 use key_management::{KeyStore, KeyStoreConfig};
@@ -309,13 +310,12 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_address = format!("127.0.0.1:{}", config.client.rpc_port);
-        let rpc_listen = TcpListener::bind(&rpc_address)
+        let rpc_listen = TcpListener::bind(&config.rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         Some(task::spawn(async move {
-            info!("JSON-RPC endpoint started at {}", rpc_address);
+            info!("JSON-RPC endpoint started at {}", config.rpc_address);
             start_rpc::<_, _, FullVerifier, FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),

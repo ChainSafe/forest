@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::ProofVerifier;
-use crate::{PoStProof, Randomness, RegisteredPoStProof, SealVerifyInfo, SectorInfo};
+use crate::{PoStProof, RegisteredPoStProof, SealVerifyInfo, SectorInfo};
+use fvm_shared::randomness::Randomness;
 
 /// Mock verifier. This does no-op verification of any proofs.
 pub enum MockVerifier {}

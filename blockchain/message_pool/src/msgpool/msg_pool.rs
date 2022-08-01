@@ -324,7 +324,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > &fil_types::TOTAL_FILECOIN {
+        if msg.value() > &fvm_shared::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {
