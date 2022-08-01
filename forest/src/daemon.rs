@@ -66,8 +66,7 @@ pub(super) async fn start(config: Config) {
 
             let passphrase = read_password().expect("Error reading passphrase");
 
-            let data_dir =
-                PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
+            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
                 print!("Confirm passphrase: ");
                 std::io::stdout().flush().unwrap();
@@ -310,12 +309,12 @@ pub(super) async fn start(config: Config) {
     });
     let rpc_task = if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = TcpListener::bind(&config.rpc_address)
+        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         Some(task::spawn(async move {
-            info!("JSON-RPC endpoint started at {}", config.rpc_address);
+            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             start_rpc::<_, _, FullVerifier, FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),

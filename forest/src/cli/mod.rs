@@ -3,11 +3,11 @@
 
 mod auth_cmd;
 mod chain_cmd;
+mod client;
 mod config;
 mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
-mod client;
 mod mpool_cmd;
 mod net_cmd;
 mod state_cmd;
@@ -16,10 +16,10 @@ mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
+pub use self::client::Client;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
-pub use self::client::Client;
 pub(super) use self::mpool_cmd::MpoolCommands;
 pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::state_cmd::StateCommands;
@@ -192,7 +192,9 @@ impl CliOpts {
         }
         if self.rpc.unwrap_or(cfg.client.enable_rpc) {
             cfg.client.enable_rpc = true;
-            cfg.client.rpc_port = self.port.to_owned().unwrap_or(cfg.client.rpc_port);
+            if let Some(rpc_address) = self.rpc_address {
+                cfg.client.rpc_address = rpc_address;
+            }
 
             if self.token.is_some() {
                 cfg.client.rpc_token = self.token.to_owned();

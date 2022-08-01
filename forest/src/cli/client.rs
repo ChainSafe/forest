@@ -4,7 +4,11 @@
 use directories::ProjectDirs;
 use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
-use std::{net::SocketAddr, path::PathBuf, str::FromStr};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+};
 
 #[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -25,6 +29,8 @@ pub struct Client {
     pub encrypt_keystore: bool,
     /// Metrics bind, e.g. 127.0.0.1:6116
     pub metrics_address: SocketAddr,
+    /// RPC bind, e.g. 127.0.0.1:1234
+    pub rpc_address: SocketAddr,
 }
 
 impl Default for Client {
@@ -42,6 +48,7 @@ impl Default for Client {
             skip_load: false,
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
+            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
         }
     }
 }
