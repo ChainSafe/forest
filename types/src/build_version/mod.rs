@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::sync::RwLock;
+use git_version::git_version;
 use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
 use serde::Serialize;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::process::Command;
 
 #[cfg(not(feature = "release"))]
 const RELEASE_TRACK: &str = "unstable";
@@ -21,9 +21,9 @@ const MINOR_ONLY_MASK: u32 = 0x00ff00;
 const PATCH_ONLY_MASK: u32 = 0x0000ff;
 
 // api versions
-const FULL_API_VERSION: Version = new_version(1, 1, 0);
-const MINER_API_VERSION: Version = new_version(0, 15, 0);
-const WORKER_API_VERSION: Version = new_version(0, 15, 0);
+const FULL_API_VERSION: Version = Version::new(1, 1, 0);
+const MINER_API_VERSION: Version = Version::new(0, 15, 0);
+const WORKER_API_VERSION: Version = Version::new(0, 15, 0);
 
 lazy_static! {
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
@@ -59,18 +59,18 @@ impl Display for NodeType {
     }
 }
 
-const fn new_version(major: u32, minor: u32, patch: u32) -> Version {
-    Version(major << 16 | minor << 8 | patch)
-}
-
 /// Gets the formatted current user version.
 pub async fn user_version() -> String {
-    option_env!("FOREST_VERSION")
+    option_env!("BINARY_VERSION")
         .unwrap_or(env!("CARGO_PKG_VERSION"))
         .to_string()
 }
 
 impl Version {
+    const fn new(major: u32, minor: u32, patch: u32) -> Self {
+        Self(major << 16 | minor << 8 | patch)
+    }
+
     fn ints(&self) -> (u32, u32, u32) {
         let v = self.0;
         (
@@ -106,22 +106,9 @@ impl std::convert::TryFrom<&NodeType> for Version {
     }
 }
 
-/// Returns version string at build time, e.g., `0.2.2-unstable+git.21146f40`
-pub fn version() -> String {
-    // FIXME: this is no good because crate version (so fil_types) will be
-    // taken and not forest version one.
-    let git_hash = match Command::new("git")
-        .args(&["rev-parse", "--short", "HEAD"])
-        .output()
-    {
-        Ok(output) => String::from_utf8(output.stdout).unwrap_or_default(),
-        _ => "unknown".to_owned(),
-    };
-    // TODO: add network name when possible, ie +mainnet, +calibnet, etc
-    format!(
-        "{}-{}+git.{}",
-        env!("CARGO_PKG_VERSION"),
-        RELEASE_TRACK,
-        git_hash,
-    )
+/// Returns the version string, e.g., `0.2.2-unstable+git.21146f40`
+pub fn version(pkg_version: &str) -> String {
+    const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"]);
+
+    format!("{}-{}+git.{}", pkg_version, RELEASE_TRACK, GIT_HASH,)
 }
