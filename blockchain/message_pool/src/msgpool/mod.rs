@@ -154,7 +154,7 @@ where
 
     chains.sort(false);
 
-    let mut gas_limit = fil_types::BLOCK_GAS_LIMIT;
+    let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
     let mut i = 0;
     'l: while i < chains.len() {
         let chain = &mut chains[i];
@@ -857,7 +857,7 @@ pub mod tests {
             //         gasPerf; it should create a single chain with the max messages
             let mut mset = HashMap::new();
             let mut smsg_vec = Vec::new();
-            let max_messages = fil_types::BLOCK_GAS_LIMIT / gas_limit;
+            let max_messages = fvm_shared::BLOCK_GAS_LIMIT / gas_limit;
             let n_messages = max_messages + 1;
             for i in 0..n_messages {
                 let msg = create_smsg(
