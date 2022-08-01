@@ -6,9 +6,9 @@ extern crate lazy_static;
 
 use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fil_actors_runtime::runtime::Policy;
-use fil_types::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, StoragePower};
+use fvm_shared::version::NetworkVersion;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -493,7 +493,7 @@ pub fn default_network_version() -> NetworkVersion {
 }
 
 pub mod de_network_version {
-    use fil_types::NetworkVersion;
+    use fvm_shared::version::NetworkVersion;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
