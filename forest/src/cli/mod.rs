@@ -26,8 +26,8 @@ pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
 use directories::ProjectDirs;
-use fil_types::FILECOIN_PRECISION;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
 use networks::ChainConfig;
