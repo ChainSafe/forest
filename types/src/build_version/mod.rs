@@ -25,6 +25,8 @@ const FULL_API_VERSION: Version = Version::new(1, 1, 0);
 const MINER_API_VERSION: Version = Version::new(0, 15, 0);
 const WORKER_API_VERSION: Version = Version::new(0, 15, 0);
 
+const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
+
 lazy_static! {
     pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 }
@@ -108,7 +110,5 @@ impl std::convert::TryFrom<&NodeType> for Version {
 
 /// Returns the version string, e.g., `0.2.2-unstable+git.21146f40`
 pub fn version(pkg_version: &str) -> String {
-    const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"]);
-
-    format!("{}-{}+git.{}", pkg_version, RELEASE_TRACK, GIT_HASH,)
+    format!("{}-{}+git.{}", pkg_version, RELEASE_TRACK, GIT_HASH)
 }
