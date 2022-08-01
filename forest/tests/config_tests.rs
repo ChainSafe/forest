@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use assert_cmd::Command;
-use forest::cli::{Config, Client};
+use forest::cli::{Client, Config};
 use rand::Rng;
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
