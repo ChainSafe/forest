@@ -87,6 +87,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      - name: Apt Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install toolchain
