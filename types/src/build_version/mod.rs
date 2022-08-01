@@ -60,9 +60,9 @@ impl Display for NodeType {
 }
 
 /// Gets the formatted current user version.
-pub async fn user_version() -> String {
-    option_env!("BINARY_VERSION")
-        .unwrap_or(env!("CARGO_PKG_VERSION"))
+pub fn user_version() -> String {
+    option_env!("FOREST_VERSION")
+        .unwrap_or("unknown")
         .to_string()
 }
 

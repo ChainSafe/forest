@@ -11,7 +11,7 @@ pub(crate) async fn version(block_delay: u64) -> Result<VersionResult, JsonRpcEr
     #[allow(clippy::needless_borrow)]
     let v: Version = (&*RUNNING_NODE_TYPE.read().await).try_into()?;
     Ok(APIVersion {
-        version: user_version().await,
+        version: user_version(),
         api_version: v,
         block_delay,
     })

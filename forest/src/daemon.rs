@@ -35,7 +35,7 @@ use std::time;
 pub(super) async fn start(config: Config) {
     info!(
         "Starting Forest daemon, version {}",
-        option_env!("BINARY_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+        option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
     );
 
     let path: PathBuf = config.data_dir.join("libp2p");
