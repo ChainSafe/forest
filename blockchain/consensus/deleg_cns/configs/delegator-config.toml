@@ -29,3 +29,7 @@ enable_rpc = false
 rpc_port = 1235
 metrics_address = "127.0.0.1:6117"
 rpc_address = "127.0.0.1:1235"
+
+[sync]
+tipset_sample_size = 1
+req_window = 100
