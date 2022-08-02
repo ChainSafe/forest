@@ -271,6 +271,7 @@ pub(super) async fn start(config: Config) {
         use futures::TryFutureExt;
         let consensus = deleg_cns::DelegatedConsensus::default();
         if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
+            info!("Starting the delegated consensus proposer...");
             let sm = state_manager.clone();
             let mp = mpool.clone();
             mining_task = Some(task::spawn(async move {

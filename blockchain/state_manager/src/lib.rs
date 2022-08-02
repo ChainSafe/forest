@@ -244,6 +244,9 @@ where
         if self.chain_config.name == "mainnet" {
             return Ok("testnetnet".to_owned());
         }
+        if self.chain_config.name == "devnet" {
+            return Ok("devnet".to_owned());
+        }
         Err(Error::Other("Cannot guess network name".to_owned()))
         // let init_act = self
         //     .get_actor(actor::init::ADDRESS, *st)?

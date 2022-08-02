@@ -26,6 +26,8 @@ pub fn is_v8_account_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacedudbf7fc5va57t3tmo63snmt3en4iaidv4vo3qlyacbxaa6hlx6y").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzacea4tlgnp7m6tlldpz3termlwxlnyq24nwd4zdzv4r6nsjuaktuuzc").unwrap(),
     ];
     known_cids.contains(cid)
 }

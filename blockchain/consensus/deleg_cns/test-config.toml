@@ -1,5 +1,5 @@
 [chain]
-name = "calibnet"
+name = "devnet"
 bootstrap_peers = []
 block_delay_secs = 30
 
@@ -12,5 +12,6 @@ height_infos = [
   { height = "ActorsV2", epoch = -1 },
   { height = "Liftoff", epoch = -1 },
   { height = "Calico", epoch = -1 },
+  { height = "Smoke", epoch = -1 },
   { height = "Skyr", epoch = -1 },
 ]
