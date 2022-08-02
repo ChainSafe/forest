@@ -289,24 +289,24 @@ alias forest=target/debug/forest
 
 At this point our wallet doesn't contain any private keys, so if we run a node with _Delegated Consensus_ it should be a pure follower, without trying to produce any blocks.
 
-We want the network to start from the latest version, because that's the only version supported by Forest. The [test-config.toml](blockchain/consensus/deleg_cns/test-config.toml) file tells Forest to use V16 for any epoch higher than -1. It also contains all the other heights that it looks for by name.
+We want the network to start from the latest version, because that's the only version supported by Forest. The [proposer-config.toml](blockchain/consensus/deleg_cns/configs/proposer-config.toml) file tells Forest to use V16 for any epoch higher than -1. It also contains all the other heights that it looks for by name.
 
-We also don't want to connect to any other nodes at the moment, so peer discovery is disabled.
+We also don't want to connect to any other nodes at the moment, so there are no bootstrap nodes set in the config file.
 
 This is the time for us to use our custom `genesis.car` file as well.
 
 ```bash
-RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 0 --kademlia false \
+RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
   --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
-  --config blockchain/consensus/deleg_cns/test-config.toml
+  --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
 ```
 
 We have to look at the output to see what API tokens we'll have to use with the wallet:
 
 ```console
-$ RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 0 --kademlia false \
+$ RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
         --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
-        --config blockchain/consensus/deleg_cns/test-config.toml
+        --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
  2022-08-02T19:19:08.855Z INFO  forest::daemon > Starting Forest daemon, version v0.2.2/unstable/961ac230, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
  2022-08-02T19:19:08.855Z INFO  forest_libp2p::service > Networking keystore not found!, fn_name=forest_libp2p::service::get_keypair::ha8162726e04c5572
  2022-08-02T19:19:08.856Z INFO  utils                  > Permissions set to 0600 on File { fd: 6, path: "/home/aakoshh/.local/share/forest/libp2p/keypair", read: false, write: true }, fn_name=utils::set_user_perm::h4bdd96d06f9f33ec
@@ -342,7 +342,7 @@ $ cat ~/.local/share/forest/keystore.json
 }
 ```
 
-Note that it has created the `devnet` directory. Forest only accepts networks it recognises, so the `test-config.toml` has `devnet` as the network name, but this has nothing to do with any actual official devnet.
+Note that it has created the `devnet` directory. Forest only accepts networks it recognises, so the `proposer-config.toml` has `devnet` as the network name, but this has nothing to do with any actual official devnet.
 
 ## Add the private key to a wallet
 
@@ -475,9 +475,9 @@ data directories to they don't have access to it.
 
 
 ```console
-$ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-count 0 --kademlia false \
+$ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-count 1 \
   --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
-  --config blockchain/consensus/deleg_cns/test-config.toml
+  --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
 
  ...
  2022-08-02T19:37:54.296Z INFO  forest::daemon         > Starting the delegated consensus proposer..., fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
@@ -491,4 +491,35 @@ $ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-
 
 Grand! The node is trying to propose blocks every 30 seconds, but it complains about not having peers.
 
-Next, we'll have to set up a network of nodes.
+### Setup a network
+
+Next, we'll have to set up a network of nodes, to see that not only can we produce blocks, but also validate them on other nodes.
+
+To do so we'll have to set the `bootstrap_peers` in the config file to contain the multiaddress of our proposer. It should look like `/ip4/127.0.0.1/tcp/1234/p2p/<peer-id-multihash>`.
+
+To find out what the peer ID is, a log has been added to the output:
+
+```
+...
+2022-08-02T20:04:18.271Z INFO  forest::daemon         > PeerId: 12D3KooWNEmsCbySkVBbZhX12kxommT3uFcNnoBS4Z8PN79r4aKi, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+...
+```
+
+So let's edit the `configs/delegator-config.toml` like so:
+
+```toml
+[network]
+bootstrap_peers = [
+  "/ip4/127.0.0.1/tcp/2340/p2p/12D3KooWNEmsCbySkVBbZhX12kxommT3uFcNnoBS4Z8PN79r4aKi"
+]
+```
+
+The port `2340` was set as a `listening_multiaddr` in `proposer-config.toml` so we know what to expect, because the node doesn't report it if we use `0`.
+
+And start it in another terminal window:
+
+```bash
+RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-count 1 \
+  --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
+  --config blockchain/consensus/deleg_cns/configs/delegator-config.toml
+```

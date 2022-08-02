@@ -10,7 +10,7 @@ use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
+use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService, PeerId};
 use fvm_shared::version::NetworkVersion;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -58,6 +58,10 @@ pub(super) async fn start(config: Config) {
         };
         Keypair::Ed25519(gen_keypair)
     });
+
+    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
+    // Useful if others want to use this node to bootstrap from.
+    info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut ks = if config.client.encrypt_keystore {
         loop {

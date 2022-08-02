@@ -15,3 +15,17 @@ height_infos = [
   { height = "Smoke", epoch = -1 },
   { height = "Skyr", epoch = -1 },
 ]
+
+[network]
+listening_multiaddr = "/ip4/0.0.0.0/tcp/2341"
+bootstrap_peers = [
+  "/ip4/127.0.0.1/tcp/2340/p2p/12D3KooWNEmsCbySkVBbZhX12kxommT3uFcNnoBS4Z8PN79r4aKi"
+]
+
+[client]
+# This will be created in the current directory.
+data_dir = "forest-delegator-data-dir"
+enable_rpc = false
+rpc_port = 1235
+metrics_address = "127.0.0.1:6117"
+rpc_address = "127.0.0.1:1235"
