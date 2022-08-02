@@ -33,7 +33,7 @@ impl FetchCommands {
             panic!("Sector size option must be chosen. Choose between --all, --keys, or <size>");
         };
 
-        get_params_default(&config.data_dir, sizes, self.verbose)
+        get_params_default(&config.client.data_dir, sizes, self.verbose)
             .await
             .unwrap();
     }
