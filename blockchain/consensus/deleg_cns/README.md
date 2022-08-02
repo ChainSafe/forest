@@ -491,6 +491,26 @@ $ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-
 
 Grand! The node is trying to propose blocks every 30 seconds, but it complains about not having peers.
 
+### Inconsistent work addresses
+
+If we look at the log we can see that it actually proposed the same block twice, because it was unable to add them to the chain, so it always built on the same parent, with the same timestamp.
+
+There were multiple reasons for this:
+1. The node was waiting for P2P messages to figure out if it's in sync with the network, even though it's alone. This has been disabled by setting the `tipset_sample_size` to `0`.
+2. Validation failed with an error saying the miner wasn't eligible to mine.
+
+Upon inspection it turned out that despite the `Worker` starting with `t` in the `genesis.json` file, the address that has been written to the actually starts with `f`, so when we look up the address of `t01000` we get back `f3ugf5w4krrovxc64n5vi62t6qrbs5rm6zpgpmrt7b2ukaxescesbutbgmppn6rlstiihxd4dkrt7viqacuxoq`.
+
+Furthermore, for some reason Forest only creates `Address` from an ID with the default `mainnet` network, so it stripped away the `t` and added back `f`, like it did for the wallet.
+
+For now a fix has been added so that the proposer looks up its own address to convert it into the `f` prefixed version, before looking up the key in the wallet, and doing any comparisons. This way the bug cancels itself out.
+
+It also means we have to undo any changes to the wallet keystore:
+
+```bash
+sed -i s/wallet-t/wallet-f/ ~/.local/share/forest/keystore.json
+```
+
 ### Setup a network
 
 Next, we'll have to set up a network of nodes, to see that not only can we produce blocks, but also validate them on other nodes.
