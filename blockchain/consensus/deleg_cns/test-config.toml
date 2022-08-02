@@ -1,0 +1,16 @@
+[chain]
+name = "calibnet"
+bootstrap_peers = []
+block_delay_secs = 30
+
+version_schedule = [
+  { height = "Skyr", version = "V16" }
+]
+
+height_infos = [
+  { height = "Ignition", epoch = -1 },
+  { height = "ActorsV2", epoch = -1 },
+  { height = "Liftoff", epoch = -1 },
+  { height = "Calico", epoch = -1 },
+  { height = "Skyr", epoch = -1 },
+]

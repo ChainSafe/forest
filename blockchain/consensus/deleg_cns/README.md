@@ -13,7 +13,9 @@ At the time of this writing _Forest_ doesn't have the necessary machinery to pre
 
 Ideally we could avoid having to build Lotus just for this purpose, and use the published [Docker image](https://hub.docker.com/r/filecoin/lotus). However, not all commands that we need are part of the image; for example `lotus-seed` is only available in the [lotus-test](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/Dockerfile.lotus#L232) build target.
 
-Still, we can use docker to build the CLI without having to install all necessary build dependencies ourselves. Assuming that we already have [Lotus](https://github.com/filecoin-project/lotus) cloned from Github and we are in the top level `lotus` directory, we can use the following command to build an image we need:
+Still, we can use docker to build the CLI without having to install all necessary build dependencies ourselves. Assuming that we already have [Lotus](https://github.com/filecoin-project/lotus) cloned from Github and we are in the top level `lotus` directory, we can use the following command to build an image we need.
+
+But before we do that, let's modify `Dockerfile.lotus` to make sure that the `builder-test` section that `lotus-test` relies on [calls](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/Dockerfile.lotus#L36) `make calibnet` instead of `make debug`. The reason for this is that Lotus will turn on a [build tag](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/Makefile#L77) and activate [params_calibnet](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/build/params_calibnet.go#L2) settings. This is required because with `make debug` would put into the `genesis.car` file actor bundles for `devnet`, while Forest [only accepts](https://github.com/ChainSafe/forest/blob/d4c25e53c02bc8e319d73c47e8f6bc16a714bdec/vm/actor_interface/src/builtin/miner/mod.rs#L27-L35) the ones for `mainnet` or `calibnet`. The actor CIDs in different bundles can be seen [here](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/build/builtin_actors_gen.go).
 
 ```bash
 docker build -t filecoin/lotus-test -f Dockerfile.lotus --target lotus-test .
@@ -94,41 +96,41 @@ Let's see what we have in the end:
 ```console
 $ cat genesis-files/genesis.json
 {
-  "NetworkVersion": 16,
+  "NetworkVersion": 0,
   "Accounts": [
     {
       "Type": "account",
       "Balance": "50000000000000000000000000",
       "Meta": {
-        "Owner": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq"
+        "Owner": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq"
       }
     }
   ],
   "Miners": [
     {
       "ID": "t01000",
-      "Owner": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq",
-      "Worker": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq",
-      "PeerId": "12D3KooWLAL8FXK5tX2H7k1jqDWngs5D12Sbpaqq1ukQuk8HNGbY",
+      "Owner": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq",
+      "Worker": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq",
+      "PeerId": "12D3KooWEGdCsa4DAP8HG4r33ymxXFcXtui192zJnY48Hjzr4KKF",
       "MarketBalance": "0",
       "PowerBalance": "0",
       "SectorSize": 2048,
       "Sectors": [
         {
           "CommR": {
-            "/": "bagboea4b5abcbo7z76pf75mq6zt3cbx7n4isafgsg6nzldi73mm5utarwdmt3zls"
+            "/": "bagboea4b5abcbl3oevwwjgxgtns4rg7erxp2vq33pxvszp6t534jhtxhc2qvtwdr"
           },
           "CommD": {
-            "/": "baga6ea4seaqctekgwa4cesh46ftxapju4swvbkacu6rwlorvih6l4eucji34qhq"
+            "/": "baga6ea4seaqe4lcia4en7czkklnjktcmby2pp7gn4fltztgkh6mel4yzhnrqyiy"
           },
           "SectorID": 0,
           "Deal": {
             "PieceCID": {
-              "/": "baga6ea4seaqctekgwa4cesh46ftxapju4swvbkacu6rwlorvih6l4eucji34qhq"
+              "/": "baga6ea4seaqe4lcia4en7czkklnjktcmby2pp7gn4fltztgkh6mel4yzhnrqyiy"
             },
             "PieceSize": 2048,
             "VerifiedDeal": false,
-            "Client": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq",
+            "Client": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq",
             "Provider": "t01000",
             "Label": "0",
             "StartEpoch": 0,
@@ -139,16 +141,16 @@ $ cat genesis-files/genesis.json
           },
           "DealClientKey": {
             "Type": "bls",
-            "PrivateKey": "2ooyr9iChbMChrUK+en94RYKr1FlEj1Oa9PglTem1iM=",
-            "PublicKey": "uT3R4nD4kSWGZtl6JaufCvbGBX5VI0NgMipzlv16naXSnfUU5iZnid5IOkfg9kW5",
-            "Address": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq"
+            "PrivateKey": "l1k51pFipvshUSmAHcjoYXiDZX+Z7Q1Jcd/bk4EILgg=",
+            "PublicKey": "rWLWkbT36X01X5jQ5/drq3caAwAHG9CJDCWIX/nCMI99IqPSvncC7MsJ8ZRd3VHw",
+            "Address": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq"
           },
-          "ProofType": 5
+          "ProofType": 0
         }
       ]
     }
   ],
-  "NetworkName": "localnet-850f257a-5cb0-4952-8cad-beee1c462061",
+  "NetworkName": "localnet-514af5d5-6517-4e40-b4da-258d3200b9f3",
   "VerifregRootKey": {
     "Type": "multisig",
     "Balance": "0",
@@ -175,6 +177,14 @@ $ cat genesis-files/genesis.json
   }
 }
 ```
+
+Note the following part: `"NetworkVersion": 0,`. It has to be version `16` for Forest to handle it, and for the right actor bundles to be inserted into the `genesis.car` file. Let's edit it:
+
+
+```bash
+sed -i "s/\"NetworkVersion\": 0/\"NetworkVersion\": 16/" ./genesis-files/genesis.json
+```
+
 
 ### Generate a CAR file
 
@@ -474,3 +484,13 @@ Stack backtrace:
 Alas, it looks like Forest is not happy with the Genesis file. It could be becuase it doesn't support that format any more. Indeed, the [error](https://github.com/ChainSafe/forest/blob/d4c25e53c02bc8e319d73c47e8f6bc16a714bdec/vm/actor_interface/src/builtin/miner/mod.rs#L50-L56) indicates that Forest doesn't expect anything less than V8 of the actor state.
 
 It looks like all our efforst have been in vain. We have to be able to generate a genesis file that Forest can read directly to be able to spin up a custom network.
+
+## Customize the network settings
+
+We want the network to start from the latest version, because that's the only version supported by Forest. The [test-config.toml](blockchain/consensus/deleg_cns/test-config.toml) file tells Forest to use V16 for any epoch higher than -1. It also contains all the other heights that it looks for by name.
+
+```console
+$ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-count 0 --kademlia false \
+  --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
+  --config blockchain/consensus/deleg_cns/test-config.toml
+```
