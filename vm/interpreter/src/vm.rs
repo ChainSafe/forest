@@ -52,6 +52,7 @@ pub trait CircSupplyCalc: Clone + 'static {
 pub trait RewardCalc: Send + Sync + 'static {
     /// Construct a reward message, if rewards are applicable.
     fn reward_message(
+        &self,
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
@@ -89,18 +90,17 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<DB: BlockStore + 'static, RC: RewardCalc, P = DefaultNetworkParams> {
+pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     params: PhantomData<P>,
-    reward_calc: PhantomData<RC>,
+    reward_calc: Arc<dyn RewardCalc>,
     heights: Heights,
 }
 
-impl<DB, RC, P> VM<DB, RC, P>
+impl<DB, P> VM<DB, P>
 where
     DB: BlockStore,
     P: NetworkParams,
-    RC: RewardCalc,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
@@ -112,6 +112,7 @@ where
         base_fee: BigInt,
         network_version: NetworkVersion,
         circ_supply_calc: C,
+        reward_calc: Arc<dyn RewardCalc>,
         override_circ_supply: Option<TokenAmount>,
         lb_state: &LB,
         engine: Engine,
@@ -153,7 +154,7 @@ where
         Ok(VM {
             fvm_executor: exec,
             params: PhantomData,
-            reward_calc: PhantomData,
+            reward_calc,
             heights,
         })
     }
@@ -264,9 +265,13 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            if let Some(rew_msg) =
-                RC::reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
-            {
+            if let Some(rew_msg) = self.reward_calc.reward_message(
+                epoch,
+                block.miner,
+                block.win_count,
+                penalty,
+                gas_reward,
+            )? {
                 let ret = self.apply_implicit_message(&rew_msg)?;
                 if let Some(err) = ret.failure_info {
                     anyhow::bail!(
@@ -353,10 +358,12 @@ fn check_message(msg: &Message) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+/// Default reward working with the Filecoin Reward Actor.
 pub struct RewardActorMessageCalc;
 
 impl RewardCalc for RewardActorMessageCalc {
     fn reward_message(
+        &self,
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
@@ -364,10 +371,10 @@ impl RewardCalc for RewardActorMessageCalc {
         gas_reward: BigInt,
     ) -> Result<Option<Message>, fvm_ipld_encoding::Error> {
         let params = Serialized::serialize(AwardBlockRewardParams {
-            miner: miner,
+            miner,
             penalty,
             gas_reward,
-            win_count: win_count,
+            win_count,
         })?;
 
         let rew_msg = Message {
@@ -385,5 +392,21 @@ impl RewardCalc for RewardActorMessageCalc {
         };
 
         Ok(Some(rew_msg))
+    }
+}
+
+/// Not giving any reward for block creation.
+pub struct NoRewardCalc;
+
+impl RewardCalc for NoRewardCalc {
+    fn reward_message(
+        &self,
+        _epoch: ChainEpoch,
+        _miner: Address,
+        _win_count: i64,
+        _penalty: BigInt,
+        _gas_reward: BigInt,
+    ) -> Result<Option<Message>, fvm_ipld_encoding::Error> {
+        Ok(None)
     }
 }

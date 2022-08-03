@@ -155,10 +155,22 @@ pub(super) async fn start(config: Config) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
+    // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
+    // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
+    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    let reward_calc = fil_cns::reward_calc();
+    #[cfg(feature = "deleg_cns")]
+    let reward_calc = deleg_cns::reward_calc();
+
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))
-        .await
-        .unwrap();
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&config.chain),
+        reward_calc,
+    )
+    .await
+    .unwrap();
+
     let state_manager = Arc::new(sm);
 
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
@@ -414,7 +426,15 @@ mod test {
             .unwrap();
         cs.set_genesis(&genesis_header).unwrap();
         let chain_config = Arc::new(ChainConfig::default());
-        let sm = Arc::new(StateManager::new(cs, chain_config).await.unwrap());
+        let sm = Arc::new(
+            StateManager::new(
+                cs,
+                chain_config,
+                Arc::new(interpreter::RewardActorMessageCalc),
+            )
+            .await
+            .unwrap(),
+        );
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");

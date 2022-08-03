@@ -21,6 +21,7 @@ ipld_blockstore = "0.1"
 fil_types       = "0.2"
 
 actor_interface = { path = "../../../vm/actor_interface" }
+interpreter     = { path = "../../../vm/interpreter" }
 forest_blocks   = { path = "../../blocks" }
 chain           = { path = "../../chain" }
 chain_sync      = { path = "../../chain_sync/" }

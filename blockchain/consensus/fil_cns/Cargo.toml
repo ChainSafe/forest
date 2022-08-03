@@ -21,6 +21,7 @@ anyhow             = "1.0"
 num-traits         = "0.2"
 fvm                = "1.0"
 actor_interface    = { path = "../../../vm/actor_interface" }
+interpreter        = { path = "../../../vm/interpreter" }
 beacon             = { path = "../../beacon" }
 forest_blocks      = { path = "../../blocks" }
 chain              = { path = "../../chain" }

@@ -21,6 +21,10 @@ use state_manager::StateManager;
 mod validation;
 mod weight;
 
+pub fn reward_calc() -> Arc<dyn interpreter::RewardCalc> {
+    Arc::new(interpreter::RewardActorMessageCalc)
+}
+
 #[derive(Debug, Error)]
 pub enum FilecoinConsensusError {
     #[error("Block must have an election proof included in tipset")]
