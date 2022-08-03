@@ -76,6 +76,8 @@ version          = "0.10"
 assert_cmd = "2"
 rand       = "0.8"
 tempfile   = "3"
+quickcheck = "1"
+quickcheck_macros = "1"
 
 [features]
 default       = ["fil_cns"]
