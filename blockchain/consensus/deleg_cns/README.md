@@ -536,7 +536,7 @@ bootstrap_peers = [
 ]
 ```
 
-The port `2340` was set as a `listening_multiaddr` in `proposer-config.toml` so we know what to expect, because the node doesn't report it if we use `0`, except with `RUST_LOG=debug` on.
+The port `2340` was set as a `listening_multiaddr` in `proposer-config.toml` so we know what to expect, because the node doesn't report it if we use `0`, except with `RUST_LOG=debug` on. Or one can use the `forest net listen` command to list listening addresses once the node is running.
 
 And start it in another terminal window:
 
