@@ -46,6 +46,20 @@ pub trait CircSupplyCalc: Clone + 'static {
     ) -> Result<TokenAmount, anyhow::Error>;
 }
 
+/// Allows the generation of a reward message based on gas fees and penalties.
+///
+/// This should facilitate custom consensus protocols using their own economic incentives.
+pub trait RewardCalc: Send + Sync + 'static {
+    /// Construct a reward message, if rewards are applicable.
+    fn reward_message(
+        epoch: ChainEpoch,
+        miner: Address,
+        win_count: i64,
+        penalty: BigInt,
+        gas_reward: BigInt,
+    ) -> Result<Option<Message>, fvm_ipld_encoding::Error>;
+}
+
 /// Trait to allow VM to retrieve state at an old epoch.
 pub trait LookbackStateGetter {
     /// Returns the root cid for a given ChainEpoch
@@ -75,16 +89,18 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
+pub struct VM<DB: BlockStore + 'static, RC: RewardCalc, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     params: PhantomData<P>,
+    reward_calc: PhantomData<RC>,
     heights: Heights,
 }
 
-impl<DB, P> VM<DB, P>
+impl<DB, RC, P> VM<DB, RC, P>
 where
     DB: BlockStore,
     P: NetworkParams,
+    RC: RewardCalc,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
@@ -137,6 +153,7 @@ where
         Ok(VM {
             fvm_executor: exec,
             params: PhantomData,
+            reward_calc: PhantomData,
             heights,
         })
     }
@@ -247,46 +264,27 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            let params = Serialized::serialize(AwardBlockRewardParams {
-                miner: block.miner,
-                penalty,
-                gas_reward,
-                win_count: block.win_count,
-            })?;
-
-            let rew_msg = Message {
-                from: system::ADDRESS,
-                to: reward::ADDRESS,
-                method_num: reward::Method::AwardBlockReward as u64,
-                params,
-                // Epoch as sequence is intentional
-                sequence: epoch as u64,
-                gas_limit: 1 << 30,
-                value: Default::default(),
-                version: Default::default(),
-                gas_fee_cap: Default::default(),
-                gas_premium: Default::default(),
-            };
-
-            let ret = self.apply_implicit_message(&rew_msg)?;
-            if let Some(err) = ret.failure_info {
-                anyhow::bail!(
-                    "failed to apply reward message for miner {}: {}",
-                    block.miner,
-                    err
-                );
-            }
-
-            // This is more of a sanity check, this should not be able to be hit.
-            if ret.msg_receipt.exit_code != ExitCode::OK {
-                anyhow::bail!(
-                    "reward application message failed (exit: {:?})",
-                    ret.msg_receipt.exit_code
-                );
-            }
-
-            if let Some(callback) = &mut callback {
-                callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+            if let Some(rew_msg) =
+                RC::reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
+            {
+                let ret = self.apply_implicit_message(&rew_msg)?;
+                if let Some(err) = ret.failure_info {
+                    anyhow::bail!(
+                        "failed to apply reward message for miner {}: {}",
+                        block.miner,
+                        err
+                    );
+                }
+                // This is more of a sanity check, this should not be able to be hit.
+                if ret.msg_receipt.exit_code != ExitCode::OK {
+                    anyhow::bail!(
+                        "reward application message failed (exit: {:?})",
+                        ret.msg_receipt.exit_code
+                    );
+                }
+                if let Some(callback) = &mut callback {
+                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                }
             }
         }
 
@@ -353,4 +351,39 @@ fn check_message(msg: &Message) -> Result<(), anyhow::Error> {
     }
 
     Ok(())
+}
+
+pub struct RewardActorMessageCalc;
+
+impl RewardCalc for RewardActorMessageCalc {
+    fn reward_message(
+        epoch: ChainEpoch,
+        miner: Address,
+        win_count: i64,
+        penalty: BigInt,
+        gas_reward: BigInt,
+    ) -> Result<Option<Message>, fvm_ipld_encoding::Error> {
+        let params = Serialized::serialize(AwardBlockRewardParams {
+            miner: miner,
+            penalty,
+            gas_reward,
+            win_count: win_count,
+        })?;
+
+        let rew_msg = Message {
+            from: system::ADDRESS,
+            to: reward::ADDRESS,
+            method_num: reward::Method::AwardBlockReward as u64,
+            params,
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            gas_limit: 1 << 30,
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        Ok(Some(rew_msg))
+    }
 }
