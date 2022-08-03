@@ -112,6 +112,11 @@ impl Proposer for DelegatedProposer {
 
         while interval.next().await.is_some() {
             if let Some(base) = chain_store.heaviest_tipset().await {
+                info!(
+                    "Proposing a block on top {} in epoch {}",
+                    base.epoch(),
+                    base.min_ticket_block().cid()
+                );
                 match self.create_block(mpool, &state_manager, &base).await {
                     Ok(block) => {
                         let cid = *block.header.cid();

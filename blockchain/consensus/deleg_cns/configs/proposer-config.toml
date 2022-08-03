@@ -1,7 +1,7 @@
 [chain]
 name = "devnet"
 bootstrap_peers = []
-block_delay_secs = 30
+block_delay_secs = 10
 
 version_schedule = [
   { height = "Skyr", version = "V16" }

@@ -273,7 +273,7 @@ To enable _Delegated Consensus_ instead of the default _Filecoin Consensus_, For
 
 ```bash
 cargo clippy --all-targets --features deleg_cns -- -D warnings
-cargo build --features deleg_cns --bin forest
+cargo build --release --features deleg_cns --bin forest
 ```
 
 We better build it now instead of doing it with `make build`, because we will need to run the wallet commands, and they need to connect to a
@@ -282,8 +282,10 @@ running node. With Filecoin built for the default delegated consensus, we'd have
 Normally it would be possible to run `make install` to make it available globally, but for this exercise we can just run it from the build artifacts; make can make an alias so the commands look identical.
 
 ```bash
-alias forest=target/debug/forest
+alias forest=target/release/forest
 ```
+
+Note that we're using `--release` mode. This takes longer to build, but without it, loading the Wasm bundles takes forever.
 
 ## Run a node without proposing blocks
 
@@ -475,7 +477,7 @@ data directories to they don't have access to it.
 
 
 ```console
-$ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-count 1 \
+$ RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
   --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
   --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
 
@@ -539,7 +541,7 @@ The port `2340` was set as a `listening_multiaddr` in `proposer-config.toml` so 
 And start it in another terminal window:
 
 ```bash
-RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --target-peer-count 1 \
+RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
   --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
   --config blockchain/consensus/deleg_cns/configs/delegator-config.toml
 ```
