@@ -39,8 +39,7 @@ bootstrap_peers = [
 ]
 
 [client]
-# This will be created in the current directory.
-data_dir = "forest-delegator-data-dir"
+data_dir = "/tmp/forest-delegator-data-dir"
 enable_rpc = false
 # Ports altered from the proposer so the nodes can run side by side.
 rpc_port = 1235
