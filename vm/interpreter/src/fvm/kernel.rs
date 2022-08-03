@@ -20,13 +20,14 @@ use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;
 use fvm_shared::{ActorID, MethodNum};
 use ipld_blockstore::BlockStore;
+use std::ops::Deref;
 
-pub struct ForestKernel<DB: BlockStore + 'static>(
+pub struct ForestKernel<DB: BlockStore + Clone + Deref + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
     Option<TokenAmount>,
 );
 
-impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> fvm::Kernel for ForestKernel<DB> {
     type CallManager = fvm::call_manager::DefaultCallManager<ForestMachine<DB>>;
 
     fn into_inner(self) -> (Self::CallManager, BlockRegistry) {
@@ -51,7 +52,7 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
         )
     }
 }
-impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> fvm::kernel::ActorOps for ForestKernel<DB> {
     fn resolve_address(&self, address: &Address) -> fvm::kernel::Result<Option<ActorID>> {
         self.0.resolve_address(address)
     }
@@ -76,7 +77,7 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
         self.0.get_code_cid_for_type(typ)
     }
 }
-impl<DB: BlockStore> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
     fn block_open(&mut self, cid: &Cid) -> fvm::kernel::Result<(BlockId, BlockStat)> {
         self.0.block_open(cid)
     }
@@ -102,7 +103,7 @@ impl<DB: BlockStore> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
         self.0.block_stat(id)
     }
 }
-impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
     fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
         match self.1.clone() {
             Some(supply) => Ok(supply),
@@ -110,7 +111,7 @@ impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
         }
     }
 }
-impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> fvm::kernel::CryptoOps for ForestKernel<DB> {
     // forwarded
     fn hash(&mut self, code: u64, data: &[u8]) -> Result<[u8; 32]> {
         self.0.hash(code, data)
@@ -172,7 +173,7 @@ impl<DB: BlockStore> fvm::kernel::CryptoOps for ForestKernel<DB> {
         self.0.verify_replica_update(replica)
     }
 }
-impl<DB: BlockStore> DebugOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> DebugOps for ForestKernel<DB> {
     fn log(&self, msg: String) {
         self.0.log(msg)
     }
@@ -181,7 +182,7 @@ impl<DB: BlockStore> DebugOps for ForestKernel<DB> {
         self.0.debug_enabled()
     }
 }
-impl<DB: BlockStore> GasOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> GasOps for ForestKernel<DB> {
     /// Returns the gas used by the transaction so far.
     fn gas_used(&self) -> Gas {
         self.0.gas_used()
@@ -203,7 +204,7 @@ impl<DB: BlockStore> GasOps for ForestKernel<DB> {
         self.0.price_list()
     }
 }
-impl<DB: BlockStore> MessageOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> MessageOps for ForestKernel<DB> {
     fn msg_caller(&self) -> ActorID {
         self.0.msg_caller()
     }
@@ -220,7 +221,7 @@ impl<DB: BlockStore> MessageOps for ForestKernel<DB> {
         self.0.msg_value_received()
     }
 }
-impl<DB: BlockStore> NetworkOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> NetworkOps for ForestKernel<DB> {
     fn network_epoch(&self) -> ChainEpoch {
         self.0.network_epoch()
     }
@@ -233,7 +234,7 @@ impl<DB: BlockStore> NetworkOps for ForestKernel<DB> {
         self.0.network_base_fee()
     }
 }
-impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> RandomnessOps for ForestKernel<DB> {
     fn get_randomness_from_tickets(
         &mut self,
         personalization: i64,
@@ -254,7 +255,7 @@ impl<DB: BlockStore> RandomnessOps for ForestKernel<DB> {
             .get_randomness_from_beacon(personalization, rand_epoch, entropy)
     }
 }
-impl<DB: BlockStore> SelfOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> SelfOps for ForestKernel<DB> {
     fn root(&self) -> Result<Cid> {
         self.0.root()
     }
@@ -271,7 +272,7 @@ impl<DB: BlockStore> SelfOps for ForestKernel<DB> {
         self.0.self_destruct(beneficiary)
     }
 }
-impl<DB: BlockStore> SendOps for ForestKernel<DB> {
+impl<DB: BlockStore + Clone + Deref> SendOps for ForestKernel<DB> {
     fn send(
         &mut self,
         recipient: &Address,

@@ -7,6 +7,7 @@ use forest_blocks::{Tipset, TipsetKeys};
 use ipld_blockstore::BlockStore;
 use log::debug;
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use super::{
     ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
@@ -19,7 +20,7 @@ pub async fn make_chain_exchange_response<DB>(
     request: &ChainExchangeRequest,
 ) -> ChainExchangeResponse
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 

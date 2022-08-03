@@ -18,25 +18,25 @@ use fvm_shared::address::Address;
 use anyhow::bail;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::ops::Deref;
 
-pub struct ForestExterns<DB> {
+pub struct ForestExterns<DB: Clone + Deref> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
-    db: Arc<DB>,
+    db: DB,
     network_version: NetworkVersion,
     chain_finality: i64,
 }
 
-impl<DB: BlockStore> ForestExterns<DB> {
+impl<DB: BlockStore + Clone + Deref> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
-        db: Arc<DB>,
+        db: DB,
         network_version: NetworkVersion,
         chain_finality: i64,
     ) -> Self {
@@ -65,7 +65,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
         }
 
         let prev_root = (self.lookback)(height);
-        let lb_state = StateTree::new_from_root(self.db.as_ref(), &prev_root)?;
+        let lb_state = StateTree::new_from_root(self.db.clone(), &prev_root)?;
 
         let actor = lb_state
             .get_actor(miner_addr)?
@@ -78,14 +78,14 @@ impl<DB: BlockStore> ForestExterns<DB> {
         let gbs = GasBlockStore {
             price_list: price_list_by_network_version(self.network_version).clone(),
             gas: tracker.clone(),
-            store: self.db.as_ref(),
+            store: &self.db,
         };
 
         let ms = actor_interface::miner::State::load(&gbs, &actor)?;
 
         let worker = ms.info(&gbs)?.worker;
 
-        let state = StateTree::new_from_root(self.db.as_ref(), &self.root)?;
+        let state = StateTree::new_from_root(&self.db, &self.root)?;
 
         let addr = resolve_to_key_addr(&state, &gbs, &worker)?;
 
@@ -103,9 +103,9 @@ impl<DB: BlockStore> ForestExterns<DB> {
     }
 }
 
-impl<DB: BlockStore> Externs for ForestExterns<DB> {}
+impl<DB: BlockStore + Clone + Deref> Externs for ForestExterns<DB> {}
 
-impl<DB> Rand for ForestExterns<DB> {
+impl<DB: Clone + Deref> Rand for ForestExterns<DB> {
     fn get_chain_randomness(
         &self,
         pers: i64,
@@ -125,7 +125,7 @@ impl<DB> Rand for ForestExterns<DB> {
     }
 }
 
-impl<DB: BlockStore> Consensus for ForestExterns<DB> {
+impl<DB: BlockStore + Clone + Deref> Consensus for ForestExterns<DB> {
     fn verify_consensus_fault(
         &self,
         h1: &[u8],

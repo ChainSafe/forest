@@ -7,16 +7,16 @@ use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
 use fvm_shared::ActorID;
 use ipld_blockstore::BlockStore;
-use ipld_blockstore::FvmStore;
+use std::ops::Deref;
 
-pub struct ForestMachine<DB: 'static> {
-    pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>>,
+pub struct ForestMachine<DB: Clone + Deref + 'static> {
+    pub machine: fvm::machine::DefaultMachine<DB, ForestExterns<DB>>,
     pub circ_supply: Option<TokenAmount>,
 }
 
-impl<DB: BlockStore> Machine for ForestMachine<DB> {
+impl<DB: BlockStore + Clone + Deref> Machine for ForestMachine<DB> {
     type Blockstore =
-        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> as Machine>::Blockstore;
+        <fvm::machine::DefaultMachine<DB, ForestExterns<DB>> as Machine>::Blockstore;
     type Externs = ForestExterns<DB>;
 
     fn engine(&self) -> &fvm::machine::Engine {

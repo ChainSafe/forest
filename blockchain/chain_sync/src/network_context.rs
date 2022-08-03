@@ -21,6 +21,7 @@ use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+use std::ops::Deref;
 
 use async_std::channel::Sender;
 use async_std::future;
@@ -33,16 +34,16 @@ const RPC_TIMEOUT: u64 = 5;
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`BlockStore`] required to make
 /// network requests.
-pub(crate) struct SyncNetworkContext<DB> {
+pub(crate) struct SyncNetworkContext<DB: Clone + Deref> {
     /// Channel to send network messages through P2P service
     network_send: Sender<NetworkMessage>,
 
     /// Manages peers to send requests to and updates request stats for the respective peers.
     pub peer_manager: Arc<PeerManager>,
-    db: Arc<DB>,
+    db: DB,
 }
 
-impl<DB> Clone for SyncNetworkContext<DB> {
+impl<DB: Clone + Deref> Clone for SyncNetworkContext<DB> {
     fn clone(&self) -> Self {
         Self {
             network_send: self.network_send.clone(),
@@ -54,12 +55,12 @@ impl<DB> Clone for SyncNetworkContext<DB> {
 
 impl<DB> SyncNetworkContext<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: BlockStore + Clone + Deref + Sync + Send + 'static,
 {
     pub fn new(
         network_send: Sender<NetworkMessage>,
         peer_manager: Arc<PeerManager>,
-        db: Arc<DB>,
+        db: DB,
     ) -> Self {
         Self {
             network_send,

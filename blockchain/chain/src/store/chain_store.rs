@@ -37,6 +37,7 @@ use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     time::SystemTime,
+    ops::Deref,
 };
 use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
 
@@ -60,7 +61,7 @@ pub enum HeadChange {
 /// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
 /// This structure is thread-safe, and all caches are wrapped in a mutex to allow a consistent
 /// `ChainStore` to be shared across tasks.
-pub struct ChainStore<DB> {
+pub struct ChainStore<DB: Clone + Deref> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
 
@@ -71,7 +72,7 @@ pub struct ChainStore<DB> {
     subscriptions_count: AtomicCell<usize>,
 
     /// key-value `datastore`.
-    pub db: Arc<DB>,
+    pub db: DB,
 
     /// Tipset at the head of the best-known chain.
     heaviest: RwLock<Option<Arc<Tipset>>>,
@@ -88,9 +89,9 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
-    pub fn new(db: Arc<DB>) -> Self {
+    pub fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
@@ -99,7 +100,7 @@ where
             subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
-            db,
+            db: db.clone(),
             ts_cache,
             heaviest: Default::default(),
         };
@@ -189,7 +190,7 @@ where
     }
 
     /// Clones `blockstore` `Arc`.
-    pub fn blockstore_cloned(&self) -> Arc<DB> {
+    pub fn blockstore_cloned(&self) -> DB {
         self.db.clone()
     }
 

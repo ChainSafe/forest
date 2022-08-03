@@ -16,6 +16,7 @@ use state_manager::StateManager;
 use std::sync::Arc;
 use std::{convert::TryFrom, io::Stdout};
 use url::Url;
+use std::ops::Deref;
 
 #[cfg(feature = "testing")]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
@@ -28,7 +29,7 @@ pub async fn read_genesis_header<DB>(
     cs: &ChainStore<DB>,
 ) -> Result<Tipset, anyhow::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -54,7 +55,7 @@ pub async fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: BlockStore + Send + Sync + 'static,
+    BS: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     // the genesis tipset has just one block, so fetch it
     let genesis_header = genesis_ts.min_ticket_block();
@@ -71,7 +72,7 @@ pub async fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), anyhow::Error>
 where
-    BS: BlockStore + Send + Sync + 'static,
+    BS: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
@@ -85,7 +86,7 @@ async fn process_car<R, BS>(
 ) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: BlockStore + Send + Sync + 'static,
+    BS: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).await?;
@@ -126,7 +127,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     skip_load: bool,
 ) -> Result<(), anyhow::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 

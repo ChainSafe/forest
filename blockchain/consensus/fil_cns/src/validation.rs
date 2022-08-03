@@ -202,7 +202,7 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
+fn validate_miner<DB: BlockStore + Deref + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
     tipset_state: &Cid,
@@ -323,7 +323,7 @@ fn verify_election_post_vrf(
     forest_crypto::verify_vrf(worker, rand, evrf).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(
+fn verify_winning_post_proof<DB: BlockStore + Deref + Send + Sync + 'static, V: ProofVerifier>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,

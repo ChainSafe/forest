@@ -14,6 +14,7 @@ use std::borrow::Cow;
 use std::{
     fmt::{Debug, Display},
     sync::Arc,
+    ops::Deref,
 };
 
 use forest_blocks::{Block, GossipBlock, Tipset};
@@ -44,7 +45,7 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: BlockStore + Sync + Send + 'static;
+        DB: BlockStore + Clone + Deref + Sync + Send + 'static;
 }
 
 /// Helper function to collect errors from async validations.
@@ -105,7 +106,7 @@ pub trait Proposer {
         submitter: &SyncGossipSubmitter,
     ) -> anyhow::Result<()>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: BlockStore + Clone + Deref + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;
 }
 
@@ -132,7 +133,7 @@ pub trait MessagePoolApi {
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: BlockStore + Sync + Send + 'static;
+        DB: BlockStore + Clone + Deref + Sync + Send + 'static;
 }
 
 #[async_trait]
@@ -146,7 +147,7 @@ where
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: BlockStore + Clone + Deref + Sync + Send + 'static,
     {
         self.select_messages_for_block(base)
             .await

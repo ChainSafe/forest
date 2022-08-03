@@ -18,6 +18,7 @@ use ipld_blockstore::{BlockStore, BlockStoreExt};
 use networks::Height;
 use state_manager::StateManager;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
+use std::ops::Deref;
 
 /// Provider Trait. This trait will be used by the message pool to interact with some medium in order to do
 /// the operations that are listed below that are required for the message pool.
@@ -48,14 +49,14 @@ pub trait Provider {
 }
 
 /// This is the default Provider implementation that will be used for the `mpool` RPC.
-pub struct MpoolRpcProvider<DB> {
+pub struct MpoolRpcProvider<DB: Clone + Deref> {
     subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
 }
 
 impl<DB> MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send,
+    DB: BlockStore + Clone + Deref + Sync + Send,
 {
     pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
@@ -68,7 +69,7 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: BlockStore + Clone + Deref + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()

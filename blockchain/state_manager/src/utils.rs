@@ -17,10 +17,11 @@ use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
 use ipld_blockstore::BlockStore;
 use serde::Serialize;
+use std::ops::Deref;
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt` verification.
     pub fn get_sectors_for_winning_post<V>(

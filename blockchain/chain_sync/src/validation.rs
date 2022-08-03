@@ -14,6 +14,7 @@ use legacy_ipld_amt::{Amt, Error as IpldAmtError};
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::ops::Deref;
 
 use thiserror::Error;
 
@@ -54,7 +55,7 @@ impl From<EncodingError> for TipsetValidationError {
 pub struct TipsetValidator<'a>(pub &'a FullTipset);
 
 impl<'a> TipsetValidator<'a> {
-    pub async fn validate<DB: BlockStore + Send + Sync + 'static>(
+    pub async fn validate<DB: BlockStore + Clone + Deref + Send + Sync + 'static>(
         &self,
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
@@ -73,7 +74,7 @@ impl<'a> TipsetValidator<'a> {
         // 1. Calculating the message root using all of the messages to ensure it matches the mst root in the block header
         // 2. Ensuring it has not previously been seen in the bad blocks cache
         for block in self.0.blocks() {
-            self.validate_msg_root(chainstore.db.as_ref(), block)?;
+            self.validate_msg_root(&chainstore.db, block)?;
             if let Some(bad) = bad_block_cache.peek(block.cid()).await {
                 return Err(TipsetValidationError::InvalidBlock(*block.cid(), bad));
             }

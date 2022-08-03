@@ -33,7 +33,7 @@ use fvm_shared::message::Message;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, VM,
 };
-use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use networks::{ChainConfig, Height};
@@ -42,6 +42,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::ops::Deref;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use vm_circ_supply::GenesisInfo;
 
@@ -76,7 +77,7 @@ pub struct MarketBalance {
 /// This encapsulates the [`ChainStore`] functionality, which only handles chain data, to
 /// allow for interactions with the underlying state of the chain. The state manager not only
 /// allows interfacing with state, but also is used when performing state transitions.
-pub struct StateManager<DB> {
+pub struct StateManager<DB: Clone + Deref> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
@@ -92,7 +93,7 @@ pub struct StateManager<DB> {
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
@@ -156,12 +157,12 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore_cloned(), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
-    pub fn blockstore_cloned(&self) -> Arc<DB> {
+    pub fn blockstore_cloned(&self) -> DB {
         self.cs.blockstore_cloned()
     }
 
@@ -349,8 +350,8 @@ where
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
-                db.as_ref(),
-                Arc::clone(&db),
+                &db,
+                db.clone(),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
@@ -490,8 +491,8 @@ where
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
-                store_arc.as_ref(),
-                Arc::clone(&store_arc),
+                &store_arc,
+                store_arc.clone(),
                 bheight,
                 rand,
                 0.into(),
@@ -585,8 +586,8 @@ where
         let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_>::new(
             st,
-            store_arc.as_ref(),
-            Arc::clone(&store_arc),
+            &store_arc,
+            store_arc.clone(),
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
@@ -1429,7 +1430,7 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<DB> {
+struct SMLookbackWrapper<DB: Clone + Deref> {
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
 }
@@ -1437,7 +1438,7 @@ struct SMLookbackWrapper<DB> {
 impl<DB> LookbackStateGetter for SMLookbackWrapper<DB>
 where
     // Yes, both are needed, because the VM should only use the buffered store
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Deref + Send + Sync + 'static,
 {
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
         let sm = Arc::clone(&self.sm);

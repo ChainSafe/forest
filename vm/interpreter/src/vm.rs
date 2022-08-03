@@ -20,11 +20,11 @@ use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use ipld_blockstore::BlockStore;
-use ipld_blockstore::FvmStore;
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::ops::Deref;
 
 // const GAS_OVERUSE_NUM: i64 = 11;
 // const GAS_OVERUSE_DENOM: i64 = 10;
@@ -77,7 +77,7 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the vm execution.
-pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
+pub struct VM<DB: BlockStore + Clone + Deref + 'static, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     params: PhantomData<P>,
     heights: Heights,
@@ -85,14 +85,14 @@ pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
 
 impl<DB, P> VM<DB, P>
 where
-    DB: BlockStore,
+    DB: BlockStore + Clone + Deref,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
         root: Cid,
         store: &DB,
-        store_arc: Arc<DB>,
+        store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
@@ -116,11 +116,11 @@ where
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
-        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
+        let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                FvmStore::new(store_arc.clone()),
+                store_arc.clone(),
                 ForestExterns::new(
                     rand.clone(),
                     epoch,
