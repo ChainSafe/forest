@@ -18,8 +18,8 @@ forest_blocks  = { path = "../../blockchain/blocks" }
 forest_crypto  = { version = "0.5", features = ["blst"] }
 forest_libp2p  = { path = "../forest_libp2p" }
 forest_message = { version = "0.7" }
-rpc-api        = { path = "../rpc-api", version = "0.1" }
 key_management = { path = "../../key_management" }
+rpc-api        = { path = "../rpc-api", version = "0.1" }
 
 [dependencies.jsonrpc-v2]
 default-features = false
