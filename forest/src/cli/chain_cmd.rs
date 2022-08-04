@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::cli::Config;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
@@ -9,6 +10,8 @@ use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
 use forest_json::cid::CidJson;
 use rpc_client::chain_ops::*;
+use std::collections::HashMap;
+use strfmt::strfmt;
 use time::OffsetDateTime;
 
 #[derive(Debug, StructOpt)]
@@ -63,7 +66,7 @@ pub enum ChainCommands {
 }
 
 impl ChainCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, cfg: Config) {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
@@ -82,18 +85,31 @@ impl ChainCommands {
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
+                let now = OffsetDateTime::now_utc();
+
+                let month = now.month() as u8;
+                let month_string = if month < 10 {
+                    format!("0{}", month)
+                } else {
+                    month.to_string()
+                };
+                let year = now.year();
+                let day = now.day();
+                let network_name = cfg.chain.name.clone();
+
+                let mut vars = HashMap::new();
+                vars.insert("year".to_string(), year.to_string());
+                vars.insert("month".to_string(), month_string.clone());
+                vars.insert("day".to_string(), day.to_string());
+                vars.insert("network".to_string(), network_name.clone());
+                vars.insert("heigth".to_string(), epoch.to_string());
+
                 let output_path = match output_path {
-                    Some(path) => path.to_owned(),
-                    None => {
-                        let now = OffsetDateTime::now_utc();
-                        format!(
-                            "forest_snapshot_{}-{}-{}_height_{}.car",
-                            now.year(),
-                            now.month(),
-                            now.day(),
-                            epoch,
-                        )
-                    }
+                    Some(path) => strfmt(&path, &vars).unwrap(),
+                    None => format!(
+                        "forest_snapshot_{}_{}-{}-{}_height_{}.car",
+                        network_name, year, month_string, day, epoch,
+                    )
                 };
 
                 let params = (

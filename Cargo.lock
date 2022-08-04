@@ -2733,6 +2733,7 @@ dependencies = [
  "serde",
  "serde_json",
  "state_manager",
+ "strfmt",
  "structopt",
  "tempfile",
  "ticker",
@@ -7648,6 +7649,12 @@ dependencies = [
  "storage-proofs-porep",
  "yastl",
 ]
+
+[[package]]
+name = "strfmt"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9076d8267599bf1564cda8ca1660298d67d7f4cd45b17624179a71fcf3e313c2"
 
 [[package]]
 name = "strobe-rs"
