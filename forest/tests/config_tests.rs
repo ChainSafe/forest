@@ -3,7 +3,8 @@
 use assert_cmd::Command;
 use forest::cli::Config;
 use rand::Rng;
-use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use tempfile::TempDir;
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
@@ -116,7 +117,7 @@ fn test_config_env_var() {
 }
 
 #[test]
-fn test_download_location_of_proof_parameter_files() {
+fn test_download_location_of_proof_parameter_files_env() {
     let mut rng = rand::thread_rng();
     let expected_config = Config {
         metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
@@ -131,12 +132,52 @@ fn test_download_location_of_proof_parameter_files() {
         .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    let cmd = Command::cargo_bin("forest")
+    let tmp_dir = TempDir::new().unwrap();
+
+    Command::cargo_bin("forest")
         .unwrap()
         .env("FOREST_CONFIG_PATH", config_file.path())
-        .env("FIL_PROOFS_PARAMETER_CACHE", "/Users/rostyslav.tyshko/work/chainsafe-work/forest/temp_folder")
+        .env("FIL_PROOFS_PARAMETER_CACHE", tmp_dir.path())
         .arg("fetch-params")
         .arg("--keys")
         .assert()
         .success();
+
+    let list_files = read_dir(tmp_dir.path()).unwrap();
+
+    assert!(list_files.count() > 0);
+}
+
+#[test]
+fn test_download_location_of_proof_parameter_files_default() {
+    let tmp_dir = TempDir::new().unwrap();
+    let mut tmp_dir_path_buf = tmp_dir.path().to_path_buf();
+    let mut rng = rand::thread_rng();
+    let expected_config = Config {
+        data_dir: tmp_dir_path_buf.clone(),
+        metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
+        rpc_token: Some("Azazello".into()),
+        genesis_file: Some("cthulhu".into()),
+        encrypt_keystore: false,
+        ..Config::default()
+    };
+
+    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
+    config_file
+        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .expect("Failed writing configuration!");
+
+    Command::cargo_bin("forest")
+        .unwrap()
+        .env("FOREST_CONFIG_PATH", config_file.path())
+        .arg("fetch-params")
+        .arg("--keys")
+        .assert()
+        .success();
+
+    tmp_dir_path_buf.push("filecoin-proof-parameters");
+
+    let list_files = read_dir(tmp_dir_path_buf).unwrap();
+
+    assert!(list_files.count() > 0);
 }
