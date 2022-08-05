@@ -95,21 +95,22 @@ impl ChainCommands {
                 };
                 let year = now.year();
                 let day = now.day();
-                let network_name = cfg.chain.name.clone();
+                let chain_name = cfg.chain.name.clone();
 
                 let mut vars = HashMap::new();
                 vars.insert("year".to_string(), year.to_string());
                 vars.insert("month".to_string(), month_string.clone());
                 vars.insert("day".to_string(), day.to_string());
-                vars.insert("network".to_string(), network_name.clone());
+                vars.insert("chain".to_string(), chain_name.clone());
                 vars.insert("heigth".to_string(), epoch.to_string());
 
                 let output_path = match output_path {
+                    // we need to unwrap here, as in case the string is malformed one needs to stop the execution
                     Some(path) => strfmt(&path, &vars).unwrap(),
                     None => format!(
                         "forest_snapshot_{}_{}-{}-{}_height_{}.car",
-                        network_name, year, month_string, day, epoch,
-                    )
+                        chain_name, year, month_string, day, epoch,
+                    ),
                 };
 
                 let params = (
