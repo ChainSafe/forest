@@ -7,6 +7,8 @@ edition     = "2021"
 build       = "build.rs"
 
 [dependencies]
+fvm_ipld_encoding = "0.2"
+bigdecimal = "0.3.0"
 anyhow            = "1.0"
 fvm               = "1.0"
 base64            = "0.13"
@@ -31,6 +33,7 @@ forest_crypto     = { version = "0.5" }
 forest_vm         = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
 num-rational      = "0.4"
+num-traits = "0.2"
 forest_blocks     = { path = "../blockchain/blocks" }
 ipld_blockstore   = "0.1"
 chain             = { path = "../blockchain/chain" }
@@ -66,6 +69,7 @@ fvm_shared        = { version = "0.8.0", default-features = false }
 forest_json       = { version = "0.1.0", path = "../utils/json/" }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 time              = "0.3"
+statediff = { version = "0.1.0", path = "../utils/statediff" }
 
 [dependencies.jsonrpc-v2]
 version          = "0.10"
