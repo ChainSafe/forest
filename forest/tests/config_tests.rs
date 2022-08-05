@@ -136,7 +136,7 @@ fn test_download_location_of_proof_parameter_files() {
         .env("FOREST_CONFIG_PATH", config_file.path())
         .env("FIL_PROOFS_PARAMETER_CACHE", "/Users/rostyslav.tyshko/work/chainsafe-work/forest/temp_folder")
         .arg("fetch-params")
-        .arg("--all")
+        .arg("--keys")
         .assert()
         .success();
 }
