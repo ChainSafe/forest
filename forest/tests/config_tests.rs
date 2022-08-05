@@ -128,7 +128,8 @@ fn test_download_location_of_proof_parameter_files_env() {
     let mut rng = rand::thread_rng();
     let expected_config = Config {
         client: Client {
-            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
+            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>()))
+                .unwrap(),
             rpc_token: Some("Azazello".into()),
             genesis_file: Some("cthulhu".into()),
             encrypt_keystore: false,
@@ -166,7 +167,8 @@ fn test_download_location_of_proof_parameter_files_default() {
     let expected_config = Config {
         client: Client {
             data_dir: tmp_dir_path_buf.clone(),
-            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
+            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>()))
+                .unwrap(),
             rpc_token: Some("Azazello".into()),
             genesis_file: Some("cthulhu".into()),
             encrypt_keystore: false,
