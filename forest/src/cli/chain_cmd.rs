@@ -106,7 +106,7 @@ impl ChainCommands {
 
                 let output_path = match output_path {
                     // we need to unwrap here, as in case the string is malformed one needs to stop the execution
-                    Some(path) => strfmt(&path, &vars).unwrap(),
+                    Some(path) => strfmt(path, &vars).unwrap(),
                     None => format!(
                         "forest_snapshot_{}_{}-{}-{}_height_{}.car",
                         chain_name, year, month_string, day, epoch,
