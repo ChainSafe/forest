@@ -127,10 +127,13 @@ fn test_config_env_var() {
 fn test_download_location_of_proof_parameter_files_env() {
     let mut rng = rand::thread_rng();
     let expected_config = Config {
-        metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
-        rpc_token: Some("Azazello".into()),
-        genesis_file: Some("cthulhu".into()),
-        encrypt_keystore: false,
+        client: Client {
+            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
+            rpc_token: Some("Azazello".into()),
+            genesis_file: Some("cthulhu".into()),
+            encrypt_keystore: false,
+            ..Client::default()
+        },
         ..Config::default()
     };
 
@@ -161,11 +164,14 @@ fn test_download_location_of_proof_parameter_files_default() {
     let mut tmp_dir_path_buf = tmp_dir.path().to_path_buf();
     let mut rng = rand::thread_rng();
     let expected_config = Config {
-        data_dir: tmp_dir_path_buf.clone(),
-        metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
-        rpc_token: Some("Azazello".into()),
-        genesis_file: Some("cthulhu".into()),
-        encrypt_keystore: false,
+        client: Client {
+            data_dir: tmp_dir_path_buf.clone(),
+            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>())).unwrap(),
+            rpc_token: Some("Azazello".into()),
+            genesis_file: Some("cthulhu".into()),
+            encrypt_keystore: false,
+            ..Client::default()
+        },
         ..Config::default()
     };
 
