@@ -120,7 +120,7 @@ enum PubsubMessageProcessingStrategy {
 }
 
 /// The `ChainMuxer` handles events from the P2P network and orchestrates the chain synchronization.
-pub struct ChainMuxer<DB, M, C: Consensus> {
+pub struct ChainMuxer<DB: Clone, M, C: Consensus> {
     /// State of the `ChainSyncer` `Future` implementation
     state: ChainMuxerState<C>,
 
@@ -161,7 +161,7 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: BlockStore + Clone + Unpin + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -466,9 +466,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            chain::persist_objects(chain_store.db.as_ref(), &[block.header()])?;
-            chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())?;
-            chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())?;
+            chain::persist_objects(&chain_store.db, &[block.header()])?;
+            chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+            chain::persist_objects(&chain_store.db, block.secp_msgs())?;
         }
 
         // Update the peer head
@@ -801,7 +801,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: BlockStore + Clone + Unpin + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {

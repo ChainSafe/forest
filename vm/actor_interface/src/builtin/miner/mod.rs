@@ -60,8 +60,7 @@ impl State {
     pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                let info = st.get_info(&fvm_store)?;
+                let info = st.get_info(&store)?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
@@ -94,10 +93,9 @@ impl State {
     ) -> anyhow::Result<()> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                st.load_deadlines(&fvm_store)?.for_each(
+                st.load_deadlines(&store)?.for_each(
                     &Default::default(),
-                    &fvm_store,
+                    &store,
                     |idx, dl| f(idx as u64, Deadline::V8(dl)),
                 )
             }
@@ -121,15 +119,14 @@ impl State {
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 if let Some(sectors) = sectors {
                     Ok(st
-                        .load_sector_infos(&fvm_store, sectors)?
+                        .load_sector_infos(&store, sectors)?
                         .into_iter()
                         .map(From::from)
                         .collect())
                 } else {
-                    let sectors = fil_actor_miner_v8::Sectors::load(&fvm_store, &st.sectors)?;
+                    let sectors = fil_actor_miner_v8::Sectors::load(&store, &st.sectors)?;
                     let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
                     sectors.amt.for_each(|_, info| {
                         infos.push(SectorOnChainInfo::from(info.clone()));
@@ -227,8 +224,7 @@ impl Deadline {
     ) -> anyhow::Result<()> {
         match self {
             Deadline::V8(dl) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                dl.for_each(&fvm_store, |idx, part| {
+                dl.for_each(&store, |idx, part| {
                     f(idx as u64, Partition::V8(Cow::Borrowed(part)))
                 })
             }
@@ -238,8 +234,7 @@ impl Deadline {
     pub fn disputable_proof_count<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
             Deadline::V8(dl) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                dl.optimistic_proofs_snapshot_amt(&fvm_store)?
+                dl.optimistic_proofs_snapshot_amt(&store)?
                     .count()
                     .try_into()
                     .unwrap()

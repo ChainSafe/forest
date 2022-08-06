@@ -49,7 +49,7 @@ impl DelegatedProposer {
         base: &Arc<Tipset>,
     ) -> anyhow::Result<GossipBlock>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: BlockStore + Clone + Sync + Send + 'static,
     {
         let block_delay = state_manager.chain_config().block_delay_secs;
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
@@ -101,7 +101,7 @@ impl Proposer for DelegatedProposer {
         submitter: &SyncGossipSubmitter,
     ) -> anyhow::Result<()>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: BlockStore + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         // TODO: Ideally these should not be coming through the `StateManager`.

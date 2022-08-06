@@ -17,14 +17,14 @@ use std::io::Write;
 use std::sync::Arc;
 
 /// Allows for deriving the randomness from a particular tipset.
-pub struct ChainRand<DB> {
+pub struct ChainRand<DB: Clone> {
     chain_config: Arc<ChainConfig>,
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
 }
 
-impl<DB> Clone for ChainRand<DB> {
+impl<DB: Clone> Clone for ChainRand<DB> {
     fn clone(&self) -> Self {
         ChainRand {
             chain_config: self.chain_config.clone(),
@@ -37,7 +37,7 @@ impl<DB> Clone for ChainRand<DB> {
 
 impl<DB> ChainRand<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Send + Sync + 'static,
 {
     pub fn new(
         chain_config: Arc<ChainConfig>,
@@ -224,7 +224,7 @@ where
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Send + Sync + 'static,
 {
     fn get_chain_randomness(
         &self,

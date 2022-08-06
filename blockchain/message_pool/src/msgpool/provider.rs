@@ -48,14 +48,14 @@ pub trait Provider {
 }
 
 /// This is the default Provider implementation that will be used for the `mpool` RPC.
-pub struct MpoolRpcProvider<DB> {
+pub struct MpoolRpcProvider<DB: Clone> {
     subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
 }
 
 impl<DB> MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send,
+    DB: BlockStore + Clone + Sync + Send,
 {
     pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
@@ -68,7 +68,7 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: BlockStore + Clone + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()

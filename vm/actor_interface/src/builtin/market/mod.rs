@@ -106,10 +106,9 @@ impl State {
     {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
                 fil_actor_market_v8::validate_deals_for_activation(
                     st,
-                    &fvm_store,
+                    &store,
                     deal_ids,
                     miner_addr,
                     sector_expiry,

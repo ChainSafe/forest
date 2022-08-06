@@ -118,7 +118,7 @@ pub enum NetRPCMethods {
 }
 
 /// The Libp2pService listens to events from the Libp2p swarm.
-pub struct Libp2pService<DB> {
+pub struct Libp2pService<DB: Clone> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
 
@@ -132,7 +132,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: BlockStore + Clone + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,

@@ -39,10 +39,10 @@ pub(crate) struct SyncNetworkContext<DB> {
 
     /// Manages peers to send requests to and updates request stats for the respective peers.
     pub peer_manager: Arc<PeerManager>,
-    db: Arc<DB>,
+    db: DB,
 }
 
-impl<DB> Clone for SyncNetworkContext<DB> {
+impl<DB: Clone> Clone for SyncNetworkContext<DB> {
     fn clone(&self) -> Self {
         Self {
             network_send: self.network_send.clone(),
@@ -59,7 +59,7 @@ where
     pub fn new(
         network_send: Sender<NetworkMessage>,
         peer_manager: Arc<PeerManager>,
-        db: Arc<DB>,
+        db: DB,
     ) -> Self {
         Self {
             network_send,

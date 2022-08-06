@@ -85,7 +85,7 @@ impl DelegatedConsensus {
         state_manager: &Arc<StateManager<DB>>,
     ) -> anyhow::Result<Option<DelegatedProposer>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: BlockStore + Clone + Sync + Send + 'static,
     {
         let genesis = state_manager.chain_store().genesis()?;
         let genesis = genesis.ok_or_else(|| anyhow!("Genesis not set!"))?;
@@ -124,7 +124,7 @@ impl Consensus for DelegatedConsensus {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: BlockStore + Clone + Sync + Send + 'static,
     {
         crate::validation::validate_block(&self.chosen_one, state_manager, block)
             .await

@@ -18,7 +18,7 @@ use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT};
-use ipld_blockstore::{BlockStore, FvmStore};
+use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -83,14 +83,14 @@ pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
 
 impl<DB, P> VM<DB, P>
 where
-    DB: BlockStore,
+    DB: BlockStore + Clone,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
         root: Cid,
         store: &DB,
-        store_arc: Arc<DB>,
+        store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
@@ -114,17 +114,17 @@ where
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
-        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
+        let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                FvmStore::new(store_arc.clone()),
+                store_arc.clone(),
                 ForestExterns::new(
                     rand.clone(),
                     epoch,
                     root,
                     lb_state.chain_epoch_root(),
-                    store_arc,
+                    store_arc.clone(),
                     network_version,
                     chain_finality,
                 ),

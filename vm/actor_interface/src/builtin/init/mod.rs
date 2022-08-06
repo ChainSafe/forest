@@ -55,8 +55,7 @@ impl State {
     ) -> anyhow::Result<Address> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                Ok(Address::new_id(st.map_address_to_new_id(&fvm_store, addr)?))
+                Ok(Address::new_id(st.map_address_to_new_id(&store, addr)?))
             }
         }
     }
@@ -78,8 +77,7 @@ impl State {
     ) -> anyhow::Result<Option<Address>> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                st.resolve_address(&fvm_store, addr)
+                st.resolve_address(&store, addr)
             }
         }
     }

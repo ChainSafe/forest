@@ -19,7 +19,7 @@ use serde::Serialize;
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: BlockStore + Clone + Send + Sync + 'static,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt` verification.
     pub fn get_sectors_for_winning_post<V>(

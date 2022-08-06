@@ -96,8 +96,7 @@ impl State {
     ) -> anyhow::Result<Option<Claim>> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                Ok(st.miner_power(&fvm_store, miner)?.map(From::from))
+                Ok(st.miner_power(&s, miner)?.map(From::from))
             }
         }
     }
@@ -116,8 +115,7 @@ impl State {
     ) -> anyhow::Result<bool> {
         match self {
             State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                st.miner_nominal_power_meets_consensus_minimum(policy, &fvm_store, miner)
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner)
             }
         }
     }
