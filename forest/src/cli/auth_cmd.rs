@@ -56,8 +56,8 @@ impl AuthCommands {
                 match auth_new((perms,)).await {
                     Ok(token) => {
                         let mut addr = Multiaddr::empty();
-                        addr.push(cfg.rpc_address.ip().into());
-                        addr.push(Protocol::Tcp(cfg.rpc_address.port()));
+                        addr.push(cfg.client.rpc_address.ip().into());
+                        addr.push(Protocol::Tcp(cfg.client.rpc_address.port()));
                         addr.push(Protocol::Http);
                         println!(
                             "FULLNODE_API_INFO=\"{}:{}\"",

@@ -9,17 +9,17 @@ testing = []
 
 [dependencies]
 anyhow          = "1.0"
-ipld_blockstore = "0.1"
 async-std       = "1.9"
-log             = "0.4"
-fvm_ipld_car    = "0.4.1"
-state_manager   = { path = "../../blockchain/state_manager" }
-forest_blocks   = { path = "../../blockchain/blocks" }
 chain           = { path = "../../blockchain/chain" }
-fil_types       = "0.2"
-forest_encoding = "0.2"
-net_utils       = { path = "../net_utils" }
-url             = "2.1"
-futures         = "0.3"
-networks        = { path = "../../types/networks" }
 cid             = { version = "0.8", default-features = false, features = ["std"] }
+fil_types       = "0.2"
+forest_blocks   = { path = "../../blockchain/blocks" }
+forest_encoding = "0.2"
+futures         = "0.3"
+fvm_ipld_car    = "0.4.1"
+ipld_blockstore = "0.1"
+log             = "0.4"
+net_utils       = { path = "../net_utils" }
+networks        = { path = "../../types/networks" }
+state_manager   = { path = "../../blockchain/state_manager" }
+url             = "2.1"
