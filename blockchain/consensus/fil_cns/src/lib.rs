@@ -21,9 +21,8 @@ use state_manager::StateManager;
 mod validation;
 mod weight;
 
-pub fn reward_calc() -> Arc<dyn interpreter::RewardCalc> {
-    Arc::new(interpreter::RewardActorMessageCalc)
-}
+// Shim to work with daemon.rs
+pub mod composition;
 
 #[derive(Debug, Error)]
 pub enum FilecoinConsensusError {
