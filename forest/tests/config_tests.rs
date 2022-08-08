@@ -125,18 +125,10 @@ fn test_config_env_var() {
 
 #[test]
 fn test_download_location_of_proof_parameter_files_env() {
-    let config = Config::default();
-
-    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
-    config_file
-        .write_all(toml::to_string(&config).unwrap().as_bytes())
-        .expect("Failed writing configuration!");
-
     let tmp_dir = TempDir::new().unwrap();
 
     Command::cargo_bin("forest")
         .unwrap()
-        .env("FOREST_CONFIG_PATH", config_file.path())
         .env("FIL_PROOFS_PARAMETER_CACHE", tmp_dir.path())
         .arg("fetch-params")
         .arg("--keys")
@@ -154,7 +146,7 @@ fn test_download_location_of_proof_parameter_files_default() {
     let mut tmp_dir_path_buf = tmp_dir.path().to_path_buf();
     let config = Config {
         client: Client {
-            data_dir: tmp_dir_path_buf.clone(),
+            data_dir: tmp_dir.path().to_path_buf(),
             ..Client::default()
         },
         ..Config::default()
