@@ -473,7 +473,9 @@ where
                 if skip_old_msgs {
                     anyhow::anyhow!("Cid {cid} not found in blockstore")
                 } else {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore. Exporting a full snapshot is only possible when the node is initialised with a full one. Consider exporting a lightweight snapshot, e.g. skip the old messages.")
+                    anyhow::anyhow!("Cid {cid} not found in blockstore. \
+                                    Exporting a full snapshot is only possible when the node is initialised with a full one. \
+                                    Consider exporting a lightweight snapshot, e.g. skip the old messages.")
                 }
             })?;
 
