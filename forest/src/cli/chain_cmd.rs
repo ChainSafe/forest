@@ -20,10 +20,10 @@ pub enum ChainCommands {
         cid: String,
     },
 
-    /// Export a snapshot of the chain to <output_path>
+    /// Export a snapshot of the chain to `<output_path>`
     #[structopt(about = "Export chain snapshot to file")]
     Export {
-        /// Tipset to start the export from, default is @HEAD
+        /// Tipset to start the export from, default is `@HEAD`
         #[structopt(short)]
         tipset: Option<i64>,
         /// Specify the number of recent state roots to include in the export
@@ -53,7 +53,7 @@ pub enum ChainCommands {
         cid: String,
     },
 
-    /// Reads and prints out ipld nodes referenced by the specified CID from chain
+    /// Reads and prints out `ipld` nodes referenced by the specified CID from chain
     /// blockstore and returns raw bytes
     #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {

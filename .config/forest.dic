@@ -6,6 +6,7 @@ BLS
 CBOR
 CID
 CIDs
+CLI
 Filecoin
 IPLD
 JSON
@@ -15,6 +16,7 @@ RPC
 SECP
 VM
 blockchain
+blockstore
 codec
 multisig
 mutex
@@ -30,3 +32,4 @@ tipset/SM
 tipsetkey/S
 tuple
 validator/S
+stringified
