@@ -17,7 +17,7 @@ pub enum Map<BS, V> {
 impl<'a, BS, V> Map<BS, V>
 where
     V: Serialize + DeserializeOwned + PartialEq,
-    BS: BlockStore + Clone,
+    BS: BlockStore,
 {
     pub fn new(store: &BS, version: ActorVersion) -> Self {
         match version {
