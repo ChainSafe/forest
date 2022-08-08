@@ -68,7 +68,7 @@ utils             = { path = "../node/utils" }
 uuid              = { version = "0.8", features = ["v4"] }
 
 [build-dependencies]
-fil_types         = "0.2"
+fil_types = "0.2"
 
 [dependencies.jsonrpc-v2]
 default-features = false
