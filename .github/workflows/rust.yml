@@ -100,6 +100,8 @@ jobs:
         run: rustup component add clippy
       - name: Install RustFmt
         run: rustup component add rustfmt
+      - name: Install taplo (TOML linter)
+        run: cargo install taplo-cli --locked
       - name: Run Linters
         run: make lint
 
