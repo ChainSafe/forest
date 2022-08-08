@@ -132,12 +132,12 @@ pub mod json {
     use forest_crypto::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and deserializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct SignedMessageJson(#[serde(with = "self")] pub SignedMessage);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `SignedMessage` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a SignedMessage);

@@ -31,6 +31,4 @@ tipsetkey/S
 tuple
 validator/S
 serializing
-SignedMessage
-Blake2b256
 deserializing
