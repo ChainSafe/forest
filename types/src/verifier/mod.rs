@@ -6,8 +6,7 @@ mod mock;
 pub use self::mock::*;
 
 use crate::{
-    AggregateSealVerifyProofAndInfos, PoStProof, Randomness, RegisteredPoStProof, SealVerifyInfo,
-    SectorInfo,
+    AggregateSealVerifyProofAndInfos, PoStProof, RegisteredPoStProof, SealVerifyInfo, SectorInfo,
 };
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
@@ -17,6 +16,7 @@ use filecoin_proofs_api::{
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::address::Address;
 use fvm_shared::commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1};
+use fvm_shared::randomness::Randomness;
 use proofs::seal;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::BTreeMap;

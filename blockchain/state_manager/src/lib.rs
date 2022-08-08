@@ -16,7 +16,7 @@ use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
-use fil_types::{verifier::ProofVerifier, NetworkVersion, Randomness, SectorInfo, SectorSize};
+use fil_types::{verifier::ProofVerifier, SectorInfo, SectorSize};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_vm::TokenAmount;
@@ -30,6 +30,8 @@ use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
+use fvm_shared::randomness::Randomness;
+use fvm_shared::version::NetworkVersion;
 use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, VM,
 };

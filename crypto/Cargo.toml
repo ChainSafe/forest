@@ -12,17 +12,17 @@ features = ["json"]
 
 [dependencies]
 anyhow             = "1.0"
-fvm_shared         = { version = "*", default-features = false }
+base64             = "0.13"
+bls-signatures     = { version = "0.11", default-features = false }
 fil_actors_runtime = "=8.0.0"
 forest_encoding    = "0.2"
-libsecp256k1       = "0.7"
-bls-signatures     = { version = "0.11", default-features = false }
-serde              = { version = "1.0", features = ["derive"] }
-num-traits         = "0.2"
-num-derive         = "0.3"
-thiserror          = "1.0"
-base64             = "0.13"
 fvm_ipld_encoding  = "0.2"
+fvm_shared         = { version = "*", default-features = false }
+libsecp256k1       = "0.7"
+num-derive         = "0.3"
+num-traits         = "0.2"
+serde              = { version = "1.0", features = ["derive"] }
+thiserror          = "1.0"
 
 [dev-dependencies]
 rand        = "0.8"

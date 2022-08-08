@@ -7,12 +7,12 @@ use rand_distr::{Distribution, Normal};
 
 use beacon::Beacon;
 use chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use fil_types::BLOCK_GAS_LIMIT;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_json::address::json::AddressJson;
 use forest_message::{message::json::MessageJson, ChainMessage};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
+use fvm_shared::BLOCK_GAS_LIMIT;
 use ipld_blockstore::BlockStore;
 use rpc_api::{
     data_types::{MessageSendSpec, RPCState},

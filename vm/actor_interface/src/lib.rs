@@ -8,7 +8,8 @@ mod policy;
 pub use self::adt::*;
 pub use self::builtin::*;
 pub use self::policy::*;
-use fil_types::{NetworkVersion, StateTreeVersion};
+use fvm_shared::state::StateTreeVersion;
+use fvm_shared::version::NetworkVersion;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(PartialEq, Eq)]
