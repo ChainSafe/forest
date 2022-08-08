@@ -4,7 +4,7 @@
 use forest_crypto::VRFProof;
 use forest_encoding::tuple::*;
 
-/// A Ticket is a marker of a tick of the blockchain's clock.  It is the source
+/// A Ticket is a marker of a tick of the block-chain's clock.  It is the source
 /// of randomness for proofs of storage and leader election.  It is generated
 /// by the miner of a block using a `VRF` and a `VDF`.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize_tuple, Deserialize_tuple)]
