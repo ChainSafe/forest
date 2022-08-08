@@ -415,7 +415,7 @@ where
 
     async fn parent_state_tsk<'a>(
         &'a self,
-        key: &'a TipsetKeys,
+        key: &TipsetKeys,
     ) -> anyhow::Result<StateTree<&'a DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(self.blockstore(), ts.parent_state())
