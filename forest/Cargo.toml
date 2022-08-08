@@ -7,6 +7,7 @@ edition     = "2021"
 build       = "build.rs"
 
 [dependencies]
+actor_interface   = { path = "../vm/actor_interface" }
 anyhow            = "1.0"
 fvm               = "1.0"
 base64            = "0.13"
@@ -49,7 +50,6 @@ uuid              = { version = "0.8", features = ["v4"] }
 auth              = "0.1.0"
 net_utils         = "0.1.0"
 metrics           = "0.1.0"
-actor_interface   = "0.1.0"
 genesis           = "0.1.0"
 paramfetch        = "0.1.0"
 forest_encoding   = "0.2"
@@ -68,9 +68,9 @@ cid               = { version = "0.8", default-features = false, features = ["st
 time              = "0.3"
 
 [dependencies.jsonrpc-v2]
-version          = "0.10"
-features         = ["easy-errors", "macros", "bytes-v05"]
 default-features = false
+features         = ["easy-errors", "macros", "bytes-v05"]
+version          = "0.10"
 
 [dev-dependencies]
 assert_cmd = "2"

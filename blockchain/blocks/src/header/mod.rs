@@ -7,11 +7,10 @@ use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use derive_builder::Builder;
-use fil_types::{PoStProof, BLOCKS_PER_EPOCH};
+use fil_types::PoStProof;
 use forest_encoding::blake2b_256;
 use forest_vm::TokenAmount;
-use fvm_ipld_encoding::DAG_CBOR;
-use fvm_ipld_encoding::{Cbor, Error as EncodingError};
+use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::{
     bigint_ser::{BigIntDe, BigIntSer},
@@ -20,6 +19,7 @@ use fvm_shared::bigint::{
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::version::NetworkVersion;
+use fvm_shared::BLOCKS_PER_EPOCH;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Digest;

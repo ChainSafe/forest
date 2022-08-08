@@ -42,19 +42,17 @@ fnv = "1.0"
 smallvec = "1.1"
 chain = "0.1.0"
 forest_db = "0.1"
-fvm_ipld_car = "0.4.1"
-libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
-tiny-cid = "0.2"
-ipld_blockstore = "0.1"
 async-trait = "0.1"
-lazy_static = "1.4"
-git-version = "0.3"
-serde_ipld_dagcbor = "0.1.0"
-fvm_shared = { version = "0.8.0", default-features = false, features = [
-    "testing",
-] }
-fvm_ipld_encoding = "0.2"
 cid = { version = "0.8", default-features = false, features = ["std"] }
+fvm_ipld_car = "0.4.1"
+fvm_ipld_encoding = "0.2"
+fvm_shared = { version = "0.8.0", default-features = false, features = ["testing"] }
+git-version = "0.3"
+ipld_blockstore = "0.1"
+lazy_static = "1.4"
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
+serde_ipld_dagcbor = "0.1.0"
+tiny-cid = "0.2"
 
 [dev-dependencies]
 forest_crypto = { version = "0.5.2", features = ["blst"] }

@@ -11,9 +11,10 @@ use fvm_shared::message::Message;
 pub fn valid_for_block_inclusion(
     msg: &Message,
     min_gas: Gas,
-    version: fil_types::NetworkVersion,
+    version: fvm_shared::version::NetworkVersion,
 ) -> Result<(), anyhow::Error> {
-    use fil_types::{NetworkVersion, BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
+    use fvm_shared::version::NetworkVersion;
+    use fvm_shared::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
     use num_traits::Signed;
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);

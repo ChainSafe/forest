@@ -269,7 +269,7 @@ where
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         task::spawn(async move {
-            let mut interval = interval(Duration::from_millis(republish_interval));
+            let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
                 if let Err(e) = republish_pending_messages(
@@ -324,7 +324,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > &fil_types::TOTAL_FILECOIN {
+        if msg.value() > &fvm_shared::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {

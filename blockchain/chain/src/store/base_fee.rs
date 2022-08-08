@@ -1,12 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_types::BLOCK_GAS_LIMIT;
 use forest_blocks::Tipset;
 use forest_message::Message;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::BLOCK_GAS_LIMIT;
 use ipld_blockstore::BlockStore;
 use std::collections::HashSet;
 
