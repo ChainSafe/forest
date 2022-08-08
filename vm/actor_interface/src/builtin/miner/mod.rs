@@ -60,7 +60,7 @@ impl State {
     pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V8(st) => {
-                let info = st.get_info(&store)?;
+                let info = st.get_info(store)?;
 
                 // Deserialize into peer id if valid, `None` if not.
                 let peer_id = PeerId::from_bytes(&info.peer_id).ok();
