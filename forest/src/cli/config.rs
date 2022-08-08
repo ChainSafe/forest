@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use super::client::Client;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
     pub client: Client,
