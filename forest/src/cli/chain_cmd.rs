@@ -38,7 +38,7 @@ pub enum ChainCommands {
         /// Skip old messages
         #[structopt(short)]
         skip_old_messages: bool,
-        /// Snapshot output path. Default to `forest_snapshot_{chain_}{year}-{month}-{day}_height_{height}.car`
+        /// Snapshot output path. Default to [OUTPUT_PATH_DEFAULT_VALUE].car`
         #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_VALUE, help = "format in of the filename of the snapshot")]
         output_path: String,
     },
