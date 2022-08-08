@@ -400,7 +400,7 @@ mod test {
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
-        let db = Arc::new(MemoryDB::default());
+        let db = MemoryDB::default();
         let cs = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))

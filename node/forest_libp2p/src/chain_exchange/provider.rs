@@ -155,7 +155,6 @@ mod tests {
     use forest_db::MemoryDB;
     use fvm_ipld_car::load_car;
     use genesis::EXPORT_SR_40;
-    use std::sync::Arc;
 
     async fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();
@@ -170,7 +169,7 @@ mod tests {
         let (cids, db) = populate_db().await;
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(Arc::new(db)),
+            &ChainStore::new(db),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

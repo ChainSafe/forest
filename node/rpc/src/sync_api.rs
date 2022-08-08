@@ -139,7 +139,7 @@ mod tests {
         }]));
 
         let (network_send, network_rx) = bounded(5);
-        let db = Arc::new(MemoryDB::default());
+        let db = MemoryDB::default();
         let cs_arc = Arc::new(ChainStore::new(db.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))

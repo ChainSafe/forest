@@ -124,7 +124,7 @@ where
                     epoch,
                     root,
                     lb_state.chain_epoch_root(),
-                    store_arc.clone(),
+                    store_arc,
                     network_version,
                     chain_finality,
                 ),

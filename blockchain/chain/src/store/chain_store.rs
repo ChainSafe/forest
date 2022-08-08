@@ -978,7 +978,6 @@ pub fn persist_block_messages<DB: BlockStore>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::sync::Arc;
     use cid::multihash::Code::{Blake2b256, Identity};
     use cid::multihash::MultihashDigest;
     use cid::Cid;
@@ -989,7 +988,7 @@ mod tests {
     fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(Arc::new(db));
+        let cs = ChainStore::new(db);
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -1009,7 +1008,7 @@ mod tests {
     fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(Arc::new(db));
+        let cs = ChainStore::new(db);
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());
