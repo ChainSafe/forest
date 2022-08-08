@@ -9,21 +9,16 @@ features = ["test_constructors"]
 
 [dependencies]
 anyhow            = "1.0"
-forest_blocks     = { path = "../../blockchain/blocks/", optional = true }
-chain             = { path = "../../blockchain/chain/", optional = true }
-forest_message    = { version = "0.7", optional = true, features = ["blst"] }
-forest_crypto     = { version = "0.5", features = ["blst"] }
-forest_libp2p     = { path = "../../node/forest_libp2p/", optional = true }
-forest_encoding   = "0.2"
 base64            = "0.13"
-fvm_shared        = { version = "0.8.0", default-features = false }
+chain             = { path = "../../blockchain/chain/", optional = true }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
+forest_blocks     = { path = "../../blockchain/blocks/", optional = true }
+forest_crypto     = { version = "0.5", features = ["blst"] }
+forest_encoding   = "0.2"
+forest_libp2p     = { path = "../../node/forest_libp2p/", optional = true }
+forest_message    = { version = "0.7", optional = true, features = ["blst"] }
 fvm_ipld_encoding = "0.2"
+fvm_shared        = { version = "0.8.0", default-features = false }
 
 [features]
-test_constructors = [
-    "forest_blocks",
-    "chain",
-    "forest_message",
-    "forest_libp2p",
-]
+test_constructors = ["forest_blocks", "chain", "forest_message", "forest_libp2p"]
