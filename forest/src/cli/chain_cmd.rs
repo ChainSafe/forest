@@ -23,17 +23,17 @@ pub enum ChainCommands {
     /// Export a snapshot of the chain to <output_path>
     #[structopt(about = "Export chain snapshot to file")]
     Export {
-        /// Tipset to start the export from, default is @HEAD
-        #[structopt(short)]
+        /// Tipset to start the export from, default is the chain head
+        #[structopt(short, long)]
         tipset: Option<i64>,
-        /// Specify the number of recent state roots to include in the export
-        #[structopt(short)]
+        /// Specify the number of recent state roots to include in the export, default is the chain finality value
+        #[structopt(short, long)]
         recent_stateroots: Option<i64>,
-        /// Skip old messages
-        #[structopt(short)]
-        skip_old_messages: bool,
+        /// Include old messages
+        #[structopt(short, long)]
+        include_old_messages: bool,
         /// Snapshot output path. Default to `forest_snapshot_{year}-{month}-{day}_height_{height}.car`
-        #[structopt(short)]
+        #[structopt(short, long)]
         output_path: Option<String>,
     },
 
@@ -72,7 +72,7 @@ impl ChainCommands {
             Self::Export {
                 tipset,
                 recent_stateroots,
-                skip_old_messages,
+                include_old_messages,
                 output_path,
             } => {
                 let chain_head = match chain_head().await {
@@ -99,7 +99,7 @@ impl ChainCommands {
                 let params = (
                     epoch,
                     *recent_stateroots,
-                    *skip_old_messages,
+                    *include_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                 );
