@@ -11,7 +11,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// A thread-safe `HashMap` wrapper.
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct MemoryDB {
     db: Arc<RwLock<HashMap<u64, Vec<u8>>>>,
 }
@@ -24,22 +24,6 @@ impl MemoryDB {
         let mut hasher = DefaultHasher::new();
         key.as_ref().hash::<DefaultHasher>(&mut hasher);
         hasher.finish()
-    }
-}
-
-impl Clone for MemoryDB {
-    fn clone(&self) -> Self {
-        Self {
-            db: self.db.clone(),
-        }
-    }
-}
-
-impl Default for MemoryDB {
-    fn default() -> Self {
-        Self {
-            db: Arc::new(Default::default()),
-        }
     }
 }
 
