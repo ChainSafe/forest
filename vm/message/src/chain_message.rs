@@ -11,7 +11,7 @@ use fvm_shared::address::Address;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 
-/// Enum to encpasulate signed and unsigned messages. Useful when working with both types
+/// Enumeration to encapsulate signed and unsigned messages. Useful when working with both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 #[serde(untagged)]
 pub enum ChainMessage {
