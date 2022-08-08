@@ -14,6 +14,9 @@ use std::collections::HashMap;
 use strfmt::strfmt;
 use time::OffsetDateTime;
 
+const OUTPUT_PATH_DEFAULT_VALUE: &str =
+    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{heigth}.car";
+
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
@@ -35,9 +38,9 @@ pub enum ChainCommands {
         /// Skip old messages
         #[structopt(short)]
         skip_old_messages: bool,
-        /// Snapshot output path. Default to `forest_snapshot_{year}-{month}-{day}_height_{height}.car`
-        #[structopt(short)]
-        output_path: Option<String>,
+        /// Snapshot output path. Default to `forest_snapshot_{chain_}{year}-{month}-{day}_height_{height}.car`
+        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_VALUE, help = "format in of the filename of the snapshot")]
+        output_path: String,
     },
 
     /// Prints out the genesis tipset
@@ -92,9 +95,6 @@ impl ChainCommands {
                 let day = now.day();
                 let chain_name = cfg.chain.name.clone();
 
-                let default_format =
-                    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{heigth}.car";
-
                 let mut vars = HashMap::new();
                 vars.insert("year".to_string(), year.to_string());
                 vars.insert("month".to_string(), month_string);
@@ -102,15 +102,10 @@ impl ChainCommands {
                 vars.insert("chain".to_string(), chain_name);
                 vars.insert("heigth".to_string(), epoch.to_string());
 
-                let output_path_res = match output_path {
-                    Some(path) => strfmt(path, &vars),
-                    None => strfmt(default_format, &vars),
-                };
-
-                let output_path = match output_path_res {
+                let output_path = match strfmt(output_path, &vars) {
                     Ok(path) => path,
                     Err(e) => {
-                        panic!("Unparsable string error: {}", e);
+                        cli_error_and_die(format!("Unparsable string error: {}", e), 1);
                     }
                 };
 
