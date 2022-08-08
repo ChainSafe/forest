@@ -87,26 +87,22 @@ impl ChainCommands {
 
                 let now = OffsetDateTime::now_utc();
 
-                let month = now.month() as u8;
-                let month_string = if month < 10 {
-                    format!("0{}", month)
-                } else {
-                    month.to_string()
-                };
+                let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
                 let day = now.day();
                 let chain_name = cfg.chain.name.clone();
 
-                let mut vars = HashMap::new();
-                vars.insert("year".to_string(), year.to_string());
-                vars.insert("month".to_string(), month_string.clone());
-                vars.insert("day".to_string(), day.to_string());
-                vars.insert("chain".to_string(), chain_name.clone());
-                vars.insert("heigth".to_string(), epoch.to_string());
-
                 let output_path = match output_path {
-                    // we need to unwrap here, as in case the string is malformed one needs to stop the execution
-                    Some(path) => strfmt(path, &vars).unwrap(),
+                    Some(path) => {
+                        let mut vars = HashMap::new();
+                        vars.insert("year".to_string(), year.to_string());
+                        vars.insert("month".to_string(), month_string);
+                        vars.insert("day".to_string(), day.to_string());
+                        vars.insert("chain".to_string(), chain_name);
+                        vars.insert("heigth".to_string(), epoch.to_string());
+                        // we need to unwrap here, as in case the string is malformed one needs to stop the execution
+                        strfmt(path, &vars).unwrap()
+                    }
                     None => format!(
                         "forest_snapshot_{}_{}-{}-{}_height_{}.car",
                         chain_name, year, month_string, day, epoch,
