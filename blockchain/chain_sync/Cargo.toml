@@ -5,60 +5,58 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-async-trait       = "0.1"
-forest_ipld       = { version = "0.1" }
-pbr               = "1.0.3"
+actor_interface   = { path = "../../vm/actor_interface" }
 anyhow            = "1.0"
-nonempty          = "0.8.0"
-fvm_shared        = { version = "0.8.0", default-features = false }
-fvm_ipld_encoding = "0.2"
-legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
-forest_vm         = "0.3.1"
-forest_blocks     = { path = "../blocks" }
+async-std         = { version = "1.9", features = ["tokio1", "unstable"] }
+async-trait       = "0.1"
 beacon            = { path = "../beacon" }
+chain             = { path = "../chain" }
+cid               = { version = "0.8", default-features = false, features = ["std"] }
+fil_types         = "0.2"
+forest_blocks     = { path = "../blocks" }
+forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_db         = "0.1"
 forest_encoding   = "0.2.1"
-libp2p            = { version = "0.40.0-rc.1", default-features = false }
-ipld_blockstore   = "0.1"
-chain             = { path = "../chain" }
-forest_message    = { version = "0.7", features = ["proofs", "blst"] }
-state_manager     = { path = "../state_manager/" }
-num-bigint        = "0.4"
-forest_crypto     = { version = "0.5", features = ["blst"] }
-log               = "0.4.8"
-async-std         = { version = "1.9", features = ["tokio1", "unstable"] }
+forest_ipld       = { version = "0.1" }
+forest_json_utils = "0.1"
 forest_libp2p     = { path = "../../node/forest_libp2p" }
+forest_message    = { version = "0.7", features = ["proofs", "blst"] }
+forest_vm         = "0.3.1"
 futures           = "0.3.5"
 futures-util      = "0.3.5"
-lru               = "0.7.2"
-thiserror         = "1.0"
-num-traits        = "0.2"
-fil_types         = "0.2"
-serde             = { version = "1.0", features = ["derive", "rc"] }
-tokio             = { version = "1.0", features = ["sync"] }
-rand              = "0.7.3"
-smallvec          = "1.1.0"
-actor_interface   = { path = "../../vm/actor_interface" }
+fvm               = "1.0"
+fvm_ipld_encoding = "0.2"
+fvm_shared        = { version = "0.8.0", default-features = false }
 interpreter       = { path = "../../vm/interpreter/" }
+ipld_blockstore   = "0.1"
+lazy_static       = "1.4.0"
+legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
+libp2p            = { version = "0.40.0-rc.1", default-features = false }
+log               = "0.4.8"
+lru               = "0.7.2"
 message_pool      = { path = "../message_pool" }
 networks          = { path = "../../types/networks" }
-forest_json_utils = "0.1"
-time              = { version = "0.3", features = ["serde"] }
+nonempty          = "0.8.0"
+num-bigint        = "0.4"
+num-traits        = "0.2"
+pbr               = "1.0.3"
 prometheus        = { version = "0.12.0", features = ["process"] }
-lazy_static       = "1.4.0"
+rand              = "0.7.3"
+serde             = { version = "1.0", features = ["derive", "rc"] }
+smallvec          = "1.1.0"
+state_manager     = { path = "../state_manager/" }
 statediff         = { path = "../../utils/statediff", optional = true }
-fvm               = "1.0"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
+thiserror         = "1.0"
+time              = { version = "0.3", features = ["serde"] }
+tokio             = { version = "1.0", features = ["sync"] }
 
 [dev-dependencies]
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors",
-] }
-base64 = "0.13"
-genesis = { path = "../../utils/genesis", features = ["testing"] }
+base64            = "0.13"
+fvm_ipld_car      = "0.4.1"
+genesis           = { path = "../../utils/genesis", features = ["testing"] }
+hex               = "0.4"
 pretty_env_logger = "0.4.0"
-fvm_ipld_car = "0.4.1"
-hex = "0.4"
+test_utils        = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
 
 [features]
 default = ["statediff"]
