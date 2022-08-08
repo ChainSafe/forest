@@ -11,23 +11,21 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-fvm_shared = { version = "0.8", default-features = false, features = [
-    "testing",
-] }
-fvm_ipld_encoding = "0.2"
-forest_vm = "0.3"
-forest_encoding = "0.2"
-forest_crypto = { default-features = false, version = "0.5" }
-derive_builder = "0.11"
-serde = { version = "1.0", features = ["derive"] }
-base64 = "0.13"
+anyhow            = "1.0"
+base64            = "0.13"
+cid               = { version = "0.8", default-features = false, features = ["std"] }
+derive_builder    = "0.11"
+fil_types         = { optional = true, version = "0.2" }
+forest_crypto     = { default-features = false, version = "0.5" }
+forest_encoding   = "0.2"
+forest_json       = { version = "0.1.0", path = "../../utils/json/" }
 forest_json_utils = "0.1"
-num-traits = "0.2"
-fil_types = { optional = true, version = "0.2" }
-anyhow = "1.0"
-fvm = "1.1"
-forest_json = { version = "0.1.0", path = "../../utils/json/" }
-cid = { version = "0.8", default-features = false, features = ["std"] }
+forest_vm         = "0.3"
+fvm               = "1.1"
+fvm_ipld_encoding = "0.2"
+fvm_shared        = { version = "0.8", default-features = false, features = ["testing"] }
+num-traits        = "0.2"
+serde             = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 serde_json = "1.0"

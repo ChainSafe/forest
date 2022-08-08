@@ -6,57 +6,50 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-utils = { path = "../utils" }
-networks = { path = "../../types/networks" }
-libp2p = { version = "0.40.0-rc.1", default-features = false, features = [
-    "gossipsub",
-    "kad",
-    "identify",
-    "ping",
-    "mdns",
-    "noise",
-    "yamux",
-    "tcp-async-io",
-    "dns-async-std",
-    "mplex",
-    "request-response",
-    "websocket",
-] }
-multihash = { version = "0.16", default-features = false, features = [
-    "std",
-    "multihash-impl",
-    "identity",
-    "sha2",
-] }
+async-std = "1.9"
+async-trait = "0.1"
+asynchronous-codec = "0.6"
+bytes = "1.0"
+chain = { path = "../../blockchain/chain" }
+cid = { version = "0.8", default-features = false, features = ["std"] }
+fnv = "1.0"
+forest_blocks = { path = "../../blockchain/blocks" }
+forest_db = "0.1"
+forest_encoding = "0.2"
+forest_message = "0.7"
 futures = "0.3"
 futures-util = "0.3"
-asynchronous-codec = "0.6"
-log = "0.4"
-async-std = "1.9"
-serde = { version = "1.0", features = ["derive"] }
-forest_blocks = { path = "../../blockchain/blocks" }
-forest_message = "0.7"
-forest_encoding = "0.2"
-bytes = "1.0"
-fnv = "1.0"
-smallvec = "1.1"
-chain = { path = "../../blockchain/chain" }
-forest_db = "0.1"
 fvm_ipld_car = "0.4.1"
-libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
-tiny-cid = "0.2"
-ipld_blockstore = "0.1"
-async-trait = "0.1"
-lazy_static = "1.4"
-git-version = "0.3"
-serde_ipld_dagcbor = "0.1.0"
-fvm_shared = { version = "0.8.0", default-features = false, features = [
-    "testing",
-] }
 fvm_ipld_encoding = "0.2"
-cid = { version = "0.8", default-features = false, features = ["std"] }
+fvm_shared = { version = "0.8.0", default-features = false, features = ["testing"] }
+git-version = "0.3"
+ipld_blockstore = "0.1"
+lazy_static = "1.4"
+libp2p = { version = "0.40.0-rc.1", default-features = false, features = [
+  "gossipsub",
+  "kad",
+  "identify",
+  "ping",
+  "mdns",
+  "noise",
+  "yamux",
+  "tcp-async-io",
+  "dns-async-std",
+  "mplex",
+  "request-response",
+  "websocket",
+] }
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
+log = "0.4"
+multihash = { version = "0.16", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+networks = { path = "../../types/networks" }
+serde = { version = "1.0", features = ["derive"] }
+serde_ipld_dagcbor = "0.1.0"
+smallvec = "1.1"
+tiny-cid = "0.2"
+utils = { path = "../utils" }
 
 [dev-dependencies]
-forest_crypto  = { version = "0.5.2", features = ["blst"] }
-genesis        = { path = "../../utils/genesis", features = ["testing"] }
-async-std      = { version = "1.9", features = ["attributes"] }
+async-std     = { version = "1.9", features = ["attributes"] }
+forest_crypto = { version = "0.5.2", features = ["blst"] }
+genesis       = { path = "../../utils/genesis", features = ["testing"] }
