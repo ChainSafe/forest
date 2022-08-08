@@ -125,22 +125,11 @@ fn test_config_env_var() {
 
 #[test]
 fn test_download_location_of_proof_parameter_files_env() {
-    let mut rng = rand::thread_rng();
-    let expected_config = Config {
-        client: Client {
-            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>()))
-                .unwrap(),
-            rpc_token: Some("Azazello".into()),
-            genesis_file: Some("cthulhu".into()),
-            encrypt_keystore: false,
-            ..Client::default()
-        },
-        ..Config::default()
-    };
+    let config = Config::default();
 
     let mut config_file = tempfile::Builder::new().tempfile().unwrap();
     config_file
-        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .write_all(toml::to_string(&config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
     let tmp_dir = TempDir::new().unwrap();
@@ -163,15 +152,9 @@ fn test_download_location_of_proof_parameter_files_env() {
 fn test_download_location_of_proof_parameter_files_default() {
     let tmp_dir = TempDir::new().unwrap();
     let mut tmp_dir_path_buf = tmp_dir.path().to_path_buf();
-    let mut rng = rand::thread_rng();
-    let expected_config = Config {
+    let config = Config {
         client: Client {
             data_dir: tmp_dir_path_buf.clone(),
-            metrics_address: SocketAddr::from_str(&format!("127.0.0.1:{}", rng.gen::<u16>()))
-                .unwrap(),
-            rpc_token: Some("Azazello".into()),
-            genesis_file: Some("cthulhu".into()),
-            encrypt_keystore: false,
             ..Client::default()
         },
         ..Config::default()
@@ -179,7 +162,7 @@ fn test_download_location_of_proof_parameter_files_default() {
 
     let mut config_file = tempfile::Builder::new().tempfile().unwrap();
     config_file
-        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .write_all(toml::to_string(&config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
     Command::cargo_bin("forest")
