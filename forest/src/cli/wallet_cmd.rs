@@ -165,10 +165,23 @@ impl WalletCommands {
             }
             Self::List => {
                 let response = wallet_list().await.map_err(handle_rpc_err).unwrap();
+                let default = wallet_default_address()
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
-                response.iter().for_each(|address| {
-                    println!("{}", address.0);
-                });
+                println!("Address                                    Default  Balance");
+
+                for address in response {
+                    let addr = address.0.to_string();
+                    let def = if addr == default { "X" } else { "" };
+                    let bal = wallet_balance((addr.clone(),))
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap();
+
+                    println!("{}  {:7}  {}", addr, def, bal);
+                }
             }
             Self::SetDefault { key } => {
                 let key_parse_result = Address::from_str(key);
