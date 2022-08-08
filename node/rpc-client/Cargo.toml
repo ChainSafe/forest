@@ -18,8 +18,8 @@ forest_blocks  = "0.1.0"
 forest_crypto  = { version = "0.5", features = ["blst"] }
 forest_libp2p  = "0.1.0"
 forest_message = { version = "0.7" }
-rpc-api        = "0.1.0"
 key_management = "0.1.0"
+rpc-api        = "0.1.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false
