@@ -8,11 +8,11 @@ use num_derive::FromPrimitive;
 use serde::Serialize;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-#[cfg(not(feature = "release"))]
-const RELEASE_TRACK: &str = "unstable";
+#[cfg(debug_assertions)]
+const DEBUG_BUILD: &str = "+debug";
 
-#[cfg(feature = "release")]
-const RELEASE_TRACK: &str = "alpha";
+#[cfg(not(debug_assertions))]
+const DEBUG_BUILD: &str = "";
 
 // masks
 const MINOR_MASK: u32 = 0xffff00;
@@ -108,7 +108,7 @@ impl std::convert::TryFrom<&NodeType> for Version {
     }
 }
 
-/// Returns the version string, e.g., `0.2.2-unstable+git.21146f40`
+/// Returns the version string, e.g., `0.2.2+debug+git.e2e5b9d1`
 pub fn version(pkg_version: &str) -> String {
-    format!("{}-{}+git.{}", pkg_version, RELEASE_TRACK, GIT_HASH)
+    format!("{}{}+git.{}", pkg_version, DEBUG_BUILD, GIT_HASH)
 }
