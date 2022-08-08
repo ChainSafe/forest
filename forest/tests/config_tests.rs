@@ -143,7 +143,7 @@ fn test_download_location_of_proof_parameter_files_env() {
 #[test]
 fn test_download_location_of_proof_parameter_files_default() {
     let tmp_dir = TempDir::new().unwrap();
-    let mut tmp_dir_path_buf = tmp_dir.path().to_path_buf();
+    let tmp_param_dir = tmp_dir.path().join("filecoin-proof-parameters");
     let config = Config {
         client: Client {
             data_dir: tmp_dir.path().to_path_buf(),
@@ -165,9 +165,7 @@ fn test_download_location_of_proof_parameter_files_default() {
         .assert()
         .success();
 
-    tmp_dir_path_buf.push("filecoin-proof-parameters");
-
-    let list_files = read_dir(tmp_dir_path_buf).unwrap();
+    let list_files = read_dir(tmp_param_dir).unwrap();
 
     assert!(list_files.count() > 0);
 }
