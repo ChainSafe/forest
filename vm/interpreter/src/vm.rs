@@ -58,7 +58,7 @@ pub trait RewardCalc: Send + Sync + 'static {
         win_count: i64,
         penalty: BigInt,
         gas_reward: BigInt,
-    ) -> Result<Option<Message>, fvm_ipld_encoding::Error>;
+    ) -> Result<Option<Message>, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
@@ -369,7 +369,7 @@ impl RewardCalc for RewardActorMessageCalc {
         win_count: i64,
         penalty: BigInt,
         gas_reward: BigInt,
-    ) -> Result<Option<Message>, fvm_ipld_encoding::Error> {
+    ) -> Result<Option<Message>, anyhow::Error> {
         let params = Serialized::serialize(AwardBlockRewardParams {
             miner,
             penalty,
@@ -406,7 +406,7 @@ impl RewardCalc for NoRewardCalc {
         _win_count: i64,
         _penalty: BigInt,
         _gas_reward: BigInt,
-    ) -> Result<Option<Message>, fvm_ipld_encoding::Error> {
+    ) -> Result<Option<Message>, anyhow::Error> {
         Ok(None)
     }
 }
