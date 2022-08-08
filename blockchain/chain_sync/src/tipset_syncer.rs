@@ -232,7 +232,7 @@ impl TipsetGroup {
 /// The `TipsetProcessor` receives and prioritizes a stream of Tipsets
 /// for syncing from the `ChainMuxer` and the `SyncSubmitBlock` API before syncing.
 /// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
-pub(crate) struct TipsetProcessor<DB: Unpin, C: Consensus> {
+pub(crate) struct TipsetProcessor<DB, C: Consensus> {
     state: TipsetProcessorState<DB, C>,
     tracker: crate::chain_muxer::WorkerState,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the `TipsetValidator`
@@ -247,7 +247,7 @@ pub(crate) struct TipsetProcessor<DB: Unpin, C: Consensus> {
 
 impl<DB, C> TipsetProcessor<DB, C>
 where
-    DB: BlockStore + Unpin + Sync + Send + 'static,
+    DB: BlockStore + Sync + Send + 'static,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
@@ -318,7 +318,7 @@ where
 
 type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
-enum TipsetProcessorState<DB: Unpin, C: Consensus> {
+enum TipsetProcessorState<DB, C: Consensus> {
     Idle,
     FindRange {
         range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB, C>, TipsetProcessorError<C>>,
@@ -335,7 +335,7 @@ enum TipsetProcessorState<DB: Unpin, C: Consensus> {
 
 impl<DB, C> Future for TipsetProcessor<DB, C>
 where
-    DB: BlockStore + Unpin + Sync + Send + 'static,
+    DB: BlockStore + Sync + Send + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetProcessorError<C>>;
@@ -720,7 +720,7 @@ where
 
 impl<DB, C> Future for TipsetRangeSyncer<DB, C>
 where
-    DB: BlockStore + Unpin + Sync + Send + 'static,
+    DB: BlockStore + Sync + Send + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetRangeSyncerError<C>>;
