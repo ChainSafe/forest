@@ -92,21 +92,26 @@ impl ChainCommands {
                 let day = now.day();
                 let chain_name = cfg.chain.name.clone();
 
-                let output_path = match output_path {
-                    Some(path) => {
-                        let mut vars = HashMap::new();
-                        vars.insert("year".to_string(), year.to_string());
-                        vars.insert("month".to_string(), month_string);
-                        vars.insert("day".to_string(), day.to_string());
-                        vars.insert("chain".to_string(), chain_name);
-                        vars.insert("heigth".to_string(), epoch.to_string());
-                        // we need to unwrap here, as in case the string is malformed one needs to stop the execution
-                        strfmt(path, &vars).unwrap()
+                let default_format =
+                    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{heigth}.car";
+
+                let mut vars = HashMap::new();
+                vars.insert("year".to_string(), year.to_string());
+                vars.insert("month".to_string(), month_string);
+                vars.insert("day".to_string(), day.to_string());
+                vars.insert("chain".to_string(), chain_name);
+                vars.insert("heigth".to_string(), epoch.to_string());
+
+                let output_path_res = match output_path {
+                    Some(path) => strfmt(path, &vars),
+                    None => strfmt(default_format, &vars),
+                };
+
+                let output_path = match output_path_res {
+                    Ok(path) => path,
+                    Err(e) => {
+                        panic!("Unparsable string error: {}", e);
                     }
-                    None => format!(
-                        "forest_snapshot_{}_{}-{}-{}_height_{}.car",
-                        chain_name, year, month_string, day, epoch,
-                    ),
                 };
 
                 let params = (
