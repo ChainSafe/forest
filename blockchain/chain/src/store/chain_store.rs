@@ -88,7 +88,7 @@ pub struct ChainStore<DB: Clone> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
 {
     pub fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);

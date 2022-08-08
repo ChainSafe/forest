@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Blockstore wrapper to charge gas on reads and writes
+#[derive(Clone)]
 pub(crate) struct GasBlockStore<'bs, BS> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,

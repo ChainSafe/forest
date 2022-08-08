@@ -18,7 +18,7 @@ use crate::DelegatedConsensusError;
 /// * Sanity checks
 /// * Timestamps
 /// * The block was proposed by the only only miner eligible
-pub(crate) async fn validate_block<DB: BlockStore + Clone + Sync + Send + 'static>(
+pub(crate) async fn validate_block<DB: BlockStore + Sync + Send + 'static>(
     chosen_one: &Address,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
@@ -90,7 +90,7 @@ fn validate_miner<DB>(
     chosen_one: &Address,
 ) -> Result<(), DelegatedConsensusError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
 {
     let miner_addr = header.miner_address();
     match state_manager.lookup_id(miner_addr, base_tipset) {

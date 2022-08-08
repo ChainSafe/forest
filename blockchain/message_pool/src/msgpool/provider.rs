@@ -55,7 +55,7 @@ pub struct MpoolRpcProvider<DB: Clone> {
 
 impl<DB> MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Clone + Sync + Send,
+    DB: BlockStore + Sync + Send,
 {
     pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
@@ -68,7 +68,7 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Clone + Sync + Send + 'static,
+    DB: BlockStore + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()

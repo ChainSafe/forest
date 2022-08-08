@@ -39,7 +39,7 @@ pub(crate) async fn chain_get_message<DB, B>(
     Params(params): Params<ChainGetMessageParams>,
 ) -> Result<ChainGetMessageResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(msg_cid),) = params;
@@ -56,7 +56,7 @@ pub(crate) async fn chain_export<DB, B>(
     Params(params): Params<ChainExportParams>,
 ) -> Result<ChainExportResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
@@ -94,7 +94,7 @@ pub(crate) async fn chain_read_obj<DB, B>(
     Params(params): Params<ChainReadObjParams>,
 ) -> Result<ChainReadObjResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(obj_cid),) = params;
@@ -111,7 +111,7 @@ pub(crate) async fn chain_has_obj<DB, B>(
     Params(params): Params<ChainHasObjParams>,
 ) -> Result<ChainHasObjResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(obj_cid),) = params;
@@ -127,7 +127,7 @@ pub(crate) async fn chain_get_block_messages<DB, B>(
     Params(params): Params<ChainGetBlockMessagesParams>,
 ) -> Result<ChainGetBlockMessagesResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(blk_cid),) = params;
@@ -162,7 +162,7 @@ pub(crate) async fn chain_get_tipset_by_height<DB, B>(
     Params(params): Params<ChainGetTipsetByHeightParams>,
 ) -> Result<ChainGetTipsetByHeightResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (height, tsk) = params;
@@ -183,7 +183,7 @@ pub(crate) async fn chain_get_genesis<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainGetGenesisResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let genesis =
@@ -196,7 +196,7 @@ pub(crate) async fn chain_head<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainHeadResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let heaviest = data
@@ -212,7 +212,7 @@ pub(crate) async fn chain_head_subscription<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
@@ -224,7 +224,7 @@ pub(crate) async fn chain_notify<DB, B>(
     id: Id,
 ) -> Result<ChainNotifyResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     if let Id::Num(id) = id {
@@ -250,7 +250,7 @@ pub(crate) async fn chain_tipset_weight<DB, B>(
     Params(params): Params<ChainTipSetWeightParams>,
 ) -> Result<ChainTipSetWeightResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (tsk,) = params;
@@ -267,7 +267,7 @@ pub(crate) async fn chain_get_block<DB, B>(
     Params(params): Params<ChainGetBlockParams>,
 ) -> Result<ChainGetBlockResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(blk_cid),) = params;
@@ -284,7 +284,7 @@ pub(crate) async fn chain_get_tipset<DB, B>(
     Params(params): Params<ChainGetTipSetParams>,
 ) -> Result<ChainGetTipSetResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (TipsetKeysJson(tsk),) = params;
@@ -301,7 +301,7 @@ pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(
     Params(params): Params<ChainGetRandomnessFromTicketsParams>,
 ) -> Result<ChainGetRandomnessFromTicketsResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
@@ -324,7 +324,7 @@ pub(crate) async fn chain_get_randomness_from_beacon<DB, B>(
     Params(params): Params<ChainGetRandomnessFromBeaconParams>,
 ) -> Result<ChainGetRandomnessFromBeaconResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;

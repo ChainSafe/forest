@@ -28,7 +28,7 @@ pub async fn read_genesis_header<DB>(
     cs: &ChainStore<DB>,
 ) -> Result<Tipset, anyhow::Error>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -54,7 +54,7 @@ pub async fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: BlockStore + Clone + Send + Sync + 'static,
+    BS: BlockStore + Send + Sync + 'static,
 {
     // the genesis tipset has just one block, so fetch it
     let genesis_header = genesis_ts.min_ticket_block();
@@ -71,7 +71,7 @@ pub async fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), anyhow::Error>
 where
-    BS: BlockStore + Clone + Send + Sync + 'static,
+    BS: BlockStore + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
@@ -85,7 +85,7 @@ async fn process_car<R, BS>(
 ) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: BlockStore + Clone + Send + Sync + 'static,
+    BS: BlockStore + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).await?;

@@ -10,8 +10,8 @@ use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 
-pub trait BlockStore: Blockstore + Store {}
-impl<T: Blockstore + Store> BlockStore for T {}
+pub trait BlockStore: Blockstore + Store + Clone {}
+impl<T: Blockstore + Store + Clone> BlockStore for T {}
 
 /// Extension methods for inserting and retrieving ipld data with Cids
 pub trait BlockStoreExt: BlockStore {

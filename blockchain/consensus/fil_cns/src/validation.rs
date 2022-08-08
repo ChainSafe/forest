@@ -37,7 +37,7 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
 pub(crate) async fn validate_block<
-    DB: BlockStore + Clone + Sync + Send + 'static,
+    DB: BlockStore + Sync + Send + 'static,
     B: Beacon + Sync + Send + 'static,
     V: ProofVerifier + Sync + Send + 'static,
 >(
@@ -204,7 +204,7 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: BlockStore + Clone + Send + Sync + 'static>(
+fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
     tipset_state: &Cid,
@@ -223,7 +223,7 @@ fn validate_miner<DB: BlockStore + Clone + Send + Sync + 'static>(
     Ok(())
 }
 
-fn validate_winner_election<DB: BlockStore + Clone + Sync + Send + 'static>(
+fn validate_winner_election<DB: BlockStore + Sync + Send + 'static>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
@@ -277,7 +277,7 @@ fn validate_winner_election<DB: BlockStore + Clone + Sync + Send + 'static>(
     Ok(())
 }
 
-fn validate_ticket_election<DB: BlockStore + Clone + Sync + Send + 'static>(
+fn validate_ticket_election<DB: BlockStore + Sync + Send + 'static>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     prev_beacon: &BeaconEntry,
@@ -325,7 +325,7 @@ fn verify_election_post_vrf(
     forest_crypto::verify_vrf(worker, rand, evrf).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: BlockStore + Clone + Send + Sync + 'static, V: ProofVerifier>(
+fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,

@@ -14,7 +14,7 @@ pub(crate) async fn auth_new<DB, B>(
     Params(params): Params<AuthNewParams>,
 ) -> Result<AuthNewResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (perms,) = params;
@@ -30,7 +30,7 @@ pub(crate) async fn auth_verify<DB, B>(
     Params(params): Params<AuthVerifyParams>,
 ) -> Result<AuthVerifyResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let ks = data.keystore.read().await;

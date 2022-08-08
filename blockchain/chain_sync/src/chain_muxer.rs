@@ -161,7 +161,7 @@ pub struct ChainMuxer<DB: Clone, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: BlockStore + Clone + Unpin + Sync + Send + 'static,
+    DB: BlockStore + Unpin + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -801,7 +801,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: BlockStore + Clone + Unpin + Sync + Send + 'static,
+    DB: BlockStore + Unpin + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {

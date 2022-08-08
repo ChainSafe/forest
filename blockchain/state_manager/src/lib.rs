@@ -94,7 +94,7 @@ pub struct StateManager<DB: Clone> {
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
 {
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
@@ -1439,7 +1439,7 @@ struct SMLookbackWrapper<DB: Clone> {
 impl<DB> LookbackStateGetter for SMLookbackWrapper<DB>
 where
     // Yes, both are needed, because the VM should only use the buffered store
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
 {
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
         let sm = Arc::clone(&self.sm);

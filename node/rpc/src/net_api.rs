@@ -14,7 +14,7 @@ use rpc_api::{
 };
 
 pub(crate) async fn net_addrs_listen<
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -34,7 +34,7 @@ pub(crate) async fn net_addrs_listen<
 }
 
 pub(crate) async fn net_peers<
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -59,7 +59,7 @@ pub(crate) async fn net_peers<
 }
 
 pub(crate) async fn net_connect<
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -86,7 +86,7 @@ pub(crate) async fn net_connect<
 }
 
 pub(crate) async fn net_disconnect<
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,

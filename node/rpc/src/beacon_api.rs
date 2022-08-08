@@ -17,7 +17,7 @@ pub(crate) async fn beacon_get_entry<DB, B>(
     Params(params): Params<BeaconGetEntryParams>,
 ) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (first,) = params;

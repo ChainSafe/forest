@@ -115,7 +115,7 @@ where
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: BlockStore + Clone + Sync + Send + 'static,
+        DB: BlockStore + Sync + Send + 'static,
     {
         validation::validate_block::<_, _, V>(state_manager, self.beacon.clone(), block).await
     }

@@ -24,7 +24,7 @@ pub(crate) async fn sync_check_bad<DB, B>(
     Params(params): Params<SyncCheckBadParams>,
 ) -> Result<SyncCheckBadResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -37,7 +37,7 @@ pub(crate) async fn sync_mark_bad<DB, B>(
     Params(params): Params<SyncMarkBadParams>,
 ) -> Result<SyncMarkBadResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -58,7 +58,7 @@ pub(crate) async fn sync_state<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<SyncStateResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
@@ -71,7 +71,7 @@ pub(crate) async fn sync_submit_block<DB, B>(
     Params((GossipBlockJson(blk),)): Params<SyncSubmitBlockParams>,
 ) -> Result<SyncSubmitBlockResult, JsonRpcError>
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let bls_msgs: Vec<Message> =

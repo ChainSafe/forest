@@ -54,7 +54,7 @@ impl From<EncodingError> for TipsetValidationError {
 pub struct TipsetValidator<'a>(pub &'a FullTipset);
 
 impl<'a> TipsetValidator<'a> {
-    pub async fn validate<DB: BlockStore + Clone + Send + Sync + 'static>(
+    pub async fn validate<DB: BlockStore + Send + Sync + 'static>(
         &self,
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,

@@ -19,7 +19,7 @@ pub async fn make_chain_exchange_response<DB>(
     request: &ChainExchangeRequest,
 ) -> ChainExchangeResponse
 where
-    DB: BlockStore + Clone + Send + Sync + 'static,
+    DB: BlockStore + Send + Sync + 'static,
 {
     let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
 
