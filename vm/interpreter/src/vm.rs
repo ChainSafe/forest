@@ -17,7 +17,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
-use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT};
+use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
 use ipld_blockstore::{BlockStore, FvmStore};
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
@@ -408,5 +408,38 @@ impl RewardCalc for NoRewardCalc {
         _gas_reward: BigInt,
     ) -> Result<Option<Message>, anyhow::Error> {
         Ok(None)
+    }
+}
+
+/// Giving a fixed amount of coins for each block produced directly to the miner,
+/// on top of the gas spent, so the circulating supply isn't burned. Ignores penalties.
+pub struct FixedRewardCalc {
+    pub reward: BigInt,
+}
+
+impl RewardCalc for FixedRewardCalc {
+    fn reward_message(
+        &self,
+        epoch: ChainEpoch,
+        miner: Address,
+        _win_count: i64,
+        _penalty: BigInt,
+        gas_reward: BigInt,
+    ) -> Result<Option<Message>, anyhow::Error> {
+        let msg = Message {
+            from: reward::ADDRESS,
+            to: miner,
+            method_num: METHOD_SEND as u64,
+            params: Default::default(),
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            gas_limit: 1 << 30,
+            value: gas_reward + self.reward.clone(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        Ok(Some(msg))
     }
 }

@@ -7,6 +7,7 @@ use async_std::{
 };
 use chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use futures::TryFutureExt;
+use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};
 use ipld_blockstore::BlockStore;
 use key_management::KeyStore;
 use log::{error, info};
@@ -19,8 +20,11 @@ pub type FullConsensus = DelegatedConsensus;
 
 pub const FETCH_PARAMS: bool = false;
 
+/// Reward 1FIL on top of the gas, which is what Eudico does.
 pub fn reward_calc() -> Arc<dyn interpreter::RewardCalc> {
-    Arc::new(interpreter::NoRewardCalc)
+    Arc::new(interpreter::FixedRewardCalc {
+        reward: BigInt::from(1) * FILECOIN_PRECISION,
+    })
 }
 
 pub async fn consensus<DB, MP>(
