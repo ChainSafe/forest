@@ -1,10 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::sync::RwLock;
 use git_version::git_version;
-use lazy_static::lazy_static;
 use num_derive::FromPrimitive;
+use parking_lot::RwLock;
 use serde::Serialize;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -27,9 +26,7 @@ const WORKER_API_VERSION: Version = Version::new(0, 15, 0);
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
-lazy_static! {
-    pub static ref RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
-}
+pub static RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
 
 /// Represents the current version of the API.
 #[derive(Serialize)]

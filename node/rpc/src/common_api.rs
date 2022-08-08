@@ -9,7 +9,7 @@ use rpc_api::common_api::*;
 
 pub(crate) async fn version(block_delay: u64) -> Result<VersionResult, JsonRpcError> {
     #[allow(clippy::needless_borrow)]
-    let v: Version = (&*RUNNING_NODE_TYPE.read().await).try_into()?;
+    let v: Version = (&*RUNNING_NODE_TYPE.read()).try_into()?;
     Ok(APIVersion {
         version: user_version(),
         api_version: v,
