@@ -232,7 +232,7 @@ impl TipsetGroup {
 /// The `TipsetProcessor` receives and prioritizes a stream of Tipsets
 /// for syncing from the `ChainMuxer` and the `SyncSubmitBlock` API before syncing.
 /// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
-pub(crate) struct TipsetProcessor<DB: Clone + Unpin, C: Consensus> {
+pub(crate) struct TipsetProcessor<DB: Unpin, C: Consensus> {
     state: TipsetProcessorState<DB, C>,
     tracker: crate::chain_muxer::WorkerState,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the `TipsetValidator`
@@ -318,7 +318,7 @@ where
 
 type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
-enum TipsetProcessorState<DB: Clone + Unpin, C: Consensus> {
+enum TipsetProcessorState<DB: Unpin, C: Consensus> {
     Idle,
     FindRange {
         range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB, C>, TipsetProcessorError<C>>,
@@ -602,7 +602,7 @@ enum InvalidBlockStrategy {
 type TipsetRangeSyncerFuture<C> =
     Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError<C>>> + Send>>;
 
-pub(crate) struct TipsetRangeSyncer<DB: Clone, C: Consensus> {
+pub(crate) struct TipsetRangeSyncer<DB, C: Consensus> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,

@@ -78,7 +78,7 @@ pub struct MarketBalance {
 /// This encapsulates the [`ChainStore`] functionality, which only handles chain data, to
 /// allow for interactions with the underlying state of the chain. The state manager not only
 /// allows interfacing with state, but also is used when performing state transitions.
-pub struct StateManager<DB: Clone> {
+pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
@@ -1431,7 +1431,7 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<DB: Clone> {
+struct SMLookbackWrapper<DB> {
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
 }

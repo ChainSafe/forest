@@ -119,7 +119,7 @@ where
 
 /// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
 /// state and instead accept the largest height as genesis.
-pub async fn import_chain<V: ProofVerifier, DB: Clone>(
+pub async fn import_chain<V: ProofVerifier, DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
     validate_height: Option<i64>,

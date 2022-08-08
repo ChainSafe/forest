@@ -120,7 +120,7 @@ enum PubsubMessageProcessingStrategy {
 }
 
 /// The `ChainMuxer` handles events from the P2P network and orchestrates the chain synchronization.
-pub struct ChainMuxer<DB: Clone, M, C: Consensus> {
+pub struct ChainMuxer<DB, M, C: Consensus> {
     /// State of the `ChainSyncer` `Future` implementation
     state: ChainMuxerState<C>,
 

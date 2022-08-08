@@ -118,7 +118,7 @@ pub enum NetRPCMethods {
 }
 
 /// The Libp2pService listens to events from the Libp2p swarm.
-pub struct Libp2pService<DB: Clone> {
+pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
 

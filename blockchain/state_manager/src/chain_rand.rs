@@ -17,14 +17,14 @@ use std::io::Write;
 use std::sync::Arc;
 
 /// Allows for deriving the randomness from a particular tipset.
-pub struct ChainRand<DB: Clone> {
+pub struct ChainRand<DB> {
     chain_config: Arc<ChainConfig>,
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
 }
 
-impl<DB: Clone> Clone for ChainRand<DB> {
+impl<DB> Clone for ChainRand<DB> {
     fn clone(&self) -> Self {
         ChainRand {
             chain_config: self.chain_config.clone(),

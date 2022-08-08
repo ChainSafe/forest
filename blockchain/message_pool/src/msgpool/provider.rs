@@ -48,7 +48,7 @@ pub trait Provider {
 }
 
 /// This is the default Provider implementation that will be used for the `mpool` RPC.
-pub struct MpoolRpcProvider<DB: Clone> {
+pub struct MpoolRpcProvider<DB> {
     subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,
 }
