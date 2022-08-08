@@ -46,8 +46,15 @@ clean:
 
 lint: license clean
 	cargo fmt --all --check
+	taplo fmt --check
+	taplo lint
 	cargo clippy --all-targets -- -D warnings
 	cargo clippy --all-targets --features deleg_cns -- -D warnings
+
+# Formats Rust and TOML files
+fmt:
+	cargo fmt --all
+	taplo fmt
 
 build:
 	cargo build --bin forest

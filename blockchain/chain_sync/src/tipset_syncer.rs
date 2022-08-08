@@ -29,19 +29,19 @@ use actor_interface::is_account_actor;
 use chain::Error as ChainStoreError;
 use chain::{persist_objects, ChainStore};
 use cid::Cid;
-use fil_types::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
-use forest_encoding::Cbor;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
+use fvm_shared::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
 use ipld_blockstore::BlockStore;
 use networks::Height;
 use state_manager::Error as StateManagerError;
@@ -229,13 +229,13 @@ impl TipsetGroup {
     }
 }
 
-/// The TipsetProcessor receives and prioritizes a stream of Tipsets
-/// for syncing from the ChainMuxer and the SyncSubmitBlock API before syncing.
+/// The `TipsetProcessor` receives and prioritizes a stream of Tipsets
+/// for syncing from the `ChainMuxer` and the `SyncSubmitBlock` API before syncing.
 /// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
 pub(crate) struct TipsetProcessor<DB, C: Consensus> {
     state: TipsetProcessorState<DB, C>,
     tracker: crate::chain_muxer::WorkerState,
-    /// Tipsets pushed into this stream _must_ be validated beforehand by the TipsetValidator
+    /// Tipsets pushed into this stream _must_ be validated beforehand by the `TipsetValidator`
     tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -1000,7 +1000,7 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-/// Going forward along the tipsets, try to load the messages in them from the blockstore,
+/// Going forward along the tipsets, try to load the messages in them from the `BlockStore`,
 /// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
@@ -1166,10 +1166,10 @@ async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
 }
 
 /// Validate the block according to the rules specific to the consensus being used,
-/// and the common rules that pertain to the assumptions of the ChainSync protocol.
+/// and the common rules that pertain to the assumptions of the `ChainSync` protocol.
 ///
 /// Returns the validated block if `Ok`.
-/// Returns the block cid (for marking bad) and `Error` if invalid (`Err`).
+/// Returns the block CID (for marking bad) and `Error` if invalid (`Err`).
 ///
 /// Common validation includes:
 /// * Sanity checks

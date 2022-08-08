@@ -6,7 +6,7 @@ mod walk;
 pub use self::walk::*;
 
 use super::Ipld;
-use forest_encoding::Cbor;
+use fvm_ipld_encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::ops::SubAssign;

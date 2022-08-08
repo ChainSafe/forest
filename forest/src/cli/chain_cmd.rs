@@ -77,7 +77,7 @@ impl ChainCommands {
             } => {
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
-                    Err(_) => return cli_error_and_die("Could not get network head", 1),
+                    Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());

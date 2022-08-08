@@ -96,8 +96,7 @@ impl NetCommands {
                 }
 
                 if id.is_empty() {
-                    cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 1);
-                    return;
+                    cli_error_and_die("Needs a /p2p/ protocol present in multiaddr", 1)
                 }
 
                 let addrs = vec![addr];

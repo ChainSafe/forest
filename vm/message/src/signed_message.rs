@@ -4,8 +4,8 @@
 use super::Message as MessageTrait;
 use forest_crypto::Signer;
 use forest_encoding::tuple::*;
-use forest_encoding::{to_vec, Cbor, Error as CborError};
 use forest_vm::{MethodNum, Serialized, TokenAmount};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use fvm_shared::message::Message;
@@ -55,7 +55,7 @@ impl SignedMessage {
         self.signature.signature_type() == SignatureType::BLS
     }
 
-    /// Checks if the signed message is a Secp256k1 message.
+    /// Checks if the signed message is a SECP message.
     pub fn is_secp256k1(&self) -> bool {
         self.signature.signature_type() == SignatureType::Secp256k1
     }
@@ -124,7 +124,6 @@ impl Cbor for SignedMessage {
     }
 }
 
-#[cfg(feature = "json")]
 pub mod json {
     use super::*;
     use crate::message;

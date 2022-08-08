@@ -3,6 +3,7 @@
 
 mod auth_cmd;
 mod chain_cmd;
+mod client;
 mod config;
 mod config_cmd;
 mod fetch_params_cmd;
@@ -15,6 +16,7 @@ mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
+pub use self::client::Client;
 pub use self::config::Config;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
@@ -26,8 +28,8 @@ pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
 use directories::ProjectDirs;
-use fil_types::FILECOIN_PRECISION;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
 use networks::ChainConfig;
@@ -110,8 +112,6 @@ pub struct CliOpts {
     pub genesis: Option<String>,
     #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
     pub rpc: Option<bool>,
-    #[structopt(short, long, help = "Port used for JSON-RPC communication")]
-    pub port: Option<u16>,
     #[structopt(
         short,
         long,
@@ -123,6 +123,11 @@ pub struct CliOpts {
         help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
     )]
     pub metrics_address: Option<SocketAddr>,
+    #[structopt(
+        long,
+        help = "Address used for RPC. By defaults binds on localhost on port 1234."
+    )]
+    pub rpc_address: Option<SocketAddr>,
     #[structopt(short, long, help = "Allow Kademlia (default = true)")]
     pub kademlia: Option<bool>,
     #[structopt(long, help = "Allow MDNS (default = false)")]
@@ -183,35 +188,37 @@ impl CliOpts {
         }
 
         if let Some(genesis_file) = &self.genesis {
-            cfg.genesis_file = Some(genesis_file.to_owned());
+            cfg.client.genesis_file = Some(genesis_file.to_owned());
         }
-        if self.rpc.unwrap_or(cfg.enable_rpc) {
-            cfg.enable_rpc = true;
-            cfg.rpc_port = self.port.to_owned().unwrap_or(cfg.rpc_port);
+        if self.rpc.unwrap_or(cfg.client.enable_rpc) {
+            cfg.client.enable_rpc = true;
+            if let Some(rpc_address) = self.rpc_address {
+                cfg.client.rpc_address = rpc_address;
+            }
 
             if self.token.is_some() {
-                cfg.rpc_token = self.token.to_owned();
+                cfg.client.rpc_token = self.token.to_owned();
             }
         } else {
-            cfg.enable_rpc = false;
+            cfg.client.enable_rpc = false;
         }
         if let Some(metrics_address) = self.metrics_address {
-            cfg.metrics_address = metrics_address;
+            cfg.client.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             panic!("Can't set import_snapshot and import_chain at the same time!");
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
-                cfg.snapshot_path = Some(snapshot_path.to_owned());
-                cfg.snapshot = true;
+                cfg.client.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.client.snapshot = true;
             }
             if let Some(snapshot_path) = &self.import_chain {
-                cfg.snapshot_path = Some(snapshot_path.to_owned());
-                cfg.snapshot = false;
+                cfg.client.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.client.snapshot = false;
             }
-            cfg.snapshot_height = self.height;
+            cfg.client.snapshot_height = self.height;
 
-            cfg.skip_load = self.skip_load;
+            cfg.client.skip_load = self.skip_load;
         }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
@@ -230,7 +237,7 @@ impl CliOpts {
             cfg.sync.tipset_sample_size = tipset_sample_size.into();
         }
         if let Some(encrypt_keystore) = self.encrypt_keystore {
-            cfg.encrypt_keystore = encrypt_keystore;
+            cfg.client.encrypt_keystore = encrypt_keystore;
         }
 
         Ok(cfg)
@@ -342,8 +349,8 @@ pub(super) fn to_size_string(input: &BigInt) -> String {
 
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid params
-pub(super) fn cli_error_and_die(msg: &str, code: i32) {
-    error!("Error: {}", msg);
+pub(super) fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
+    error!("Error: {}", msg.as_ref());
     std::process::exit(code);
 }
 

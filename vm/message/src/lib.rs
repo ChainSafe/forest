@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// workaround for a compiler bug, see https://github.com/rust-lang/rust/issues/55779
 pub mod chain_message;
 pub mod message;
 pub mod message_receipt;

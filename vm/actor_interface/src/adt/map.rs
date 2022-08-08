@@ -4,8 +4,8 @@
 use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
 use cid::Cid;
-use fil_types::HAMT_BIT_WIDTH;
 use forest_hash_utils::{BytesKey, Hash};
+use fvm_shared::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
 use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};

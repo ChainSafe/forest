@@ -2,60 +2,110 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chain_sync::SyncConfig;
-use directories::ProjectDirs;
 use forest_libp2p::Libp2pConfig;
 use networks::ChainConfig;
-use rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 
-#[derive(Serialize, Deserialize, PartialEq)]
+use super::client::Client;
+
+#[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
-    pub data_dir: PathBuf,
-    pub genesis_file: Option<String>,
-    pub enable_rpc: bool,
-    pub rpc_port: u16,
-    pub rpc_token: Option<String>,
-    /// If this is true, then we do not validate the imported snapshot.
-    /// Otherwise, we validate and compute the states.
-    pub snapshot: bool,
-    pub snapshot_height: Option<i64>,
-    pub snapshot_path: Option<String>,
-    /// Skips loading import CAR file and assumes it's already been loaded.
-    /// Will use the cids in the header of the file to index the chain.
-    pub skip_load: bool,
-    pub encrypt_keystore: bool,
-    /// Metrics bind, e.g. 127.0.0.1:6116
-    pub metrics_address: SocketAddr,
+    pub client: Client,
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").expect("failed to find project directories, please set FOREST_CONFIG_PATH environment variable manually.");
-        Self {
-            network: Libp2pConfig::default(),
-            data_dir: dir.data_dir().to_path_buf(),
-            genesis_file: None,
-            enable_rpc: true,
-            rpc_port: DEFAULT_PORT,
-            rpc_token: None,
-            snapshot_path: None,
-            snapshot: false,
-            snapshot_height: None,
-            skip_load: false,
-            sync: SyncConfig::default(),
-            encrypt_keystore: true,
-            metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
-            rocks_db: forest_db::rocks_config::RocksDbConfig::default(),
-            chain: Arc::default(),
+#[cfg(test)]
+mod test {
+    use super::*;
+    use forest_db::rocks_config::RocksDbConfig;
+    use quickcheck::Arbitrary;
+    use quickcheck_macros::quickcheck;
+    use std::{
+        net::{Ipv4Addr, SocketAddr},
+        path::PathBuf,
+    };
+
+    /// Partial config, as some parts of the proper one don't implement required traits (i.e.
+    /// Debug)
+    #[derive(Clone, Debug)]
+    struct ConfigPartial {
+        client: Client,
+        rocks_db: forest_db::rocks_config::RocksDbConfig,
+        network: forest_libp2p::Libp2pConfig,
+        sync: chain_sync::SyncConfig,
+    }
+
+    impl From<ConfigPartial> for Config {
+        fn from(val: ConfigPartial) -> Self {
+            Config {
+                client: val.client,
+                rocks_db: val.rocks_db,
+                network: val.network,
+                sync: val.sync,
+                chain: Arc::new(ChainConfig::default()),
+            }
         }
+    }
+
+    impl Arbitrary for ConfigPartial {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            ConfigPartial {
+                client: Client {
+                    data_dir: PathBuf::arbitrary(g),
+                    genesis_file: Option::arbitrary(g),
+                    enable_rpc: bool::arbitrary(g),
+                    rpc_port: u16::arbitrary(g),
+                    rpc_token: Option::arbitrary(g),
+                    snapshot: bool::arbitrary(g),
+                    snapshot_height: Option::arbitrary(g),
+                    snapshot_path: Option::arbitrary(g),
+                    skip_load: bool::arbitrary(g),
+                    encrypt_keystore: bool::arbitrary(g),
+                    metrics_address: SocketAddr::arbitrary(g),
+                    rpc_address: SocketAddr::arbitrary(g),
+                },
+                rocks_db: RocksDbConfig {
+                    create_if_missing: bool::arbitrary(g),
+                    parallelism: i32::arbitrary(g),
+                    write_buffer_size: usize::arbitrary(g),
+                    max_open_files: i32::arbitrary(g),
+                    max_background_jobs: Option::arbitrary(g),
+                    compression_type: Option::arbitrary(g),
+                    compaction_style: Option::arbitrary(g),
+                    enable_statistics: bool::arbitrary(g),
+                },
+                network: Libp2pConfig {
+                    listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
+                    bootstrap_peers: vec![Ipv4Addr::arbitrary(g).into(); u8::arbitrary(g) as usize],
+                    mdns: bool::arbitrary(g),
+                    kademlia: bool::arbitrary(g),
+                    target_peer_count: u32::arbitrary(g),
+                },
+                sync: SyncConfig {
+                    req_window: i64::arbitrary(g),
+                    tipset_sample_size: usize::arbitrary(g),
+                },
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn test_config_all_params_under_section(config: ConfigPartial) {
+        let config = Config::from(config);
+        let serialized_config =
+            toml::to_string(&config).expect("could not serialize the configuration");
+        assert_eq!(
+            serialized_config
+                .trim_start()
+                .chars()
+                .next()
+                .expect("configuration empty"),
+            '['
+        )
     }
 }

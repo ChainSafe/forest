@@ -163,7 +163,7 @@ where
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = fil_types::BLOCK_GAS_LIMIT;
+            let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
@@ -493,7 +493,7 @@ where
         ts: &Tipset,
     ) -> Result<(Vec<SignedMessage>, i64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let gas_limit = fil_types::BLOCK_GAS_LIMIT;
+        let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains
@@ -685,10 +685,10 @@ mod test_selection {
     use crate::msgpool::tests::create_smsg;
     use async_std::channel::bounded;
     use async_std::task;
-    use fil_types::NetworkParams;
     use forest_db::MemoryDB;
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
+    use fvm_shared::NetworkParams;
     use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use std::sync::Arc;
 
@@ -747,10 +747,10 @@ mod test_selection {
         // let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
 
         // we create 10 messages from each actor to another, with the first actor paying higher
         // gas prices than the second; we expect message selection to order his messages first
@@ -917,12 +917,12 @@ mod test_selection {
         // let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
 
-        let nmsgs = (fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
+        let nmsgs = (fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
 
         // make many small chains for the two actors
         for i in 0..nmsgs {
@@ -949,13 +949,13 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
 
-        let expected = fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         assert_eq!(msgs.len(), expected as usize);
         let mut m_gas_lim = 0;
         for m in msgs.iter() {
             m_gas_lim += m.gas_limit();
         }
-        assert!(m_gas_lim <= fil_types::BLOCK_GAS_LIMIT);
+        assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT);
     }
 
     #[async_std::test]
@@ -1001,10 +1001,10 @@ mod test_selection {
         // let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
 
         let nmsgs = 10;
 
@@ -1097,13 +1097,13 @@ mod test_selection {
 
         api.write()
             .await
-            .set_state_balance_raw(&a1, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
 
         api.write()
             .await
-            .set_state_balance_raw(&a2, fil_types::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
 
-        let n_msgs = 10 * fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         // we create 10 messages from each actor to another, with the first actor paying higher
         // gas prices than the second; we expect message selection to order his messages first
@@ -1122,7 +1122,7 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 0.25).await.unwrap();
 
-        let expected_msgs = fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         assert_eq!(msgs.len(), expected_msgs as usize);
 
@@ -1179,13 +1179,13 @@ mod test_selection {
 
         api.write()
             .await
-            .set_state_balance_raw(&a1, fil_types::DefaultNetworkParams::from_fil(1)); // in FIL
+            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1)); // in FIL
 
         api.write()
             .await
-            .set_state_balance_raw(&a2, fil_types::DefaultNetworkParams::from_fil(1)); // in FIL
+            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1)); // in FIL
 
-        let n_msgs = 5 * fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let n_msgs = 5 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         for i in 0..n_msgs as usize {
             let bias = (n_msgs as usize - i) / 3;
             let m = create_smsg(
@@ -1210,7 +1210,7 @@ mod test_selection {
 
         let msgs = mpool.select_messages(&ts, 0.1).await.unwrap();
 
-        let expected_msgs = fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         assert_eq!(
             msgs.len(),
             expected_msgs as usize,
@@ -1302,11 +1302,11 @@ mod test_selection {
         for a in &mut actors {
             api.write()
                 .await
-                .set_state_balance_raw(a, fil_types::DefaultNetworkParams::from_fil(1));
+                .set_state_balance_raw(a, fvm_shared::DefaultNetworkParams::from_fil(1));
             // in FIL
         }
 
-        let n_msgs = 1 + fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let n_msgs = 1 + fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         for i in 0..n_msgs {
             for j in 0..n_actors {
                 let premium =
@@ -1324,7 +1324,7 @@ mod test_selection {
         }
 
         let msgs = mpool.select_messages(&ts, 0.1).await.unwrap();
-        let expected_msgs = fil_types::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
+        let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         assert_eq!(
             msgs.len(),

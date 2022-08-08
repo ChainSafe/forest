@@ -10,12 +10,14 @@ use actor_interface::power;
 use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use chain_sync::collect_errs;
 use cid::Cid;
+use fil_actors_runtime::runtime::DomainSeparationTag;
 use fil_types::verifier::ProofVerifier;
-use fil_types::{NetworkVersion, Randomness, TICKET_RANDOMNESS_LOOKBACK};
 use forest_blocks::{Block, BlockHeader, Tipset};
-use forest_crypto::DomainSeparationTag;
-use forest_encoding::Cbor;
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
+use fvm_shared::randomness::Randomness;
+use fvm_shared::version::NetworkVersion;
+use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
 use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use nonempty::NonEmpty;
@@ -181,7 +183,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusErro
     Ok(())
 }
 
-/// Check the timetamp corresponds exactly to the number of epochs since the parents.
+/// Check the timestamp corresponds exactly to the number of epochs since the parents.
 fn block_timestamp_checks(
     header: &BlockHeader,
     base_tipset: &Tipset,

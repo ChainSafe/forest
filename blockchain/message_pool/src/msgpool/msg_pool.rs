@@ -24,12 +24,12 @@ use chain::{HeadChange, MINIMUM_BASE_FEE};
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_db::Store;
-use forest_encoding::Cbor;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::{ChainMessage, Message, SignedMessage};
 use futures::{future::select, StreamExt};
 use fvm::gas::{price_list_by_network_version, Gas};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::{Signature, SignatureType};
@@ -269,7 +269,7 @@ where
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         task::spawn(async move {
-            let mut interval = interval(Duration::from_millis(republish_interval));
+            let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
                 if let Err(e) = republish_pending_messages(
@@ -324,7 +324,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > &fil_types::TOTAL_FILECOIN {
+        if msg.value() > &fvm_shared::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {

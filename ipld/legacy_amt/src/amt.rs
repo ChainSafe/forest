@@ -15,7 +15,7 @@ use std::error::Error as StdError;
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
 ///
-/// Amt is not threadsafe and can't be shared between threads.
+/// Amt is not thread-safe and can't be shared between threads.
 ///
 /// Usage:
 /// ```

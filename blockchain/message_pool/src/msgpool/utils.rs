@@ -4,8 +4,8 @@
 use crate::Error;
 use chain::MINIMUM_BASE_FEE;
 use cid::Cid;
-use forest_encoding::Cbor;
 use forest_message::{Message as MessageTrait, SignedMessage};
+use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
@@ -31,7 +31,7 @@ pub(crate) fn get_gas_reward(msg: &SignedMessage, base_fee: &BigInt) -> BigInt {
 }
 
 pub(crate) fn get_gas_perf(gas_reward: &BigInt, gas_limit: i64) -> f64 {
-    let a = BigRational::new(gas_reward * fil_types::BLOCK_GAS_LIMIT, gas_limit.into());
+    let a = BigRational::new(gas_reward * fvm_shared::BLOCK_GAS_LIMIT, gas_limit.into());
     a.to_f64().unwrap()
 }
 

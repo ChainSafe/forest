@@ -4,8 +4,8 @@
 use async_trait::async_trait;
 use asynchronous_codec::FramedRead;
 use forest_encoding::de::DeserializeOwned;
-use forest_encoding::to_vec;
 use futures::prelude::*;
+use fvm_ipld_encoding::to_vec;
 use libp2p::core::ProtocolName;
 use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
