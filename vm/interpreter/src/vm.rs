@@ -83,7 +83,7 @@ pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
 
 impl<DB, P> VM<DB, P>
 where
-    DB: BlockStore + Clone,
+    DB: BlockStore,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
