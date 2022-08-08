@@ -89,7 +89,6 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
         root: Cid,
-        store: &DB,
         store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
@@ -107,7 +106,7 @@ where
         C: CircSupplyCalc,
         LB: LookbackStateGetter,
     {
-        let state = StateTree::new_from_root(store, &root)?;
+        let state = StateTree::new_from_root(&store_arc, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);

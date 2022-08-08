@@ -351,7 +351,6 @@ where
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
-                &db,
                 db.clone(),
                 epoch,
                 &rand_clone,
@@ -492,8 +491,7 @@ where
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
-                &store_arc,
-                store_arc.clone(),
+                store_arc,
                 bheight,
                 rand,
                 0.into(),
@@ -587,8 +585,7 @@ where
         let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_>::new(
             st,
-            &store_arc,
-            store_arc.clone(),
+            store_arc,
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
