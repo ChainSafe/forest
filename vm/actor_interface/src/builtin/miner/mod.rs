@@ -93,11 +93,10 @@ impl State {
     ) -> anyhow::Result<()> {
         match self {
             State::V8(st) => {
-                st.load_deadlines(&store)?.for_each(
-                    &Default::default(),
-                    &store,
-                    |idx, dl| f(idx as u64, Deadline::V8(dl)),
-                )
+                st.load_deadlines(&store)?
+                    .for_each(&Default::default(), &store, |idx, dl| {
+                        f(idx as u64, Deadline::V8(dl))
+                    })
             }
         }
     }
@@ -223,22 +222,19 @@ impl Deadline {
         mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            Deadline::V8(dl) => {
-                dl.for_each(&store, |idx, part| {
-                    f(idx as u64, Partition::V8(Cow::Borrowed(part)))
-                })
-            }
+            Deadline::V8(dl) => dl.for_each(&store, |idx, part| {
+                f(idx as u64, Partition::V8(Cow::Borrowed(part)))
+            }),
         }
     }
 
     pub fn disputable_proof_count<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
-            Deadline::V8(dl) => {
-                dl.optimistic_proofs_snapshot_amt(&store)?
-                    .count()
-                    .try_into()
-                    .unwrap()
-            }
+            Deadline::V8(dl) => dl
+                .optimistic_proofs_snapshot_amt(&store)?
+                .count()
+                .try_into()
+                .unwrap(),
         })
     }
 
