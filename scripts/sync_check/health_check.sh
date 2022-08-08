@@ -18,7 +18,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Governs how long the health check will run to assert Forest condition
-HEALTH_CHECK_DURATION_SECONDS=${HEALTH_CHECK_DURATION_SECONDS:-"120"}
+HEALTH_CHECK_DURATION_SECONDS=${HEALTH_CHECK_DURATION_SECONDS:-"360"}
 # Forest metrics endpoint path
 FOREST_METRICS_ENDPOINT=${FOREST_METRICS_ENDPOINT:-"http://$1:6116/metrics"}
 # Initial sync timeout (in seconds) after which the health check will fail
