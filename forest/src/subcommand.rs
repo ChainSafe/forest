@@ -11,7 +11,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
             cmd.run(config).await;
         }
         Subcommand::Chain(cmd) => {
-            cmd.run(config).await;
+            cmd.run().await;
         }
         Subcommand::Auth(cmd) => {
             cmd.run(config).await;

@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::Config;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
@@ -69,7 +68,7 @@ pub enum ChainCommands {
 }
 
 impl ChainCommands {
-    pub async fn run(&self, cfg: Config) {
+    pub async fn run(&self) {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
@@ -93,7 +92,7 @@ impl ChainCommands {
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
                 let day = now.day();
-                let chain_name = cfg.chain.name.clone();
+                let chain_name = chain_get_name().await.map_err(handle_rpc_err).unwrap();
 
                 let mut vars = HashMap::new();
                 vars.insert("year".to_string(), year.to_string());
