@@ -337,7 +337,7 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
 }
 
-/// convert BigInt to size string using byte size units (i.e. KiB, GiB, PiB, etc)
+/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
 /// Provided number cannot be negative, otherwise the function will panic.
 pub(super) fn to_size_string(input: &BigInt) -> String {
     Byte::from_bytes(

@@ -46,7 +46,7 @@ pub enum ChainCommands {
     Head,
 
     /// Reads and prints out a message referenced by the specified CID from the
-    /// chain blockstore
+    /// chain block store
     #[structopt(about = "<CID> Retrieves and prints messages by CIDs")]
     Message {
         #[structopt(short, help = "Input a valid CID")]
@@ -54,7 +54,7 @@ pub enum ChainCommands {
     },
 
     /// Reads and prints out IPLD nodes referenced by the specified CID from chain
-    /// blockstore and returns raw bytes
+    /// block store and returns raw bytes
     #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {
         #[structopt(short, help = "Input a valid CID")]
