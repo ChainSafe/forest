@@ -14,8 +14,6 @@ RUN apt-get install -y s3fs ca-certificates curl gnupg lsb-release docker-compos
 
 COPY docker-compose.yml .
 COPY run_service.sh .
-COPY sync_check.sh .
-COPY health_check.sh .
-RUN chmod +x run_service.sh sync_check.sh health_check.sh
+RUN chmod +x run_service.sh
 ENTRYPOINT /run_service.sh
 

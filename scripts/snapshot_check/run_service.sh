@@ -44,7 +44,5 @@ s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
 
-## Transfer control to forest script
-cp sync_check.sh health_check.sh "$BASE_FOLDER"
 #chmod +x $BASE_FOLDER/run_forest.sh
 docker-compose up

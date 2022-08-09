@@ -7,50 +7,45 @@ services:
     image: ghcr.io/chainsafe/forest:${FOREST_TAG}
     hostname: forest-calibnet
     container_name: forest-calibnet
-    networks:
-      - calibnet
     volumes:
       - type: bind
         source: ${BASE_FOLDER}
         target: ${BASE_FOLDER}
     entrypoint: ["/bin/bash", "-c"]
+    environment:
+      - SLACK_HOOK
     command:
       - |
+        apt-get install -y curl
+
+        report() {
+          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"❌  $FOREST_HOSTNAME snapshot export failure!\"}" "$$SLACK_HOOK"
+        }
+        trap 'report' ERR
+
         cd $BASE_FOLDER
         RECENT_SNAPSHOT=s3/calibnet/`ls -Atr1 s3/calibnet/ | tail -n 1`
-        forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain calibnet --import-snapshot $${RECENT_SNAPSHOT}
+        forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain calibnet --import-snapshot $${RECENT_SNAPSHOT} &
+        
+        sleep 300 # Wait for the RPC endpoint to be available.
+
+        forest sync wait # Wait for forest node to be completely synced.
+        echo "Synced to calibnet"
+
+        if [[ "$$(date -r "$${RECENT_SNAPSHOT}" +%F)" != "$$(date +%F)" ]]; then
+          echo "No recent snapshot. Exporting new snapshot."
+          forest chain export -r 2000 -s
+          echo "Export done. Uploading.."
+          mv ./forest_snapshot* s3/calibnet/
+          echo "Upload done."
+          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"✅ $FOREST_HOSTNAME snapshot uploaded! 💪🌲!\"}" "$$SLACK_HOOK"
+        else
+          echo "We already have a snapshot for today. Skipping."
+          curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"✅ $FOREST_HOSTNAME snapshot check passed! 💪🌲!\"}" "$$SLACK_HOOK"
+        fi
     restart: on-failure
     labels:
       com.centurylinklabs.watchtower.enable: true
-  # Probe container to validate Forest syncing. Needs to be on the same network.
-  forest_tester:
-    image: fedora:36
-    networks:
-      - mainnet
-      - calibnet
-    volumes:
-      - type: bind
-        source: ${BASE_FOLDER}
-        target: ${BASE_FOLDER}
-      - type: bind
-        source: ${FOREST_HOST_LOGS}
-        target: ${FOREST_TARGET_LOGS}
-    environment:
-      - BASE_FOLDER
-      - SLACK_HOOK
-      - FOREST_TARGET_LOGS
-    entrypoint: ["/bin/bash","-c"]
-    command:
-      - |
-        dnf install docker-client
-        bash ${BASE_FOLDER}/sync_check.sh forest-calibnet
-        sleep infinity
-    depends_on:
-      # - forest_mainnet
-      - forest_calibnet
-    labels:
-      com.centurylinklabs.watchtower.enable: true
-      com.centurylinklabs.watchtower.depends-on: "forest-calibnet"
   watchtower:
     image: containrrr/watchtower
     volumes:
@@ -58,8 +53,3 @@ services:
       - /root/.docker/config.json:/config.json
     command: --label-enable --include-stopped --interval 3600
     restart: unless-stopped
-
-networks:
-  mainnet:
-  calibnet:
-
