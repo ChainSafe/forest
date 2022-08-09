@@ -14,7 +14,7 @@ Merkle
 RPC
 SECP
 VM
-blockchain
+blockchain/M
 codec
 multisig
 mutex
