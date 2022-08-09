@@ -1,13 +1,13 @@
 [package]
-name = "metrics"
+name    = "metrics"
 version = "0.1.0"
 authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-prometheus =  { version = "0.12", features = ["process"] }
-tide = "0.16"
-log = "0.4"
-thiserror = "1.0"
-async-std = { version = "1.9", features = ["tokio1", "unstable"] }
-fs_extra = "1.2"
+async-std  = { version = "1.9", features = ["tokio1", "unstable"] }
+fs_extra   = "1.2"
+log        = "0.4"
+prometheus = { version = "0.12", features = ["process"] }
+thiserror  = "1.0"
+tide       = "0.16"

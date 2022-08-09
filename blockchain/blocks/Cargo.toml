@@ -8,33 +8,31 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
+base64            = "0.13"
 beacon            = { path = "../beacon" }
 byteorder         = "1.3.4"
-forest_crypto     = { version = "0.5", features = ["blst"] }
-forest_message    = { version = "0.7", features = ["blst"] }
-forest_json       = { version = "0.1.0", path = "../../utils/json/" }
+cid               = { version = "0.8", default-features = false, features = ["std"] }
 derive_builder    = "0.10"
-serde             = { version = "1.0", features = ["derive"] }
+fil_types         = "0.2"
+forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_encoding   = "0.2.1"
-num-bigint        = "0.4"
+forest_json       = { version = "0.1.0", path = "../../utils/json/" }
+forest_json_utils = "0.1"
+forest_message    = { version = "0.7", features = ["blst"] }
+forest_vm         = "0.3.1"
+fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8.0", default-features = false }
+lazy_static       = "1.4.0"
+log               = "0.4.8"
+num-bigint        = "0.4"
+once_cell         = "1.5.2"
+serde             = { version = "1.0", features = ["derive"] }
 sha2              = { version = "0.9", default-features = false }
 thiserror         = "1.0"
-forest_vm         = "0.3.1"
-fil_types         = "0.2"
-base64            = "0.13"
-forest_json_utils = "0.1"
-lazy_static       = "1.4.0"
-once_cell         = "1.5.2"
-log               = "0.4.8"
-fvm_ipld_encoding = "0.2"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-base64 = "0.13"
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = [
-    "test_constructors",
-] }
-hex = "0.4.2"
+async-std  = "1.9"
+base64     = "0.13"
+hex        = "0.4.2"
 serde_json = "1.0"
-async-std = "1.9"
+test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
