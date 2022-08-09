@@ -53,7 +53,7 @@ pub enum ChainCommands {
         cid: String,
     },
 
-    /// Reads and prints out `ipld` nodes referenced by the specified CID from chain
+    /// Reads and prints out IPLD nodes referenced by the specified CID from chain
     /// blockstore and returns raw bytes
     #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {

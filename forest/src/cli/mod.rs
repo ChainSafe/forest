@@ -314,7 +314,7 @@ pub async fn block_until_sigint() {
     ctrlc_oneshot.await.unwrap();
 }
 
-/// Print a stringified JSON-RPC error and exit
+/// Pretty-print a JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
     match e {
         JsonRpcError::Full {
@@ -337,7 +337,7 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
 }
 
-/// convert `bigint` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
+/// convert BigInt to size string using byte size units (i.e. KiB, GiB, PiB, etc)
 /// Provided number cannot be negative, otherwise the function will panic.
 pub(super) fn to_size_string(input: &BigInt) -> String {
     Byte::from_bytes(
