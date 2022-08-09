@@ -14,7 +14,7 @@ async-std         = { version = "1.9", features = ["attributes", "tokio1"] }
 auth              = { path = "../utils/auth" }
 base64            = "0.13"
 beacon            = { path = "../blockchain/beacon" }
-bigdecimal = "0.3.0"
+bigdecimal        = "0.3.0"
 byte-unit         = "4.0"
 chain             = { path = "../blockchain/chain" }
 chain_sync        = { path = "../blockchain/chain_sync" }
@@ -49,7 +49,7 @@ multibase         = "0.9"
 net_utils         = { path = "../utils/net_utils" }
 networks          = { path = "../types/networks" }
 num-rational      = "0.4"
-num-traits = "0.2"
+num-traits        = "0.2"
 paramfetch        = { path = "../utils/paramfetch" }
 pretty_env_logger = "0.4"
 prometheus        = { version = "0.13", features = ["process"] }
@@ -62,7 +62,7 @@ rug               = "1.13"
 serde             = { version = "1.0", features = ["derive"] }
 serde_json        = "1.0"
 state_manager     = { path = "../blockchain/state_manager" }
-statediff = { version = "0.1.0", path = "../utils/statediff" }
+statediff         = { version = "0.1.0", path = "../utils/statediff" }
 structopt         = "0.3"
 ticker            = "0.1"
 time              = "0.3"
