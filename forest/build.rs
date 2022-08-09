@@ -9,4 +9,16 @@ fn main() {
         "cargo:rustc-env=FOREST_VERSION={}",
         version(env!("CARGO_PKG_VERSION"))
     );
+    println!(
+        "cargo:rustc-env=FOREST_VERSION_MAJOR={}",
+        env!("CARGO_PKG_VERSION_MAJOR")
+    );
+    println!(
+        "cargo:rustc-env=FOREST_VERSION_MINOR={}",
+        env!("CARGO_PKG_VERSION_MINOR")
+    );
+    println!(
+        "cargo:rustc-env=FOREST_VERSION_PATCH={}",
+        env!("CARGO_PKG_VERSION_PATCH")
+    );
 }

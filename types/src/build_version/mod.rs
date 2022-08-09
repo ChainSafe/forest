@@ -19,11 +19,6 @@ const MAJOR_ONLY_MASK: u32 = 0xff0000;
 const MINOR_ONLY_MASK: u32 = 0x00ff00;
 const PATCH_ONLY_MASK: u32 = 0x0000ff;
 
-// api versions
-const FULL_API_VERSION: Version = Version::new(1, 1, 0);
-const MINER_API_VERSION: Version = Version::new(0, 15, 0);
-const WORKER_API_VERSION: Version = Version::new(0, 15, 0);
-
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
 pub static RUNNING_NODE_TYPE: RwLock<NodeType> = RwLock::new(NodeType::Full);
@@ -97,9 +92,12 @@ impl std::convert::TryFrom<&NodeType> for Version {
     type Error = String;
     fn try_from(node_type: &NodeType) -> Result<Self, Self::Error> {
         match node_type {
-            NodeType::Full => Ok(FULL_API_VERSION),
-            NodeType::Miner => Ok(MINER_API_VERSION),
-            NodeType::Worker => Ok(WORKER_API_VERSION),
+            NodeType::Full => {
+                let major = option_env!("FOREST_VERSION_MAJOR").unwrap_or("0").parse::<u32>().unwrap();
+                let minor = option_env!("FOREST_VERSION_MINOR").unwrap_or("0").parse::<u32>().unwrap();
+                let patch = option_env!("FOREST_VERSION_PATCH").unwrap_or("0").parse::<u32>().unwrap();
+                Ok(Version::new(major, minor, patch))
+            },
             _ => Err(format!("unknown node type {}", node_type)),
         }
     }
