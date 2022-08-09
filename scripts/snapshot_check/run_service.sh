@@ -44,5 +44,4 @@ s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
 
-#chmod +x $BASE_FOLDER/run_forest.sh
-docker-compose up
+docker-compose up --detach
