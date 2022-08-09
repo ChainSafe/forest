@@ -38,8 +38,8 @@ pub enum ChainCommands {
         /// Skip old messages
         #[structopt(short)]
         skip_old_messages: bool,
-        /// Snapshot output path. Default to [OUTPUT_PATH_DEFAULT_VALUE].car`
-        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_VALUE, help = "format in of the filename of the snapshot")]
+        /// Snapshot output path. Default to [OUTPUT_PATH_DEFAULT_VALUE]`
+        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_VALUE)]
         output_path: String,
     },
 
