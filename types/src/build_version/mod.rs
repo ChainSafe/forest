@@ -93,11 +93,20 @@ impl std::convert::TryFrom<&NodeType> for Version {
     fn try_from(node_type: &NodeType) -> Result<Self, Self::Error> {
         match node_type {
             NodeType::Full => {
-                let major = option_env!("FOREST_VERSION_MAJOR").unwrap_or("0").parse::<u32>().unwrap();
-                let minor = option_env!("FOREST_VERSION_MINOR").unwrap_or("0").parse::<u32>().unwrap();
-                let patch = option_env!("FOREST_VERSION_PATCH").unwrap_or("0").parse::<u32>().unwrap();
+                let major = option_env!("FOREST_VERSION_MAJOR")
+                    .unwrap_or("0")
+                    .parse::<u32>()
+                    .unwrap();
+                let minor = option_env!("FOREST_VERSION_MINOR")
+                    .unwrap_or("0")
+                    .parse::<u32>()
+                    .unwrap();
+                let patch = option_env!("FOREST_VERSION_PATCH")
+                    .unwrap_or("0")
+                    .parse::<u32>()
+                    .unwrap();
                 Ok(Version::new(major, minor, patch))
-            },
+            }
             _ => Err(format!("unknown node type {}", node_type)),
         }
     }
