@@ -31,8 +31,3 @@ fvm_shared        = { version = "0.8.0", default-features = false }
 ipld_blockstore   = "0.1"
 libp2p            = { version = "0.40.0-rc.1", default-features = false }
 serde             = { version = "1.0", features = ["derive"] }
-
-[features]
-devnet     = []
-interopnet = []
-calibnet   = []

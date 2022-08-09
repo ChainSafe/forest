@@ -390,7 +390,6 @@ fn chain_path(config: &Config) -> PathBuf {
 }
 
 #[cfg(test)]
-#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
     use forest_blocks::BlockHeader;
