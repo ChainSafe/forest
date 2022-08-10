@@ -18,7 +18,7 @@
 FROM rust:1-buster AS build-env
 
 # Install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake
 
 WORKDIR /usr/src/forest
 COPY . .

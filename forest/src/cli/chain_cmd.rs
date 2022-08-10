@@ -25,14 +25,14 @@ pub enum ChainCommands {
         cid: String,
     },
 
-    /// Export a snapshot of the chain to <output_path>
+    /// Export a snapshot of the chain to `<output_path>`
     #[structopt(about = "Export chain snapshot to file")]
     Export {
-        /// Tipset to start the export from, default is @HEAD
-        #[structopt(short)]
+        /// Tipset to start the export from, default is the chain head
+        #[structopt(short, long)]
         tipset: Option<i64>,
-        /// Specify the number of recent state roots to include in the export
-        #[structopt(short)]
+        /// Specify the number of recent state roots to include in the export, default is the chain finality value
+        #[structopt(short, long)]
         recent_stateroots: Option<i64>,
         /// Skip old messages
         #[structopt(short)]
@@ -57,15 +57,15 @@ pub enum ChainCommands {
     Head,
 
     /// Reads and prints out a message referenced by the specified CID from the
-    /// chain blockstore
+    /// chain block store
     #[structopt(about = "<CID> Retrieves and prints messages by CIDs")]
     Message {
         #[structopt(short, help = "Input a valid CID")]
         cid: String,
     },
 
-    /// Reads and prints out ipld nodes referenced by the specified CID from chain
-    /// blockstore and returns raw bytes
+    /// Reads and prints out IPLD nodes referenced by the specified CID from chain
+    /// block store and returns raw bytes
     #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {
         #[structopt(short, help = "Input a valid CID")]
@@ -83,7 +83,7 @@ impl ChainCommands {
             Self::Export {
                 tipset,
                 recent_stateroots,
-                skip_old_messages,
+                include_old_messages,
                 output_path,
             } => {
                 let chain_head = match chain_head().await {
@@ -117,7 +117,7 @@ impl ChainCommands {
                 let params = (
                     epoch,
                     *recent_stateroots,
-                    *skip_old_messages,
+                    *include_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                 );
