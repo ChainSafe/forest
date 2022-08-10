@@ -39,7 +39,7 @@ genesis           = { path = "../utils/genesis" }
 hex               = "0.4"
 ipld_blockstore   = "0.1"
 key_management    = { path = "../key_management" }
-libp2p            = { version = "0.41", default-features = false, features = ["identify"] }
+libp2p            = { version = "0.46", default-features = false, features = ["identify"] }
 log               = "0.4"
 message_pool      = { path = "../blockchain/message_pool" }
 metrics           = { path = "../utils/metrics" }

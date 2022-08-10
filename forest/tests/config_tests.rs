@@ -3,7 +3,8 @@
 use assert_cmd::Command;
 use forest::cli::{Client, Config};
 use rand::Rng;
-use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use tempfile::TempDir;
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
@@ -120,4 +121,51 @@ fn test_config_env_var() {
         .expect("Invalid configuration!");
 
     assert!(expected_config == actual_config);
+}
+
+#[test]
+fn test_download_location_of_proof_parameter_files_env() {
+    let tmp_dir = TempDir::new().unwrap();
+
+    Command::cargo_bin("forest")
+        .unwrap()
+        .env("FIL_PROOFS_PARAMETER_CACHE", tmp_dir.path())
+        .arg("fetch-params")
+        .arg("--keys")
+        .assert()
+        .success();
+
+    let list_files = read_dir(tmp_dir.path()).unwrap();
+
+    assert!(list_files.count() > 0);
+}
+
+#[test]
+fn test_download_location_of_proof_parameter_files_default() {
+    let tmp_dir = TempDir::new().unwrap();
+    let tmp_param_dir = tmp_dir.path().join("filecoin-proof-parameters");
+    let config = Config {
+        client: Client {
+            data_dir: tmp_dir.path().to_path_buf(),
+            ..Client::default()
+        },
+        ..Config::default()
+    };
+
+    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
+    config_file
+        .write_all(toml::to_string(&config).unwrap().as_bytes())
+        .expect("Failed writing configuration!");
+
+    Command::cargo_bin("forest")
+        .unwrap()
+        .env("FOREST_CONFIG_PATH", config_file.path())
+        .arg("fetch-params")
+        .arg("--keys")
+        .assert()
+        .success();
+
+    let list_files = read_dir(tmp_param_dir).unwrap();
+
+    assert!(list_files.count() > 0);
 }

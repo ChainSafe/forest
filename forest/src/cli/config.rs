@@ -30,7 +30,7 @@ mod test {
         path::PathBuf,
     };
 
-    /// Partial config, as some parts of the proper one don't implement required traits (i.e.
+    /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
     /// Debug)
     #[derive(Clone, Debug)]
     struct ConfigPartial {
