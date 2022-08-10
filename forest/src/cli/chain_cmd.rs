@@ -41,7 +41,7 @@ pub enum ChainCommands {
         /// Arguments:
         /// chain - is name of chain name e.g. mainnet 
         /// year - YYYY format
-        /// maonth - ISO 8601 date format.
+        /// month - ISO 8601 date format.
         /// day - DD format
         /// height - the epoch
         #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT)]
