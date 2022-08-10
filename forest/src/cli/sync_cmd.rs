@@ -36,7 +36,6 @@ pub enum SyncCommands {
     },
 }
 
-#[allow(unused_must_use)]
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
