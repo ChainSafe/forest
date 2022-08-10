@@ -10,7 +10,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Client {
     pub data_dir: PathBuf,
@@ -24,7 +24,7 @@ pub struct Client {
     pub snapshot_height: Option<i64>,
     pub snapshot_path: Option<String>,
     /// Skips loading import CAR file and assumes it's already been loaded.
-    /// Will use the cids in the header of the file to index the chain.
+    /// Will use the CIDs in the header of the file to index the chain.
     pub skip_load: bool,
     pub encrypt_keystore: bool,
     /// Metrics bind, e.g. 127.0.0.1:6116

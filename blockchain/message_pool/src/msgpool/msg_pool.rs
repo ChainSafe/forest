@@ -269,7 +269,7 @@ where
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         task::spawn(async move {
-            let mut interval = interval(Duration::from_millis(republish_interval));
+            let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
                 if let Err(e) = republish_pending_messages(

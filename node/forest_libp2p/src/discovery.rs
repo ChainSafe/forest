@@ -4,20 +4,15 @@
 use async_std::stream::{self, Interval};
 use async_std::task;
 use futures::prelude::*;
-use libp2p::swarm::DialError;
+use libp2p::core::transport::ListenerId;
+use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
+use libp2p::swarm::{ConnectionHandler, DialError, IntoConnectionHandler};
 use libp2p::{
-    core::{
-        connection::{ConnectionId, ListenerId},
-        ConnectedPoint, Multiaddr, PeerId, PublicKey,
-    },
+    core::{connection::ConnectionId, ConnectedPoint, Multiaddr, PeerId, PublicKey},
     kad::{handler::KademliaHandlerProto, Kademlia, KademliaConfig, KademliaEvent, QueryId},
     mdns::MdnsEvent,
     multiaddr::Protocol,
-    swarm::{
-        toggle::{Toggle, ToggleIntoProtoHandler},
-        IntoProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-        ProtocolsHandler,
-    },
+    swarm::{behaviour::toggle::Toggle, NetworkBehaviour, NetworkBehaviourAction, PollParameters},
 };
 use libp2p::{kad::record::store::MemoryStore, mdns::Mdns};
 use log::{debug, error, trace, warn};
@@ -214,10 +209,10 @@ impl DiscoveryBehaviour {
 }
 
 impl NetworkBehaviour for DiscoveryBehaviour {
-    type ProtocolsHandler = ToggleIntoProtoHandler<KademliaHandlerProto<QueryId>>;
+    type ConnectionHandler = ToggleIntoConnectionHandler<KademliaHandlerProto<QueryId>>;
     type OutEvent = DiscoveryOut;
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
         self.kademlia.new_handler()
     }
 
@@ -250,21 +245,25 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         conn: &ConnectionId,
         endpoint: &ConnectedPoint,
         failed_addresses: Option<&Vec<Multiaddr>>,
+        other_established: usize,
     ) {
         self.num_connections += 1;
 
-        self.kademlia
-            .inject_connection_established(peer_id, conn, endpoint, failed_addresses)
-    }
+        if other_established == 0 {
+            let multiaddr = self.addresses_of_peer(peer_id);
+            self.peer_addresses.insert(*peer_id, multiaddr);
+            self.peers.insert(*peer_id);
+            self.pending_events
+                .push_back(DiscoveryOut::Connected(*peer_id));
+        }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {
-        let multiaddr = self.addresses_of_peer(peer_id);
-        self.peer_addresses.insert(*peer_id, multiaddr);
-        self.peers.insert(*peer_id);
-        self.pending_events
-            .push_back(DiscoveryOut::Connected(*peer_id));
-
-        self.kademlia.inject_connected(peer_id)
+        self.kademlia.inject_connection_established(
+            peer_id,
+            conn,
+            endpoint,
+            failed_addresses,
+            other_established,
+        )
     }
 
     fn inject_connection_closed(
@@ -272,27 +271,31 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         peer_id: &PeerId,
         conn: &ConnectionId,
         endpoint: &ConnectedPoint,
-        handler: <Self::ProtocolsHandler as IntoProtocolsHandler>::Handler,
+        handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
+        remaining_established: usize,
     ) {
         self.num_connections -= 1;
 
-        self.kademlia
-            .inject_connection_closed(peer_id, conn, endpoint, handler)
-    }
+        if remaining_established == 0 {
+            self.peers.remove(peer_id);
+            self.pending_events
+                .push_back(DiscoveryOut::Disconnected(*peer_id));
+        }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId) {
-        self.peers.remove(peer_id);
-        self.pending_events
-            .push_back(DiscoveryOut::Disconnected(*peer_id));
-
-        self.kademlia.inject_disconnected(peer_id)
+        self.kademlia.inject_connection_closed(
+            peer_id,
+            conn,
+            endpoint,
+            handler,
+            remaining_established,
+        )
     }
 
     fn inject_event(
         &mut self,
         peer_id: PeerId,
         connection: ConnectionId,
-        event: <<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::OutEvent,
+        event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
     ) {
         if let Some(kad) = self.kademlia.as_mut() {
             return kad.inject_event(peer_id, connection, event);
@@ -311,7 +314,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     fn inject_dial_failure(
         &mut self,
         peer_id: Option<PeerId>,
-        handler: Self::ProtocolsHandler,
+        handler: Self::ConnectionHandler,
         err: &DialError,
     ) {
         self.kademlia.inject_dial_failure(peer_id, handler, err)
@@ -334,7 +337,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         &mut self,
         cx: &mut Context,
         params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ProtocolsHandler>> {
+    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
         // Immediately process the content of `discovered`.
         if let Some(ev) = self.pending_events.pop_front() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(ev));
@@ -376,19 +379,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         debug!("Libp2p => Unhandled Kademlia event: {:?}", other)
                     }
                 },
-                NetworkBehaviourAction::DialAddress { address, handler } => {
-                    return Poll::Ready(NetworkBehaviourAction::DialAddress { address, handler })
-                }
-                NetworkBehaviourAction::DialPeer {
-                    peer_id,
-                    condition,
-                    handler,
-                } => {
-                    return Poll::Ready(NetworkBehaviourAction::DialPeer {
-                        peer_id,
-                        condition,
-                        handler,
-                    })
+                NetworkBehaviourAction::Dial { opts, handler } => {
+                    return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
                 }
                 NetworkBehaviourAction::NotifyHandler {
                     peer_id,
@@ -440,8 +432,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     }
                     MdnsEvent::Expired(_) => {}
                 },
-                NetworkBehaviourAction::DialAddress { .. } => {}
-                NetworkBehaviourAction::DialPeer { .. } => {}
+                NetworkBehaviourAction::Dial { .. } => {}
                 // Nothing to notify handler
                 NetworkBehaviourAction::NotifyHandler { event, .. } => match event {},
                 NetworkBehaviourAction::ReportObservedAddr { address, score } => {

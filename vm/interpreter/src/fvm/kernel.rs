@@ -192,7 +192,7 @@ impl<DB: BlockStore> GasOps for ForestKernel<DB> {
         self.0.gas_available()
     }
 
-    /// ChargeGas charges specified amount of `gas` for execution.
+    /// `charge_gas` charges specified amount of `gas` for execution.
     /// `name` provides information about gas charging point.
     fn charge_gas(&mut self, name: &str, compute: Gas) -> Result<()> {
         self.0.charge_gas(name, compute)

@@ -65,7 +65,7 @@ pub struct Cli {
     pub cmd: Option<Subcommand>,
 }
 
-/// Forest binary subcommands available.
+/// Forest binary sub-commands available.
 #[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 pub enum Subcommand {
@@ -314,7 +314,7 @@ pub async fn block_until_sigint() {
     ctrlc_oneshot.await.unwrap();
 }
 
-/// Print a stringified JSON-RPC error and exit
+/// Pretty-print a JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
     match e {
         JsonRpcError::Full {
@@ -337,7 +337,7 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
 }
 
-/// convert bigint to size string using byte size units (ie KiB, GiB, PiB, etc)
+/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
 /// Provided number cannot be negative, otherwise the function will panic.
 pub(super) fn to_size_string(input: &BigInt) -> String {
     Byte::from_bytes(
@@ -348,7 +348,7 @@ pub(super) fn to_size_string(input: &BigInt) -> String {
 }
 
 /// Print an error message and exit the program with an error code
-/// Used for handling high level errors such as invalid params
+/// Used for handling high level errors such as invalid parameters
 pub(super) fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     error!("Error: {}", msg.as_ref());
     std::process::exit(code);
@@ -402,7 +402,7 @@ pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) {
     };
 }
 
-/// Prints a string HTTP JSON-RPC response result to a buffered stdout
+/// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
 pub(super) fn print_stdout(out: String) {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
@@ -417,7 +417,7 @@ pub(super) fn print_stdout(out: String) {
         .unwrap();
 }
 
-/// Convert an atto FIL balance to FIL
+/// Convert an `attoFIL` balance to `FIL`
 pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> {
     let raw = Float::parse_radix(balance.to_string(), 10)?;
     let b = Float::with_val(128, raw);

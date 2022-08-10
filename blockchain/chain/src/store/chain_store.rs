@@ -469,10 +469,15 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self
-                .blockstore()
-                .get_bytes(&cid)?
-                .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
+            let block = self.blockstore().get_bytes(&cid)?.ok_or_else(|| {
+                if skip_old_msgs {
+                    anyhow::anyhow!("Cid {cid} not found in blockstore")
+                } else {
+                    anyhow::anyhow!("Cid {cid} not found in blockstore. \
+                                    Exporting a full snapshot is only possible when the node is initialised with a full one. \
+                                    Consider exporting a lightweight snapshot, e.g. skip the old messages.")
+                }
+            })?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
