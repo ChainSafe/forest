@@ -75,7 +75,7 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write("\r\x1b[2K\x1b[A".as_bytes()).unwrap();
+                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes()).unwrap();
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {

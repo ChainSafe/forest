@@ -203,12 +203,6 @@ impl PeerManager {
         }
         removed
     }
-
-    /// Gets count of full peers managed. This is just used for testing.
-    #[allow(dead_code)]
-    pub async fn len(&self) -> usize {
-        self.peers.read().await.full_peers.len()
-    }
 }
 
 fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) -> bool {
