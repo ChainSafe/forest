@@ -29,5 +29,5 @@ fvm_ipld_bitfield = "0.5.2"
 fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8.0", default-features = false }
 ipld_blockstore   = "0.1"
-libp2p            = { version = "0.40.0-rc.1", default-features = false }
+libp2p            = { version = "0.46", default-features = false }
 serde             = { version = "1.0", features = ["derive"] }

@@ -25,7 +25,7 @@ fvm_shared = { version = "0.8.0", default-features = false, features = ["testing
 git-version = "0.3"
 ipld_blockstore = "0.1"
 lazy_static = "1.4"
-libp2p = { version = "0.40.0-rc.1", default-features = false, features = [
+libp2p = { version = "0.46", default-features = false, features = [
   "gossipsub",
   "kad",
   "identify",
@@ -39,7 +39,7 @@ libp2p = { version = "0.40.0-rc.1", default-features = false, features = [
   "request-response",
   "websocket",
 ] }
-libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "8d3913ea7fc1e693776c83eecc7a9675c3426446" }
+libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "5c79b37feceb3ba76d5a488b1713cfaaf861baa3" }
 log = "0.4"
 multihash = { version = "0.16", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
 networks = { path = "../../types/networks" }

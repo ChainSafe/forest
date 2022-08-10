@@ -8,7 +8,7 @@ use std::{cmp::Ordering, collections::HashSet};
 
 use async_std::sync::RwLock;
 use forest_blocks::Tipset;
-use libp2p::core::PeerId;
+use forest_libp2p::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;

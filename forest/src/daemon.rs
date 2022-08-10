@@ -10,7 +10,7 @@ use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
+use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
 use fvm_shared::version::NetworkVersion;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -22,7 +22,6 @@ use state_manager::StateManager;
 use utils::write_to_file;
 
 use async_std::{channel::bounded, sync::RwLock, task};
-use libp2p::identity::{ed25519, Keypair};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
