@@ -1,4 +1,4 @@
-FROM debian:buster-slim
+FROM ubuntu:22.10
 
 ENV DEBIAN_FRONTEND=noninteractive
 
