@@ -44,4 +44,4 @@ s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
 
-docker-compose up --detach
+docker-compose up
