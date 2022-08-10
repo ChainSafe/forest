@@ -2506,7 +2506,6 @@ dependencies = [
  "lazy_static",
  "num-derive",
  "num-traits",
- "parking_lot 0.12.1",
  "rayon",
  "serde",
  "serde_json",

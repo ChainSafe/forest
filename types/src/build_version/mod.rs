@@ -1,8 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use serde::Serialize;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+
+use serde::Serialize;
 
 // masks
 const MINOR_MASK: u32 = 0xffff00;
