@@ -18,7 +18,7 @@ pub struct APIVersion {
 pub struct Version(u32);
 
 impl Version {
-    pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
-        Self(major << 16 | minor << 8 | patch)
+    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
+        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
     }
 }
