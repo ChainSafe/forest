@@ -39,7 +39,7 @@ pub enum ChainCommands {
         skip_old_messages: bool,
         /// Snapshot output path. Default to [OUTPUT_PATH_DEFAULT_FORMAT]
         /// Arguments:
-        /// chain - is name of chain name e.g. mainnet 
+        /// chain - is name of chain name e.g. mainnet
         /// year - YYYY format
         /// month - ISO 8601 date format.
         /// day - DD format
@@ -83,8 +83,8 @@ impl ChainCommands {
             Self::Export {
                 tipset,
                 recent_stateroots,
-                include_old_messages,
                 output_path,
+                skip_old_messages,
             } => {
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
@@ -117,7 +117,7 @@ impl ChainCommands {
                 let params = (
                     epoch,
                     *recent_stateroots,
-                    *include_old_messages,
+                    *skip_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                 );
