@@ -8,7 +8,7 @@ use fvm_ipld_blockstore::Blockstore;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// Blockstore wrapper to charge gas on reads and writes
+/// `BlockStore` wrapper to charge gas on reads and writes
 pub(crate) struct GasBlockStore<'bs, BS> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,

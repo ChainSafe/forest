@@ -39,7 +39,7 @@ impl FetchCommands {
     }
 }
 
-/// Converts a human readable string to a u64 size.
+/// Converts a human readable string to a `u64` size.
 fn ram_to_int(size: &str) -> Result<SectorSize, String> {
     // * there is no library to do this, but if other sector sizes are supported in future
     // this should probably be changed to parse from string to `SectorSize`

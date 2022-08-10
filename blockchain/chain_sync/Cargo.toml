@@ -31,7 +31,6 @@ interpreter       = { path = "../../vm/interpreter/" }
 ipld_blockstore   = "0.1"
 lazy_static       = "1.4.0"
 legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
-libp2p            = { version = "0.40.0-rc.1", default-features = false }
 log               = "0.4.8"
 lru               = "0.7.2"
 message_pool      = { path = "../message_pool" }
