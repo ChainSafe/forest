@@ -2502,8 +2502,6 @@ dependencies = [
  "forest_vm",
  "fvm_ipld_encoding",
  "fvm_shared",
- "git-version",
- "lazy_static",
  "num-derive",
  "num-traits",
  "rayon",
