@@ -133,8 +133,6 @@ pub(super) async fn start(config: Config) {
     let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
-    let db = db;
-
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(db.clone()));
 
