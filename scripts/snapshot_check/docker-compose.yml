@@ -34,7 +34,7 @@ services:
 
         if [[ "$$(date -r "$${RECENT_SNAPSHOT}" +%F)" != "$$(date +%F)" ]]; then
           echo "No recent snapshot. Exporting new snapshot."
-          forest chain export -r 2000 -s
+          forest chain export
           echo "Export done. Uploading.."
           mv ./forest_snapshot* s3/calibnet/
           echo "Upload done."
