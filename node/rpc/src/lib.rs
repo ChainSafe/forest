@@ -39,6 +39,7 @@ use rpc_api::{
 pub async fn start_rpc<DB, B, V, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: TcpListener,
+    forest_version: &'static str,
 ) -> Result<(), JSONRPCError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -163,7 +164,7 @@ where
             .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB, B>)
             .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB, B>)
             // Common API
-            .with_method(VERSION, move || version(block_delay))
+            .with_method(VERSION, move || version(block_delay, forest_version))
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)

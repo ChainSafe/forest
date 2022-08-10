@@ -329,6 +329,7 @@ pub(super) async fn start(config: Config) {
                     new_mined_block_tx: tipset_sink,
                 }),
                 rpc_listen,
+                FOREST_VERSION_STRING.as_str(),
             )
             .await
         }))
