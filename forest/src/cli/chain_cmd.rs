@@ -13,8 +13,8 @@ use std::collections::HashMap;
 use strfmt::strfmt;
 use time::OffsetDateTime;
 
-const OUTPUT_PATH_DEFAULT_VALUE: &str =
-    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{heigth}.car";
+const OUTPUT_PATH_DEFAULT_FORMAT: &str =
+    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -37,8 +37,14 @@ pub enum ChainCommands {
         /// Skip old messages
         #[structopt(short)]
         skip_old_messages: bool,
-        /// Snapshot output path. Default to [OUTPUT_PATH_DEFAULT_VALUE]`
-        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_VALUE)]
+        /// Snapshot output path. Default to [OUTPUT_PATH_DEFAULT_FORMAT]
+        /// Arguments:
+        /// chain - is name of chain name e.g. mainnet 
+        /// year - YYYY format
+        /// maonth - ISO 8601 date format.
+        /// day - DD format
+        /// height - the epoch
+        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT)]
         output_path: String,
     },
 
@@ -99,7 +105,7 @@ impl ChainCommands {
                 vars.insert("month".to_string(), month_string);
                 vars.insert("day".to_string(), day.to_string());
                 vars.insert("chain".to_string(), chain_name);
-                vars.insert("heigth".to_string(), epoch.to_string());
+                vars.insert("height".to_string(), epoch.to_string());
 
                 let output_path = match strfmt(output_path, &vars) {
                     Ok(path) => path,
