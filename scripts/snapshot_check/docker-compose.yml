@@ -27,7 +27,7 @@ services:
         RECENT_SNAPSHOT=s3/calibnet/`ls -Atr1 s3/calibnet/ | tail -n 1`
         forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain calibnet --import-snapshot $${RECENT_SNAPSHOT} &
         
-        sleep 600 # Wait for the RPC endpoint to be available.
+        sleep 1200 # Wait for the RPC endpoint to be available.
 
         forest sync wait # Wait for forest node to be completely synced.
         echo "Synced to calibnet"
