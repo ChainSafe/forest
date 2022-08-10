@@ -6,6 +6,7 @@ BLS
 CBOR
 CID
 CIDs
+CLI
 Filecoin
 IPLD
 JSON
@@ -14,7 +15,7 @@ Merkle
 RPC
 SECP
 VM
-blockchain
+blockchain/M
 codec
 multisig
 mutex
@@ -30,3 +31,5 @@ tipset/SM
 tipsetkey/S
 tuple
 validator/S
+mempool
+sortition

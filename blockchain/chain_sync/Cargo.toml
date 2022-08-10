@@ -30,7 +30,6 @@ interpreter       = "0.1.0"
 ipld_blockstore   = "0.1"
 lazy_static       = "1.4.0"
 legacy_ipld_amt   = "0.2.0"
-libp2p            = { version = "0.40.0-rc.1", default-features = false }
 log               = "0.4.8"
 lru               = "0.7.2"
 message_pool      = "0.1.0"

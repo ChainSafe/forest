@@ -48,7 +48,7 @@ pub trait CircSupplyCalc: Clone + 'static {
 
 /// Trait to allow VM to retrieve state at an old epoch.
 pub trait LookbackStateGetter {
-    /// Returns the root cid for a given ChainEpoch
+    /// Returns the root CID for a given `ChainEpoch`
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
@@ -74,7 +74,7 @@ impl Heights {
 }
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
-/// from the vm execution.
+/// from the VM execution.
 pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     params: PhantomData<P>,
@@ -187,8 +187,8 @@ where
         Ok(())
     }
 
-    /// Flushes the StateTree and perform a state migration if there is a migration at this epoch.
-    /// If there is no migration this function will return Ok(None).
+    /// Flushes the `StateTree` and perform a state migration if there is a migration at this epoch.
+    /// If there is no migration this function will return `Ok(None)`.
     pub fn migrate_state(
         &self,
         epoch: ChainEpoch,
@@ -296,7 +296,7 @@ where
         Ok(receipts)
     }
 
-    /// Applies single message through vm and returns result from execution.
+    /// Applies single message through VM and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
@@ -310,7 +310,7 @@ where
     }
 
     /// Applies the state transition for a single message.
-    /// Returns ApplyRet structure which contains the message receipt and some meta data.
+    /// Returns `ApplyRet` structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
         check_message(msg.message())?;
 
