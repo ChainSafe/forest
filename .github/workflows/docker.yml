@@ -71,7 +71,7 @@ jobs:
           tags: |
             ghcr.io/chainsafe/sync-snapshot:latest
           # build on feature branches, push only on main branch
-          push: true # ${{ github.ref == 'refs/heads/main' }}
+          push: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
