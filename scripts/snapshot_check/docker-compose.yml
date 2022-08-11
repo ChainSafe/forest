@@ -14,6 +14,8 @@ services:
       - SLACK_HOOK
     command:
       - |
+        set -e
+
         apt-get install -y curl
 
         report() {
