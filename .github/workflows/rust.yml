@@ -141,9 +141,7 @@ jobs:
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
         run: |
-          (cd blockchain; cargo spellcheck --cfg ../.config/spellcheck.toml --code 1)
-          (cd encoding; cargo spellcheck --cfg ../.config/spellcheck.toml --code 1)
-          (cd forest; cargo spellcheck --cfg ../.config/spellcheck.toml --code 1)
+          cargo spellcheck --code 1 --recursive blockchain encoding forest
 
   build:
     name: Build
