@@ -12,7 +12,6 @@ use std::{collections::HashMap, time::Duration};
 // delayed usually by 1 second compared to when we have these parameters disabled.
 // Leaving these here so that we can enable and fix these parameters when they are needed.
 
-#[allow(dead_code)]
 fn build_msg_topic_config() -> TopicScoreParams {
     TopicScoreParams {
         // expected 10 blocks/min
@@ -45,7 +44,6 @@ fn build_msg_topic_config() -> TopicScoreParams {
     }
 }
 
-#[allow(dead_code)]
 fn build_block_topic_config() -> TopicScoreParams {
     TopicScoreParams {
         topic_weight: 0.1,
@@ -77,7 +75,6 @@ fn build_block_topic_config() -> TopicScoreParams {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     let mut psp_topics = HashMap::new();
 
@@ -109,7 +106,6 @@ pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn build_peer_score_threshold() -> PeerScoreThresholds {
     PeerScoreThresholds {
         gossip_threshold: -500.0,

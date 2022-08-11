@@ -36,7 +36,7 @@ use interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
     VM,
 };
-use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use networks::{ChainConfig, Height};
@@ -164,12 +164,12 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore_cloned(), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
-    pub fn blockstore_cloned(&self) -> Arc<DB> {
+    pub fn blockstore_cloned(&self) -> DB {
         self.cs.blockstore_cloned()
     }
 
@@ -360,8 +360,7 @@ where
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
-                db.as_ref(),
-                Arc::clone(&db),
+                db.clone(),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
@@ -502,8 +501,7 @@ where
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
-                store_arc.as_ref(),
-                Arc::clone(&store_arc),
+                store_arc,
                 bheight,
                 rand,
                 0.into(),
@@ -598,8 +596,7 @@ where
         let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_>::new(
             st,
-            store_arc.as_ref(),
-            Arc::clone(&store_arc),
+            store_arc,
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
