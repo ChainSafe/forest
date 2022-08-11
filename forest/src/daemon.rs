@@ -33,6 +33,29 @@ use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
+    // TODO: remove later, this helps reproducing the segfault
+    use std::cell::RefCell;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::process;
+
+    let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
+    let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
+
+    let running = Arc::new(AtomicUsize::new(0));
+    ctrlc::set_handler(move || {
+        let prev = running.fetch_add(1, Ordering::SeqCst);
+        if prev == 0 {
+            warn!("Got interrupt, shutting down...");
+            // Send sig int in channel to blocking task
+            if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
+                ctrlc_send.send(()).expect("Error sending ctrl-c message");
+            }
+        } else {
+            process::exit(0);
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
+
     info!(
         "Starting Forest daemon, version {}",
         option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
@@ -335,7 +358,8 @@ pub(super) async fn start(config: Config) {
     };
 
     // Block until ctrl-c is hit
-    block_until_sigint().await;
+    //block_until_sigint().await;
+    ctrlc_oneshot.await.unwrap();
 
     let keystore_write = task::spawn(async move {
         keystore.read().await.flush().unwrap();
