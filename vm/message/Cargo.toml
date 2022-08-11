@@ -18,7 +18,7 @@ derive_builder    = "0.11"
 fil_types         = { optional = true, version = "0.2" }
 forest_crypto     = { default-features = false, version = "0.5" }
 forest_encoding   = "0.2"
-forest_json       = { version = "0.1.0", path = "../../utils/json/" }
+forest_json       = "0.1.0"
 forest_json_utils = "0.1"
 forest_vm         = "0.3"
 fvm               = "1.1"
