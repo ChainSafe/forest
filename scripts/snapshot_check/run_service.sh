@@ -4,10 +4,9 @@ set -e
 
 S3_FOLDER=$BASE_FOLDER/s3
 
-echo "service script"
-
 error=0
 
+# Check if an environment variable is set. If it isn't, set error=1.
 check_env () {
     A="                        ";
     echo -n "${A:0:-${#1}} $1: "
