@@ -61,8 +61,8 @@ impl RocksDb {
 
 impl Drop for RocksDb {
     fn drop(&mut self) {
-        info!("Dropping RocksDb");
-        self.db.cancel_all_background_work(false);
+        info!("Dropping RocksDb (rc={})", Arc::strong_count(&self.db));
+        //self.db.cancel_all_background_work(false);
     }
 }
 
