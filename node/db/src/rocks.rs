@@ -41,6 +41,9 @@ impl RocksDb {
         }
         if let Some(compaction_style) = &config.compaction_style {
             db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
+            db_opts.set_disable_auto_compactions(false);
+        } else {
+            db_opts.set_disable_auto_compactions(true);
         }
         if let Some(compression_type) = &config.compression_type {
             db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
