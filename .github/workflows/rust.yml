@@ -144,7 +144,7 @@ jobs:
           (cd blockchain; cargo spellcheck --cfg ../.config/spellcheck.toml)
           (cd encoding; cargo spellcheck --cfg ../.config/spellcheck.toml)
           (cd forest; cargo spellcheck --cfg ../.config/spellcheck.toml)
-          (cd vm/interpreter; cargo spellcheck --cfg ../.config/spellcheck.toml)
+          (cd vm/interpreter; cargo spellcheck --cfg ../../.config/spellcheck.toml)
 
   build:
     name: Build
