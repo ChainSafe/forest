@@ -7,6 +7,8 @@ use structopt::StructOpt;
 use fil_types::SectorSize;
 use paramfetch::{get_params_default, SectorSizeOpt};
 
+use super::cli_error_and_die;
+
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
 pub struct FetchCommands {
@@ -30,7 +32,10 @@ impl FetchCommands {
         } else if self.keys {
             SectorSizeOpt::Keys
         } else {
-            panic!("Sector size option must be chosen. Choose between --all, --keys, or <size>");
+            cli_error_and_die(
+                "Sector size option must be chosen. Choose between --all, --keys, or <size>",
+                1,
+            );
         };
 
         get_params_default(&config.client.data_dir, sizes, self.verbose)

@@ -206,7 +206,10 @@ impl CliOpts {
             cfg.client.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
-            panic!("Can't set import_snapshot and import_chain at the same time!");
+            cli_error_and_die(
+                "Can't set import_snapshot and import_chain at the same time!",
+                1,
+            );
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
                 cfg.client.snapshot_path = Some(snapshot_path.to_owned());
@@ -341,7 +344,9 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 /// Provided number cannot be negative, otherwise the function will panic.
 pub(super) fn to_size_string(input: &BigInt) -> String {
     Byte::from_bytes(
-        u128::try_from(input).unwrap_or_else(|e| panic!("error parsing the input {input}: {e}")),
+        u128::try_from(input).unwrap_or_else(|e| {
+            cli_error_and_die(format!("error parsing the input {input}: {e}"), 1)
+        }),
     )
     .get_appropriate_unit(true)
     .to_string()
