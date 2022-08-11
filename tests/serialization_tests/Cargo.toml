@@ -11,7 +11,7 @@ submodule_tests = []
 base64            = { version = "0.13" }
 bls-signatures    = { version = "0.11", default-features = false, features = ["blst"] }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
-forest_blocks     = { path = "../../blockchain/blocks" }
+forest_blocks     = "0.1.0"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_encoding   = "0.2"
 forest_message    = { version = "0.7", features = ["blst"] }

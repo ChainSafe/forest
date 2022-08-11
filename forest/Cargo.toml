@@ -11,60 +11,60 @@ actor_interface   = { path = "../vm/actor_interface" }
 anyhow            = "1.0"
 async-log         = "2.0"
 async-std         = { version = "1.9", features = ["attributes", "tokio1"] }
-auth              = { path = "../utils/auth" }
+auth              = "0.1.0"
 base64            = "0.13"
-beacon            = { path = "../blockchain/beacon" }
+beacon            = "0.1.0"
 byte-unit         = "4.0"
-chain             = { path = "../blockchain/chain" }
-chain_sync        = { path = "../blockchain/chain_sync" }
+chain             = "0.1.0"
+chain_sync        = "0.1.0"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 ctrlc             = "3.1"
-deleg_cns         = { path = "../blockchain/consensus/deleg_cns", optional = true }
+deleg_cns         = { version = "0.1.0", optional = true }
 directories       = "4.0.1"
-fil_cns           = { path = "../blockchain/consensus/fil_cns", optional = true }
+fil_cns           = { version = "0.1.0", optional = true }
 fil_types         = "0.2"
-forest_blocks     = { path = "../blockchain/blocks" }
+forest_blocks     = "0.1.0"
 forest_crypto     = { version = "0.5" }
 forest_db         = "0.1"
 forest_encoding   = "0.2"
-forest_json       = { version = "0.1.0", path = "../utils/json/" }
-forest_libp2p     = { path = "../node/forest_libp2p" }
+forest_json       = "0.1.0"
+forest_libp2p     = "0.1.0"
 forest_message    = { version = "0.7", features = ["blst"] }
 forest_vm         = "0.3"
 futures           = "0.3"
 fvm               = "1.0"
 fvm_ipld_car      = "0.4.1"
 fvm_shared        = { version = "0.8.0", default-features = false }
-genesis           = { path = "../utils/genesis" }
+genesis           = "0.1.0"
 hex               = "0.4"
 ipld_blockstore   = "0.1"
-key_management    = { path = "../key_management" }
+key_management    = "0.1.0"
 libp2p            = { version = "0.46", default-features = false, features = ["identify"] }
 log               = "0.4"
-message_pool      = { path = "../blockchain/message_pool" }
-metrics           = { path = "../utils/metrics" }
+message_pool      = "0.1.0"
+metrics           = "0.1.0"
 multibase         = "0.9"
-net_utils         = { path = "../utils/net_utils" }
-networks          = { path = "../types/networks" }
+net_utils         = "0.1.0"
+networks          = "0.1.0"
 num-rational      = "0.4"
-paramfetch        = { path = "../utils/paramfetch" }
+paramfetch        = "0.1.0"
 pretty_env_logger = "0.4"
 prometheus        = { version = "0.13", features = ["process"] }
 rayon             = "1.5"
 rpassword         = "6.0"
-rpc               = { path = "../node/rpc" }
-rpc-api           = { path = "../node/rpc-api", version = "0.1" }
-rpc-client        = { path = "../node/rpc-client" }
+rpc               = "0.1.0"
+rpc-api           = "0.1.0"
+rpc-client        = "0.1.0"
 rug               = "1.13"
 serde             = { version = "1.0", features = ["derive"] }
 serde_json        = "1.0"
-state_manager     = { path = "../blockchain/state_manager" }
+state_manager     = "0.1.0"
 structopt         = "0.3"
 ticker            = "0.1"
 time              = "0.3"
 tokio             = { version = "1.0", features = ["sync"] }
 toml              = "0.5"
-utils             = { path = "../node/utils" }
+utils             = "0.1.0"
 uuid              = { version = "0.8", features = ["v4"] }
 
 [dependencies.jsonrpc-v2]

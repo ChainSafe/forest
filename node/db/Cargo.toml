@@ -15,7 +15,7 @@ fvm_ipld_blockstore = "0.1.1"
 log                 = "0.4.8"
 num_cpus            = "1.13"
 parking_lot         = "0.12"
-rocksdb             = "0.18"
+rocksdb             = "0.19"
 serde               = { version = "1.0", features = ["derive"] }
 thiserror           = "1.0"
 
