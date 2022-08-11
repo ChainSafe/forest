@@ -7,24 +7,23 @@ use cid::Cid;
 use forest_hash_utils::{BytesKey, Hash};
 use fvm_shared::HAMT_BIT_WIDTH;
 use ipld_blockstore::BlockStore;
-use ipld_blockstore::FvmRefStore;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 
-pub enum Map<'a, BS, V> {
-    V8(fil_actors_runtime_v8::fvm_ipld_hamt::Hamt<FvmRefStore<'a, BS>, V, BytesKey>),
+pub enum Map<BS, V> {
+    V8(fil_actors_runtime_v8::fvm_ipld_hamt::Hamt<BS, V, BytesKey>),
 }
 
-impl<'a, BS, V> Map<'a, BS, V>
+impl<'a, BS, V> Map<BS, V>
 where
     V: Serialize + DeserializeOwned + PartialEq,
     BS: BlockStore,
 {
-    pub fn new(store: &'a BS, version: ActorVersion) -> Self {
+    pub fn new(store: &BS, version: ActorVersion) -> Self {
         match version {
             ActorVersion::V8 => Map::V8(
                 fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::new_with_bit_width(
-                    FvmRefStore::new(store),
+                    store.clone(),
                     HAMT_BIT_WIDTH,
                 ),
             ),
@@ -38,7 +37,7 @@ where
             ActorVersion::V8 => Ok(Map::V8(
                 fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::load_with_bit_width(
                     cid,
-                    FvmRefStore::new(store),
+                    store.clone(),
                     HAMT_BIT_WIDTH,
                 )?,
             )),
@@ -47,9 +46,9 @@ where
     }
 
     /// Returns a reference to the underlying store of the `Map`.
-    pub fn store(&self) -> &'a BS {
+    pub fn store(&self) -> &BS {
         match self {
-            Map::V8(m) => m.store().bs,
+            Map::V8(m) => m.store(),
         }
     }
 

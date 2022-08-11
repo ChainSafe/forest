@@ -33,14 +33,14 @@ pub(crate) struct ChainIndex<BS> {
     ts_cache: Arc<TipsetCache>,
 
     /// `BlockStore` pointer needed to load tipsets from cold storage.
-    db: Arc<BS>,
+    db: BS,
 }
 
 impl<BS> ChainIndex<BS>
 where
     BS: BlockStore + Send + Sync + 'static,
 {
-    pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: Arc<BS>) -> Self {
+    pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
             skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
@@ -49,7 +49,7 @@ where
     }
 
     async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        tipset_from_keys(self.ts_cache.as_ref(), self.db.as_ref(), tsk).await
+        tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk).await
     }
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents

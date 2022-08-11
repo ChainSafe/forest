@@ -8,11 +8,12 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// A thread-safe `HashMap` wrapper.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MemoryDB {
-    db: RwLock<HashMap<u64, Vec<u8>>>,
+    db: Arc<RwLock<HashMap<u64, Vec<u8>>>>,
 }
 
 impl MemoryDB {
@@ -23,14 +24,6 @@ impl MemoryDB {
         let mut hasher = DefaultHasher::new();
         key.as_ref().hash::<DefaultHasher>(&mut hasher);
         hasher.finish()
-    }
-}
-
-impl Clone for MemoryDB {
-    fn clone(&self) -> Self {
-        Self {
-            db: RwLock::new(self.db.read().clone()),
-        }
     }
 }
 
