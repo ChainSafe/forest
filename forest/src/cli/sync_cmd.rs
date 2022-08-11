@@ -36,11 +36,9 @@ pub enum SyncCommands {
     },
 }
 
-#[allow(unused_must_use)]
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
-            #[allow(unused_must_use)]
             Self::Wait { watch } => {
                 let watch = *watch;
 
@@ -77,7 +75,7 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write("\r\x1b[2K\x1b[A".as_bytes());
+                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes()).unwrap();
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {

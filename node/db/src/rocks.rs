@@ -7,12 +7,12 @@ use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 pub use rocksdb::{Options, WriteBatch, DB};
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 /// RocksDB instance this satisfies the [Store] interface.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RocksDb {
-    pub db: DB,
+    pub db: Arc<DB>,
 }
 
 /// RocksDb is used as the KV store for Forest
@@ -48,7 +48,7 @@ impl RocksDb {
             db_opts.enable_statistics();
         };
         Ok(Self {
-            db: DB::open(&db_opts, path)?,
+            db: Arc::new(DB::open(&db_opts, path)?),
         })
     }
 }
