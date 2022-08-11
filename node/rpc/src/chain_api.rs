@@ -16,7 +16,7 @@ use forest_message::message;
 use fvm_shared::message::Message as FVMMessage;
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
-use log::debug;
+use log::{debug, error};
 use networks::Height;
 use rpc_api::{
     chain_api::*,
@@ -59,7 +59,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (epoch, recent_roots, skip_old_msgs, out, TipsetKeysJson(tsk)) = params;
+    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk)) = params;
+    let skip_old_msgs = !include_olds_msgs;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
     let recent_roots = recent_roots.unwrap_or(chain_finality);
@@ -70,10 +71,6 @@ where
         ))?;
     }
 
-    if recent_roots == 0 && skip_old_msgs {
-        Err("must pass recent-stateroots along with skip-old-messages")?;
-    }
-
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
     let writer = BufWriter::new(file);
 
@@ -81,10 +78,19 @@ where
 
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
 
-    data.chain_store
+    if let Err(e) = data
+        .chain_store
         .export(&start_ts, recent_roots, skip_old_msgs, writer)
         .await
-        .map_err(JsonRpcError::from)?;
+    {
+        if let Err(e) = std::fs::remove_file(&out) {
+            error!("failed to remove incomplete export file at {out}: {e}");
+        } else {
+            debug!("incomplete export file at {out} removed");
+        }
+
+        return Err(JsonRpcError::from(e));
+    }
 
     Ok(PathBuf::from(out))
 }

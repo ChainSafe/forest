@@ -10,7 +10,7 @@ use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
+use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
 use fvm_shared::version::NetworkVersion;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -22,7 +22,6 @@ use state_manager::StateManager;
 use utils::write_to_file;
 
 use async_std::{channel::bounded, sync::RwLock, task};
-use libp2p::identity::{ed25519, Keypair};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
@@ -133,10 +132,8 @@ pub(super) async fn start(config: Config) {
     let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
-    let db = Arc::new(db);
-
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
+    let chain_store = Arc::new(ChainStore::new(db.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -234,7 +231,7 @@ pub(super) async fn start(config: Config) {
             provider,
             network_name.clone(),
             network_send.clone(),
-            MpoolConfig::load_config(db.as_ref()).unwrap(),
+            MpoolConfig::load_config(&db).unwrap(),
             Arc::clone(state_manager.chain_config()),
         )
         .await
@@ -391,7 +388,6 @@ fn chain_path(config: &Config) -> PathBuf {
 }
 
 #[cfg(test)]
-#[cfg(not(any(feature = "interopnet", feature = "devnet")))]
 mod test {
     use super::*;
     use forest_blocks::BlockHeader;
@@ -401,7 +397,7 @@ mod test {
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
-        let db = Arc::new(MemoryDB::default());
+        let db = MemoryDB::default();
         let cs = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))

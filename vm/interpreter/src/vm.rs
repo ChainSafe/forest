@@ -18,7 +18,7 @@ use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT};
-use ipld_blockstore::{BlockStore, FvmStore};
+use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -48,7 +48,7 @@ pub trait CircSupplyCalc: Clone + 'static {
 
 /// Trait to allow VM to retrieve state at an old epoch.
 pub trait LookbackStateGetter {
-    /// Returns the root cid for a given ChainEpoch
+    /// Returns the root CID for a given `ChainEpoch`
     fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
@@ -74,7 +74,7 @@ impl Heights {
 }
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
-/// from the vm execution.
+/// from the VM execution.
 pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     params: PhantomData<P>,
@@ -89,8 +89,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
         root: Cid,
-        store: &DB,
-        store_arc: Arc<DB>,
+        store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
@@ -107,18 +106,18 @@ where
         C: CircSupplyCalc,
         LB: LookbackStateGetter,
     {
-        let state = StateTree::new_from_root(store, &root)?;
+        let state = StateTree::new_from_root(&store_arc, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
-        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
+        let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                FvmStore::new(store_arc.clone()),
+                store_arc.clone(),
                 ForestExterns::new(
                     rand.clone(),
                     epoch,
@@ -187,8 +186,8 @@ where
         Ok(())
     }
 
-    /// Flushes the StateTree and perform a state migration if there is a migration at this epoch.
-    /// If there is no migration this function will return Ok(None).
+    /// Flushes the `StateTree` and perform a state migration if there is a migration at this epoch.
+    /// If there is no migration this function will return `Ok(None)`.
     pub fn migrate_state(
         &self,
         epoch: ChainEpoch,
@@ -296,7 +295,7 @@ where
         Ok(receipts)
     }
 
-    /// Applies single message through vm and returns result from execution.
+    /// Applies single message through VM and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
         use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
@@ -310,7 +309,7 @@ where
     }
 
     /// Applies the state transition for a single message.
-    /// Returns ApplyRet structure which contains the message receipt and some meta data.
+    /// Returns `ApplyRet` structure which contains the message receipt and some meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
         check_message(msg.message())?;
 

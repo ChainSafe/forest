@@ -17,12 +17,12 @@ use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
 use forest_libp2p::{
-    hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PubsubMessage,
+    hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
+    PubsubMessage,
 };
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 use ipld_blockstore::BlockStore;
-use libp2p::core::PeerId;
 use message_pool::{MessagePool, Provider};
 use state_manager::StateManager;
 
@@ -466,9 +466,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            chain::persist_objects(chain_store.db.as_ref(), &[block.header()])?;
-            chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())?;
-            chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())?;
+            chain::persist_objects(&chain_store.db, &[block.header()])?;
+            chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+            chain::persist_objects(&chain_store.db, block.secp_msgs())?;
         }
 
         // Update the peer head
