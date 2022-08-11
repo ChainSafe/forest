@@ -373,7 +373,7 @@ pub(super) async fn start(config: Config) {
     maybe_cancel(rpc_task).await;
     keystore_write.await;
 
-    // Uncomment this to get segfault
+    // Uncomment next two lines to avoid the segfault (works p well)
     //use std::{thread, time::Duration};
     //thread::sleep(Duration::from_millis(2000));
 
