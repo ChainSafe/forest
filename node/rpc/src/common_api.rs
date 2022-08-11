@@ -11,7 +11,7 @@ pub(crate) async fn version(
     block_delay: u64,
     forest_version: &'static str,
 ) -> Result<VersionResult, JsonRpcError> {
-    let v = SemVer::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    let v = SemVer::parse(forest_version).unwrap();
     Ok(APIVersion {
         version: forest_version.to_string(),
         api_version: Version::new(v.major, v.minor, v.patch),
