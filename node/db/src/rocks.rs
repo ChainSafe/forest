@@ -6,6 +6,7 @@ use super::Store;
 use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, RocksDbConfig};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use log::info;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
@@ -50,6 +51,13 @@ impl RocksDb {
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
+    }
+}
+
+impl Drop for RocksDb {
+    fn drop(&mut self) {
+        info!("Dropping RocksDb");
+        self.db.cancel_all_background_work(false);
     }
 }
 
