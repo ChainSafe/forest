@@ -373,6 +373,10 @@ pub(super) async fn start(config: Config) {
     maybe_cancel(rpc_task).await;
     keystore_write.await;
 
+    // Uncomment this to get segfault
+    //use std::{thread, time::Duration};
+    //thread::sleep(Duration::from_millis(2000));
+
     info!("Forest finish shutdown.");
 }
 
