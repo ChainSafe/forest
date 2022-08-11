@@ -7,7 +7,7 @@ use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, 
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
-pub use rocksdb::{Options, WriteBatch, DB};
+pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// RocksDB instance this satisfies the [Store] interface.
@@ -48,6 +48,8 @@ impl RocksDb {
         if config.enable_statistics {
             db_opts.enable_statistics();
         };
+        // TODO: properly expose log levels in our RocksDbConfig
+        db_opts.set_log_level(LogLevel::Debug);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
