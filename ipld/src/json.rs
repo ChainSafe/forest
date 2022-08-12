@@ -24,12 +24,12 @@ use std::fmt;
 
 const BYTES_JSON_KEY: &str = "bytes";
 
-/// Wrapper for serializing and deserializing a Ipld from JSON.
+/// Wrapper for serializing and deserializing a IPLD from JSON.
 #[derive(Deserialize, Serialize)]
 #[serde(transparent)]
 pub struct IpldJson(#[serde(with = "self")] pub Ipld);
 
-/// Wrapper for serializing a ipld reference to JSON.
+/// Wrapper for serializing a IPLD reference to JSON.
 #[derive(Serialize)]
 #[serde(transparent)]
 pub struct IpldJsonRef<'a>(#[serde(with = "self")] pub &'a Ipld);
@@ -67,7 +67,7 @@ where
     deserializer.deserialize_any(JSONVisitor)
 }
 
-/// Json visitor for generating IPLD from JSON
+/// JSON visitor for generating IPLD from JSON
 struct JSONVisitor;
 impl<'de> de::Visitor<'de> for JSONVisitor {
     type Value = Ipld;

@@ -11,7 +11,7 @@ Filecoin
 IPLD
 JSON
 JWT
-Merkle
+merkle
 RPC
 SECP
 VM
@@ -33,3 +33,10 @@ tuple
 validator/S
 mempool
 sortition
+struct/S
+serializer/SM
+deserialize/D
+deserializer/SM
+deserializing
+boolean
+baz
