@@ -33,7 +33,7 @@ use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    // TODO: remove later, this helps reproducing the segfault
+    // TODO: wrap this into something nicer
     use std::cell::RefCell;
     use std::process;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -358,7 +358,6 @@ pub(super) async fn start(config: Config) {
     };
 
     // Block until ctrl-c is hit
-    //block_until_sigint().await;
     ctrlc_oneshot.await.unwrap();
 
     let keystore_write = task::spawn(async move {
@@ -374,10 +373,6 @@ pub(super) async fn start(config: Config) {
     p2p_task.cancel().await;
     maybe_cancel(rpc_task).await;
     keystore_write.await;
-
-    // Uncomment next two lines to avoid the segfault (works p well)
-    //use std::{thread, time::Duration};
-    //thread::sleep(Duration::from_millis(2000));
 
     info!("Forest finish shutdown.");
 }
