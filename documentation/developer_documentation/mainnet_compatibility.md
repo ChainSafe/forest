@@ -48,21 +48,20 @@ documentation.
 
 ## Debugging State Mismatches
 
-If an error occurs that mentions "state mismatch". Then follow the following steps:
+Statediffs can only be printed if we import a snapshot containing the stateroot data from Lotus.
+This means there will not be a pretty statediff if Forest is already synced to the network when the stateroot mismatch happens.
+By default, snapshots only contain stateroot data for the previous 2000 epochs. So, if you have a statediff at epoch X,
+download a snapshot for epoch X+100 and tell Forest to re-validate the snapshot from epoch X.
 
-enable DEBUG logs by adding the following flags to Forest.
+For more detailed instructions, follow [this document](https://www.notion.so/chainsafe/Interop-debugging-6adabf9222d7449bbfeaacb1ec997cf8)
 
-`RUST_LOG="error,chain_sync=info,interpreter=debug" forest`
 
-If it's easy to do so, you can compare the failed transactions and see if any should have
-succeeded. If you can try to pinpoint and solve the logic from the error message and looking
-around the part of code which it was triggered, it will save you some time.
+## FVM Traces
 
-The next step, if there is no low hanging fruit to look into, is to start an export from Forest
-that overlaps the failed transaction (to be able to statediff with the expected state).
+Within FVM, we can enable tracing to produce execution traces. Given an offending epoch, we can produce them both for Forest
+and for Lotus to find mismatches.
 
-`forest chain export --skip-old-msgs --tipset @474196 --recent-stateroots 900 ./chain474196.car`
+To confirm: the execution traces format is not uniform across implementations, so it takes a certain amount of elbow grease to
+find the differences.
+Lotus is capable of spitting this out in JSON for nice UX
 
-Where you would replace 474196 with any epoch about 100 epochs ahead. Theoretically, this could be not
-enough state to verify that epoch, but it's extremely improbable. You could increase --recent-stateroots
-if you wanted to be sure there was 900 epochs behind the faulty epoch.
