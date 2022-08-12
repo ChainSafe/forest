@@ -249,7 +249,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let mpool = Arc::new(
+    let (mpool, a, b) =
         MessagePool::new(
             provider,
             network_name.clone(),
@@ -258,8 +258,8 @@ pub(super) async fn start(config: Config) {
             Arc::clone(state_manager.chain_config()),
         )
         .await
-        .unwrap(),
-    );
+        .unwrap();
+    let mpool = Arc::new(mpool);
 
     // Mining may or may not happen, depending on the consensus type.
     let mining_task: Option<JoinHandle<anyhow::Result<()>>>;
@@ -368,6 +368,8 @@ pub(super) async fn start(config: Config) {
     // Cancel all async services
     maybe_cancel(mining_task).await;
     prometheus_server_task.cancel().await;
+    a.cancel().await;
+    b.cancel().await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
     maybe_cancel(rpc_task).await;
