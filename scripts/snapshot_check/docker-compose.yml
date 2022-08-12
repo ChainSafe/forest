@@ -50,6 +50,5 @@ services:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /root/.docker/config.json:/config.json
     command: --label-enable --include-stopped --interval 3600
     restart: unless-stopped
