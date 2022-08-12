@@ -309,7 +309,8 @@ where
     where
         T: Provider,
     {
-        let (mpool, _, _) = Self::with_tasks(api, network_name, network_sender, config, chain_config).await?;
+        let (mpool, _, _) =
+            Self::with_tasks(api, network_name, network_sender, config, chain_config).await?;
         Ok(mpool)
     }
 
