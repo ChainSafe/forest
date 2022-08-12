@@ -37,13 +37,13 @@ pub enum ChainCommands {
         /// Skip old messages
         #[structopt(short)]
         include_old_messages: bool,
-        /// Snapshot output path. Default to [`OUTPUT_PATH_DEFAULT_FORMAT`]
+        /// Snapshot output path. Default to forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
         /// Arguments:
-        /// chain - is name of chain name e.g. mainnet
-        /// year - YYYY format
-        /// month - ISO 8601 date format.
-        /// day - DD format
-        /// height - the epoch
+        ///  - chain - is name of chain name e.g. mainnet
+        ///  - year - YYYY format
+        ///  - month - ISO 8601 date format.
+        ///  - day - DD format
+        ///  - height - the epoch
         #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
         output_path: String,
     },
