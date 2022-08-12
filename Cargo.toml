@@ -19,6 +19,8 @@ members = [
   "node/rpc",
   "node/rpc-client",
   "node/rpc-api",
+  "node/utils",
+  "node/forest_libp2p",
   "crypto",
   "encoding",
   "ipld/legacy_amt",
@@ -36,21 +38,49 @@ members = [
   "utils/statediff",
   "utils/test_utils",
   "utils/metrics",
+  "utils/paramfetch",
   "utils/json",
 ]
 resolver = "2"
 
 [patch.crates-io]
+beacon            = { path = "./blockchain/beacon" }
+forest_blocks     = { path = "./blockchain/blocks" }
+chain             = { path = "./blockchain/chain" }
+state_manager     = { path = "./blockchain/state_manager" }
+chain_sync        = { path = "./blockchain/chain_sync" }
+message_pool      = { path = "./blockchain/message_pool" }
+fil_cns           = { path = "./blockchain/consensus/fil_cns" }
+deleg_cns         = { path = "./blockchain/consensus/deleg_cns" }
 ipld_blockstore   = { path = "./ipld/blockstore" }
+legacy_ipld_amt   = { path = "./ipld/legacy_amt" }
+key_management    = { path = "./key_management" }
 fil_types         = { path = "./types" }
+networks          = { path = "./types/networks" }
 forest_db         = { path = "./node/db" }
+utils             = { path = "./node/utils" }
+forest_libp2p     = { path = "./node/forest_libp2p" }
+rpc               = { path = "./node/rpc" }
+rpc-client        = { path = "./node/rpc-client" }
+rpc-api           = { path = "./node/rpc-api" }
 forest_crypto     = { path = "./crypto" }
 forest_ipld       = { path = "./ipld" }
 forest_encoding   = { path = "./encoding" }
 forest_hash_utils = { path = "./utils/hash_utils" }
 forest_json_utils = { path = "./utils/json_utils" }
+test_utils        = { path = "./utils/test_utils" }
+statediff         = { path = "./utils/statediff" }
+genesis           = { path = "./utils/genesis" }
+auth              = { path = "./utils/auth" }
+forest_json       = { path = "./utils/json" }
+net_utils         = { path = "./utils/net_utils" }
+metrics           = { path = "./utils/metrics" }
+paramfetch        = { path = "./utils/paramfetch" }
 forest_vm         = { path = "./vm" }
 forest_message    = { path = "./vm/message" }
+interpreter       = { path = "./vm/interpreter" }
+actor_interface   = { path = "./vm/actor_interface" }
+state_migration   = { path = "./vm/state_migration" }
 
 [profile.dev]
 debug = 0

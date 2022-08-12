@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actor_interface     = { path = "../actor_interface" }
+actor_interface     = "0.1.0"
 ahash               = "0.7"
 anyhow              = "1.0"
 async-std           = "1.9"
@@ -13,7 +13,7 @@ byteorder           = "1.3"
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
 fil_actors_runtime  = "=8.0.0"
 fil_types           = { version = "0.2", features = ["proofs"] }
-forest_blocks       = { path = "../../blockchain/blocks" }
+forest_blocks       = "0.1.0"
 forest_crypto       = { default_features = false, version = "0.5", features = ["blst"] }
 forest_db           = { version = "0.1" }
 forest_encoding     = "0.2"
@@ -29,16 +29,16 @@ fvm_shared          = { version = "0.8.0", default-features = false }
 ipld_blockstore     = "0.1"
 lazy_static         = "1.4"
 log                 = "0.4"
-networks            = { path = "../../types/networks" }
+networks            = "0.1.0"
 num-traits          = "0.2"
 num_cpus            = "1.13"
 rayon               = "1.3"
 serde_ipld_dagcbor  = "0.1"
-state_migration     = { path = "../state_migration" }
-statediff           = { path = "../../utils/statediff" }
+state_migration     = "0.1.0"
+statediff           = "0.1.0"
 
 [dev-dependencies]
-interpreter = { path = "../interpreter/" }
+interpreter = "0.1.0"
 
 [features]
 test_vectors = []

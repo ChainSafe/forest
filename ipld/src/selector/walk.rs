@@ -68,8 +68,7 @@ pub trait LinkResolver {
 
 #[async_trait]
 impl LinkResolver for () {
-    #[allow(unused_variables, clippy::trivially_copy_pass_by_ref)]
-    async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String> {
+    async fn load_link(&mut self, _link: &Cid) -> Result<Option<Ipld>, String> {
         Err("load_link not implemented on the LinkResolver for default implementation".into())
     }
 }
