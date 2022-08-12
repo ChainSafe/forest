@@ -437,8 +437,8 @@ sed -i s/wallet-f/wallet-t/ ~/.local/share/forest/keystore.json
 To enable _Delegated Consensus_ instead of the default _Filecoin Consensus_, Forest has to be built with the `deleg_cns` feature, for example:
 
 ```bash
-cargo clippy --all-targets --features deleg_cns -- -D warnings
-cargo build --features deleg_cns --bin forest
+cargo clippy --all-targets --features forest_deleg_cns -- -D warnings
+cargo build --features forest_deleg_cns --bin forest
 ```
 
 Now let's try to run a node; it would be the one eligible for mining, since we have the private key in the wallet. We'll point others at different
