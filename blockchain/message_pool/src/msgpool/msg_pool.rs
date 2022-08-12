@@ -165,7 +165,7 @@ where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
     /// Creates a new `MessagePool` instance.
-    pub async fn new(
+    pub async fn with_tasks(
         mut api: T,
         network_name: String,
         network_sender: Sender<NetworkMessage>,
@@ -296,6 +296,21 @@ where
             }
         });
         Ok((mp, head_changes_task, republish_task))
+    }
+
+    /// Creates a new `MessagePool` instance.
+    pub async fn new(
+        api: T,
+        network_name: String,
+        network_sender: Sender<NetworkMessage>,
+        config: MpoolConfig,
+        chain_config: Arc<ChainConfig>,
+    ) -> Result<MessagePool<T>, Error>
+    where
+        T: Provider,
+    {
+        let (mpool, _, _) = Self::with_tasks(api, network_name, network_sender, config, chain_config).await?;
+        Ok(mpool)
     }
 
     /// Add a signed message to the pool and its address.

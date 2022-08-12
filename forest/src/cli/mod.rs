@@ -299,6 +299,7 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
 }
 
 /// Blocks current thread until ctrl-c is received
+#[allow(dead_code)]
 pub async fn block_until_sigint() {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));

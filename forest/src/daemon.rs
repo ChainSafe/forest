@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{block_until_sigint, Config, FOREST_VERSION_STRING};
+use super::cli::{Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
 use async_std::net::TcpListener;
 use async_std::task::JoinHandle;
@@ -249,7 +249,7 @@ pub(super) async fn start(config: Config) {
 
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let (mpool, head_changes_task, republish_task) = MessagePool::new(
+    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
         provider,
         network_name.clone(),
         network_send.clone(),
