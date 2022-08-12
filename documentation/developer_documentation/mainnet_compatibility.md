@@ -34,8 +34,27 @@ This step may take a while. We want Forest to get as far along in the syncing pr
 as it can get. If it syncs up all the way to the network head, CONGRATS! Forest is up to date
 and on mainnet. Otherwise, Forest is not on mainnet.
 
+If Forest starts to error and can't get past a block while syncing. Make note of which block it is.
+We can use that block to help debug any potential state mismatches.
+
 
 ## Debugging State Mismatches
 
-If Forest starts to error and can't get past a block while syncing. Make note of which block it is.
-We can use that block to help debug any potential state mismatches.
+If an error occurs that mentions "state mismatch". Then follow the following steps:
+
+enable DEBUG logs by adding the following flags to Forest.
+
+`RUST_LOG="error,chain_sync=info,interpreter=debug" forest`
+
+If it's easy to do so, you can compare the failed transactions and see if any should have
+succeeded. If you can try to pinpoint and solve the logic from the error message and looking
+around the part of code which it was triggered, it will save you some time.
+
+The next step, if there is no low hanging fruit to look into, is to start an export from Forest
+that overlaps the failed transaction (to be able to statediff with the expected state).
+
+`forest chain export --skip-old-msgs --tipset @474196 --recent-stateroots 900 ./chain474196.car`
+
+Where you would replace 474196 with any epoch about 100 epochs ahead. Theoretically, this could be not
+enough state to verify that epoch, but it's extremely improbable. You could increase --recent-stateroots
+if you wanted to be sure there was 900 epochs behind the faulty epoch.
