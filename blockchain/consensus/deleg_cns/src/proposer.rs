@@ -8,14 +8,14 @@ use futures::StreamExt;
 use log::{error, info};
 use std::sync::Arc;
 
-use chain::Scale;
-use chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
+use forest_chain::Scale;
+use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use forest_ipld_blockstore::BlockStore;
+use forest_key_management::Key;
+use forest_networks::Height;
+use forest_state_manager::StateManager;
 use fvm_shared::address::Address;
-use ipld_blockstore::BlockStore;
-use key_management::Key;
-use networks::Height;
-use state_manager::StateManager;
 
 use crate::DelegatedConsensus;
 
@@ -56,12 +56,12 @@ impl DelegatedProposer {
 
         let (parent_state_root, parent_receipts) = state_manager.tipset_state(base).await?;
         let parent_base_fee =
-            chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
+            forest_chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
 
         let parent_weight = DelegatedConsensus::weight(state_manager.blockstore(), base)?;
         let msgs = mpool.select_signed(state_manager, base).await?;
         let msgs = msgs.iter().map(|m| m.as_ref()).collect();
-        let persisted = chain::persist_block_messages(state_manager.blockstore(), msgs)?;
+        let persisted = forest_chain::persist_block_messages(state_manager.blockstore(), msgs)?;
 
         let mut header = BlockHeader::builder()
             .messages(persisted.msg_cid)
@@ -76,7 +76,7 @@ impl DelegatedProposer {
             .message_receipts(parent_receipts)
             .build()?;
 
-        let sig = key_management::sign(
+        let sig = forest_key_management::sign(
             *self.key.key_info.key_type(),
             self.key.key_info.private_key(),
             &header.to_signing_bytes(),

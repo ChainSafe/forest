@@ -1,5 +1,5 @@
 [package]
-name        = "fil_types"
+name        = "forest_fil_types"
 description = "Filecoin types used in Forest."
 version     = "0.2.2"
 license     = "MIT OR Apache-2.0"

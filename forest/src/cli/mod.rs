@@ -28,11 +28,11 @@ pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
 use directories::ProjectDirs;
+use forest_networks::ChainConfig;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
-use networks::ChainConfig;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
@@ -48,7 +48,7 @@ use structopt::StructOpt;
 use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use utils::{read_file_to_string, read_toml};
+use forest_utils::{read_file_to_string, read_toml};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]

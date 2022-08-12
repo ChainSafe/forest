@@ -5,15 +5,15 @@ use super::*;
 use fvm_shared::address::Address;
 use async_std::channel::bounded;
 use async_std::task;
-use beacon::{BeaconPoint, MockBeacon};
+use forest_beacon::{BeaconPoint, MockBeacon};
 use forest_blocks::BlockHeader;
 use db::MemoryDB;
-use fil_types::verifier::MockVerifier;
+use forest_fil_types::verifier::MockVerifier;
 use forest_libp2p::hello::HelloRequest;
 use libp2p::core::PeerId;
-use message_pool::{test_provider::TestApi, MessagePool};
-use networks::ChainConfig;
-use state_manager::StateManager;
+use forest_message_pool::{test_provider::TestApi, MessagePool};
+use forest_networks::ChainConfig;
+use forest_state_manager::StateManager;
 use std::time::Duration;
 
 #[test]

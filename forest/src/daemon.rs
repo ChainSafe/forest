@@ -5,21 +5,21 @@ use super::cli::{block_until_sigint, Config};
 use crate::cli_error_and_die;
 use async_std::net::TcpListener;
 use async_std::task::JoinHandle;
-use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
-use chain::ChainStore;
-use chain_sync::consensus::SyncGossipSubmitter;
-use chain_sync::ChainMuxer;
-use fil_types::verifier::FullVerifier;
+use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
+use forest_chain::ChainStore;
+use forest_chain_sync::consensus::SyncGossipSubmitter;
+use forest_chain_sync::ChainMuxer;
+use forest_fil_types::verifier::FullVerifier;
+use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
+use forest_key_management::{KeyStore, KeyStoreConfig};
 use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
+use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use forest_rpc::start_rpc;
+use forest_rpc_api::data_types::RPCState;
+use forest_state_manager::StateManager;
+use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
-use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
-use key_management::ENCRYPTED_KEYSTORE_NAME;
-use key_management::{KeyStore, KeyStoreConfig};
-use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use rpc::start_rpc;
-use rpc_api::data_types::RPCState;
-use state_manager::StateManager;
-use utils::write_to_file;
 
 use async_std::{channel::bounded, sync::RwLock, task};
 use log::{debug, error, info, trace, warn};
@@ -48,7 +48,7 @@ pub(super) async fn start(config: Config) {
             Ok(file) => {
                 // Restrict permissions on files containing private keys
                 #[cfg(unix)]
-                utils::set_user_perm(&file).expect("Set user perms on unix systems");
+                forest_utils::set_user_perm(&file).expect("Set user perms on unix systems");
             }
             Err(e) => {
                 info!("Could not write keystore to disk!");
@@ -114,7 +114,7 @@ pub(super) async fn start(config: Config) {
         "Prometheus server started at {}",
         config.client.metrics_address
     );
-    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+    let prometheus_server_task = task::spawn(forest_metrics::init_prometheus(
         prometheus_listener,
         db_path(&config)
             .into_os_string()
@@ -183,9 +183,11 @@ pub(super) async fn start(config: Config) {
     }
 
     // Fetch and ensure verification keys are downloaded
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    #[cfg(all(feature = "forest_fil_cns", not(any(feature = "deleg_cns"))))]
     {
-        use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
         get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
@@ -249,24 +251,27 @@ pub(super) async fn start(config: Config) {
     );
 
     // Initialize Consensus
-    #[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
-    compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
+    #[cfg(not(any(feature = "forest_fil_cns", feature = "deleg_cns")))]
+    compile_error!(
+        "No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one."
+    );
 
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    type FullConsensus = fil_cns::FilecoinConsensus<beacon::DrandBeacon, FullVerifier>;
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+    #[cfg(all(feature = "forest_fil_cns", not(any(feature = "deleg_cns"))))]
+    type FullConsensus =
+        forest_fil_cns::FilecoinConsensus<forest_beacon::DrandBeacon, FullVerifier>;
+    #[cfg(all(feature = "forest_fil_cns", not(any(feature = "deleg_cns"))))]
     let consensus: FullConsensus = {
         mining_task = None;
         drop(submitter);
-        fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
+        forest_fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
     };
     #[cfg(feature = "deleg_cns")]
-    type FullConsensus = deleg_cns::DelegatedConsensus;
+    type FullConsensus = forest_deleg_cns::DelegatedConsensus;
     #[cfg(feature = "deleg_cns")]
     let consensus: FullConsensus = {
-        use chain_sync::consensus::Proposer;
+        use forest_chain_sync::consensus::Proposer;
         use futures::TryFutureExt;
-        let consensus = deleg_cns::DelegatedConsensus::default();
+        let consensus = forest_deleg_cns::DelegatedConsensus::default();
         if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
             let sm = state_manager.clone();
             let mp = mpool.clone();
@@ -391,8 +396,8 @@ mod test {
     use super::*;
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
+    use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
-    use networks::ChainConfig;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {

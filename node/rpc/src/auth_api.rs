@@ -3,10 +3,10 @@
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
-use auth::*;
-use beacon::Beacon;
-use ipld_blockstore::BlockStore;
-use rpc_api::{auth_api::*, data_types::RPCState};
+use forest_auth::*;
+use forest_beacon::Beacon;
+use forest_ipld_blockstore::BlockStore;
+use forest_rpc_api::{auth_api::*, data_types::RPCState};
 
 /// RPC call to create a new JWT Token
 pub(crate) async fn auth_new<DB, B>(

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::Tipset;
+use forest_ipld_blockstore::BlockStore;
 use forest_message::Message;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::BLOCK_GAS_LIMIT;
-use ipld_blockstore::BlockStore;
 use std::collections::HashSet;
 
 /// Used in calculating the base fee change.
@@ -109,7 +109,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use networks::{ChainConfig, Height};
+    use forest_networks::{ChainConfig, Height};
 
     fn construct_tests() -> Vec<(i64, i64, usize, i64, i64)> {
         // (base_fee, limit_used, no_of_blocks, output)

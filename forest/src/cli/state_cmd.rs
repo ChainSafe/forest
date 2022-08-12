@@ -3,15 +3,15 @@
 
 use std::str::FromStr;
 
-use actor_interface::is_miner_actor;
+use forest_actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use forest_json::address::json::AddressJson;
-use fvm::state_tree::ActorState;
-use fvm_shared::address::Address;
-use rpc_client::{
+use forest_rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,
 };
+use fvm::state_tree::ActorState;
+use fvm_shared::address::Address;
 use structopt::StructOpt;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
