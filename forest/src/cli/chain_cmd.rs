@@ -36,7 +36,7 @@ pub enum ChainCommands {
         recent_stateroots: Option<i64>,
         /// Skip old messages
         #[structopt(short)]
-        skip_old_messages: bool,
+        include_old_messages: bool,
         /// Snapshot output path. Default to [`OUTPUT_PATH_DEFAULT_FORMAT`]
         /// Arguments:
         /// chain - is name of chain name e.g. mainnet
@@ -84,7 +84,7 @@ impl ChainCommands {
                 tipset,
                 recent_stateroots,
                 output_path,
-                skip_old_messages,
+                include_old_messages,
             } => {
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
@@ -117,7 +117,7 @@ impl ChainCommands {
                 let params = (
                     epoch,
                     *recent_stateroots,
-                    *skip_old_messages,
+                    *include_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                 );
