@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 use num_cpus;
-use rocksdb::{DBCompactionStyle, DBCompressionType};
+use rocksdb::{DBCompactionStyle, DBCompressionType, LogLevel};
 use serde::{Deserialize, Serialize};
 
 /// RocksDB configuration exposed in Forest.
@@ -20,6 +20,7 @@ pub struct RocksDbConfig {
     pub compression_type: Option<String>,
     pub compaction_style: Option<String>,
     pub enable_statistics: bool,
+    pub log_level: String,
 }
 
 impl Default for RocksDbConfig {
@@ -33,6 +34,7 @@ impl Default for RocksDbConfig {
             compaction_style: Some("level".into()),
             compression_type: Some("lz4".into()),
             enable_statistics: false,
+            log_level: "debug".into(),
         }
     }
 }
@@ -58,6 +60,18 @@ pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompression
         "zstd" => Ok(DBCompressionType::Zstd),
         "none" => Ok(DBCompressionType::None),
         _ => Err(anyhow!("invalid compression option")),
+    }
+}
+
+/// Converts string to a log level RocksDB variant.
+pub(crate) fn log_level_from_str(s: &str) -> anyhow::Result<LogLevel> {
+    match s.to_lowercase().as_str() {
+        "debug" => Ok(LogLevel::Debug),
+        "warn" => Ok(LogLevel::Warn),
+        "error" => Ok(LogLevel::Error),
+        "fatal" => Ok(LogLevel::Fatal),
+        "header" => Ok(LogLevel::Header),
+        _ => Err(anyhow!("invalid log level option")),
     }
 }
 

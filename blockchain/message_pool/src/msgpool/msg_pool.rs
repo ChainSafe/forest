@@ -171,7 +171,14 @@ where
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-    ) -> Result<(MessagePool<T>, async_std::task::JoinHandle<()>, async_std::task::JoinHandle<()>), Error>
+    ) -> Result<
+        (
+            MessagePool<T>,
+            async_std::task::JoinHandle<()>,
+            async_std::task::JoinHandle<()>,
+        ),
+        Error,
+    >
     where
         T: Provider,
     {

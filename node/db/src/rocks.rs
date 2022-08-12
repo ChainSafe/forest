@@ -3,7 +3,9 @@
 
 use super::errors::Error;
 use super::Store;
-use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, RocksDbConfig};
+use crate::rocks_config::{
+    compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
+};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
@@ -51,8 +53,7 @@ impl RocksDb {
         if config.enable_statistics {
             db_opts.enable_statistics();
         };
-        // TODO: properly expose log levels in our RocksDbConfig
-        db_opts.set_log_level(LogLevel::Debug);
+        db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })

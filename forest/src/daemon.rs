@@ -249,16 +249,15 @@ pub(super) async fn start(config: Config) {
 
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let (mpool, head_changes_task, republish_task) =
-        MessagePool::new(
-            provider,
-            network_name.clone(),
-            network_send.clone(),
-            MpoolConfig::load_config(&db).unwrap(),
-            Arc::clone(state_manager.chain_config()),
-        )
-        .await
-        .unwrap();
+    let (mpool, head_changes_task, republish_task) = MessagePool::new(
+        provider,
+        network_name.clone(),
+        network_send.clone(),
+        MpoolConfig::load_config(&db).unwrap(),
+        Arc::clone(state_manager.chain_config()),
+    )
+    .await
+    .unwrap();
     let mpool = Arc::new(mpool);
 
     // Mining may or may not happen, depending on the consensus type.
