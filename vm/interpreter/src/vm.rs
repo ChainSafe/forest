@@ -18,7 +18,7 @@ use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT};
-use ipld_blockstore::{BlockStore, FvmStore};
+use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -89,8 +89,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<R, C, LB>(
         root: Cid,
-        store: &DB,
-        store_arc: Arc<DB>,
+        store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
@@ -107,18 +106,18 @@ where
         C: CircSupplyCalc,
         LB: LookbackStateGetter,
     {
-        let state = StateTree::new_from_root(store, &root)?;
+        let state = StateTree::new_from_root(&store_arc, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
         context.enable_tracing();
-        let fvm: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> =
+        let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                FvmStore::new(store_arc.clone()),
+                store_arc.clone(),
                 ForestExterns::new(
                     rand.clone(),
                     epoch,

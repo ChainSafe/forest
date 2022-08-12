@@ -310,7 +310,7 @@ pub(crate) async fn state_miner_partitions<
 ) -> anyhow::Result<StateMinerPartitionsResult, JsonRpcError> {
     let (actor, dl_idx, key) = params;
     let actor = actor.into();
-    let db = data.state_manager.chain_store().db.as_ref();
+    let db = &data.state_manager.chain_store().db;
     let mas = data
         .state_manager
         .chain_store()
@@ -770,7 +770,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (state, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let state = StateTree::new_from_root(&data.chain_store.db, &state)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
@@ -813,7 +813,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (root_cid, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
+    let state = StateTree::new_from_root(&data.chain_store.db, &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state

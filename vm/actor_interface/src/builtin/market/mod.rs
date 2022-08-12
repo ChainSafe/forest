@@ -105,18 +105,15 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                fil_actor_market_v8::validate_deals_for_activation(
-                    st,
-                    &fvm_store,
-                    deal_ids,
-                    miner_addr,
-                    sector_expiry,
-                    curr_epoch,
-                )
-                .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-            }
+            State::V8(st) => fil_actor_market_v8::validate_deals_for_activation(
+                st,
+                &store,
+                deal_ids,
+                miner_addr,
+                sector_expiry,
+                curr_epoch,
+            )
+            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
     }
 }

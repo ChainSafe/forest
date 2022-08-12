@@ -20,10 +20,10 @@ forest_encoding = { version = "0.2.1" }
 fvm_shared      = { version = "0.8.0", default-features = false }
 ipld_blockstore = "0.1"
 
-actor_interface = { path = "../../../vm/actor_interface" }
-chain           = { path = "../../chain" }
-chain_sync      = { path = "../../chain_sync/" }
-forest_blocks   = { path = "../../blocks" }
-key_management  = { path = "../../../key_management" }
-networks        = { path = "../../../types/networks" }
-state_manager   = { path = "../../state_manager/" }
+actor_interface = "0.1.0"
+chain           = "0.1.0"
+chain_sync      = "0.1.0"
+forest_blocks   = "0.1.0"
+key_management  = "0.1.0"
+networks        = "0.1.0"
+state_manager   = "0.1.0"

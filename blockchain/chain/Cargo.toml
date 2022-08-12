@@ -5,17 +5,17 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actor_interface   = { path = "../../vm/actor_interface" }
+actor_interface   = "0.1.0"
 anyhow            = "1.0"
 async-std         = { version = "1.9", features = ["tokio1"] }
-beacon            = { path = "../beacon" }
+beacon            = "0.1.0"
 blake2b_simd      = "0.5.9"
 bls-signatures    = { version = "0.11", default-features = false, features = ["blst"] }
 byteorder         = "1.3.4"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 crossbeam         = "0.8.0"
 fil_types         = "0.2"
-forest_blocks     = { path = "../blocks" }
+forest_blocks     = "0.1.0"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_db         = "0.1"
 forest_encoding   = "0.2.1"
@@ -26,14 +26,14 @@ fvm               = "1.0"
 fvm_ipld_car      = "0.4.1"
 fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8.0", default-features = false }
-interpreter       = { path = "../../vm/interpreter/" }
+interpreter       = "0.1.0"
 ipld_blockstore   = "0.1"
 lazy_static       = "1.4"
-legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
+legacy_ipld_amt   = "0.2.0"
 lockfree          = "0.5.1"
 log               = "0.4.8"
 lru               = "0.7.2"
-networks          = { path = "../../types/networks" }
+networks          = "0.1.0"
 num-traits        = "0.2"
 pbr               = "1.0.3"
 serde             = { version = "1.0", features = ["derive"] }
@@ -42,4 +42,4 @@ tokio             = { version = "1.0", features = ["sync"] }
 
 [dev-dependencies]
 multihash  = { version = "0.16.1", default-features = false, features = ["std", "blake2b", "derive"] }
-test_utils = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+test_utils = { version = "0.1.0", features = ["test_constructors"] }

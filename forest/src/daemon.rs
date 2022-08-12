@@ -132,10 +132,8 @@ pub(super) async fn start(config: Config) {
     let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
-    let db = Arc::new(db);
-
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
+    let chain_store = Arc::new(ChainStore::new(db.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -233,7 +231,7 @@ pub(super) async fn start(config: Config) {
             provider,
             network_name.clone(),
             network_send.clone(),
-            MpoolConfig::load_config(db.as_ref()).unwrap(),
+            MpoolConfig::load_config(&db).unwrap(),
             Arc::clone(state_manager.chain_config()),
         )
         .await
@@ -398,7 +396,7 @@ mod test {
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
-        let db = Arc::new(MemoryDB::default());
+        let db = MemoryDB::default();
         let cs = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))

@@ -13,7 +13,7 @@ features = ["json"]
 [dependencies]
 cid                = { version = "0.8", default-features = false, features = ["std"] }
 forest_encoding    = "0.2"
-forest_json        = { version = "0.1.0", path = "../utils/json/" }
+forest_json        = "0.1.0"
 fvm                = "1.1"
 fvm_ipld_encoding  = "0.2"
 fvm_shared         = { version = "0.8", default-features = false }

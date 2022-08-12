@@ -13,13 +13,13 @@ serde      = "1.0"
 serde_json = "1.0"
 surf       = { version = "2.3", default-features = false, features = ["curl-client"] }
 # Internal
-auth           = { path = "../../utils/auth" }
-forest_blocks  = { path = "../../blockchain/blocks" }
+auth           = "0.1.0"
+forest_blocks  = "0.1.0"
 forest_crypto  = { version = "0.5", features = ["blst"] }
-forest_libp2p  = { path = "../forest_libp2p" }
+forest_libp2p  = "0.1.0"
 forest_message = { version = "0.7" }
-key_management = { path = "../../key_management" }
-rpc-api        = { path = "../rpc-api", version = "0.1" }
+key_management = "0.1.0"
+rpc-api        = "0.1.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false

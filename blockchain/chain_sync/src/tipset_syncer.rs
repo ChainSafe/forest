@@ -1255,14 +1255,13 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     let v_block_store = state_manager.blockstore_cloned();
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
-        let base_fee = chain::compute_base_fee(
-            v_block_store.as_ref(),
-            &v_base_tipset,
-            smoke_height,
-        )
-        .map_err(|e| {
-            TipsetRangeSyncerError::<C>::Validation(format!("Could not compute base fee: {}", e))
-        })?;
+        let base_fee = chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
+            .map_err(|e| {
+                TipsetRangeSyncerError::<C>::Validation(format!(
+                    "Could not compute base fee: {}",
+                    e
+                ))
+            })?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
@@ -1278,7 +1277,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(task::spawn_blocking(move || {
-        let calc_weight = C::weight(v_block_store.as_ref(), &v_base_tipset).map_err(|e| {
+        let calc_weight = C::weight(&v_block_store, &v_base_tipset).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
         })?;
         if weight != calc_weight {
