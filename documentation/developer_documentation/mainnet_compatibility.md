@@ -38,6 +38,14 @@ If Forest starts to error and can't get past a block while syncing. Make note of
 We can use that block to help debug any potential state mismatches.
 
 
+## Is Forest on the latest network version?
+
+Something easy to check is if Forest is on the latest Filecoin network version. A repository exists
+where we can see all of the released network versions [here](https://github.com/filecoin-project/tpm/tree/master/Network%20Upgrades).
+Navigate the codebase to see mention of the latest network upgrade. If a snapshot fails to sync at a certain epoch, it's entirely
+possible that the snapshot was behind an epoch when a version upgrade started. Grab a new snapshot by referring to the mdbook
+documentation.
+
 ## Debugging State Mismatches
 
 If an error occurs that mentions "state mismatch". Then follow the following steps:
