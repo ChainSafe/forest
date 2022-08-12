@@ -34,7 +34,6 @@ use fvm_shared::FILECOIN_PRECISION;
 use git_version::git_version;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
-use forest_networks::ChainConfig;
 use once_cell::sync::Lazy;
 use rug::float::ParseFloatError;
 use rug::Float;
