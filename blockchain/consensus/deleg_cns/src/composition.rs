@@ -20,7 +20,7 @@ pub type FullConsensus = DelegatedConsensus;
 
 pub const FETCH_PARAMS: bool = false;
 
-/// Reward 1FIL on top of the gas, which is what Eudico does.
+// Reward 1FIL on top of the gas, which is what Eudico does.
 pub fn reward_calc() -> Arc<dyn interpreter::RewardCalc> {
     Arc::new(interpreter::FixedRewardCalc {
         reward: BigInt::from(1) * FILECOIN_PRECISION,
