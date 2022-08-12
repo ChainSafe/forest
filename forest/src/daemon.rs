@@ -35,8 +35,8 @@ use std::time;
 pub(super) async fn start(config: Config) {
     // TODO: remove later, this helps reproducing the segfault
     use std::cell::RefCell;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::process;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
