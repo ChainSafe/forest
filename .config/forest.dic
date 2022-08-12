@@ -35,8 +35,7 @@ mempool
 sortition
 struct/S
 serializer/SM
-deserialize/D
+deserialize/DG
 deserializer/SM
-deserializing
 boolean
 baz
