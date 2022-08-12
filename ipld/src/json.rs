@@ -8,9 +8,11 @@
 //!
 //! For example:
 //!
-//! |`forest_ipld`|`libipld-json`|
-//! | ----------- | ------------ |
-//! |```{ "/": { "bytes": "mVGhlIHF1aQ" } }```|```{ "/": { "bytes": "VGhlIHF1aQ" } }```|
+//! `forest_ipld`
+//! `{ "/": { "bytes": "mVGhlIHF1aQ" } }`
+//!
+//! `libipld-json`
+//! `{ "/": { "bytes": "VGhlIHF1aQ" } }`
 //!
 //! Since `Lotus` is also using `multihash-base64` and we're trying to be
 //! compatible, we cannot switch to `libipld-json`. It may be worthwhile
