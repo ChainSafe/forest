@@ -14,7 +14,7 @@ serde        = { version = "1.0", default-features = false, features = ["derive"
 thiserror    = "1.0"
 # Internal
 forest_crypto  = { version = "0.5", features = ["blst"] }
-key_management = { path = "../../key_management" }
+key_management = "0.1.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false

@@ -5,21 +5,20 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actor_interface   = { path = "../../vm/actor_interface" }
+actor_interface   = "0.1.0"
 anyhow            = "1.0"
 async-std         = { version = "1.9", features = ["tokio1", "unstable"] }
 async-trait       = "0.1"
-beacon            = { path = "../beacon" }
-chain             = { path = "../chain" }
+beacon            = "0.1.0"
+chain             = "0.1.0"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 fil_types         = "0.2"
-forest_blocks     = { path = "../blocks" }
+forest_blocks     = "0.1.0"
 forest_crypto     = { version = "0.5", features = ["blst"] }
 forest_db         = "0.1"
 forest_encoding   = "0.2.1"
-forest_ipld       = { version = "0.1" }
 forest_json_utils = "0.1"
-forest_libp2p     = { path = "../../node/forest_libp2p" }
+forest_libp2p     = "0.1.0"
 forest_message    = { version = "0.7", features = ["proofs", "blst"] }
 forest_vm         = "0.3.1"
 futures           = "0.3.5"
@@ -27,14 +26,14 @@ futures-util      = "0.3.5"
 fvm               = "1.0"
 fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8.0", default-features = false }
-interpreter       = { path = "../../vm/interpreter/" }
+interpreter       = "0.1.0"
 ipld_blockstore   = "0.1"
 lazy_static       = "1.4.0"
-legacy_ipld_amt   = { path = "../../ipld/legacy_amt" }
+legacy_ipld_amt   = "0.2.0"
 log               = "0.4.8"
 lru               = "0.7.2"
-message_pool      = { path = "../message_pool" }
-networks          = { path = "../../types/networks" }
+message_pool      = "0.1.0"
+networks          = "0.1.0"
 nonempty          = "0.8.0"
 num-bigint        = "0.4"
 num-traits        = "0.2"
@@ -43,19 +42,51 @@ prometheus        = { version = "0.12.0", features = ["process"] }
 rand              = "0.7.3"
 serde             = { version = "1.0", features = ["derive", "rc"] }
 smallvec          = "1.1.0"
-state_manager     = { path = "../state_manager/" }
-statediff         = { path = "../../utils/statediff", optional = true }
+state_manager     = "0.1.0"
+statediff         = { version = "0.1.0", optional = true }
 thiserror         = "1.0"
 time              = { version = "0.3", features = ["serde"] }
 tokio             = { version = "1.0", features = ["sync"] }
 
 [dev-dependencies]
+async-std         = { version = "1.9", features = ["tokio1", "unstable"] }
+async-trait       = "0.1"
 base64            = "0.13"
+cid               = { version = "0.8", default-features = false, features = ["std"] }
+fil_types         = "0.2"
+forest_crypto     = { version = "0.5", features = ["blst"] }
+forest_db         = "0.1"
+forest_encoding   = "0.2.1"
+forest_ipld       = { version = "0.1" }
+forest_json_utils = "0.1"
+forest_message    = { version = "0.7", features = ["proofs", "blst"] }
+forest_vm         = "0.3.1"
+futures           = "0.3.5"
+futures-util      = "0.3.5"
+fvm               = "1.0"
 fvm_ipld_car      = "0.4.1"
-genesis           = { path = "../../utils/genesis", features = ["testing"] }
+fvm_ipld_encoding = "0.2"
+fvm_shared        = { version = "0.8.0", default-features = false }
+genesis           = { version = "0.1.0", features = ["testing"] }
 hex               = "0.4"
+ipld_blockstore   = "0.1"
+lazy_static       = "1.4.0"
+libp2p            = { version = "0.40.0-rc.1", default-features = false }
+log               = "0.4.8"
+lru               = "0.7.2"
+nonempty          = "0.8.0"
+num-bigint        = "0.4"
+num-traits        = "0.2"
+pbr               = "1.0.3"
 pretty_env_logger = "0.4.0"
-test_utils        = { version = "0.1.0", path = "../../utils/test_utils/", features = ["test_constructors"] }
+prometheus        = { version = "0.12.0", features = ["process"] }
+rand              = "0.7.3"
+serde             = { version = "1.0", features = ["derive", "rc"] }
+smallvec          = "1.1.0"
+test_utils        = { version = "0.1.0", features = ["test_constructors"] }
+thiserror         = "1.0"
+time              = { version = "0.3", features = ["serde"] }
+tokio             = { version = "1.0", features = ["sync"] }
 
 [features]
 default = ["statediff"]
