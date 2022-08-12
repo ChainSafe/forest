@@ -45,6 +45,7 @@ num-traits         = "0.2"
 rand               = "0.8"
 rand_distr         = "0.4"
 rpc-api            = "0.1.0"
+semver             = "1.0"
 serde              = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json         = "1.0"
 state_manager      = "0.1.0"

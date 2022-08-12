@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{block_until_sigint, Config};
+use super::cli::{block_until_sigint, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
 use async_std::net::TcpListener;
 use async_std::task::JoinHandle;
@@ -35,7 +35,7 @@ use std::time;
 pub(super) async fn start(config: Config) {
     info!(
         "Starting Forest daemon, version {}",
-        option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+        FOREST_VERSION_STRING.as_str()
     );
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
@@ -326,6 +326,7 @@ pub(super) async fn start(config: Config) {
                     new_mined_block_tx: tipset_sink,
                 }),
                 rpc_listen,
+                FOREST_VERSION_STRING.as_str(),
             )
             .await
         }))

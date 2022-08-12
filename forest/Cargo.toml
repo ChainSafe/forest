@@ -4,7 +4,6 @@ version     = "0.2.2"
 authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
 edition     = "2021"
-build       = "build.rs"
 
 [dependencies]
 actor_interface   = { path = "../vm/actor_interface" }
@@ -36,6 +35,7 @@ fvm               = "1.0"
 fvm_ipld_car      = "0.4.1"
 fvm_shared        = { version = "0.8.0", default-features = false }
 genesis           = "0.1.0"
+git-version       = "0.3"
 hex               = "0.4"
 ipld_blockstore   = "0.1"
 key_management    = "0.1.0"
@@ -47,6 +47,7 @@ multibase         = "0.9"
 net_utils         = "0.1.0"
 networks          = "0.1.0"
 num-rational      = "0.4"
+once_cell         = "1.5"
 paramfetch        = "0.1.0"
 pretty_env_logger = "0.4"
 prometheus        = { version = "0.13", features = ["process"] }
