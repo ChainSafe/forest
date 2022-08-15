@@ -19,7 +19,7 @@ use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
 
-/// Defines a TipsetKey used in testing
+/// Defines a `TipsetKey` used in testing
 pub fn template_key(data: &[u8]) -> Cid {
     Cid::new_v1(DAG_CBOR, Blake2b256.digest(data))
 }
@@ -50,7 +50,7 @@ fn template_header(
         .unwrap()
 }
 
-/// Returns a vec of 4 distinct CIDs
+/// Returns a vector of 4 distinct CIDs
 pub fn construct_keys() -> Vec<Cid> {
     vec![
         template_key(b"test content"),
@@ -60,7 +60,7 @@ pub fn construct_keys() -> Vec<Cid> {
     ]
 }
 
-/// Returns a vec of block headers to be used for testing purposes
+/// Returns a vector of block headers to be used for testing purposes
 pub fn construct_headers(epoch: i64, weight: u64) -> Vec<BlockHeader> {
     let data0: Vec<u8> = vec![1, 4, 3, 6, 7, 1, 2];
     let data1: Vec<u8> = vec![1, 4, 3, 6, 1, 1, 2, 2, 4, 5, 3, 12, 2, 1];
@@ -149,7 +149,7 @@ pub fn construct_messages() -> (Message, SignedMessage) {
     (bls_messages, secp_messages)
 }
 
-/// Returns a TipsetBundle used for testing
+/// Returns a `TipsetBundle` used for testing
 pub fn construct_tipset_bundle(epoch: i64, weight: u64) -> TipsetBundle {
     let headers = construct_headers(epoch, weight);
     let (bls, secp) = construct_messages();
@@ -176,7 +176,7 @@ pub fn construct_dummy_header() -> BlockHeader {
         .unwrap()
 }
 
-/// Returns a RPCResponse used for testing
+/// Returns a `RPCResponse` used for testing
 pub fn construct_chain_exchange_response() -> ChainExchangeResponse {
     // construct block sync response
     ChainExchangeResponse {

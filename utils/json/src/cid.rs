@@ -9,7 +9,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[serde(transparent)]
 pub struct CidJson(#[serde(with = "self")] pub Cid);
 
-/// Wrapper for serializing a cid reference to JSON.
+/// Wrapper for serializing a CID reference to JSON.
 #[derive(Serialize)]
 #[serde(transparent)]
 pub struct CidJsonRef<'a>(#[serde(with = "self")] pub &'a Cid);
@@ -35,7 +35,7 @@ where
     cid.parse().map_err(de::Error::custom)
 }
 
-/// Struct just used as a helper to serialize a cid into a map with key "/"
+/// Structure just used as a helper to serialize a CID into a map with key "/"
 #[derive(Serialize, Deserialize)]
 struct CidMap {
     #[serde(rename = "/")]
@@ -52,7 +52,7 @@ pub mod vec {
     #[serde(transparent)]
     pub struct CidJsonVec(#[serde(with = "self")] pub Vec<Cid>);
 
-    /// Wrapper for serializing a cid slice to JSON.
+    /// Wrapper for serializing a CID slice to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct CidJsonSlice<'a>(#[serde(with = "self")] pub &'a [Cid]);
