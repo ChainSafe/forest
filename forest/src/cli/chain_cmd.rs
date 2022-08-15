@@ -39,8 +39,8 @@ pub enum ChainCommands {
         include_old_messages: bool,
         /// Snapshot output path. Default to forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
         /// Arguments:
-        ///  - chain - is name of chain name e.g. mainnet
-        ///  - year - YYYY format
+        ///  - chain - is name of chain name e.g. main net
+        ///  - year - 4-number format
         ///  - month - ISO 8601 date format.
         ///  - day - DD format
         ///  - height - the epoch
