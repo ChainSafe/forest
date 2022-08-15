@@ -6,7 +6,7 @@ use bls_signatures::{
 };
 use fvm_shared::address::Address;
 
-/// Returns `String` error if a bls signature is invalid.
+/// Returns `String` error if a BLS signature is invalid.
 pub(crate) fn verify_bls_sig(signature: &[u8], data: &[u8], addr: &Address) -> Result<(), String> {
     let pub_k = addr.payload_bytes();
 
