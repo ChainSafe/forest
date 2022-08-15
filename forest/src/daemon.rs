@@ -10,7 +10,7 @@ use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
-use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
+use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId};
 use fvm_shared::version::NetworkVersion;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -30,6 +30,17 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time;
+
+// Initialize Consensus
+#[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
+compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
+
+// Default consensus
+#[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
+use fil_cns::composition as cns;
+// Custom consensus.
+#[cfg(feature = "deleg_cns")]
+use deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
@@ -57,6 +68,10 @@ pub(super) async fn start(config: Config) {
         };
         Keypair::Ed25519(gen_keypair)
     });
+
+    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
+    // Useful if others want to use this node to bootstrap from.
+    info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut ks = if config.client.encrypt_keystore {
         loop {
@@ -148,10 +163,19 @@ pub(super) async fn start(config: Config) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
+    // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
+    // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
+    let reward_calc = cns::reward_calc();
+
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))
-        .await
-        .unwrap();
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&config.chain),
+        reward_calc,
+    )
+    .await
+    .unwrap();
+
     let state_manager = Arc::new(sm);
 
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
@@ -183,8 +207,7 @@ pub(super) async fn start(config: Config) {
     }
 
     // Fetch and ensure verification keys are downloaded
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    {
+    if cns::FETCH_PARAMS {
         use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
@@ -238,9 +261,6 @@ pub(super) async fn start(config: Config) {
         .unwrap(),
     );
 
-    // Mining may or may not happen, depending on the consensus type.
-    let mining_task: Option<JoinHandle<anyhow::Result<()>>>;
-
     // For consensus types that do mining, create a component to submit their proposals.
     let submitter = SyncGossipSubmitter::new(
         network_name.clone(),
@@ -248,39 +268,9 @@ pub(super) async fn start(config: Config) {
         tipset_sink.clone(),
     );
 
-    // Initialize Consensus
-    #[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
-    compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
-
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    type FullConsensus = fil_cns::FilecoinConsensus<beacon::DrandBeacon, FullVerifier>;
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    let consensus: FullConsensus = {
-        mining_task = None;
-        drop(submitter);
-        fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
-    };
-    #[cfg(feature = "deleg_cns")]
-    type FullConsensus = deleg_cns::DelegatedConsensus;
-    #[cfg(feature = "deleg_cns")]
-    let consensus: FullConsensus = {
-        use chain_sync::consensus::Proposer;
-        use futures::TryFutureExt;
-        let consensus = deleg_cns::DelegatedConsensus::default();
-        if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
-            let sm = state_manager.clone();
-            let mp = mpool.clone();
-            mining_task = Some(task::spawn(async move {
-                proposer
-                    .run(sm, mp.as_ref(), &submitter)
-                    .inspect_err(|e| error!("block proposal stopped: {}", e))
-                    .await
-            }));
-        } else {
-            mining_task = None
-        }
-        consensus
-    };
+    // Initialize Consensus. Mining may or may not happen, depending on type.
+    let (consensus, mining_task) =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter).await;
 
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
@@ -312,7 +302,7 @@ pub(super) async fn start(config: Config) {
 
         Some(task::spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            start_rpc::<_, _, FullVerifier, FullConsensus>(
+            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
                     keystore: keystore_rpc,
@@ -406,7 +396,15 @@ mod test {
             .unwrap();
         cs.set_genesis(&genesis_header).unwrap();
         let chain_config = Arc::new(ChainConfig::default());
-        let sm = Arc::new(StateManager::new(cs, chain_config).await.unwrap());
+        let sm = Arc::new(
+            StateManager::new(
+                cs,
+                chain_config,
+                Arc::new(interpreter::RewardActorMessageCalc),
+            )
+            .await
+            .unwrap(),
+        );
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");
