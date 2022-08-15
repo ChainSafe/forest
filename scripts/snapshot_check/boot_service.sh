@@ -15,5 +15,5 @@ docker run \
     --detach \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v $BASE_FOLDER:$BASE_FOLDER:rshared \
+    -v "$BASE_FOLDER":"$BASE_FOLDER":rshared \
     ghcr.io/chainsafe/sync-snapshot
