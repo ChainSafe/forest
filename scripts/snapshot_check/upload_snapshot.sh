@@ -3,7 +3,7 @@
 set -e
 
 DETACH_TIMEOUT=10m
-SYNC_TIMEOUT=15m
+SYNC_TIMEOUT=25m
 
 apt-get install -y curl
 
