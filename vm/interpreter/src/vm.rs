@@ -17,7 +17,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
-use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT};
+use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
 use ipld_blockstore::BlockStore;
 use networks::{ChainConfig, Height};
 use std::collections::HashSet;
@@ -44,6 +44,21 @@ pub trait CircSupplyCalc: Clone + 'static {
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error>;
+}
+
+/// Allows the generation of a reward message based on gas fees and penalties.
+///
+/// This should facilitate custom consensus protocols using their own economic incentives.
+pub trait RewardCalc: Send + Sync + 'static {
+    /// Construct a reward message, if rewards are applicable.
+    fn reward_message(
+        &self,
+        epoch: ChainEpoch,
+        miner: Address,
+        win_count: i64,
+        penalty: BigInt,
+        gas_reward: BigInt,
+    ) -> Result<Option<Message>, anyhow::Error>;
 }
 
 /// Trait to allow VM to retrieve state at an old epoch.
@@ -78,6 +93,7 @@ impl Heights {
 pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
     fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
     params: PhantomData<P>,
+    reward_calc: Arc<dyn RewardCalc>,
     heights: Heights,
 }
 
@@ -95,6 +111,7 @@ where
         base_fee: BigInt,
         network_version: NetworkVersion,
         circ_supply_calc: C,
+        reward_calc: Arc<dyn RewardCalc>,
         override_circ_supply: Option<TokenAmount>,
         lb_state: &LB,
         engine: Engine,
@@ -136,6 +153,7 @@ where
         Ok(VM {
             fvm_executor: exec,
             params: PhantomData,
+            reward_calc,
             heights,
         })
     }
@@ -246,46 +264,31 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            let params = Serialized::serialize(AwardBlockRewardParams {
-                miner: block.miner,
+            if let Some(rew_msg) = self.reward_calc.reward_message(
+                epoch,
+                block.miner,
+                block.win_count,
                 penalty,
                 gas_reward,
-                win_count: block.win_count,
-            })?;
-
-            let rew_msg = Message {
-                from: system::ADDRESS,
-                to: reward::ADDRESS,
-                method_num: reward::Method::AwardBlockReward as u64,
-                params,
-                // Epoch as sequence is intentional
-                sequence: epoch as u64,
-                gas_limit: 1 << 30,
-                value: Default::default(),
-                version: Default::default(),
-                gas_fee_cap: Default::default(),
-                gas_premium: Default::default(),
-            };
-
-            let ret = self.apply_implicit_message(&rew_msg)?;
-            if let Some(err) = ret.failure_info {
-                anyhow::bail!(
-                    "failed to apply reward message for miner {}: {}",
-                    block.miner,
-                    err
-                );
-            }
-
-            // This is more of a sanity check, this should not be able to be hit.
-            if ret.msg_receipt.exit_code != ExitCode::OK {
-                anyhow::bail!(
-                    "reward application message failed (exit: {:?})",
-                    ret.msg_receipt.exit_code
-                );
-            }
-
-            if let Some(callback) = &mut callback {
-                callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+            )? {
+                let ret = self.apply_implicit_message(&rew_msg)?;
+                if let Some(err) = ret.failure_info {
+                    anyhow::bail!(
+                        "failed to apply reward message for miner {}: {}",
+                        block.miner,
+                        err
+                    );
+                }
+                // This is more of a sanity check, this should not be able to be hit.
+                if ret.msg_receipt.exit_code != ExitCode::OK {
+                    anyhow::bail!(
+                        "reward application message failed (exit: {:?})",
+                        ret.msg_receipt.exit_code
+                    );
+                }
+                if let Some(callback) = &mut callback {
+                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                }
             }
         }
 
@@ -352,4 +355,90 @@ fn check_message(msg: &Message) -> Result<(), anyhow::Error> {
     }
 
     Ok(())
+}
+
+/// Default reward working with the Filecoin Reward Actor.
+pub struct RewardActorMessageCalc;
+
+impl RewardCalc for RewardActorMessageCalc {
+    fn reward_message(
+        &self,
+        epoch: ChainEpoch,
+        miner: Address,
+        win_count: i64,
+        penalty: BigInt,
+        gas_reward: BigInt,
+    ) -> Result<Option<Message>, anyhow::Error> {
+        let params = Serialized::serialize(AwardBlockRewardParams {
+            miner,
+            penalty,
+            gas_reward,
+            win_count,
+        })?;
+
+        let rew_msg = Message {
+            from: system::ADDRESS,
+            to: reward::ADDRESS,
+            method_num: reward::Method::AwardBlockReward as u64,
+            params,
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            gas_limit: 1 << 30,
+            value: Default::default(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        Ok(Some(rew_msg))
+    }
+}
+
+/// Not giving any reward for block creation.
+pub struct NoRewardCalc;
+
+impl RewardCalc for NoRewardCalc {
+    fn reward_message(
+        &self,
+        _epoch: ChainEpoch,
+        _miner: Address,
+        _win_count: i64,
+        _penalty: BigInt,
+        _gas_reward: BigInt,
+    ) -> Result<Option<Message>, anyhow::Error> {
+        Ok(None)
+    }
+}
+
+/// Giving a fixed amount of coins for each block produced directly to the miner,
+/// on top of the gas spent, so the circulating supply isn't burned. Ignores penalties.
+pub struct FixedRewardCalc {
+    pub reward: BigInt,
+}
+
+impl RewardCalc for FixedRewardCalc {
+    fn reward_message(
+        &self,
+        epoch: ChainEpoch,
+        miner: Address,
+        _win_count: i64,
+        _penalty: BigInt,
+        gas_reward: BigInt,
+    ) -> Result<Option<Message>, anyhow::Error> {
+        let msg = Message {
+            from: reward::ADDRESS,
+            to: miner,
+            method_num: METHOD_SEND as u64,
+            params: Default::default(),
+            // Epoch as sequence is intentional
+            sequence: epoch as u64,
+            gas_limit: 1 << 30,
+            value: gas_reward + self.reward.clone(),
+            version: Default::default(),
+            gas_fee_cap: Default::default(),
+            gas_premium: Default::default(),
+        };
+
+        Ok(Some(msg))
+    }
 }

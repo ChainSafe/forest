@@ -30,9 +30,11 @@ use byte_unit::Byte;
 use directories::ProjectDirs;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
+use git_version::git_version;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
 use networks::ChainConfig;
+use once_cell::sync::Lazy;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
@@ -50,11 +52,16 @@ use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
 use utils::{read_file_to_string, read_toml};
 
+const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
+
+pub static FOREST_VERSION_STRING: Lazy<String> =
+    Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
+
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
 #[structopt(
     name = env!("CARGO_PKG_NAME"),
-    version = option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+    version = FOREST_VERSION_STRING.as_str(),
     about = env!("CARGO_PKG_DESCRIPTION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]

@@ -811,8 +811,15 @@ where
         loop {
             match self.state {
                 ChainMuxerState::Idle => {
-                    // Create the connect future and set the state to connect
-                    self.state = ChainMuxerState::Connect(self.evaluate_network_head());
+                    if self.sync_config.tipset_sample_size == 0 {
+                        // A standalone node might use this option to not be stuck waiting for P2P messages.
+                        info!("Skip evaluating network head, assume in-sync.");
+                        self.state = ChainMuxerState::Follow(self.follow(None));
+                    } else {
+                        // Create the connect future and set the state to connect
+                        info!("Evaluating network head...");
+                        self.state = ChainMuxerState::Connect(self.evaluate_network_head());
+                    }
                 }
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
                     Poll::Ready(Ok(evaluation)) => match evaluation {
