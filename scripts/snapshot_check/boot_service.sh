@@ -12,7 +12,6 @@ docker run \
     --security-opt "apparmor=unconfined" \
     --env-file .env \
     --rm \
-    --detach \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$BASE_FOLDER":"$BASE_FOLDER":rshared \
