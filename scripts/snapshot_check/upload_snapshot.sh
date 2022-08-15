@@ -14,7 +14,8 @@ trap 'report' ERR
 
 cd "$BASE_FOLDER"
 
-files=(*) NEWEST_SNAPSHOT=${files[0]}
+files=("$BASE_FOLDER"/s3/*)
+NEWEST_SNAPSHOT=${files[0]}
 for f in "${files[@]}"; do
   if [[ $f -nt $NEWEST_SNAPSHOT ]]; then
     NEWEST_SNAPSHOT=$f
