@@ -124,7 +124,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access
 });
 
-/// Checks an access enum against provided JWT claims
+/// Checks an access enumeration against provided JWT claims
 pub fn check_access(access: &Access, claims: &[String]) -> bool {
     match access {
         Access::Admin => claims.contains(&"admin".to_owned()),
@@ -140,7 +140,7 @@ pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
 /// JSON-RPC API definitions
 
-/// Auth API
+/// Authorization API
 pub mod auth_api {
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
     pub type AuthNewParams = (Vec<String>,);
