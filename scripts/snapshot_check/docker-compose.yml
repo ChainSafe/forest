@@ -12,6 +12,7 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     environment:
       - SLACK_HOOK
+      - BASE_FOLDER
     command:
       - |
         export CHAIN_NAME=calibnet
