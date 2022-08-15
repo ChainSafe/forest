@@ -2,6 +2,9 @@
 
 set -e
 
+DETACH_TIMEOUT=10m
+SYNC_TIMEOUT=15m
+
 apt-get install -y curl
 
 report() {
@@ -20,9 +23,9 @@ done
 
 forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain "$CHAIN_NAME" --import-snapshot "$NEWEST_SNAPSHOT" &
 
-sleep 1200 # Wait for the RPC endpoint to be available. Remove this once Forest support the --detach flag.
+sleep "$DETACH_TIMEOUT" # Wait for the RPC endpoint to be available. Remove this once Forest support the --detach flag.
 
-forest sync wait # Wait for forest node to be completely synced.
+timeout "$SYNC_TIMEOUT" forest sync wait # Wait for forest node to be completely synced.
 echo "Synced to calibnet"
 
 if [[ "$$(date -r $NEWEST_SNAPSHOT +%F)" != "$$(date +%F)" ]]; then
