@@ -124,7 +124,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access
 });
 
-/// Checks an access enum against provided JWT claims
+/// Checks an access enumeration against provided JWT claims
 pub fn check_access(access: &Access, claims: &[String]) -> bool {
     match access {
         Access::Admin => claims.contains(&"admin".to_owned()),
