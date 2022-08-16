@@ -1,44 +1,44 @@
 [package]
-name    = "message_pool"
+name    = "forest_message_pool"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow            = "1.0"
-async-std         = { version = "1.9", features = ["tokio1"] }
-async-trait       = "0.1"
-blake2b_simd      = "0.5.10"
-chain             = "0.1.0"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
-fil_types         = "0.2"
-forest_blocks     = "0.1.0"
-forest_crypto     = { version = "0.5", features = ["blst"] }
-forest_db         = "0.1"
-forest_encoding   = "0.2.1"
-forest_libp2p     = "0.1.0"
-forest_message    = { version = "0.7", features = ["proofs", "blst"] }
-forest_vm         = "0.3.1"
-futures           = "0.3.5"
-fvm               = "1.0"
-fvm_ipld_encoding = "0.2"
-fvm_shared        = { version = "0.8.0", default-features = false }
-interpreter       = "0.1.0"
-ipld_blockstore   = "0.1"
-libsecp256k1      = "0.6"
-log               = "0.4.8"
-lru               = "0.7.2"
-networks          = "0.1.0"
-num-rational      = "0.4"
-num-traits        = "0.2"
-rand              = "0.8.3"
-serde             = { version = "1.0", features = ["derive"] }
-slotmap           = "1.0"
-state_manager     = "0.1.0"
-statrs            = "0.15"
-thiserror         = "1.0"
-tokio             = { version = "1.0", features = ["sync"] }
+anyhow                 = "1.0"
+async-std              = { version = "1.9", features = ["tokio1"] }
+async-trait            = "0.1"
+blake2b_simd           = "0.5.10"
+cid                    = { version = "0.8", default-features = false, features = ["std"] }
+forest_blocks          = "0.1.0"
+forest_chain           = "0.1.0"
+forest_crypto          = { version = "0.5", features = ["blst"] }
+forest_db              = "0.1"
+forest_encoding        = "0.2.1"
+forest_fil_types       = "0.2"
+forest_interpreter     = "0.1.0"
+forest_ipld_blockstore = "0.1"
+forest_libp2p          = "0.1.0"
+forest_message         = { version = "0.7", features = ["proofs", "blst"] }
+forest_networks        = "0.1.0"
+forest_state_manager   = "0.1.0"
+forest_vm              = "0.3.1"
+futures                = "0.3.5"
+fvm                    = "1.0"
+fvm_ipld_encoding      = "0.2"
+fvm_shared             = { version = "0.8.0", default-features = false }
+libsecp256k1           = "0.6"
+log                    = "0.4.8"
+lru                    = "0.7.2"
+num-rational           = "0.4"
+num-traits             = "0.2"
+rand                   = "0.8.3"
+serde                  = { version = "1.0", features = ["derive"] }
+slotmap                = "1.0"
+statrs                 = "0.15"
+thiserror              = "1.0"
+tokio                  = { version = "1.0", features = ["sync"] }
 
 [dev-dependencies]
-interpreter    = "0.1.0"
-key_management = "0.1.0"
+forest_interpreter    = "0.1.0"
+forest_key_management = "0.1.0"

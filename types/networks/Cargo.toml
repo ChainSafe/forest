@@ -1,14 +1,14 @@
 [package]
-name    = "networks"
+name    = "forest_networks"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
 anyhow             = "1.0"
-beacon             = "0.1.0"
 fil_actors_runtime = "=8.0.0"
-fil_types          = "0.2"
+forest_beacon      = "0.1.0"
+forest_fil_types   = "0.2"
 forest_json        = "0.1.0"
 fvm_shared         = { version = "0.8.0", default-features = false }
 lazy_static        = "1.4"

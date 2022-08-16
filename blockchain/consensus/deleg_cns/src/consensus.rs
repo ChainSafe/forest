@@ -3,25 +3,25 @@
 use anyhow::anyhow;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
-use key_management::KeyStore;
+use forest_key_management::KeyStore;
 use log::info;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
 
-use chain::Error as ChainStoreError;
-use chain::Scale;
-use chain::Weight;
-use chain_sync::consensus::Consensus;
 use forest_blocks::{Block, Tipset};
+use forest_chain::Error as ChainStoreError;
+use forest_chain::Scale;
+use forest_chain::Weight;
+use forest_chain_sync::consensus::Consensus;
+use forest_ipld_blockstore::BlockStore;
+use forest_state_manager::Error as StateManagerError;
+use forest_state_manager::StateManager;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
-use ipld_blockstore::BlockStore;
 use nonempty::NonEmpty;
-use state_manager::Error as StateManagerError;
-use state_manager::StateManager;
 
 use crate::DelegatedProposer;
 
@@ -100,9 +100,9 @@ impl DelegatedConsensus {
             self.chosen_one, work_addr
         );
 
-        match key_management::find_key(&work_addr, &*keystore.as_ref().read().await) {
+        match forest_key_management::find_key(&work_addr, &*keystore.as_ref().read().await) {
             Ok(key) => Ok(Some(DelegatedProposer::new(self.chosen_one, key))),
-            Err(key_management::Error::KeyInfo) => Ok(None),
+            Err(forest_key_management::Error::KeyInfo) => Ok(None),
             Err(e) => Err(anyhow!(e)),
         }
     }

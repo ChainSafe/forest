@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use directories::ProjectDirs;
-use rpc_client::DEFAULT_PORT;
+use forest_rpc_client::DEFAULT_PORT;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},

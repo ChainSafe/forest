@@ -7,18 +7,25 @@ mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
-use actor_interface::*;
 use anyhow::Context;
 use async_log::span;
 use async_std::{sync::RwLock, task};
-use beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
-use chain::{ChainStore, HeadChange};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
-use fil_types::{verifier::ProofVerifier, SectorInfo, SectorSize};
+use forest_actor_interface::*;
+use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
+use forest_chain::{ChainStore, HeadChange};
+use forest_fil_types::{verifier::ProofVerifier, SectorInfo, SectorSize};
+use forest_interpreter::{
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
+    VM,
+};
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
+use forest_networks::{ChainConfig, Height};
 use forest_vm::TokenAmount;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
@@ -32,14 +39,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
-use interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
-    VM,
-};
-use ipld_blockstore::{BlockStore, BlockStoreExt};
-use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
-use networks::{ChainConfig, Height};
 use num_traits::identities::Zero;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ pub struct StateManager<DB> {
     cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
-    beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
+    beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
@@ -264,7 +264,7 @@ where
     /// Returns true if miner has been slashed or is considered invalid.
     pub fn is_miner_slashed(&self, addr: &Address, state_cid: &Cid) -> anyhow::Result<bool, Error> {
         let actor = self
-            .get_actor(&actor_interface::power::ADDRESS, *state_cid)?
+            .get_actor(&forest_actor_interface::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -299,7 +299,7 @@ where
         addr: Option<&Address>,
     ) -> anyhow::Result<Option<(power::Claim, power::Claim)>, Error> {
         let actor = self
-            .get_actor(&actor_interface::power::ADDRESS, *state_cid)?
+            .get_actor(&forest_actor_interface::power::ADDRESS, *state_cid)?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
 
         let spas = power::State::load(self.blockstore(), &actor)?;
@@ -742,7 +742,7 @@ where
 
         let actor = self
             .get_actor(
-                &actor_interface::power::ADDRESS,
+                &forest_actor_interface::power::ADDRESS,
                 *base_tipset.parent_state(),
             )?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -795,7 +795,7 @@ where
                 {
                     anyhow::bail!("failed to get latest beacon entry: {:?}", err);
                 }
-                beacon::BeaconEntry::default()
+                forest_beacon::BeaconEntry::default()
             }
         };
         let entries = beacon
@@ -968,7 +968,7 @@ where
                         s == msg_cid
                     ).unwrap_or_default() {
                         // When message Cid has been found, get receipt at index.
-                        let rct = chain::get_parent_reciept(
+                        let rct = forest_chain::get_parent_reciept(
                             self.blockstore(),
                             tipset.blocks().first().unwrap(),
                             index,
@@ -1059,7 +1059,7 @@ where
     }
     /// Returns a message receipt from a given tipset and message CID.
     pub async fn get_receipt(&self, tipset: &Tipset, msg: Cid) -> Result<MessageReceipt, Error> {
-        let m = chain::get_chain_message(self.blockstore(), &msg)
+        let m = forest_chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (m.from(), &m.sequence());
         let message_receipt = self
@@ -1095,7 +1095,7 @@ where
     {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
-        let message = chain::get_chain_message(self.blockstore(), &msg_cid)
+        let message = forest_chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
 
         let message_var = (message.from(), &message.sequence());
@@ -1279,7 +1279,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<MarketBalance, Error> {
         let actor = self
-            .get_actor(&actor_interface::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&forest_actor_interface::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;
@@ -1336,7 +1336,7 @@ where
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
         let actor = self
-            .get_actor(&actor_interface::power::ADDRESS, *ts.parent_state())?
+            .get_actor(&forest_actor_interface::power::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let ps = power::State::load(self.blockstore(), &actor)?;
 
@@ -1360,7 +1360,7 @@ where
         for ts in ts_chain.iter().rev() {
             if ts.parent_state() != &last_state {
                 #[cfg(feature = "statediff")]
-                statediff::print_state_diff(
+                forest_statediff::print_state_diff(
                     self.blockstore(),
                     &last_state,
                     ts.parent_state(),
@@ -1407,7 +1407,7 @@ where
     /// Return the state of Market Actor.
     pub fn get_market_state(&self, ts: &Tipset) -> anyhow::Result<market::State> {
         let actor = self
-            .get_actor(&actor_interface::market::ADDRESS, *ts.parent_state())?
+            .get_actor(&forest_actor_interface::market::ADDRESS, *ts.parent_state())?
             .ok_or_else(|| {
                 Error::State("Market actor address could not be resolved".to_string())
             })?;

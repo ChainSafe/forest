@@ -1,36 +1,36 @@
 [package]
-name    = "fil_cns"
+name    = "forest_fil_cns"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actor_interface    = "0.1.0"
-anyhow             = "1.0"
-async-std          = { version = "1.9", features = ["tokio1", "unstable"] }
-async-trait        = "0.1"
-beacon             = "0.1.0"
-chain              = "0.1.0"
-chain_sync         = "0.1.0"
-cid                = { version = "0.8", default-features = false, features = ["std"] }
-fil_actors_runtime = "=8.0.0"
-fil_types          = "0.2"
-forest_blocks      = "0.1.0"
-forest_crypto      = { version = "0.5", features = ["blst"] }
-forest_encoding    = "0.2.1"
-futures            = "0.3.5"
-fvm                = "1.0"
-fvm_ipld_encoding  = "0.2"
-fvm_shared         = { version = "0.8.0", default-features = false }
-interpreter        = "0.1.0"
-ipld_blockstore    = "0.1"
-key_management     = "0.1.0"
-log                = "0.4.8"
-networks           = "0.1.0"
-nonempty           = "0.8.0"
-num-traits         = "0.2"
-state_manager      = "0.1.0"
-thiserror          = "1.0"
+anyhow                 = "1.0"
+async-std              = { version = "1.9", features = ["tokio1", "unstable"] }
+async-trait            = "0.1"
+cid                    = { version = "0.8", default-features = false, features = ["std"] }
+fil_actors_runtime     = "=8.0.0"
+forest_actor_interface = "0.1.0"
+forest_beacon          = "0.1.0"
+forest_blocks          = "0.1.0"
+forest_chain           = "0.1.0"
+forest_chain_sync      = "0.1.0"
+forest_crypto          = { version = "0.5", features = ["blst"] }
+forest_encoding        = "0.2.1"
+forest_fil_types       = "0.2"
+forest_interpreter     = "0.1.0"
+forest_ipld_blockstore = "0.1"
+forest_key_management  = "0.1.0"
+forest_networks        = "0.1.0"
+forest_state_manager   = "0.1.0"
+futures                = "0.3.5"
+fvm                    = "1.0"
+fvm_ipld_encoding      = "0.2"
+fvm_shared             = { version = "0.8.0", default-features = false }
+log                    = "0.4.8"
+nonempty               = "0.8.0"
+num-traits             = "0.2"
+thiserror              = "1.0"
 
 [features]
 insecure_post = []

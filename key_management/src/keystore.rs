@@ -323,7 +323,7 @@ impl KeyStore {
 
                 // Restrict permissions on files containing private keys
                 #[cfg(unix)]
-                utils::set_user_perm(&file)?;
+                forest_utils::set_user_perm(&file)?;
 
                 let mut writer = BufWriter::new(file);
 

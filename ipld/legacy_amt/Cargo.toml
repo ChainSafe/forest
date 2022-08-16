@@ -1,5 +1,5 @@
 [package]
-name        = "legacy_ipld_amt"
+name        = "forest_legacy_ipld_amt"
 description = "Sharded IPLD Array implementation."
 version     = "0.2.0"
 license     = "MIT OR Apache-2.0"
@@ -8,17 +8,17 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-ahash             = { version = "0.7", optional = true }
-anyhow            = "1.0"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
-forest_db         = "0.1"
-forest_encoding   = "0.2"
-fvm_ipld_encoding = "0.2"
-ipld_blockstore   = "0.1"
-itertools         = "0.10"
-once_cell         = "1.5"
-serde             = { version = "1.0", features = ["derive"] }
-thiserror         = "1.0"
+ahash                  = { version = "0.7", optional = true }
+anyhow                 = "1.0"
+cid                    = { version = "0.8", default-features = false, features = ["std"] }
+forest_db              = "0.1"
+forest_encoding        = "0.2"
+forest_ipld_blockstore = "0.1"
+fvm_ipld_encoding      = "0.2"
+itertools              = "0.10"
+once_cell              = "1.5"
+serde                  = { version = "1.0", features = ["derive"] }
+thiserror              = "1.0"
 
 [features]
 go-interop = ["ahash"]

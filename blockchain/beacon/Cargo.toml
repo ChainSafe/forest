@@ -1,5 +1,5 @@
 [package]
-name    = "beacon"
+name    = "forest_beacon"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
