@@ -21,33 +21,40 @@ clean:
 	@cargo clean -p forest
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
-	@cargo clean -p chain_sync
+	@cargo clean -p forest_chain_sync
 	@cargo clean -p forest_vm
 	@cargo clean -p forest_message
-	@cargo clean -p state_manager
-	@cargo clean -p interpreter
+	@cargo clean -p forest_state_manager
+	@cargo clean -p forest_interpreter
 	@cargo clean -p forest_crypto
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_ipld
-	@cargo clean -p legacy_ipld_amt
+	@cargo clean -p forest_legacy_ipld_amt
 	@cargo clean -p forest_json
-	@cargo clean -p fil_types
-	@cargo clean -p ipld_blockstore
-	@cargo clean -p rpc
-	@cargo clean -p key_management
+	@cargo clean -p forest_fil_types
+	@cargo clean -p forest_ipld_blockstore
+	@cargo clean -p forest_rpc
+	@cargo clean -p forest_key_management
 	@cargo clean -p forest_json_utils
-	@cargo clean -p test_utils
-	@cargo clean -p message_pool
-	@cargo clean -p genesis
-	@cargo clean -p actor_interface
+	@cargo clean -p forest_test_utils
+	@cargo clean -p forest_message_pool
+	@cargo clean -p forest_genesis
+	@cargo clean -p forest_actor_interface
 	@cargo clean -p forest_hash_utils
-	@cargo clean -p networks
+	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 
 lint: license clean
 	cargo fmt --all --check
+	taplo fmt --check
+	taplo lint
 	cargo clippy --all-targets -- -D warnings
-	cargo clippy --all-targets --features deleg_cns -- -D warnings
+	cargo clippy --all-targets --features forest_deleg_cns -- -D warnings
+
+# Formats Rust and TOML files
+fmt:
+	cargo fmt --all
+	taplo fmt
 
 build:
 	cargo build --bin forest
@@ -73,20 +80,12 @@ test-vectors: pull-serialization-tests run-vectors
 test:
 	cargo test --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	# FIXME: https://github.com/ChainSafe/forest/issues/1444
-	#cargo test -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	# FIXME: https://github.com/ChainSafe/forest/issues/1444
-	#cargo test -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
 test-release:
 	cargo test --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	# FIXME: https://github.com/ChainSafe/forest/issues/1444
-	#cargo test --release -p forest_crypto --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 	cargo test --release -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	# FIXME: https://github.com/ChainSafe/forest/issues/1444
-	#cargo test --release -p forest_message --features pairing --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
 
 smoke-test:
 	./scripts/smoke_test.sh

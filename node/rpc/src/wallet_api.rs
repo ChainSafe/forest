@@ -5,21 +5,21 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
 use std::str::FromStr;
 
-use beacon::Beacon;
+use forest_beacon::Beacon;
 use forest_crypto::signature::json::SignatureJson;
+use forest_ipld_blockstore::BlockStore;
 use forest_json::address::json::AddressJson;
+use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
 };
+use forest_rpc_api::{data_types::RPCState, wallet_api::*};
 use fvm::state_tree::StateTree;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigUint;
-use ipld_blockstore::BlockStore;
-use key_management::{json::KeyInfoJson, Error, Key};
-use rpc_api::{data_types::RPCState, wallet_api::*};
 
-/// Return the balance from StateManager for a given Address
+/// Return the balance from `StateManager` for a given `Address`
 pub(crate) async fn wallet_balance<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletBalanceParams>,
@@ -63,11 +63,11 @@ where
 {
     let keystore = data.keystore.read().await;
 
-    let addr = key_management::get_default(&*keystore)?;
+    let addr = forest_key_management::get_default(&*keystore)?;
     Ok(addr.to_string())
 }
 
-/// Export KeyInfo from the Wallet given its address
+/// Export `KeyInfo` from the Wallet given its address
 pub(crate) async fn wallet_export<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletExportParams>,
@@ -81,7 +81,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key_info = key_management::export_key_info(&addr, &*keystore)?;
+    let key_info = forest_key_management::export_key_info(&addr, &*keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
@@ -99,11 +99,11 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key = key_management::find_key(&addr, &*keystore).is_ok();
+    let key = forest_key_management::find_key(&addr, &*keystore).is_ok();
     Ok(key)
 }
 
-/// Import Keyinfo to the Wallet, return the Address that corresponds to it
+/// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
 pub(crate) async fn wallet_import<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletImportParams>,
@@ -112,7 +112,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let key_info: key_management::KeyInfo = match params.first().cloned() {
+    let key_info: forest_key_management::KeyInfo = match params.first().cloned() {
         Some(key_info) => key_info.into(),
         None => return Err(JsonRpcError::INTERNAL_ERROR),
     };
@@ -145,7 +145,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
-    Ok(key_management::list_addrs(&*keystore)?
+    Ok(forest_key_management::list_addrs(&*keystore)?
         .into_iter()
         .map(AddressJson::from)
         .collect())
@@ -162,7 +162,7 @@ where
 {
     let (sig_raw,) = params;
     let mut keystore = data.keystore.write().await;
-    let key = key_management::generate_key(sig_raw.0)?;
+    let key = forest_key_management::generate_key(sig_raw.0)?;
 
     let addr = format!("wallet-{}", key.address);
     keystore.put(addr, key.key_info.clone())?;
@@ -215,15 +215,15 @@ where
         .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
-    let key = match key_management::find_key(&key_addr, keystore) {
+    let key = match forest_key_management::find_key(&key_addr, keystore) {
         Ok(key) => key,
         Err(_) => {
-            let key_info = key_management::try_find(&key_addr, keystore)?;
+            let key_info = forest_key_management::try_find(&key_addr, keystore)?;
             Key::try_from(key_info)?
         }
     };
 
-    let sig = key_management::sign(
+    let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         &base64::decode(msg_string)?,
@@ -232,7 +232,7 @@ where
     Ok(SignatureJson(sig))
 }
 
-/// Sign an UnsignedMessage, return SignedMessage
+/// Sign an `UnsignedMessage`, return `SignedMessage`
 pub(crate) async fn wallet_sign_message<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletSignMessageParams>,
@@ -247,9 +247,9 @@ where
 
     let keystore = data.keystore.write().await;
 
-    let key = key_management::find_key(&address, &*keystore)?;
+    let key = forest_key_management::find_key(&address, &*keystore)?;
 
-    let sig = key_management::sign(
+    let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         msg_cid.to_bytes().as_slice(),

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::ForestMachine;
 use cid::Cid;
+use forest_ipld_blockstore::BlockStore;
 use forest_vm::TokenAmount;
 use fvm::call_manager::*;
 use fvm::gas::{Gas, PriceList};
@@ -19,7 +20,6 @@ use fvm_shared::piece::PieceInfo;
 use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;
 use fvm_shared::{ActorID, MethodNum};
-use ipld_blockstore::BlockStore;
 
 pub struct ForestKernel<DB: BlockStore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
@@ -192,7 +192,7 @@ impl<DB: BlockStore> GasOps for ForestKernel<DB> {
         self.0.gas_available()
     }
 
-    /// ChargeGas charges specified amount of `gas` for execution.
+    /// `charge_gas` charges specified amount of `gas` for execution.
     /// `name` provides information about gas charging point.
     fn charge_gas(&mut self, name: &str, compute: Gas) -> Result<()> {
         self.0.charge_gas(name, compute)

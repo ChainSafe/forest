@@ -11,15 +11,16 @@ use crate::{
 };
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
-use chain::ChainStore;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::GossipBlock;
+use forest_chain::ChainStore;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_message::SignedMessage;
+use forest_utils::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_encoding::from_slice;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::multiaddr::Protocol;
@@ -28,11 +29,12 @@ use libp2p::request_response::ResponseChannel;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core,
-    core::connection::ConnectionLimits,
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise, yamux, PeerId, Swarm, Transport,
+    mplex, noise,
+    swarm::ConnectionLimits,
+    yamux, PeerId, Swarm, Transport,
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
@@ -40,7 +42,6 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use utils::read_file_to_vec;
 
 /// Gossipsub Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -354,7 +355,7 @@ where
                                     for multiaddr in addresses.iter_mut() {
                                         multiaddr.push(Protocol::P2p(Multihash::from_bytes(&peer_id.to_bytes()).unwrap()));
 
-                                        if Swarm::dial_addr(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
+                                        if Swarm::dial(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
                                             success = true;
                                             break;
                                         };
@@ -403,8 +404,9 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 
 /// Builds the transport stack that LibP2P will communicate over.
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
-    let transport = libp2p::tcp::TcpConfig::new().nodelay(true);
-    let transport = libp2p::websocket::WsConfig::new(transport.clone()).or_transport(transport);
+    let tcp_transport =
+        || libp2p::tcp::TcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
+    let transport = libp2p::websocket::WsConfig::new(tcp_transport()).or_transport(tcp_transport());
     let transport = async_std::task::block_on(libp2p::dns::DnsConfig::system(transport)).unwrap();
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()

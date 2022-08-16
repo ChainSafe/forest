@@ -1,4 +1,4 @@
-10
+34
 APIs
 Algorand/M
 BLAKE2b
@@ -6,6 +6,7 @@ BLS
 CBOR
 CID
 CIDs
+CLI
 Filecoin
 IPLD
 JSON
@@ -14,7 +15,7 @@ Merkle
 RPC
 SECP
 VM
-blockchain
+blockchain/M
 codec
 multisig
 mutex
@@ -32,3 +33,6 @@ tuple
 validator/S
 serializing
 deserializing
+mempool
+sortition
+stateful

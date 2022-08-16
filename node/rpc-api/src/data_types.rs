@@ -1,30 +1,34 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use actor_interface::market::{DealProposal, DealState};
 use async_std::channel::Sender;
 use async_std::sync::{Arc, RwLock};
-use beacon::BeaconEntry;
-use beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
-use chain::{headchange_json::SubscriptionHeadChange, ChainStore};
-use chain_sync::{BadBlockCache, SyncState};
 use cid::Cid;
-use fil_types::SectorSize;
-use fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
+use forest_actor_interface::market::{DealProposal, DealState};
+use forest_beacon::BeaconEntry;
+use forest_beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
+use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
+use forest_chain_sync::{BadBlockCache, SyncState};
+use forest_fil_types::SectorSize;
+use forest_fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_ipld::json::IpldJson;
+use forest_ipld_blockstore::BlockStore;
 use forest_json::address::json::AddressJson;
 use forest_json::bigint::json;
 use forest_json::cid::CidJson;
+use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use forest_message::{
     message_receipt::json::MessageReceiptJson, signed_message,
     signed_message::json::SignedMessageJson, SignedMessage,
 };
+use forest_message_pool::{MessagePool, MpoolRpcProvider};
+use forest_state_manager::{MiningBaseInfo, StateManager};
 use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
@@ -32,12 +36,8 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
-use ipld_blockstore::BlockStore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
-use key_management::KeyStore;
-use message_pool::{MessagePool, MpoolRpcProvider};
 use serde::{Deserialize, Serialize};
-use state_manager::{MiningBaseInfo, StateManager};
 
 // RPC State
 #[derive(Serialize)]
@@ -198,7 +198,7 @@ pub struct MiningBaseInfoJson {
     #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,
     pub sector_size: SectorSize,
-    #[serde(with = "beacon::json")]
+    #[serde(with = "forest_beacon::json")]
     pub prev_beacon_entry: BeaconEntry,
     pub beacon_entries: Vec<BeaconEntryJson>,
     pub eligible_for_mining: bool,

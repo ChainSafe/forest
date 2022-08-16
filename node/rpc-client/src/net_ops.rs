@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::call;
+use forest_rpc_api::net_api::*;
 use jsonrpc_v2::Error;
-use rpc_api::net_api::*;
 
 pub async fn net_addrs_listen(params: NetAddrsListenParams) -> Result<NetAddrsListenResult, Error> {
     call(NET_ADDRS_LISTEN, params).await
