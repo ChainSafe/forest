@@ -153,7 +153,7 @@ pub mod auth_api {
 
 /// Beacon API
 pub mod beacon_api {
-    use beacon::json::BeaconEntryJson;
+    use forest_beacon::json::BeaconEntryJson;
     use fvm_shared::clock::ChainEpoch;
 
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
@@ -166,11 +166,11 @@ pub mod chain_api {
     use std::path::PathBuf;
 
     use crate::data_types::BlockMessages;
-    use chain::headchange_json::SubscriptionHeadChange;
     use forest_blocks::{
         header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
         TipsetKeys,
     };
+    use forest_chain::headchange_json::SubscriptionHeadChange;
     use forest_json::cid::CidJson;
     use forest_message::message::json::MessageJson;
     use fvm_shared::clock::ChainEpoch;
@@ -303,8 +303,8 @@ pub mod sync_api {
 pub mod wallet_api {
     use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use forest_json::address::json::AddressJson;
+    use forest_key_management::json::KeyInfoJson;
     use forest_message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
-    use key_management::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);
@@ -359,20 +359,20 @@ pub mod state_api {
         ActorStateJson, BlockTemplate, Deadline, Fault, MarketDeal, MessageLookup,
         MiningBaseInfoJson, Partition,
     };
-    use actor_interface::miner::{
+    use forest_actor_interface::miner::{
         MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
-    use fil_types::{deadlines::DeadlineInfo, SectorNumber};
     use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
+    use forest_fil_types::{deadlines::DeadlineInfo, SectorNumber};
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
     use forest_message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
+    use forest_state_manager::{InvocResult, MarketBalance};
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
     use fvm_shared::version::NetworkVersion;
-    use state_manager::{InvocResult, MarketBalance};
 
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
     pub type StateMinerSectorsParams = (AddressJson, BitFieldJson, TipsetKeysJson);
@@ -517,7 +517,7 @@ pub mod gas_api {
 
 /// Common API
 pub mod common_api {
-    use fil_types::build_version::APIVersion;
+    use forest_fil_types::build_version::APIVersion;
 
     pub const VERSION: &str = "Filecoin.Version";
     pub type VersionParams = ();

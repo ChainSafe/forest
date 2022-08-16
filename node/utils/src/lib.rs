@@ -51,7 +51,7 @@ pub fn read_file_to_string(path: &Path) -> Result<String> {
 /// # Example
 /// ```
 /// use serde::Deserialize;
-/// use utils::read_toml;
+/// use forest_utils::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {

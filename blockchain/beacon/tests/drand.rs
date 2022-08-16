@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig};
+use forest_beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig};
 use serde::{Deserialize, Serialize};
 
 async fn new_beacon() -> DrandBeacon {
@@ -16,7 +16,7 @@ async fn new_beacon() -> DrandBeacon {
                     .into(),
                 ..Default::default()
             },
-            network_type: beacon::DrandNetwork::Incentinet
+            network_type: forest_beacon::DrandNetwork::Incentinet
         },
     )
     .await

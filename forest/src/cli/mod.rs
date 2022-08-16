@@ -28,12 +28,12 @@ pub(super) use self::wallet_cmd::WalletCommands;
 
 use byte_unit::Byte;
 use directories::ProjectDirs;
+use forest_networks::ChainConfig;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
 use git_version::git_version;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::{error, info, warn};
-use networks::ChainConfig;
 use once_cell::sync::Lazy;
 use rug::float::ParseFloatError;
 use rug::Float;
@@ -50,7 +50,7 @@ use structopt::StructOpt;
 use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use utils::{read_file_to_string, read_toml};
+use forest_utils::{read_file_to_string, read_toml};
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 

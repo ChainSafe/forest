@@ -5,13 +5,13 @@ use async_std::{
     sync::RwLock,
     task::{self, JoinHandle},
 };
-use chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
+use forest_ipld_blockstore::BlockStore;
+use forest_key_management::KeyStore;
+use forest_state_manager::StateManager;
 use futures::TryFutureExt;
 use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};
-use ipld_blockstore::BlockStore;
-use key_management::KeyStore;
 use log::{error, info};
-use state_manager::StateManager;
 use std::sync::Arc;
 
 type MiningTask = JoinHandle<anyhow::Result<()>>;
@@ -21,8 +21,8 @@ pub type FullConsensus = DelegatedConsensus;
 pub const FETCH_PARAMS: bool = false;
 
 // Reward 1FIL on top of the gas, which is what Eudico does.
-pub fn reward_calc() -> Arc<dyn interpreter::RewardCalc> {
-    Arc::new(interpreter::FixedRewardCalc {
+pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
+    Arc::new(forest_interpreter::FixedRewardCalc {
         reward: BigInt::from(1) * FILECOIN_PRECISION,
     })
 }

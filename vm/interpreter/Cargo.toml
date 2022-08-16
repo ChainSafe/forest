@@ -1,44 +1,41 @@
 [package]
-name    = "interpreter"
+name    = "forest_interpreter"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-actor_interface     = "0.1.0"
-ahash               = "0.7"
-anyhow              = "1.0"
-async-std           = "1.9"
-byteorder           = "1.3"
-cid                 = { version = "0.8", default-features = false, features = ["std"] }
-fil_actors_runtime  = "=8.0.0"
-fil_types           = { version = "0.2", features = ["proofs"] }
-forest_blocks       = "0.1.0"
-forest_crypto       = { default_features = false, version = "0.5", features = ["blst"] }
-forest_db           = { version = "0.1" }
-forest_encoding     = "0.2"
-forest_message      = { default_features = false, version = "0.7", features = ["blst"] }
-forest_vm           = "0.3"
-fvm                 = "1.1"
-fvm_ipld_amt        = "0.4.2"
-fvm_ipld_blockstore = "0.1.1"
-fvm_ipld_car        = "0.4.1"
-fvm_ipld_encoding   = "0.2"
-fvm_ipld_hamt       = "0.5.1"
-fvm_shared          = { version = "0.8.0", default-features = false }
-ipld_blockstore     = "0.1"
-lazy_static         = "1.4"
-log                 = "0.4"
-networks            = "0.1.0"
-num-traits          = "0.2"
-num_cpus            = "1.13"
-rayon               = "1.3"
-serde_ipld_dagcbor  = "0.1"
-state_migration     = "0.1.0"
-statediff           = "0.1.0"
-
-[dev-dependencies]
-interpreter = "0.1.0"
+ahash                  = "0.7"
+anyhow                 = "1.0"
+async-std              = "1.9"
+byteorder              = "1.3"
+cid                    = { version = "0.8", default-features = false, features = ["std"] }
+fil_actors_runtime     = "=8.0.0"
+forest_actor_interface = "0.1.0"
+forest_blocks          = "0.1.0"
+forest_crypto          = { default_features = false, version = "0.5", features = ["blst"] }
+forest_db              = { version = "0.1" }
+forest_encoding        = "0.2"
+forest_fil_types       = { version = "0.2", features = ["proofs"] }
+forest_ipld_blockstore = "0.1"
+forest_message         = { default_features = false, version = "0.7", features = ["blst"] }
+forest_networks        = "0.1.0"
+forest_state_migration = "0.1.0"
+forest_statediff       = "0.1.0"
+forest_vm              = "0.3"
+fvm                    = "1.1"
+fvm_ipld_amt           = "0.4.2"
+fvm_ipld_blockstore    = "0.1.1"
+fvm_ipld_car           = "0.4.1"
+fvm_ipld_encoding      = "0.2"
+fvm_ipld_hamt          = "0.5.1"
+fvm_shared             = { version = "0.8.0", default-features = false }
+lazy_static            = "1.4"
+log                    = "0.4"
+num-traits             = "0.2"
+num_cpus               = "1.13"
+rayon                  = "1.3"
+serde_ipld_dagcbor     = "0.1"
 
 [features]
 test_vectors = []

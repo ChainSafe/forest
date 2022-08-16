@@ -1,18 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use beacon::Beacon;
-use chain_sync::SyncState;
+use forest_beacon::Beacon;
 use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
+use forest_chain_sync::SyncState;
+use forest_ipld_blockstore::BlockStore;
 use forest_json::cid::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
+use forest_rpc_api::data_types::{RPCState, RPCSyncState};
+use forest_rpc_api::sync_api::*;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::message::Message;
-use ipld_blockstore::BlockStore;
-use rpc_api::data_types::{RPCState, RPCSyncState};
-use rpc_api::sync_api::*;
 
 use async_std::sync::RwLock;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -75,10 +75,10 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let bls_msgs: Vec<Message> =
-        chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
+        forest_chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
     let secp_msgs: Vec<SignedMessage> =
-        chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
-    let sm_root = chain_sync::TipsetValidator::compute_msg_root(
+        forest_chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
+    let sm_root = forest_chain_sync::TipsetValidator::compute_msg_root(
         data.state_manager.blockstore(),
         &bls_msgs[..],
         &secp_msgs,
@@ -92,8 +92,8 @@ where
         .into());
     }
 
-    chain::persist_objects(data.state_manager.blockstore(), &bls_msgs)?;
-    chain::persist_objects(data.state_manager.blockstore(), &secp_msgs)?;
+    forest_chain::persist_objects(data.state_manager.blockstore(), &bls_msgs)?;
+    forest_chain::persist_objects(data.state_manager.blockstore(), &secp_msgs)?;
 
     let ts = Arc::new(Tipset::new(vec![blk.header.clone()])?);
     data.new_mined_block_tx.send(ts).await?;
@@ -113,18 +113,18 @@ mod tests {
     use async_std::channel::{bounded, Receiver};
     use async_std::sync::RwLock;
     use async_std::task;
-    use beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
-    use chain::ChainStore;
-    use chain_sync::SyncStage;
+    use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_blocks::{BlockHeader, Tipset};
+    use forest_chain::ChainStore;
+    use forest_chain_sync::SyncStage;
     use forest_db::{MemoryDB, Store};
+    use forest_key_management::{KeyStore, KeyStoreConfig};
     use forest_libp2p::NetworkMessage;
+    use forest_message_pool::{MessagePool, MpoolRpcProvider};
+    use forest_networks::ChainConfig;
+    use forest_state_manager::StateManager;
     use fvm_shared::address::Address;
-    use key_management::{KeyStore, KeyStoreConfig};
-    use message_pool::{MessagePool, MpoolRpcProvider};
-    use networks::ChainConfig;
     use serde_json::from_str;
-    use state_manager::StateManager;
     use std::{sync::Arc, time::Duration};
 
     const TEST_NET_NAME: &str = "test";
@@ -151,7 +151,7 @@ mod tests {
             StateManager::new(
                 cs_arc.clone(),
                 Arc::new(ChainConfig::default()),
-                Arc::new(interpreter::RewardActorMessageCalc),
+                Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
             .await
             .unwrap(),

@@ -4,8 +4,8 @@
 use crate::cli::Config;
 use structopt::StructOpt;
 
-use fil_types::SectorSize;
-use paramfetch::{get_params_default, SectorSizeOpt};
+use forest_fil_types::SectorSize;
+use forest_paramfetch::{get_params_default, SectorSizeOpt};
 
 use super::cli_error_and_die;
 
