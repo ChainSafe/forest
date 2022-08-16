@@ -29,7 +29,7 @@ pub enum Error {
     //
     Io(IoError),
 
-    /// An error happens when encoding/decoding `Cbor` data.
+    /// An error happened when encoding/decoding `Cbor` data.
     //
     Cbor(CborError),
 }
