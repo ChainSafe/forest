@@ -13,6 +13,7 @@ Fedora Linux 36 (Cloud Edition) x86_64
 16GB / 320GB Disk
 ```
 * Docker: https://docs.docker.com/get-docker/
+* The `screen` program.
 * Slack webhook: follow the instructions [here](https://api.slack.com/messaging/webhooks) to set up notifications.
 
 ## Installation
