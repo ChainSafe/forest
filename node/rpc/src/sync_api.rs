@@ -53,7 +53,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
     state.read().await.clone()
 }
 
-/// Returns the current status of the ChainSync process.
+/// Returns the current status of the `ChainSync` process.
 pub(crate) async fn sync_state<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<SyncStateResult, JsonRpcError>
@@ -65,7 +65,7 @@ where
     Ok(RPCSyncState { active_syncs })
 }
 
-/// Submits block to be sent through gossipsub.
+/// Submits block to be sent through `gossipsub`.
 pub(crate) async fn sync_submit_block<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params((GossipBlockJson(blk),)): Params<SyncSubmitBlockParams>,

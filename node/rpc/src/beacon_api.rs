@@ -9,7 +9,7 @@ use ipld_blockstore::BlockStore;
 use rpc_api::beacon_api::*;
 use rpc_api::data_types::RPCState;
 
-/// BeaconGetEntry returns the beacon entry for the given filecoin epoch. If
+/// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
 pub(crate) async fn beacon_get_entry<DB, B>(

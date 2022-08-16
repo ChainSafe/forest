@@ -238,7 +238,7 @@ where
     }
 }
 
-/// Estimates the gas paramaters for a given message
+/// Estimates the gas parameters for a given message
 pub(crate) async fn gas_estimate_message_gas<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<GasEstimateMessageGasParams>,
