@@ -4,8 +4,8 @@
 #[macro_use]
 extern crate lazy_static;
 
-use beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fil_actors_runtime::runtime::Policy;
+use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, StoragePower};
 use fvm_shared::version::NetworkVersion;

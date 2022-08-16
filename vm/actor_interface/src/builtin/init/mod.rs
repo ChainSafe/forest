@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
 
 use anyhow::Context;
@@ -21,6 +21,8 @@ pub fn is_v8_init_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzacedarbnovmucppbjkcwsxopludrj5ttmtm7mzfqsugmxdnqevqso7o").unwrap(),
     ];
     known_cids.contains(cid)
 }

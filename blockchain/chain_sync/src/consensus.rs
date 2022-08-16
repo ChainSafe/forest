@@ -3,12 +3,12 @@
 use async_std::task;
 use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
-use chain::Scale;
+use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
+use forest_message_pool::MessagePool;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_encoding::Cbor;
-use message_pool::MessagePool;
 use nonempty::NonEmpty;
 use std::borrow::Cow;
 use std::{
@@ -17,8 +17,8 @@ use std::{
 };
 
 use forest_blocks::{Block, GossipBlock, Tipset};
-use ipld_blockstore::BlockStore;
-use state_manager::StateManager;
+use forest_ipld_blockstore::BlockStore;
+use forest_state_manager::StateManager;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation
 /// and block creation. Behind the scenes they can farm out the total ordering
@@ -138,7 +138,7 @@ pub trait MessagePoolApi {
 #[async_trait]
 impl<P> MessagePoolApi for MessagePool<P>
 where
-    P: message_pool::Provider + Send + Sync + 'static,
+    P: forest_message_pool::Provider + Send + Sync + 'static,
 {
     async fn select_signed<DB>(
         &self,

@@ -4,13 +4,13 @@
 use crate::FilterEstimate;
 use cid::Cid;
 use fil_actors_runtime_v8::runtime::Policy;
-use fil_types::StoragePower;
+use forest_fil_types::StoragePower;
+use forest_ipld_blockstore::BlockStore;
+use forest_ipld_blockstore::BlockStoreExt;
 use forest_json::bigint::json;
 use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
-use ipld_blockstore::BlockStore;
-use ipld_blockstore::BlockStoreExt;
 use serde::{Deserialize, Serialize};
 
 use anyhow::Context;
@@ -29,6 +29,8 @@ pub fn is_v8_power_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzaceb45l6zhgc34n6clz7xnvd7ek55bhw46q25umuje34t6kroix6hh6").unwrap(),
     ];
     known_cids.contains(cid)
 }
