@@ -17,7 +17,8 @@ services:
       - |
         export CHAIN_NAME=calibnet
         $BASE_FOLDER/upload_snapshot.sh
-    restart: on-failure
+        sleep infinity
+    restart: unless-stopped
     labels:
       com.centurylinklabs.watchtower.enable: true
   watchtower:
