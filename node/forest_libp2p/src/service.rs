@@ -11,15 +11,16 @@ use crate::{
 };
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
-use chain::ChainStore;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::GossipBlock;
+use forest_chain::ChainStore;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_message::SignedMessage;
+use forest_utils::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_encoding::from_slice;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::multiaddr::Protocol;
@@ -41,7 +42,6 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use utils::read_file_to_vec;
 
 /// Gossipsub Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";

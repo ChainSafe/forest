@@ -3,18 +3,18 @@
 
 use crate::errors::*;
 use crate::StateManager;
-use actor_interface::{
+use cid::Cid;
+use forest_actor_interface::{
     miner::{self, MinerInfo, Partition, SectorOnChainInfo, SectorPreCommitOnChainInfo},
     power,
 };
-use cid::Cid;
-use fil_types::{verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber};
 use forest_blocks::Tipset;
+use forest_fil_types::{verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber};
+use forest_ipld_blockstore::BlockStore;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
-use ipld_blockstore::BlockStore;
 use serde::Serialize;
 
 impl<DB> StateManager<DB>
@@ -247,7 +247,10 @@ where
     /// Lists all miners that exist in the power actor state at given [`Tipset`].
     pub fn list_miner_actors(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error> {
         let actor = self
-            .get_actor(&actor_interface::power::ADDRESS, *tipset.parent_state())?
+            .get_actor(
+                &forest_actor_interface::power::ADDRESS,
+                *tipset.parent_state(),
+            )?
             .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
         let power_actor_state = power::State::load(self.blockstore(), &actor)?;
 

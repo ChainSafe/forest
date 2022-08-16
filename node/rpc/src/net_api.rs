@@ -5,10 +5,10 @@ use futures::channel::oneshot;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::error;
 
-use beacon::Beacon;
+use forest_beacon::Beacon;
+use forest_ipld_blockstore::BlockStore;
 use forest_libp2p::{NetRPCMethods, NetworkMessage, PeerId};
-use ipld_blockstore::BlockStore;
-use rpc_api::{
+use forest_rpc_api::{
     data_types::{AddrInfo, RPCState},
     net_api::*,
 };
