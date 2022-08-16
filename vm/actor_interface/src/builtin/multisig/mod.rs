@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_ipld_blockstore::BlockStore;
 use fvm::state_tree::ActorState;
-use ipld_blockstore::BlockStore;
 use serde::Serialize;
 
 /// Multisig actor method.

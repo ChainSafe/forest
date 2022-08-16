@@ -8,10 +8,10 @@ use log::{debug, error, info, warn};
 use tide::http::headers::HeaderValues;
 use tide_websockets::{Message, WebSocketConnection};
 
-use beacon::Beacon;
-use chain::headchange_json::SubscriptionHeadChange;
-use ipld_blockstore::BlockStore;
-use rpc_api::{
+use forest_beacon::Beacon;
+use forest_chain::headchange_json::SubscriptionHeadChange;
+use forest_ipld_blockstore::BlockStore;
+use forest_rpc_api::{
     chain_api::*,
     data_types::{JsonRpcServerState, StreamingData},
 };

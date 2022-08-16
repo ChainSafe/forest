@@ -1,5 +1,5 @@
 [package]
-name    = "utils"
+name    = "forest_utils"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"

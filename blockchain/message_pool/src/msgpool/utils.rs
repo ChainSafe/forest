@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::Error;
-use chain::MINIMUM_BASE_FEE;
 use cid::Cid;
+use forest_chain::MINIMUM_BASE_FEE;
 use forest_message::{Message as MessageTrait, SignedMessage};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};

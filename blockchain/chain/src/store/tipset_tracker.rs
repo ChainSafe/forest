@@ -3,12 +3,12 @@
 
 use async_std::sync::RwLock;
 use log::{debug, warn};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 
 use super::Error;
 
@@ -17,11 +17,11 @@ use super::Error;
 pub(crate) struct TipsetTracker<DB> {
     // TODO: look into optimizing https://github.com/ChainSafe/forest/issues/878
     entries: RwLock<HashMap<ChainEpoch, Vec<Cid>>>,
-    db: Arc<DB>,
+    db: DB,
 }
 
 impl<DB: BlockStore> TipsetTracker<DB> {
-    pub fn new(db: Arc<DB>) -> Self {
+    pub fn new(db: DB) -> Self {
         Self {
             entries: Default::default(),
             db,

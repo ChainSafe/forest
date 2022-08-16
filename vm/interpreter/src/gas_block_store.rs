@@ -8,7 +8,8 @@ use fvm_ipld_blockstore::Blockstore;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// `BlockStore` wrapper to charge gas on reads and writes
+/// Blockstore wrapper to charge gas on reads and writes
+#[derive(Clone)]
 pub(crate) struct GasBlockStore<'bs, BS> {
     pub price_list: PriceList,
     pub gas: Rc<RefCell<GasTracker>>,
@@ -84,10 +85,10 @@ mod tests {
     use super::*;
     use cid::multihash::Code::Blake2b256;
     use forest_db::MemoryDB;
+    use forest_ipld_blockstore::BlockStoreExt;
+    use forest_networks::{ChainConfig, Height};
     use fvm::gas::{price_list_by_network_version, Gas};
     use fvm_ipld_encoding::to_vec;
-    use ipld_blockstore::BlockStoreExt;
-    use networks::{ChainConfig, Height};
 
     #[test]
     fn gas_blockstore() {

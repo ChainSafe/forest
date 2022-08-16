@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::*;
+use forest_test_utils::construct_ticket;
 use fvm_ipld_encoding::{from_slice, to_vec};
-use test_utils::construct_ticket;
 
 // From Lotus
 const TICKET: [u8; 99] = [

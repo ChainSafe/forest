@@ -5,9 +5,9 @@ use log::{debug, error};
 use serde::de::DeserializeOwned;
 use tide::http::headers::HeaderValues;
 
-use beacon::Beacon;
-use ipld_blockstore::BlockStore;
-use rpc_api::{
+use forest_beacon::Beacon;
+use forest_ipld_blockstore::BlockStore;
+use forest_rpc_api::{
     auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
 };
 

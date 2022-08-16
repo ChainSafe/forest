@@ -21,5 +21,6 @@ pub use self::service::*;
 
 // Re-export some libp2p types
 pub use libp2p::core::PeerId;
+pub use libp2p::identity::{ed25519, Keypair};
 pub use libp2p::multiaddr::{Multiaddr, Protocol};
 pub use multihash::Multihash;

@@ -1,28 +1,28 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{block_until_sigint, Config};
+use super::cli::{block_until_sigint, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
 use async_std::net::TcpListener;
 use async_std::task::JoinHandle;
-use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
-use chain::ChainStore;
-use chain_sync::consensus::SyncGossipSubmitter;
-use chain_sync::ChainMuxer;
-use fil_types::verifier::FullVerifier;
-use forest_libp2p::{get_keypair, Libp2pConfig, Libp2pService};
+use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
+use forest_chain::ChainStore;
+use forest_chain_sync::consensus::SyncGossipSubmitter;
+use forest_chain_sync::ChainMuxer;
+use forest_fil_types::verifier::FullVerifier;
+use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
+use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
+use forest_key_management::{KeyStore, KeyStoreConfig};
+use forest_libp2p::PeerId;
+use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
+use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use forest_rpc::start_rpc;
+use forest_rpc_api::data_types::RPCState;
+use forest_state_manager::StateManager;
+use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
-use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
-use key_management::ENCRYPTED_KEYSTORE_NAME;
-use key_management::{KeyStore, KeyStoreConfig};
-use message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use rpc::start_rpc;
-use rpc_api::data_types::RPCState;
-use state_manager::StateManager;
-use utils::write_to_file;
 
 use async_std::{channel::bounded, sync::RwLock, task};
-use libp2p::identity::{ed25519, Keypair};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
@@ -32,11 +32,22 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time;
 
+// Initialize Consensus
+#[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
+compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
+
+// Default consensus
+#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
+use forest_fil_cns::composition as cns;
+// Custom consensus.
+#[cfg(feature = "forest_deleg_cns")]
+use forest_deleg_cns::composition as cns;
+
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
     info!(
         "Starting Forest daemon, version {}",
-        option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+        FOREST_VERSION_STRING.as_str()
     );
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
@@ -49,7 +60,7 @@ pub(super) async fn start(config: Config) {
             Ok(file) => {
                 // Restrict permissions on files containing private keys
                 #[cfg(unix)]
-                utils::set_user_perm(&file).expect("Set user perms on unix systems");
+                forest_utils::set_user_perm(&file).expect("Set user perms on unix systems");
             }
             Err(e) => {
                 info!("Could not write keystore to disk!");
@@ -58,6 +69,10 @@ pub(super) async fn start(config: Config) {
         };
         Keypair::Ed25519(gen_keypair)
     });
+
+    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
+    // Useful if others want to use this node to bootstrap from.
+    info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut ks = if config.client.encrypt_keystore {
         loop {
@@ -115,7 +130,7 @@ pub(super) async fn start(config: Config) {
         "Prometheus server started at {}",
         config.client.metrics_address
     );
-    let prometheus_server_task = task::spawn(metrics::init_prometheus(
+    let prometheus_server_task = task::spawn(forest_metrics::init_prometheus(
         prometheus_listener,
         db_path(&config)
             .into_os_string()
@@ -133,10 +148,8 @@ pub(super) async fn start(config: Config) {
     let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
         .expect("Opening RocksDB must succeed");
 
-    let db = Arc::new(db);
-
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(Arc::clone(&db)));
+    let chain_store = Arc::new(ChainStore::new(db.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -151,10 +164,19 @@ pub(super) async fn start(config: Config) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
+    // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
+    // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
+    let reward_calc = cns::reward_calc();
+
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))
-        .await
-        .unwrap();
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&config.chain),
+        reward_calc,
+    )
+    .await
+    .unwrap();
+
     let state_manager = Arc::new(sm);
 
     let network_name = get_network_name_from_genesis(&genesis, &state_manager)
@@ -186,9 +208,10 @@ pub(super) async fn start(config: Config) {
     }
 
     // Fetch and ensure verification keys are downloaded
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    {
-        use paramfetch::{get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt};
+    if cns::FETCH_PARAMS {
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
         get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
@@ -234,15 +257,12 @@ pub(super) async fn start(config: Config) {
             provider,
             network_name.clone(),
             network_send.clone(),
-            MpoolConfig::load_config(db.as_ref()).unwrap(),
+            MpoolConfig::load_config(&db).unwrap(),
             Arc::clone(state_manager.chain_config()),
         )
         .await
         .unwrap(),
     );
-
-    // Mining may or may not happen, depending on the consensus type.
-    let mining_task: Option<JoinHandle<anyhow::Result<()>>>;
 
     // For consensus types that do mining, create a component to submit their proposals.
     let submitter = SyncGossipSubmitter::new(
@@ -251,39 +271,9 @@ pub(super) async fn start(config: Config) {
         tipset_sink.clone(),
     );
 
-    // Initialize Consensus
-    #[cfg(not(any(feature = "fil_cns", feature = "deleg_cns")))]
-    compile_error!("No consensus feature enabled; use e.g. `--feature fil_cns` to pick one.");
-
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    type FullConsensus = fil_cns::FilecoinConsensus<beacon::DrandBeacon, FullVerifier>;
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    let consensus: FullConsensus = {
-        mining_task = None;
-        drop(submitter);
-        fil_cns::FilecoinConsensus::new(state_manager.beacon_schedule())
-    };
-    #[cfg(feature = "deleg_cns")]
-    type FullConsensus = deleg_cns::DelegatedConsensus;
-    #[cfg(feature = "deleg_cns")]
-    let consensus: FullConsensus = {
-        use chain_sync::consensus::Proposer;
-        use futures::TryFutureExt;
-        let consensus = deleg_cns::DelegatedConsensus::default();
-        if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
-            let sm = state_manager.clone();
-            let mp = mpool.clone();
-            mining_task = Some(task::spawn(async move {
-                proposer
-                    .run(sm, mp.as_ref(), &submitter)
-                    .inspect_err(|e| error!("block proposal stopped: {}", e))
-                    .await
-            }));
-        } else {
-            mining_task = None
-        }
-        consensus
-    };
+    // Initialize Consensus. Mining may or may not happen, depending on type.
+    let (consensus, mining_task) =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter).await;
 
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
@@ -315,7 +305,7 @@ pub(super) async fn start(config: Config) {
 
         Some(task::spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            start_rpc::<_, _, FullVerifier, FullConsensus>(
+            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&state_manager),
                     keystore: keystore_rpc,
@@ -329,6 +319,7 @@ pub(super) async fn start(config: Config) {
                     new_mined_block_tx: tipset_sink,
                 }),
                 rpc_listen,
+                FOREST_VERSION_STRING.as_str(),
             )
             .await
         }))
@@ -394,12 +385,12 @@ mod test {
     use super::*;
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
+    use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
-    use networks::ChainConfig;
 
     #[async_std::test]
     async fn import_snapshot_from_file() {
-        let db = Arc::new(MemoryDB::default());
+        let db = MemoryDB::default();
         let cs = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -408,7 +399,15 @@ mod test {
             .unwrap();
         cs.set_genesis(&genesis_header).unwrap();
         let chain_config = Arc::new(ChainConfig::default());
-        let sm = Arc::new(StateManager::new(cs, chain_config).await.unwrap());
+        let sm = Arc::new(
+            StateManager::new(
+                cs,
+                chain_config,
+                Arc::new(forest_interpreter::RewardActorMessageCalc),
+            )
+            .await
+            .unwrap(),
+        );
         import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
             .await
             .expect("Failed to import chain");

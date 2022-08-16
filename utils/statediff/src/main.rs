@@ -6,7 +6,7 @@ use structopt::StructOpt;
 use cid::Cid;
 use forest_db::rocks::RocksDb;
 use forest_db::rocks_config::RocksDbConfig;
-use statediff::print_state_diff;
+use forest_statediff::print_state_diff;
 
 /// Examine the state delta
 #[derive(StructOpt)]
@@ -52,7 +52,7 @@ enum Subcommand {
 #[derive(StructOpt)]
 #[structopt(
     name = env!("CARGO_PKG_NAME"),
-    version = option_env!("FOREST_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")),
+    version = env!("CARGO_PKG_VERSION"),
     about = env!("CARGO_PKG_DESCRIPTION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]

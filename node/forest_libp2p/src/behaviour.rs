@@ -406,7 +406,7 @@ impl ForestBehaviour {
     ) -> Poll<
         NetworkBehaviourAction<
             <Self as NetworkBehaviour>::OutEvent,
-            <Self as NetworkBehaviour>::ProtocolsHandler,
+            <Self as NetworkBehaviour>::ConnectionHandler,
         >,
     > {
         // Poll to see if any response is ready to be sent back.

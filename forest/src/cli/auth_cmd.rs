@@ -3,11 +3,11 @@
 
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 use forest_libp2p::{Multiaddr, Protocol};
+use forest_rpc_client::auth_new;
 use jsonrpc_v2::Error as JsonRpcError;
-use rpc_client::auth_new;
 use structopt::StructOpt;
 
-use auth::*;
+use forest_auth::*;
 
 #[derive(Debug, StructOpt)]
 pub enum AuthCommands {
