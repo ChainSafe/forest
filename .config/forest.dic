@@ -33,9 +33,7 @@ tuple
 validator/S
 mempool
 sortition
-deserialize
-deserializing
-Deserializes
+deserialize/GS
 IPFS
 PoSt
 statediff
