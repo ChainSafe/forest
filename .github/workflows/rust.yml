@@ -129,6 +129,24 @@ jobs:
           command: audit
           args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
+  spellcheck:
+    name: Spellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          override: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install spellcheck
+        run: cargo install cargo-spellcheck
+      - name: Run Spellcheck
+        run: |
+          cargo spellcheck --code 1 --recursive blockchain encoding forest
+
   build:
     name: Build
     runs-on: ${{ matrix.os }}

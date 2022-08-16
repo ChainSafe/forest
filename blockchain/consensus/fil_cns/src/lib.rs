@@ -21,6 +21,9 @@ use nonempty::NonEmpty;
 mod validation;
 mod weight;
 
+// Shim to work with daemon.rs
+pub mod composition;
+
 #[derive(Debug, Error)]
 pub enum FilecoinConsensusError {
     #[error("Block must have an election proof included in tipset")]

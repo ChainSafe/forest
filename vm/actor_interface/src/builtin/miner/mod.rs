@@ -31,6 +31,8 @@ pub fn is_v8_miner_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzacebze3elvppssc6v5457ukszzy6ndrg6xgaojfsqfbbtg3xfwo4rbs").unwrap(),
     ];
     known_cids.contains(cid)
 }
