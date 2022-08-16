@@ -9,10 +9,9 @@ use forest_db::Store;
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
-use std::sync::Arc;
 
-pub trait BlockStore: Blockstore + Store {}
-impl<T: Blockstore + Store> BlockStore for T {}
+pub trait BlockStore: Blockstore + Store + Clone {}
+impl<T: Blockstore + Store + Clone> BlockStore for T {}
 
 /// Extension methods for inserting and retrieving ipld data with Cids
 pub trait BlockStoreExt: BlockStore {
@@ -80,47 +79,3 @@ pub trait BlockStoreExt: BlockStore {
 }
 
 impl<T: BlockStore> BlockStoreExt for T {}
-
-pub struct FvmStore<T> {
-    bs: Arc<T>,
-}
-
-impl<T> FvmStore<T> {
-    pub fn new(bs: Arc<T>) -> Self {
-        FvmStore { bs }
-    }
-}
-
-impl<T: BlockStore> Blockstore for FvmStore<T> {
-    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match self.bs.get_bytes(cid) {
-            Ok(vs) => Ok(vs),
-            Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling")),
-        }
-    }
-    fn put_keyed(&self, cid: &Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {
-        self.bs.write(cid.to_bytes(), bytes).map_err(|e| e.into())
-    }
-}
-
-pub struct FvmRefStore<'a, T> {
-    pub bs: &'a T,
-}
-
-impl<'a, T> FvmRefStore<'a, T> {
-    pub fn new(bs: &'a T) -> Self {
-        FvmRefStore { bs }
-    }
-}
-
-impl<'a, T: BlockStore> Blockstore for FvmRefStore<'a, T> {
-    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match self.bs.get_bytes(cid) {
-            Ok(vs) => Ok(vs),
-            Err(_err) => Err(anyhow::Error::msg("Fix FVM error handling")),
-        }
-    }
-    fn put_keyed(&self, cid: &Cid, bytes: &[u8]) -> Result<(), anyhow::Error> {
-        self.bs.write(cid.to_bytes(), bytes).map_err(|e| e.into())
-    }
-}

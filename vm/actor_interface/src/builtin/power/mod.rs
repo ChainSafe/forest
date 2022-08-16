@@ -29,6 +29,8 @@ pub fn is_v8_power_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzaceb45l6zhgc34n6clz7xnvd7ek55bhw46q25umuje34t6kroix6hh6").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -95,10 +97,7 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                Ok(st.miner_power(&fvm_store, miner)?.map(From::from))
-            }
+            State::V8(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
         }
     }
 
@@ -115,10 +114,7 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(s);
-                st.miner_nominal_power_meets_consensus_minimum(policy, &fvm_store, miner)
-            }
+            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
         }
     }
 

@@ -46,8 +46,8 @@ use state_manager::{InvocResult, StateManager};
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
-/// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
-/// If the filterOut boolean is set to true, any sectors in the filter are excluded.
+/// returns info about the given miner's sectors. If the filter bit-field is nil, all sectors are included.
+/// If the `filterOut` boolean is set to true, any sectors in the filter are excluded.
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sectors<
     DB: BlockStore + Send + Sync + 'static,
@@ -123,7 +123,7 @@ pub(crate) async fn state_miner_deadlines<
     Ok(out)
 }
 
-/// returns the PreCommit info for the specified miner's sector
+/// returns the `PreCommit` info for the specified miner's sector
 pub(crate) async fn state_sector_precommit_info<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -144,7 +144,7 @@ pub(crate) async fn state_sector_precommit_info<
         .map_err(|e| e.into())
 }
 
-/// StateMinerInfo returns info about the indicated miner
+/// `StateMinerInfo` returns info about the indicated miner
 pub async fn state_miner_info<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -220,7 +220,7 @@ pub(crate) async fn state_miner_proving_deadline<
     Ok(mas.deadline_info(tipset.epoch()).next_not_elapsed())
 }
 
-/// returns a single non-expired Faults that occur within lookback epochs of the given tipset
+/// returns a single non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -242,7 +242,7 @@ pub(crate) async fn state_miner_faults<
         .map_err(|e| e.into())
 }
 
-/// returns all non-expired Faults that occur within lookback epochs of the given tipset
+/// returns all non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_all_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -278,7 +278,7 @@ pub(crate) async fn state_all_miner_faults<
     // Ok(all_faults)
 }
 
-/// returns a bitfield indicating the recovering sectors of the given miner
+/// returns a bit-field indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -300,7 +300,7 @@ pub(crate) async fn state_miner_recoveries<
         .map_err(|e| e.into())
 }
 
-/// returns a bitfield indicating the recovering sectors of the given miner
+/// returns a bit-field indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_partitions<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -310,7 +310,7 @@ pub(crate) async fn state_miner_partitions<
 ) -> anyhow::Result<StateMinerPartitionsResult, JsonRpcError> {
     let (actor, dl_idx, key) = params;
     let actor = actor.into();
-    let db = data.state_manager.chain_store().db.as_ref();
+    let db = &data.state_manager.chain_store().db;
     let mas = data
         .state_manager
         .chain_store()
@@ -770,7 +770,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (state, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let state = StateTree::new_from_root(&data.chain_store.db, &state)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
@@ -813,7 +813,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (root_cid, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
+    let state = StateTree::new_from_root(&data.chain_store.db, &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state

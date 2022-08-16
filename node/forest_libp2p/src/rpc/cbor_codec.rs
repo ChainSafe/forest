@@ -18,7 +18,6 @@ use {
     },
 };
 
-#[allow(variant_size_differences)]
 //
 /// Errors returned by encoding and decoding.
 //

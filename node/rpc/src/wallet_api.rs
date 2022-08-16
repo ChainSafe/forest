@@ -19,7 +19,7 @@ use ipld_blockstore::BlockStore;
 use key_management::{json::KeyInfoJson, Error, Key};
 use rpc_api::{data_types::RPCState, wallet_api::*};
 
-/// Return the balance from StateManager for a given Address
+/// Return the balance from `StateManager` for a given `Address`
 pub(crate) async fn wallet_balance<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletBalanceParams>,
@@ -67,7 +67,7 @@ where
     Ok(addr.to_string())
 }
 
-/// Export KeyInfo from the Wallet given its address
+/// Export `KeyInfo` from the Wallet given its address
 pub(crate) async fn wallet_export<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletExportParams>,
@@ -103,7 +103,7 @@ where
     Ok(key)
 }
 
-/// Import Keyinfo to the Wallet, return the Address that corresponds to it
+/// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
 pub(crate) async fn wallet_import<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletImportParams>,
@@ -232,7 +232,7 @@ where
     Ok(SignatureJson(sig))
 }
 
-/// Sign an UnsignedMessage, return SignedMessage
+/// Sign an `UnsignedMessage`, return `SignedMessage`
 pub(crate) async fn wallet_sign_message<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletSignMessageParams>,

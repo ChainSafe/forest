@@ -34,7 +34,7 @@ where
     Ok(price.to_string())
 }
 
-/// get the sequence of given address in mpool
+/// get the sequence of given address in `mpool`
 pub(crate) async fn mpool_get_sequence<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolGetNonceParams>,
@@ -49,7 +49,7 @@ where
     Ok(sequence)
 }
 
-/// Return Vec of pending messages in mpool
+/// Return `Vec` of pending messages in `mpool`
 pub(crate) async fn mpool_pending<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPendingParams>,
@@ -114,7 +114,7 @@ where
     }
 }
 
-/// Add SignedMessage to mpool, return msg CID
+/// Add `SignedMessage` to `mpool`, return message CID
 pub(crate) async fn mpool_push<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushParams>,
@@ -130,7 +130,7 @@ where
     Ok(CidJson(cid))
 }
 
-/// Sign given UnsignedMessage and add it to mpool, return SignedMessage
+/// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub(crate) async fn mpool_push_message<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MpoolPushMessageParams>,

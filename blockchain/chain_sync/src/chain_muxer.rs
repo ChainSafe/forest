@@ -466,9 +466,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            chain::persist_objects(chain_store.db.as_ref(), &[block.header()])?;
-            chain::persist_objects(chain_store.db.as_ref(), block.bls_msgs())?;
-            chain::persist_objects(chain_store.db.as_ref(), block.secp_msgs())?;
+            chain::persist_objects(&chain_store.db, &[block.header()])?;
+            chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+            chain::persist_objects(&chain_store.db, block.secp_msgs())?;
         }
 
         // Update the peer head
@@ -811,8 +811,15 @@ where
         loop {
             match self.state {
                 ChainMuxerState::Idle => {
-                    // Create the connect future and set the state to connect
-                    self.state = ChainMuxerState::Connect(self.evaluate_network_head());
+                    if self.sync_config.tipset_sample_size == 0 {
+                        // A standalone node might use this option to not be stuck waiting for P2P messages.
+                        info!("Skip evaluating network head, assume in-sync.");
+                        self.state = ChainMuxerState::Follow(self.follow(None));
+                    } else {
+                        // Create the connect future and set the state to connect
+                        info!("Evaluating network head...");
+                        self.state = ChainMuxerState::Connect(self.evaluate_network_head());
+                    }
                 }
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
                     Poll::Ready(Ok(evaluation)) => match evaluation {

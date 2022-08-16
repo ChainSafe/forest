@@ -27,6 +27,8 @@ pub fn is_v8_market_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzacecw57fpkqesfhi5g3nr4csy4oy7oc42wmwjuis6l7ijniolo4rt2k").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -105,18 +107,15 @@ impl State {
         BS: BlockStore,
     {
         match self {
-            State::V8(st) => {
-                let fvm_store = ipld_blockstore::FvmRefStore::new(store);
-                fil_actor_market_v8::validate_deals_for_activation(
-                    st,
-                    &fvm_store,
-                    deal_ids,
-                    miner_addr,
-                    sector_expiry,
-                    curr_epoch,
-                )
-                .map(|(deal_st, verified_st, _)| (deal_st, verified_st))
-            }
+            State::V8(st) => fil_actor_market_v8::validate_deals_for_activation(
+                st,
+                &store,
+                deal_ids,
+                miner_addr,
+                sector_expiry,
+                curr_epoch,
+            )
+            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
         }
     }
 }

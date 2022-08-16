@@ -53,7 +53,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
     state.read().await.clone()
 }
 
-/// Returns the current status of the ChainSync process.
+/// Returns the current status of the `ChainSync` process.
 pub(crate) async fn sync_state<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<SyncStateResult, JsonRpcError>
@@ -65,7 +65,7 @@ where
     Ok(RPCSyncState { active_syncs })
 }
 
-/// Submits block to be sent through gossipsub.
+/// Submits block to be sent through `gossipsub`.
 pub(crate) async fn sync_submit_block<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params((GossipBlockJson(blk),)): Params<SyncSubmitBlockParams>,
@@ -139,7 +139,7 @@ mod tests {
         }]));
 
         let (network_send, network_rx) = bounded(5);
-        let db = Arc::new(MemoryDB::default());
+        let db = MemoryDB::default();
         let cs_arc = Arc::new(ChainStore::new(db.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -148,9 +148,13 @@ mod tests {
             .unwrap();
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(
-            StateManager::new(cs_arc.clone(), Arc::new(ChainConfig::default()))
-                .await
-                .unwrap(),
+            StateManager::new(
+                cs_arc.clone(),
+                Arc::new(ChainConfig::default()),
+                Arc::new(interpreter::RewardActorMessageCalc),
+            )
+            .await
+            .unwrap(),
         );
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = cs_arc.clone();

@@ -33,9 +33,10 @@ use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
 use interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, VM,
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
+    VM,
 };
-use ipld_blockstore::{BlockStore, BlockStoreExt, FvmStore};
+use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
 use log::{debug, info, trace, warn};
 use networks::{ChainConfig, Height};
@@ -90,6 +91,7 @@ pub struct StateManager<DB> {
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
+    reward_calc: Arc<dyn RewardCalc>,
 }
 
 impl<DB> StateManager<DB>
@@ -99,6 +101,7 @@ where
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
+        reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?.context("genesis header missing")?;
         let beacon = Arc::new(
@@ -115,6 +118,7 @@ where
             beacon,
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
+            reward_calc,
         })
     }
 
@@ -123,6 +127,7 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_subs: Publisher<HeadChange>,
         config: ChainConfig,
+        reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?.context("genesis header missing")?;
         let chain_config = Arc::new(config);
@@ -140,6 +145,7 @@ where
             beacon,
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
+            reward_calc,
         })
     }
 
@@ -158,12 +164,12 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(FvmStore::new(self.blockstore_cloned()), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore_cloned(), &state_cid)?;
         Ok(state.get_actor(addr)?)
     }
 
     /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
-    pub fn blockstore_cloned(&self) -> Arc<DB> {
+    pub fn blockstore_cloned(&self) -> DB {
         self.cs.blockstore_cloned()
     }
 
@@ -243,6 +249,9 @@ where
         }
         if self.chain_config.name == "mainnet" {
             return Ok("testnetnet".to_owned());
+        }
+        if self.chain_config.name == "devnet" {
+            return Ok("devnet".to_owned());
         }
         Err(Error::Other("Cannot guess network name".to_owned()))
         // let init_act = self
@@ -351,13 +360,13 @@ where
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
-                db.as_ref(),
-                Arc::clone(&db),
+                db.clone(),
                 epoch,
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
                 self.genesis_info.clone(),
+                self.reward_calc.clone(),
                 None,
                 &lb_wrapper,
                 self.engine
@@ -492,13 +501,13 @@ where
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
-                store_arc.as_ref(),
-                Arc::clone(&store_arc),
+                store_arc,
                 bheight,
                 rand,
                 0.into(),
                 network_version,
                 self.genesis_info.clone(),
+                self.reward_calc.clone(),
                 None,
                 &lb_wrapper,
                 self.engine
@@ -587,13 +596,13 @@ where
         let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_>::new(
             st,
-            store_arc.as_ref(),
-            Arc::clone(&store_arc),
+            store_arc,
             ts.epoch() + 1,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
             self.genesis_info.clone(),
+            self.reward_calc.clone(),
             None,
             &lb_wrapper,
             self.engine

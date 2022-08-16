@@ -19,6 +19,15 @@ Still, we can use docker to build the CLI without having to install all necessar
 docker build -t filecoin/lotus-test -f Dockerfile.lotus --target lotus-test .
 ```
 
+Alternatively we can build `lotus-seed` directly like so:
+
+```bash
+GOFLAGS=-tags=2k make lotus-seed
+```
+
+Notice the `2k` tag: it activates the [params_2k](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/build/params_2k.go#L2) settings, which results in the actor bundles for `devnet` to be written into the `genesis.car` file. Forest [only accepts](https://github.com/ChainSafe/forest/blob/d4c25e53c02bc8e319d73c47e8f6bc16a714bdec/vm/actor_interface/src/builtin/miner/mod.rs#L27-L35) the ones for `mainnet` or `calibnet`, but I did not manage to make a `genesis.car` file for those (built with `make lotus-seed` and `make calibnet`). The actor CIDs in different bundles can be seen [here](https://github.com/filecoin-project/lotus/blob/v1.17.0-rc3/build/builtin_actors_gen.go). For this experiment I will just have to whitelist the `devnet` ones in Forest.
+
+
 ### Generate signing keys
 
 According to the [spec](https://spec.filecoin.io/#section-systems.filecoin_nodes.repository.key_store) we need to generate a BLS key for signing blocks, a.k.a. the "worker" key.
@@ -94,41 +103,41 @@ Let's see what we have in the end:
 ```console
 $ cat genesis-files/genesis.json
 {
-  "NetworkVersion": 16,
+  "NetworkVersion": 0,
   "Accounts": [
     {
       "Type": "account",
       "Balance": "50000000000000000000000000",
       "Meta": {
-        "Owner": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq"
+        "Owner": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq"
       }
     }
   ],
   "Miners": [
     {
       "ID": "t01000",
-      "Owner": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq",
-      "Worker": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq",
-      "PeerId": "12D3KooWLAL8FXK5tX2H7k1jqDWngs5D12Sbpaqq1ukQuk8HNGbY",
+      "Owner": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq",
+      "Worker": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq",
+      "PeerId": "12D3KooWEGdCsa4DAP8HG4r33ymxXFcXtui192zJnY48Hjzr4KKF",
       "MarketBalance": "0",
       "PowerBalance": "0",
       "SectorSize": 2048,
       "Sectors": [
         {
           "CommR": {
-            "/": "bagboea4b5abcbo7z76pf75mq6zt3cbx7n4isafgsg6nzldi73mm5utarwdmt3zls"
+            "/": "bagboea4b5abcbl3oevwwjgxgtns4rg7erxp2vq33pxvszp6t534jhtxhc2qvtwdr"
           },
           "CommD": {
-            "/": "baga6ea4seaqctekgwa4cesh46ftxapju4swvbkacu6rwlorvih6l4eucji34qhq"
+            "/": "baga6ea4seaqe4lcia4en7czkklnjktcmby2pp7gn4fltztgkh6mel4yzhnrqyiy"
           },
           "SectorID": 0,
           "Deal": {
             "PieceCID": {
-              "/": "baga6ea4seaqctekgwa4cesh46ftxapju4swvbkacu6rwlorvih6l4eucji34qhq"
+              "/": "baga6ea4seaqe4lcia4en7czkklnjktcmby2pp7gn4fltztgkh6mel4yzhnrqyiy"
             },
             "PieceSize": 2048,
             "VerifiedDeal": false,
-            "Client": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq",
+            "Client": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq",
             "Provider": "t01000",
             "Label": "0",
             "StartEpoch": 0,
@@ -139,16 +148,16 @@ $ cat genesis-files/genesis.json
           },
           "DealClientKey": {
             "Type": "bls",
-            "PrivateKey": "2ooyr9iChbMChrUK+en94RYKr1FlEj1Oa9PglTem1iM=",
-            "PublicKey": "uT3R4nD4kSWGZtl6JaufCvbGBX5VI0NgMipzlv16naXSnfUU5iZnid5IOkfg9kW5",
-            "Address": "t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq"
+            "PrivateKey": "l1k51pFipvshUSmAHcjoYXiDZX+Z7Q1Jcd/bk4EILgg=",
+            "PublicKey": "rWLWkbT36X01X5jQ5/drq3caAwAHG9CJDCWIX/nCMI99IqPSvncC7MsJ8ZRd3VHw",
+            "Address": "t3vvrnnenu67ux2nk7tdiop53lvn3ruayaa4n5bcimewef76ocgchx2ivd2k7hoaxmzme7dfc53vi7bofzz2eq"
           },
-          "ProofType": 5
+          "ProofType": 0
         }
       ]
     }
   ],
-  "NetworkName": "localnet-850f257a-5cb0-4952-8cad-beee1c462061",
+  "NetworkName": "localnet-514af5d5-6517-4e40-b4da-258d3200b9f3",
   "VerifregRootKey": {
     "Type": "multisig",
     "Balance": "0",
@@ -175,6 +184,14 @@ $ cat genesis-files/genesis.json
   }
 }
 ```
+
+Note the following part: `"NetworkVersion": 0,`. It has to be version `16` for Forest to handle it, and for the right actor bundles to be inserted into the `genesis.car` file. Let's edit it:
+
+
+```bash
+sed -i "s/\"NetworkVersion\": 0/\"NetworkVersion\": 16/" ./genesis-files/genesis.json
+```
+
 
 ### Generate a CAR file
 
@@ -250,49 +267,62 @@ docker run -it --rm \
   filecoin/lotus-test /out
 ```
 
-## Add the private key to a wallet
+## Build Forest with Delegated Consensus
 
-One of the Forest processes we start will need access to the private key, and normally it looks for it in the wallet. To prepare a wallet, we can use Forest itself because it seems to have all the necessary [commands](https://github.com/ChainSafe/forest/blob/v0.3.0/forest/src/cli/wallet_cmd.rs).
-
-First of all, let's build the binary.
+To enable _Delegated Consensus_ instead of the default _Filecoin Consensus_, Forest has to be built with the `deleg_cns` feature, for example:
 
 ```bash
-make build
+cargo clippy --all-targets --features deleg_cns -- -D warnings
+cargo build --release --features deleg_cns --bin forest
 ```
 
-It's also possible to run `make install` to make it available globally, but for this exercise we can just run it from the build artifacts; make can make an alias so the commands look identical.
+We better build it now instead of doing it with `make build`, because we will need to run the wallet commands, and they need to connect to a
+running node. With Filecoin built for the default delegated consensus, we'd have to import a [snapshot](https://fra1.digitaloceanspaces.com/forest-snapshots/calibnet/calibnet-2022-07-01.car) first, which takes a long time.
+
+Normally it would be possible to run `make install` to make it available globally, but for this exercise we can just run it from the build artifacts; make can make an alias so the commands look identical.
 
 ```bash
-alias forest=target/debug/forest
+alias forest=target/release/forest
 ```
 
-The wallet commands need a running node to connect to, so first we need to start a Forest deamon.
+Note that we're using `--release` mode. This takes longer to build, but without it, loading the Wasm bundles takes forever.
+
+## Run a node without proposing blocks
+
+At this point our wallet doesn't contain any private keys, so if we run a node with _Delegated Consensus_ it should be a pure follower, without trying to produce any blocks.
+
+We want the network to start from the latest version, because that's the only version supported by Forest. The [proposer-config.toml](blockchain/consensus/deleg_cns/configs/proposer-config.toml) file tells Forest to use V16 for any epoch higher than -1. It also contains all the other heights that it looks for by name.
+
+We also don't want to connect to any other nodes at the moment, so there are no bootstrap nodes set in the config file.
+
+This is the time for us to use our custom `genesis.car` file as well.
 
 ```bash
-./target/debug/forest --chain calibnet --import-snapshot ../calibnet-2022-07-01.car --target-peer-count 50 --encrypt-keystore false
+RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
+  --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
+  --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
 ```
 
-The snapshot was downloaded from [here](https://fra1.digitaloceanspaces.com/forest-snapshots/calibnet/calibnet-2022-07-01.car?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=3JPB6WZESYS26MFHEJW5%2F20220714%2Ffra1%2Fs3%2Faws4_request&X-Amz-Date=20220714T155556Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=e554ffe1b5c810fff9125e29647a538bfeda0bb5fcdc7f09d1511f868c0a7ed4). Without it the daemon won't be able to sync with the tesnet because it doesn't support earlier network versions or migrations. It also won't start the JSON-RPC interface until it has imported the snapshot, so we have to wait about ~30 minutes for the node to be ready for us to send commands.
+We have to look at the output to see what API tokens we'll have to use with the wallet:
 
 ```console
-$ ./target/debug/forest --chain calibnet --import-snapshot ../calibnet-2022-07-01.car --target-peer-count 5 --encrypt-keystore false
- 2022-07-22T12:21:27.835Z WARN  forest::cli > No configurations found, using defaults.
- 2022-07-22T12:21:27.836Z INFO  forest::daemon > Starting Forest daemon, version v0.2.2/unstable/a121904e
- 2022-07-22T12:21:27.836Z INFO  forest_libp2p::service > Networking keystore not found!
- 2022-07-22T12:21:27.837Z INFO  utils                  > Permissions set to 0600 on File { fd: 6, path: "/home/aakoshh/.local/share/forest/libp2p/keypair", read: false, write: true }
- 2022-07-22T12:21:27.838Z WARN  forest::daemon         > Warning: Keystore encryption disabled!
- 2022-07-22T12:21:27.838Z WARN  key_management::keystore > Keystore does not exist, initializing new keystore at: "/home/aakoshh/.local/share/forest/keystore.json"
- 2022-07-22T12:21:27.838Z INFO  utils                    > Permissions set to 0600 on File { fd: 6, path: "/home/aakoshh/.local/share/forest/keystore.json", read: false, write: true }
- 2022-07-22T12:21:27.839Z INFO  metrics                  > Prometheus server started at 0.0.0.0:6116
- 2022-07-22T12:21:27.839Z INFO  forest::daemon           > Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.1zvrh2cLDyJl9K3fXeURy4sLZyEQPwHa7-p26VA_ztg
- 2022-07-22T12:21:27.906Z WARN  chain::store::chain_store > No previous chain state found
- 2022-07-22T12:21:27.946Z INFO  genesis                   > Initialized genesis: BlockHeader: Cid(bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4)
- 2022-07-22T12:21:28.002Z INFO  forest::daemon            > Using network :: cannot get name
- 2022-07-22T12:21:28.002Z INFO  genesis                   > Importing chain from snapshot
- 2022-07-22T12:21:28.004Z INFO  genesis                   > Reading file...
- ...
- 2022-07-22T13:02:46.405Z INFO  forest::daemon         > JSON-RPC endpoint started at 127.0.0.1:1234
- 2022-07-22T13:02:46.406Z INFO  rpc                    > Ready for RPC connections
+$ RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
+        --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
+        --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
+ 2022-08-02T19:19:08.855Z INFO  forest::daemon > Starting Forest daemon, version v0.2.2/unstable/961ac230, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+ 2022-08-02T19:19:08.855Z INFO  forest_libp2p::service > Networking keystore not found!, fn_name=forest_libp2p::service::get_keypair::ha8162726e04c5572
+ 2022-08-02T19:19:08.856Z INFO  utils                  > Permissions set to 0600 on File { fd: 6, path: "/home/aakoshh/.local/share/forest/libp2p/keypair", read: false, write: true }, fn_name=utils::set_user_perm::h4bdd96d06f9f33ec
+ 2022-08-02T19:19:08.857Z WARN  forest::daemon         > Warning: Keystore encryption disabled!, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+ 2022-08-02T19:19:08.857Z WARN  key_management::keystore > Keystore does not exist, initializing new keystore at: "/home/aakoshh/.local/share/forest/keystore.json", fn_name=key_management::keystore::KeyStore::new::h0ff0fb32ca2f6c01
+ 2022-08-02T19:19:08.857Z INFO  utils                    > Permissions set to 0600 on File { fd: 6, path: "/home/aakoshh/.local/share/forest/keystore.json", read: false, write: true }, fn_name=utils::set_user_perm::h4bdd96d06f9f33ec
+ 2022-08-02T19:19:08.858Z INFO  forest::daemon           > Prometheus server started at 127.0.0.1:6116, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+ 2022-08-02T19:19:08.858Z INFO  forest::daemon           > Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.LmvzLxFmsVr7etpQjeCGKf5UoEffhuziKKHdr5ascjE, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+ 2022-08-02T19:19:08.921Z WARN  chain::store::chain_store > No previous chain state found, fn_name=chain::store::chain_store::ChainStore<DB>::load_heaviest_tipset::{{closure}}::ha8c2a7c73282a0d5
+ 2022-08-02T19:19:08.974Z INFO  genesis                   > Initialized genesis: BlockHeader: Cid(bafy2bzacec32hemorofji6x4bymnisdbre5qxcteuoqz5bulp76xn5mtc62y2), fn_name=genesis::read_genesis_header::{{closure}}::hbed3f12d958e0eb7
+ 2022-08-02T19:19:09.039Z INFO  forest::daemon            > Using network :: devnet, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+ 2022-08-02T19:19:09.052Z WARN  forest_libp2p::service    > Failed to bootstrap with Kademlia: Kademlia is not activated, fn_name=forest_libp2p::service::Libp2pService<DB>::new::hcaf01e98596a90f2
+ 2022-08-02T19:19:09.061Z INFO  forest::daemon            > JSON-RPC endpoint started at 127.0.0.1:1234, fn_name=forest::daemon::start::{{closure}}::{{closure}}::h52afcfa467fed7f5
+ 2022-08-02T19:19:09.063Z INFO  rpc                       > Ready for RPC connections, fn_name=rpc::start_rpc::{{closure}}::h3dabc34937b47105
 ```
 
 We can see from the log that:
@@ -303,29 +333,36 @@ In fact it has already created a wallet which contains the key used to authentic
 
 ```console
 $ ls ~/.local/share/forest
-calibnet  keystore.json  libp2p
+devnet  keystore.json  libp2p
 
 $ cat ~/.local/share/forest/keystore.json
 {
   "auth-jwt-private": {
     "key_type": 2,
-    "private_key": "zVkxTWtojgIe6w+B4GzVLlNCME0RrfUvFYP70MhyWsk="
+    "private_key": "g8YSmsplwsHOr612EwNtIUr+Ftofl4CSIH/epbGgEw4="
   }
 }
 ```
 
-Since we need the JWT for each request, let's put it in a variable.
+Note that it has created the `devnet` directory. Forest only accepts networks it recognises, so the `proposer-config.toml` has `devnet` as the network name, but this has nothing to do with any actual official devnet.
+
+## Add the private key to a wallet
+
+One of the Forest processes we start will need access to the private key, and normally it looks for it in the wallet. To prepare a wallet, we can use Forest itself because it seems to have all the necessary [commands](https://github.com/ChainSafe/forest/blob/v0.3.0/forest/src/cli/wallet_cmd.rs).
+
+We will need to attach the the JWT to each request, let's put it in a variable.
 
 ```bash
-JWT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.1zvrh2cLDyJl9K3fXeURy4sLZyEQPwHa7-p26VA_ztg
+JWT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.LmvzLxFmsVr7etpQjeCGKf5UoEffhuziKKHdr5ascjE
 ```
 
 Let's see what happens if we create a new wallet. We don't need to do this, becuase we already have a BLS key we want to put in, but it might help guide us later.
 
 ```console
 $ forest --token $JWT_TOKEN wallet new bls
-2022-07-22T13:03:12.841Z WARN  forest::cli > No configurations found, using defaults.
-2022-07-22T13:03:12.846Z ERROR forest::cli > JSON RPC Error: Code: 403 Message: Error code from HTTP Response: 403
+ 2022-08-02T19:26:10.468Z WARN  forest::cli > No configurations found, using defaults.
+ 2022-08-02T19:26:10.470Z WARN  isahc::handler > request completed with error: ConnectFailed: failed to connect to the server
+ 2022-08-02T19:26:10.471Z ERROR forest::cli    > JSON RPC Error: Code: 0 Message: ConnectFailed: failed to connect to the server
 ```
 
 Hm, we get `Forbidden`. As it turns out, the `--token` option is currently not used, we have to pass the token another way,
@@ -339,22 +376,23 @@ Check again:
 
 ```console
 $ forest wallet new bls
-2022-07-22T13:24:45.304Z WARN  forest::cli > No configurations found, using defaults.
-f3q64wm4crxbydogt4ls3wgutnf4kb4kbxmrsj5gerg2wggh67fz65igtiqgcfdidnnj5ypetcvb22fhs3opjq
+ 2022-08-02T19:27:15.950Z WARN  forest::cli > No configurations found, using defaults.
+f3qljpcw4zxavl6dka2b6j6l36cy75g5pyt44oiwixm2f2jkttti7apdi4mhrof5qnmxhzun6kpuqqvrq75zqa
+
 
 $ cat ~/.local/share/forest/keystore.json
 {
-  "wallet-f3q64wm4crxbydogt4ls3wgutnf4kb4kbxmrsj5gerg2wggh67fz65igtiqgcfdidnnj5ypetcvb22fhs3opjq": {
+  "wallet-f3qljpcw4zxavl6dka2b6j6l36cy75g5pyt44oiwixm2f2jkttti7apdi4mhrof5qnmxhzun6kpuqqvrq75zqa": {
     "key_type": 2,
-    "private_key": "+WU+/1xpWeR/feV6NnAyUThsTHAal9OHa10I7FrTxjY="
+    "private_key": "aTvS8uBJ9ujoEsAcsEflp4hXF7vi23ZqzWbDlVBSSko="
   },
   "default": {
     "key_type": 2,
-    "private_key": "+WU+/1xpWeR/feV6NnAyUThsTHAal9OHa10I7FrTxjY="
+    "private_key": "aTvS8uBJ9ujoEsAcsEflp4hXF7vi23ZqzWbDlVBSSko="
   },
   "auth-jwt-private": {
     "key_type": 2,
-    "private_key": "zVkxTWtojgIe6w+B4GzVLlNCME0RrfUvFYP70MhyWsk="
+    "private_key": "g8YSmsplwsHOr612EwNtIUr+Ftofl4CSIH/epbGgEw4="
   }
 }
 ```
@@ -383,43 +421,43 @@ ARGS:
 Promising. It doesn't say, but the path actually needs to point at a hexadecimal encoded JSON of a `KeyInfo` type above, with `key_type` and `private_key` fields. Let's see what the private key file we created earlier actually contains.
 
 ```console
-$ cat blockchain/consensus/deleg_cns/genesis-files/pre-seal-t01000.key | xxd -r -p
-7b2254797065223a22626c73222c22507269766174654b6579223a22326f6f797239694368624d436872554b2b656e393452594b7231466c456a314f613950676c54656d31694d3d227d
+$ cat blockchain/consensus/deleg_cns/genesis-files/pre-seal-t01000.key
+7b2254797065223a22626c73222c22507269766174654b6579223a224d44796d3236657744664f4a6d752b7749676e4c6855315a386d4c657255364e65664a324468724c3755593d227d
 
 $ cat blockchain/consensus/deleg_cns/genesis-files/pre-seal-t01000.key | xxd -r -p
-{"Type":"bls","PrivateKey":"2ooyr9iChbMChrUK+en94RYKr1FlEj1Oa9PglTem1iM="}
+{"Type":"bls","PrivateKey":"MDym26ewDfOJmu+wIgnLhU1Z8mLerU6NefJ2DhrL7UY="}
 ```
 
 That looks like exactly what we need! The PascalCasing can potentially be a problem.
 
 ```console
 $ forest wallet import blockchain/consensus/deleg_cns/genesis-files/pre-seal-t01000.key
-2022-07-22T13:46:07.237Z WARN  forest::cli > No configurations found, using defaults.
-f3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq
+ 2022-08-02T19:29:46.408Z WARN  forest::cli > No configurations found, using defaults.
+f3ugf5w4krrovxc64n5vi62t6qrbs5rm6zpgpmrt7b2ukaxescesbutbgmppn6rlstiihxd4dkrt7viqacuxoq
 
 $ cat ~/.local/share/forest/keystore.json
 {
+  "wallet-f3ugf5w4krrovxc64n5vi62t6qrbs5rm6zpgpmrt7b2ukaxescesbutbgmppn6rlstiihxd4dkrt7viqacuxoq": {
+    "key_type": 2,
+    "private_key": "MDym26ewDfOJmu+wIgnLhU1Z8mLerU6NefJ2DhrL7UY="
+  },
   "default": {
     "key_type": 2,
-    "private_key": "+WU+/1xpWeR/feV6NnAyUThsTHAal9OHa10I7FrTxjY="
-  },
-  "wallet-f3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq": {
-    "key_type": 2,
-    "private_key": "2ooyr9iChbMChrUK+en94RYKr1FlEj1Oa9PglTem1iM="
+    "private_key": "aTvS8uBJ9ujoEsAcsEflp4hXF7vi23ZqzWbDlVBSSko="
   },
   "auth-jwt-private": {
     "key_type": 2,
-    "private_key": "zVkxTWtojgIe6w+B4GzVLlNCME0RrfUvFYP70MhyWsk="
+    "private_key": "g8YSmsplwsHOr612EwNtIUr+Ftofl4CSIH/epbGgEw4="
   },
-  "wallet-f3q64wm4crxbydogt4ls3wgutnf4kb4kbxmrsj5gerg2wggh67fz65igtiqgcfdidnnj5ypetcvb22fhs3opjq": {
+  "wallet-f3qljpcw4zxavl6dka2b6j6l36cy75g5pyt44oiwixm2f2jkttti7apdi4mhrof5qnmxhzun6kpuqqvrq75zqa": {
     "key_type": 2,
-    "private_key": "+WU+/1xpWeR/feV6NnAyUThsTHAal9OHa10I7FrTxjY="
+    "private_key": "aTvS8uBJ9ujoEsAcsEflp4hXF7vi23ZqzWbDlVBSSko="
   }
 }
 ```
 
 Happy days. If we look closely at the original `pre-seal-t01000.json` or the `genesis.json` file we can see
-that the `Worker` address is `t3xe65dytq7cislbtg3f5clk47bl3mmbl6kurugybsfjzzn7l2tws5fhpvcttcmz4j3zedur7a6zc3snwk67pq`,
+that the `Worker` address is `t3ugf5w4krrovxc64n5vi62t6qrbs5rm6zpgpmrt7b2ukaxescesbutbgmppn6rlstiihxd4dkrt7viqacuxoq`,
 which is almost the same as what we have here, save for the `t` prefix versus `f`. `t` is the prefix for testnet,
 and `f` is for mainnet, so something's not right there, we won't be able to resolve the worker key to this unless
 they match exactly.
@@ -432,45 +470,78 @@ I don't have a better idea than to edit the file and change the prefixes:
 sed -i s/wallet-f/wallet-t/ ~/.local/share/forest/keystore.json
 ```
 
-## Build Forest with Delegated Consensus
+## Run the block producer
 
-To enable _Delegated Consensus_ instead of the default _Filecoin Consensus_, Forest has to be built with the `deleg_cns` feature, for example:
-
-```bash
-cargo clippy --all-targets --features deleg_cns -- -D warnings
-cargo build --features deleg_cns --bin forest
-```
-
-Now let's try to run a node; it would be the one eligible for mining, since we have the private key in the wallet. We'll point others at different
+Let's try to run a node again; it should be eligible for mining, since we have the private key in the wallet. We'll point others at different
 data directories to they don't have access to it.
 
-What we don't want is for this node to start syncing with the testnet, becuase it won't be able to validate those block (they were created by other miners after all), so network discovery is disabled and the number of peers is set to zero. This won't work if we want to use this node to let
-others bootstrap from it, but maybe at that point we can point test nodes to each other.
-
-This is the time for us to use our custom `genesis.car` file as well.
 
 ```console
-$ rm -rf ~/.local/shared/forest/calibnet
-$ RUST_BACKTRACE=1 ./target/debug/forest --encrypt-keystore false --chain calibnet --target-peer-count 0 --kademlia false --snapshot blockchain/consensus/deleg_cns/genesis-files/genesis.car
- 2022-07-22T14:46:08.334Z WARN  forest::cli > No configurations found, using defaults., fn_name=forest::cli::find_default_config::hce1f9afe18052660
- 2022-07-22T14:46:08.335Z INFO  forest::daemon > Starting Forest daemon, version v0.2.2/unstable/2b20acfb, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
- 2022-07-22T14:46:08.335Z INFO  forest_libp2p::service > Recovered libp2p keypair from "/home/aakoshh/.local/share/forest/libp2p/keypair", fn_name=forest_libp2p::service::get_keypair::h99ed6c6ce34645e8
- 2022-07-22T14:46:08.336Z WARN  forest::daemon         > Warning: Keystore encryption disabled!, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
- 2022-07-22T14:46:08.337Z INFO  metrics                > Prometheus server started at 0.0.0.0:6116, fn_name=metrics::init_prometheus::{{closure}}::h5e34e0d5569c88b6
- 2022-07-22T14:46:08.337Z INFO  forest::daemon         > Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.1zvrh2cLDyJl9K3fXeURy4sLZyEQPwHa7-p26VA_ztg, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
- 2022-07-22T14:46:08.486Z INFO  genesis                > Initialized genesis: BlockHeader: Cid(bafy2bzacecd372hwzypyklyxqdib3zava5av77yvi2zhto4nf3f43qlpx6qha), fn_name=genesis::read_genesis_header::{{closure}}::he72a53f4e30d5477
- 2022-07-22T14:46:08.534Z INFO  forest::daemon         > Using network :: cannot get name, fn_name=forest::daemon::start::{{closure}}::hdbf1518959c979df
- 2022-07-22T14:46:08.539Z WARN  forest_libp2p::service > Failed to bootstrap with Kademlia: Kademlia is not activated, fn_name=forest_libp2p::service::Libp2pService<DB>::new::he277f49f745948a6
-thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Unknown miner actor code bafk2bzacebze3elvppssc6v5457ukszzy6ndrg6xgaojfsqfbbtg3xfwo4rbs
+$ RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
+  --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
+  --config blockchain/consensus/deleg_cns/configs/proposer-config.toml
 
-Stack backtrace:
-   0: anyhow::error::<impl core::convert::From<E> for anyhow::Error>::from
-   1: <core::result::Result<T,F> as core::ops::try_trait::FromResidual<core::result::Result<core::convert::Infallible,E>>>::from_residual
-   2: deleg_cns::consensus::DelegatedConsensus::proposer::{{closure}}
-
-   ...
+ ...
+ 2022-08-02T19:37:54.296Z INFO  forest::daemon         > Starting the delegated consensus proposer..., fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+ ...
+ 2022-08-02T19:38:24.311Z INFO  deleg_cns::proposer    > Proposed block bafy2bzacecxbvobik6rdrl53ba2x2czkcewxi7pw3skcabmxgwonhyes7k2gs with 0 messages, fn_name=<deleg_cns::proposer::DelegatedProposer as chain_sync::consensus::Proposer>::run::{{closure}}::he99e8348f9fb9561
+ 2022-08-02T19:38:24.314Z WARN  forest_libp2p::service > Failed to send gossipsub message: InsufficientPeers, fn_name=forest_libp2p::service::Libp2pService<DB>::run::{{closure}}::hcd55a2962486211d
+ 2022-08-02T19:38:54.303Z INFO  deleg_cns::proposer    > Proposed block bafy2bzacecxbvobik6rdrl53ba2x2czkcewxi7pw3skcabmxgwonhyes7k2gs with 0 messages, fn_name=<deleg_cns::proposer::DelegatedProposer as chain_sync::consensus::Proposer>::run::{{closure}}::he99e8348f9fb9561
+ 2022-08-02T19:38:54.304Z WARN  forest_libp2p::service > Failed to send gossipsub message: InsufficientPeers, fn_name=forest_libp2p::service::Libp2pService<DB>::run::{{closure}}::hcd55a2962486211d
+ ...
 ```
 
-Alas, it looks like Forest is not happy with the Genesis file. It could be becuase it doesn't support that format any more. Indeed, the [error](https://github.com/ChainSafe/forest/blob/d4c25e53c02bc8e319d73c47e8f6bc16a714bdec/vm/actor_interface/src/builtin/miner/mod.rs#L50-L56) indicates that Forest doesn't expect anything less than V8 of the actor state.
+Grand! The node is trying to propose blocks every 30 seconds, but it complains about not having peers.
 
-It looks like all our efforst have been in vain. We have to be able to generate a genesis file that Forest can read directly to be able to spin up a custom network.
+### Inconsistent work addresses
+
+If we look at the log we can see that it actually proposed the same block twice, because it was unable to add them to the chain, so it always built on the same parent, with the same timestamp.
+
+There were multiple reasons for this:
+1. The node was waiting for P2P messages to figure out if it's in sync with the network, even though it's alone. This has been disabled by setting the `tipset_sample_size` to `0`.
+2. Validation failed with an error saying the miner wasn't eligible to mine.
+
+Upon inspection it turned out that despite the `Worker` starting with `t` in the `genesis.json` file, the address that has been written to the actually starts with `f`, so when we look up the address of `t01000` we get back `f3ugf5w4krrovxc64n5vi62t6qrbs5rm6zpgpmrt7b2ukaxescesbutbgmppn6rlstiihxd4dkrt7viqacuxoq`.
+
+Furthermore, for some reason Forest only creates `Address` from an ID with the default `mainnet` network, so it stripped away the `t` and added back `f`, like it did for the wallet.
+
+For now a fix has been added so that the proposer looks up its own address to convert it into the `f` prefixed version, before looking up the key in the wallet, and doing any comparisons. This way the bug cancels itself out.
+
+It also means we have to undo any changes to the wallet keystore:
+
+```bash
+sed -i s/wallet-t/wallet-f/ ~/.local/share/forest/keystore.json
+```
+
+### Setup a network
+
+Next, we'll have to set up a network of nodes, to see that not only can we produce blocks, but also validate them on other nodes.
+
+To do so we'll have to set the `bootstrap_peers` in the config file to contain the multiaddress of our proposer. It should look like `/ip4/127.0.0.1/tcp/1234/p2p/<peer-id-multihash>`.
+
+To find out what the peer ID is, a log has been added to the output:
+
+```
+...
+2022-08-02T20:04:18.271Z INFO  forest::daemon         > PeerId: 12D3KooWNEmsCbySkVBbZhX12kxommT3uFcNnoBS4Z8PN79r4aKi, fn_name=forest::daemon::start::{{closure}}::heec41d53b90815ef
+...
+```
+
+So let's edit the `configs/delegator-config.toml` like so:
+
+```toml
+[network]
+bootstrap_peers = [
+  "/ip4/127.0.0.1/tcp/2340/p2p/12D3KooWNEmsCbySkVBbZhX12kxommT3uFcNnoBS4Z8PN79r4aKi"
+]
+```
+
+The port `2340` was set as a `listening_multiaddr` in `proposer-config.toml` so we know what to expect, because the node doesn't report it if we use `0`, except with `RUST_LOG=debug` on. Or one can use the `forest net listen` command to list listening addresses once the node is running.
+
+And start it in another terminal window:
+
+```bash
+RUST_BACKTRACE=1 forest --encrypt-keystore false --target-peer-count 1 \
+  --genesis blockchain/consensus/deleg_cns/genesis-files/genesis.car \
+  --config blockchain/consensus/deleg_cns/configs/delegator-config.toml
+```
