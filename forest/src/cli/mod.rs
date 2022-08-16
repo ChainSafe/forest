@@ -213,7 +213,10 @@ impl CliOpts {
             cfg.client.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
-            panic!("Can't set import_snapshot and import_chain at the same time!");
+            cli_error_and_die(
+                "Can't set import_snapshot and import_chain at the same time!",
+                1,
+            );
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
                 cfg.client.snapshot_path = Some(snapshot_path.to_owned());
@@ -346,12 +349,13 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 
 /// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
 /// Provided number cannot be negative, otherwise the function will panic.
-pub(super) fn to_size_string(input: &BigInt) -> String {
-    Byte::from_bytes(
-        u128::try_from(input).unwrap_or_else(|e| panic!("error parsing the input {input}: {e}")),
-    )
-    .get_appropriate_unit(true)
-    .to_string()
+pub(super) fn to_size_string(input: &BigInt) -> Result<String, String> {
+    let bytes =
+        u128::try_from(input).map_err(|e| format!("error parsing the input {}: {}", input, e))?;
+
+    Ok(Byte::from_bytes(bytes)
+        .get_appropriate_unit(true)
+        .to_string())
 }
 
 /// Print an error message and exit the program with an error code
@@ -458,19 +462,17 @@ mod test {
         ];
 
         for (input, expected) in cases {
-            assert_eq!(to_size_string(&input), expected.to_string());
+            assert_eq!(to_size_string(&input), Ok(expected.to_string()));
         }
     }
 
     #[test]
-    #[should_panic]
     fn to_size_string_negative_input_should_fail() {
-        to_size_string(&BigInt::from(-1i8));
+        assert!(to_size_string(&BigInt::from(-1i8)).is_err());
     }
 
     #[test]
-    #[should_panic]
     fn to_size_string_too_large_input_should_fail() {
-        to_size_string(&(BigInt::from(u128::MAX) + 1));
+        assert!(to_size_string(&(BigInt::from(u128::MAX) + 1)).is_err());
     }
 }
