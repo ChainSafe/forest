@@ -33,7 +33,8 @@ use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
 use interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, VM,
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
+    VM,
 };
 use ipld_blockstore::{BlockStore, BlockStoreExt};
 use legacy_ipld_amt::Amt;
@@ -90,6 +91,7 @@ pub struct StateManager<DB> {
     beacon: Arc<beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
+    reward_calc: Arc<dyn RewardCalc>,
 }
 
 impl<DB> StateManager<DB>
@@ -99,6 +101,7 @@ where
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
+        reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?.context("genesis header missing")?;
         let beacon = Arc::new(
@@ -115,6 +118,7 @@ where
             beacon,
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
+            reward_calc,
         })
     }
 
@@ -123,6 +127,7 @@ where
         cs: Arc<ChainStore<DB>>,
         chain_subs: Publisher<HeadChange>,
         config: ChainConfig,
+        reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?.context("genesis header missing")?;
         let chain_config = Arc::new(config);
@@ -140,6 +145,7 @@ where
             beacon,
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
+            reward_calc,
         })
     }
 
@@ -243,6 +249,9 @@ where
         }
         if self.chain_config.name == "mainnet" {
             return Ok("testnetnet".to_owned());
+        }
+        if self.chain_config.name == "devnet" {
+            return Ok("devnet".to_owned());
         }
         Err(Error::Other("Cannot guess network name".to_owned()))
         // let init_act = self
@@ -357,6 +366,7 @@ where
                 base_fee.clone(),
                 network_version,
                 self.genesis_info.clone(),
+                self.reward_calc.clone(),
                 None,
                 &lb_wrapper,
                 self.engine
@@ -497,6 +507,7 @@ where
                 0.into(),
                 network_version,
                 self.genesis_info.clone(),
+                self.reward_calc.clone(),
                 None,
                 &lb_wrapper,
                 self.engine
@@ -591,6 +602,7 @@ where
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
             self.genesis_info.clone(),
+            self.reward_calc.clone(),
             None,
             &lb_wrapper,
             self.engine

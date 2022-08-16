@@ -29,6 +29,8 @@ pub fn is_v8_power_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzaceb45l6zhgc34n6clz7xnvd7ek55bhw46q25umuje34t6kroix6hh6").unwrap(),
     ];
     known_cids.contains(cid)
 }

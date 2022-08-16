@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use key_management::KeyStore;
+use log::info;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -32,8 +33,10 @@ pub enum DelegatedConsensusError {
     BlockWithTicket,
     #[error("Block had the wrong timestamp: {0} != {1}")]
     UnequalBlockTimestamps(u64, u64),
-    #[error("Miner isn't elligible to mine")]
-    MinerNotEligibleToMine,
+    #[error("Miner isn't elligible to mine: expected {0}; found {1}")]
+    MinerNotEligibleToMine(Address, Address),
+    #[error("Unknown miner: {0}")]
+    UnknownMiner(Address),
     #[error("Chain store error: {0}")]
     ChainStore(#[from] ChainStoreError),
     #[error("StateManager error: {0}")]
@@ -91,6 +94,11 @@ impl DelegatedConsensus {
         let genesis = genesis.ok_or_else(|| anyhow!("Genesis not set!"))?;
         let state_cid = genesis.state_root();
         let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one)?;
+
+        info!(
+            "The work address of the chosen proposer {} is {}",
+            self.chosen_one, work_addr
+        );
 
         match key_management::find_key(&work_addr, &*keystore.as_ref().read().await) {
             Ok(key) => Ok(Some(DelegatedProposer::new(self.chosen_one, key))),
