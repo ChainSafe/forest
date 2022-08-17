@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chain::{ChainStore, Error as ChainError};
 use cid::Cid;
 use forest_blocks::{Tipset, TipsetKeys};
-use ipld_blockstore::BlockStore;
+use forest_chain::{ChainStore, Error as ChainError};
+use forest_ipld_blockstore::BlockStore;
 use log::debug;
 use std::collections::HashMap;
 
@@ -100,7 +100,7 @@ where
     let mut secp_msg_includes: Vec<Vec<u64>> = vec![];
 
     for block_header in tipset.blocks().iter() {
-        let (bls_cids, secp_cids) = chain::read_msg_cids(db, block_header.messages())?;
+        let (bls_cids, secp_cids) = forest_chain::read_msg_cids(db, block_header.messages())?;
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());
         for bls_cid in bls_cids.into_iter() {
@@ -137,7 +137,7 @@ where
     }
 
     let (bls_msgs, secp_msgs) =
-        chain::block_messages_from_cids(db, &bls_cids_combined, &secp_cids_combined)?;
+        forest_chain::block_messages_from_cids(db, &bls_cids_combined, &secp_cids_combined)?;
 
     Ok(CompactedMessages {
         bls_msgs,
@@ -153,8 +153,8 @@ mod tests {
     use super::*;
     use async_std::io::BufReader;
     use forest_db::MemoryDB;
+    use forest_genesis::EXPORT_SR_40;
     use fvm_ipld_car::load_car;
-    use genesis::EXPORT_SR_40;
 
     async fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();

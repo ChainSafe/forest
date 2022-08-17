@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use beacon::DrandConfig;
-use beacon::DrandNetwork;
+use forest_beacon::DrandConfig;
+use forest_beacon::DrandNetwork;
 
 lazy_static! {
     pub(super) static ref DRAND_MAINNET: DrandConfig<'static> = DrandConfig {

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::call;
+use forest_rpc_api::chain_api::*;
 use jsonrpc_v2::Error;
-use rpc_api::chain_api::*;
 
 pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
     call(CHAIN_GET_BLOCK, cid).await

@@ -10,9 +10,9 @@ use async_std::{
 };
 use blake2b_simd::{Hash, State as Blake2b};
 use core::time::Duration;
-use fil_types::SectorSize;
+use forest_fil_types::SectorSize;
+use forest_net_utils::FetchProgress;
 use log::{debug, warn};
-use net_utils::FetchProgress;
 use pbr::{MultiBar, Units};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

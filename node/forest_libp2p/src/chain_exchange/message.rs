@@ -10,9 +10,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-/// ChainExchange Filecoin header set bit.
+/// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;
-/// ChainExchange Filecoin messages set bit.
+/// `ChainExchange` Filecoin messages set bit.
 pub const MESSAGES: u64 = 0b10;
 
 /// The payload that gets sent to another node to request for blocks and messages.
@@ -22,7 +22,7 @@ pub struct ChainExchangeRequest {
     pub start: Vec<Cid>,
     /// The amount of epochs to request.
     pub request_len: u64,
-    /// 1 = Block only, 2 = Messages only, 3 = Blocks and Messages.
+    /// 1 for Block only, 2 for Messages only, 3 for Blocks and Messages.
     pub options: u64,
 }
 
@@ -38,7 +38,7 @@ impl ChainExchangeRequest {
     }
 }
 
-/// Status codes of a chain_exchange response.
+/// Status codes of a `chain_exchange` response.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ChainExchangeResponseStatus {
     /// All is well.
@@ -50,7 +50,7 @@ pub enum ChainExchangeResponseStatus {
     BlockNotFound,
     /// Requester is making too many requests.
     GoAway,
-    /// Internal error occured.
+    /// Internal error occurred.
     InternalError,
     /// Request was bad.
     BadRequest,
@@ -98,7 +98,7 @@ impl<'de> Deserialize<'de> for ChainExchangeResponseStatus {
     }
 }
 
-/// The response to a ChainExchange request.
+/// The response to a `ChainExchange` request.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeResponse {
     /// Status code of the response.
@@ -110,9 +110,9 @@ pub struct ChainExchangeResponse {
 }
 
 impl ChainExchangeResponse {
-    /// Converts chain_exchange response into result.
+    /// Converts `chain_exchange` response into result.
     /// Returns an error if the response status is not `Ok`.
-    /// Tipset bundle is converted into generic return type with `TryFrom` trait impl.
+    /// Tipset bundle is converted into generic return type with `TryFrom` trait implementation.
     pub fn into_result<T>(self) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String>,
@@ -126,15 +126,15 @@ impl ChainExchangeResponse {
         self.chain.into_iter().map(T::try_from).collect()
     }
 }
-/// Contains all bls and secp messages and their indexes per block
+/// Contains all BLS and SECP messages and their indexes per block
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct CompactedMessages {
-    /// Unsigned bls messages.
+    /// Unsigned BLS messages.
     pub bls_msgs: Vec<Message>,
     /// Describes which block each message belongs to.
     pub bls_msg_includes: Vec<Vec<u64>>,
 
-    /// Signed secp messages.
+    /// Signed SECP messages.
     pub secp_msgs: Vec<SignedMessage>,
     /// Describes which block each message belongs to.
     pub secp_msg_includes: Vec<Vec<u64>>,
@@ -191,7 +191,7 @@ impl TryFrom<&TipsetBundle> for FullTipset {
     }
 }
 
-/// Constructs a [FullTipset] from headers and compacted messages from a bundle.
+/// Constructs a [`FullTipset`] from headers and compacted messages from a bundle.
 fn fts_from_bundle_parts(
     headers: Vec<BlockHeader>,
     messages: Option<&CompactedMessages>,

@@ -1,4 +1,4 @@
-10
+34
 APIs
 Algorand/M
 BLAKE2b
@@ -31,8 +31,16 @@ tipset/SM
 tipsetkey/S
 tuple
 validator/S
+deserializing
 mempool
 sortition
 deserialize/DG
 deserializer/SM
 baz
+stateful
+KV
+libp2p
+Kademlia
+MDNS
+LibP2P
+TOML

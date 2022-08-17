@@ -11,7 +11,7 @@ use fvm_shared::address::Address;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 
-/// Enum to encpasulate signed and unsigned messages. Useful when working with both types
+/// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 #[serde(untagged)]
 pub enum ChainMessage {
@@ -119,7 +119,7 @@ impl MessageTrait for ChainMessage {
 
 impl Cbor for ChainMessage {
     /// Returns the content identifier of the raw block of data
-    /// Default is Blake2b256 hash
+    /// Default is `Blake2b256` hash
     fn cid(&self) -> Result<Cid, Error> {
         match self {
             Self::Signed(t) => t.cid(),

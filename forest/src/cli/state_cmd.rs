@@ -3,15 +3,15 @@
 
 use std::str::FromStr;
 
-use actor_interface::is_miner_actor;
+use forest_actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use forest_json::address::json::AddressJson;
-use fvm::state_tree::ActorState;
-use fvm_shared::address::Address;
-use rpc_client::{
+use forest_rpc_client::{
     chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
     state_miner_power,
 };
+use fvm::state_tree::ActorState;
+use fvm_shared::address::Address;
 use structopt::StructOpt;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
@@ -50,8 +50,9 @@ impl StateCommands {
                 let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
                 let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
 
-                let address = Address::from_str(&miner_address)
-                    .unwrap_or_else(|_| panic!("Cannot read address {}", miner_address));
+                let address = Address::from_str(&miner_address).unwrap_or_else(|_| {
+                    cli_error_and_die(format!("Cannot read address {}", miner_address), 1)
+                });
 
                 match state_get_actor((AddressJson(address), tipset_keys_json.clone()))
                     .await
@@ -93,15 +94,20 @@ impl StateCommands {
                 println!(
                     "{}({}) / {}({}) ~= {}%",
                     &mp.quality_adj_power,
-                    to_size_string(&mp.quality_adj_power),
+                    to_size_string(&mp.quality_adj_power)
+                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
                     &tp.quality_adj_power,
-                    to_size_string(&tp.quality_adj_power),
+                    to_size_string(&tp.quality_adj_power)
+                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
                     (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
             }
             Self::GetActor { address } => {
                 let address = Address::from_str(&address.clone()).unwrap_or_else(|_| {
-                    panic!("Failed to create address from argument {}", address)
+                    cli_error_and_die(
+                        format!("Failed to create address from argument {}", address),
+                        1,
+                    )
                 });
 
                 let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
@@ -144,8 +150,9 @@ impl StateCommands {
                 }
             }
             Self::Lookup { reverse, address } => {
-                let address = Address::from_str(address)
-                    .unwrap_or_else(|_| panic!("Invalid address: {}", address));
+                let address = Address::from_str(address).unwrap_or_else(|_| {
+                    cli_error_and_die(format!("Invalid address: {}", address), 1)
+                });
 
                 let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
 

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::call;
+use forest_rpc_api::wallet_api::*;
 use jsonrpc_v2::Error;
-use rpc_api::wallet_api::*;
 
 pub async fn wallet_new(signature_type: WalletNewParams) -> Result<WalletNewResult, Error> {
     call(WALLET_NEW, signature_type).await

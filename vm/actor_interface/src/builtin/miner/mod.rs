@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fil_types::{
+use forest_fil_types::{
     deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
 };
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;
 use forest_vm::{DealID, TokenAmount};
@@ -14,7 +15,6 @@ use fvm_ipld_encoding::BytesDe;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -31,6 +31,8 @@ pub fn is_v8_miner_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzacebze3elvppssc6v5457ukszzy6ndrg6xgaojfsqfbbtg3xfwo4rbs").unwrap(),
     ];
     known_cids.contains(cid)
 }
