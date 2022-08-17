@@ -187,6 +187,10 @@ pub(super) async fn start(config: Config) {
 
     sync_from_snapshot(&config, &state_manager).await;
 
+    if config.client.exit_after_import {
+        cli_error_and_die("Forest finish shutdown.", 0);
+    }
+
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
         None => {
