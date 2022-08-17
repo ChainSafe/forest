@@ -4,13 +4,14 @@
 use super::cli::{Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
 use async_std::net::TcpListener;
-use async_std::task::JoinHandle;
+use async_std::{channel::bounded, sync::RwLock, task, task::JoinHandle};
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use chain::ChainStore;
 use chain_sync::consensus::SyncGossipSubmitter;
 use chain_sync::ChainMuxer;
 use fil_types::verifier::FullVerifier;
 use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
+use futures::channel::oneshot::Receiver;
 use fvm_shared::version::NetworkVersion;
 use genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -21,7 +22,6 @@ use rpc_api::data_types::RPCState;
 use state_manager::StateManager;
 use utils::write_to_file;
 
-use async_std::{channel::bounded, sync::RwLock, task};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
@@ -33,28 +33,7 @@ use std::time;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    // TODO: wrap this into something nicer
-    use std::cell::RefCell;
-    use std::process;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
-    let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
-
-    let running = Arc::new(AtomicUsize::new(0));
-    ctrlc::set_handler(move || {
-        let prev = running.fetch_add(1, Ordering::SeqCst);
-        if prev == 0 {
-            warn!("Got interrupt, shutting down...");
-            // Send sig int in channel to blocking task
-            if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
-                ctrlc_send.send(()).expect("Error sending ctrl-c message");
-            }
-        } else {
-            process::exit(0);
-        }
-    })
-    .expect("Error setting Ctrl-C handler");
+    let ctrlc_oneshot = set_handler();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -401,6 +380,33 @@ async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
     if let Some(t) = mt {
         t.cancel().await;
     }
+}
+
+fn set_handler() -> Receiver<()> {
+    use std::cell::RefCell;
+    use std::process;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
+    let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
+
+    let running = Arc::new(AtomicUsize::new(0));
+    ctrlc::set_handler(move || {
+        let prev = running.fetch_add(1, Ordering::SeqCst);
+        if prev == 0 {
+            warn!("Got interrupt, shutting down...");
+            // Send sig int in channel to blocking task
+            if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
+                ctrlc_send.send(()).expect("Error sending ctrl-c message");
+            }
+        } else {
+            info!("Exiting process.");
+            process::exit(0);
+        }
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    ctrlc_oneshot
 }
 
 fn db_path(config: &Config) -> PathBuf {
