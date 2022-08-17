@@ -3,12 +3,12 @@
 
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::sync::RwLock;
+use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
 use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use lru::LruCache;
 use std::sync::Arc;
-use async_std::task;
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: usize = 32 << 10;
 
