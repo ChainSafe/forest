@@ -143,6 +143,8 @@ pub struct CliOpts {
     pub height: Option<i64>,
     #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
+    #[structopt(long)]
+    pub import_snapshot_and_exit: Option<String>,
     #[structopt(long, help = "Import a chain from a local CAR file or url")]
     pub import_chain: Option<String>,
     #[structopt(
