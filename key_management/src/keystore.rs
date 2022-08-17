@@ -141,7 +141,7 @@ struct EncryptedKeyStore {
 
 #[derive(Debug, Error)]
 pub enum EncryptedKeyStoreError {
-    /// Possibly indicates incorrect pass phrase
+    /// Possibly indicates incorrect passphrase
     #[error("Error decrypting data")]
     DecryptionError,
     /// An error occurred while encrypting keys
