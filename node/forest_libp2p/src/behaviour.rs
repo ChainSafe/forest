@@ -100,7 +100,7 @@ struct RequestProcessingOutcome {
     response: ChainExchangeResponse,
 }
 
-/// Event type which is emitted from the [`ForestBehaviour`] into the libp2p service.
+/// Event type which is emitted from the [`ForestBehaviour`] into the Libp2p service.
 #[derive(Debug)]
 pub(crate) enum ForestBehaviourEvent {
     PeerConnected(PeerId),
