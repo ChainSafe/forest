@@ -9,13 +9,13 @@ use fvm_ipld_blockstore::Blockstore;
 pub use rocksdb::{Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
-/// RocksDB instance this satisfies the [Store] interface.
+/// `RocksDB` instance this satisfies the [Store] interface.
 #[derive(Debug, Clone)]
 pub struct RocksDb {
     pub db: Arc<DB>,
 }
 
-/// RocksDb is used as the KV store for Forest
+/// `RocksDb` is used as the KV store for Forest
 ///
 /// Usage:
 /// ```no_run

@@ -58,7 +58,7 @@ lazy_static! {
     static ref CURRENT_COMMIT: &'static str = git_version!(fallback = "unknown");
 }
 
-/// Libp2p behaviour for the Forest node. This handles all sub protocols needed for a Filecoin node.
+/// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
 #[behaviour(
     out_event = "ForestBehaviourEvent",
@@ -86,7 +86,7 @@ pub(crate) struct ForestBehaviour {
     hello_request_table:
         HashMap<RequestId, OneShotSender<Result<HelloResponse, RequestResponseError>>>,
     /// Boxed futures of responses for Chain Exchange incoming requests. This needs to be polled
-    /// in the behaviour to have access to the `RequestResponse` protocol when sending response.
+    /// in the behavior to have access to the `RequestResponse` protocol when sending response.
     ///
     /// This technically shouldn't be necessary, because the response can just be sent through the
     /// internal channel, but is necessary to avoid forking `RequestResponse`.
@@ -100,7 +100,7 @@ struct RequestProcessingOutcome {
     response: ChainExchangeResponse,
 }
 
-/// Event type which is emitted from the [ForestBehaviour] into the libp2p service.
+/// Event type which is emitted from the [`ForestBehaviour`] into the libp2p service.
 #[derive(Debug)]
 pub(crate) enum ForestBehaviourEvent {
     PeerConnected(PeerId),
@@ -536,12 +536,12 @@ impl ForestBehaviour {
         self.discovery.peers()
     }
 
-    /// Returns a map of peer ids and their multiaddresses
+    /// Returns a map of peer ids and their multi-addresses
     pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         self.discovery.peer_addresses()
     }
 
-    /// Send a block to a peer over bitswap
+    /// Send a block to a peer over bit-swap
     pub fn send_block(
         &mut self,
         peer_id: &PeerId,
@@ -555,7 +555,7 @@ impl ForestBehaviour {
         Ok(())
     }
 
-    /// Send a request for data over bitswap
+    /// Send a request for data over bit-swap
     pub fn want_block(&mut self, cid: Cid, priority: Priority) -> Result<(), anyhow::Error> {
         debug!("want {}", cid.to_string());
         let cid = cid.to_bytes();
