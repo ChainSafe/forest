@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
 impl VRFProof {
-    /// Creates a VRFProof from a raw vector.
+    /// Creates a `VRFProof` from a raw vector.
     pub fn new(output: Vec<u8>) -> Self {
         Self(output)
     }
@@ -22,7 +22,7 @@ impl VRFProof {
         &self.0
     }
 
-    /// Compute the blake2b256 digest of the proof.
+    /// Compute the `BLAKE2b256` digest of the proof.
     pub fn digest(&self) -> [u8; 32] {
         blake2b_256(&self.0)
     }
