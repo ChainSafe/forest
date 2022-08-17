@@ -11,7 +11,7 @@ pub enum Error {
     /// Failed to produce a signature
     #[error("Failed to sign data {0}")]
     SigningError(String),
-    /// Unable to perform ecrecover with the given params
+    /// Unable to perform `ecrecover` with the given parameters
     #[error("Could not recover public key from signature: {0}")]
     InvalidRecovery(String),
 }
