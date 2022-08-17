@@ -36,7 +36,7 @@ pub enum Selector {
         next: Box<Selector>,
     },
 
-    /// `ExploreFields` traverses named fields in a map (or equivalently, struct, if
+    /// `ExploreFields` traverses named fields in a map (or equivalently, structure, if
     /// traversing on typed/schema nodes) and applies a next selector to the
     /// reached nodes.
     ///
@@ -174,7 +174,7 @@ impl SubAssign<u64> for RecursionLimit {
 ///
 ///
 /// TO-DO: Condition is very skeletal and incomplete.
-/// The place where Condition appears in other structs is correct;
+/// The place where Condition appears in other structures is correct;
 /// the rest of the details inside it are not final nor even completely drafted.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Condition {

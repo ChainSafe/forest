@@ -31,9 +31,9 @@ tipset/SM
 tipsetkey/S
 tuple
 validator/S
-deserializing
 mempool
 sortition
+serializer/SM
 deserialize/DG
 deserializer/SM
 baz
