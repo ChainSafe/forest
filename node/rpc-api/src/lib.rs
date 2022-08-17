@@ -140,7 +140,7 @@ pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
 /// JSON-RPC API definitions
 
-/// Auth API
+/// Authorization API
 pub mod auth_api {
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
     pub type AuthNewParams = (Vec<String>,);

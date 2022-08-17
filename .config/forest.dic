@@ -37,4 +37,9 @@ mempool
 sortition
 stateful
 MDNS
+Libp2p
+KV
+Kademlia
 LibP2P
+boolean
+TOML

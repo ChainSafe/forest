@@ -22,7 +22,7 @@ pub struct ChainExchangeRequest {
     pub start: Vec<Cid>,
     /// The amount of epochs to request.
     pub request_len: u64,
-    /// 1 is Block only, 2 is Messages only, 3 is Blocks and Messages.
+    /// 1 for Block only, 2 for Messages only, 3 for Blocks and Messages.
     pub options: u64,
 }
 

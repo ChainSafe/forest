@@ -4,7 +4,7 @@
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 
-/// LibP2P configuration for the Forest node.
+/// Libp2p configuration for the Forest node.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Libp2pConfig {

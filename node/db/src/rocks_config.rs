@@ -5,7 +5,7 @@ use num_cpus;
 use rocksdb::{DBCompactionStyle, DBCompressionType};
 use serde::{Deserialize, Serialize};
 
-/// RocksDB configuration exposed in Forest.
+/// `RocksDB` configuration exposed in Forest.
 /// Only subset of possible options is implemented, add missing ones when needed.
 /// For description of different options please refer to the `rocksdb` crate documentation.
 /// <https://docs.rs/rocksdb/latest/rocksdb/>
@@ -37,7 +37,7 @@ impl Default for RocksDbConfig {
     }
 }
 
-/// Converts string to a compaction style RocksDB variant.
+/// Converts string to a compaction style `RocksDB` variant.
 pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<DBCompactionStyle> {
     match s.to_lowercase().as_str() {
         "level" => Ok(DBCompactionStyle::Level),
@@ -47,7 +47,7 @@ pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<DBCompactionS
     }
 }
 
-/// Converts string to a compression type RocksDB variant.
+/// Converts string to a compression type `RocksDB` variant.
 pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompressionType> {
     match s.to_lowercase().as_str() {
         "bz2" => Ok(DBCompressionType::Bz2),
