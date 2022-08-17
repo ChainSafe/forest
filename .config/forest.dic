@@ -34,9 +34,6 @@ validator/S
 mempool
 sortition
 serializer/SM
-deserialize/DG
-deserializer/SM
-baz
 stateful
 KV
 libp2p

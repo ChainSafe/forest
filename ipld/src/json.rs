@@ -26,7 +26,7 @@ use std::fmt;
 
 const BYTES_JSON_KEY: &str = "bytes";
 
-/// Wrapper for serializing and deserializing a IPLD from JSON.
+/// Wrapper for serializing and de-serializing a IPLD from JSON.
 #[derive(Deserialize, Serialize)]
 #[serde(transparent)]
 pub struct IpldJson(#[serde(with = "self")] pub Ipld);

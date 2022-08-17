@@ -13,7 +13,7 @@ use std::ops::SubAssign;
 use Selector::*;
 
 /// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
-/// Selectors are themselves IPLD and can be serialized and deserialized as such.
+/// Selectors are themselves IPLD and can be serialized and de-serialized as such.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Selector {
     /// `Matcher` marks a node to be included in the "result" set.
@@ -40,7 +40,7 @@ pub enum Selector {
     /// traversing on typed/schema nodes) and applies a next selector to the
     /// reached nodes.
     ///
-    /// Note that a concept of exploring a whole path (e.g. "foo/bar/baz") can be
+    /// Note that a concept of exploring a whole path (e.g. "path/to/file") can be
     /// represented as a set of three nested `ExploreFields` selectors, each
     /// specifying one field.
     ///
