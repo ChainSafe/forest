@@ -144,7 +144,7 @@ pub struct CliOpts {
     #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
     pub import_snapshot: Option<String>,
     #[structopt(long)]
-    pub import_and_exit: bool,
+    pub halt_after_import: bool,
     #[structopt(long, help = "Import a chain from a local CAR file or url")]
     pub import_chain: Option<String>,
     #[structopt(
@@ -233,7 +233,7 @@ impl CliOpts {
             cfg.client.skip_load = self.skip_load;
         }
 
-        cfg.client.exit_after_import = self.import_and_exit;
+        cfg.client.halt_after_import = self.halt_after_import;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);

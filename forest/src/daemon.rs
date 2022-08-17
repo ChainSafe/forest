@@ -355,7 +355,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             Some(0)
         };
 
-        if config.client.exit_after_import {
+        if config.client.halt_after_import {
             info!("Forest finish shutdown");
             process::exit(0);
         }
