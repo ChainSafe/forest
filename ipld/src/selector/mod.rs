@@ -18,7 +18,7 @@ use Selector::*;
 pub enum Selector {
     /// `Matcher` marks a node to be included in the "result" set.
     /// (All nodes traversed by a selector are in the "covered" set (which is a.k.a.
-    /// "the merkle proof"); the "result" set is a subset of the "covered" set.)
+    /// "the Merkle proof"); the "result" set is a subset of the "covered" set.)
     ///
     /// In libraries using selectors, the "result" set is typically provided to
     /// some user-specified callback.
