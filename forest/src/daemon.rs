@@ -30,7 +30,7 @@ use forest_db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time;
+use std::{process, time};
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
@@ -186,10 +186,6 @@ pub(super) async fn start(config: Config) {
     info!("Using network :: {}", network_name);
 
     sync_from_snapshot(&config, &state_manager).await;
-
-    if config.client.exit_after_import {
-        cli_error_and_die("Forest finish shutdown.", 0);
-    }
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
@@ -358,6 +354,12 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         } else {
             Some(0)
         };
+
+        if config.client.exit_after_import {
+            info!("Forest finish shutdown");
+            process::exit(0);
+        }
+
         import_chain::<FullVerifier, _>(
             state_manager,
             path,
