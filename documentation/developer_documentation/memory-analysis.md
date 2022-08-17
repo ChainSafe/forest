@@ -40,7 +40,7 @@ heaptrack --analyze heaptrack.forest.12345.gz
 ### Summary
 Here we can see memory usage overview. Keep in mind that *leaks* here are not necessarily leaks - it's just memory that hasn't been yet freed. A global cache would always show as a leak.
 
-While most of the potential *culpripts* are not necessarily interesting (e.g. `alloc::*`) because even a `String` constructor calls them, we immediately see that among specific ones, it's the `rocksdb` that gets into the spotlight.
+While most of the potential *culprits* are not necessarily interesting (e.g. `alloc::*`) because even a `String` constructor calls them, we immediately see that among specific ones, it's the `rocksdb` that gets into the spotlight.
 
 ![summary](heaptrack/summary.png)
 
@@ -79,8 +79,8 @@ This tab will show you the allocation sizes during runtime and their frequency. 
 
 ![sizes](heaptrack/sizes.png)
 
-### Miscallenous
+### Miscellaneous
 
 - Keep in mind that running Forest *with* heaptrack gives a non-negligible memory and CPU overhead. You may not be able to run mainnet node on a 16G machine even if normally it would be fine.
 - Optimizations may play tricks on the developer, e.g. inlining functions so they won't even appear in your trace. If you think a particular method should have been called but for mysterious reasons it does not appear in the analysis, you may want to put `#[inline(never)]` on top of it. Analyzing a debug build may also be useful, but depending on where the leak happens, it may be too slow.
-- There is a lot of noise coming from dependencies and standard library. It's useful to mentally filter them out a bit and focus on the biggest culprits in Forest methods. Flamegraph and caller/calee view are the most useful for this.
+- There is a lot of noise coming from dependencies and standard library. It's useful to mentally filter them out a bit and focus on the biggest culprits in Forest methods. Flamegraph and caller/callee view are the most useful for this.
