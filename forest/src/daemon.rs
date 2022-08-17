@@ -184,31 +184,31 @@ pub(super) async fn start(config: Config) {
                 .expect("Failed miserably while importing chain from snapshot");
             debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
 
+            // Terminate if no snapshot is provided or DB isn't recent enough
+            match sm.chain_store().heaviest_tipset().await {
+                None => {
+                    cli_error_and_die(
+                        "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                        1,
+                    );
+                }
+                Some(tipset) => {
+                    let epoch = tipset.epoch();
+                    let nv = sm.get_network_version(epoch);
+                    if nv < NetworkVersion::V16 {
+                        cli_error_and_die(
+                        "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                            1,
+                        );
+                    }
+                }
+            }
+
             import_barrier.wait().await;
         }))
     } else {
         None
     };
-
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                1,
-            );
-        }
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                cli_error_and_die(
-                   "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                    1,
-                );
-            }
-        }
-    }
 
     // Fetch and ensure verification keys are downloaded
     #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
