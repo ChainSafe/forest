@@ -42,7 +42,7 @@ forest_rpc             = "0.1.0"
 forest_rpc-api         = "0.1.0"
 forest_rpc-client      = "0.1.0"
 forest_state_manager   = "0.1.0"
-forest_statediff       = { version = "0.1.0", optional = true }
+forest_statediff       = "0.1.0"
 forest_utils           = "0.1.0"
 forest_vm              = "0.3"
 futures                = "0.3"
@@ -85,7 +85,7 @@ rand              = "0.8"
 tempfile          = "3"
 
 [features]
-default          = ["forest_fil_cns", "forest_statediff"]
+default          = ["forest_fil_cns"]
 insecure_post    = ["forest_fil_cns/insecure_post"]
 testnet          = []
 release          = []
