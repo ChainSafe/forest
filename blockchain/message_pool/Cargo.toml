@@ -8,6 +8,7 @@ edition = "2021"
 anyhow            = "1.0"
 async-std         = { version = "1.9", features = ["tokio1"] }
 async-trait       = "0.1"
+async-lock        = "2.5"
 blake2b_simd      = "0.5.10"
 chain             = "0.1.0"
 cid               = { version = "0.8", default-features = false, features = ["std"] }

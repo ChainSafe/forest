@@ -16,6 +16,7 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
+use async_lock::Barrier;
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
 use async_std::sync::{Arc, RwLock};
@@ -171,6 +172,8 @@ where
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
+        head_changes_barrier: Option<Arc<Barrier>>,
+        republish_barrier: Option<Arc<Barrier>>,
     ) -> Result<
         (
             MessagePool<T>,
@@ -227,6 +230,9 @@ where
 
         // Reacts to new HeadChanges
         let head_changes_task = task::spawn(async move {
+            if let Some(barrier) = head_changes_barrier {
+                barrier.wait().await;
+            }
             loop {
                 match subscriber.recv().await {
                     Ok(ts) => {
@@ -276,6 +282,9 @@ where
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
         let republish_task = task::spawn(async move {
+            if let Some(barrier) = republish_barrier {
+                barrier.wait().await;
+            }
             let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
@@ -309,8 +318,16 @@ where
     where
         T: Provider,
     {
-        let (mpool, _, _) =
-            Self::with_tasks(api, network_name, network_sender, config, chain_config).await?;
+        let (mpool, _, _) = Self::with_tasks(
+            api,
+            network_name,
+            network_sender,
+            config,
+            chain_config,
+            None,
+            None,
+        )
+        .await?;
         Ok(mpool)
     }
 
