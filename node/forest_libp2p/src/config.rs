@@ -4,7 +4,7 @@
 use libp2p::Multiaddr;
 use serde::{Deserialize, Serialize};
 
-/// Libp2p config for the Forest node.
+/// LibP2P configuration for the Forest node.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Libp2pConfig {
@@ -12,9 +12,9 @@ pub struct Libp2pConfig {
     pub listening_multiaddr: Multiaddr,
     /// Bootstrap peer list.
     pub bootstrap_peers: Vec<Multiaddr>,
-    /// Mdns discovery enabled.
+    /// MDNS discovery enabled.
     pub mdns: bool,
-    /// Kademlia discovery enabled.
+    /// `Kademlia` discovery enabled.
     pub kademlia: bool,
     /// Target peer count.
     pub target_peer_count: u32,

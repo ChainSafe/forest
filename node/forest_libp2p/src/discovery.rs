@@ -37,7 +37,7 @@ pub enum DiscoveryOut {
 
 /// `DiscoveryBehaviour` configuration.
 ///
-/// Note: In order to discover nodes or load and store values via Kademlia one has to add at least
+/// Note: In order to discover nodes or load and store values via `Kademlia` one has to add at least
 ///       one protocol via [`DiscoveryConfig::add_protocol`].
 pub struct DiscoveryConfig<'a> {
     local_peer_id: PeerId,
@@ -76,19 +76,19 @@ impl<'a> DiscoveryConfig<'a> {
         self
     }
 
-    /// Configures if mdns is enabled.
+    /// Configures if MDNS is enabled.
     pub fn with_mdns(&mut self, value: bool) -> &mut Self {
         self.enable_mdns = value;
         self
     }
 
-    /// Configures if Kademlia is enabled.
+    /// Configures if `Kademlia` is enabled.
     pub fn with_kademlia(&mut self, value: bool) -> &mut Self {
         self.enable_kademlia = value;
         self
     }
 
-    /// Create a `DiscoveryBehaviour` from this config.
+    /// Create a `DiscoveryBehaviour` from this configuration.
     pub fn finish(self) -> DiscoveryBehaviour {
         let DiscoveryConfig {
             local_peer_id,
@@ -167,11 +167,11 @@ pub struct DiscoveryBehaviour {
     /// User-defined list of nodes and their addresses. Typically includes bootstrap nodes and
     /// reserved nodes.
     user_defined: Vec<(PeerId, Multiaddr)>,
-    /// Kademlia discovery.
+    /// `Kademlia` discovery.
     kademlia: Toggle<Kademlia<MemoryStore>>,
     /// Discovers nodes on the local network.
     mdns: Toggle<Mdns>,
-    /// Stream that fires when we need to perform the next random Kademlia query.
+    /// Stream that fires when we need to perform the next random `Kademlia` query.
     next_kad_random_query: Interval,
     /// After `next_kad_random_query` triggers, the next one triggers after this duration.
     duration_to_next_kad: Duration,
@@ -181,7 +181,7 @@ pub struct DiscoveryBehaviour {
     num_connections: u64,
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
-    /// Keeps hash map of peers and their multiaddresses
+    /// Keeps hash map of peers and their multi-addresses
     peer_addresses: HashMap<PeerId, Vec<Multiaddr>>,
     /// Number of active connections to pause discovery on.
     discovery_max: u64,
@@ -193,12 +193,12 @@ impl DiscoveryBehaviour {
         &self.peers
     }
 
-    /// Returns a map of peer ids and their multiaddresses
+    /// Returns a map of peer ids and their multi-addresses
     pub fn peer_addresses(&self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         &self.peer_addresses
     }
 
-    /// Bootstrap Kademlia network
+    /// Bootstrap `Kademlia` network
     pub fn bootstrap(&mut self) -> Result<QueryId, String> {
         if let Some(active_kad) = self.kademlia.as_mut() {
             active_kad.bootstrap().map_err(|e| e.to_string())

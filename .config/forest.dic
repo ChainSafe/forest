@@ -36,3 +36,5 @@ deserializing
 mempool
 sortition
 stateful
+MDNS
+LibP2P
