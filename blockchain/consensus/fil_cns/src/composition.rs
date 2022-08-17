@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::FilecoinConsensus;
 use async_std::{sync::RwLock, task::JoinHandle};
-use beacon::DrandBeacon;
-use chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
-use fil_types::verifier::FullVerifier;
-use ipld_blockstore::BlockStore;
-use key_management::KeyStore;
-use state_manager::StateManager;
+use forest_beacon::DrandBeacon;
+use forest_chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
+use forest_fil_types::verifier::FullVerifier;
+use forest_ipld_blockstore::BlockStore;
+use forest_key_management::KeyStore;
+use forest_state_manager::StateManager;
 use std::sync::Arc;
 
 type MiningTask = JoinHandle<anyhow::Result<()>>;
@@ -16,8 +16,8 @@ pub type FullConsensus = FilecoinConsensus<DrandBeacon, FullVerifier>;
 
 pub const FETCH_PARAMS: bool = true;
 
-pub fn reward_calc() -> Arc<dyn interpreter::RewardCalc> {
-    Arc::new(interpreter::RewardActorMessageCalc)
+pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
+    Arc::new(forest_interpreter::RewardActorMessageCalc)
 }
 
 pub async fn consensus<DB, MP>(

@@ -1,5 +1,5 @@
 [package]
-name    = "deleg_cns"
+name    = "forest_deleg_cns"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -14,17 +14,17 @@ log               = "0.4.8"
 nonempty          = "0.8.0"
 thiserror         = "1.0"
 
-cid             = { version = "0.8", default-features = false, features = ["std"] }
-fil_types       = "0.2"
-forest_encoding = { version = "0.2.1" }
-fvm_shared      = { version = "0.8.0", default-features = false }
-ipld_blockstore = "0.1"
+cid                    = { version = "0.8", default-features = false, features = ["std"] }
+forest_encoding        = { version = "0.2.1" }
+forest_fil_types       = "0.2"
+forest_ipld_blockstore = "0.1"
+fvm_shared             = { version = "0.8.0", default-features = false }
 
-actor_interface = "0.1.0"
-chain           = "0.1.0"
-chain_sync      = "0.1.0"
-forest_blocks   = "0.1.0"
-interpreter     = "0.1.0"
-key_management  = "0.1.0"
-networks        = "0.1.0"
-state_manager   = "0.1.0"
+forest_actor_interface = "0.1.0"
+forest_blocks          = "0.1.0"
+forest_chain           = "0.1.0"
+forest_chain_sync      = "0.1.0"
+forest_interpreter     = "0.1.0"
+forest_key_management  = "0.1.0"
+forest_networks        = "0.1.0"
+forest_state_manager   = "0.1.0"

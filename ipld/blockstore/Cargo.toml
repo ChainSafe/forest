@@ -1,5 +1,5 @@
 [package]
-name        = "ipld_blockstore"
+name        = "forest_ipld_blockstore"
 description = "IPLD storage interface"
 version     = "0.1.1"
 license     = "MIT OR Apache-2.0"

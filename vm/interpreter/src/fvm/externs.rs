@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::gas_block_store::GasBlockStore;
 use cid::Cid;
+use forest_ipld_blockstore::BlockStore;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use fvm_shared::version::NetworkVersion;
-use ipld_blockstore::BlockStore;
 
 use crate::resolve_to_key_addr;
 use forest_blocks::BlockHeader;
@@ -80,7 +80,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
             store: &self.db,
         };
 
-        let ms = actor_interface::miner::State::load(&gbs, &actor)?;
+        let ms = forest_actor_interface::miner::State::load(&gbs, &actor)?;
 
         let worker = ms.info(&gbs)?.worker;
 

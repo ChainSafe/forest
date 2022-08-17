@@ -1,5 +1,5 @@
 [package]
-name    = "metrics"
+name    = "forest_metrics"
 version = "0.1.0"
 authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2021"

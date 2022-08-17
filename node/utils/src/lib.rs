@@ -46,12 +46,12 @@ pub fn read_file_to_string(path: &Path) -> Result<String> {
     Ok(string)
 }
 
-/// Converts a toml file represented as a string to `S`
+/// Converts a TOML file represented as a string to `S`
 ///
 /// # Example
 /// ```
 /// use serde::Deserialize;
-/// use utils::read_toml;
+/// use forest_utils::read_toml;
 ///
 /// #[derive(Deserialize)]
 /// struct Config {

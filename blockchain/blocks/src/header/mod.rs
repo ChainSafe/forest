@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use derive_builder::Builder;
-use fil_types::PoStProof;
+use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
+use forest_fil_types::PoStProof;
 use forest_vm::TokenAmount;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
@@ -466,7 +466,7 @@ impl fmt::Display for BlockHeader {
 #[cfg(test)]
 mod tests {
     use crate::{errors::Error, BlockHeader};
-    use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;

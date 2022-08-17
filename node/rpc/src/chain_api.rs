@@ -4,24 +4,24 @@
 use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
 use async_std::{fs::File, io::BufWriter};
-use beacon::Beacon;
-use chain::headchange_json::HeadChangeJson;
 use cid::Cid;
+use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
+use forest_chain::headchange_json::HeadChangeJson;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::cid::CidJson;
 use forest_message::message;
-use fvm_shared::message::Message as FVMMessage;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
-use log::{debug, error};
-use networks::Height;
-use rpc_api::{
+use forest_networks::Height;
+use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use fvm_shared::message::Message as FVMMessage;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
@@ -143,8 +143,8 @@ where
         .ok_or("can't find block with that cid")?;
     let blk_msgs = blk.messages();
     let (unsigned_cids, signed_cids) =
-        chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
-    let (bls_msg, secp_msg) = chain::block_messages_from_cids(
+        forest_chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
+    let (bls_msg, secp_msg) = forest_chain::block_messages_from_cids(
         data.state_manager.blockstore(),
         &unsigned_cids,
         &signed_cids,
@@ -191,8 +191,8 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let genesis =
-        chain::genesis(data.state_manager.blockstore())?.ok_or("can't find genesis tipset")?;
+    let genesis = forest_chain::genesis(data.state_manager.blockstore())?
+        .ok_or("can't find genesis tipset")?;
     let gen_ts = Arc::new(Tipset::new(vec![genesis])?);
     Ok(Some(TipsetJson(gen_ts)))
 }
