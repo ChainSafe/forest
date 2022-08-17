@@ -35,6 +35,9 @@ serializing
 deserializing
 mempool
 sortition
+VRF
+BLS
+crypto
 stateful
 KV
 libp2p
