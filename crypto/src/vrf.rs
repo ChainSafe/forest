@@ -22,7 +22,7 @@ impl VRFProof {
         &self.0
     }
 
-    /// Compute the `blake2b256` digest of the proof.
+    /// Compute the `BLAKE2b256` digest of the proof.
     pub fn digest(&self) -> [u8; 32] {
         blake2b_256(&self.0)
     }
