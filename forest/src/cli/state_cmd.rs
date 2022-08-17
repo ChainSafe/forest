@@ -5,22 +5,22 @@ use std::str::FromStr;
 
 use forest_actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
+use forest_encoding::tuple::*;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_rpc_client::{
-    chain_head, chain_read_obj, state_account_key, state_get_actor, state_list_actors, state_lookup,
-    state_miner_power,
+    chain_head, chain_read_obj, state_account_key, state_get_actor, state_list_actors,
+    state_lookup, state_miner_power,
 };
+use forest_statediff::MinerState;
 use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
-use forest_encoding::tuple::*;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::bigint::bigint_ser;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use num_traits::cast::FromPrimitive;
-use forest_statediff::MinerState;
 use structopt::StructOpt;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
