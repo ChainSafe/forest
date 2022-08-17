@@ -8,6 +8,7 @@ use fvm_shared::clock::ChainEpoch;
 use ipld_blockstore::BlockStore;
 use lru::LruCache;
 use std::sync::Arc;
+use async_std::task;
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: usize = 32 << 10;
 
@@ -70,6 +71,8 @@ where
         let rounded = self.round_down(from).await?;
 
         let mut cur = rounded.key().clone();
+        const MAX_COUNT: usize = 100;
+        let mut counter = 0;
         loop {
             let entry = self.skip_cache.write().await.get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
@@ -90,6 +93,13 @@ where
             }
 
             cur = lbe.target.clone();
+
+            if counter == MAX_COUNT {
+                counter = 0;
+                task::yield_now().await;
+            } else {
+                counter += 1;
+            }
         }
     }
 
