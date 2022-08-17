@@ -43,9 +43,9 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Gossipsub Filecoin blocks topic identifier.
+/// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
-/// Gossipsub Filecoin messages topic identifier.
+/// `Gossipsub` Filecoin messages topic identifier.
 pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
@@ -73,7 +73,7 @@ pub enum NetworkEvent {
     },
 }
 
-/// Message types that can come over GossipSub
+/// Message types that can come over `GossipSub`
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum PubsubMessage {
@@ -118,7 +118,7 @@ pub enum NetRPCMethods {
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
-/// The Libp2pService listens to events from the Libp2p swarm.
+/// The `Libp2pService` listens to events from the Libp2p swarm.
 pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
@@ -435,7 +435,7 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
         .boxed()
 }
 
-/// Fetch keypair from disk, returning none if it cannot be decoded.
+/// Fetch key-pair from disk, returning none if it cannot be decoded.
 pub fn get_keypair(path: &Path) -> Option<Keypair> {
     match read_file_to_vec(path) {
         Err(e) => {

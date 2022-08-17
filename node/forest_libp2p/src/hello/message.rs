@@ -19,9 +19,9 @@ pub struct HelloRequest {
 /// Response to a Hello message. This just handles latency of the peer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct HelloResponse {
-    /// Time of arrival to peer in unix nanoseconds.
+    /// Time of arrival to peer in UNIX nanoseconds.
     pub arrival: u64,
-    /// Time sent from peer in unix nanoseconds.
+    /// Time sent from peer in UNIX nanoseconds.
     pub sent: u64,
 }
 
