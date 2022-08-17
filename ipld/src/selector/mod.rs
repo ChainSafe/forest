@@ -173,7 +173,7 @@ impl SubAssign<u64> for RecursionLimit {
 ///   - in `ExploreConditional`,
 ///
 ///
-/// TO-DO: Condition is very skeletal and incomplete.
+/// Condition is very skeletal and incomplete.
 /// The place where Condition appears in other structures is correct;
 /// the rest of the details inside it are not final nor even completely drafted.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
