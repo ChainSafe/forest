@@ -2,21 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::fvm::externs::ForestExterns;
 use cid::Cid;
+use forest_ipld_blockstore::BlockStore;
 use forest_vm::TokenAmount;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
 use fvm_shared::ActorID;
-use ipld_blockstore::BlockStore;
-use ipld_blockstore::FvmStore;
 
 pub struct ForestMachine<DB: 'static> {
-    pub machine: fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>>,
+    pub machine: fvm::machine::DefaultMachine<DB, ForestExterns<DB>>,
     pub circ_supply: Option<TokenAmount>,
 }
 
 impl<DB: BlockStore> Machine for ForestMachine<DB> {
-    type Blockstore =
-        <fvm::machine::DefaultMachine<FvmStore<DB>, ForestExterns<DB>> as Machine>::Blockstore;
+    type Blockstore = <fvm::machine::DefaultMachine<DB, ForestExterns<DB>> as Machine>::Blockstore;
     type Externs = ForestExterns<DB>;
 
     fn engine(&self) -> &fvm::machine::Engine {

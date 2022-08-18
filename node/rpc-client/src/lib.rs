@@ -86,7 +86,7 @@ struct Url {
     host: String,
 }
 
-/// Parses a multiaddress into a Url
+/// Parses a multi-address into a URL
 fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.into_iter().fold(

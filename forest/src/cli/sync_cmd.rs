@@ -6,10 +6,10 @@ use std::{
     time::Duration,
 };
 
-use chain_sync::SyncStage;
 use cid::Cid;
+use forest_chain_sync::SyncStage;
 use forest_json::cid::CidJson;
-use rpc_client::*;
+use forest_rpc_client::*;
 use structopt::StructOpt;
 use ticker::Ticker;
 
@@ -36,11 +36,9 @@ pub enum SyncCommands {
     },
 }
 
-#[allow(unused_must_use)]
 impl SyncCommands {
     pub async fn run(&self) {
         match self {
-            #[allow(unused_must_use)]
             Self::Wait { watch } => {
                 let watch = *watch;
 
@@ -77,7 +75,7 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write("\r\x1b[2K\x1b[A".as_bytes());
+                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes()).unwrap();
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {

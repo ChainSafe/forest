@@ -18,7 +18,6 @@ use {
     },
 };
 
-#[allow(variant_size_differences)]
 //
 /// Errors returned by encoding and decoding.
 //
@@ -26,11 +25,11 @@ use {
 #[non_exhaustive]
 //
 pub enum Error {
-    /// An io error happened on the underlying stream.
+    /// An IO error happened on the underlying stream.
     //
     Io(IoError),
 
-    /// An error happend when encoding/decoding Cbor data.
+    /// An error happened when encoding/decoding `Cbor` data.
     //
     Cbor(CborError),
 }

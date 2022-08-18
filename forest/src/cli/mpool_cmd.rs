@@ -13,10 +13,10 @@ use jsonrpc_v2::Error;
 use structopt::StructOpt;
 
 use forest_json::cid::vec::CidJsonVec;
-use rpc_client::chain_ops::*;
-use rpc_client::mpool_ops::*;
-use rpc_client::state_ops::state_get_actor;
-use rpc_client::wallet_ops::wallet_list;
+use forest_rpc_client::chain_ops::*;
+use forest_rpc_client::mpool_ops::*;
+use forest_rpc_client::state_ops::state_get_actor;
+use forest_rpc_client::wallet_ops::wallet_list;
 
 use crate::cli::handle_rpc_err;
 

@@ -83,8 +83,8 @@ services:
     entrypoint: ["/bin/bash","-c"]
     command:
       - |
-        bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-calibnet
-        bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-mainnet
+        bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-calibnet &
+        bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-mainnet &
         sleep infinity
     depends_on:
       - forest_mainnet

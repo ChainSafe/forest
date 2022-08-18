@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // use data_encoding::Encoding;
-#[allow(unused_imports)]
-use data_encoding_macro::{internal_new_encoding, new_encoding};
 
 use fvm_shared::address::Address;
 

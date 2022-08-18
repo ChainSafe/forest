@@ -4,17 +4,20 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use actor_interface::{miner, EPOCHS_IN_DAY};
 use async_std::channel::{self, bounded, Receiver};
 use async_std::sync::RwLock;
 use async_std::task;
-use beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use crossbeam::atomic::AtomicCell;
+use forest_actor_interface::{miner, EPOCHS_IN_DAY};
+use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_encoding::de::DeserializeOwned;
+use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
 use futures::AsyncWrite;
@@ -26,9 +29,6 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::message::Message;
-use interpreter::BlockMessages;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
-use legacy_ipld_amt::Amt;
 use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -71,7 +71,7 @@ pub struct ChainStore<DB> {
     subscriptions_count: AtomicCell<usize>,
 
     /// key-value `datastore`.
-    pub db: Arc<DB>,
+    pub db: DB,
 
     /// Tipset at the head of the best-known chain.
     heaviest: RwLock<Option<Arc<Tipset>>>,
@@ -90,7 +90,7 @@ impl<DB> ChainStore<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub fn new(db: Arc<DB>) -> Self {
+    pub fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
@@ -189,7 +189,7 @@ where
     }
 
     /// Clones `blockstore` `Arc`.
-    pub fn blockstore_cloned(&self) -> Arc<DB> {
+    pub fn blockstore_cloned(&self) -> DB {
         self.db.clone()
     }
 
@@ -469,10 +469,15 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self
-                .blockstore()
-                .get_bytes(&cid)?
-                .ok_or_else(|| anyhow::anyhow!("Cid {} not found in blockstore", cid))?;
+            let block = self.blockstore().get_bytes(&cid)?.ok_or_else(|| {
+                if skip_old_msgs {
+                    anyhow::anyhow!("Cid {cid} not found in blockstore")
+                } else {
+                    anyhow::anyhow!("Cid {cid} not found in blockstore. \
+                                    Exporting a full snapshot is only possible when the node is initialised with a full one. \
+                                    Consider exporting a lightweight snapshot, e.g. skip the old messages.")
+                }
+            })?;
 
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
@@ -978,7 +983,6 @@ pub fn persist_block_messages<DB: BlockStore>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::sync::Arc;
     use cid::multihash::Code::{Blake2b256, Identity};
     use cid::multihash::MultihashDigest;
     use cid::Cid;
@@ -989,7 +993,7 @@ mod tests {
     fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(Arc::new(db));
+        let cs = ChainStore::new(db);
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -1009,7 +1013,7 @@ mod tests {
     fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(Arc::new(db));
+        let cs = ChainStore::new(db);
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

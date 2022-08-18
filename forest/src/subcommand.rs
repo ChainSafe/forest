@@ -3,7 +3,7 @@
 
 use super::cli::{Config, Subcommand};
 
-/// Process CLI subcommand
+/// Process CLI sub-command
 pub(super) async fn process(command: Subcommand, config: Config) {
     // Run command
     match command {

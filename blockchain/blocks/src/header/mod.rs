@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use derive_builder::Builder;
-use fil_types::PoStProof;
+use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
+use forest_fil_types::PoStProof;
 use forest_vm::TokenAmount;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
@@ -240,72 +240,72 @@ impl BlockHeader {
     pub fn builder() -> BlockHeaderBuilder {
         BlockHeaderBuilder::default()
     }
-    /// Getter for `BlockHeader` parents
+    /// Get `BlockHeader` parents
     pub fn parents(&self) -> &TipsetKeys {
         &self.parents
     }
-    /// Getter for `BlockHeader` weight
+    /// Get `BlockHeader` weight
     pub fn weight(&self) -> &BigInt {
         &self.weight
     }
-    /// Getter for `BlockHeader` epoch
+    /// Get `BlockHeader` epoch
     pub fn epoch(&self) -> ChainEpoch {
         self.epoch
     }
-    /// Getter for `Drand` `BeaconEntry`
+    /// Get `Drand` `BeaconEntry`
     pub fn beacon_entries(&self) -> &[BeaconEntry] {
         &self.beacon_entries
     }
-    /// Getter for winning `PoSt` proof
+    /// Get winning `PoSt` proof
     pub fn winning_post_proof(&self) -> &[PoStProof] {
         &self.winning_post_proof
     }
-    /// Getter for `BlockHeader.miner_address`
+    /// Get `BlockHeader.miner_address`
     pub fn miner_address(&self) -> &Address {
         &self.miner_address
     }
-    /// Getter for `BlockHeader.messages`
+    /// Get `BlockHeader.messages`
     pub fn messages(&self) -> &Cid {
         &self.messages
     }
-    /// Getter for `BlockHeader.message_receipts`
+    /// Get `BlockHeader.message_receipts`
     pub fn message_receipts(&self) -> &Cid {
         &self.message_receipts
     }
-    /// Getter for `BlockHeader.state_root`
+    /// Get `BlockHeader.state_root`
     pub fn state_root(&self) -> &Cid {
         &self.state_root
     }
-    /// Getter for `BlockHeader.timestamp`
+    /// Get `BlockHeader.timestamp`
     pub fn timestamp(&self) -> u64 {
         self.timestamp
     }
-    /// Getter for `BlockHeader.ticket`
+    /// Get `BlockHeader.ticket`
     pub fn ticket(&self) -> &Option<Ticket> {
         &self.ticket
     }
-    /// Getter for `BlockHeader.bls_aggregate`
+    /// Get `BlockHeader.bls_aggregate`
     pub fn bls_aggregate(&self) -> &Option<Signature> {
         &self.bls_aggregate
     }
-    /// Getter for `BlockHeader.cid`
+    /// Get `BlockHeader.cid`
     pub fn cid(&self) -> &Cid {
         self.cached_cid
             .get_or_init(|| Cid::new_v1(DAG_CBOR, Blake2b256.digest(self.cached_bytes())))
     }
-    /// Getter for `BlockHeader.parent_base_fee`
+    /// Get `BlockHeader.parent_base_fee`
     pub fn parent_base_fee(&self) -> &BigInt {
         &self.parent_base_fee
     }
-    /// Getter for `BlockHeader.fork_signal`
+    /// Get `BlockHeader.fork_signal`
     pub fn fork_signal(&self) -> u64 {
         self.fork_signal
     }
-    /// Getter for `BlockHeader.election_proof`
+    /// Get `BlockHeader.election_proof`
     pub fn election_proof(&self) -> &Option<ElectionProof> {
         &self.election_proof
     }
-    /// Getter for `BlockHeader.signature`
+    /// Get `BlockHeader.signature`
     pub fn signature(&self) -> &Option<Signature> {
         &self.signature
     }
@@ -466,7 +466,7 @@ impl fmt::Display for BlockHeader {
 #[cfg(test)]
 mod tests {
     use crate::{errors::Error, BlockHeader};
-    use beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;

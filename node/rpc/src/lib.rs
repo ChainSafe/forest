@@ -17,21 +17,21 @@ mod wallet_api;
 
 use async_std::net::TcpListener;
 use async_std::sync::Arc;
-use chain::Scale;
+use forest_chain::Scale;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use log::info;
 use tide_websockets::WebSocket;
 
-use beacon::Beacon;
-use fil_types::verifier::ProofVerifier;
-use ipld_blockstore::BlockStore;
-use rpc_api::data_types::RPCState;
+use forest_beacon::Beacon;
+use forest_fil_types::verifier::ProofVerifier;
+use forest_ipld_blockstore::BlockStore;
+use forest_rpc_api::data_types::RPCState;
 
 use crate::rpc_http_handler::rpc_http_handler;
 use crate::rpc_ws_handler::rpc_ws_handler;
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
 
-use rpc_api::{
+use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, gas_api::*, mpool_api::*, net_api::*,
     state_api::*, sync_api::*, wallet_api::*,
 };
@@ -39,6 +39,7 @@ use rpc_api::{
 pub async fn start_rpc<DB, B, V, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: TcpListener,
+    forest_version: &'static str,
 ) -> Result<(), JSONRPCError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -163,7 +164,7 @@ where
             .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB, B>)
             .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB, B>)
             // Common API
-            .with_method(VERSION, move || version(block_delay))
+            .with_method(VERSION, move || version(block_delay, forest_version))
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB, B>)
             .with_method(NET_PEERS, net_api::net_peers::<DB, B>)

@@ -4,10 +4,10 @@
 use std::sync::Arc;
 
 use forest_blocks::{Block, BlockHeader, Tipset};
+use forest_ipld_blockstore::BlockStore;
+use forest_networks::ChainConfig;
+use forest_state_manager::StateManager;
 use fvm_shared::address::Address;
-use ipld_blockstore::BlockStore;
-use networks::ChainConfig;
-use state_manager::StateManager;
 
 use crate::DelegatedConsensusError;
 
@@ -92,10 +92,20 @@ fn validate_miner<DB>(
 where
     DB: BlockStore + Send + Sync + 'static,
 {
+    use DelegatedConsensusError::*;
     let miner_addr = header.miner_address();
+
+    // Workaround for the bug where Forest strips the network type from the Address
+    // and then puts back always the mainnet variant, so the `t` prefix becomes `f`.
+    let chosen_addr = state_manager
+        .lookup_id(chosen_one, base_tipset)?
+        .unwrap_or(*chosen_one);
+
+    // This is where a miner address of `t01000` becomes `f01000`.
     match state_manager.lookup_id(miner_addr, base_tipset) {
-        Ok(Some(id)) if id == *chosen_one => Ok(()),
-        Ok(_) => Err(DelegatedConsensusError::MinerNotEligibleToMine),
+        Ok(Some(id)) if id == chosen_addr => Ok(()),
+        Ok(Some(id)) => Err(MinerNotEligibleToMine(chosen_addr, id)),
+        Ok(None) => Err(UnknownMiner(*miner_addr)),
         Err(e) => Err(e.into()),
     }
 }

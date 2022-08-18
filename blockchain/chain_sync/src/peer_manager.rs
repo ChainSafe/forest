@@ -8,7 +8,7 @@ use std::{cmp::Ordering, collections::HashSet};
 
 use async_std::sync::RwLock;
 use forest_blocks::Tipset;
-use libp2p::core::PeerId;
+use forest_libp2p::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
@@ -202,12 +202,6 @@ impl PeerManager {
             metrics::FULL_PEERS.dec();
         }
         removed
-    }
-
-    /// Gets count of full peers managed. This is just used for testing.
-    #[allow(dead_code)]
-    pub async fn len(&self) -> usize {
-        self.peers.read().await.full_peers.len()
     }
 }
 

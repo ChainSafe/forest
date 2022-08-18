@@ -1,23 +1,19 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chain::Scale;
+use forest_chain::Scale;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use actor_interface::{
+use cid::Cid;
+use forest_actor_interface::{
     market,
     miner::{self, MinerPower, SectorOnChainInfo},
     power::{self, Claim},
     reward,
 };
-use beacon::{Beacon, BeaconEntry};
-use cid::Cid;
-use fil_types::{
-    verifier::{FullVerifier, ProofVerifier},
-    PoStProof,
-};
+use forest_beacon::{Beacon, BeaconEntry};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson,
@@ -26,28 +22,32 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset,
 };
+use forest_fil_types::{
+    verifier::{FullVerifier, ProofVerifier},
+    PoStProof,
+};
 use forest_ipld::json::IpldJson;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
-use fvm::state_tree::StateTree;
-use fvm_shared::{address::Address, bigint::BigInt};
-use ipld_blockstore::{BlockStore, BlockStoreExt};
-use libipld_core::ipld::Ipld;
-use networks::Height;
-use rpc_api::{
+use forest_networks::Height;
+use forest_rpc_api::{
     data_types::{
         ActorStateJson, Deadline, MarketDeal, MessageLookup, MiningBaseInfoJson, Partition,
         RPCState,
     },
     state_api::*,
 };
-use state_manager::{InvocResult, StateManager};
+use forest_state_manager::{InvocResult, StateManager};
+use fvm::state_tree::StateTree;
+use fvm_shared::{address::Address, bigint::BigInt};
+use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
-/// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
-/// If the filterOut boolean is set to true, any sectors in the filter are excluded.
+/// returns info about the given miner's sectors. If the filter bit-field is nil, all sectors are included.
+/// If the `filterOut` boolean is set to true, any sectors in the filter are excluded.
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sectors<
     DB: BlockStore + Send + Sync + 'static,
@@ -123,7 +123,7 @@ pub(crate) async fn state_miner_deadlines<
     Ok(out)
 }
 
-/// returns the PreCommit info for the specified miner's sector
+/// returns the `PreCommit` info for the specified miner's sector
 pub(crate) async fn state_sector_precommit_info<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -144,7 +144,7 @@ pub(crate) async fn state_sector_precommit_info<
         .map_err(|e| e.into())
 }
 
-/// StateMinerInfo returns info about the indicated miner
+/// `StateMinerInfo` returns info about the indicated miner
 pub async fn state_miner_info<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -220,7 +220,7 @@ pub(crate) async fn state_miner_proving_deadline<
     Ok(mas.deadline_info(tipset.epoch()).next_not_elapsed())
 }
 
-/// returns a single non-expired Faults that occur within lookback epochs of the given tipset
+/// returns a single non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -242,7 +242,7 @@ pub(crate) async fn state_miner_faults<
         .map_err(|e| e.into())
 }
 
-/// returns all non-expired Faults that occur within lookback epochs of the given tipset
+/// returns all non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_all_miner_faults<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -278,7 +278,7 @@ pub(crate) async fn state_all_miner_faults<
     // Ok(all_faults)
 }
 
-/// returns a bitfield indicating the recovering sectors of the given miner
+/// returns a bit-field indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -300,7 +300,7 @@ pub(crate) async fn state_miner_recoveries<
         .map_err(|e| e.into())
 }
 
-/// returns a bitfield indicating the recovering sectors of the given miner
+/// returns a bit-field indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_partitions<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -310,7 +310,7 @@ pub(crate) async fn state_miner_partitions<
 ) -> anyhow::Result<StateMinerPartitionsResult, JsonRpcError> {
     let (actor, dl_idx, key) = params;
     let actor = actor.into();
-    let db = data.state_manager.chain_store().db.as_ref();
+    let db = &data.state_manager.chain_store().db;
     let mas = data
         .state_manager
         .chain_store()
@@ -452,7 +452,8 @@ pub(crate) async fn state_account_key<
         .tipset_from_keys(&key.into())
         .await?;
     let state = state_for_ts(state_manager, tipset).await?;
-    let address = interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
+    let address =
+        forest_interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
     Ok(Some(address.into()))
 }
 /// retrieves the ID address of the given address
@@ -619,13 +620,15 @@ pub(crate) async fn miner_create_block<
         .await?;
     let worker = data.state_manager.get_miner_work_addr(lbst, &miner)?;
 
-    let persisted =
-        chain::persist_block_messages(data.chain_store.blockstore(), messages.iter().collect())?;
+    let persisted = forest_chain::persist_block_messages(
+        data.chain_store.blockstore(),
+        messages.iter().collect(),
+    )?;
 
     let pweight = S::weight(data.chain_store.blockstore(), pts.as_ref())?;
     let smoke_height = data.state_manager.chain_config().epoch(Height::Smoke);
     let base_fee =
-        chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
+        forest_chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
 
     let mut next = BlockHeader::builder()
         .messages(persisted.msg_cid)
@@ -645,8 +648,8 @@ pub(crate) async fn miner_create_block<
         .signature(None)
         .build()?;
 
-    let key = key_management::find_key(&worker, &*data.keystore.as_ref().read().await)?;
-    let sig = key_management::sign(
+    let key = forest_key_management::find_key(&worker, &*data.keystore.as_ref().read().await)?;
+    let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
         &next.to_signing_bytes(),
@@ -770,7 +773,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (state, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &state)?;
+    let state = StateTree::new_from_root(&data.chain_store.db, &state)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state
@@ -813,7 +816,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     let (root_cid, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(data.chain_store.db.as_ref(), &root_cid)?;
+    let state = StateTree::new_from_root(&data.chain_store.db, &root_cid)?;
     let ssize = pci.seal_proof.sector_size()?;
 
     let actor = state

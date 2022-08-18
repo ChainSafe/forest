@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chain::Error as ChainError;
+use forest_chain::Error as ChainError;
 use fvm_ipld_encoding::Error as EncodeError;
 use thiserror::Error;
 

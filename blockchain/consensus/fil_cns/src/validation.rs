@@ -6,22 +6,22 @@ use std::sync::Arc;
 use async_std::task;
 use futures::stream::FuturesUnordered;
 
-use actor_interface::power;
-use beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use chain_sync::collect_errs;
 use cid::Cid;
 use fil_actors_runtime::runtime::DomainSeparationTag;
-use fil_types::verifier::ProofVerifier;
+use forest_actor_interface::power;
+use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
+use forest_chain_sync::collect_errs;
+use forest_fil_types::verifier::ProofVerifier;
+use forest_ipld_blockstore::BlockStore;
+use forest_networks::{ChainConfig, Height};
+use forest_state_manager::StateManager;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
-use ipld_blockstore::BlockStore;
-use networks::{ChainConfig, Height};
 use nonempty::NonEmpty;
-use state_manager::StateManager;
 
 use crate::FilecoinConsensusError;
 
@@ -247,7 +247,7 @@ fn validate_winner_election<DB: BlockStore + Sync + Send + 'static>(
     let miner_address = header.miner_address();
     let miner_address_buf = miner_address.marshal_cbor()?;
 
-    let vrf_base = state_manager::chain_rand::draw_randomness(
+    let vrf_base = forest_state_manager::chain_rand::draw_randomness(
         beacon.data(),
         DomainSeparationTag::ElectionProofProduction as i64,
         header.epoch(),
@@ -299,7 +299,7 @@ fn validate_ticket_election<DB: BlockStore + Sync + Send + 'static>(
 
     let beacon_base = header.beacon_entries().last().unwrap_or(prev_beacon);
 
-    let vrf_base = state_manager::chain_rand::draw_randomness(
+    let vrf_base = forest_state_manager::chain_rand::draw_randomness(
         beacon_base.data(),
         DomainSeparationTag::TicketProduction as i64,
         header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
@@ -353,7 +353,7 @@ fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVer
         .iter()
         .last()
         .unwrap_or(prev_beacon_entry);
-    let rand = state_manager::chain_rand::draw_randomness(
+    let rand = forest_state_manager::chain_rand::draw_randomness(
         rand_base.data(),
         DomainSeparationTag::WinningPoStChallengeSeed as i64,
         header.epoch(),

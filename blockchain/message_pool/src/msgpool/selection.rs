@@ -686,10 +686,10 @@ mod test_selection {
     use async_std::channel::bounded;
     use async_std::task;
     use forest_db::MemoryDB;
+    use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
     use fvm_shared::NetworkParams;
-    use key_management::{KeyStore, KeyStoreConfig, Wallet};
     use std::sync::Arc;
 
     const TEST_GAS_LIMIT: i64 = 6955002;
