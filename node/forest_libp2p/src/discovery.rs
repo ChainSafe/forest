@@ -37,7 +37,7 @@ pub enum DiscoveryOut {
 
 /// `DiscoveryBehaviour` configuration.
 ///
-/// Note: In order to discover nodes or load and store values via `Kademlia` one has to add at least
+/// Note: In order to discover nodes or load and store values via Kademlia one has to add at least
 ///       one protocol via [`DiscoveryConfig::add_protocol`].
 pub struct DiscoveryConfig<'a> {
     local_peer_id: PeerId,
@@ -82,7 +82,7 @@ impl<'a> DiscoveryConfig<'a> {
         self
     }
 
-    /// Configures if `Kademlia` is enabled.
+    /// Configures if Kademlia is enabled.
     pub fn with_kademlia(&mut self, value: bool) -> &mut Self {
         self.enable_kademlia = value;
         self
@@ -167,11 +167,11 @@ pub struct DiscoveryBehaviour {
     /// User-defined list of nodes and their addresses. Typically includes bootstrap nodes and
     /// reserved nodes.
     user_defined: Vec<(PeerId, Multiaddr)>,
-    /// `Kademlia` discovery.
+    /// Kademlia discovery.
     kademlia: Toggle<Kademlia<MemoryStore>>,
     /// Discovers nodes on the local network.
     mdns: Toggle<Mdns>,
-    /// Stream that fires when we need to perform the next random `Kademlia` query.
+    /// Stream that fires when we need to perform the next random Kademlia query.
     next_kad_random_query: Interval,
     /// After `next_kad_random_query` triggers, the next one triggers after this duration.
     duration_to_next_kad: Duration,

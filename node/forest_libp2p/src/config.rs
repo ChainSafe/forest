@@ -14,7 +14,7 @@ pub struct Libp2pConfig {
     pub bootstrap_peers: Vec<Multiaddr>,
     /// MDNS discovery enabled.
     pub mdns: bool,
-    /// `Kademlia` discovery enabled.
+    /// Kademlia discovery enabled.
     pub kademlia: bool,
     /// Target peer count.
     pub target_peer_count: u32,
