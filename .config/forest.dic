@@ -35,6 +35,11 @@ serializing
 deserializing
 mempool
 sortition
+IPFS
+PoSt
+statediff
+HAMT
+cron
 VRF
 BLS
 crypto

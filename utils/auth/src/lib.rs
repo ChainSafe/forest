@@ -12,7 +12,7 @@ use thiserror::Error;
 use forest_key_management::KeyInfo;
 use fvm_shared::crypto::signature::SignatureType;
 
-/// constant string that is used to identify the JWT secret key in KeyStore
+/// constant string that is used to identify the JWT secret key in `KeyStore`
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
 /// Admin permissions
 pub static ADMIN: Lazy<Vec<String>> = Lazy::new(|| {
@@ -31,7 +31,7 @@ pub static WRITE: Lazy<Vec<String>> = Lazy::new(|| vec!["read".to_string(), "wri
 /// Reading permissions
 pub static READ: Lazy<Vec<String>> = Lazy::new(|| vec!["read".to_string()]);
 
-/// Error Enum for Authentication
+/// Error enumeration for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum Error {
     /// Filecoin Method does not exist
@@ -47,7 +47,7 @@ pub enum Error {
     Other(String),
 }
 
-/// Claim struct for JWT Tokens
+/// Claim structure for JWT Tokens
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     #[serde(rename = "Allow")]
