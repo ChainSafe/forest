@@ -5,7 +5,7 @@ use super::ProofVerifier;
 use crate::{PoStProof, RegisteredPoStProof, SealVerifyInfo, SectorInfo};
 use fvm_shared::randomness::Randomness;
 
-/// Mock verifier. This does no-op verification of any proofs.
+/// Mock `verifier`. This does no-op verification of any proofs.
 pub enum MockVerifier {}
 
 impl ProofVerifier for MockVerifier {
