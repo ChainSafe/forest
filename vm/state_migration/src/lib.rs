@@ -5,11 +5,11 @@
 //! Each network upgrade / state migration code lives in their own module.
 
 use cid::Cid;
+use forest_ipld_blockstore::BlockStore;
 use forest_vm::TokenAmount;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use ipld_blockstore::BlockStore;
 
 use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;

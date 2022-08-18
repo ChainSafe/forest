@@ -5,6 +5,7 @@ use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -15,7 +16,6 @@ use forest_libp2p::{
     NetworkMessage, PeerId,
 };
 use futures::channel::oneshot::channel as oneshot_channel;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;

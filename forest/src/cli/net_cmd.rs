@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_libp2p::{Multiaddr, Protocol};
-use rpc_api::data_types::AddrInfo;
+use forest_rpc_api::data_types::AddrInfo;
 use std::collections::HashSet;
 use structopt::StructOpt;
 
 use crate::cli::cli_error_and_die;
 
 use super::{handle_rpc_err, print_stdout};
-use rpc_client::net_ops::*;
+use forest_rpc_client::net_ops::*;
 
 #[derive(Debug, StructOpt)]
 pub enum NetCommands {

@@ -7,7 +7,7 @@ use std::fmt;
 use std::marker::PhantomData;
 
 /// Helper visitor to match Go's default behavior of serializing uninitialized slices as null.
-/// This will be able to deserialize null as empty Vectors of the type.
+/// This will be able to de-serialize null as empty Vectors of the type.
 ///
 /// T indicates the return type, and D is an optional generic to override the
 #[derive(Default)]

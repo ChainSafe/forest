@@ -6,10 +6,10 @@ use std::{
     time::Duration,
 };
 
-use chain_sync::SyncStage;
 use cid::Cid;
+use forest_chain_sync::SyncStage;
 use forest_json::cid::CidJson;
-use rpc_client::*;
+use forest_rpc_client::*;
 use structopt::StructOpt;
 use ticker::Ticker;
 

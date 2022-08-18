@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::call;
+use forest_rpc_api::sync_api::*;
 use jsonrpc_v2::Error as JsonRpcError;
-use rpc_api::sync_api::*;
 
 pub async fn sync_check_bad(
     params: SyncCheckBadParams,

@@ -1,5 +1,5 @@
 [package]
-name    = "net_utils"
+name    = "forest_net_utils"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"

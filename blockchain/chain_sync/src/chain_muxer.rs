@@ -11,20 +11,20 @@ use crate::tipset_syncer::{
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
 
-use chain::{ChainStore, Error as ChainStoreError};
 use cid::Cid;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
+use forest_chain::{ChainStore, Error as ChainStoreError};
+use forest_ipld_blockstore::BlockStore;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
     PubsubMessage,
 };
 use forest_message::SignedMessage;
+use forest_message_pool::{MessagePool, Provider};
+use forest_state_manager::StateManager;
 use fvm_shared::message::Message;
-use ipld_blockstore::BlockStore;
-use message_pool::{MessagePool, Provider};
-use state_manager::StateManager;
 
 use async_std::channel::{Receiver, Sender};
 use async_std::pin::Pin;
@@ -235,7 +235,8 @@ where
         let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) = chain::block_messages(chain_store.blockstore(), header)?;
+            let (bls_msgs, secp_msgs) =
+                forest_chain::block_messages(chain_store.blockstore(), header)?;
             // Construct a full block
             blocks.push(Block {
                 header: header.clone(),
@@ -466,9 +467,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            chain::persist_objects(&chain_store.db, &[block.header()])?;
-            chain::persist_objects(&chain_store.db, block.bls_msgs())?;
-            chain::persist_objects(&chain_store.db, block.secp_msgs())?;
+            forest_chain::persist_objects(&chain_store.db, &[block.header()])?;
+            forest_chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+            forest_chain::persist_objects(&chain_store.db, block.secp_msgs())?;
         }
 
         // Update the peer head
@@ -894,9 +895,9 @@ mod tests {
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
+    use forest_networks::{ChainConfig, Height};
+    use forest_test_utils::construct_messages;
     use fvm_shared::{address::Address, message::Message};
-    use networks::{ChainConfig, Height};
-    use test_utils::construct_messages;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {
@@ -938,6 +939,6 @@ mod tests {
             .unwrap();
         let ts = Tipset::new(vec![h0]).unwrap();
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
+        assert!(forest_chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }
 }
