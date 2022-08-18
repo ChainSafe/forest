@@ -58,7 +58,7 @@ lazy_static! {
     static ref CURRENT_COMMIT: &'static str = git_version!(fallback = "unknown");
 }
 
-/// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
+/// LibP2P behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
 #[behaviour(
     out_event = "ForestBehaviourEvent",
@@ -100,7 +100,7 @@ struct RequestProcessingOutcome {
     response: ChainExchangeResponse,
 }
 
-/// Event type which is emitted from the [`ForestBehaviour`] into the Libp2p service.
+/// Event type which is emitted from the [`ForestBehaviour`] into the LibP2P service.
 #[derive(Debug)]
 pub(crate) enum ForestBehaviourEvent {
     PeerConnected(PeerId),
@@ -490,7 +490,7 @@ impl ForestBehaviour {
         }
     }
 
-    /// Bootstrap `Kademlia` network
+    /// Bootstrap Kademlia network
     pub fn bootstrap(&mut self) -> Result<QueryId, String> {
         self.discovery.bootstrap()
     }

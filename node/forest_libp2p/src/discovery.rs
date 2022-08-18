@@ -198,7 +198,7 @@ impl DiscoveryBehaviour {
         &self.peer_addresses
     }
 
-    /// Bootstrap `Kademlia` network
+    /// Bootstrap Kademlia network
     pub fn bootstrap(&mut self) -> Result<QueryId, String> {
         if let Some(active_kad) = self.kademlia.as_mut() {
             active_kad.bootstrap().map_err(|e| e.to_string())

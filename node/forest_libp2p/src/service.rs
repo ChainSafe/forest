@@ -118,7 +118,7 @@ pub enum NetRPCMethods {
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
-/// The `Libp2pService` listens to events from the Libp2p swarm.
+/// The `Libp2pService` listens to events from the LibP2P swarm.
 pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
