@@ -12,12 +12,12 @@ pub mod json {
     use std::borrow::Cow;
     use std::str::FromStr;
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and deserializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct AddressJson(#[serde(with = "self")] pub Address);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `SignedMessage` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct AddressJsonRef<'a>(#[serde(with = "self")] pub &'a Address);
@@ -60,7 +60,7 @@ pub mod json {
         #[serde(transparent)]
         pub struct AddressJsonVec(#[serde(with = "self")] pub Vec<Address>);
 
-        /// Wrapper for serializing a cid slice to JSON.
+        /// Wrapper for serializing a CID slice to JSON.
         #[derive(Serialize)]
         #[serde(transparent)]
         pub struct AddressJsonSlice<'a>(#[serde(with = "self")] pub &'a [Address]);

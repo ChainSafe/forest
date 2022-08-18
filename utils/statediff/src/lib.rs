@@ -41,7 +41,7 @@ pub struct AccountState {
 /// Cron actor state which holds entries to call during epoch tick
 #[derive(Default, Serialize_tuple, Deserialize_tuple, Debug)]
 pub struct CronState {
-    /// Entries is a set of actors (and corresponding methods) to call during EpochTick.
+    /// Entries is a set of actors (and corresponding methods) to call during `EpochTick`.
     pub entries: Vec<CronEntry>,
 }
 
@@ -97,7 +97,7 @@ pub struct MinerState {
     /// Contains static info about this miner
     pub info: Cid,
 
-    /// Total funds locked as pre_commit_deposit
+    /// Total funds locked as `pre_commit_deposit`
     #[serde(with = "bigint_ser")]
     pub pre_commit_deposits: TokenAmount,
 
@@ -105,7 +105,7 @@ pub struct MinerState {
     #[serde(with = "bigint_ser")]
     pub locked_funds: TokenAmount,
 
-    /// VestingFunds (Vesting Funds schedule for the miner).
+    /// `VestingFunds` (Vesting Funds schedule for the miner).
     pub vesting_funds: Cid,
 
     /// Absolute value of debt this miner owes from unpaid fees.
@@ -117,7 +117,7 @@ pub struct MinerState {
     pub initial_pledge: TokenAmount,
 
     /// Sectors that have been pre-committed but not yet proven.
-    /// Map, HAMT<SectorNumber, SectorPreCommitOnChainInfo>
+    /// `Map, HAMT<SectorNumber, SectorPreCommitOnChainInfo>`
     pub pre_committed_sectors: Cid,
 
     // PreCommittedSectorsCleanUp maintains the state required to cleanup expired PreCommittedSectors.
@@ -136,12 +136,12 @@ pub struct MinerState {
     /// partition at the miner's first deadline may arrive. Alternatively, it is after the last epoch at which
     /// a PoSt for the previous window is valid.
     /// Always greater than zero, this may be greater than the current epoch for genesis miners in the first
-    /// WPoStProvingPeriod epochs of the chain; the epochs before the first proving period starts are exempt from Window
+    /// `WPoStProvingPeriod` epochs of the chain; the epochs before the first proving period starts are exempt from Window
     /// PoSt requirements.
     /// Updated at the end of every period by a cron callback.
     pub proving_period_start: ChainEpoch,
 
-    /// Index of the deadline within the proving period beginning at ProvingPeriodStart that has not yet been
+    /// Index of the deadline within the proving period beginning at `ProvingPeriodStart` that has not yet been
     /// finalized.
     /// Updated at the end of each deadline window by a cron callback.
     pub current_deadline: u64,
@@ -196,7 +196,7 @@ fn root_to_state_map<BS: BlockStore>(
 }
 
 /// Tries to resolve state tree actors, if all data exists in store.
-/// The actors hamt is hard to parse in a diff, so this attempts to remedy this.
+/// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
 /// This function will only print the actors that are added, removed, or changed so it
 /// can be used on large state trees.
 fn try_print_actor_states<BS: BlockStore>(
@@ -309,7 +309,7 @@ pub fn print_actor_diff<BS: BlockStore>(
 }
 
 /// Prints a diff of the resolved state tree.
-/// If the actor's Hamt cannot be loaded, base ipld resolution is given.
+/// If the actor's HAMT cannot be loaded, base IPLD resolution is given.
 pub fn print_state_diff<BS>(
     bs: &BS,
     root: &Cid,
