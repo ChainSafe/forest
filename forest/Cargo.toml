@@ -10,7 +10,6 @@ actor_interface   = { path = "../vm/actor_interface" }
 anyhow            = "1.0"
 async-log         = "2.0"
 async-std         = { version = "1.9", features = ["attributes", "tokio1"] }
-async-lock        = "2.5"
 auth              = "0.1.0"
 base64            = "0.13"
 beacon            = "0.1.0"

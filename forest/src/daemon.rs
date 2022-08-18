@@ -3,7 +3,6 @@
 
 use super::cli::{Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
-use async_lock::Barrier;
 use async_std::net::TcpListener;
 use async_std::{channel::bounded, sync::RwLock, task, task::JoinHandle};
 use auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
@@ -163,52 +162,27 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
-    //sync_from_snapshot(&config, &state_manager).await;
+    sync_from_snapshot(&config, &state_manager).await;
 
-    let barrier = new_import_barrier(&config, &keystore, &state_manager).await;
-    let import_barrier = barrier.clone();
-
-    let import_task = if let Some(path) = &config.client.snapshot_path {
-        let validate_height = if config.client.snapshot {
-            config.client.snapshot_height
-        } else {
-            Some(0)
-        };
-        let sm = Arc::clone(&state_manager);
-        let path = path.clone();
-        let skip_load = config.client.skip_load;
-        Some(task::spawn(async move {
-            let stopwatch = time::Instant::now();
-            import_chain::<FullVerifier, _>(&sm, &path, validate_height, skip_load)
-                .await
-                .expect("Failed miserably while importing chain from snapshot");
-            debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-
-            // Terminate if no snapshot is provided or DB isn't recent enough
-            match sm.chain_store().heaviest_tipset().await {
-                None => {
-                    cli_error_and_die(
-                        "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                        1,
-                    );
-                }
-                Some(tipset) => {
-                    let epoch = tipset.epoch();
-                    let nv = sm.get_network_version(epoch);
-                    if nv < NetworkVersion::V16 {
-                        cli_error_and_die(
-                        "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                            1,
-                        );
-                    }
-                }
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => {
+            cli_error_and_die(
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                1,
+            );
+        }
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                cli_error_and_die(
+                "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    1,
+                );
             }
-
-            import_barrier.wait().await;
-        }))
-    } else {
-        None
-    };
+        }
+    }
 
     // Fetch and ensure verification keys are downloaded
     #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
@@ -254,16 +228,12 @@ pub(super) async fn start(config: Config) {
 
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let head_changes_barrier = Some(barrier.clone());
-    let republish_barrier = Some(barrier.clone());
     let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
         provider,
         network_name.clone(),
         network_send.clone(),
         MpoolConfig::load_config(&db).unwrap(),
         Arc::clone(state_manager.chain_config()),
-        head_changes_barrier,
-        republish_barrier,
     )
     .await
     .unwrap();
@@ -332,28 +302,22 @@ pub(super) async fn start(config: Config) {
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    let sync_barrier = barrier.clone();
     let sync_task = task::spawn(async move {
-        sync_barrier.wait().await;
         chain_muxer.await
     });
 
     // Start services
-    let p2p_barrier = barrier.clone();
     let p2p_task = task::spawn(async move {
-        p2p_barrier.wait().await;
         p2p_service.run().await;
     });
 
     let rpc_task = if config.client.enable_rpc {
-        let rpc_barrier = barrier.clone();
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = TcpListener::bind(&config.client.rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         Some(task::spawn(async move {
-            rpc_barrier.wait().await;
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             start_rpc::<_, _, FullVerifier, FullConsensus>(
                 Arc::new(RPCState {
@@ -386,7 +350,6 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    maybe_cancel(import_task).await;
     maybe_cancel(mining_task).await;
     prometheus_server_task.cancel().await;
     head_changes_task.cancel().await;
@@ -450,67 +413,6 @@ fn set_handler() -> Receiver<()> {
     .expect("Error setting Ctrl-C handler");
 
     ctrlc_oneshot
-}
-
-async fn new_import_barrier<DB>(
-    config: &Config,
-    keystore: &Arc<RwLock<KeyStore>>,
-    state_manager: &Arc<StateManager<DB>>,
-) -> Arc<Barrier> {
-    // We init the barrier with the number of tasks plus one (the import
-    // task itself). If we skip the import task, we init the barrier with zero.
-
-    // Mining may or may not happen, depending on the consensus type.
-    let do_mining: bool;
-
-    #[cfg(all(feature = "fil_cns", not(any(feature = "deleg_cns"))))]
-    {
-        do_mining = false;
-    }
-
-    #[cfg(feature = "deleg_cns")]
-    {
-        use chain_sync::consensus::Proposer;
-        use futures::TryFutureExt;
-        let consensus = deleg_cns::DelegatedConsensus::default();
-        do_mining = consensus
-            .proposer(keystore, state_manager)
-            .await
-            .unwrap()
-            .is_some();
-    }
-
-    let num_tasks = if config.client.snapshot {
-        let mut num_tasks = 1;
-
-        // mining
-        if do_mining {
-            num_tasks += 1;
-        }
-
-        // prometheus
-
-        // head changes
-        num_tasks += 1;
-
-        // republish
-        num_tasks += 1;
-
-        // sync
-        num_tasks += 1;
-
-        // p2p
-        num_tasks += 1;
-
-        // rpc
-        num_tasks += if config.client.enable_rpc { 1 } else { 0 };
-
-        num_tasks
-    } else {
-        0
-    };
-
-    Arc::new(Barrier::new(num_tasks))
 }
 
 fn db_path(config: &Config) -> PathBuf {

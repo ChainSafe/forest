@@ -2701,7 +2701,6 @@ dependencies = [
  "actor_interface",
  "anyhow",
  "assert_cmd",
- "async-lock",
  "async-log",
  "async-std",
  "auth",
@@ -5107,7 +5106,6 @@ name = "message_pool"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-lock",
  "async-std",
  "async-trait",
  "blake2b_simd 0.5.11",
