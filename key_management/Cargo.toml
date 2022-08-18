@@ -24,4 +24,4 @@ sodiumoxide        = "0.2"
 thiserror          = "1.0"
 
 [dev-dependencies]
-fvm_shared         = { version = "0.8", default-features = false, features = ["crypto"] }
+fvm_shared = { version = "0.8", default-features = false, features = ["crypto"] }
