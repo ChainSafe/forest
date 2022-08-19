@@ -271,10 +271,7 @@ pub(super) async fn start(config: Config) {
         if let Some(proposer) = consensus.proposer(&keystore, &state_manager).await.unwrap() {
             let sm = state_manager.clone();
             let mp = mpool.clone();
-            let mining_barrier = barrier.clone();
             mining_task = Some(task::spawn(async move {
-                mining_barrier.wait().await;
-
                 proposer
                     .run(sm, mp.as_ref(), &submitter)
                     .inspect_err(|e| error!("block proposal stopped: {}", e))
