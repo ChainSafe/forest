@@ -9,12 +9,12 @@
 
 use crate::{ActorMigration, ActorMigrationInput};
 use crate::{MigrationError, MigrationOutput, MigrationResult};
-use actor_interface::actorv3::miner::State as V3State;
-use actor_interface::actorv4::miner::State as V4State;
+use forest_actor_interface::actorv3::miner::State as V3State;
+use forest_actor_interface::actorv4::miner::State as V4State;
 use async_std::sync::Arc;
 use cid::Cid;
 use cid::multihash::Code::Blake2b256;
-use ipld_blockstore::BlockStore;
+use forest_ipld_blockstore::BlockStore;
 
 pub struct MinerMigrator(Cid);
 

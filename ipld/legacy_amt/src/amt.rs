@@ -9,7 +9,7 @@ use crate::{
 };
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
-use ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use itertools::sorted;
 use std::error::Error as StdError;
 
@@ -19,7 +19,7 @@ use std::error::Error as StdError;
 ///
 /// Usage:
 /// ```
-/// use legacy_ipld_amt::Amt;
+/// use forest_legacy_ipld_amt::Amt;
 ///
 /// let db = forest_db::MemoryDB::default();
 /// let mut amt = Amt::new(&db);
@@ -275,7 +275,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// use legacy_ipld_amt::Amt;
+    /// use forest_legacy_ipld_amt::Amt;
     ///
     /// let store = forest_db::MemoryDB::default();
     ///

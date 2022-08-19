@@ -25,16 +25,20 @@ use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
-use actor_interface::is_account_actor;
-use chain::Error as ChainStoreError;
-use chain::{persist_objects, ChainStore};
 use cid::Cid;
+use forest_actor_interface::is_account_actor;
 use forest_blocks::{
     Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
 };
+use forest_chain::Error as ChainStoreError;
+use forest_chain::{persist_objects, ChainStore};
+use forest_ipld_blockstore::BlockStore;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
+use forest_networks::Height;
+use forest_state_manager::Error as StateManagerError;
+use forest_state_manager::StateManager;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
 use fvm_ipld_encoding::Cbor;
@@ -42,10 +46,6 @@ use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::message::Message;
 use fvm_shared::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
-use ipld_blockstore::BlockStore;
-use networks::Height;
-use state_manager::Error as StateManagerError;
-use state_manager::StateManager;
 
 const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 
@@ -1090,8 +1090,8 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 
                     // Persist the messages in the store
                     if let Some(m) = bundle.messages {
-                        chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-                        chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
+                        forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
+                        forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
                     } else {
                         warn!("ChainExchange request for messages returned null messages");
                     }
@@ -1255,7 +1255,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     let v_block_store = state_manager.blockstore_cloned();
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
-        let base_fee = chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
+        let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetRangeSyncerError::<C>::Validation(format!(
                     "Could not compute base fee: {}",
@@ -1305,7 +1305,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
         if &state_root != header.state_root() {
             #[cfg(feature = "statediff")]
             {
-                if let Err(err) = statediff::print_state_diff(
+                if let Err(err) = forest_statediff::print_state_diff(
                     v_state_manager.blockstore(),
                     &state_root,
                     header.state_root(),

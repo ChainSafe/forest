@@ -6,19 +6,19 @@ use structopt::StructOpt;
 use cid::Cid;
 use forest_db::rocks::RocksDb;
 use forest_db::rocks_config::RocksDbConfig;
-use statediff::print_state_diff;
+use forest_statediff::print_state_diff;
 
 /// Examine the state delta
 #[derive(StructOpt)]
 pub struct ChainCommand {
-    /// The pre cid state root
+    /// The previous CID state root
     pre: Cid,
-    /// The post cid state root
+    /// The post CID state root
     post: Cid,
     /// The name of the chain
     #[structopt(short, long, default_value = "mainnet")]
     chain: String,
-    /// The depth at which ipld links are resolved
+    /// The depth at which IPLD links are resolved
     #[structopt(short, long)]
     depth: Option<u64>,
 }
@@ -39,7 +39,7 @@ impl ChainCommand {
     }
 }
 
-/// statediff binary subcommands available.
+/// statediff binary sub-commands available.
 #[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 #[structopt(about = "statediff subcommands")]

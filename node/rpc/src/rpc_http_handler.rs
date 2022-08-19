@@ -1,12 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_rpc_api::data_types::JsonRpcServerState;
 use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
-use rpc_api::data_types::JsonRpcServerState;
 use tide::http::{format_err, Error as HttpError, Method};
 
-use beacon::Beacon;
-use ipld_blockstore::BlockStore;
+use forest_beacon::Beacon;
+use forest_ipld_blockstore::BlockStore;
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
