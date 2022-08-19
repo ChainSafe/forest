@@ -46,4 +46,4 @@ s3fs forest-snapshots "$S3_FOLDER" \
 cp upload_snapshot.sh "$BASE_FOLDER"
 chmod +x "$BASE_FOLDER"/upload_snapshot.sh
 
-docker-compose up
+docker-compose up --build --force-recreate
