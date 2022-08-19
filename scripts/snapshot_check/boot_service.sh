@@ -4,8 +4,6 @@ set -o allexport
 source .env
 set +o allexport
 
-#BASE_FOLDER=/tmp/forest-iac-snapshots
-
 screen -S daily_snapshot -d -R \
     docker run \
     --device /dev/fuse \

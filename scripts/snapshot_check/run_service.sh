@@ -33,12 +33,9 @@ fi
 # 2. Run forest script with docker-compose.
 
 ## Setup s3
+umount "$S3_FOLDER" || true
 mkdir --parents "$S3_FOLDER"
-function cleanup {
-  echo "unmounting s3 folder"
-  fusermount -u -q "$S3_FOLDER"
-}
-trap cleanup EXIT
+
 s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
@@ -46,4 +43,5 @@ s3fs forest-snapshots "$S3_FOLDER" \
 cp upload_snapshot.sh "$BASE_FOLDER"
 chmod +x "$BASE_FOLDER"/upload_snapshot.sh
 
+docker-compose down
 docker-compose up --build --force-recreate
