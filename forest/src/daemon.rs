@@ -343,10 +343,10 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    maybe_cancel(mining_task).await;
     prometheus_server_task.cancel().await;
     head_changes_task.cancel().await;
     republish_task.cancel().await;
+    maybe_cancel(mining_task).await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
     maybe_cancel(rpc_task).await;
