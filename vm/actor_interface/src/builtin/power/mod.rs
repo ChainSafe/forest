@@ -16,11 +16,11 @@ use serde::{Deserialize, Serialize};
 use anyhow::Context;
 
 /// Power actor address.
-// TO-DO: Select address based on actors version
+// TODO: Select address based on actors version
 pub const ADDRESS: Address = Address::new_id(4);
 
 /// Power actor method.
-// TO-DO: Select method based on actors version
+// TODO: Select method based on actors version
 pub type Method = fil_actor_power_v8::Method;
 
 pub fn is_v8_power_cid(cid: &Cid) -> bool {
