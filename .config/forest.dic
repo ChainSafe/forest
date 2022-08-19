@@ -52,3 +52,4 @@ LibP2P
 boolean
 TOML
 bitfield
+verifier

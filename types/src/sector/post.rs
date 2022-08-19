@@ -11,12 +11,12 @@ pub mod json {
     use cid::Cid;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing a PoStProof to JSON.
+    /// Wrapper for serializing a `PoStProof` to JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct PoStProofJson(#[serde(with = "self")] pub PoStProof);
 
-    /// Wrapper for serializing a PoStProof reference to JSON.
+    /// Wrapper for serializing a `PoStProof` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
