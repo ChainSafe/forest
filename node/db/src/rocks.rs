@@ -3,10 +3,13 @@
 
 use super::errors::Error;
 use super::Store;
-use crate::rocks_config::{compaction_style_from_str, compression_type_from_str, RocksDbConfig};
+use crate::rocks_config::{
+    compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
+};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-pub use rocksdb::{Options, WriteBatch, DB};
+use log::info;
+pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
@@ -40,6 +43,9 @@ impl RocksDb {
         }
         if let Some(compaction_style) = &config.compaction_style {
             db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
+            db_opts.set_disable_auto_compactions(false);
+        } else {
+            db_opts.set_disable_auto_compactions(true);
         }
         if let Some(compression_type) = &config.compression_type {
             db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
@@ -47,9 +53,22 @@ impl RocksDb {
         if config.enable_statistics {
             db_opts.enable_statistics();
         };
+
+        db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
+
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
+    }
+}
+
+impl Drop for RocksDb {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.db) == 1 {
+            info!("Dropping rocksdb::DB");
+            // TODO: find if we really need to call this?
+            //self.db.cancel_all_background_work(false);
+        }
     }
 }
 

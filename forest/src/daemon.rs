@@ -50,6 +50,8 @@ pub(super) async fn start(config: Config) {
         FOREST_VERSION_STRING.as_str()
     );
 
+    info!("{:#?}", config.rocks_db);
+
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
         // Keypair not found, generate and save generated keypair
@@ -207,6 +209,12 @@ pub(super) async fn start(config: Config) {
         }
     }
 
+    // Halt
+    if config.client.halt_after_import {
+        info!("Forest finish shutdown");
+        process::exit(0);
+    }
+
     // Fetch and ensure verification keys are downloaded
     if cns::FETCH_PARAMS {
         use forest_paramfetch::{
@@ -355,11 +363,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             Some(0)
         };
 
-        if config.client.halt_after_import {
-            info!("Forest finish shutdown");
-            process::exit(0);
-        }
-
         import_chain::<FullVerifier, _>(
             state_manager,
             path,
@@ -368,7 +371,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         )
         .await
         .expect("Failed miserably while importing chain from snapshot");
-        debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 }
 

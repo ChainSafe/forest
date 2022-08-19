@@ -79,6 +79,7 @@ mod test {
                     compression_type: Option::arbitrary(g),
                     compaction_style: Option::arbitrary(g),
                     enable_statistics: bool::arbitrary(g),
+                    log_level: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
