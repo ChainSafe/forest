@@ -29,7 +29,7 @@ sleep "$DETACH_TIMEOUT" # Wait for the RPC endpoint to be available. Remove this
 timeout "$SYNC_TIMEOUT" forest sync wait # Wait for forest node to be completely synced.
 echo "Synced to calibnet"
 
-if [[ "$$(date -r $NEWEST_SNAPSHOT +%F)" != "$$(date +%F)" ]]; then
+if [[ "$(date -r "$NEWEST_SNAPSHOT" +%F)" != "$(date +%F)" ]]; then
     echo "No recent snapshot. Exporting new snapshot."
     forest chain export
     echo "Export done. Uploading.."
