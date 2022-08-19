@@ -177,7 +177,7 @@ pub(super) async fn start(config: Config) {
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
                 cli_error_and_die(
-                "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
                     1,
                 );
             }
@@ -299,14 +299,10 @@ pub(super) async fn start(config: Config) {
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    let sync_task = task::spawn(async move {
-        chain_muxer.await
-    });
+    let sync_task = task::spawn(chain_muxer);
 
     // Start services
-    let p2p_task = task::spawn(async move {
-        p2p_service.run().await;
-    });
+    let p2p_task = task::spawn(p2p_service.run());
 
     let rpc_task = if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
