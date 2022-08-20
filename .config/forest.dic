@@ -51,3 +51,4 @@ MDNS
 LibP2P
 boolean
 TOML
+verifier
