@@ -30,9 +30,11 @@ do
       forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain "$CHAIN_NAME" --import-snapshot "$NEWEST_SNAPSHOT" &
       FOREST_PID=$! 
 
-      sleep "$DETACH_TIMEOUT" # Wait for the RPC endpoint to be available. Remove this once Forest support the --detach flag.
+      # Wait for the RPC endpoint to be available. Remove this once Forest support the --detach flag.
+      sleep "$DETACH_TIMEOUT"
 
-      timeout "$SYNC_TIMEOUT" forest sync wait # Wait for forest node to be completely synced.
+      # Wait for forest node to be completely synced.
+      timeout "$SYNC_TIMEOUT" forest sync wait
       echo "Synced to calibnet"
 
       echo "No recent snapshot. Exporting new snapshot."
