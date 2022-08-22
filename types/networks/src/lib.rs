@@ -1,5 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![feature(variant_count)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -89,7 +90,7 @@ const UPGRADE_INFOS: [UpgradeInfo; 16] = [
 ];
 
 /// Defines the meaningful heights of the protocol.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Height {
     Breeze,
     Smoke,
@@ -110,6 +111,27 @@ pub enum Height {
     OhSnap,
     Skyr,
 }
+
+static HEIGHT_VARIANTS: [Height; 18] = [
+    Height::Breeze,
+    Height::Smoke,
+    Height::Ignition,
+    Height::ActorsV2,
+    Height::Tape,
+    Height::Liftoff,
+    Height::Kumquat,
+    Height::Calico,
+    Height::Persian,
+    Height::Orange,
+    Height::Claus,
+    Height::Trust,
+    Height::Norwegian,
+    Height::Turbo,
+    Height::Hyperdrive,
+    Height::Chocolate,
+    Height::OhSnap,
+    Height::Skyr,
+];
 
 impl Default for Height {
     fn default() -> Height {
@@ -149,6 +171,34 @@ pub struct ChainConfig {
     #[serde(default = "default_policy")]
     #[serde(with = "serde_policy")]
     pub policy: Policy,
+}
+
+impl ChainConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        let number_of_network_version_variants = std::mem::variant_count::<NetworkVersion>();
+        let number_of_height_variants = std::mem::variant_count::<Height>();
+        if number_of_network_version_variants + 1 != number_of_height_variants {
+            return Err(
+                "number of fvm_shared::NetworkVersion variants does not match number of Height variants + 1"
+                    .to_string(),
+            );
+        }
+        if self.height_infos.len() == number_of_height_variants {
+            Err(
+                "length of height_infos vector was smaller than the number of HeightInfo variants"
+                    .to_string(),
+            )
+        } else {
+            let mut height_set: HashSet<Height> = HashSet::from(HEIGHT_VARIANTS);
+            for item in &self.height_infos {
+                height_set.remove(&item.height);
+            }
+            if !height_set.is_empty() {
+                return Err("not all variants of the enum Height have a corresponding entry in height_infos".to_string());
+            }
+            Ok(())
+        }
+    }
 }
 
 // FIXME: remove this trait once builtin-actors Policy have it

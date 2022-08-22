@@ -50,6 +50,8 @@ pub(super) async fn start(config: Config) {
         FOREST_VERSION_STRING.as_str()
     );
 
+    config.chain.validate().unwrap();
+
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
         // Keypair not found, generate and save generated keypair
