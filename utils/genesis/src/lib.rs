@@ -170,7 +170,7 @@ where
     Ok(())
 }
 
-/// Loads car file into database, and returns the block header Cids from the CAR header.
+/// Loads car file into database, and returns the block header CIDs from the CAR header.
 async fn load_and_retrieve_header<DB, R>(
     store: &DB,
     mut reader: FetchProgress<R, Stdout>,

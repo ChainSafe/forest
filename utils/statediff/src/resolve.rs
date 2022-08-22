@@ -7,7 +7,7 @@ use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use libipld_core::ipld::Ipld;
 
-/// Resolves link to recursively resolved [Ipld] with no hash links.
+/// Resolves link to recursively resolved [`Ipld`] with no hash links.
 pub fn resolve_cids_recursive<BS>(
     bs: &BS,
     cid: &Cid,
@@ -25,7 +25,7 @@ where
     Ok(ipld)
 }
 
-/// Resolves [Ipld] links recursively, building an [Ipld] structure with no hash links.
+/// Resolves [`Ipld`] links recursively, building an [`Ipld`] structure with no hash links.
 fn resolve_ipld<BS>(bs: &BS, ipld: &mut Ipld, mut depth: Option<u64>) -> Result<(), anyhow::Error>
 where
     BS: BlockStore,
