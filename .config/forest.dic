@@ -44,10 +44,9 @@ VRF
 BLS
 crypto
 stateful
-KV
-libp2p
-Kademlia
 MDNS
+KV
+Kademlia
 LibP2P
 boolean
 TOML

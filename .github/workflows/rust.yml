@@ -145,7 +145,7 @@ jobs:
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
         run: |
-          cargo spellcheck --code 1 --recursive blockchain encoding forest node node/db crypto key_management utils types
+          cargo spellcheck --code 1 --recursive blockchain encoding forest node node/db crypto key_management utils types node/forest_libp2p
 
   build:
     name: Build
