@@ -34,7 +34,7 @@ impl Default for RocksDbConfig {
             compaction_style: Some("level".into()),
             compression_type: Some("lz4".into()),
             enable_statistics: false,
-            log_level: "debug".into(),
+            log_level: "warn".into(),
         }
     }
 }
