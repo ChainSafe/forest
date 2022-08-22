@@ -30,7 +30,7 @@ use forest_db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::{process, time};
+use std::time;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
@@ -49,8 +49,6 @@ pub(super) async fn start(config: Config) {
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
     );
-
-    info!("{:#?}", config.rocks_db);
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
