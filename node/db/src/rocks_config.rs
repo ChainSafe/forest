@@ -63,7 +63,7 @@ pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompression
     }
 }
 
-/// Converts string to a log level RocksDB variant.
+/// Converts string to a log level `RocksDB` variant.
 pub(crate) fn log_level_from_str(s: &str) -> anyhow::Result<LogLevel> {
     match s.to_lowercase().as_str() {
         "debug" => Ok(LogLevel::Debug),
