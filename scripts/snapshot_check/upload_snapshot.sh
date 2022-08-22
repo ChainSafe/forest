@@ -44,7 +44,6 @@ do
       kill "$FOREST_PID"
   else
       echo "We already have a snapshot for today. Skipping."
-      # curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"✅ $CHAIN_NAME snapshot check passed! 💪🌲!\"}" "$SLACK_HOOK"
   fi
 
   sleep "$UPLOAD_INTERVAL"
