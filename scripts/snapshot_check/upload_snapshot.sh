@@ -17,6 +17,7 @@ cd "$BASE_FOLDER"
 
 while true
 do
+  # Scan through the available snapshot files and find the newest one.
   files=("$BASE_FOLDER"/s3/"$CHAIN_NAME"/*)
   NEWEST_SNAPSHOT=${files[0]}
   for f in "${files[@]}"; do
