@@ -10,7 +10,6 @@ screen -S daily_snapshot -d -R \
     --cap-add SYS_ADMIN \
     --security-opt "apparmor=unconfined" \
     --env-file .env \
-    --rm \
     --interactive --tty \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \

@@ -45,4 +45,5 @@ cp upload_snapshot.sh "$BASE_FOLDER"
 chmod +x "$BASE_FOLDER"/upload_snapshot.sh
 
 docker-compose down
-docker-compose up --build --force-recreate
+docker-compose up --build --force-recreate --detach
+sleep infinity
