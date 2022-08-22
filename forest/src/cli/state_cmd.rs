@@ -5,18 +5,39 @@ use std::str::FromStr;
 
 use forest_actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
+use forest_encoding::tuple::*;
 use forest_json::address::json::AddressJson;
+use forest_json::cid::CidJson;
 use forest_rpc_client::{
-    chain_head, state_account_key, state_get_actor, state_list_actors, state_lookup,
-    state_miner_power,
+    chain_head, chain_read_obj, state_account_key, state_get_actor, state_list_actors,
+    state_lookup, state_miner_power,
 };
+use forest_statediff::MinerState;
+use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
+use fvm_shared::bigint::bigint_ser;
+use fvm_shared::bigint::BigInt;
+use fvm_shared::clock::ChainEpoch;
+use num_traits::cast::FromPrimitive;
 use structopt::StructOpt;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
 
 use super::handle_rpc_err;
+
+#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
+struct VestingSchedule {
+    entries: Vec<VestingScheduleEntry>,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
+struct VestingScheduleEntry {
+    epoch: ChainEpoch,
+    #[serde(with = "bigint_ser")]
+    amount: TokenAmount,
+}
 
 #[derive(Debug, StructOpt)]
 pub enum StateCommands {
@@ -37,6 +58,10 @@ pub enum StateCommands {
         #[structopt(short)]
         reverse: bool,
         #[structopt(about = "address")]
+        address: String,
+    },
+    VestingTable {
+        #[structopt(about = "Miner address to display vesting table")]
         address: String,
     },
 }
@@ -176,6 +201,54 @@ impl StateCommands {
                         }
                         None => println!("Nothing found"),
                     };
+                }
+            }
+            Self::VestingTable { address } => {
+                let address = Address::from_str(address).unwrap_or_else(|_| {
+                    panic!("Failed to create address from argument {}", address)
+                });
+
+                let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
+
+                let tsk = TipsetKeysJson(tipset.key().to_owned());
+                let params = (AddressJson(address), tsk);
+
+                let actor_state: ActorState = state_get_actor(params)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap()
+                    .expect("ActorState empty")
+                    .into();
+
+                let miner_state: MinerState = chain_read_obj((CidJson(actor_state.state),))
+                    .await
+                    .map_err(handle_rpc_err)
+                    .map(|obj| hex::decode(&obj).expect("hex decode fiasco"))
+                    .map(RawBytes::from)
+                    .map(|obj| {
+                        RawBytes::deserialize(&obj).expect("Couldn't deserialize to MinerState")
+                    })
+                    .expect("Couldn't build MinerState");
+
+                let schedule: VestingSchedule =
+                    chain_read_obj((CidJson(miner_state.vesting_funds),))
+                        .await
+                        .map_err(handle_rpc_err)
+                        .map(|obj| hex::decode(&obj).expect("hex decode fiasco"))
+                        .map(RawBytes::from)
+                        .map(|obj| {
+                            RawBytes::deserialize(&obj)
+                                .expect("Couldn't deserialize to VestingSchedule")
+                        })
+                        .expect("Couldn't build VestingSchedule");
+
+                println!("Vesting Schedule for Miner {}:", address);
+                for entry in schedule.entries {
+                    println!(
+                        "Epoch: {}     FIL: {:.3}",
+                        entry.epoch,
+                        &entry.amount / (BigInt::from_f64(1e18).unwrap())
+                    );
                 }
             }
         }
