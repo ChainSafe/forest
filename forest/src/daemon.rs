@@ -212,7 +212,7 @@ pub(super) async fn start(config: Config) {
     // Halt
     if config.client.halt_after_import {
         info!("Forest finish shutdown");
-        process::exit(0);
+        return;
     }
 
     // Fetch and ensure verification keys are downloaded
