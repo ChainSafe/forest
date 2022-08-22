@@ -50,7 +50,12 @@ pub(super) async fn start(config: Config) {
         FOREST_VERSION_STRING.as_str()
     );
 
-    config.chain.validate().unwrap();
+    config.chain.validate().unwrap_or_else(|err_string| {
+        cli_error_and_die(
+            err_string,
+            1,
+        )
+    });
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
