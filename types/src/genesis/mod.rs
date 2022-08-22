@@ -9,7 +9,7 @@ use fvm_shared::sector::SectorSize;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-/// Different account variants. This is used with genesis utils to define the possible
+/// Different account variants. This is used with genesis `utils` to define the possible
 /// genesis allocated actors.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
