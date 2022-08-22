@@ -173,9 +173,9 @@ impl SubAssign<u64> for RecursionLimit {
 ///   - in `ExploreConditional`,
 ///
 ///
-/// Condition is very skeletal and incomplete.
-/// The place where Condition appears in other structures is correct;
-/// the rest of the details inside it are not final nor even completely drafted.
+// TODO -- Condition is very skeletal and incomplete.
+// TODO -- The place where Condition appears in other structures is correct;
+// TODO -- the rest of the details inside it are not final nor even completely drafted.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Condition {
     #[serde(rename = "hasField")]
