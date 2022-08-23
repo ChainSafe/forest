@@ -207,6 +207,12 @@ pub(super) async fn start(config: Config) {
         }
     }
 
+    // Halt
+    if config.client.halt_after_import {
+        info!("Forest finish shutdown");
+        return;
+    }
+
     // Fetch and ensure verification keys are downloaded
     if cns::FETCH_PARAMS {
         use forest_paramfetch::{
@@ -354,6 +360,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         } else {
             Some(0)
         };
+
         import_chain::<FullVerifier, _>(
             state_manager,
             path,
@@ -362,7 +369,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         )
         .await
         .expect("Failed miserably while importing chain from snapshot");
-        debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 }
 
