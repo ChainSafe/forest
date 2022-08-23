@@ -5,7 +5,7 @@ use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{sync::Arc, path::PathBuf};
 
 use super::client::Client;
 
@@ -17,6 +17,7 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
+    pub log_file: Option<PathBuf>
 }
 
 #[cfg(test)]
