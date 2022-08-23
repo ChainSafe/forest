@@ -1,15 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::cli_error_and_die;
 use forest_utils::{read_file_to_string, read_toml};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::{str::FromStr, path::PathBuf};
-use crate::cli_error_and_die;
+use std::{path::PathBuf, str::FromStr};
 
 #[derive(Serialize, Deserialize)]
 pub struct LogConfig {
-    pub log_values: Vec<LogValue>
+    pub log_values: Vec<LogValue>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -37,14 +37,11 @@ pub(crate) fn setup_logger(option_log_file_pathbuf: Option<PathBuf>) {
             });
             for item in log_config.log_values {
                 let level = LevelFilter::from_str(item.level.as_str()).unwrap_or_else(|_| {
-                    cli_error_and_die(
-                        format!("could not parse LevelFilter enum value"),
-                        1,
-                    )
+                    cli_error_and_die("could not parse LevelFilter enum value", 1)
                 });
                 logger_builder.filter(Some(item.module.as_str()), level);
             }
-        },
+        }
         None => {
             // Assign default log level settings
             logger_builder.filter(Some("libp2p_gossipsub"), LevelFilter::Error);
@@ -59,7 +56,7 @@ pub(crate) fn setup_logger(option_log_file_pathbuf: Option<PathBuf>) {
             logger_builder.filter(Some("libp2p_bitswap"), LevelFilter::Warn);
             logger_builder.filter(Some("rpc"), LevelFilter::Info);
             logger_builder.filter(None, LevelFilter::Info);
-        },
+        }
     }
 
     // Override log level based on filters if set
