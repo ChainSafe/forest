@@ -12,6 +12,7 @@ anyhow              = "1"
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
 forest_encoding     = "0.2"
 fvm_ipld_blockstore = "0.1.1"
+log                 = "0.4.8"
 num_cpus            = "1.13"
 parking_lot         = "0.12"
 rocksdb             = "0.19"

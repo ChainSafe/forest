@@ -62,6 +62,7 @@ mod test {
                     rpc_port: u16::arbitrary(g),
                     rpc_token: Option::arbitrary(g),
                     snapshot: bool::arbitrary(g),
+                    halt_after_import: bool::arbitrary(g),
                     snapshot_height: Option::arbitrary(g),
                     snapshot_path: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),
@@ -78,6 +79,7 @@ mod test {
                     compression_type: Option::arbitrary(g),
                     compaction_style: Option::arbitrary(g),
                     enable_statistics: bool::arbitrary(g),
+                    log_level: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
