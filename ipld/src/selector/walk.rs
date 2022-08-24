@@ -9,7 +9,7 @@ use cid::Cid;
 
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
-    /// Ipld node. An optional link loader/resolver is passed in to be able to traverse links.
+    /// IPLD node. An optional link loader/resolver is passed in to be able to traverse links.
     pub async fn walk_all<L, F>(
         self,
         ipld: &Ipld,
@@ -29,7 +29,7 @@ impl Selector {
         .await
     }
 
-    /// Walks a graph of Ipld nodes, executing the callback only on the nodes "matched".
+    /// Walks a graph of IPLD nodes, executing the callback only on the nodes "matched".
     /// If a resolver is passed in, links will be able to be traversed.
     pub async fn walk_matching<L, F>(
         self,
@@ -54,15 +54,15 @@ impl Selector {
 /// Provides reason for callback in traversal for `walk_all`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VisitReason {
-    /// Ipld node visited was a specific match.
+    /// IPLD node visited was a specific match.
     SelectionMatch,
-    /// Ipld node was visited while searching for matches.
+    /// IPLD node was visited while searching for matches.
     SelectionCandidate,
 }
 
 #[async_trait]
 pub trait LinkResolver {
-    /// Resolves a Cid link into it's respective Ipld node, if it exists.
+    /// Resolves a Cid link into it's respective IPLD node, if it exists.
     async fn load_link(&mut self, link: &Cid) -> Result<Option<Ipld>, String>;
 }
 
@@ -81,7 +81,7 @@ pub struct Progress<L = ()> {
     last_block: Option<LastBlockInfo>,
 }
 
-/// Contains information about the last block that was traversed in walking of the ipld graph.
+/// Contains information about the last block that was traversed in walking of the IPLD graph.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LastBlockInfo {
     pub path: Path,
