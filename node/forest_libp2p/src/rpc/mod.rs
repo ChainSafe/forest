@@ -35,11 +35,11 @@ impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
     }
 }
 
-/// libp2p request response outbound error type. This indicates a failure sending a request to
+/// LibP2P request response outbound error type. This indicates a failure sending a request to
 /// a peer. This is different from a failure response from a node, as this is an error that
 /// prevented a response.
 ///
-/// This type mirrors the internal libp2p type, but this avoids having to expose that internal type.
+/// This type mirrors the internal LibP2P type, but this avoids having to expose that internal type.
 #[derive(Debug)]
 pub enum RequestResponseError {
     /// The request could not be sent because a dialing attempt failed.

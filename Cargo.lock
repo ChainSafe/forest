@@ -2751,6 +2751,7 @@ dependencies = [
  "cid",
  "forest_encoding",
  "fvm_ipld_blockstore",
+ "log",
  "num_cpus",
  "parking_lot 0.12.1",
  "rocksdb",

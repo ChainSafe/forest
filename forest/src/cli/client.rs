@@ -23,6 +23,7 @@ pub struct Client {
     pub snapshot: bool,
     pub snapshot_height: Option<i64>,
     pub snapshot_path: Option<String>,
+    pub halt_after_import: bool,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
     pub skip_load: bool,
@@ -44,6 +45,7 @@ impl Default for Client {
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
+            halt_after_import: false,
             snapshot_height: None,
             skip_load: false,
             encrypt_keystore: true,
