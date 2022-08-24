@@ -13,14 +13,14 @@ use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 pub trait BlockStore: Blockstore + Store + Clone {}
 impl<T: Blockstore + Store + Clone> BlockStore for T {}
 
-/// Extension methods for inserting and retrieving ipld data with Cids
+/// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockStoreExt: BlockStore {
-    /// Get bytes from block store by Cid.
+    /// Get bytes from block store by CID.
     fn get_bytes(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         self.get(cid)
     }
 
-    /// Get typed object from block store by Cid
+    /// Get typed object from block store by CID
     fn get_obj<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
     where
         T: DeserializeOwned,
@@ -51,7 +51,7 @@ pub trait BlockStoreExt: BlockStore {
         Ok(cid)
     }
 
-    /// Batch put cbor objects into blockstore and returns vector of Cids
+    /// Batch put CBOR objects into block store and returns vector of CIDs
     fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> anyhow::Result<Vec<Cid>>
     where
         Self: Sized,

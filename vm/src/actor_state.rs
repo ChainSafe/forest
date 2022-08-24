@@ -8,12 +8,12 @@ pub mod json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct ActorStateJson(#[serde(with = "self")] pub ActorState);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `SignedMessage` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct ActorStateJsonRef<'a>(#[serde(with = "self")] pub &'a ActorState);

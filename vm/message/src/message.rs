@@ -62,7 +62,7 @@ pub mod json {
     use serde::{de, ser};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a Message from JSON.
+    /// Wrapper for serializing and de-serializing a Message from JSON.
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(transparent)]
     pub struct MessageJson(#[serde(with = "self")] pub Message);
