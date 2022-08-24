@@ -31,10 +31,9 @@ tipset/SM
 tipsetkey/S
 tuple
 validator/S
-serializing
-deserializing
 mempool
 sortition
+serializer/SM
 IPFS
 PoSt
 statediff
@@ -48,6 +47,5 @@ MDNS
 KV
 Kademlia
 LibP2P
-boolean
 TOML
 verifier
