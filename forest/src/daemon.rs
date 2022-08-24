@@ -300,7 +300,9 @@ pub(super) async fn start(config: Config) {
     let sync_task = task::spawn(chain_muxer);
 
     // Start services
-    let p2p_task = task::spawn(p2p_service.run());
+    let p2p_task = task::spawn(async {
+        p2p_service.run().await;
+    });
 
     let rpc_task = if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
