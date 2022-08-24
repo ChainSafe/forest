@@ -1,5 +1,5 @@
 [package]
-name    = "auth"
+name    = "forest_auth"
 version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -13,8 +13,8 @@ rand         = "0.8"
 serde        = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror    = "1.0"
 # Internal
-forest_crypto  = { version = "0.5", features = ["blst"] }
-key_management = "0.1.0"
+forest_crypto         = { version = "0.5", features = ["blst"] }
+forest_key_management = "0.1.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false

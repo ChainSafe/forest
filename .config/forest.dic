@@ -1,4 +1,4 @@
-10
+34
 APIs
 Algorand/M
 BLAKE2b
@@ -33,3 +33,19 @@ tuple
 validator/S
 mempool
 sortition
+serializer/SM
+IPFS
+PoSt
+statediff
+HAMT
+cron
+VRF
+BLS
+crypto
+stateful
+MDNS
+KV
+Kademlia
+LibP2P
+TOML
+verifier

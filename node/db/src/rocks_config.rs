@@ -5,7 +5,7 @@ use num_cpus;
 use rocksdb::{DBCompactionStyle, DBCompressionType, LogLevel};
 use serde::{Deserialize, Serialize};
 
-/// RocksDB configuration exposed in Forest.
+/// `RocksDB` configuration exposed in Forest.
 /// Only subset of possible options is implemented, add missing ones when needed.
 /// For description of different options please refer to the `rocksdb` crate documentation.
 /// <https://docs.rs/rocksdb/latest/rocksdb/>
@@ -34,12 +34,12 @@ impl Default for RocksDbConfig {
             compaction_style: Some("level".into()),
             compression_type: Some("lz4".into()),
             enable_statistics: false,
-            log_level: "debug".into(),
+            log_level: "warn".into(),
         }
     }
 }
 
-/// Converts string to a compaction style RocksDB variant.
+/// Converts string to a compaction style `RocksDB` variant.
 pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<DBCompactionStyle> {
     match s.to_lowercase().as_str() {
         "level" => Ok(DBCompactionStyle::Level),
@@ -49,7 +49,7 @@ pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<DBCompactionS
     }
 }
 
-/// Converts string to a compression type RocksDB variant.
+/// Converts string to a compression type `RocksDB` variant.
 pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompressionType> {
     match s.to_lowercase().as_str() {
         "bz2" => Ok(DBCompressionType::Bz2),
@@ -63,7 +63,7 @@ pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompression
     }
 }
 
-/// Converts string to a log level RocksDB variant.
+/// Converts string to a log level `RocksDB` variant.
 pub(crate) fn log_level_from_str(s: &str) -> anyhow::Result<LogLevel> {
     match s.to_lowercase().as_str() {
         "debug" => Ok(LogLevel::Debug),

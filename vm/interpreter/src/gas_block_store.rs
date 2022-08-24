@@ -85,10 +85,10 @@ mod tests {
     use super::*;
     use cid::multihash::Code::Blake2b256;
     use forest_db::MemoryDB;
+    use forest_ipld_blockstore::BlockStoreExt;
+    use forest_networks::{ChainConfig, Height};
     use fvm::gas::{price_list_by_network_version, Gas};
     use fvm_ipld_encoding::to_vec;
-    use ipld_blockstore::BlockStoreExt;
-    use networks::{ChainConfig, Height};
 
     #[test]
     fn gas_blockstore() {

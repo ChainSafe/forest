@@ -5,8 +5,8 @@ use cid::Error as CidErr;
 use forest_blocks::Error as BlkErr;
 use forest_db::Error as DbErr;
 use forest_encoding::error::Error as SerdeErr;
+use forest_legacy_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
-use legacy_ipld_amt::Error as AmtErr;
 use thiserror::Error;
 
 /// Chain error

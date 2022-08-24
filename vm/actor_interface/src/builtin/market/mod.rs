@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
+use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
 use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
@@ -9,7 +10,6 @@ use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::piece::PaddedPieceSize;
-use ipld_blockstore::{BlockStore, BlockStoreExt};
 use serde::Serialize;
 use std::marker::PhantomData;
 
@@ -27,6 +27,8 @@ pub fn is_v8_market_cid(cid: &Cid) -> bool {
         Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap(),
+        // devnet
+        Cid::try_from("bafk2bzacecw57fpkqesfhi5g3nr4csy4oy7oc42wmwjuis6l7ijniolo4rt2k").unwrap(),
     ];
     known_cids.contains(cid)
 }

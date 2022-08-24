@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use chain_sync::SyncConfig;
+use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
-use networks::ChainConfig;
+use forest_networks::ChainConfig;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -37,7 +37,7 @@ mod test {
         client: Client,
         rocks_db: forest_db::rocks_config::RocksDbConfig,
         network: forest_libp2p::Libp2pConfig,
-        sync: chain_sync::SyncConfig,
+        sync: forest_chain_sync::SyncConfig,
     }
 
     impl From<ConfigPartial> for Config {
@@ -62,6 +62,7 @@ mod test {
                     rpc_port: u16::arbitrary(g),
                     rpc_token: Option::arbitrary(g),
                     snapshot: bool::arbitrary(g),
+                    halt_after_import: bool::arbitrary(g),
                     snapshot_height: Option::arbitrary(g),
                     snapshot_path: Option::arbitrary(g),
                     skip_load: bool::arbitrary(g),

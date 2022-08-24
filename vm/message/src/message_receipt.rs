@@ -12,12 +12,12 @@ pub mod json {
     use fvm_shared::error::ExitCode;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-    /// Wrapper for serializing and deserializing a SignedMessage from JSON.
+    /// Wrapper for serializing and deserializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct MessageReceiptJson(#[serde(with = "self")] pub MessageReceipt);
 
-    /// Wrapper for serializing a SignedMessage reference to JSON.
+    /// Wrapper for serializing a `SignedMessage` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
     pub struct MessageReceiptJsonRef<'a>(#[serde(with = "self")] pub &'a MessageReceipt);

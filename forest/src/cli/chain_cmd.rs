@@ -8,7 +8,7 @@ use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
 use forest_json::cid::CidJson;
-use rpc_client::chain_ops::*;
+use forest_rpc_client::chain_ops::*;
 use time::OffsetDateTime;
 
 #[derive(Debug, StructOpt)]
@@ -26,9 +26,9 @@ pub enum ChainCommands {
         /// Tipset to start the export from, default is the chain head
         #[structopt(short, long)]
         tipset: Option<i64>,
-        /// Specify the number of recent state roots to include in the export, default is the chain finality value
-        #[structopt(short, long)]
-        recent_stateroots: Option<i64>,
+        /// Specify the number of recent state roots to include in the export.
+        #[structopt(short, long, default_value = "2000")]
+        recent_stateroots: i64,
         /// Include old messages
         #[structopt(short, long)]
         include_old_messages: bool,

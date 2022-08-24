@@ -76,7 +76,7 @@ impl<'a> DiscoveryConfig<'a> {
         self
     }
 
-    /// Configures if mdns is enabled.
+    /// Configures if MDNS is enabled.
     pub fn with_mdns(&mut self, value: bool) -> &mut Self {
         self.enable_mdns = value;
         self
@@ -88,7 +88,7 @@ impl<'a> DiscoveryConfig<'a> {
         self
     }
 
-    /// Create a `DiscoveryBehaviour` from this config.
+    /// Create a `DiscoveryBehaviour` from this configuration.
     pub fn finish(self) -> DiscoveryBehaviour {
         let DiscoveryConfig {
             local_peer_id,
@@ -181,7 +181,7 @@ pub struct DiscoveryBehaviour {
     num_connections: u64,
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
-    /// Keeps hash map of peers and their multiaddresses
+    /// Keeps hash map of peers and their multi-addresses
     peer_addresses: HashMap<PeerId, Vec<Multiaddr>>,
     /// Number of active connections to pause discovery on.
     discovery_max: u64,
@@ -193,7 +193,7 @@ impl DiscoveryBehaviour {
         &self.peers
     }
 
-    /// Returns a map of peer ids and their multiaddresses
+    /// Returns a map of peer ids and their multi-addresses
     pub fn peer_addresses(&self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         &self.peer_addresses
     }
