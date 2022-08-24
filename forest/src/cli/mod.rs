@@ -4,7 +4,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod client;
-pub mod config;
+mod config;
 mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
@@ -18,6 +18,7 @@ pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::client::Client;
 pub use self::config::Config;
+pub use self::config::{LogConfig, LogValue};
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
@@ -175,6 +176,11 @@ pub struct CliOpts {
         possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
+    // having such an option isn't possible since target for env_logger can be either stderr or std out, for now. See https://github.com/seanmonstar/pretty-env-logger/issues/52
+    // #[structopt(
+    //     help = "target file for logs"
+    // )]
+    // pub log_file: Option<PathBuf>,
 }
 
 impl CliOpts {
