@@ -5,11 +5,22 @@ use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashSet, sync::Arc};
 
 use super::client::Client;
 
-#[derive(Serialize, Deserialize, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
+pub struct LogConfig {
+    pub log_values: HashSet<LogValue>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+pub struct LogValue {
+    pub module: String,
+    pub level: String,
+}
+
+#[derive(Serialize, Deserialize, Default, PartialEq)]
 #[serde(default)]
 pub struct Config {
     pub client: Client,
@@ -17,7 +28,7 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
-    pub log_file: Option<PathBuf>,
+    pub log_config: Option<LogConfig>,
 }
 
 #[cfg(test)]
@@ -49,7 +60,7 @@ mod test {
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
-                log_file: None,
+                log_config: None,
             }
         }
     }

@@ -4,7 +4,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod client;
-mod config;
+pub mod config;
 mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
