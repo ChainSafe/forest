@@ -3,7 +3,7 @@
 
 mod cli;
 mod daemon;
-pub mod logger;
+mod logger;
 mod subcommand;
 
 use cli::{cli_error_and_die, Cli};
