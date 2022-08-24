@@ -46,7 +46,7 @@ use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
 
-/// returns info about the given miner's sectors. If the filter bit-field is nil, all sectors are included.
+/// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
 /// If the `filterOut` boolean is set to true, any sectors in the filter are excluded.
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sectors<
@@ -278,7 +278,7 @@ pub(crate) async fn state_all_miner_faults<
     // Ok(all_faults)
 }
 
-/// returns a bit-field indicating the recovering sectors of the given miner
+/// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -300,7 +300,7 @@ pub(crate) async fn state_miner_recoveries<
         .map_err(|e| e.into())
 }
 
-/// returns a bit-field indicating the recovering sectors of the given miner
+/// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_partitions<
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
