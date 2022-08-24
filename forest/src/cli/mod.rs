@@ -176,9 +176,11 @@ pub struct CliOpts {
         possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
-    // having such an option isn't possible since target for env_logger can be either stderr or std out, for now. See https://github.com/seanmonstar/pretty-env-logger/issues/52
+    // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
+    // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
+    // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
     // #[structopt(
-    //     help = "target file for logs"
+    //     help = "Specify a filename into which logging should be appended"
     // )]
     // pub log_file: Option<PathBuf>,
 }
