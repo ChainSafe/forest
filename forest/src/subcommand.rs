@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{Config, Subcommand};
-use super::logger;
 
 /// Process CLI sub-command
 pub(super) async fn process(command: Subcommand, config: Config) {
-    logger::setup_logger(config.log_config.clone());
     // Run command
     match command {
         Subcommand::Fetch(cmd) => {

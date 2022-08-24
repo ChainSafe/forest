@@ -6,7 +6,7 @@ use crate::cli_error_and_die;
 use log::LevelFilter;
 use std::str::FromStr;
 
-pub(crate) fn setup_logger(option_log_config: Option<LogConfig>) {
+pub(crate) fn setup_logger(option_log_config: &Option<LogConfig>) {
     let mut logger_builder = pretty_env_logger::formatted_timed_builder();
 
     // Assign default log level settings
@@ -24,7 +24,7 @@ pub(crate) fn setup_logger(option_log_config: Option<LogConfig>) {
     logger_builder.filter(None, LevelFilter::Info);
 
     if let Some(log_config) = option_log_config {
-        for item in log_config.log_values {
+        for item in &log_config.log_values {
             let level = LevelFilter::from_str(item.level.as_str())
                 .unwrap_or_else(|_| cli_error_and_die("could not parse LevelFilter enum value", 1));
             logger_builder.filter(Some(item.module.as_str()), level);
