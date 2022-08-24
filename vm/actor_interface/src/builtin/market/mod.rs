@@ -93,7 +93,7 @@ impl State {
         }
     }
 
-    /// Validates a collection of deal dealProposals for activation, and returns their combined weight,
+    /// Validates a collection of deal `dealProposals` for activation, and returns their combined weight,
     /// split into regular deal weight and verified deal weight.
     pub fn verify_deals_for_activation<BS>(
         &self,
