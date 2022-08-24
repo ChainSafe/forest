@@ -28,7 +28,7 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
-    pub log_config: Option<LogConfig>,
+    pub log_config: LogConfig,
 }
 
 #[cfg(test)]
@@ -60,7 +60,7 @@ mod test {
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
-                log_config: None,
+                log_config: Default::default(),
             }
         }
     }
