@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{Config, FOREST_VERSION_STRING};
+use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
@@ -19,7 +19,6 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
-use futures::channel::oneshot::Receiver;
 use fvm_shared::version::NetworkVersion;
 
 use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
@@ -44,7 +43,7 @@ use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    let ctrlc_oneshot = set_handler();
+    let ctrlc_oneshot = set_sigint_handler();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -380,33 +379,6 @@ async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
     if let Some(t) = mt {
         t.cancel().await;
     }
-}
-
-fn set_handler() -> Receiver<()> {
-    use std::cell::RefCell;
-    use std::process;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
-    let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
-
-    let running = Arc::new(AtomicUsize::new(0));
-    ctrlc::set_handler(move || {
-        let prev = running.fetch_add(1, Ordering::SeqCst);
-        if prev == 0 {
-            warn!("Got interrupt, shutting down...");
-            // Send sig int in channel to blocking task
-            if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
-                ctrlc_send.send(()).expect("Error sending ctrl-c message");
-            }
-        } else {
-            info!("Exiting process.");
-            process::exit(0);
-        }
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    ctrlc_oneshot
 }
 
 fn db_path(config: &Config) -> PathBuf {
