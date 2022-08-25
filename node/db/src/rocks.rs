@@ -52,9 +52,7 @@ impl RocksDb {
         if config.enable_statistics {
             db_opts.enable_statistics();
         };
-
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
-
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })

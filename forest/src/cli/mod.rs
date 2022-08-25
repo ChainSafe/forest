@@ -29,6 +29,7 @@ pub(super) use self::wallet_cmd::WalletCommands;
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
+use futures::channel::oneshot::Receiver;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
 use git_version::git_version;
@@ -306,8 +307,7 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
     }
 }
 
-/// Blocks current thread until ctrl-c is received
-pub async fn block_until_sigint() {
+pub fn set_sigint_handler() -> Receiver<()> {
     let (ctrlc_send, ctrlc_oneshot) = futures::channel::oneshot::channel();
     let ctrlc_send_c = RefCell::new(Some(ctrlc_send));
 
@@ -321,12 +321,13 @@ pub async fn block_until_sigint() {
                 ctrlc_send.send(()).expect("Error sending ctrl-c message");
             }
         } else {
+            info!("Exiting process");
             process::exit(0);
         }
     })
     .expect("Error setting Ctrl-C handler");
 
-    ctrlc_oneshot.await.unwrap();
+    ctrlc_oneshot
 }
 
 /// Pretty-print a JSON-RPC error and exit

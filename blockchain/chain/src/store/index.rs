@@ -3,6 +3,7 @@
 
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::sync::RwLock;
+use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_ipld_blockstore::BlockStore;
 use fvm_shared::clock::ChainEpoch;
@@ -70,6 +71,8 @@ where
         let rounded = self.round_down(from).await?;
 
         let mut cur = rounded.key().clone();
+        const MAX_COUNT: usize = 100;
+        let mut counter = 0;
         loop {
             let entry = self.skip_cache.write().await.get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
@@ -90,6 +93,13 @@ where
             }
 
             cur = lbe.target.clone();
+
+            if counter == MAX_COUNT {
+                counter = 0;
+                task::yield_now().await;
+            } else {
+                counter += 1;
+            }
         }
     }
 
