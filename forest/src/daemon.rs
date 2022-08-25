@@ -1,14 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{block_until_sigint, Config, FOREST_VERSION_STRING};
+use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
-use async_std::net::TcpListener;
-use async_std::task::JoinHandle;
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
+use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -22,11 +21,11 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
-use async_std::{channel::bounded, sync::RwLock, task};
+use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
+use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
-use forest_db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -45,6 +44,8 @@ use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
+    let mut ctrlc_oneshot = set_sigint_handler();
+
     info!(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
@@ -185,7 +186,12 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
-    sync_from_snapshot(&config, &state_manager).await;
+    select! {
+        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        _ = ctrlc_oneshot => {
+            return;
+        },
+    }
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
@@ -200,7 +206,7 @@ pub(super) async fn start(config: Config) {
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
                 cli_error_and_die(
-                   "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
                     1,
                 );
             }
@@ -258,17 +264,16 @@ pub(super) async fn start(config: Config) {
 
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let mpool = Arc::new(
-        MessagePool::new(
-            provider,
-            network_name.clone(),
-            network_send.clone(),
-            MpoolConfig::load_config(&db).unwrap(),
-            Arc::clone(state_manager.chain_config()),
-        )
-        .await
-        .unwrap(),
-    );
+    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
+        provider,
+        network_name.clone(),
+        network_send.clone(),
+        MpoolConfig::load_config(&db).unwrap(),
+        Arc::clone(state_manager.chain_config()),
+    )
+    .await
+    .unwrap();
+    let mpool = Arc::new(mpool);
 
     // For consensus types that do mining, create a component to submit their proposals.
     let submitter = SyncGossipSubmitter::new(
@@ -334,22 +339,33 @@ pub(super) async fn start(config: Config) {
         None
     };
 
+    let db_weak_ref = Arc::downgrade(&db.db);
+    drop(db);
+
     // Block until ctrl-c is hit
-    block_until_sigint().await;
+    ctrlc_oneshot.await.unwrap();
 
     let keystore_write = task::spawn(async move {
         keystore.read().await.flush().unwrap();
     });
 
     // Cancel all async services
-    maybe_cancel(mining_task).await;
     prometheus_server_task.cancel().await;
+    head_changes_task.cancel().await;
+    republish_task.cancel().await;
+    maybe_cancel(mining_task).await;
     sync_task.cancel().await;
     p2p_task.cancel().await;
     maybe_cancel(rpc_task).await;
     keystore_write.await;
 
-    info!("Forest finish shutdown.");
+    if db_weak_ref.strong_count() != 0 {
+        error!(
+            "Dangling reference to DB detected: {}. Please report this as a bug at https://github.com/ChainSafe/forest/issues",
+            db_weak_ref.strong_count()
+        );
+    }
+    info!("Forest finish shutdown");
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
