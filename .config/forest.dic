@@ -48,4 +48,5 @@ KV
 Kademlia
 LibP2P
 TOML
+bitfield
 verifier

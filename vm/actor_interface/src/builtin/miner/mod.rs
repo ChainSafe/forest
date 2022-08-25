@@ -139,7 +139,7 @@ impl State {
         }
     }
 
-    /// Gets pre committed on chain info
+    /// Gets pre-committed on chain info
     pub fn get_precommitted_sector<BS: BlockStore>(
         &self,
         _store: &BS,
@@ -291,7 +291,7 @@ pub struct SectorOnChainInfo {
     pub sector_number: SectorNumber,
     /// The seal proof type implies the PoSt proofs
     pub seal_proof: RegisteredSealProof,
-    /// CommR
+    /// `CommR`
     #[serde(with = "forest_json::cid")]
     pub sealed_cid: Cid,
     pub deal_ids: Vec<DealID>,
@@ -341,7 +341,7 @@ pub struct SectorPreCommitOnChainInfo {
     #[serde(with = "json")]
     pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
-    /// Integral of active deals over sector lifetime, 0 if CommittedCapacity sector
+    /// Integral of active deals over sector lifetime, 0 if `CommittedCapacity` sector
     #[serde(with = "json")]
     pub deal_weight: BigInt,
     /// Integral of active verified deals over sector lifetime
@@ -354,14 +354,14 @@ pub struct SectorPreCommitOnChainInfo {
 pub struct SectorPreCommitInfo {
     pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
-    /// CommR
+    /// `CommR`
     #[serde(with = "forest_json::cid", rename = "SealedCID")]
     pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
     #[serde(with = "go_vec_visitor", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
     pub expiration: ChainEpoch,
-    /// Whether to replace a "committed capacity" no-deal sector (requires non-empty DealIDs)
+    /// Whether to replace a "committed capacity" no-deal sector (requires non-empty `DealIDs`)
     pub replace_capacity: bool,
     /// The committed capacity sector to replace, and its deadline/partition location
     pub replace_sector_deadline: u64,

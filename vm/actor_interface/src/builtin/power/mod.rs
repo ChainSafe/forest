@@ -16,11 +16,11 @@ use serde::{Deserialize, Serialize};
 use anyhow::Context;
 
 /// Power actor address.
-/// TODO: Select based on actors version
+// TODO: Select address based on actors version
 pub const ADDRESS: Address = Address::new_id(4);
 
 /// Power actor method.
-/// TODO: Select based on actor version
+// TODO: Select method based on actors version
 pub type Method = fil_actor_power_v8::Method;
 
 pub fn is_v8_power_cid(cid: &Cid) -> bool {
@@ -118,7 +118,7 @@ impl State {
         }
     }
 
-    /// Returns this_epoch_qa_power_smoothed from the state.
+    /// Returns `this_epoch_qa_power_smoothed` from the state.
     pub fn total_power_smoothed(&self) -> FilterEstimate {
         match self {
             State::V8(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
