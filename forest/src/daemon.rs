@@ -302,7 +302,6 @@ pub(super) async fn start(config: Config) {
     let p2p_task = task::spawn(async {
         p2p_service.run().await;
     });
-
     let rpc_task = if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = TcpListener::bind(&config.client.rpc_address)
@@ -351,7 +350,7 @@ pub(super) async fn start(config: Config) {
     maybe_cancel(rpc_task).await;
     keystore_write.await;
 
-    info!("Forest finish shutdown.");
+    info!("Forest finish shutdown");
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
