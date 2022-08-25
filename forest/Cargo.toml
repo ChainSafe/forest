@@ -71,6 +71,7 @@ time                   = "0.3"
 tokio                  = { version = "1.0", features = ["sync"] }
 toml                   = "0.5"
 uuid                   = { version = "0.8", features = ["v4"] }
+daemonize-me           = "2.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false

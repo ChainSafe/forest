@@ -179,6 +179,9 @@ pub struct CliOpts {
         possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
+    /// Daemonize Forest process
+    #[structopt(long)]
+    pub detach: bool,
 }
 
 impl CliOpts {
