@@ -339,6 +339,9 @@ pub(super) async fn start(config: Config) {
         None
     };
 
+    let db_weak_ref = Arc::downgrade(&db.db);
+    drop(db);
+
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
 
@@ -356,6 +359,12 @@ pub(super) async fn start(config: Config) {
     maybe_cancel(rpc_task).await;
     keystore_write.await;
 
+    if db_weak_ref.strong_count() != 0 {
+        error!(
+            "Dangling reference to DB detected: {}. Please report this as a bug at https://github.com/ChainSafe/forest/issues",
+            db_weak_ref.strong_count()
+        );
+    }
     info!("Forest finish shutdown");
 }
 

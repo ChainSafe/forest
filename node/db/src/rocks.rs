@@ -8,7 +8,6 @@ use crate::rocks_config::{
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use log::info;
 pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
@@ -57,16 +56,6 @@ impl RocksDb {
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
-    }
-}
-
-impl Drop for RocksDb {
-    fn drop(&mut self) {
-        if Arc::strong_count(&self.db) == 1 {
-            info!("Dropping rocksdb::DB");
-            // TODO: find if we really need to call this?
-            //self.db.cancel_all_background_work(false);
-        }
     }
 }
 
