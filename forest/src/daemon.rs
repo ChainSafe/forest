@@ -22,6 +22,7 @@ use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
 use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
+use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
@@ -43,7 +44,7 @@ use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    let ctrlc_oneshot = set_sigint_handler();
+    let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -185,7 +186,12 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
-    sync_from_snapshot(&config, &state_manager).await;
+    select! {
+        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        _ = ctrlc_oneshot => {
+            return;
+        },
+    }
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
