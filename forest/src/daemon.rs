@@ -8,6 +8,7 @@ use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_db::rocks::RocksDb;
+use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -21,7 +22,7 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
-use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
+use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
@@ -52,7 +53,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) {
+pub(super) async fn start(config: Config) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -202,7 +203,12 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     info!("Using network :: {}", network_name);
 
-    let (tipset_sink, tipset_stream) = bounded(20);
+    select! {
+        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        _ = ctrlc_oneshot => {
+            return;
+        },
+    }
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
@@ -217,7 +223,7 @@ pub(super) async fn start(config: Config, detached: bool) {
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
                 cli_error_and_die(
-                   "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
                     1,
                 );
             }
@@ -283,8 +289,6 @@ pub(super) async fn start(config: Config, detached: bool) {
     )
     .await
     .unwrap();
-    services.push(head_changes_task);
-    services.push(republish_task);
     let mpool = Arc::new(mpool);
 
     // For consensus types that do mining, create a component to submit their proposals.
@@ -413,6 +417,9 @@ pub(super) async fn start(config: Config, detached: bool) {
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
 
+    let db_weak_ref = Arc::downgrade(&db.db);
+    drop(db);
+
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
 
@@ -421,9 +428,13 @@ pub(super) async fn start(config: Config, detached: bool) {
     });
 
     // Cancel all async services
-    for handle in services {
-        handle.cancel().await;
-    }
+    prometheus_server_task.cancel().await;
+    head_changes_task.cancel().await;
+    republish_task.cancel().await;
+    maybe_cancel(mining_task).await;
+    sync_task.cancel().await;
+    p2p_task.cancel().await;
+    maybe_cancel(rpc_task).await;
     keystore_write.await;
 
     if db_weak_ref.strong_count() != 0 {
