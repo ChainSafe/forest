@@ -4,7 +4,7 @@
 
 ## BLAKE2b
 
-[BLAKE2b](https://en.wikipedia.org/wiki/BLAKE_(hash_function)) is a cryptographic hash function.
+BLAKE2 is a cryptographic hash function based on [BLAKE](https://en.wikipedia.org/wiki/BLAKE_(hash_function)). The design goal was to replace the widely used, but broken, MD5 and SHA-1 algorithms in applications requiring high performance in software.
 
 ## BLS
 
@@ -45,6 +45,10 @@ A set of CIDs forming a unique key for a tipset.
 ## mempool
 
 mempool stands for the Message Pool, which is the component of forest that handles pending messages for inclusion in the chain. Messages are added either directly for locally published messages or through pubsub propagation.
+
+## Merkle
+
+[Ralph C. Merkle](https://en.wikipedia.org/wiki/Ralph_Merkle) is a computer scientist. He is one of the inventors of public-key cryptography, the inventor of cryptographic hashing. Merkle tree is named after him.
 
 ## Sortition
 In governance, [sortition](https://en.wikipedia.org/wiki/Sortition) is the selection of political officials as a random sample from a larger pool of candidates.
