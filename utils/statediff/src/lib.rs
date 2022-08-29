@@ -342,3 +342,22 @@ where
 
     Ok(())
 }
+
+#[derive(Serialize, Deserialize)]
+pub enum ChangeType {
+    Add,
+    Remove,
+    Modify,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Change {
+    pub change_type: ChangeType,
+    pub key: String,
+    pub before: Vec<u8>,
+    pub after: Vec<u8>,
+}
+
+pub fn diff<BS>(bs: &BS, prev: &Cid, current: &Cid) -> Vec<Change> {
+    todo!()
+}
