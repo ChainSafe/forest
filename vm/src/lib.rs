@@ -22,10 +22,10 @@ use fvm_ipld_encoding::to_vec;
 use fvm_ipld_encoding::DAG_CBOR;
 
 lazy_static! {
-    /// Cbor bytes of an empty array serialized.
+    /// CBOR bytes of an empty array serialized.
     pub static ref EMPTY_ARR_BYTES: Vec<u8> = to_vec::<[(); 0]>(&[]).unwrap();
 
-    /// Cid of the empty array Cbor bytes (`EMPTY_ARR_BYTES`).
+    /// Cid of the empty array CBOR bytes (`EMPTY_ARR_BYTES`).
     pub static ref EMPTY_ARR_CID: Cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&EMPTY_ARR_BYTES));
 }
 

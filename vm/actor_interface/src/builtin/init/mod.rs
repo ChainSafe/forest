@@ -60,7 +60,7 @@ impl State {
         }
     }
 
-    /// ResolveAddress resolves an address to an ID-address, if possible.
+    /// Resolves an address to an ID-address, if possible.
     /// If the provided address is an ID address, it is returned as-is.
     /// This means that mapped ID-addresses (which should only appear as values, not keys) and
     /// singleton actor addresses (which are not in the map) pass through unchanged.

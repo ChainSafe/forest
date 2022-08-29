@@ -4,7 +4,7 @@
 use cid::Cid;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-/// Wrapper for serializing and deserializing a Cid from JSON.
+/// Wrapper for serializing and de-serializing a Cid from JSON.
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct CidJson(#[serde(with = "self")] pub Cid);
@@ -47,7 +47,7 @@ pub mod vec {
     use forest_json_utils::GoVecVisitor;
     use serde::ser::SerializeSeq;
 
-    /// Wrapper for serializing and deserializing a Cid vector from JSON.
+    /// Wrapper for serializing and de-serializing a Cid vector from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
     pub struct CidJsonVec(#[serde(with = "self")] pub Vec<Cid>);
