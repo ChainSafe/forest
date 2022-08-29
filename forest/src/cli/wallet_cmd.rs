@@ -182,9 +182,9 @@ impl WalletCommands {
                         .expect("Failed loading the wallet balance");
                     let balance = balance_string
                         .parse::<BigInt>()
-                        .expect("Couldn't convert balance string to bigint");
+                        .expect("Couldn't convert balance string to BigInt");
                     let balance_fil =
-                        balance_to_fil(balance).expect("Couldn't convert balance to fil");
+                        balance_to_fil(balance).expect("Couldn't convert balance to FIL");
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_fil:.6} FIL");
                 }
