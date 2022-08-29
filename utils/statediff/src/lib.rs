@@ -15,6 +15,7 @@ use forest_ipld_blockstore::BlockStore;
 use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
@@ -358,6 +359,29 @@ pub struct Change {
     pub after: Vec<u8>,
 }
 
+pub struct Node<BS> {
+    pub bitfield: BigInt,
+    pub pointers: Vec<Pointer>,
+    pub bitwidth: i32,
+    // type HashFunction = fn(Vec<u8>) -> Vec<u8>
+    // pub hash_function: ??
+    pub store: BS,
+}
+
+pub struct Pointer {
+    pub key_values: Vec<KeyValue>,
+    pub link: Cid,
+}
+
+pub struct KeyValue {
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+}
+
 pub fn diff<BS>(bs: &BS, prev: &Cid, current: &Cid) -> Vec<Change> {
+    todo!()
+}
+
+pub fn load_node<BS>(store: BS, cid: &Cid) -> Result<Node<BS>, anyhow::Error> {
     todo!()
 }
