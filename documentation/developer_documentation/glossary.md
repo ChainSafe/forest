@@ -48,14 +48,14 @@ mempool stands for the Message Pool, which is the component of forest that handl
 
 ## Merkle
 
-[Ralph C. Merkle](https://en.wikipedia.org/wiki/Ralph_Merkle) is a computer scientist. He is one of the inventors of public-key cryptography, the inventor of cryptographic hashing. Merkle tree is named after him.
+[Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) is a tree in which every node is labelled with the cryptographic hash of a data block, and every node that is not a leaf (called a branch, inner node, or inode) is labelled with the cryptographic hash of the labels of its child nodes. A hash tree allows efficient and secure verification of the contents of a large data structure.
 
 ## IPFS
 [IPFS](https://github.com/ipfs/ipfs) stands for InterPlanetary File System which is A peer-to-peer hypermedia protocol to make the web faster, safer, and more open.
 
 ## Proof of Spacetime (PoSt)
 
-[_Proof-of-Spacetime_](pos#post) is a procedure by which a [storage-miner](glossary#storage-miner-actor) can prove to the Filecoin network they have stored and continue to store a unique copy of some data on behalf of the network for a period of time. Proof-of-Spacetime manifests in two distinct varieties in the present Filecoin specification: [Window Proof-of-Spacetime](glossary#window-proof-of-spacetime-windowpost) and [Winning Proof-of-Spacetime](glossary#winning-proof-of-spacetime-winningpost).
+PoSt stands for Proof-of-Spacetime is a procedure by which a storage-miner can prove to the Filecoin network they have stored and continue to store a unique copy of some data on behalf of the network for a period of time.
 
 ## HAMT
 
