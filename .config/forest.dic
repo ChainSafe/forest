@@ -11,11 +11,6 @@ CBOR
 CID/M
 CIDs
 CLI
-codec
-cron
-crypto
-daemon
-daemonize
 Filecoin
 HAMT
 IPFS
@@ -41,8 +36,7 @@ stateful
 synchronizer
 tipset/SM
 tipsetkey/S
-TOML
-trie
+tuple
 validator/S
 mempool
 sortition
@@ -63,3 +57,5 @@ LibP2P
 TOML
 bitfield
 verifier
+VM
+VRF
