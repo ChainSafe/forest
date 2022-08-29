@@ -186,6 +186,95 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
+    let (tipset_sink, tipset_stream) = bounded(20);
+
+    // Libp2p service setup
+    let p2p_service = Libp2pService::new(
+        config.network.clone(),
+        Arc::clone(&chain_store),
+        net_keypair,
+        &network_name,
+    );
+
+    let network_rx = p2p_service.network_receiver();
+    let network_send = p2p_service.network_sender();
+
+    // Initialize mpool
+    let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
+    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
+        provider,
+        network_name.clone(),
+        network_send.clone(),
+        MpoolConfig::load_config(&db).unwrap(),
+        Arc::clone(state_manager.chain_config()),
+    )
+    .await
+    .unwrap();
+    let mpool = Arc::new(mpool);
+
+    // For consensus types that do mining, create a component to submit their proposals.
+    let submitter = SyncGossipSubmitter::new(
+        network_name.clone(),
+        network_send.clone(),
+        tipset_sink.clone(),
+    );
+
+    // Initialize Consensus. Mining may or may not happen, depending on type.
+    let (consensus, mining_task) =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter).await;
+
+    // Initialize ChainMuxer
+    let chain_muxer_tipset_sink = tipset_sink.clone();
+    let chain_muxer = ChainMuxer::new(
+        Arc::new(consensus),
+        Arc::clone(&state_manager),
+        Arc::clone(&mpool),
+        network_send.clone(),
+        network_rx,
+        Arc::new(genesis),
+        chain_muxer_tipset_sink,
+        tipset_stream,
+        config.sync.clone(),
+    )
+    .expect("Instantiating the ChainMuxer must succeed");
+    let bad_blocks = chain_muxer.bad_blocks_cloned();
+    let sync_state = chain_muxer.sync_state_cloned();
+    let sync_task = task::spawn(chain_muxer);
+
+    let rpc_task = if config.client.enable_rpc {
+        let keystore_rpc = Arc::clone(&keystore);
+        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
+            .await
+            .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
+
+        let rpc_state_manager = Arc::clone(&state_manager);
+        let rpc_chain_store = Arc::clone(&chain_store);
+
+        Some(task::spawn(async move {
+            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
+            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
+                Arc::new(RPCState {
+                    state_manager: Arc::clone(&rpc_state_manager),
+                    keystore: keystore_rpc,
+                    mpool,
+                    bad_blocks,
+                    sync_state,
+                    network_send,
+                    network_name,
+                    beacon: rpc_state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
+                    chain_store: rpc_chain_store,
+                    new_mined_block_tx: tipset_sink,
+                }),
+                rpc_listen,
+                FOREST_VERSION_STRING.as_str(),
+            )
+            .await
+        }))
+    } else {
+        debug!("RPC disabled.");
+        None
+    };
+
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
         _ = ctrlc_oneshot => {
@@ -232,7 +321,7 @@ pub(super) async fn start(config: Config) {
     }
 
     // Override bootstrap peers
-    let config = if config.network.bootstrap_peers.is_empty() {
+    let _config = if config.network.bootstrap_peers.is_empty() {
         let bootstrap_peers = config
             .chain
             .bootstrap_peers
@@ -250,94 +339,10 @@ pub(super) async fn start(config: Config) {
         config
     };
 
-    // Libp2p service setup
-    let p2p_service = Libp2pService::new(
-        config.network,
-        Arc::clone(&chain_store),
-        net_keypair,
-        &network_name,
-    );
-    let network_rx = p2p_service.network_receiver();
-    let network_send = p2p_service.network_sender();
-
-    let (tipset_sink, tipset_stream) = bounded(20);
-
-    // Initialize mpool
-    let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
-        provider,
-        network_name.clone(),
-        network_send.clone(),
-        MpoolConfig::load_config(&db).unwrap(),
-        Arc::clone(state_manager.chain_config()),
-    )
-    .await
-    .unwrap();
-    let mpool = Arc::new(mpool);
-
-    // For consensus types that do mining, create a component to submit their proposals.
-    let submitter = SyncGossipSubmitter::new(
-        network_name.clone(),
-        network_send.clone(),
-        tipset_sink.clone(),
-    );
-
-    // Initialize Consensus. Mining may or may not happen, depending on type.
-    let (consensus, mining_task) =
-        cns::consensus(&state_manager, &keystore, &mpool, submitter).await;
-
-    // Initialize ChainMuxer
-    let chain_muxer_tipset_sink = tipset_sink.clone();
-    let chain_muxer = ChainMuxer::new(
-        Arc::new(consensus),
-        Arc::clone(&state_manager),
-        Arc::clone(&mpool),
-        network_send.clone(),
-        network_rx,
-        Arc::new(genesis),
-        chain_muxer_tipset_sink,
-        tipset_stream,
-        config.sync,
-    )
-    .expect("Instantiating the ChainMuxer must succeed");
-    let bad_blocks = chain_muxer.bad_blocks_cloned();
-    let sync_state = chain_muxer.sync_state_cloned();
-    let sync_task = task::spawn(chain_muxer);
-
     // Start services
     let p2p_task = task::spawn(async {
         p2p_service.run().await;
     });
-    let rpc_task = if config.client.enable_rpc {
-        let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
-            .await
-            .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
-
-        Some(task::spawn(async move {
-            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
-                Arc::new(RPCState {
-                    state_manager: Arc::clone(&state_manager),
-                    keystore: keystore_rpc,
-                    mpool,
-                    bad_blocks,
-                    sync_state,
-                    network_send,
-                    network_name,
-                    beacon: state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
-                    chain_store,
-                    new_mined_block_tx: tipset_sink,
-                }),
-                rpc_listen,
-                FOREST_VERSION_STRING.as_str(),
-            )
-            .await
-        }))
-    } else {
-        debug!("RPC disabled.");
-        None
-    };
 
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
