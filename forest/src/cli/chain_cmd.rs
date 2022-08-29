@@ -37,12 +37,13 @@ pub enum ChainCommands {
         /// Include old messages
         #[structopt(short, long)]
         include_old_messages: bool,
-        /// Snapshot output path. Default to forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
+        /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
+        /// Date is in ISO 8601 date format.
         /// Arguments:
-        ///  - chain - is name of chain name e.g. main net
-        ///  - year - 4-number format
-        ///  - month - ISO 8601 date format.
-        ///  - day - DD format
+        ///  - chain - chain name e.g. mainnet
+        ///  - year
+        ///  - month
+        ///  - day
         ///  - height - the epoch
         #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
         output_path: String,
@@ -97,16 +98,16 @@ impl ChainCommands {
 
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
-                let day = now.day();
+                let day_string = format!("{:02}", now.day() as u8);
                 let chain_name = chain_get_name().await.map_err(handle_rpc_err).unwrap();
 
-                let mut vars = HashMap::new();
-                vars.insert("year".to_string(), year.to_string());
-                vars.insert("month".to_string(), month_string);
-                vars.insert("day".to_string(), day.to_string());
-                vars.insert("chain".to_string(), chain_name);
-                vars.insert("height".to_string(), epoch.to_string());
-
+                let vars = HashMap::from([
+                    ("year".to_string(), year.to_string()),
+                    ("month".to_string(), month_string),
+                    ("day".to_string(), day_string),
+                    ("chain".to_string(), chain_name),
+                    ("height".to_string(), epoch.to_string()),
+                ]);
                 let output_path = match strfmt(output_path, &vars) {
                     Ok(path) => path,
                     Err(e) => {
