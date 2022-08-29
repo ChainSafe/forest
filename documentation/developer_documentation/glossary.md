@@ -50,9 +50,6 @@ mempool stands for the Message Pool, which is the component of forest that handl
 
 [Ralph C. Merkle](https://en.wikipedia.org/wiki/Ralph_Merkle) is a computer scientist. He is one of the inventors of public-key cryptography, the inventor of cryptographic hashing. Merkle tree is named after him.
 
-## Sortition
-In governance, [sortition](https://en.wikipedia.org/wiki/Sortition) is the selection of political officials as a random sample from a larger pool of candidates.
-
 ## IPFS
 [IPFS](https://github.com/ipfs/ipfs) stands for InterPlanetary File System which is A peer-to-peer hypermedia protocol to make the web faster, safer, and more open.
 
@@ -71,10 +68,6 @@ In governance, [sortition](https://en.wikipedia.org/wiki/Sortition) is the selec
 ## MDNS
 
 [MDNS](https://en.wikipedia.org/wiki/Multicast_DNS) stands for Multicast DNS, which is a protocol, that resolves hostnames to IP addresses within small networks that do not include a local name server.
-
-## KV
-
-KV stands for [key–value database](https://en.wikipedia.org/wiki/Key%E2%80%93value_database), which is a data storage paradigm designed for storing, retrieving, and managing associative arrays, and a data structure more commonly known today as a dictionary or hash table. Dictionaries contain a collection of objects, or records, which in turn have many different fields within them, each containing data. These records are stored and retrieved using a key that uniquely identifies the record, and is used to find the data within the database.
 
 ## Kademlia
 
