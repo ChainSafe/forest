@@ -7,13 +7,15 @@ mod logger;
 mod subcommand;
 
 use cli::{cli_error_and_die, Cli};
-use structopt::StructOpt;
-use std::fs::File;
-use daemonize_me::{Daemon, User, Group};
-use log::{error, info};
 
-#[async_std::main]
-async fn main() {
+use async_std::task;
+use daemonize_me::{Daemon, Group, User};
+use log::info;
+use structopt::StructOpt;
+
+use std::fs::File;
+
+fn main() {
     logger::setup_logger();
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
@@ -21,14 +23,17 @@ async fn main() {
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
         Ok(cfg) => match cmd {
-            Some(command) => subcommand::process(command, cfg).await,
+            Some(command) => {
+                task::block_on(subcommand::process(command, cfg));
+            }
             None => {
                 if opts.detach {
-                    let stdout = File::create("forest.log").unwrap();
-                    let stderr = File::create("error.log").unwrap();
+                    let stdout = File::create("stdout.log").unwrap();
+                    let stderr = File::create("stderr.log").unwrap();
                     let daemon = Daemon::new()
                         .pid_file("forest.pid", Some(false))
-                        //.user(User::try_from("guillaume").unwrap())
+                        .user(User::try_from("guillaume").unwrap())
+                        .group(Group::try_from("staff").unwrap())
                         .umask(0o027)
                         .work_dir(".")
                         .stdout(stdout)
@@ -37,12 +42,12 @@ async fn main() {
 
                     match daemon {
                         Ok(_) => info!("Daemonized with success"),
-                        Err(e) => error!("Error daemonizing: {e}"),
+                        Err(e) => {
+                            cli_error_and_die(&format!("Error daemonizing. Error was: {}", e), 1);
+                        }
                     }
-                    daemon::start(cfg).await;
-                } else {
-                    daemon::start(cfg).await;
                 }
+                task::block_on(daemon::start(cfg));
             }
         },
         Err(e) => {
