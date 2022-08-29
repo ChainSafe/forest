@@ -1380,7 +1380,7 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
 /// This includes:
 /// * signature checks
 /// * gas limits, and prices
-/// * account nonces
+/// * account nonce values
 /// * the message root in the header
 ///
 /// NB: This loads/computes the state resulting from the execution of the parent tipset.

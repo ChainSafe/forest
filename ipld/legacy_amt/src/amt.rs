@@ -68,7 +68,7 @@ where
         self.root.bit_width
     }
 
-    /// Constructs an AMT with a blockstore and a Cid of the root of the AMT
+    /// Constructs an AMT with a block store and a CID of the root of the AMT
     pub fn load(cid: &Cid, block_store: &'db BS) -> Result<Self, Error> {
         // Load root bytes from database
         let root: Root<V> = block_store
@@ -93,7 +93,7 @@ where
         self.root.count
     }
 
-    /// Generates an AMT with block store and array of cbor marshallable objects and returns Cid
+    /// Generates an AMT with block store and array of objects and returns CID
     pub fn new_from_iter(
         block_store: &'db BS,
         vals: impl IntoIterator<Item = V>,
@@ -261,7 +261,7 @@ where
         Ok(modified)
     }
 
-    /// flush root and return Cid used as key in block store
+    /// flush root and return CID used as key in block store
     pub fn flush(&mut self) -> Result<Cid, Error> {
         self.root.node.flush(self.block_store)?;
         Ok(self.block_store.put_obj(&self.root, Blake2b256)?)
