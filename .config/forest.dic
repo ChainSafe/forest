@@ -21,7 +21,7 @@ IPLD
 JSON
 JWT
 Kademlia
-LibP2P
+libp2p
 MDNS
 mempool
 Merkle
@@ -40,7 +40,7 @@ synchronizer
 tipset/SM
 tipsetkey/S
 TOML
-Trie
+trie
 validator/S
 verifier
 VM
