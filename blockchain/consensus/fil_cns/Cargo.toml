@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow                 = "1.0"
-async-std              = { version = "1.9", features = ["tokio1", "unstable"] }
 async-trait            = "0.1"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 fil_actors_runtime     = "=8.0.0"

@@ -18,7 +18,6 @@ use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
-use async_std::sync::{Arc, RwLock};
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
@@ -36,9 +35,10 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
-use tokio::task;
+use tokio::{sync::RwLock, task};
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: usize = 40000;

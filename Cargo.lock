@@ -2908,7 +2908,6 @@ name = "forest_fil_cns"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "cid",
  "fil_actors_runtime",

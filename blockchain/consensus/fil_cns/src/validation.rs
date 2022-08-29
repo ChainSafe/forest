@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use async_std::task;
 use futures::stream::FuturesUnordered;
+use tokio::task;
 
 use cid::Cid;
 use fil_actors_runtime::runtime::DomainSeparationTag;

@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use async_std::future::Future;
 use async_std::pin::Pin;
 use async_std::stream::{Stream, StreamExt};
-use async_std::task::{self, Context, Poll};
+use core::task::{Context, Poll};
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -18,6 +18,7 @@ use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use thiserror::Error;
+use tokio::{runtime::Runtime, task};
 
 use crate::bad_block_cache::BadBlockCache;
 use crate::consensus::{collect_errs, Consensus};
@@ -1136,7 +1137,7 @@ async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
-        match result {
+        match result.unwrap() {
             Ok(block) => {
                 chainstore.add_to_tipset_tracker(block.header()).await;
             }
@@ -1477,9 +1478,12 @@ fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
     let block_store = state_manager.blockstore();
-    let (state_root, _) = task::block_on(state_manager.tipset_state(base_tipset)).map_err(|e| {
-        TipsetRangeSyncerError::Calculation(format!("Could not update state: {}", e))
-    })?;
+    let rt = Runtime::new().unwrap();
+    let (state_root, _) = rt
+        .block_on(state_manager.tipset_state(base_tipset))
+        .map_err(|e| {
+            TipsetRangeSyncerError::Calculation(format!("Could not update state: {}", e))
+        })?;
     let tree = StateTree::new_from_root(block_store, &state_root).map_err(|e| {
         TipsetRangeSyncerError::Calculation(format!(
             "Could not load from new state root in state manager: {}",
@@ -1506,9 +1510,9 @@ fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
             ))
         })?;
         // Resolve key address for signature verification
-        let key_addr =
-            task::block_on(state_manager.resolve_to_key_addr(msg.from(), base_tipset))
-                .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
+        let key_addr = rt
+            .block_on(state_manager.resolve_to_key_addr(msg.from(), base_tipset))
+            .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
             .verify(&msg.message().to_signing_bytes(), &key_addr)

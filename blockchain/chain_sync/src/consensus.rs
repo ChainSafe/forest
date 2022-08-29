@@ -1,6 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use async_std::task;
 use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
 use forest_chain::Scale;
@@ -15,6 +14,7 @@ use std::{
     fmt::{Debug, Display},
     sync::Arc,
 };
+use tokio::task;
 
 use forest_blocks::{Block, GossipBlock, Tipset};
 use forest_ipld_blockstore::BlockStore;
@@ -54,7 +54,7 @@ pub async fn collect_errs<E>(
     let mut errors = Vec::new();
 
     while let Some(result) = handles.next().await {
-        if let Err(e) = result {
+        if let Err(e) = result.unwrap() {
             errors.push(e);
         }
     }
