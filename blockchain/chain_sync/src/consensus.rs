@@ -54,7 +54,7 @@ pub async fn collect_errs<E>(
     let mut errors = Vec::new();
 
     while let Some(result) = handles.next().await {
-        if let Err(e) = result.unwrap() {
+        if let Ok(Err(e)) = result {
             errors.push(e);
         }
     }

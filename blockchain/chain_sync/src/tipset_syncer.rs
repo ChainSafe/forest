@@ -1137,11 +1137,14 @@ async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
-        match result.unwrap() {
-            Ok(block) => {
+        match result {
+            Err(_join_error) => {
+                error!("Validator task was unexpectedly canceled.");
+            }
+            Ok(Ok(block)) => {
                 chainstore.add_to_tipset_tracker(block.header()).await;
             }
-            Err((cid, why)) => {
+            Ok(Err((cid, why))) => {
                 warn!(
                     "Validating block [CID = {}] in EPOCH = {} failed: {}",
                     cid.clone(),

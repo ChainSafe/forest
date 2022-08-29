@@ -17,7 +17,6 @@ use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
 use async_std::channel::{bounded, Sender};
-use async_std::stream::interval;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
@@ -26,7 +25,7 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::{ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
-use futures::{future::select, StreamExt};
+use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
@@ -38,6 +37,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::time::interval;
 use tokio::{sync::RwLock, task};
 
 // LruCache sizes have been taken from the lotus implementation
@@ -219,7 +219,7 @@ where
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
         // Reacts to new HeadChanges
-        let head_changes_task = tokio::task::spawn(async move {
+        let head_changes_task = task::spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(ts) => {
@@ -268,10 +268,13 @@ where
         let network_name = mp.network_name.clone();
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
-        let republish_task = tokio::task::spawn(async move {
+        let republish_task = task::spawn(async move {
             let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
-                select(interval.next(), repub_trigger_rx.next()).await;
+                tokio::select! {
+                    _ = interval.tick() => {},
+                    _ = repub_trigger_rx.next() => {},
+                }
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),
