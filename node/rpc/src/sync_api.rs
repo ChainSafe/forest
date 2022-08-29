@@ -14,9 +14,9 @@ use forest_rpc_api::sync_api::*;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::message::Message;
 
-use async_std::sync::RwLock;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB, B>(

@@ -21,10 +21,11 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
-use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
+use async_std::{channel::bounded, net::TcpListener};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
+use tokio::{sync::RwLock, task};
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -44,6 +45,8 @@ use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
+    console_subscriber::init();
+
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -344,20 +347,27 @@ pub(super) async fn start(config: Config) {
 
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
+    info!("Line {}, refs: {}", line!(), db_weak_ref.strong_count());
 
     let keystore_write = task::spawn(async move {
         keystore.read().await.flush().unwrap();
     });
+    info!("Line {}, refs: {}", line!(), db_weak_ref.strong_count());
 
     // Cancel all async services
-    prometheus_server_task.cancel().await;
-    head_changes_task.cancel().await;
-    republish_task.cancel().await;
+    prometheus_server_task.abort();
+    prometheus_server_task.await.unwrap_err();
+    head_changes_task.abort();
+    head_changes_task.await.unwrap_err();
+    republish_task.abort();
+    republish_task.await.unwrap_err();
     maybe_cancel(mining_task).await;
-    sync_task.cancel().await;
-    p2p_task.cancel().await;
+    sync_task.abort();
+    sync_task.await.unwrap_err();
+    p2p_task.abort();
+    p2p_task.await.unwrap_err();
     maybe_cancel(rpc_task).await;
-    keystore_write.await;
+    keystore_write.await.unwrap();
 
     if db_weak_ref.strong_count() != 0 {
         error!(
@@ -389,9 +399,10 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
     }
 }
 
-async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
+async fn maybe_cancel<R>(mt: Option<task::JoinHandle<R>>) {
     if let Some(t) = mt {
-        t.cancel().await;
+        t.abort();
+        let _ = t.await;
     }
 }
 

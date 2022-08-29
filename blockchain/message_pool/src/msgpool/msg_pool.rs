@@ -19,7 +19,6 @@ use crate::utils::get_base_fee_lower_bound;
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
 use async_std::sync::{Arc, RwLock};
-use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
@@ -39,6 +38,7 @@ use lru::LruCache;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::task;
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: usize = 40000;
@@ -171,14 +171,7 @@ where
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-    ) -> Result<
-        (
-            MessagePool<T>,
-            async_std::task::JoinHandle<()>,
-            async_std::task::JoinHandle<()>,
-        ),
-        Error,
-    >
+    ) -> Result<(MessagePool<T>, task::JoinHandle<()>, task::JoinHandle<()>), Error>
     where
         T: Provider,
     {
@@ -226,7 +219,7 @@ where
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
         // Reacts to new HeadChanges
-        let head_changes_task = task::spawn(async move {
+        let head_changes_task = tokio::task::spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(ts) => {
@@ -275,7 +268,7 @@ where
         let network_name = mp.network_name.clone();
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
-        let republish_task = task::spawn(async move {
+        let republish_task = tokio::task::spawn(async move {
             let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;

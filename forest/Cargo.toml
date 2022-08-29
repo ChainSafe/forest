@@ -12,6 +12,7 @@ async-std              = { version = "1.9", features = ["attributes", "tokio1"] 
 base64                 = "0.13"
 byte-unit              = "4.0"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
+console-subscriber     = "*"
 ctrlc                  = "3.1"
 directories            = "4.0.1"
 forest_actor_interface = "0.1.0"

@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::FilecoinConsensus;
-use async_std::{sync::RwLock, task::JoinHandle};
 use forest_beacon::DrandBeacon;
 use forest_chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
 use forest_fil_types::verifier::FullVerifier;
@@ -9,6 +8,7 @@ use forest_ipld_blockstore::BlockStore;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use std::sync::Arc;
+use tokio::{sync::RwLock, task::JoinHandle};
 
 type MiningTask = JoinHandle<anyhow::Result<()>>;
 
