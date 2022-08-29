@@ -32,7 +32,7 @@ types of elliptic curves used for ECDSA see [here](https://www.johndcook.com/blo
 
 ## multisig
 
-multi-signature
+A [multi-signature](https://lotus.filecoin.io/lotus/manage/multisig/) (multisig) wallet refers to a wallet that requires multiple keys to authorize a `FIL` transactions.
 
 ## Tipset
 
