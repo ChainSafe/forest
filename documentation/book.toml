@@ -3,3 +3,10 @@ authors      = []
 language     = "en"
 multilingual = false
 src          = "src"
+
+[build]
+create-missing = false
+
+[output.html]
+
+[output.linkcheck]
