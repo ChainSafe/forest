@@ -4,4 +4,4 @@
 - [Basic Usage](./basic_usage.md)
 - [Configuration](./configuration.md)
 - [Trouble Shooting](./trouble_shooting.md)
-- [Glossary](../developer_documentation/glossary.md)
+- [Glossary](./glossary.md)
