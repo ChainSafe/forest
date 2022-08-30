@@ -14,6 +14,11 @@ use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_ipld_blockstore::BlockStore;
 use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_encoding::de::DeserializeOwned;
+use fvm_ipld_hamt;
+use fvm_ipld_hamt::Hamt;
+use fvm_ipld_hamt::Hash;
+use fvm_ipld_hamt::HashAlgorithm;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use libipld_core::ipld::Ipld;
@@ -378,10 +383,27 @@ pub struct KeyValue {
     pub value: Vec<u8>,
 }
 
-pub fn diff<BS>(bs: &BS, prev: &Cid, current: &Cid) -> Vec<Change> {
-    todo!()
+pub fn diff<BS, V, K, H>(
+    store: &BS,
+    previous: &Cid,
+    current: &Cid,
+) -> Result<Vec<Change>, anyhow::Error>
+where
+    BS: BlockStore,
+    V: DeserializeOwned + Serialize,
+    K: Hash + Eq + PartialOrd + Serialize + DeserializeOwned,
+    H: HashAlgorithm,
+{
+    let prev_hamt: Hamt<_, V, K, H> = Hamt::load_with_bit_width(previous, store, 8)?;
+    let current_hamt: Hamt<_, V, K, H> = Hamt::load_with_bit_width(current, store, 8)?;
+
+    diff_node(prev_hamt, current_hamt, 0)
 }
 
-pub fn load_node<BS>(store: BS, cid: &Cid) -> Result<Node<BS>, anyhow::Error> {
+fn diff_node<BS>(
+    previous: Node<BS>,
+    current: Node<BS>,
+    depth: i32,
+) -> Result<Vec<Change>, anyhow::Error> {
     todo!()
 }

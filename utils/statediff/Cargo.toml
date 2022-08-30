@@ -20,6 +20,7 @@ forest_vm              = "0.3"
 fvm                    = "1.0"
 fvm_ipld_bitfield      = "0.5.0"
 fvm_ipld_encoding      = "0.2"
+fvm_ipld_hamt          = "0.5.1"
 fvm_shared             = "0.8"
 libipld-core           = "0.13.1"
 serde                  = { version = "1.0", features = ["derive"] }
