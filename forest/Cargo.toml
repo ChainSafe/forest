@@ -13,6 +13,7 @@ base64                 = "0.13"
 byte-unit              = "4.0"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 ctrlc                  = "3.1"
+daemonize-me           = "2.0"
 directories            = "4.0.1"
 forest_actor_interface = "0.1.0"
 forest_auth            = "0.1.0"
@@ -71,7 +72,6 @@ time                   = "0.3"
 tokio                  = { version = "1.0", features = ["sync"] }
 toml                   = "0.5"
 uuid                   = { version = "0.8", features = ["v4"] }
-daemonize-me           = "2.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false
