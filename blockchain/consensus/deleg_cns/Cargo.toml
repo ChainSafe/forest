@@ -13,6 +13,7 @@ fvm_ipld_encoding = "0.2"
 log               = "0.4.8"
 nonempty          = "0.8.0"
 thiserror         = "1.0"
+tokio             = { version = "1.0" }
 
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 forest_encoding        = { version = "0.2.1" }

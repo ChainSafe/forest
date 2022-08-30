@@ -1,10 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::DelegatedConsensus;
-use async_std::{
-    sync::RwLock,
-    task::{self, JoinHandle},
-};
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use forest_ipld_blockstore::BlockStore;
 use forest_key_management::KeyStore;
@@ -13,6 +9,10 @@ use futures::TryFutureExt;
 use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};
 use log::{error, info};
 use std::sync::Arc;
+use tokio::{
+    sync::RwLock,
+    task::{self, JoinHandle},
+};
 
 type MiningTask = JoinHandle<anyhow::Result<()>>;
 
