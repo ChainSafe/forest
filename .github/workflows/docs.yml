@@ -43,13 +43,13 @@ jobs:
           cargo install mdbook
       - name: Serve documentation
         run: |
-          mdbook serve --port 3000 --hostname localhost ./documentation/ &
+          sudo mdbook serve --port 80 --hostname localhost ./documentation/ &
           sleep 1s
       - name: Link Checker
         uses: lycheeverse/lychee-action@v1.5.1
         with:
           # Check all markdown and html files in repo (default)
-          args: --verbose --no-progress "http://localhost:3000/"
+          args: --verbose --no-progress "http://localhost/"
           # Fail action on broken links
           fail: true
       - name: Execute MDBook
