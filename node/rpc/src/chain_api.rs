@@ -340,3 +340,14 @@ where
         .get_beacon_randomness(&tsk, pers, epoch, &base64::decode(entropy)?)
         .await?)
 }
+
+pub(crate) async fn chain_get_name<DB, B>(
+    data: Data<RPCState<DB, B>>,
+) -> Result<ChainGetNameResult, JsonRpcError>
+where
+    DB: BlockStore + Send + Sync + 'static,
+    B: Beacon + Send + Sync + 'static,
+{
+    let name: String = data.state_manager.chain_config().name.clone();
+    Ok(name)
+}

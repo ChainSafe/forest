@@ -235,6 +235,10 @@ pub mod chain_api {
     pub const CHAIN_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.ChainGetRandomnessFromBeacon";
     pub type ChainGetRandomnessFromBeaconParams = (TipsetKeysJson, i64, ChainEpoch, Option<String>);
     pub type ChainGetRandomnessFromBeaconResult = [u8; 32];
+
+    pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
+    pub type ChainGetNameParams = ();
+    pub type ChainGetNameResult = String;
 }
 
 /// Message Pool API

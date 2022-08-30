@@ -9,7 +9,12 @@ use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
+use std::collections::HashMap;
+use strfmt::strfmt;
 use time::OffsetDateTime;
+
+const OUTPUT_PATH_DEFAULT_FORMAT: &str =
+    "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -32,9 +37,16 @@ pub enum ChainCommands {
         /// Include old messages
         #[structopt(short, long)]
         include_old_messages: bool,
-        /// Snapshot output path. Default to `forest_snapshot_{year}-{month}-{day}_height_{height}.car`
-        #[structopt(short, long)]
-        output_path: Option<String>,
+        /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
+        /// Date is in ISO 8601 date format.
+        /// Arguments:
+        ///  - chain - chain name e.g. `mainnet`
+        ///  - year
+        ///  - month
+        ///  - day
+        ///  - height - the epoch
+        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
+        output_path: String,
     },
 
     /// Prints out the genesis tipset
@@ -72,8 +84,8 @@ impl ChainCommands {
             Self::Export {
                 tipset,
                 recent_stateroots,
-                include_old_messages,
                 output_path,
+                include_old_messages,
             } => {
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
@@ -82,17 +94,24 @@ impl ChainCommands {
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let output_path = match output_path {
-                    Some(path) => path.to_owned(),
-                    None => {
-                        let now = OffsetDateTime::now_utc();
-                        format!(
-                            "forest_snapshot_{}-{}-{}_height_{}.car",
-                            now.year(),
-                            now.month(),
-                            now.day(),
-                            epoch,
-                        )
+                let now = OffsetDateTime::now_utc();
+
+                let month_string = format!("{:02}", now.month() as u8);
+                let year = now.year();
+                let day_string = format!("{:02}", now.day() as u8);
+                let chain_name = chain_get_name().await.map_err(handle_rpc_err).unwrap();
+
+                let vars = HashMap::from([
+                    ("year".to_string(), year.to_string()),
+                    ("month".to_string(), month_string),
+                    ("day".to_string(), day_string),
+                    ("chain".to_string(), chain_name),
+                    ("height".to_string(), epoch.to_string()),
+                ]);
+                let output_path = match strfmt(output_path, &vars) {
+                    Ok(path) => path,
+                    Err(e) => {
+                        cli_error_and_die(format!("Unparsable string error: {}", e), 1);
                     }
                 };
 
