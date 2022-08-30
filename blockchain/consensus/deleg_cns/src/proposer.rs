@@ -1,12 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
-use async_std::stream::interval;
 use async_trait::async_trait;
 use core::time::Duration;
-use futures::StreamExt;
 use log::{error, info};
 use std::sync::Arc;
+use tokio::time::interval;
 
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
@@ -110,7 +109,8 @@ impl Proposer for DelegatedProposer {
 
         let mut interval = interval(Duration::from_secs(chain_config.block_delay_secs));
 
-        while interval.next().await.is_some() {
+        loop {
+            interval.tick().await;
             if let Some(base) = chain_store.heaviest_tipset().await {
                 info!(
                     "Proposing a block on top {} in epoch {}",
@@ -134,7 +134,5 @@ impl Proposer for DelegatedProposer {
                 }
             }
         }
-
-        Ok(())
     }
 }

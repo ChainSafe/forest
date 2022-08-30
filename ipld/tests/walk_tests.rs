@@ -217,14 +217,14 @@ async fn process_file(file: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn selector_explore_tests() {
     process_file("./tests/ipld-traversal-vectors/selector_walk.json")
         .await
         .unwrap();
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn selector_explore_links_tests() {
     process_file("./tests/ipld-traversal-vectors/selector_walk_links.json")
         .await

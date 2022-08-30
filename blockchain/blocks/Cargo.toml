@@ -31,7 +31,6 @@ sha2              = { version = "0.9", default-features = false }
 thiserror         = "1.0"
 
 [dev-dependencies]
-async-std         = "1.9"
 base64            = "0.13"
 forest_test_utils = { version = "0.1.0", features = ["test_constructors"] }
 hex               = "0.4.2"

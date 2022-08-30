@@ -2699,7 +2699,6 @@ dependencies = [
 name = "forest_blocks"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "base64 0.13.0",
  "byteorder 1.4.3",
  "cid",
@@ -2867,7 +2866,6 @@ name = "forest_deleg_cns"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "cid",
  "forest_actor_interface",
@@ -3032,7 +3030,6 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-recursion",
- "async-std",
  "async-trait",
  "cid",
  "forest_db",
@@ -3050,6 +3047,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
