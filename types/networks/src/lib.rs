@@ -102,7 +102,6 @@ pub enum Height {
     Calico,
     Persian,
     Orange,
-    Claus,
     Trust,
     Norwegian,
     Turbo,
@@ -112,7 +111,7 @@ pub enum Height {
     Skyr,
 }
 
-static HEIGHT_VARIANTS: [Height; 18] = [
+static HEIGHT_VARIANTS: [Height; 17] = [
     Height::Breeze,
     Height::Smoke,
     Height::Ignition,
@@ -123,7 +122,6 @@ static HEIGHT_VARIANTS: [Height; 18] = [
     Height::Calico,
     Height::Persian,
     Height::Orange,
-    Height::Claus,
     Height::Trust,
     Height::Norwegian,
     Height::Turbo,
@@ -153,6 +151,10 @@ pub struct HeightInfo {
     pub epoch: ChainEpoch,
 }
 
+pub fn normalize(height_info_vec: &mut Vec<HeightInfo>) {
+    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch))
+}
+
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
@@ -166,50 +168,24 @@ pub struct ChainConfig {
     pub name: String,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
-    pub version_schedule: Vec<UpgradeInfo>,
     pub height_infos: Vec<HeightInfo>,
     #[serde(default = "default_policy")]
     #[serde(with = "serde_policy")]
     pub policy: Policy,
 }
 
-impl ChainConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        let number_of_network_version_variants = std::mem::variant_count::<NetworkVersion>();
-        let number_of_height_variants = std::mem::variant_count::<Height>();
-        if number_of_network_version_variants + 1 != number_of_height_variants {
-            return Err(
-                "number of fvm_shared::NetworkVersion variants does not match number of Height variants + 1"
-                    .to_string(),
-            );
-        }
-        if self.height_infos.len() == number_of_height_variants {
-            Err(
-                "length of height_infos vector was smaller than the number of HeightInfo variants"
-                    .to_string(),
-            )
-        } else {
-            let mut height_set: HashSet<Height> = HashSet::from(HEIGHT_VARIANTS);
-            for item in &self.height_infos {
-                height_set.remove(&item.height);
-            }
-            if !height_set.is_empty() {
-                return Err("not all variants of the enum Height have a corresponding entry in height_infos".to_string());
-            }
-            Ok(())
-        }
-    }
-}
-
 // FIXME: remove this trait once builtin-actors Policy have it
 // https://github.com/filecoin-project/builtin-actors/pull/497
 impl PartialEq for ChainConfig {
     fn eq(&self, other: &Self) -> bool {
+        let height_infos = &mut self.height_infos.clone();
+        normalize(height_infos);
+        let other_height_infos = &mut other.height_infos.clone();
+        normalize(other_height_infos);
         self.name == other.name
             && self.bootstrap_peers == other.bootstrap_peers
             && self.block_delay_secs == other.block_delay_secs
-            && self.version_schedule == other.version_schedule
-            && self.height_infos == other.height_infos
+            && height_infos == other_height_infos
             && (self.policy.max_aggregated_sectors == other.policy.max_aggregated_sectors
                 && self.policy.min_aggregated_sectors == other.policy.min_aggregated_sectors
                 && self.policy.max_aggregated_proof_size == other.policy.max_aggregated_proof_size
@@ -274,7 +250,6 @@ impl ChainConfig {
             name: "calibnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
-            version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy {
                 valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
@@ -292,19 +267,18 @@ impl ChainConfig {
     }
 
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height = self
-            .height_infos
+        let height_infos = &mut self.height_infos.clone();
+        normalize(height_infos);
+        let height = height_infos
             .iter()
             .rev()
             .find(|info| epoch > info.epoch)
             .map(|info| info.height)
             .unwrap_or(Height::Breeze);
 
-        self.version_schedule
-            .iter()
-            .find(|info| height == info.height)
-            .map(|info| info.version)
-            .expect("A network version should exist even if not specified in the config (a default exists).")
+        // unfallible as it is guaranteed that number of heights
+        // is equal to the number of network versions
+        TryFrom::try_from(height as u32).unwrap()
     }
 
     pub async fn get_beacon_schedule(
@@ -329,7 +303,9 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        self.height_infos
+        let height_infos = &mut self.height_infos.clone();
+        normalize(height_infos);
+        height_infos
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.epoch)
@@ -358,7 +334,6 @@ impl Default for ChainConfig {
             name: "mainnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
-            version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy {
                 valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
