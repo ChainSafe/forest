@@ -37,7 +37,7 @@ serde                  = { version = "1.0", features = ["derive"] }
 slotmap                = "1.0"
 statrs                 = "0.15"
 thiserror              = "1.0"
-tokio                  = { version = "1.0", features = ["sync"] }
+tokio                  = { version = "1.0", features = ["sync", "time", "macros"] }
 
 [dev-dependencies]
 forest_interpreter    = "0.1.0"

@@ -27,13 +27,13 @@ use forest_state_manager::StateManager;
 use fvm_shared::message::Message;
 
 use async_std::channel::{Receiver, Sender};
-use async_std::pin::Pin;
 use async_std::stream::StreamExt;
-use async_std::task::{Context, Poll};
 use futures::stream::FuturesUnordered;
 use futures::{future::try_join_all, future::Future, try_join};
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -391,7 +391,7 @@ where
                     .with_label_values(&[metrics::values::PEER_CONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
-                async_std::task::spawn(Self::handle_peer_connected_event(
+                tokio::task::spawn(Self::handle_peer_connected_event(
                     network.clone(),
                     chain_store.clone(),
                     peer_id,
@@ -404,7 +404,7 @@ where
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
-                async_std::task::spawn(Self::handle_peer_disconnected_event(
+                tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
                     peer_id,
                 ));

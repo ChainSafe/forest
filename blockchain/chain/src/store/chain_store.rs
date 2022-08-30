@@ -5,8 +5,6 @@ use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use async_std::channel::{self, bounded, Receiver};
-use async_std::sync::RwLock;
-use async_std::task;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use crossbeam::atomic::AtomicCell;
@@ -39,6 +37,8 @@ use std::{
     time::SystemTime,
 };
 use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
+use tokio::task;
+use tokio::{runtime::Runtime, sync::RwLock};
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -104,8 +104,9 @@ where
             heaviest: Default::default(),
         };
 
+        let rt = Runtime::new().unwrap();
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = task::block_on(cs.load_heaviest_tipset());
+        let _ = rt.block_on(cs.load_heaviest_tipset());
 
         cs
     }
@@ -479,9 +480,10 @@ where
                 }
             })?;
 
+            let rt = Runtime::new().unwrap();
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
-            let _ = task::block_on(tx.send((cid, block.clone())));
+            let _ = rt.block_on(tx.send((cid, block.clone())));
             Ok(block)
         })
         .await?;
@@ -491,7 +493,7 @@ where
 
         // Await on values being written.
         write_task
-            .await
+            .await?
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
 
         let time = SystemTime::now()

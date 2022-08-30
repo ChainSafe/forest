@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use fvm_shared::address::Address;
 use async_std::channel::bounded;
-use async_std::task;
+use db::MemoryDB;
 use forest_beacon::{BeaconPoint, MockBeacon};
 use forest_blocks::BlockHeader;
-use db::MemoryDB;
 use forest_fil_types::verifier::MockVerifier;
 use forest_libp2p::hello::HelloRequest;
-use libp2p::core::PeerId;
 use forest_message_pool::{test_provider::TestApi, MessagePool};
 use forest_networks::ChainConfig;
 use forest_state_manager::StateManager;
+use fvm_shared::address::Address;
+use libp2p::core::PeerId;
 use std::time::Duration;
+use tokio::{runtime::Runtime, task};
 
 #[test]
 fn peer_manager_update() {
@@ -22,14 +22,16 @@ fn peer_manager_update() {
 
     let chain_store = Arc::new(ChainStore::new(db));
     let (tx, _rx) = bounded(10);
-    let mpool = task::block_on(MessagePool::new(
-        TestApi::default(),
-        "test".to_string(),
-        tx,
-        Default::default(),
-        Arc::default(),
-    ))
-    .unwrap();
+    let rt = Runtime::new().unwrap();
+    let mpool = rt
+        .block_on(MessagePool::new(
+            TestApi::default(),
+            "test".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+        ))
+        .unwrap();
     let mpool = Arc::new(mpool);
 
     let (local_sender, _test_receiver) = bounded(20);

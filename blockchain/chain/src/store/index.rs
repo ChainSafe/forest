@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{tipset_from_keys, Error, TipsetCache};
-use async_std::sync::RwLock;
-use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_ipld_blockstore::BlockStore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use std::sync::Arc;
+use tokio::sync::RwLock;
+use tokio::task;
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: usize = 32 << 10;
 

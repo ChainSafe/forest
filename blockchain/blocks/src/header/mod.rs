@@ -470,6 +470,7 @@ mod tests {
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use fvm_shared::version::NetworkVersion;
+    use tokio::runtime::Runtime;
 
     use std::sync::Arc;
     use std::time::Duration;
@@ -506,7 +507,8 @@ mod tests {
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
-        if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(
+        let rt = Runtime::new().unwrap();
+        if let Err(e) = rt.block_on(block_header.validate_block_drand(
             NetworkVersion::V16,
             &beacon_schedule,
             chain_epoch,
