@@ -51,7 +51,7 @@ mempool stands for the Message Pool, which is the component of forest that handl
 [Merkle tree](https://en.wikipedia.org/wiki/Merkle_tree) is a tree in which every node is labelled with the cryptographic hash of a data block, and every node that is not a leaf (called a branch, inner node, or inode) is labelled with the cryptographic hash of the labels of its child nodes. A hash tree allows efficient and secure verification of the contents of a large data structure.
 
 ## IPFS
-[IPFS](https://github.com/ipfs/ipfs) stands for InterPlanetary File System which is A peer-to-peer hypermedia protocol to make the web faster, safer, and more open.
+[IPFS](https://github.com/ipfs/ipfs) stands for InterPlanetary File System which is a peer-to-peer hypermedia protocol to make the web faster, safer, and more open.
 
 ## Proof of Spacetime (PoSt)
 
