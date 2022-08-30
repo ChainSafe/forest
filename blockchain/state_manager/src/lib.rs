@@ -9,7 +9,6 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use anyhow::Context;
 use async_log::span;
-use async_std::{sync::RwLock, task};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
@@ -46,6 +45,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::{runtime::Runtime, sync::RwLock, task};
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
@@ -929,7 +929,7 @@ where
                     &ts_cloned,
                 )?)
             })
-            .await
+            .await?
         })
     }
 
@@ -1137,10 +1137,7 @@ where
         let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
-        let mut subscriber_poll = task::spawn::<
-            _,
-            Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
-        >(async move {
+        let mut subscriber_poll = task::spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
@@ -1194,8 +1191,8 @@ where
         .fuse();
 
         // Search backwards for message.
-        let mut search_back_poll = task::spawn::<_, Result<_, Error>>(async move {
-            let back_tuple = task.await?;
+        let mut search_back_poll = task::spawn(async move {
+            let back_tuple = task.await??;
             if let Some((back_tipset, back_receipt)) = back_tuple {
                 let should_revert = *reverts
                     .read()
@@ -1208,7 +1205,7 @@ where
                 }
                 return Ok((None, None));
             }
-            Ok((None, None))
+            Result::<_, Error>::Ok((None, None))
         })
         .fuse();
 
@@ -1218,10 +1215,10 @@ where
         loop {
             select! {
                 res = subscriber_poll => {
-                    return res;
+                    return res?;
                 }
                 res = search_back_poll => {
-                    if let Ok((Some(ts), Some(rct))) = res {
+                    if let Ok((Some(ts), Some(rct))) = res? {
                         return Ok((Some(ts), Some(rct)));
                     }
                 }
@@ -1454,7 +1451,9 @@ where
         let sm = Arc::clone(&self.sm);
         let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
-            let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+            let (_, st) = Runtime::new()
+                .unwrap()
+                .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
                 .unwrap_or_else(|err| {
                     panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
                 });

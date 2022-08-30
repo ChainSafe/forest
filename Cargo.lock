@@ -3408,7 +3408,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "blake2b_simd 0.5.11",
  "byteorder 1.4.3",
  "cid",

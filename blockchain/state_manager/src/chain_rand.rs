@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::{bail, Context};
-use async_std::task;
 use blake2b_simd::Params;
 use byteorder::{BigEndian, WriteBytesExt};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
@@ -15,6 +14,7 @@ use fvm::externs::Rand;
 use fvm_shared::clock::ChainEpoch;
 use std::io::Write;
 use std::sync::Arc;
+use tokio::runtime::Runtime;
 
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {
@@ -232,7 +232,9 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
+        Runtime::new()
+            .unwrap()
+            .block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
     }
 
     fn get_beacon_randomness(
@@ -241,7 +243,9 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
+        Runtime::new()
+            .unwrap()
+            .block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
     }
 }
 
