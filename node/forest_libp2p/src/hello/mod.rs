@@ -7,7 +7,7 @@ pub use self::message::*;
 use super::rpc::CborRequestResponse;
 use libp2p::core::ProtocolName;
 
-/// LibP2P Hello protocol ID.
+/// Libp2p Hello protocol ID.
 pub const HELLO_PROTOCOL_ID: &[u8] = b"/fil/hello/1.0.0";
 
 /// Type to satisfy `ProtocolName` interface for Hello RPC.

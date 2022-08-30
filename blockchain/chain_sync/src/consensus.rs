@@ -114,7 +114,7 @@ pub trait Proposer {
 /// It exists to narrow down the possible operations that a consensus engine can do with
 /// the `MessagePool` to only those that it should reasonably exercise, which are mostly
 /// read-only queries to get transactions which can be expected to be put in the next
-/// block, based on their account nonces and the current state.
+/// block, based on their account nonce values and the current state.
 ///
 /// The `MessagePool` is still expected to monitor the chain growth and remove messages
 /// which were included in blocks on its own.

@@ -109,7 +109,7 @@ pub enum NetworkMessage {
     },
 }
 
-/// Network RPC API methods used to gather data from LibP2P node.
+/// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
     NetAddrsListen(OneShotSender<(PeerId, Vec<Multiaddr>)>),
@@ -118,7 +118,7 @@ pub enum NetRPCMethods {
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
-/// The `Libp2pService` listens to events from the LibP2P swarm.
+/// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
@@ -190,7 +190,7 @@ where
         }
     }
 
-    /// Starts the LibP2P service networking stack. This Future resolves when shutdown occurs.
+    /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.fuse();
@@ -385,7 +385,7 @@ where
         }
     }
 
-    /// Returns a sender which allows sending messages to the LibP2P service.
+    /// Returns a sender which allows sending messages to the libp2p service.
     pub fn network_sender(&self) -> Sender<NetworkMessage> {
         self.network_sender_in.clone()
     }
@@ -402,7 +402,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     }
 }
 
-/// Builds the transport stack that LibP2P will communicate over.
+/// Builds the transport stack that libp2p will communicate over.
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::TcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));

@@ -21,8 +21,8 @@ pub use self::value_mut::ValueMut;
 const DEFAULT_BIT_WIDTH: usize = 3;
 const MAX_HEIGHT: usize = 64;
 
-/// MaxIndex is the maximum index for elements in the AMT. This u64::MAX-1 so we
-/// don't overflow u64::MAX when computing the length.
+/// `MAX_INDEX` is the maximum index for elements in the AMT. This `u64::MAX-1` so we
+/// don't overflow `u64::MAX` when computing the length.
 pub const MAX_INDEX: usize = (std::u64::MAX - 1) as usize;
 
 fn nodes_for_height(bit_width: usize, height: usize) -> usize {
