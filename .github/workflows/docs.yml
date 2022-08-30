@@ -50,7 +50,7 @@ jobs:
           fail: true
       - name: Check for dead links
         run: |
-          sudo `which mdbook` serve --port 80 --hostname localhost ./documentation/ &
+          sudo `which mdbook` serve --port 80 ./documentation/ &
           sleep 1s
           lychee "http://localhost/"
       - name: Execute MDBook
