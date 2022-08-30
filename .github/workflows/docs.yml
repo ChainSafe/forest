@@ -41,17 +41,18 @@ jobs:
       - name: Install MDBook
         run: |
           cargo install mdbook
-      - name: Serve documentation
-        run: |
-          sudo `which mdbook` serve --port 80 --hostname localhost ./documentation/ &
-          sleep 1s
-      - name: Link Checker
+      - name: Install Lychee
         uses: lycheeverse/lychee-action@v1.5.1
         with:
           # Check all markdown and html files in repo (default)
-          args: --verbose --no-progress "http://localhost/"
+          args: --version
           # Fail action on broken links
           fail: true
+      - name: Check for dead links
+        run: |
+          sudo `which mdbook` serve --port 80 --hostname localhost ./documentation/ &
+          sleep 1s
+          lychee "http://localhost/"
       - name: Execute MDBook
         run: |
           mdbook build ./documentation/
