@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use async_std::task;
+use async_std::task::{self, JoinHandle};
 use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
 use forest_chain::Scale;
@@ -92,7 +92,13 @@ pub trait Proposer {
     /// concern, the dependencies to implement a suitable network later must
     /// come from somewhere else, because they are not common across all
     /// consensus variants.
-    async fn run<DB, MP>(
+    ///
+    /// The method returns a vector of handles so that it can start unspecified
+    /// number of background tasks, which can all be canceled by the main thread
+    /// if the application needs to exit. The method is async so that it can
+    /// use async operations to initialize itself, during which it might encounter
+    /// some errors.
+    async fn spawn<DB, MP>(
         self,
         // NOTE: We will need access to the `ChainStore` as well, or, ideally
         // a wrapper over it that only allows us to do what we need to, but
@@ -101,9 +107,9 @@ pub trait Proposer {
         // accessed during validation for example, I think we can defer
         // these for later refactoring and just use the same pattern.
         state_manager: Arc<StateManager<DB>>,
-        mpool: &MP,
-        submitter: &SyncGossipSubmitter,
-    ) -> anyhow::Result<()>
+        mpool: Arc<MP>,
+        submitter: SyncGossipSubmitter,
+    ) -> anyhow::Result<Vec<JoinHandle<()>>>
     where
         DB: BlockStore + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;
