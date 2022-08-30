@@ -65,7 +65,10 @@ fn main() {
                 if opts.detach {
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
-                            cli_error_and_die(&format!("Error building daemon. Error was: {}", e), 1)
+                            cli_error_and_die(
+                                &format!("Error building daemon. Error was: {}", e),
+                                1,
+                            )
                         })
                         .start();
                     match result {
