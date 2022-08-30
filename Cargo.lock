@@ -2532,8 +2532,6 @@ dependencies = [
  "rug",
  "serde",
  "serde_json",
- "shared_memory",
- "strfmt",
  "structopt",
  "tempfile",
  "ticker",
@@ -7523,19 +7521,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shared_memory"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba8593196da75d9dc4f69349682bd4c2099f8cde114257d1ef7ef1b33d1aba54"
-dependencies = [
- "cfg-if 1.0.0",
- "libc",
- "nix 0.23.1",
- "rand 0.8.5",
- "win-sys",
-]
-
-[[package]]
 name = "shlex"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7955,12 +7940,6 @@ dependencies = [
  "storage-proofs-porep",
  "yastl",
 ]
-
-[[package]]
-name = "strfmt"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26cdabcdab6da7e8c2ac1160e917ec83e78bbe3e10325e17d532718c67a4828f"
 
 [[package]]
 name = "strobe-rs"
@@ -9016,15 +8995,6 @@ name = "widestring"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17882f045410753661207383517a6f62ec3dbeb6a4ed2acce01f0728238d1983"
-
-[[package]]
-name = "win-sys"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b7b128a98c1cfa201b09eb49ba285887deb3cbe7466a98850eb1adabb452be5"
-dependencies = [
- "windows",
-]
 
 [[package]]
 name = "winapi"
