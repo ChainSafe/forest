@@ -40,7 +40,7 @@ pub enum ChainCommands {
         /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
         /// Arguments:
-        ///  - chain - chain name e.g. mainnet
+        ///  - chain - chain name e.g. `mainnet`
         ///  - year
         ///  - month
         ///  - day
