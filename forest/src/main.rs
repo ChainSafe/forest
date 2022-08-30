@@ -6,14 +6,49 @@ mod daemon;
 mod logger;
 mod subcommand;
 
-use cli::{cli_error_and_die, Cli};
+use cli::{cli_error_and_die, Cli, DaemonConfig};
 
 use async_std::task;
-use daemonize_me::{Daemon, Group, User};
+use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::info;
 use structopt::StructOpt;
 
 use std::fs::File;
+
+fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
+    let daemon = Daemon::new();
+    let daemon = if let Some(user) = &config.user {
+        daemon.user(User::try_from(user)?)
+    } else {
+        daemon
+    };
+    let daemon = if let Some(group) = &config.group {
+        daemon.group(Group::try_from(group)?)
+    } else {
+        daemon
+    };
+    let daemon = daemon.umask(config.umask);
+    let daemon = if let Some(path) = &config.stdout {
+        let file = File::create(path).expect("File creation {path} must succeed");
+        daemon.stdout(file)
+    } else {
+        daemon
+    };
+    let daemon = if let Some(path) = &config.stderr {
+        let file = File::create(path).expect("File creation {path} must succeed");
+        daemon.stderr(file)
+    } else {
+        daemon
+    };
+    let daemon = daemon.work_dir(&config.work_dir);
+    let daemon = if let Some(path) = &config.pid_file {
+        daemon.pid_file(path, Some(false))
+    } else {
+        daemon
+    };
+
+    Ok(daemon)
+}
 
 fn main() {
     logger::setup_logger();
@@ -28,19 +63,12 @@ fn main() {
             }
             None => {
                 if opts.detach {
-                    let stdout = File::create("stdout.log").unwrap();
-                    let stderr = File::create("stderr.log").unwrap();
-                    let daemon = Daemon::new()
-                        .pid_file("forest.pid", Some(false))
-                        .user(User::try_from("guillaume").unwrap())
-                        .group(Group::try_from("staff").unwrap())
-                        .umask(0o027)
-                        .work_dir(".")
-                        .stdout(stdout)
-                        .stderr(stderr)
+                    let result = build_daemon(&cfg.daemon)
+                        .unwrap_or_else(|e| {
+                            cli_error_and_die(&format!("Error building daemon. Error was: {}", e), 1)
+                        })
                         .start();
-
-                    match daemon {
+                    match result {
                         Ok(_) => info!("Daemonized with success"),
                         Err(e) => {
                             cli_error_and_die(&format!("Error daemonizing. Error was: {}", e), 1);
