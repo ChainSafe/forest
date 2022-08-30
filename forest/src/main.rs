@@ -16,36 +16,24 @@ use structopt::StructOpt;
 use std::fs::File;
 
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
-    let daemon = Daemon::new();
-    let daemon = if let Some(user) = &config.user {
-        daemon.user(User::try_from(user)?)
-    } else {
-        daemon
-    };
-    let daemon = if let Some(group) = &config.group {
-        daemon.group(Group::try_from(group)?)
-    } else {
-        daemon
-    };
-    let daemon = daemon.umask(config.umask);
-    let daemon = if let Some(path) = &config.stdout {
+    let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
+    if let Some(user) = &config.user {
+        daemon = daemon.user(User::try_from(user)?)
+    }
+    if let Some(group) = &config.group {
+        daemon = daemon.group(Group::try_from(group)?)
+    }
+    if let Some(path) = &config.stdout {
         let file = File::create(path).expect("File creation {path} must succeed");
-        daemon.stdout(file)
-    } else {
-        daemon
-    };
-    let daemon = if let Some(path) = &config.stderr {
+        daemon = daemon.stdout(file)
+    }
+    if let Some(path) = &config.stderr {
         let file = File::create(path).expect("File creation {path} must succeed");
-        daemon.stderr(file)
-    } else {
-        daemon
-    };
-    let daemon = daemon.work_dir(&config.work_dir);
-    let daemon = if let Some(path) = &config.pid_file {
-        daemon.pid_file(path, Some(false))
-    } else {
-        daemon
-    };
+        daemon = daemon.stderr(file)
+    }
+    if let Some(path) = &config.pid_file {
+        daemon = daemon.pid_file(path, Some(false))
+    }
 
     Ok(daemon)
 }
