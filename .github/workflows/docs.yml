@@ -34,6 +34,10 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     steps:
+      - name: Apt Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linkchecker
       - name: Checkout Sources
         uses: actions/checkout@v2
       - name: Install Toolchain
@@ -41,6 +45,12 @@ jobs:
       - name: Install MDBook
         run: |
           cargo install mdbook
+      - name: Check for dead links
+        run: |
+          set -e
+          mdbook serve --port 3000 --hostname localhost ./documentation/ &
+          sleep 1s
+          linkchecker "http://localhost:3000/"
       - name: Execute MDBook
         run: |
           mdbook build ./documentation/
