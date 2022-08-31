@@ -12,9 +12,9 @@ use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::info;
 use structopt::StructOpt;
-use ipc_channel::ipc::*;
 
 use std::fs::File;
+use std::{thread, time};
 
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
@@ -36,24 +36,18 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
         daemon = daemon.pid_file(path, Some(false))
     }
 
-    daemon = daemon.setup_post_fork_parent_hook(|parent_pid, child_pid| {
-        info!("{parent_pid}: I'm your father {child_pid}");
+    daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
+        // TODO: get rid of this
+        let ten_ms = time::Duration::from_millis(10);
+        thread::sleep(ten_ms);
 
-        let (_, rx): (IpcSender<()>, IpcReceiver<()>) = channel().unwrap();
-
+        let rpc_lock = named_lock::NamedLock::create("rpc_lock").unwrap();
         loop {
-            match rx.try_recv() {
-                Ok(_) => {
-                    // Do something interesting with your result
-                    break;
-                },
-                Err(_) => {
-                    // Do something else useful while we wait
-                    ()
-                }
+            let result = rpc_lock.try_lock();
+            if let Ok(_) = result {
+                break;
             }
         }
-        info!("Exiting");
         std::process::exit(0);
     });
 
@@ -62,8 +56,6 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
 
 fn main() {
     logger::setup_logger();
-    let (server, name) = IpcOneShotServer::<()>::new().unwrap();
-    info!("IPC server {name} created");
 
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
@@ -75,7 +67,7 @@ fn main() {
                 task::block_on(subcommand::process(command, cfg));
             }
             None => {
-                let name = if opts.detach {
+                if opts.detach {
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
                             cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)
@@ -87,11 +79,8 @@ fn main() {
                             cli_error_and_die(format!("Error when detaching. Error was: {e}"), 1);
                         }
                     }
-                    Some(name)
-                } else {
-                    None
-                };
-                task::block_on(daemon::start(cfg, name));
+                }
+                task::block_on(daemon::start(cfg));
             }
         },
         Err(e) => {
