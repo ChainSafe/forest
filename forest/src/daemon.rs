@@ -353,17 +353,12 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    prometheus_server_task.abort();
-    prometheus_server_task.await.unwrap_err();
-    head_changes_task.abort();
-    head_changes_task.await.unwrap_err();
-    republish_task.abort();
-    republish_task.await.unwrap_err();
+    abort_and_drop(prometheus_server_task).await;
+    abort_and_drop(head_changes_task).await;
+    abort_and_drop(republish_task).await;
     maybe_cancel(mining_task).await;
-    sync_task.abort();
-    sync_task.await.unwrap_err();
-    p2p_task.abort();
-    p2p_task.await.unwrap_err();
+    abort_and_drop(sync_task).await;
+    abort_and_drop(p2p_task).await;
     maybe_cancel(rpc_task).await;
     keystore_write.await.unwrap();
 
@@ -399,9 +394,14 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
 
 async fn maybe_cancel<R>(mt: Option<task::JoinHandle<R>>) {
     if let Some(t) = mt {
-        t.abort();
-        let _ = t.await;
+        abort_and_drop(t).await;
     }
+}
+
+// Abort task and make sure it has been cleaned-up.
+async fn abort_and_drop<R>(task: task::JoinHandle<R>) {
+    task.abort();
+    let _ = task.await;
 }
 
 fn db_path(config: &Config) -> PathBuf {
