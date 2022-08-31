@@ -25,6 +25,7 @@ use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::Jo
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
+use ipc_channel::ipc::*;
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -43,7 +44,8 @@ use forest_fil_cns::composition as cns;
 use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
-pub(super) async fn start(config: Config) {
+pub(super) async fn start(config: Config, name: Option<String>) {
+    info!("Child server: {:?}", name);
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -191,6 +193,11 @@ pub(super) async fn start(config: Config) {
         _ = ctrlc_oneshot => {
             return;
         },
+    }
+    if let Some(name) = name {
+        info!("Sending to parent process");
+        let tx = IpcSender::connect(name).expect("connect to {name} must succeed");
+        tx.send(()).expect("send must succeed");
     }
 
     // Terminate if no snapshot is provided or DB isn't recent enough

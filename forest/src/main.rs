@@ -12,6 +12,7 @@ use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::info;
 use structopt::StructOpt;
+use ipc_channel::ipc::*;
 
 use std::fs::File;
 
@@ -35,11 +36,35 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
         daemon = daemon.pid_file(path, Some(false))
     }
 
+    daemon = daemon.setup_post_fork_parent_hook(|parent_pid, child_pid| {
+        info!("{parent_pid}: I'm your father {child_pid}");
+
+        let (_, rx): (IpcSender<()>, IpcReceiver<()>) = channel().unwrap();
+
+        loop {
+            match rx.try_recv() {
+                Ok(_) => {
+                    // Do something interesting with your result
+                    break;
+                },
+                Err(_) => {
+                    // Do something else useful while we wait
+                    ()
+                }
+            }
+        }
+        info!("Exiting");
+        std::process::exit(0);
+    });
+
     Ok(daemon)
 }
 
 fn main() {
     logger::setup_logger();
+    let (server, name) = IpcOneShotServer::<()>::new().unwrap();
+    info!("IPC server {name} created");
+
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
@@ -50,7 +75,7 @@ fn main() {
                 task::block_on(subcommand::process(command, cfg));
             }
             None => {
-                if opts.detach {
+                let name = if opts.detach {
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
                             cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)
@@ -62,8 +87,11 @@ fn main() {
                             cli_error_and_die(format!("Error when detaching. Error was: {e}"), 1);
                         }
                     }
-                }
-                task::block_on(daemon::start(cfg));
+                    Some(name)
+                } else {
+                    None
+                };
+                task::block_on(daemon::start(cfg, name));
             }
         },
         Err(e) => {

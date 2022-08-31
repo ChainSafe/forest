@@ -53,6 +53,7 @@ fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
 git-version            = "0.3"
 hex                    = "0.4"
+ipc-channel            = "0.16"
 libp2p                 = { version = "0.46", default-features = false, features = ["identify"] }
 log                    = "0.4"
 multibase              = "0.9"
