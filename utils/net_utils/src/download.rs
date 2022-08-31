@@ -3,7 +3,6 @@
 
 use async_std::fs::File;
 use async_std::io::BufReader;
-use async_std::task;
 use futures::prelude::*;
 use isahc::{AsyncBody, HttpClient};
 use pbr::{ProgressBar, Units};
@@ -69,7 +68,7 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
             }
         };
 
-        let request = task::block_on(client.get_async(url.as_str()))?;
+        let request = tokio::runtime::Handle::current().block_on(client.get_async(url.as_str()))?;
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
@@ -87,7 +86,9 @@ impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
     type Error = anyhow::Error;
 
     fn try_from(file: File) -> Result<Self, Self::Error> {
-        let total_size = async_std::task::block_on(file.metadata())?.len();
+        let total_size = tokio::runtime::Handle::current()
+            .block_on(file.metadata())?
+            .len();
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");

@@ -110,7 +110,8 @@ where
     } else {
         debug!("Initialize ChainSyncer with new genesis from config");
         chain_store.set_genesis(&genesis_block)?;
-        async_std::task::block_on(
+        // FIXME: `set_heaviest_tipset` is not CPU intensive. Why don't we just call it directly?
+        tokio::runtime::Handle::current().block_on(
             chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?)),
         )?;
     }
