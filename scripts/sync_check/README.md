@@ -7,7 +7,7 @@ Fedora Linux 36 (Cloud Edition) x86_64
 16GB / 320GB Disk
 ```
 * `s3fs-fuse` installed,
-* Slack webhook: follow the instructions [here](https://api.slack.com/messaging/webhooks) to set up notifications.
+* Slack OAuth token (you can find it in the Slack app settings) needs to be set as an environmental variable, along with the target slack channel. See [.env](.env) for naming.
 
 ## Installation
 * Download manually mainnet snapshot and put it in `$HOME/snapshots`. 
