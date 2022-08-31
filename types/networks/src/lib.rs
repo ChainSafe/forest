@@ -1,7 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![feature(variant_count)]
-
 #[macro_use]
 extern crate lazy_static;
 
@@ -64,8 +62,9 @@ pub struct HeightInfo {
     pub epoch: ChainEpoch,
 }
 
-pub fn normalize(height_info_vec: &mut [HeightInfo]) {
-    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch))
+pub fn sort_by_epoch(mut height_info_vec: Vec<HeightInfo>) -> Vec<HeightInfo> {
+    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch));
+    height_info_vec
 }
 
 #[derive(Clone)]
@@ -91,10 +90,8 @@ pub struct ChainConfig {
 // https://github.com/filecoin-project/builtin-actors/pull/497
 impl PartialEq for ChainConfig {
     fn eq(&self, other: &Self) -> bool {
-        let height_infos = &mut self.height_infos.clone();
-        normalize(height_infos);
-        let other_height_infos = &mut other.height_infos.clone();
-        normalize(other_height_infos);
+        let height_infos = sort_by_epoch(self.height_infos.clone());
+        let other_height_infos = sort_by_epoch(other.height_infos.clone());
         self.name == other.name
             && self.bootstrap_peers == other.bootstrap_peers
             && self.block_delay_secs == other.block_delay_secs
@@ -180,8 +177,7 @@ impl ChainConfig {
     }
 
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height_infos = &mut self.height_infos.clone();
-        normalize(height_infos);
+        let height_infos = sort_by_epoch(self.height_infos.clone());
         let height = height_infos
             .iter()
             .rev()
@@ -216,8 +212,7 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        let height_infos = &mut self.height_infos.clone();
-        normalize(height_infos);
+        let height_infos = sort_by_epoch(self.height_infos.clone());
         height_infos
             .iter()
             .find(|info| height == info.height)
