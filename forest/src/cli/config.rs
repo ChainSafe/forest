@@ -9,12 +9,12 @@ use std::{collections::HashSet, sync::Arc};
 
 use super::client::Client;
 
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Default, PartialEq)]
 pub struct LogConfig {
     pub log_values: HashSet<LogValue>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct LogValue {
     pub module: String,
     pub level: String,
@@ -28,7 +28,7 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
-    pub log_config: LogConfig,
+    pub log: LogConfig,
 }
 
 #[cfg(test)]
@@ -60,7 +60,7 @@ mod test {
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
-                log_config: Default::default(),
+                log: Default::default(),
             }
         }
     }
