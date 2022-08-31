@@ -89,6 +89,7 @@ where
                 chain_get_randomness_from_beacon::<DB, B>,
             )
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
+            .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB, B>)
             // Message Pool API
             .with_method(MPOOL_ESTIMATE_GAS_PRICE, estimate_gas_premium::<DB, B>)
             .with_method(MPOOL_GET_NONCE, mpool_get_sequence::<DB, B>)
