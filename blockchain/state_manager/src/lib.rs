@@ -45,7 +45,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
-use tokio::{runtime::Runtime, sync::RwLock, task};
+use tokio::{runtime::Handle, sync::RwLock, task};
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
@@ -1451,8 +1451,7 @@ where
         let sm = Arc::clone(&self.sm);
         let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
-            let (_, st) = Runtime::new()
-                .unwrap()
+            let (_, st) = Handle::current()
                 .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
                 .unwrap_or_else(|err| {
                     panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")

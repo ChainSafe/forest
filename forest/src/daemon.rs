@@ -45,7 +45,7 @@ use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
-    console_subscriber::init();
+    // console_subscriber::init();
 
     let mut ctrlc_oneshot = set_sigint_handler();
 
@@ -153,7 +153,7 @@ pub(super) async fn start(config: Config) {
         .expect("Opening RocksDB must succeed");
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()));
+    let chain_store = Arc::new(ChainStore::new(db.clone()).await);
 
     let publisher = chain_store.publisher();
 
@@ -259,7 +259,8 @@ pub(super) async fn start(config: Config) {
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
-    );
+    )
+    .await;
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
@@ -423,7 +424,7 @@ mod test {
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db));
+        let cs = Arc::new(ChainStore::new(db).await);
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)

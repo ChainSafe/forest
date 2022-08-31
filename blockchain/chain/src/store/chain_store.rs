@@ -38,7 +38,7 @@ use std::{
 };
 use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
 use tokio::task;
-use tokio::{runtime::Runtime, sync::RwLock};
+use tokio::{runtime::Handle, sync::RwLock};
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -90,7 +90,7 @@ impl<DB> ChainStore<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub fn new(db: DB) -> Self {
+    pub async fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
@@ -104,9 +104,8 @@ where
             heaviest: Default::default(),
         };
 
-        let rt = Runtime::new().unwrap();
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = rt.block_on(cs.load_heaviest_tipset());
+        let _ = cs.load_heaviest_tipset().await;
 
         cs
     }
@@ -480,10 +479,9 @@ where
                 }
             })?;
 
-            let rt = Runtime::new().unwrap();
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
-            let _ = rt.block_on(tx.send((cid, block.clone())));
+            let _ = Handle::current().block_on(tx.send((cid, block.clone())));
             Ok(block)
         })
         .await?;
@@ -991,11 +989,11 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
 
-    #[test]
-    fn genesis_test() {
+    #[tokio::test]
+    async fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db).await;
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -1011,11 +1009,11 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
-    #[test]
-    fn block_validation_cache_basic() {
+    #[tokio::test]
+    async fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db).await;
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

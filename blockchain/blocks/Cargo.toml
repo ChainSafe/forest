@@ -35,4 +35,4 @@ base64            = "0.13"
 forest_test_utils = { version = "0.1.0", features = ["test_constructors"] }
 hex               = "0.4.2"
 serde_json        = "1.0"
-tokio             = { version = "1.0", features = ["rt", "macros"] }
+tokio             = { version = "1.0", features = ["macros"] }

@@ -169,7 +169,7 @@ mod tests {
         let (cids, db) = populate_db().await;
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db),
+            &ChainStore::new(db).await,
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
