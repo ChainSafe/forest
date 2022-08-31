@@ -22,73 +22,6 @@ mod mainnet;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
 
-const UPGRADE_INFOS: [UpgradeInfo; 16] = [
-    UpgradeInfo {
-        height: Height::Breeze,
-        version: NetworkVersion::V1,
-    },
-    UpgradeInfo {
-        height: Height::Smoke,
-        version: NetworkVersion::V2,
-    },
-    UpgradeInfo {
-        height: Height::Ignition,
-        version: NetworkVersion::V3,
-    },
-    UpgradeInfo {
-        height: Height::ActorsV2,
-        version: NetworkVersion::V4,
-    },
-    UpgradeInfo {
-        height: Height::Tape,
-        version: NetworkVersion::V5,
-    },
-    UpgradeInfo {
-        height: Height::Kumquat,
-        version: NetworkVersion::V6,
-    },
-    UpgradeInfo {
-        height: Height::Calico,
-        version: NetworkVersion::V7,
-    },
-    UpgradeInfo {
-        height: Height::Persian,
-        version: NetworkVersion::V8,
-    },
-    UpgradeInfo {
-        height: Height::Orange,
-        version: NetworkVersion::V9,
-    },
-    UpgradeInfo {
-        height: Height::Trust,
-        version: NetworkVersion::V10,
-    },
-    UpgradeInfo {
-        height: Height::Norwegian,
-        version: NetworkVersion::V11,
-    },
-    UpgradeInfo {
-        height: Height::Turbo,
-        version: NetworkVersion::V12,
-    },
-    UpgradeInfo {
-        height: Height::Hyperdrive,
-        version: NetworkVersion::V13,
-    },
-    UpgradeInfo {
-        height: Height::Chocolate,
-        version: NetworkVersion::V14,
-    },
-    UpgradeInfo {
-        height: Height::OhSnap,
-        version: NetworkVersion::V15,
-    },
-    UpgradeInfo {
-        height: Height::Skyr,
-        version: NetworkVersion::V16,
-    },
-];
-
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Height {
@@ -111,26 +44,6 @@ pub enum Height {
     Skyr,
 }
 
-static HEIGHT_VARIANTS: [Height; 17] = [
-    Height::Breeze,
-    Height::Smoke,
-    Height::Ignition,
-    Height::ActorsV2,
-    Height::Tape,
-    Height::Liftoff,
-    Height::Kumquat,
-    Height::Calico,
-    Height::Persian,
-    Height::Orange,
-    Height::Trust,
-    Height::Norwegian,
-    Height::Turbo,
-    Height::Hyperdrive,
-    Height::Chocolate,
-    Height::OhSnap,
-    Height::Skyr,
-];
-
 impl Default for Height {
     fn default() -> Height {
         Self::Breeze
@@ -151,7 +64,7 @@ pub struct HeightInfo {
     pub epoch: ChainEpoch,
 }
 
-pub fn normalize(height_info_vec: &mut Vec<HeightInfo>) {
+pub fn normalize(height_info_vec: &mut [HeightInfo]) {
     height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch))
 }
 
