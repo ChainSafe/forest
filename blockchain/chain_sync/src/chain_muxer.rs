@@ -426,7 +426,7 @@ where
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
-                        async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                        tokio::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
                     }
                     return Ok(None);
                 }
