@@ -188,6 +188,25 @@ pub(super) async fn start(config: Config) {
 
     let (tipset_sink, tipset_stream) = bounded(20);
 
+    // if bootstrap peers are not set, set them
+    let config = if config.network.bootstrap_peers.is_empty() {
+        let bootstrap_peers = config
+            .chain
+            .bootstrap_peers
+            .iter()
+            .map(|node| node.parse().unwrap())
+            .collect();
+        Config {
+            network: Libp2pConfig {
+                bootstrap_peers,
+                ..config.network
+            },
+            ..config
+        }
+    } else {
+        config
+    };
+
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -319,25 +338,6 @@ pub(super) async fn start(config: Config) {
             .await
             .unwrap();
     }
-
-    // Override bootstrap peers
-    let _config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config
-            .chain
-            .bootstrap_peers
-            .iter()
-            .map(|node| node.parse().unwrap())
-            .collect();
-        Config {
-            network: Libp2pConfig {
-                bootstrap_peers,
-                ..config.network
-            },
-            ..config
-        }
-    } else {
-        config
-    };
 
     // Start services
     let p2p_task = task::spawn(async {
