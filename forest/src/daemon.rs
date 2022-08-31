@@ -347,12 +347,10 @@ pub(super) async fn start(config: Config) {
 
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
-    info!("Line {}, refs: {}", line!(), db_weak_ref.strong_count());
 
     let keystore_write = task::spawn(async move {
         keystore.read().await.flush().unwrap();
     });
-    info!("Line {}, refs: {}", line!(), db_weak_ref.strong_count());
 
     // Cancel all async services
     prometheus_server_task.abort();

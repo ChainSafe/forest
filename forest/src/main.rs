@@ -9,7 +9,6 @@ mod subcommand;
 use cli::{cli_error_and_die, Cli};
 use structopt::StructOpt;
 
-// #[async_std::main]
 #[tokio::main]
 async fn main() {
     logger::setup_logger();
