@@ -1,7 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![feature(variant_count)]
-
 #[macro_use]
 extern crate lazy_static;
 
@@ -10,7 +8,6 @@ use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, StoragePower};
 use fvm_shared::version::NetworkVersion;
-use static_assertions::const_assert_eq;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -19,11 +16,6 @@ use std::sync::Arc;
 mod calibnet;
 mod drand;
 mod mainnet;
-
-const_assert_eq!(
-    std::mem::variant_count::<NetworkVersion>(),
-    std::mem::variant_count::<Height>()
-);
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
@@ -53,6 +45,30 @@ pub enum Height {
 impl Default for Height {
     fn default() -> Height {
         Self::Breeze
+    }
+}
+
+impl From<Height> for NetworkVersion {
+    fn from(height: Height) -> NetworkVersion {
+        match height {
+            Height::Breeze => NetworkVersion::V0,
+            Height::Smoke => NetworkVersion::V1,
+            Height::Ignition => NetworkVersion::V2,
+            Height::ActorsV2 => NetworkVersion::V3,
+            Height::Tape => NetworkVersion::V4,
+            Height::Liftoff => NetworkVersion::V5,
+            Height::Kumquat => NetworkVersion::V6,
+            Height::Calico => NetworkVersion::V7,
+            Height::Persian => NetworkVersion::V8,
+            Height::Orange => NetworkVersion::V9,
+            Height::Trust => NetworkVersion::V10,
+            Height::Norwegian => NetworkVersion::V11,
+            Height::Turbo => NetworkVersion::V12,
+            Height::Hyperdrive => NetworkVersion::V13,
+            Height::Chocolate => NetworkVersion::V14,
+            Height::OhSnap => NetworkVersion::V15,
+            Height::Skyr => NetworkVersion::V16,
+        }
     }
 }
 
