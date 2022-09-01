@@ -209,9 +209,7 @@ impl ChainConfig {
             .map(|info| info.height)
             .unwrap_or(Height::Breeze);
 
-        // unfallible as it is guaranteed that number of heights
-        // is equal to the number of network versions
-        TryFrom::try_from(height as u32).unwrap()
+        From::from(height)
     }
 
     pub async fn get_beacon_schedule(
