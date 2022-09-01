@@ -30,6 +30,13 @@ jobs:
         with:
           command: doc
           args: --no-deps --workspace
+      - name: Link Checker
+        uses: lycheeverse/lychee-action@v1.5.1
+        with:
+          # Check all markdown and html files in repo (default)
+          args: --verbose --no-progress './target/doc/*/index.html'
+          # Fail action on broken links
+          fail: true
   publish-docs:
     name: Publish
     runs-on: ubuntu-latest
@@ -40,7 +47,7 @@ jobs:
         uses: actions-rs/toolchain@v1
       - name: Install MDBook
         run: |
-          cargo install mdbook
+          cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook
         run: |
           mdbook build ./documentation/
