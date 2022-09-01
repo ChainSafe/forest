@@ -254,17 +254,12 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        let height_vec: Vec<Height> = self.height_infos.iter().map(|value| value.height).collect();
-        let height_set: HashSet<Height> = HashSet::from_iter(height_vec);
-        let mut height_infos = sort_by_epoch(self.height_infos.clone());
-        for &height in HashSet::from_iter(HEIGHT_VEC).difference(&height_set) {
-            height_infos.push(HeightInfo { height, epoch: 0 });
-        }
+        let height_infos = sort_by_epoch(self.height_infos.clone());
         height_infos
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.epoch)
-            .expect("Internal error: Protocol height not found in map. Please report to https://github.com/ChainSafe/forest/issues")
+            .unwrap_or(0)
     }
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {
