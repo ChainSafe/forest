@@ -3167,6 +3167,7 @@ dependencies = [
  "lazy_static",
  "serde",
  "serde_json",
+ "static_assertions",
  "toml",
 ]
 

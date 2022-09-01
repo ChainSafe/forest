@@ -1,5 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![feature(variant_count)]
+
 #[macro_use]
 extern crate lazy_static;
 
@@ -8,6 +10,7 @@ use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, StoragePower};
 use fvm_shared::version::NetworkVersion;
+use static_assertions::const_assert_eq;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -16,6 +19,11 @@ use std::sync::Arc;
 mod calibnet;
 mod drand;
 mod mainnet;
+
+const_assert_eq!(
+    std::mem::variant_count::<NetworkVersion>(),
+    std::mem::variant_count::<Height>()
+);
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
