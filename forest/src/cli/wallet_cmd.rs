@@ -7,6 +7,7 @@ use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
 use forest_utils::read_file_to_string;
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use rpassword::read_password;
 use std::{
@@ -15,7 +16,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use super::{cli_error_and_die, handle_rpc_err};
+use super::{balance_to_fil, cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
@@ -165,10 +166,28 @@ impl WalletCommands {
             }
             Self::List => {
                 let response = wallet_list().await.map_err(handle_rpc_err).unwrap();
+                let default = wallet_default_address()
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
-                response.iter().for_each(|address| {
-                    println!("{}", address.0);
-                });
+                println!("Address                                    Default  Balance");
+
+                for address in response {
+                    let addr = address.0.to_string();
+                    let default_address_mark = if addr == default { "X" } else { "" };
+                    let balance_string = wallet_balance((addr.clone(),))
+                        .await
+                        .map_err(handle_rpc_err)
+                        .expect("Failed loading the wallet balance");
+                    let balance = balance_string
+                        .parse::<BigInt>()
+                        .expect("Couldn't convert balance string to BigInt");
+                    let balance_fil =
+                        balance_to_fil(balance).expect("Couldn't convert balance to FIL");
+
+                    println!("{addr:41}  {default_address_mark:7}  {balance_fil:.6} FIL");
+                }
             }
             Self::SetDefault { key } => {
                 let key_parse_result = Address::from_str(key);

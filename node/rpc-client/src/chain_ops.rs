@@ -32,3 +32,7 @@ pub async fn chain_read_obj(cid: ChainReadObjParams) -> Result<ChainReadObjResul
 pub async fn chain_get_tipset(keys: ChainGetTipSetParams) -> Result<ChainGetTipSetResult, Error> {
     call(CHAIN_GET_TIPSET, keys).await
 }
+
+pub async fn chain_get_name() -> Result<ChainGetNameResult, Error> {
+    call(CHAIN_GET_NAME, ()).await
+}
