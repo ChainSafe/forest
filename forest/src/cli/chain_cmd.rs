@@ -21,7 +21,8 @@ pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
     #[structopt(about = "<Cid> Retrieve a block and print its details")]
     Block {
-        #[structopt(short, help = "Input a valid CID")]
+        #[structopt(short)]
+        /// Input a valid CID
         cid: String,
     },
 
@@ -50,18 +51,19 @@ pub enum ChainCommands {
     },
 
     /// Prints out the genesis tipset
-    #[structopt(about = "Prints genesis tipset", help = "Prints genesis tipset")]
+    #[structopt(about = "Prints genesis tipset")]
     Genesis,
 
     /// Prints out the canonical head of the chain
-    #[structopt(about = "Print chain head", help = "Print chain head")]
+    #[structopt(about = "Print chain head")]
     Head,
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
     #[structopt(about = "<CID> Retrieves and prints messages by CIDs")]
     Message {
-        #[structopt(short, help = "Input a valid CID")]
+        /// Input a valid CID
+        #[structopt(short)]
         cid: String,
     },
 
@@ -69,7 +71,8 @@ pub enum ChainCommands {
     /// block store and returns raw bytes
     #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {
-        #[structopt(short, help = "Input a valid CID")]
+        #[structopt(short)]
+        /// Input a valid CID
         cid: String,
     },
 }

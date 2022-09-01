@@ -14,20 +14,14 @@ pub enum AuthCommands {
     /// Create a new Authentication token with given permission
     #[structopt(about = "<String> Create Authentication token with given permission")]
     CreateToken {
-        #[structopt(
-            short,
-            long,
-            help = "permission to assign to the token, one of: read, write, sign, admin"
-        )]
+        /// permission to assign to the token, one of: read, write, sign, admin
+        #[structopt(short, long)]
         perm: String,
     },
     #[structopt(about = "Get RPC API information")]
     ApiInfo {
-        #[structopt(
-            short,
-            long,
-            help = "permission to assign the token, one of: read, write, sign, admin"
-        )]
+        #[structopt(short, long)]
+        /// permission to assign the token, one of: read, write, sign, admin
         perm: String,
     },
 }

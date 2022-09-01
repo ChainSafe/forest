@@ -12,13 +12,17 @@ use super::cli_error_and_die;
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
 pub struct FetchCommands {
-    #[structopt(short, long, help = "Download all proof parameters")]
+    #[structopt(short, long)]
+    /// Download all proof parameters
     all: bool,
-    #[structopt(short, long, help = "Download only verification keys")]
+    #[structopt(short, long)]
+    /// Download only verification keys
     keys: bool,
-    #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]), help = "Size in bytes")]
+    #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]))]
+    /// Size in bytes
     params_size: Option<String>,
-    #[structopt(short, long, help = "Show verbose logging")]
+    #[structopt(short, long)]
+    /// Show verbose logging
     verbose: bool,
 }
 
