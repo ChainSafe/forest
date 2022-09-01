@@ -417,7 +417,7 @@ dependencies = [
  "async-io",
  "async-lock",
  "async-process",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
  "futures-channel",
  "futures-core",
  "futures-io",
@@ -573,7 +573,7 @@ dependencies = [
  "blake2s_simd 0.5.11",
  "blstrs",
  "byteorder 1.4.3",
- "crossbeam-channel 0.5.6",
+ "crossbeam-channel",
  "digest 0.9.0",
  "ec-gpu",
  "ec-gpu-gen",
@@ -1353,21 +1353,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2801af0d36612ae591caa9568261fddce32ce6e08a7275ea334a06a4ad021a2c"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-channel 0.5.6",
+ "crossbeam-channel",
  "crossbeam-deque",
  "crossbeam-epoch",
  "crossbeam-queue",
- "crossbeam-utils 0.8.11",
-]
-
-[[package]]
-name = "crossbeam-channel"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b153fe7cbef478c567df0f972e02e6d736db11affe43dfc9c56a9374d1adfb87"
-dependencies = [
- "crossbeam-utils 0.7.2",
- "maybe-uninit",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -1377,7 +1367,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2dd04ddaf88237dc3b8d8f9a3c1004b506b54b3313403944054d23c0870c521"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -1388,7 +1378,7 @@ checksum = "715e8152b692bba2d374b53d4875445368fdf21a94751410af607a5ac677d1fc"
 dependencies = [
  "cfg-if 1.0.0",
  "crossbeam-epoch",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -1399,7 +1389,7 @@ checksum = "045ebe27666471bb549370b4b0b3e51b07f56325befa4284db65fc89c02511b1"
 dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
  "memoffset",
  "once_cell",
  "scopeguard",
@@ -1412,18 +1402,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1cd42583b04998a5363558e5f9291ee5a5ff6b49944332103f251e7479a82aa7"
 dependencies = [
  "cfg-if 1.0.0",
- "crossbeam-utils 0.8.11",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c7c73a2d1e9fc0886a08b93e98eb643461230d5f1925e4036204d5f2e261a8"
-dependencies = [
- "autocfg",
- "cfg-if 0.1.10",
- "lazy_static",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -2534,11 +2513,11 @@ dependencies = [
  "fvm_shared",
  "git-version",
  "hex",
- "ipc-channel",
  "jsonrpc-v2",
  "libp2p 0.46.1",
  "log",
  "multibase 0.9.1",
+ "named-lock",
  "num-rational",
  "num-traits",
  "once_cell",
@@ -3380,7 +3359,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "cid",
- "crossbeam-channel 0.5.6",
+ "crossbeam-channel",
  "forest_actor_interface",
  "forest_encoding",
  "forest_fil_types",
@@ -3518,22 +3497,6 @@ name = "fuchsia-cprng"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
-
-[[package]]
-name = "fuchsia-zircon"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e9763c69ebaae630ba35f74888db465e49e259ba1bc0eda7d06f4a067615d82"
-dependencies = [
- "bitflags",
- "fuchsia-zircon-sys",
-]
-
-[[package]]
-name = "fuchsia-zircon-sys"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dcaa9ae7725d12cdb85b3ad99a434db70b468c09ded17e012d86b5c1010f7a7"
 
 [[package]]
 name = "funty"
@@ -4270,34 +4233,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec58677acfea8a15352d42fc87d11d63596ade9239e0a7c9352914417515dbe6"
 
 [[package]]
-name = "iovec"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2b3ea6ff95e175473f8ffe6a7eb7c00d054240321b84c57051175fe3c1e075e"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "ipc-channel"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cb1d9211085f0ea6f1379d944b93c4d07e8207aa3bcf49f37eda12b85081887"
-dependencies = [
- "bincode",
- "crossbeam-channel 0.4.4",
- "fnv",
- "lazy_static",
- "libc",
- "mio",
- "rand 0.7.3",
- "serde",
- "tempfile",
- "uuid",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "ipconfig"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4322,7 +4257,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2948a0ce43e2c2ef11d7edf6816508998d99e13badd1150be0914205df9388a"
 dependencies = [
  "bytes 0.5.6",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
  "curl",
  "curl-sys",
  "flume 0.9.2",
@@ -4346,7 +4281,7 @@ checksum = "334e04b4d781f436dc315cb1e7515bd96826426345d498149e4bde36b67f8ee9"
 dependencies = [
  "async-channel",
  "castaway",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
  "curl",
  "curl-sys",
  "encoding_rs",
@@ -5474,12 +5409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "maybe-uninit"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
-
-[[package]]
 name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5552,37 +5481,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f5c75688da582b8ffc1f1799e9db273f32133c49e048f614d22ec3256773ccc"
 dependencies = [
  "adler",
-]
-
-[[package]]
-name = "mio"
-version = "0.6.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4afd66f5b91bf2a3bc13fad0e21caedac168ca4c707504e75585648ae80e4cc4"
-dependencies = [
- "cfg-if 0.1.10",
- "fuchsia-zircon",
- "fuchsia-zircon-sys",
- "iovec",
- "kernel32-sys",
- "libc",
- "log",
- "miow",
- "net2",
- "slab",
- "winapi 0.2.8",
-]
-
-[[package]]
-name = "miow"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebd808424166322d4a38da87083bfddd3ac4c131334ed55856112eb06d46944d"
-dependencies = [
- "kernel32-sys",
- "net2",
- "winapi 0.2.8",
- "ws2_32-sys",
 ]
 
 [[package]]
@@ -5773,6 +5671,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "named-lock"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40a3eb6b7c682b65d1f631ec3176829d72ab450b3aacdd3f719bf220822e59ac"
+dependencies = [
+ "libc",
+ "once_cell",
+ "parking_lot 0.12.1",
+ "thiserror",
+ "widestring",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "neptune"
 version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5793,17 +5705,6 @@ dependencies = [
  "log",
  "rust-gpu-tools",
  "sha2 0.9.9",
-]
-
-[[package]]
-name = "net2"
-version = "0.2.37"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "391630d12b68002ae1e25e8f974306474966550ad82dac6886fb8910c19568ae"
-dependencies = [
- "cfg-if 0.1.10",
- "libc",
- "winapi 0.3.9",
 ]
 
 [[package]]
@@ -6201,7 +6102,7 @@ version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff5751d87f7c00ae6403eb1fcbba229b9c76c9a30de8c1cf87182177b168cea2"
 dependencies = [
- "crossbeam-channel 0.5.6",
+ "crossbeam-channel",
  "libc",
  "time 0.1.44",
  "winapi 0.3.9",
@@ -6988,9 +6889,9 @@ version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "258bcdb5ac6dad48491bb2992db6b7cf74878b0384908af124823d118c99683f"
 dependencies = [
- "crossbeam-channel 0.5.6",
+ "crossbeam-channel",
  "crossbeam-deque",
- "crossbeam-utils 0.8.11",
+ "crossbeam-utils",
  "num_cpus",
 ]
 
@@ -9230,16 +9131,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0120db82e8a1e0b9fb3345a539c478767c0048d842860994d96113d5b667bd69"
 dependencies = [
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "ws2_32-sys"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
-dependencies = [
- "winapi 0.2.8",
- "winapi-build",
 ]
 
 [[package]]
