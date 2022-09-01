@@ -42,6 +42,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_BEACON, Access::Read);
+    access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_ESTIMATE_GAS_PRICE, Access::Read);
