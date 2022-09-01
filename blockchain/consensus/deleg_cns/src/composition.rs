@@ -1,20 +1,16 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::DelegatedConsensus;
-use async_std::{
-    sync::RwLock,
-    task::{self, JoinHandle},
-};
+use async_std::{sync::RwLock, task::JoinHandle};
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
 use forest_ipld_blockstore::BlockStore;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
-use futures::TryFutureExt;
 use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};
-use log::{error, info};
+use log::info;
 use std::sync::Arc;
 
-type MiningTask = JoinHandle<anyhow::Result<()>>;
+type MiningTask = JoinHandle<()>;
 
 pub type FullConsensus = DelegatedConsensus;
 
@@ -32,7 +28,7 @@ pub async fn consensus<DB, MP>(
     keystore: &Arc<RwLock<KeyStore>>,
     mpool: &Arc<MP>,
     submitter: SyncGossipSubmitter,
-) -> (FullConsensus, Option<MiningTask>)
+) -> anyhow::Result<(FullConsensus, Vec<MiningTask>)>
 where
     DB: BlockStore + Send + Sync + 'static,
     MP: MessagePoolApi + Send + Sync + 'static,
@@ -42,14 +38,9 @@ where
         info!("Starting the delegated consensus proposer...");
         let sm = state_manager.clone();
         let mp = mpool.clone();
-        let mining_task = task::spawn(async move {
-            proposer
-                .run(sm, mp.as_ref(), &submitter)
-                .inspect_err(|e| error!("block proposal stopped: {}", e))
-                .await
-        });
-        (consensus, Some(mining_task))
+        let mining_tasks = proposer.spawn(sm, mp, submitter).await?;
+        Ok((consensus, mining_tasks))
     } else {
-        (consensus, None)
+        Ok((consensus, vec![]))
     }
 }
