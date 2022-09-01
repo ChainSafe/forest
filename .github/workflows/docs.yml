@@ -47,8 +47,7 @@ jobs:
         uses: actions-rs/toolchain@v1
       - name: Install MDBook
         run: |
-          cargo install mdbook
-          cargo install mdbook-linkcheck
+          cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook
         run: |
           mdbook build ./documentation/
