@@ -114,70 +114,63 @@ pub enum Subcommand {
 /// CLI options
 #[derive(StructOpt, Debug)]
 pub struct CliOpts {
-    #[structopt(short, long, help = "A toml file containing relevant configurations")]
+    /// A toml file containing relevant configurations
+    #[structopt(short, long)]
     pub config: Option<String>,
-    #[structopt(short, long, help = "The genesis CAR file")]
+    /// The genesis CAR file
+    #[structopt(short, long)]
     pub genesis: Option<String>,
-    #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
+    /// Allow rpc to be active or not (default = true)
+    #[structopt(short, long)]
     pub rpc: Option<bool>,
-    #[structopt(
-        short,
-        long,
-        help = "Client JWT token to use for JSON-RPC authentication"
-    )]
+    /// Client JWT token to use for JSON-RPC authentication
+    #[structopt(short, long)]
     pub token: Option<String>,
-    #[structopt(
-        long,
-        help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
-    )]
+    /// Address used for metrics collection server. By defaults binds on localhost on port 6116.
+    #[structopt(long)]
     pub metrics_address: Option<SocketAddr>,
-    #[structopt(
-        long,
-        help = "Address used for RPC. By defaults binds on localhost on port 1234."
-    )]
+    /// Address used for RPC. By defaults binds on localhost on port 1234.
+    #[structopt(long)]
     pub rpc_address: Option<SocketAddr>,
-    #[structopt(short, long, help = "Allow Kademlia (default = true)")]
+    /// Allow Kademlia (default = true)
+    #[structopt(short, long)]
     pub kademlia: Option<bool>,
-    #[structopt(long, help = "Allow MDNS (default = false)")]
+    /// Allow MDNS (default = false)
+    #[structopt(long)]
     pub mdns: Option<bool>,
-    #[structopt(long, help = "Validate snapshot at given EPOCH")]
+    /// Validate snapshot at given EPOCH
+    #[structopt(long)]
     pub height: Option<i64>,
-    #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
+    /// Import a snapshot from a local CAR file or url
+    #[structopt(long)]
     pub import_snapshot: Option<String>,
     /// Halt with exit code 0 after successfully importing a snapshot
     #[structopt(long)]
     pub halt_after_import: bool,
-    #[structopt(long, help = "Import a chain from a local CAR file or url")]
+    /// Import a chain from a local CAR file or url
+    #[structopt(long)]
     pub import_chain: Option<String>,
-    #[structopt(
-        long,
-        help = "Skips loading CAR file and uses header to index chain.\
-                    Assumes a pre-loaded database"
-    )]
+    /// Skips loading CAR file and uses header to index chain. Assumes a pre-loaded database
+    #[structopt(long)]
     pub skip_load: bool,
-    #[structopt(
-        long,
-        help = "Number of tipsets requested over chain exchange (default is 200)"
-    )]
+    /// Number of tipsets requested over chain exchange (default is 200)
+    #[structopt(long)]
     pub req_window: Option<i64>,
-    #[structopt(
-        long,
-        help = "Number of tipsets to include in the sample that determines what the network head is"
-    )]
+    /// Number of tipsets to include in the sample that determines what the network head is
+    #[structopt(long)]
     pub tipset_sample_size: Option<u8>,
-    #[structopt(
-        long,
-        help = "Amount of Peers we want to be connected to (default is 75)"
-    )]
+    /// Amount of Peers we want to be connected to (default is 75)
+    #[structopt(long)]
     pub target_peer_count: Option<u32>,
-    #[structopt(long, help = "Encrypt the keystore (default = true)")]
+    /// Encrypt the keystore (default = true)
+    #[structopt(long)]
     pub encrypt_keystore: Option<bool>,
     #[structopt(
         long,
-        help = "Choose network chain to sync to",
         default_value = "mainnet",
         possible_values = &["mainnet", "calibnet"],
     )]
+    /// Choose network chain to sync to
     pub chain: String,
 }
 

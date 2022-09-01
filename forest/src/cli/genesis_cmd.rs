@@ -20,13 +20,11 @@ pub enum GenesisCommands {
     /// Creates new genesis template
     #[structopt(about = "Create new Genesis template")]
     NewTemplate {
-        #[structopt(short, help = "Input a network name")]
+        /// Input a network name
+        #[structopt(short)]
         network_name: Option<String>,
-        #[structopt(
-            short,
-            default_value = "genesis.json",
-            help = "File path, i.e, './genesis.json'. This command WILL NOT create a directory if it does not exist."
-        )]
+        /// File path, i.e, './genesis.json'. This command WILL NOT create a directory if it does not exist.
+        #[structopt(short, default_value = "genesis.json")]
         file_path: String,
     },
     /// Adds miner to Genesis.
@@ -34,9 +32,11 @@ pub enum GenesisCommands {
         about = "Add genesis miner. Ex.: 'genesis add-miner [genesis.json] [preseal.json]'"
     )]
     AddMiner {
-        #[structopt(short, help = "Genesis filepath")]
+        /// Genesis filepath
+        #[structopt(short)]
         genesis_path: String,
-        #[structopt(short, help = "Preseal filepath")]
+        /// Preseal filepath
+        #[structopt(short)]
         preseal_path: String,
     },
 }
