@@ -115,12 +115,10 @@ pub struct ChainConfig {
 // https://github.com/filecoin-project/builtin-actors/pull/497
 impl PartialEq for ChainConfig {
     fn eq(&self, other: &Self) -> bool {
-        let height_infos = sort_by_epoch(&self.height_infos);
-        let other_height_infos = sort_by_epoch(&other.height_infos);
         self.name == other.name
             && self.bootstrap_peers == other.bootstrap_peers
             && self.block_delay_secs == other.block_delay_secs
-            && height_infos == other_height_infos
+            && sort_by_epoch(&self.height_infos) == sort_by_epoch(&other.height_infos)
             && (self.policy.max_aggregated_sectors == other.policy.max_aggregated_sectors
                 && self.policy.min_aggregated_sectors == other.policy.min_aggregated_sectors
                 && self.policy.max_aggregated_proof_size == other.policy.max_aggregated_proof_size
@@ -202,8 +200,7 @@ impl ChainConfig {
     }
 
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height_infos = sort_by_epoch(&self.height_infos);
-        let height = height_infos
+        let height = sort_by_epoch(&self.height_infos)
             .iter()
             .rev()
             .find(|info| epoch > info.epoch)
@@ -235,8 +232,7 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        let height_infos = sort_by_epoch(&self.height_infos);
-        height_infos
+        sort_by_epoch(&self.height_infos)
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.epoch)
