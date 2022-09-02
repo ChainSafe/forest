@@ -10,13 +10,14 @@ use cli::{cli_error_and_die, Cli, DaemonConfig};
 
 use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
-use log::{info, warn};
+use log::{error, info};
 use raw_sync::{events::*, Timeout};
 use shared_memory::{Shmem, ShmemConf};
 use structopt::StructOpt;
 
 use std::fs::File;
 use std::mem;
+use std::process;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::time::Duration;
 
@@ -59,15 +60,17 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
 
     daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
         let (event, _) = unsafe {
-            Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed)).expect("from_existing must succeed")
+            Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed))
+                .expect("from_existing must succeed")
         };
         if let Err(e) = event.wait(EVENT_TIMEOUT) {
-            warn!("Event error: {e}")
+            error!("Event error: {e}");
+            process::exit(1);
         }
 
         info!("Exiting");
 
-        std::process::exit(0);
+        process::exit(0);
     });
 
     Ok(daemon)
