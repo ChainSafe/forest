@@ -40,7 +40,6 @@ pub async fn start_rpc<DB, B, V, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
-    set_event: fn() -> (),
 ) -> Result<(), JSONRPCError>
 where
     DB: BlockStore + Send + Sync + 'static,
@@ -182,7 +181,6 @@ where
         .post(rpc_http_handler::<DB, B>);
 
     info!("Ready for RPC connections");
-    set_event();
     app.listen(rpc_endpoint).await?;
 
     info!("Stopped accepting RPC connections");

@@ -293,6 +293,7 @@ pub(super) async fn start(config: Config) {
         let rpc_listen = TcpListener::bind(&config.client.rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
+        set_event();
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
@@ -315,7 +316,6 @@ pub(super) async fn start(config: Config) {
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
-                set_event,
             )
             .await;
         }))
