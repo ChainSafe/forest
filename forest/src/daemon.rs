@@ -45,8 +45,12 @@ use forest_fil_cns::composition as cns;
 use forest_deleg_cns::composition as cns;
 
 fn set_event() {
+    let ptr = super::SHMEM_PTR.load(Ordering::Relaxed);
+    if ptr.is_null() {
+        return;
+    }
     let (event, _) = unsafe {
-        Event::from_existing(super::SHMEM_PTR.load(Ordering::Relaxed)).expect("open must succeed")
+        Event::from_existing(ptr).expect("open must succeed")
     };
 
     info!("Signaling event");

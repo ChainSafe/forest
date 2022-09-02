@@ -24,6 +24,18 @@ static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(4));
 
+fn create_event() {
+    let shmem = ShmemConf::new()
+        .size(mem::size_of::<Event>())
+        .create()
+        .expect("open must succeed");
+    SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
+    info!("Creating event in shared memory");
+    unsafe {
+        Event::new(shmem.as_ptr(), true).expect("Even::new must succeed");
+    }
+}
+
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
     if let Some(user) = &config.user {
@@ -74,17 +86,8 @@ fn main() {
                 task::block_on(subcommand::process(command, cfg));
             }
             None => {
-                let shmem = ShmemConf::new()
-                    .size(mem::size_of::<Event>())
-                    .create()
-                    .expect("open must succeed");
-                SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
-                info!("Creating event in shared memory");
-                unsafe {
-                    Event::new(shmem.as_ptr(), true).expect("Even::new must succeed");
-                }
-
                 if opts.detach {
+                    create_event();
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
                             cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)
