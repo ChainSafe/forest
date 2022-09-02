@@ -70,7 +70,6 @@ pub trait LookbackStateGetter {
 #[derive(Clone, Copy)]
 pub struct Heights {
     pub calico: ChainEpoch,
-    pub claus: ChainEpoch,
     pub turbo: ChainEpoch,
     pub hyperdrive: ChainEpoch,
     pub chocolate: ChainEpoch,
@@ -80,7 +79,6 @@ impl Heights {
     pub fn new(chain_config: &ChainConfig) -> Self {
         Heights {
             calico: chain_config.epoch(Height::Calico),
-            claus: chain_config.epoch(Height::Claus),
             turbo: chain_config.epoch(Height::Turbo),
             hyperdrive: chain_config.epoch(Height::Hyperdrive),
             chocolate: chain_config.epoch(Height::Chocolate),
