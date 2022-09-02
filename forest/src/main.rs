@@ -61,9 +61,8 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
         let (event, _) = unsafe {
             Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed)).expect("open must succeed")
         };
-        match event.wait(EVENT_TIMEOUT) {
-            Err(e) => warn!("Event error: {e}"),
-            _ => (),
+        if let Err(e) = event.wait(EVENT_TIMEOUT) {
+            warn!("Event error: {e}")
         }
 
         info!("Exiting");

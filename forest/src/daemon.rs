@@ -49,9 +49,7 @@ fn set_event() {
     if ptr.is_null() {
         return;
     }
-    let (event, _) = unsafe {
-        Event::from_existing(ptr).expect("open must succeed")
-    };
+    let (event, _) = unsafe { Event::from_existing(ptr).expect("open must succeed") };
 
     info!("Signaling event");
     event.set(EventState::Signaled).expect("set must succeed");
