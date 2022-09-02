@@ -26,7 +26,7 @@ use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::*;
 use rpassword::read_password;
-use shared_memory::*;
+use std::sync::atomic::Ordering;
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -44,20 +44,17 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
-fn set_event(shmem_path: &str) {
-    let shmem = ShmemConf::new()
-        .flink(shmem_path)
-        .open()
-        .expect("open must succeed");
-
-    let (event, _) = unsafe { Event::from_existing(shmem.as_ptr()).expect("open must succeed") };
+fn set_event() {
+    let (event, _) = unsafe {
+        Event::from_existing(super::SHMEM_PTR.load(Ordering::Relaxed)).expect("open must succeed")
+    };
 
     info!("Signaling event");
     event.set(EventState::Signaled).expect("set must succeed");
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, shmem_path: &str) {
+pub(super) async fn start(config: Config) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -207,7 +204,7 @@ pub(super) async fn start(config: Config, shmem_path: &str) {
         },
     }
     task::sleep(Duration::from_secs(5)).await;
-    set_event(shmem_path);
+    set_event();
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {

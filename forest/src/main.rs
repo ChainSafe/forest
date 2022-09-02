@@ -12,13 +12,13 @@ use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::info;
 use raw_sync::{events::*, Timeout};
-use shared_memory::{ShmemConf, ShmemError};
+use shared_memory::ShmemConf;
 use structopt::StructOpt;
 
 use std::fs::File;
-use std::{thread, time};
+use std::sync::atomic::{AtomicPtr, Ordering};
 
-const SHMEM_PATH: &str = "shmem-mapping";
+static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
@@ -41,18 +41,12 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     }
 
     daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
-        let shmem = ShmemConf::new()
-            .flink(SHMEM_PATH)
-            .open()
-            .expect("open must succeed");
-
-        info!("Creating event in shared memory");
-        let (event, _) =
-            unsafe { Event::new(shmem.as_ptr(), true).expect("Even::new must succeed") };
+        let (event, _) = unsafe {
+            Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed)).expect("open must succeed")
+        };
         event.wait(Timeout::Infinite).expect("wait must succeed");
 
         info!("Exiting");
-        drop(shmem);
 
         std::process::exit(0);
     });
@@ -75,9 +69,13 @@ fn main() {
             None => {
                 let shmem = ShmemConf::new()
                     .size(4096)
-                    .flink(SHMEM_PATH)
                     .create()
-                    .expect("shmem must succeed");
+                    .expect("open must succeed");
+                SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
+                info!("Creating event in shared memory");
+                unsafe {
+                    Event::new(shmem.as_ptr(), true).expect("Even::new must succeed");
+                }
 
                 if opts.detach {
                     let result = build_daemon(&cfg.daemon)
@@ -92,7 +90,7 @@ fn main() {
                         }
                     }
                 }
-                task::block_on(daemon::start(cfg, SHMEM_PATH));
+                task::block_on(daemon::start(cfg));
             }
         },
         Err(e) => {
