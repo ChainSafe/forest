@@ -2517,7 +2517,6 @@ dependencies = [
  "libp2p 0.46.1",
  "log",
  "multibase 0.9.1",
- "named-lock",
  "num-rational",
  "num-traits",
  "once_cell",
@@ -2526,11 +2525,13 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.5",
+ "raw_sync",
  "rayon",
  "rpassword",
  "rug",
  "serde",
  "serde_json",
+ "shared_memory",
  "strfmt",
  "structopt",
  "tempfile",
@@ -5672,20 +5673,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "named-lock"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40a3eb6b7c682b65d1f631ec3176829d72ab450b3aacdd3f719bf220822e59ac"
-dependencies = [
- "libc",
- "once_cell",
- "parking_lot 0.12.1",
- "thiserror",
- "widestring",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "neptune"
 version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5796,6 +5783,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -6867,6 +6855,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "raw_sync"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a34bde3561f980a51c70495164200569a11662644fe5af017f0b5d7015688cc"
+dependencies = [
+ "cfg-if 0.1.10",
+ "libc",
+ "nix 0.24.2",
+ "rand 0.8.5",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "rawpointer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7518,6 +7519,19 @@ checksum = "0a31480366ec990f395a61b7c08122d99bd40544fdb5abcfc1b06bb29994312c"
 dependencies = [
  "digest 0.10.3",
  "keccak",
+]
+
+[[package]]
+name = "shared_memory"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba8593196da75d9dc4f69349682bd4c2099f8cde114257d1ef7ef1b33d1aba54"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "nix 0.23.1",
+ "rand 0.8.5",
+ "win-sys",
 ]
 
 [[package]]
@@ -9001,6 +9015,15 @@ name = "widestring"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17882f045410753661207383517a6f62ec3dbeb6a4ed2acce01f0728238d1983"
+
+[[package]]
+name = "win-sys"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b7b128a98c1cfa201b09eb49ba285887deb3cbe7466a98850eb1adabb452be5"
+dependencies = [
+ "windows",
+]
 
 [[package]]
 name = "winapi"

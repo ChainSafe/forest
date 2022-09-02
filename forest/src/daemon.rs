@@ -24,7 +24,9 @@ use fvm_shared::version::NetworkVersion;
 use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
+use raw_sync::events::*;
 use rpassword::read_password;
+use shared_memory::*;
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -42,11 +44,20 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
-/// Starts daemon process
-pub(super) async fn start(config: Config) {
-    let rpc_lock = named_lock::NamedLock::create("rpc_lock").unwrap();
-    let guard = rpc_lock.lock().unwrap();
+fn set_event(shmem_path: &str) {
+    let shmem = ShmemConf::new()
+        .flink(shmem_path)
+        .open()
+        .expect("open must succeed");
 
+    let (event, _) = unsafe { Event::from_existing(shmem.as_ptr()).expect("open must succeed") };
+
+    info!("Signaling event");
+    event.set(EventState::Signaled).expect("set must succeed");
+}
+
+/// Starts daemon process
+pub(super) async fn start(config: Config, shmem_path: &str) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -196,7 +207,7 @@ pub(super) async fn start(config: Config) {
         },
     }
     task::sleep(Duration::from_secs(5)).await;
-    drop(guard);
+    set_event(shmem_path);
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
