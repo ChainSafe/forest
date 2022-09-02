@@ -19,7 +19,6 @@ const OUTPUT_PATH_DEFAULT_FORMAT: &str =
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
-    #[structopt(about = "<Cid> Retrieve a block and print its details")]
     Block {
         #[structopt(short)]
         /// Input a valid CID
@@ -27,7 +26,6 @@ pub enum ChainCommands {
     },
 
     /// Export a snapshot of the chain to `<output_path>`
-    #[structopt(about = "Export chain snapshot to file")]
     Export {
         /// Tipset to start the export from, default is the chain head
         #[structopt(short, long)]
@@ -51,16 +49,13 @@ pub enum ChainCommands {
     },
 
     /// Prints out the genesis tipset
-    #[structopt(about = "Prints genesis tipset")]
     Genesis,
 
     /// Prints out the canonical head of the chain
-    #[structopt(about = "Print chain head")]
     Head,
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
-    #[structopt(about = "<CID> Retrieves and prints messages by CIDs")]
     Message {
         /// Input a valid CID
         #[structopt(short)]
@@ -69,7 +64,6 @@ pub enum ChainCommands {
 
     /// Reads and prints out IPLD nodes referenced by the specified CID from chain
     /// block store and returns raw bytes
-    #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {
         #[structopt(short)]
         /// Input a valid CID

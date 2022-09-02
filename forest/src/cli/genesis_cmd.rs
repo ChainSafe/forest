@@ -18,7 +18,6 @@ const ACCOUNT_START: u64 = 1000;
 #[derive(Debug, StructOpt)]
 pub enum GenesisCommands {
     /// Creates new genesis template
-    #[structopt(about = "Create new Genesis template")]
     NewTemplate {
         /// Input a network name
         #[structopt(short)]
@@ -27,10 +26,7 @@ pub enum GenesisCommands {
         #[structopt(short, default_value = "genesis.json")]
         file_path: String,
     },
-    /// Adds miner to Genesis.
-    #[structopt(
-        about = "Add genesis miner. Ex.: 'genesis add-miner [genesis.json] [preseal.json]'"
-    )]
+    /// Add a miner to Genesis.
     AddMiner {
         /// Genesis file path
         #[structopt(short)]

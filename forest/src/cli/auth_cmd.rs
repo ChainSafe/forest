@@ -12,13 +12,12 @@ use forest_auth::*;
 #[derive(Debug, StructOpt)]
 pub enum AuthCommands {
     /// Create a new Authentication token with given permission
-    #[structopt(about = "<String> Create Authentication token with given permission")]
     CreateToken {
         /// permission to assign to the token, one of: read, write, sign, admin
         #[structopt(short, long)]
         perm: String,
     },
-    #[structopt(about = "Get RPC API information")]
+    /// Get RPC API Information
     ApiInfo {
         #[structopt(short, long)]
         /// permission to assign the token, one of: read, write, sign, admin

@@ -77,37 +77,44 @@ pub struct Cli {
 #[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 pub enum Subcommand {
-    #[structopt(
-        name = "fetch-params",
-        about = "Download parameters for generating and verifying proofs for given size"
-    )]
+    /// Download parameters for generating and verifying proofs for given size
+    #[structopt(name = "fetch-params")]
     Fetch(FetchCommands),
 
-    #[structopt(name = "chain", about = "Interact with Filecoin blockchain")]
+    /// Interact with Filecoin blockchain
+    #[structopt(name = "chain")]
     Chain(ChainCommands),
 
-    #[structopt(name = "auth", about = "Manage RPC Permissions")]
+    /// Manage RPC permissions
+    #[structopt(name = "auth")]
     Auth(AuthCommands),
 
-    #[structopt(name = "genesis", about = "Work with blockchain genesis")]
+    /// Work with blockchain genesis
+    #[structopt(name = "genesis")]
     Genesis(GenesisCommands),
 
-    #[structopt(name = "net", about = "Manage P2P Network")]
+    /// Manage P2P network
+    #[structopt(name = "net")]
     Net(NetCommands),
 
-    #[structopt(name = "wallet", about = "Manage wallet")]
+    /// Manage wallet
+    #[structopt(name = "wallet")]
     Wallet(WalletCommands),
 
-    #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
+    /// Inspect or interact with the chain syncer
+    #[structopt(name = "sync")]
     Sync(SyncCommands),
 
-    #[structopt(name = "mpool", about = "Interact with the Message Pool")]
+    /// Interact with the message pool
+    #[structopt(name = "mpool")]
     Mpool(MpoolCommands),
 
-    #[structopt(name = "state", about = "Interact with and query filecoin chain state")]
+    /// Interact with and query Filecoin chain state
+    #[structopt(name = "state")]
     State(StateCommands),
 
-    #[structopt(name = "config", about = "Manage node configuration")]
+    /// Manage node configuration
+    #[structopt(name = "config")]
     Config(ConfigCommands),
 }
 
