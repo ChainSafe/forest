@@ -17,6 +17,7 @@ use structopt::StructOpt;
 
 use std::fs::File;
 use std::sync::atomic::{AtomicPtr, Ordering};
+use std::mem;
 
 static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
@@ -68,7 +69,7 @@ fn main() {
             }
             None => {
                 let shmem = ShmemConf::new()
-                    .size(4096)
+                    .size(mem::size_of::<Event>())
                     .create()
                     .expect("open must succeed");
                 SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
