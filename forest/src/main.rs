@@ -10,7 +10,7 @@ use cli::{cli_error_and_die, Cli, DaemonConfig};
 
 use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
-use log::info;
+use log::{info, warn};
 use raw_sync::{events::*, Timeout};
 use shared_memory::ShmemConf;
 use structopt::StructOpt;
@@ -18,8 +18,11 @@ use structopt::StructOpt;
 use std::fs::File;
 use std::mem;
 use std::sync::atomic::{AtomicPtr, Ordering};
+use std::time::Duration;
 
 static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
+
+const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(4));
 
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
@@ -45,7 +48,10 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
         let (event, _) = unsafe {
             Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed)).expect("open must succeed")
         };
-        event.wait(Timeout::Infinite).expect("wait must succeed");
+        match event.wait(EVENT_TIMEOUT) {
+            Err(e) => warn!("Event error: {e}"),
+            _ => (),
+        }
 
         info!("Exiting");
 

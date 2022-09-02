@@ -320,6 +320,7 @@ pub(super) async fn start(config: Config) {
         debug!("RPC disabled.");
     };
     // TODO: is this the right place?
+    //task::sleep(std::time::Duration::from_secs(5)).await;
     set_event();
 
     select! {
