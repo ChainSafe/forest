@@ -16,8 +16,8 @@ use shared_memory::ShmemConf;
 use structopt::StructOpt;
 
 use std::fs::File;
-use std::sync::atomic::{AtomicPtr, Ordering};
 use std::mem;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
