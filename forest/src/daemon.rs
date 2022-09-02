@@ -22,7 +22,7 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
-use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
+use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
@@ -355,64 +355,8 @@ pub(super) async fn start(config: Config) {
         }))
     } else {
         debug!("RPC disabled.");
+        None
     };
-    if detached {
-        unblock_parent_process();
-    }
-
-    select! {
-        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
-        _ = ctrlc_oneshot => {
-            // Cancel all async services
-            for handle in services {
-                handle.cancel().await;
-            }
-            return;
-        },
-    }
-
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                1,
-            );
-        }
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                cli_error_and_die(
-                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                    1,
-                );
-            }
-        }
-    }
-
-    // Halt
-    if config.client.halt_after_import {
-        info!("Forest finish shutdown");
-        return;
-    }
-
-    // Fetch and ensure verification keys are downloaded
-    if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
-            .await
-            .unwrap();
-    }
-
-    services.push(task::spawn(p2p_service.run()));
-
-    let db_weak_ref = Arc::downgrade(&db.db);
-    drop(db);
 
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
@@ -425,15 +369,9 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    for mining_task in mining_tasks {
-        mining_task.cancel().await;
+    for handle in services {
+        handle.cancel().await;
     }
-    prometheus_server_task.cancel().await;
-    head_changes_task.cancel().await;
-    republish_task.cancel().await;
-    sync_task.cancel().await;
-    p2p_task.cancel().await;
-    maybe_cancel(rpc_task).await;
     keystore_write.await;
 
     if db_weak_ref.strong_count() != 0 {
@@ -463,12 +401,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         .await
         .expect("Failed miserably while importing chain from snapshot");
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-    }
-}
-
-async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
-    if let Some(t) = mt {
-        t.cancel().await;
     }
 }
 
