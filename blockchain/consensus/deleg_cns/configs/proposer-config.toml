@@ -16,7 +16,6 @@ height_infos = [
   { height = "Calico", epoch = -1 },
   { height = "Persian", epoch = -1 },
   { height = "Orange", epoch = -1 },
-  { height = "Claus", epoch = -1 },
   { height = "Trust", epoch = -1 },
   { height = "Norwegian", epoch = -1 },
   { height = "Turbo", epoch = -1 },

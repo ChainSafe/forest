@@ -66,7 +66,9 @@ services:
       com.centurylinklabs.watchtower.enable: true
   # Probe container to validate Forest syncing. Needs to be on the same network.
   forest_tester:
-    image: fedora:36
+    build:
+      context: .
+      dockerfile: Dockerfile-tester
     networks:
       - mainnet
       - calibnet
@@ -78,13 +80,17 @@ services:
       - type: bind
         source: ${FOREST_HOST_LOGS}
         target: ${FOREST_TARGET_LOGS}
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - SLACK_HOOK=${FOREST_CHECK_SLACK_HOOK}
+      - LOG_DIR=${FOREST_TARGET_LOGS}
+      - SCRIPTS_DIR=${FOREST_TARGET_SCRIPTS}
+      - SLACK_API_TOKEN=${FOREST_SLACK_API_TOKEN}
+      - SLACK_NOTIF_CHANNEL=${FOREST_SLACK_NOTIF_CHANNEL}
     entrypoint: ["/bin/bash","-c"]
     command:
       - |
-        bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-calibnet &
-        bash ${FOREST_TARGET_SCRIPTS}/sync_check.sh forest-mainnet &
+        ruby ${FOREST_TARGET_SCRIPTS}/src/sync_check.rb forest-mainnet &
+        ruby ${FOREST_TARGET_SCRIPTS}/src/sync_check.rb forest-calibnet &
         sleep infinity
     depends_on:
       - forest_mainnet

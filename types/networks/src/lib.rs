@@ -1,6 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
 #[macro_use]
 extern crate lazy_static;
 
@@ -21,75 +20,8 @@ mod mainnet;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;
 
-const UPGRADE_INFOS: [UpgradeInfo; 16] = [
-    UpgradeInfo {
-        height: Height::Breeze,
-        version: NetworkVersion::V1,
-    },
-    UpgradeInfo {
-        height: Height::Smoke,
-        version: NetworkVersion::V2,
-    },
-    UpgradeInfo {
-        height: Height::Ignition,
-        version: NetworkVersion::V3,
-    },
-    UpgradeInfo {
-        height: Height::ActorsV2,
-        version: NetworkVersion::V4,
-    },
-    UpgradeInfo {
-        height: Height::Tape,
-        version: NetworkVersion::V5,
-    },
-    UpgradeInfo {
-        height: Height::Kumquat,
-        version: NetworkVersion::V6,
-    },
-    UpgradeInfo {
-        height: Height::Calico,
-        version: NetworkVersion::V7,
-    },
-    UpgradeInfo {
-        height: Height::Persian,
-        version: NetworkVersion::V8,
-    },
-    UpgradeInfo {
-        height: Height::Orange,
-        version: NetworkVersion::V9,
-    },
-    UpgradeInfo {
-        height: Height::Trust,
-        version: NetworkVersion::V10,
-    },
-    UpgradeInfo {
-        height: Height::Norwegian,
-        version: NetworkVersion::V11,
-    },
-    UpgradeInfo {
-        height: Height::Turbo,
-        version: NetworkVersion::V12,
-    },
-    UpgradeInfo {
-        height: Height::Hyperdrive,
-        version: NetworkVersion::V13,
-    },
-    UpgradeInfo {
-        height: Height::Chocolate,
-        version: NetworkVersion::V14,
-    },
-    UpgradeInfo {
-        height: Height::OhSnap,
-        version: NetworkVersion::V15,
-    },
-    UpgradeInfo {
-        height: Height::Skyr,
-        version: NetworkVersion::V16,
-    },
-];
-
 /// Defines the meaningful heights of the protocol.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Height {
     Breeze,
     Smoke,
@@ -101,7 +33,6 @@ pub enum Height {
     Calico,
     Persian,
     Orange,
-    Claus,
     Trust,
     Norwegian,
     Turbo,
@@ -114,6 +45,30 @@ pub enum Height {
 impl Default for Height {
     fn default() -> Height {
         Self::Breeze
+    }
+}
+
+impl From<Height> for NetworkVersion {
+    fn from(height: Height) -> NetworkVersion {
+        match height {
+            Height::Breeze => NetworkVersion::V1,
+            Height::Smoke => NetworkVersion::V2,
+            Height::Ignition => NetworkVersion::V3,
+            Height::ActorsV2 => NetworkVersion::V4,
+            Height::Tape => NetworkVersion::V5,
+            Height::Liftoff => NetworkVersion::V5,
+            Height::Kumquat => NetworkVersion::V6,
+            Height::Calico => NetworkVersion::V7,
+            Height::Persian => NetworkVersion::V8,
+            Height::Orange => NetworkVersion::V9,
+            Height::Trust => NetworkVersion::V10,
+            Height::Norwegian => NetworkVersion::V11,
+            Height::Turbo => NetworkVersion::V12,
+            Height::Hyperdrive => NetworkVersion::V13,
+            Height::Chocolate => NetworkVersion::V14,
+            Height::OhSnap => NetworkVersion::V15,
+            Height::Skyr => NetworkVersion::V16,
+        }
     }
 }
 
@@ -131,6 +86,12 @@ pub struct HeightInfo {
     pub epoch: ChainEpoch,
 }
 
+pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
+    let mut height_info_vec = height_info_slice.to_vec();
+    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch));
+    height_info_vec
+}
+
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
@@ -144,7 +105,6 @@ pub struct ChainConfig {
     pub name: String,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
-    pub version_schedule: Vec<UpgradeInfo>,
     pub height_infos: Vec<HeightInfo>,
     #[serde(default = "default_policy")]
     #[serde(with = "serde_policy")]
@@ -158,8 +118,7 @@ impl PartialEq for ChainConfig {
         self.name == other.name
             && self.bootstrap_peers == other.bootstrap_peers
             && self.block_delay_secs == other.block_delay_secs
-            && self.version_schedule == other.version_schedule
-            && self.height_infos == other.height_infos
+            && sort_by_epoch(&self.height_infos) == sort_by_epoch(&other.height_infos)
             && (self.policy.max_aggregated_sectors == other.policy.max_aggregated_sectors
                 && self.policy.min_aggregated_sectors == other.policy.min_aggregated_sectors
                 && self.policy.max_aggregated_proof_size == other.policy.max_aggregated_proof_size
@@ -224,7 +183,6 @@ impl ChainConfig {
             name: "calibnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
-            version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy {
                 valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
@@ -242,19 +200,14 @@ impl ChainConfig {
     }
 
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height = self
-            .height_infos
+        let height = sort_by_epoch(&self.height_infos)
             .iter()
             .rev()
             .find(|info| epoch > info.epoch)
             .map(|info| info.height)
             .unwrap_or(Height::Breeze);
 
-        self.version_schedule
-            .iter()
-            .find(|info| height == info.height)
-            .map(|info| info.version)
-            .expect("A network version should exist even if not specified in the config (a default exists).")
+        From::from(height)
     }
 
     pub async fn get_beacon_schedule(
@@ -279,11 +232,11 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        self.height_infos
+        sort_by_epoch(&self.height_infos)
             .iter()
             .find(|info| height == info.height)
             .map(|info| info.epoch)
-            .expect("Internal error: Protocol height not found in map. Please report to https://github.com/ChainSafe/forest/issues")
+            .unwrap_or(0)
     }
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {
@@ -308,7 +261,6 @@ impl Default for ChainConfig {
             name: "mainnet".to_string(),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
-            version_schedule: UPGRADE_INFOS.to_vec(),
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy {
                 valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
