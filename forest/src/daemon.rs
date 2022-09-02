@@ -44,6 +44,7 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
+// In case we do not detach the shmem pointer is still null and we just bail out
 fn unblock_parent_process() {
     let ptr = super::SHMEM_PTR.load(Ordering::Relaxed);
     if ptr.is_null() {
@@ -51,7 +52,6 @@ fn unblock_parent_process() {
     }
     let (event, _) = unsafe { Event::from_existing(ptr).expect("from_existing must succeed") };
 
-    info!("Signaling event");
     event.set(EventState::Signaled).expect("set must succeed");
 }
 

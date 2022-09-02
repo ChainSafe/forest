@@ -32,7 +32,6 @@ fn create_event() -> Shmem {
         .create()
         .expect("create must succeed");
     SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
-    info!("Creating event in shared memory");
     unsafe {
         Event::new(shmem.as_ptr(), true).expect("new must succeed");
     }
