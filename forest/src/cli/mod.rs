@@ -114,13 +114,13 @@ pub enum Subcommand {
 /// CLI options
 #[derive(StructOpt, Debug)]
 pub struct CliOpts {
-    /// A toml file containing relevant configurations
+    /// A TOML file containing relevant configurations
     #[structopt(short, long)]
     pub config: Option<String>,
     /// The genesis CAR file
     #[structopt(short, long)]
     pub genesis: Option<String>,
-    /// Allow rpc to be active or not (default = true)
+    /// Allow RPC to be active or not (default: true)
     #[structopt(short, long)]
     pub rpc: Option<bool>,
     /// Client JWT token to use for JSON-RPC authentication
@@ -132,22 +132,22 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 1234.
     #[structopt(long)]
     pub rpc_address: Option<SocketAddr>,
-    /// Allow Kademlia (default = true)
+    /// Allow Kademlia (default: true)
     #[structopt(short, long)]
     pub kademlia: Option<bool>,
-    /// Allow MDNS (default = false)
+    /// Allow MDNS (default: false)
     #[structopt(long)]
     pub mdns: Option<bool>,
     /// Validate snapshot at given EPOCH
     #[structopt(long)]
     pub height: Option<i64>,
-    /// Import a snapshot from a local CAR file or url
+    /// Import a snapshot from a local CAR file or URL
     #[structopt(long)]
     pub import_snapshot: Option<String>,
     /// Halt with exit code 0 after successfully importing a snapshot
     #[structopt(long)]
     pub halt_after_import: bool,
-    /// Import a chain from a local CAR file or url
+    /// Import a chain from a local CAR file or URL
     #[structopt(long)]
     pub import_chain: Option<String>,
     /// Skips loading CAR file and uses header to index chain. Assumes a pre-loaded database
@@ -162,7 +162,7 @@ pub struct CliOpts {
     /// Amount of Peers we want to be connected to (default is 75)
     #[structopt(long)]
     pub target_peer_count: Option<u32>,
-    /// Encrypt the keystore (default = true)
+    /// Encrypt the key-store (default: true)
     #[structopt(long)]
     pub encrypt_keystore: Option<bool>,
     #[structopt(

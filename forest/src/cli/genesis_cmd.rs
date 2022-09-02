@@ -23,7 +23,7 @@ pub enum GenesisCommands {
         /// Input a network name
         #[structopt(short)]
         network_name: Option<String>,
-        /// File path, i.e, './genesis.json'. This command WILL NOT create a directory if it does not exist.
+        /// File path, i.e, `./genesis.json`. This command WILL NOT create a directory if it does not exist.
         #[structopt(short, default_value = "genesis.json")]
         file_path: String,
     },
@@ -32,10 +32,10 @@ pub enum GenesisCommands {
         about = "Add genesis miner. Ex.: 'genesis add-miner [genesis.json] [preseal.json]'"
     )]
     AddMiner {
-        /// Genesis filepath
+        /// Genesis file path
         #[structopt(short)]
         genesis_path: String,
-        /// Preseal filepath
+        /// Pre-seal file path
         #[structopt(short)]
         preseal_path: String,
     },

@@ -26,7 +26,7 @@ pub enum MpoolCommands {
     Pending,
     /// Print mempool stats
     Stat {
-        /// Number of blocks to lookback for minimum base fee
+        /// Number of blocks to look back for minimum base fee
         #[structopt(short, default_value = "60")]
         base_fee_lookback: u32,
         #[structopt(short)]
