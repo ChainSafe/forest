@@ -12,7 +12,7 @@ use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::{info, warn};
 use raw_sync::{events::*, Timeout};
-use shared_memory::ShmemConf;
+use shared_memory::{Shmem, ShmemConf};
 use structopt::StructOpt;
 
 use std::fs::File;
@@ -24,16 +24,17 @@ static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(4));
 
-fn create_event() {
+fn create_event() -> Shmem {
     let shmem = ShmemConf::new()
         .size(mem::size_of::<Event>())
         .create()
-        .expect("open must succeed");
+        .expect("create must succeed");
     SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
     info!("Creating event in shared memory");
     unsafe {
-        Event::new(shmem.as_ptr(), true).expect("Even::new must succeed");
+        Event::new(shmem.as_ptr(), true).expect("Event::new must succeed");
     }
+    shmem
 }
 
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
@@ -86,8 +87,8 @@ fn main() {
                 task::block_on(subcommand::process(command, cfg));
             }
             None => {
-                if opts.detach {
-                    create_event();
+                let _shmem = if opts.detach {
+                    let shmem = create_event();
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
                             cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)
@@ -99,7 +100,10 @@ fn main() {
                             cli_error_and_die(format!("Error when detaching. Error was: {e}"), 1);
                         }
                     }
-                }
+                    Some(shmem)
+                } else {
+                    None
+                };
                 task::block_on(daemon::start(cfg));
             }
         },
