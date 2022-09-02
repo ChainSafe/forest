@@ -32,7 +32,7 @@ fn create_event() -> Shmem {
     SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
     info!("Creating event in shared memory");
     unsafe {
-        Event::new(shmem.as_ptr(), true).expect("Event::new must succeed");
+        Event::new(shmem.as_ptr(), true).expect("new must succeed");
     }
     shmem
 }
@@ -59,7 +59,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
 
     daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
         let (event, _) = unsafe {
-            Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed)).expect("open must succeed")
+            Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed)).expect("from_existing must succeed")
         };
         if let Err(e) = event.wait(EVENT_TIMEOUT) {
             warn!("Event error: {e}")
