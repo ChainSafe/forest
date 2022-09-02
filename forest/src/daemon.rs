@@ -315,15 +315,13 @@ pub(super) async fn start(config: Config) {
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
+                set_event,
             )
             .await;
         }))
     } else {
         debug!("RPC disabled.");
     };
-    // TODO: is this the right place?
-    //task::sleep(std::time::Duration::from_secs(5)).await;
-    set_event();
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
