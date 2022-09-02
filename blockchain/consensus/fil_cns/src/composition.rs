@@ -10,7 +10,7 @@ use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use std::sync::Arc;
 
-type MiningTask = JoinHandle<anyhow::Result<()>>;
+type MiningTask = JoinHandle<()>;
 
 pub type FullConsensus = FilecoinConsensus<DrandBeacon, FullVerifier>;
 
@@ -25,12 +25,12 @@ pub async fn consensus<DB, MP>(
     _keystore: &Arc<RwLock<KeyStore>>,
     _mpool: &Arc<MP>,
     _submitter: SyncGossipSubmitter,
-) -> (FullConsensus, Option<MiningTask>)
+) -> anyhow::Result<(FullConsensus, Vec<MiningTask>)>
 where
     DB: BlockStore + Send + Sync + 'static,
     MP: MessagePoolApi + Send + Sync + 'static,
 {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());
 
-    (consensus, None)
+    Ok((consensus, vec![]))
 }
