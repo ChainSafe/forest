@@ -42,26 +42,6 @@ pub enum Height {
     Skyr,
 }
 
-pub const HEIGHT_VEC: [Height; 17] = [
-    Height::Breeze,
-    Height::Smoke,
-    Height::Ignition,
-    Height::ActorsV2,
-    Height::Tape,
-    Height::Liftoff,
-    Height::Kumquat,
-    Height::Calico,
-    Height::Persian,
-    Height::Orange,
-    Height::Trust,
-    Height::Norwegian,
-    Height::Turbo,
-    Height::Hyperdrive,
-    Height::Chocolate,
-    Height::OhSnap,
-    Height::Skyr,
-];
-
 impl Default for Height {
     fn default() -> Height {
         Self::Breeze
@@ -71,11 +51,11 @@ impl Default for Height {
 impl From<Height> for NetworkVersion {
     fn from(height: Height) -> NetworkVersion {
         match height {
-            Height::Breeze => NetworkVersion::V0,
-            Height::Smoke => NetworkVersion::V1,
-            Height::Ignition => NetworkVersion::V2,
-            Height::ActorsV2 => NetworkVersion::V3,
-            Height::Tape => NetworkVersion::V4,
+            Height::Breeze => NetworkVersion::V1,
+            Height::Smoke => NetworkVersion::V2,
+            Height::Ignition => NetworkVersion::V3,
+            Height::ActorsV2 => NetworkVersion::V4,
+            Height::Tape => NetworkVersion::V5,
             Height::Liftoff => NetworkVersion::V5,
             Height::Kumquat => NetworkVersion::V6,
             Height::Calico => NetworkVersion::V7,
@@ -106,7 +86,8 @@ pub struct HeightInfo {
     pub epoch: ChainEpoch,
 }
 
-pub fn sort_by_epoch(mut height_info_vec: Vec<HeightInfo>) -> Vec<HeightInfo> {
+pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
+    let mut height_info_vec = height_info_slice.to_vec();
     height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch));
     height_info_vec
 }
@@ -134,8 +115,8 @@ pub struct ChainConfig {
 // https://github.com/filecoin-project/builtin-actors/pull/497
 impl PartialEq for ChainConfig {
     fn eq(&self, other: &Self) -> bool {
-        let height_infos = sort_by_epoch(self.height_infos.clone());
-        let other_height_infos = sort_by_epoch(other.height_infos.clone());
+        let height_infos = sort_by_epoch(&self.height_infos);
+        let other_height_infos = sort_by_epoch(&other.height_infos);
         self.name == other.name
             && self.bootstrap_peers == other.bootstrap_peers
             && self.block_delay_secs == other.block_delay_secs
@@ -221,7 +202,7 @@ impl ChainConfig {
     }
 
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height_infos = sort_by_epoch(self.height_infos.clone());
+        let height_infos = sort_by_epoch(&self.height_infos);
         let height = height_infos
             .iter()
             .rev()
@@ -254,7 +235,7 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        let height_infos = sort_by_epoch(self.height_infos.clone());
+        let height_infos = sort_by_epoch(&self.height_infos);
         height_infos
             .iter()
             .find(|info| height == info.height)
