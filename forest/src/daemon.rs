@@ -24,7 +24,7 @@ use fvm_shared::version::NetworkVersion;
 use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
-use raw_sync::events::*;
+use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use std::sync::atomic::Ordering;
 
@@ -44,7 +44,7 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
-fn set_event() {
+fn unblock_parent_process() {
     let ptr = super::SHMEM_PTR.load(Ordering::Relaxed);
     if ptr.is_null() {
         return;
@@ -321,7 +321,7 @@ pub(super) async fn start(config: Config) {
     } else {
         debug!("RPC disabled.");
     };
-    set_event();
+    unblock_parent_process();
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},

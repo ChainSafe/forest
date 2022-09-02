@@ -11,7 +11,8 @@ use cli::{cli_error_and_die, Cli, DaemonConfig};
 use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::{error, info};
-use raw_sync::{events::*, Timeout};
+use raw_sync::events::{Event, EventInit};
+use raw_sync::Timeout;
 use shared_memory::{Shmem, ShmemConf};
 use structopt::StructOpt;
 
