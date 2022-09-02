@@ -203,7 +203,7 @@ pub(super) async fn start(config: Config) {
             return;
         },
     }
-    task::sleep(Duration::from_secs(5)).await;
+    //task::sleep(Duration::from_secs(5)).await;
     set_event();
 
     // Terminate if no snapshot is provided or DB isn't recent enough
