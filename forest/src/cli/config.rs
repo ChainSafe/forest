@@ -5,6 +5,7 @@ use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::client::Client;
@@ -15,10 +16,10 @@ pub struct DaemonConfig {
     pub user: Option<String>,
     pub group: Option<String>,
     pub umask: u16,
-    pub stdout: Option<String>,
-    pub stderr: Option<String>,
+    pub stdout: Option<PathBuf>,
+    pub stderr: Option<PathBuf>,
     pub work_dir: String,
-    pub pid_file: Option<String>,
+    pub pid_file: Option<PathBuf>,
 }
 
 impl Default for DaemonConfig {
