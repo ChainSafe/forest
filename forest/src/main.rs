@@ -107,8 +107,9 @@ fn main() {
                 if opts.detach {
                     create_ipc_lock();
                     info!(
-                        "Redirecting stdout and stderr to files {:?} and {:?}.",
-                        &cfg.daemon.stdout, &cfg.daemon.stderr
+                        "Redirecting stdout and stderr to files {} and {}.",
+                        cfg.daemon.stdout.to_string_lossy(),
+                        cfg.daemon.stderr.to_string_lossy()
                     );
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
