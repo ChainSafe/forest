@@ -10,7 +10,7 @@ use cli::{cli_error_and_die, Cli, DaemonConfig};
 
 use async_std::task;
 use daemonize_me::{Daemon, DaemonError, Group, User};
-use log::{error, info};
+use log::info;
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
@@ -72,8 +72,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
         let ret = event.wait(EVENT_TIMEOUT);
         drop(shmem); // Delete the local link and the shared memory object.
         if let Err(e) = ret {
-            error!("Event error: {e}");
-            process::exit(1);
+            cli_error_and_die(format!("Error unblocking process. Error was: {e}. Check the log file for details."), 1);
         }
         info!("Forest has been detached and runs in the background.");
         process::exit(0);
