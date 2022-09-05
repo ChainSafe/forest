@@ -41,8 +41,8 @@ s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
 
-cp upload_snapshot.sh "$BASE_FOLDER"
-chmod +x "$BASE_FOLDER"/upload_snapshot.sh
+cp -r ruby_common upload_snapshot.sh /scripts/
+chmod +x /scripts/upload_snapshot.sh
 
 docker-compose down
 docker-compose up --build --force-recreate --detach

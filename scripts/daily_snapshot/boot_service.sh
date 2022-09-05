@@ -14,4 +14,5 @@ screen -S daily_snapshot -d -R \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$BASE_FOLDER":"$BASE_FOLDER":rshared \
+    --mount 'type=volume,src=scripts,dst=/scripts' \
     ghcr.io/chainsafe/sync-snapshot

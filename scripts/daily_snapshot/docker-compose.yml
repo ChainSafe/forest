@@ -9,6 +9,9 @@ services:
       - type: bind
         source: ${BASE_FOLDER}
         target: ${BASE_FOLDER}
+      - type: volume
+        source: scripts
+        target: /scripts
     entrypoint: ["/bin/bash", "-c"]
     environment:
       - SLACK_HOOK
@@ -16,7 +19,7 @@ services:
     command:
       - |
         export CHAIN_NAME=calibnet
-        $BASE_FOLDER/upload_snapshot.sh
+        /scripts/upload_snapshot.sh
         sleep infinity
     restart: unless-stopped
     labels:
@@ -27,3 +30,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --label-enable --include-stopped --revive-stopped --stop-timeout 120s --interval 600
     restart: unless-stopped
+
+volumes:
+  scripts:
+    external: true
