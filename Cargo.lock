@@ -1453,9 +1453,9 @@ dependencies = [
 
 [[package]]
 name = "cs_serde_bytes"
-version = "0.12.0"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebca5e1e931005a5d90cc90831a22619c94fdeb645435c22eae52956dee29675"
+checksum = "5fc673ddabf48214550526b068dc28065a75f05e21e452880095247c635b1d91"
 dependencies = [
  "serde",
 ]
@@ -2518,6 +2518,7 @@ dependencies = [
  "rug",
  "serde",
  "serde_json",
+ "strfmt",
  "structopt",
  "tempfile",
  "ticker",
@@ -2751,6 +2752,7 @@ dependencies = [
  "cid",
  "forest_encoding",
  "fvm_ipld_blockstore",
+ "log",
  "num_cpus",
  "parking_lot 0.12.1",
  "rocksdb",
@@ -7898,6 +7900,12 @@ dependencies = [
  "storage-proofs-porep",
  "yastl",
 ]
+
+[[package]]
+name = "strfmt"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26cdabcdab6da7e8c2ac1160e917ec83e78bbe3e10325e17d532718c67a4828f"
 
 [[package]]
 name = "strobe-rs"

@@ -13,22 +13,22 @@ use std::ops::SubAssign;
 use Selector::*;
 
 /// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
-/// Selectors are themselves IPLD and can be serialized and deserialized as such.
+/// Selectors are themselves IPLD and can be serialized and de-serialized as such.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Selector {
-    /// Matcher marks a node to be included in the "result" set.
+    /// `Matcher` marks a node to be included in the "result" set.
     /// (All nodes traversed by a selector are in the "covered" set (which is a.k.a.
-    /// "the merkle proof"); the "result" set is a subset of the "covered" set.)
+    /// "the Merkle proof"); the "result" set is a subset of the "covered" set.)
     ///
     /// In libraries using selectors, the "result" set is typically provided to
     /// some user-specified callback.
     ///
-    /// A selector tree with only "explore*"-type selectors and no Matcher selectors
+    /// A selector tree with only "explore*"-type selectors and no `Matcher` selectors
     /// is valid; it will just generate a "covered" set of nodes and no "result" set.
     #[serde(rename = ".", with = "empty_map")]
     Matcher,
 
-    /// ExploreAll is similar to a `*` -- it traverses all elements of an array,
+    /// `ExploreAll` is similar to a `*` -- it traverses all elements of an array,
     /// or all entries in a map, and applies a next selector to the reached nodes.
     #[serde(rename = "a")]
     ExploreAll {
@@ -36,12 +36,12 @@ pub enum Selector {
         next: Box<Selector>,
     },
 
-    /// ExploreFields traverses named fields in a map (or equivalently, struct, if
+    /// `ExploreFields` traverses named fields in a map (or equivalently, structure, if
     /// traversing on typed/schema nodes) and applies a next selector to the
     /// reached nodes.
     ///
-    /// Note that a concept of exploring a whole path (e.g. "foo/bar/baz") can be
-    /// represented as a set of three nexted ExploreFields selectors, each
+    /// Note that a concept of exploring a whole path (e.g. "path/to/file") can be
+    /// represented as a set of three nested `ExploreFields` selectors, each
     /// specifying one field.
     ///
     /// Fields insertion order is maintained and traversed using that order.
@@ -51,7 +51,7 @@ pub enum Selector {
         fields: IndexMap<String, Selector>,
     },
 
-    /// ExploreIndex traverses a specific index in a list, and applies a next
+    /// `ExploreIndex` traverses a specific index in a list, and applies a next
     /// selector to the reached node.
     #[serde(rename = "i")]
     ExploreIndex {
@@ -61,7 +61,7 @@ pub enum Selector {
         next: Box<Selector>,
     },
 
-    /// ExploreRange traverses a list, and for each element in the range specified,
+    /// `ExploreRange` traverses a list, and for each element in the range specified,
     /// will apply a next selector to those reached nodes.
     #[serde(rename = "r")]
     ExploreRange {
@@ -73,36 +73,36 @@ pub enum Selector {
         next: Box<Selector>,
     },
 
-    /// ExploreRecursive traverses some structure recursively.
+    /// `ExploreRecursive` traverses some structure recursively.
     /// To guide this exploration, it uses a "sequence", which is another Selector
-    /// tree; some leaf node in this sequence should contain an ExploreRecursiveEdge
+    /// tree; some leaf node in this sequence should contain an `ExploreRecursiveEdge`
     /// selector, which denotes the place recursion should occur.
     ///
-    /// In implementation, whenever evaluation reaches an ExploreRecursiveEdge marker
+    /// In implementation, whenever evaluation reaches an `ExploreRecursiveEdge` marker
     /// in the recursion sequence's Selector tree, the implementation logically
     /// produces another new Selector which is a copy of the original
-    /// ExploreRecursive selector, but with a decremented depth parameter for limit
-    /// (if limit is of type depth), and continues evaluation thusly.
+    /// `ExploreRecursive` selector, but with a decremented depth parameter for limit
+    /// (if limit is of type depth), and continues evaluation.
     ///
-    /// It is not valid for an ExploreRecursive selector's sequence to contain
-    /// no instances of ExploreRecursiveEdge; it *is* valid for it to contain
-    /// more than one ExploreRecursiveEdge.
+    /// It is not valid for an `ExploreRecursive` selector's sequence to contain
+    /// no instances of `ExploreRecursiveEdge`; it *is* valid for it to contain
+    /// more than one `ExploreRecursiveEdge`.
     ///
-    /// ExploreRecursive can contain a nested ExploreRecursive!
+    /// `ExploreRecursive` can contain a nested `ExploreRecursive`!
     /// This is comparable to a nested for-loop.
-    /// In these cases, any ExploreRecursiveEdge instance always refers to the
-    /// nearest parent ExploreRecursive (in other words, ExploreRecursiveEdge can
+    /// In these cases, any `ExploreRecursiveEdge` instance always refers to the
+    /// nearest parent `ExploreRecursive` (in other words, `ExploreRecursiveEdge` can
     /// be thought of like the 'continue' statement, or end of a for-loop body;
-    /// it is *not* a 'goto' statement).
+    /// it is *not* a `goto` statement).
     ///
-    /// Be careful when using ExploreRecursive with a large depth limit parameter;
+    /// Be careful when using `ExploreRecursive` with a large depth limit parameter;
     /// it can easily cause very large traversals (especially if used in combination
-    /// with selectors like ExploreAll inside the sequence).
+    /// with selectors like `ExploreAll` inside the sequence).
     ///
     /// limit is a union type -- it can have an integer depth value (key "depth") or
     /// no value (key "none"). If limit has no value it is up to the
     /// implementation library using selectors to identify an appropriate max depth
-    /// as neccesary so that recursion is not infinite
+    /// as necessary so that recursion is not infinite
     #[serde(rename = "R")]
     ExploreRecursive {
         #[serde(rename = ":>")]
@@ -117,24 +117,24 @@ pub enum Selector {
         current: Option<Box<Selector>>,
     },
 
-    /// ExploreUnion allows selection to continue with two or more distinct selectors
+    /// `ExploreUnion` allows selection to continue with two or more distinct selectors
     /// while exploring the same tree of data.
     ///
-    /// ExploreUnion can be used to apply a Matcher on one node (causing it to
-    /// be considered part of a (possibly labelled) result set), while simultaneously
+    /// `ExploreUnion` can be used to apply a `Matcher` on one node (causing it to
+    /// be considered part of a (possibly labeled) result set), while simultaneously
     /// continuing to explore deeper parts of the tree with another selector,
     /// for example.
     #[serde(rename = "|")]
     ExploreUnion(Vec<Selector>),
 
-    /// ExploreRecursiveEdge is a special sentinel value which is used to mark
-    /// the end of a sequence started by an ExploreRecursive selector: the recursion
-    /// goes back to the initial state of the earlier ExploreRecursive selector,
-    /// and proceeds again (with a decremented maxDepth value).
+    /// `ExploreRecursiveEdge` is a special sentinel value which is used to mark
+    /// the end of a sequence started by an `ExploreRecursive` selector: the recursion
+    /// goes back to the initial state of the earlier `ExploreRecursive` selector,
+    /// and proceeds again (with a decremented `maxDepth` value).
     ///
-    /// An ExploreRecursive selector that doesn't contain an ExploreRecursiveEdge
-    /// is nonsensical.  Containing more than one ExploreRecursiveEdge is valid.
-    /// An ExploreRecursiveEdge without an enclosing ExploreRecursive is an error.
+    /// An `ExploreRecursive` selector that doesn't contain an `ExploreRecursiveEdge`
+    /// is nonsensical.  Containing more than one `ExploreRecursiveEdge` is valid.
+    /// An `ExploreRecursiveEdge` without an enclosing `ExploreRecursive` is an error.
     #[serde(rename = "@", with = "empty_map")]
     ExploreRecursiveEdge,
     //* No conditional explore impl exists, ignore for now
@@ -168,14 +168,14 @@ impl SubAssign<u64> for RecursionLimit {
 /// Condition is expresses a predicate with a boolean result.
 ///
 /// Condition clauses are used several places:
-///   - in Matcher, to determine if a node is selected.
-///   - in ExploreRecursive, to halt exploration.
-///   - in ExploreConditional,
+///   - in `Matcher`, to determine if a node is selected.
+///   - in `ExploreRecursive`, to halt exploration.
+///   - in `ExploreConditional`,
 ///
 ///
-/// TODO -- Condition is very skeletal and incomplete.
-/// The place where Condition appears in other structs is correct;
-/// the rest of the details inside it are not final nor even completely drafted.
+// TODO -- Condition is very skeletal and incomplete.
+// TODO -- The place where Condition appears in other structures is correct;
+// TODO -- the rest of the details inside it are not final nor even completely drafted.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Condition {
     #[serde(rename = "hasField")]
@@ -344,7 +344,7 @@ impl Selector {
         }
     }
 
-    /// Returns true if matcher, false otherwise
+    /// Returns true if `matcher`, false otherwise
     pub fn decide(&self) -> bool {
         match self {
             Matcher => true,

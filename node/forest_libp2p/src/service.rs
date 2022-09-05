@@ -118,7 +118,7 @@ pub enum NetRPCMethods {
     NetDisconnect(OneShotSender<()>, PeerId),
 }
 
-/// The `Libp2pService` listens to events from the Libp2p swarm.
+/// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
@@ -402,7 +402,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     }
 }
 
-/// Builds the transport stack that LibP2P will communicate over.
+/// Builds the transport stack that libp2p will communicate over.
 pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::TcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));

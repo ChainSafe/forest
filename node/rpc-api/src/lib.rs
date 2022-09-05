@@ -42,6 +42,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_BEACON, Access::Read);
+    access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_ESTIMATE_GAS_PRICE, Access::Read);
@@ -235,6 +236,10 @@ pub mod chain_api {
     pub const CHAIN_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.ChainGetRandomnessFromBeacon";
     pub type ChainGetRandomnessFromBeaconParams = (TipsetKeysJson, i64, ChainEpoch, Option<String>);
     pub type ChainGetRandomnessFromBeaconResult = [u8; 32];
+
+    pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
+    pub type ChainGetNameParams = ();
+    pub type ChainGetNameResult = String;
 }
 
 /// Message Pool API

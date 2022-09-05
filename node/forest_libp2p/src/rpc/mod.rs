@@ -35,7 +35,7 @@ impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
     }
 }
 
-/// libp2p request response outbound error type. This indicates a failure sending a request to
+/// Libp2p request response outbound error type. This indicates a failure sending a request to
 /// a peer. This is different from a failure response from a node, as this is an error that
 /// prevented a response.
 ///

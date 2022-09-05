@@ -1,4 +1,4 @@
-name: Shell
+name: Scripts
 
 on:
   pull_request:
@@ -17,3 +17,10 @@ jobs:
     - name: Run shellcheck
       uses: ludeeus/action-shellcheck@1.1.0
       args: --external-sources
+  rubocop:
+    runs-on: ubuntu-latest
+    steps:
+    - name: RuboCop Linter Action
+      uses: andrewmcodes/rubocop-linter-action@v3.3.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

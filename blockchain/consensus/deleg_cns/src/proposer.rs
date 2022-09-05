@@ -1,7 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
-use async_std::stream::interval;
+use async_std::{
+    stream::interval,
+    task::{self, JoinHandle},
+};
 use async_trait::async_trait;
 use core::time::Duration;
 use futures::StreamExt;
@@ -94,6 +97,26 @@ impl DelegatedProposer {
 
 #[async_trait]
 impl Proposer for DelegatedProposer {
+    async fn spawn<DB, MP>(
+        self,
+        state_manager: Arc<StateManager<DB>>,
+        mpool: Arc<MP>,
+        submitter: SyncGossipSubmitter,
+    ) -> anyhow::Result<Vec<JoinHandle<()>>>
+    where
+        DB: BlockStore + Sync + Send + 'static,
+        MP: MessagePoolApi + Send + Sync + 'static,
+    {
+        let running = task::spawn(async move {
+            if let Err(e) = self.run(state_manager, mpool.as_ref(), &submitter).await {
+                error!("block proposal stopped: {}", e)
+            }
+        });
+        Ok(vec![running])
+    }
+}
+
+impl DelegatedProposer {
     async fn run<DB, MP>(
         self,
         state_manager: Arc<StateManager<DB>>,

@@ -1,14 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::{block_until_sigint, Config, FOREST_VERSION_STRING};
+use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
-use async_std::net::TcpListener;
-use async_std::task::JoinHandle;
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
+use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -22,11 +21,11 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
-use async_std::{channel::bounded, sync::RwLock, task};
+use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
+use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
 
-use forest_db::rocks::RocksDb;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -45,6 +44,8 @@ use forest_deleg_cns::composition as cns;
 
 /// Starts daemon process
 pub(super) async fn start(config: Config) {
+    let mut ctrlc_oneshot = set_sigint_handler();
+
     info!(
         "Starting Forest daemon, version {}",
         FOREST_VERSION_STRING.as_str()
@@ -117,26 +118,33 @@ pub(super) async fn start(config: Config) {
             .unwrap();
     }
 
-    // Start Prometheus server port
-    let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-        .await
-        .unwrap_or_else(|_| {
-            cli_error_and_die(
-                format!("could not bind to {}", config.client.metrics_address),
-                1,
-            )
-        });
-    info!(
-        "Prometheus server started at {}",
-        config.client.metrics_address
-    );
-    let prometheus_server_task = task::spawn(forest_metrics::init_prometheus(
-        prometheus_listener,
-        db_path(&config)
+    let mut services = vec![];
+
+    {
+        // Start Prometheus server port
+        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
+            .await
+            .unwrap_or_else(|_| {
+                cli_error_and_die(
+                    format!("could not bind to {}", config.client.metrics_address),
+                    1,
+                )
+            });
+        info!(
+            "Prometheus server started at {}",
+            config.client.metrics_address
+        );
+        let db_directory = db_path(&config)
             .into_os_string()
             .into_string()
-            .expect("Failed converting the path to db"),
-    ));
+            .expect("Failed converting the path to db");
+        services.push(task::spawn(async {
+            if let Err(e) = forest_metrics::init_prometheus(prometheus_listener, db_directory).await
+            {
+                error!("Failed to initiate prometheus server: {e}");
+            }
+        }));
+    }
 
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
@@ -185,41 +193,9 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
-    sync_from_snapshot(&config, &state_manager).await;
+    let (tipset_sink, tipset_stream) = bounded(20);
 
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                1,
-            );
-        }
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                cli_error_and_die(
-                   "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                    1,
-                );
-            }
-        }
-    }
-
-    // Fetch and ensure verification keys are downloaded
-    if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
-            .await
-            .unwrap();
-    }
-
-    // Override bootstrap peers
+    // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
         let bootstrap_peers = config
             .chain
@@ -240,29 +216,29 @@ pub(super) async fn start(config: Config) {
 
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
-        config.network,
+        config.network.clone(),
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
     );
+
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
 
-    let (tipset_sink, tipset_stream) = bounded(20);
-
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let mpool = Arc::new(
-        MessagePool::new(
-            provider,
-            network_name.clone(),
-            network_send.clone(),
-            MpoolConfig::load_config(&db).unwrap(),
-            Arc::clone(state_manager.chain_config()),
-        )
-        .await
-        .unwrap(),
-    );
+    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
+        provider,
+        network_name.clone(),
+        network_send.clone(),
+        MpoolConfig::load_config(&db).unwrap(),
+        Arc::clone(state_manager.chain_config()),
+    )
+    .await
+    .unwrap();
+    services.push(head_changes_task);
+    services.push(republish_task);
+    let mpool = Arc::new(mpool);
 
     // For consensus types that do mining, create a component to submit their proposals.
     let submitter = SyncGossipSubmitter::new(
@@ -272,8 +248,11 @@ pub(super) async fn start(config: Config) {
     );
 
     // Initialize Consensus. Mining may or may not happen, depending on type.
-    let (consensus, mining_task) =
-        cns::consensus(&state_manager, &keystore, &mpool, submitter).await;
+    let (consensus, mut mining_tasks) =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter)
+            .await
+            .unwrap();
+    services.append(&mut mining_tasks);
 
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
@@ -286,64 +265,124 @@ pub(super) async fn start(config: Config) {
         Arc::new(genesis),
         chain_muxer_tipset_sink,
         tipset_stream,
-        config.sync,
+        config.sync.clone(),
     )
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    let sync_task = task::spawn(chain_muxer);
+    services.push(task::spawn(async {
+        chain_muxer.await;
+    }));
 
     // Start services
-    let p2p_task = task::spawn(async {
-        p2p_service.run().await;
-    });
-    let rpc_task = if config.client.enable_rpc {
+    if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = TcpListener::bind(&config.client.rpc_address)
             .await
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
-        Some(task::spawn(async move {
+        let rpc_state_manager = Arc::clone(&state_manager);
+        let rpc_chain_store = Arc::clone(&chain_store);
+
+        services.push(task::spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
+            // XXX: The JSON error message are a nightmare to print.
+            let _ = start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
                 Arc::new(RPCState {
-                    state_manager: Arc::clone(&state_manager),
+                    state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
                     mpool,
                     bad_blocks,
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
-                    chain_store,
+                    beacon: rpc_state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
+                    chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
             )
-            .await
+            .await;
         }))
     } else {
         debug!("RPC disabled.");
-        None
     };
 
+    select! {
+        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        _ = ctrlc_oneshot => {
+            // Cancel all async services
+            for handle in services {
+                handle.cancel().await;
+            }
+            return;
+        },
+    }
+
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => {
+            cli_error_and_die(
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                1,
+            );
+        }
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                cli_error_and_die(
+                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    1,
+                );
+            }
+        }
+    }
+
+    // Halt
+    if config.client.halt_after_import {
+        info!("Forest finish shutdown");
+        return;
+    }
+
+    // Fetch and ensure verification keys are downloaded
+    if cns::FETCH_PARAMS {
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
+        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
+            .await
+            .unwrap();
+    }
+
+    services.push(task::spawn(p2p_service.run()));
+
+    let db_weak_ref = Arc::downgrade(&db.db);
+    drop(db);
+
     // Block until ctrl-c is hit
-    block_until_sigint().await;
+    ctrlc_oneshot.await.unwrap();
 
     let keystore_write = task::spawn(async move {
         keystore.read().await.flush().unwrap();
     });
 
     // Cancel all async services
-    maybe_cancel(mining_task).await;
-    prometheus_server_task.cancel().await;
-    sync_task.cancel().await;
-    p2p_task.cancel().await;
-    maybe_cancel(rpc_task).await;
+    for handle in services {
+        handle.cancel().await;
+    }
     keystore_write.await;
 
-    info!("Forest finish shutdown.");
+    if db_weak_ref.strong_count() != 0 {
+        error!(
+            "Dangling reference to DB detected: {}. Please report this as a bug at https://github.com/ChainSafe/forest/issues",
+            db_weak_ref.strong_count()
+        );
+    }
+    info!("Forest finish shutdown");
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
@@ -354,6 +393,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         } else {
             Some(0)
         };
+
         import_chain::<FullVerifier, _>(
             state_manager,
             path,
@@ -362,13 +402,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         )
         .await
         .expect("Failed miserably while importing chain from snapshot");
-        debug!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-    }
-}
-
-async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
-    if let Some(t) = mt {
-        t.cancel().await;
+        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
     }
 }
 

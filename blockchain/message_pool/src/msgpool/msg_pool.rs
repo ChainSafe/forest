@@ -165,13 +165,20 @@ where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
     /// Creates a new `MessagePool` instance.
-    pub async fn new(
+    pub async fn with_tasks(
         mut api: T,
         network_name: String,
         network_sender: Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-    ) -> Result<MessagePool<T>, Error>
+    ) -> Result<
+        (
+            MessagePool<T>,
+            async_std::task::JoinHandle<()>,
+            async_std::task::JoinHandle<()>,
+        ),
+        Error,
+    >
     where
         T: Provider,
     {
@@ -219,7 +226,7 @@ where
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
         // Reacts to new HeadChanges
-        task::spawn(async move {
+        let head_changes_task = task::spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(ts) => {
@@ -268,7 +275,7 @@ where
         let network_name = mp.network_name.clone();
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
         // Reacts to republishing requests
-        task::spawn(async move {
+        let republish_task = task::spawn(async move {
             let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 select(interval.next(), repub_trigger_rx.next()).await;
@@ -288,7 +295,23 @@ where
                 }
             }
         });
-        Ok(mp)
+        Ok((mp, head_changes_task, republish_task))
+    }
+
+    /// Creates a new `MessagePool` instance.
+    pub async fn new(
+        api: T,
+        network_name: String,
+        network_sender: Sender<NetworkMessage>,
+        config: MpoolConfig,
+        chain_config: Arc<ChainConfig>,
+    ) -> Result<MessagePool<T>, Error>
+    where
+        T: Provider,
+    {
+        let (mpool, _, _) =
+            Self::with_tasks(api, network_name, network_sender, config, chain_config).await?;
+        Ok(mpool)
     }
 
     /// Add a signed message to the pool and its address.
