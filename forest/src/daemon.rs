@@ -26,7 +26,6 @@ use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use std::sync::atomic::Ordering;
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -46,13 +45,12 @@ use forest_deleg_cns::composition as cns;
 
 // In case we do not detach the shmem pointer is still null and we just bail out
 fn unblock_parent_process() {
-    let ptr = super::SHMEM_PTR.load(Ordering::Relaxed);
-    if ptr.is_null() {
-        return;
-    }
-    let (event, _) = unsafe { Event::from_existing(ptr).expect("from_existing must succeed") };
+    let shmem = super::ipc_shmem_conf().open().expect("open must succeed");
+    let (event, _) =
+        unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
 
     event.set(EventState::Signaled).expect("set must succeed");
+    info!("Parent unblocked");
 }
 
 /// Starts daemon process

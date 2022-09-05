@@ -13,29 +13,35 @@ use daemonize_me::{Daemon, DaemonError, Group, User};
 use log::{error, info};
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
-use shared_memory::{Shmem, ShmemConf};
+use shared_memory::ShmemConf;
 use structopt::StructOpt;
 
 use std::fs::File;
-use std::mem;
 use std::process;
-use std::sync::atomic::{AtomicPtr, Ordering};
 use std::time::Duration;
 
-static SHMEM_PTR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
+const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
-const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(4));
+// The parent process and the daemonized child communicate through an Event in
+// shared memory. The identity of the shared memory object is written to a local
+// file named .forest_daemon_ipc. The parent process is responsible for cleaning
+// up the local file and the shared memory object.
+fn ipc_shmem_conf() -> ShmemConf {
+    ShmemConf::new()
+        .size(Event::size_of(None))
+        .force_create_flink()
+        .flink(".forest_daemon_ipc")
+}
 
-fn create_event() -> Shmem {
-    let shmem = ShmemConf::new()
-        .size(mem::size_of::<Event>())
-        .create()
-        .expect("create must succeed");
-    SHMEM_PTR.store(shmem.as_ptr(), Ordering::Relaxed);
+// Initiate an Event object in shared memory.
+fn create_ipc_lock() {
+    let mut shmem = ipc_shmem_conf().create().expect("create must succeed");
+    // The shared memory object will not be deleted when 'shmen' is dropped
+    // because we're not the owner.
+    shmem.set_owner(false);
     unsafe {
         Event::new(shmem.as_ptr(), true).expect("new must succeed");
     }
-    shmem
 }
 
 fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
@@ -59,17 +65,17 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     }
 
     daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
-        let (event, _) = unsafe {
-            Event::from_existing(SHMEM_PTR.load(Ordering::Relaxed))
-                .expect("from_existing must succeed")
-        };
-        if let Err(e) = event.wait(EVENT_TIMEOUT) {
+        let mut shmem = ipc_shmem_conf().open().expect("create must succeed");
+        shmem.set_owner(true);
+        let (event, _) =
+            unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
+        let ret = event.wait(EVENT_TIMEOUT);
+        drop(shmem); // Delete the local link and the shared memory object.
+        if let Err(e) = ret {
             error!("Event error: {e}");
             process::exit(1);
         }
-
-        info!("Exiting");
-
+        info!("Forest has been detached and runs in the background.");
         process::exit(0);
     });
 
@@ -89,8 +95,8 @@ fn main() {
                 task::block_on(subcommand::process(command, cfg));
             }
             None => {
-                let _shmem = if opts.detach {
-                    let shmem = create_event();
+                if opts.detach {
+                    create_ipc_lock();
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
                             cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)
@@ -102,10 +108,7 @@ fn main() {
                             cli_error_and_die(format!("Error when detaching. Error was: {e}"), 1);
                         }
                     }
-                    Some(shmem)
-                } else {
-                    None
-                };
+                }
                 task::block_on(daemon::start(cfg));
             }
         },
