@@ -50,7 +50,6 @@ fn unblock_parent_process() {
             unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
 
         event.set(EventState::Signaled).expect("set must succeed");
-        info!("Parent unblocked");
     }
 }
 
