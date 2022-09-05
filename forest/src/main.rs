@@ -30,7 +30,7 @@ fn ipc_shmem_conf() -> ShmemConf {
     ShmemConf::new()
         .size(Event::size_of(None))
         .force_create_flink()
-        .flink(".forest_daemon_ipc")
+        .flink(std::env::temp_dir().join("forest_daemon_ipc"))
 }
 
 // Initiate an Event object in shared memory.
