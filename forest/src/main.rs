@@ -65,7 +65,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     }
 
     daemon = daemon.setup_post_fork_parent_hook(|_parent_pid, _child_pid| {
-        let mut shmem = ipc_shmem_conf().open().expect("create must succeed");
+        let mut shmem = ipc_shmem_conf().open().expect("open must succeed");
         shmem.set_owner(true);
         let (event, _) =
             unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
