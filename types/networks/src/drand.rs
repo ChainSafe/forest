@@ -3,6 +3,7 @@
 
 use forest_beacon::DrandConfig;
 use forest_beacon::DrandNetwork;
+use lazy_static::lazy_static;
 
 lazy_static! {
     pub(super) static ref DRAND_MAINNET: DrandConfig<'static> = DrandConfig {

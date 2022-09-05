@@ -19,6 +19,7 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use git_version::git_version;
+use lazy_static::lazy_static;
 use libp2p::ping::{Ping, PingEvent};
 use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,

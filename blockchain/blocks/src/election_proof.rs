@@ -5,6 +5,7 @@ use forest_crypto::VRFProof;
 use forest_encoding::{blake2b_256, tuple::*};
 use fvm_shared::bigint::{BigInt, Integer, ParseBigIntError, Sign};
 use fvm_shared::BLOCKS_PER_EPOCH;
+use lazy_static::lazy_static;
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;
