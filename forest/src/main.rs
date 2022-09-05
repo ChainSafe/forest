@@ -45,15 +45,17 @@ fn create_ipc_lock() {
 }
 
 fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
-    let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
+    let mut daemon = Daemon::new()
+        .umask(config.umask)
+        .work_dir(&config.work_dir)
+        .stdout(File::create(&config.stdout)?)
+        .stderr(File::create(&config.stderr)?);
     if let Some(user) = &config.user {
         daemon = daemon.user(User::try_from(user)?)
     }
     if let Some(group) = &config.group {
         daemon = daemon.group(Group::try_from(group)?)
     }
-    daemon = daemon.stdout(File::create(&config.stdout)?);
-    daemon = daemon.stderr(File::create(&config.stderr)?);
     if let Some(path) = &config.pid_file {
         daemon = daemon.pid_file(path, Some(false))
     }
