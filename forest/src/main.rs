@@ -72,7 +72,12 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
         let ret = event.wait(EVENT_TIMEOUT);
         drop(shmem); // Delete the local link and the shared memory object.
         if let Err(e) = ret {
-            cli_error_and_die(format!("Error unblocking process. Error was: {e}. Check the log file for details."), 1);
+            cli_error_and_die(
+                format!(
+                    "Error unblocking process. Error was: {e}. Check the log file for details."
+                ),
+                1,
+            );
         }
         info!("Forest has been detached and runs in the background.");
         process::exit(0);
