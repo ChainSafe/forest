@@ -13,13 +13,12 @@ pub use self::error::*;
 pub use self::method::*;
 pub use self::token::*;
 
-#[macro_use]
-extern crate lazy_static;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use fvm_ipld_encoding::to_vec;
 use fvm_ipld_encoding::DAG_CBOR;
+use lazy_static::lazy_static;
 
 lazy_static! {
     /// CBOR bytes of an empty array serialized.
