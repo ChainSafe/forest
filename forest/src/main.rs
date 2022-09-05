@@ -52,14 +52,10 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     if let Some(group) = &config.group {
         daemon = daemon.group(Group::try_from(group)?)
     }
-    if let Some(path) = &config.stdout {
-        let file = File::create(path).expect("File creation {path} must succeed");
-        daemon = daemon.stdout(file)
-    }
-    if let Some(path) = &config.stderr {
-        let file = File::create(path).expect("File creation {path} must succeed");
-        daemon = daemon.stderr(file)
-    }
+    let file = File::create(&config.stdout).expect("File creation {&config.stdout} must succeed");
+    daemon = daemon.stdout(file);
+    let file = File::create(&config.stderr).expect("File creation {&config.stderr} must succeed");
+    daemon = daemon.stderr(file);
     if let Some(path) = &config.pid_file {
         daemon = daemon.pid_file(path, Some(false))
     }
@@ -101,6 +97,10 @@ fn main() {
             None => {
                 if opts.detach {
                     create_ipc_lock();
+                    info!(
+                        "Redirecting stdout and stderr to files {:?} and {:?}.",
+                        &cfg.daemon.stdout, &cfg.daemon.stderr
+                    );
                     let result = build_daemon(&cfg.daemon)
                         .unwrap_or_else(|e| {
                             cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)

@@ -16,8 +16,8 @@ pub struct DaemonConfig {
     pub user: Option<String>,
     pub group: Option<String>,
     pub umask: u16,
-    pub stdout: Option<PathBuf>,
-    pub stderr: Option<PathBuf>,
+    pub stdout: PathBuf,
+    pub stderr: PathBuf,
     pub work_dir: String,
     pub pid_file: Option<PathBuf>,
 }
@@ -28,8 +28,8 @@ impl Default for DaemonConfig {
             user: None,
             group: None,
             umask: 0o027,
-            stdout: Some("output.log".into()),
-            stderr: Some("error.log".into()),
+            stdout: "forest.out".into(),
+            stderr: "forest.err".into(),
             work_dir: ".".into(),
             pid_file: None,
         }
