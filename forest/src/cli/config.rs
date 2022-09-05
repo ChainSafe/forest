@@ -18,7 +18,7 @@ pub struct DaemonConfig {
     pub umask: u16,
     pub stdout: PathBuf,
     pub stderr: PathBuf,
-    pub work_dir: String,
+    pub work_dir: PathBuf,
     pub pid_file: Option<PathBuf>,
 }
 
