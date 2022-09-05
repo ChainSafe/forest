@@ -4,50 +4,25 @@ set -e
 
 DETACH_TIMEOUT=10m
 SYNC_TIMEOUT=25m
-UPLOAD_INTERVAL=4h
 
-apt-get install -y curl
-
-report() {
-    curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"❌  $CHAIN_NAME snapshot export failure!\"}" "$SLACK_HOOK"
-}
-trap 'report' ERR
+CHAIN_NAME=$1
+NEWEST_SNAPSHOT=$2
 
 cd "$BASE_FOLDER"
 
-while true
-do
-  # Scan through the available snapshot files and find the newest one.
-  files=("$BASE_FOLDER"/s3/"$CHAIN_NAME"/*)
-  NEWEST_SNAPSHOT=${files[0]}
-  for f in "${files[@]}"; do
-    if [[ $f -nt $NEWEST_SNAPSHOT ]]; then
-      NEWEST_SNAPSHOT=$f
-    fi
-  done
+forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain "$CHAIN_NAME" --import-snapshot "$NEWEST_SNAPSHOT" &
+FOREST_PID=$!
 
-  if [[ "$(date -r "$NEWEST_SNAPSHOT" +%F)" != "$(date +%F)" ]]; then
-      forest --encrypt-keystore false --metrics-address 0.0.0.0:6116 --chain "$CHAIN_NAME" --import-snapshot "$NEWEST_SNAPSHOT" &
-      FOREST_PID=$! 
+# Wait for the RPC endpoint to be available. Remove this once Forest support the --detach flag.
+sleep "$DETACH_TIMEOUT"
 
-      # Wait for the RPC endpoint to be available. Remove this once Forest support the --detach flag.
-      sleep "$DETACH_TIMEOUT"
+# Wait for forest node to be completely synced.
+timeout "$SYNC_TIMEOUT" forest sync wait
+echo "Synced to calibnet"
 
-      # Wait for forest node to be completely synced.
-      timeout "$SYNC_TIMEOUT" forest sync wait
-      echo "Synced to calibnet"
-
-      echo "No recent snapshot. Exporting new snapshot."
-      forest chain export
-      echo "Export done. Uploading.."
-      mv ./forest_snapshot* s3/calibnet/
-      echo "Upload done."
-      curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"✅ $CHAIN_NAME snapshot uploaded! 💪🌲!\"}" "$SLACK_HOOK"
-
-      kill "$FOREST_PID"
-  else
-      echo "We already have a snapshot for today. Skipping."
-  fi
-
-  sleep "$UPLOAD_INTERVAL"
-done
+echo "No recent snapshot. Exporting new snapshot."
+forest chain export
+echo "Export done. Uploading.."
+mv ./forest_snapshot* s3/calibnet/
+echo "Upload done."
+kill "$FOREST_PID"

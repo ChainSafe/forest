@@ -18,6 +18,8 @@ services:
       - BASE_FOLDER
     command:
       - |
+        sudo apt-get install -y ruby ruby-dev
+        sudo gem install docker-api slack-ruby-client
         export CHAIN_NAME=calibnet
         /scripts/upload_snapshot.sh
         sleep infinity

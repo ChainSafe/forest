@@ -20,7 +20,8 @@ check_env () {
 
 check_env "AWS_ACCESS_KEY_ID"
 check_env "AWS_SECRET_ACCESS_KEY"
-check_env "SLACK_HOOK"
+check_env "SLACK_API_TOKEN"
+check_env "FOREST_SLACK_NOTIF_CHANNEL"
 
 if [ "$error" -ne "0" ]; then
     echo "Please set the required environment variables and try again."
