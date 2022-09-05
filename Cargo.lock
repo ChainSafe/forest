@@ -2514,6 +2514,7 @@ dependencies = [
  "git-version",
  "hex",
  "jsonrpc-v2",
+ "lazy_static",
  "libp2p 0.46.1",
  "log",
  "multibase 0.9.1",

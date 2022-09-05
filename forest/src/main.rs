@@ -10,17 +10,26 @@ use cli::{cli_error_and_die, Cli, DaemonConfig};
 
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
+use lazy_static::lazy_static;
 use log::info;
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
 use structopt::StructOpt;
+use tempfile::{Builder, NamedTempFile};
 
 use std::fs::File;
 use std::process;
 use std::time::Duration;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
+
+lazy_static! {
+    pub static ref IPC_FILE: NamedTempFile = Builder::new()
+        .prefix("forest-ipc")
+        .tempfile()
+        .expect("tempfile must succeed");
+}
 
 // The parent process and the daemonized child communicate through an Event in
 // shared memory. The identity of the shared memory object is written to a local
@@ -30,7 +39,7 @@ fn ipc_shmem_conf() -> ShmemConf {
     ShmemConf::new()
         .size(Event::size_of(None))
         .force_create_flink()
-        .flink(std::env::temp_dir().join("forest_daemon_ipc"))
+        .flink(IPC_FILE.path())
 }
 
 // Initiate an Event object in shared memory.
