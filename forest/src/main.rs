@@ -9,7 +9,7 @@ mod subcommand;
 use cli::{cli_error_and_die, Cli, DaemonConfig};
 
 use async_std::task;
-use daemonize_me::{Daemon, DaemonError, Group, User};
+use daemonize_me::{Daemon, Group, User};
 use log::info;
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
@@ -44,7 +44,7 @@ fn create_ipc_lock() {
     }
 }
 
-fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
+fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     let mut daemon = Daemon::new().umask(config.umask).work_dir(&config.work_dir);
     if let Some(user) = &config.user {
         daemon = daemon.user(User::try_from(user)?)
@@ -52,10 +52,8 @@ fn build_daemon<'a>(config: &DaemonConfig) -> Result<Daemon<'a>, DaemonError> {
     if let Some(group) = &config.group {
         daemon = daemon.group(Group::try_from(group)?)
     }
-    let file = File::create(&config.stdout).expect("File creation {&config.stdout} must succeed");
-    daemon = daemon.stdout(file);
-    let file = File::create(&config.stderr).expect("File creation {&config.stderr} must succeed");
-    daemon = daemon.stderr(file);
+    daemon = daemon.stdout(File::create(&config.stdout)?);
+    daemon = daemon.stderr(File::create(&config.stderr)?);
     if let Some(path) = &config.pid_file {
         daemon = daemon.pid_file(path, Some(false))
     }
