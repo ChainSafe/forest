@@ -81,7 +81,7 @@ impl<'de> Deserialize<'de> for SyncStage {
             "idle worker" => SyncStage::Idle,
             "header sync" => SyncStage::Headers,
             "persisting headers" => SyncStage::PersistHeaders,
-            "message synce" => SyncStage::Messages,
+            "message sync" => SyncStage::Messages,
             "complete" => SyncStage::Complete,
             _ => SyncStage::Error,
         };
