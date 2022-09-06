@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
+use lazy_static::lazy_static;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -17,7 +18,7 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 ];
 
 /// Height epochs.
-pub const HEIGHT_INFOS: [HeightInfo; 18] = [
+pub const HEIGHT_INFOS: [HeightInfo; 17] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: -1,
@@ -57,10 +58,6 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     HeightInfo {
         height: Height::Orange,
         epoch: 300,
-    },
-    HeightInfo {
-        height: Height::Claus,
-        epoch: 270,
     },
     HeightInfo {
         height: Height::Trust,
