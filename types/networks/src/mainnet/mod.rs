@@ -6,7 +6,6 @@ use super::{
     DrandPoint, Height, HeightInfo,
 };
 use fvm_shared::clock::ChainEpoch;
-use lazy_static::lazy_static;
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 
