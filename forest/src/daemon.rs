@@ -21,7 +21,7 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
 
-use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task, task::JoinHandle};
+use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
 use rpassword::read_password;
@@ -118,26 +118,33 @@ pub(super) async fn start(config: Config) {
             .unwrap();
     }
 
-    // Start Prometheus server port
-    let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-        .await
-        .unwrap_or_else(|_| {
-            cli_error_and_die(
-                format!("could not bind to {}", config.client.metrics_address),
-                1,
-            )
-        });
-    info!(
-        "Prometheus server started at {}",
-        config.client.metrics_address
-    );
-    let prometheus_server_task = task::spawn(forest_metrics::init_prometheus(
-        prometheus_listener,
-        db_path(&config)
+    let mut services = vec![];
+
+    {
+        // Start Prometheus server port
+        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
+            .await
+            .unwrap_or_else(|_| {
+                cli_error_and_die(
+                    format!("could not bind to {}", config.client.metrics_address),
+                    1,
+                )
+            });
+        info!(
+            "Prometheus server started at {}",
+            config.client.metrics_address
+        );
+        let db_directory = db_path(&config)
             .into_os_string()
             .into_string()
-            .expect("Failed converting the path to db"),
-    ));
+            .expect("Failed converting the path to db");
+        services.push(task::spawn(async {
+            if let Err(e) = forest_metrics::init_prometheus(prometheus_listener, db_directory).await
+            {
+                error!("Failed to initiate prometheus server: {e}");
+            }
+        }));
+    }
 
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
@@ -186,9 +193,129 @@ pub(super) async fn start(config: Config) {
 
     info!("Using network :: {}", network_name);
 
+    let (tipset_sink, tipset_stream) = bounded(20);
+
+    // if bootstrap peers are not set, set them
+    let config = if config.network.bootstrap_peers.is_empty() {
+        let bootstrap_peers = config
+            .chain
+            .bootstrap_peers
+            .iter()
+            .map(|node| node.parse().unwrap())
+            .collect();
+        Config {
+            network: Libp2pConfig {
+                bootstrap_peers,
+                ..config.network
+            },
+            ..config
+        }
+    } else {
+        config
+    };
+
+    // Libp2p service setup
+    let p2p_service = Libp2pService::new(
+        config.network.clone(),
+        Arc::clone(&chain_store),
+        net_keypair,
+        &network_name,
+    );
+
+    let network_rx = p2p_service.network_receiver();
+    let network_send = p2p_service.network_sender();
+
+    // Initialize mpool
+    let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
+    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
+        provider,
+        network_name.clone(),
+        network_send.clone(),
+        MpoolConfig::load_config(&db).unwrap(),
+        Arc::clone(state_manager.chain_config()),
+    )
+    .await
+    .unwrap();
+    services.push(head_changes_task);
+    services.push(republish_task);
+    let mpool = Arc::new(mpool);
+
+    // For consensus types that do mining, create a component to submit their proposals.
+    let submitter = SyncGossipSubmitter::new(
+        network_name.clone(),
+        network_send.clone(),
+        tipset_sink.clone(),
+    );
+
+    // Initialize Consensus. Mining may or may not happen, depending on type.
+    let (consensus, mut mining_tasks) =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter)
+            .await
+            .unwrap();
+    services.append(&mut mining_tasks);
+
+    // Initialize ChainMuxer
+    let chain_muxer_tipset_sink = tipset_sink.clone();
+    let chain_muxer = ChainMuxer::new(
+        Arc::new(consensus),
+        Arc::clone(&state_manager),
+        Arc::clone(&mpool),
+        network_send.clone(),
+        network_rx,
+        Arc::new(genesis),
+        chain_muxer_tipset_sink,
+        tipset_stream,
+        config.sync.clone(),
+    )
+    .expect("Instantiating the ChainMuxer must succeed");
+    let bad_blocks = chain_muxer.bad_blocks_cloned();
+    let sync_state = chain_muxer.sync_state_cloned();
+    services.push(task::spawn(async {
+        chain_muxer.await;
+    }));
+
+    // Start services
+    if config.client.enable_rpc {
+        let keystore_rpc = Arc::clone(&keystore);
+        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
+            .await
+            .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
+
+        let rpc_state_manager = Arc::clone(&state_manager);
+        let rpc_chain_store = Arc::clone(&chain_store);
+
+        services.push(task::spawn(async move {
+            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
+            // XXX: The JSON error message are a nightmare to print.
+            let _ = start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
+                Arc::new(RPCState {
+                    state_manager: Arc::clone(&rpc_state_manager),
+                    keystore: keystore_rpc,
+                    mpool,
+                    bad_blocks,
+                    sync_state,
+                    network_send,
+                    network_name,
+                    beacon: rpc_state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
+                    chain_store: rpc_chain_store,
+                    new_mined_block_tx: tipset_sink,
+                }),
+                rpc_listen,
+                FOREST_VERSION_STRING.as_str(),
+            )
+            .await;
+        }))
+    } else {
+        debug!("RPC disabled.");
+    };
+
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
         _ = ctrlc_oneshot => {
+            // Cancel all async services
+            for handle in services {
+                handle.cancel().await;
+            }
             return;
         },
     }
@@ -231,114 +358,7 @@ pub(super) async fn start(config: Config) {
             .unwrap();
     }
 
-    // Override bootstrap peers
-    let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config
-            .chain
-            .bootstrap_peers
-            .iter()
-            .map(|node| node.parse().unwrap())
-            .collect();
-        Config {
-            network: Libp2pConfig {
-                bootstrap_peers,
-                ..config.network
-            },
-            ..config
-        }
-    } else {
-        config
-    };
-
-    // Libp2p service setup
-    let p2p_service = Libp2pService::new(
-        config.network,
-        Arc::clone(&chain_store),
-        net_keypair,
-        &network_name,
-    );
-    let network_rx = p2p_service.network_receiver();
-    let network_send = p2p_service.network_sender();
-
-    let (tipset_sink, tipset_stream) = bounded(20);
-
-    // Initialize mpool
-    let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
-        provider,
-        network_name.clone(),
-        network_send.clone(),
-        MpoolConfig::load_config(&db).unwrap(),
-        Arc::clone(state_manager.chain_config()),
-    )
-    .await
-    .unwrap();
-    let mpool = Arc::new(mpool);
-
-    // For consensus types that do mining, create a component to submit their proposals.
-    let submitter = SyncGossipSubmitter::new(
-        network_name.clone(),
-        network_send.clone(),
-        tipset_sink.clone(),
-    );
-
-    // Initialize Consensus. Mining may or may not happen, depending on type.
-    let (consensus, mining_tasks) = cns::consensus(&state_manager, &keystore, &mpool, submitter)
-        .await
-        .unwrap();
-
-    // Initialize ChainMuxer
-    let chain_muxer_tipset_sink = tipset_sink.clone();
-    let chain_muxer = ChainMuxer::new(
-        Arc::new(consensus),
-        Arc::clone(&state_manager),
-        Arc::clone(&mpool),
-        network_send.clone(),
-        network_rx,
-        Arc::new(genesis),
-        chain_muxer_tipset_sink,
-        tipset_stream,
-        config.sync,
-    )
-    .expect("Instantiating the ChainMuxer must succeed");
-    let bad_blocks = chain_muxer.bad_blocks_cloned();
-    let sync_state = chain_muxer.sync_state_cloned();
-    let sync_task = task::spawn(chain_muxer);
-
-    // Start services
-    let p2p_task = task::spawn(async {
-        p2p_service.run().await;
-    });
-    let rpc_task = if config.client.enable_rpc {
-        let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
-            .await
-            .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
-
-        Some(task::spawn(async move {
-            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
-                Arc::new(RPCState {
-                    state_manager: Arc::clone(&state_manager),
-                    keystore: keystore_rpc,
-                    mpool,
-                    bad_blocks,
-                    sync_state,
-                    network_send,
-                    network_name,
-                    beacon: state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
-                    chain_store,
-                    new_mined_block_tx: tipset_sink,
-                }),
-                rpc_listen,
-                FOREST_VERSION_STRING.as_str(),
-            )
-            .await
-        }))
-    } else {
-        debug!("RPC disabled.");
-        None
-    };
+    services.push(task::spawn(p2p_service.run()));
 
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
@@ -351,15 +371,9 @@ pub(super) async fn start(config: Config) {
     });
 
     // Cancel all async services
-    for mining_task in mining_tasks {
-        mining_task.cancel().await;
+    for handle in services {
+        handle.cancel().await;
     }
-    prometheus_server_task.cancel().await;
-    head_changes_task.cancel().await;
-    republish_task.cancel().await;
-    sync_task.cancel().await;
-    p2p_task.cancel().await;
-    maybe_cancel(rpc_task).await;
     keystore_write.await;
 
     if db_weak_ref.strong_count() != 0 {
@@ -389,12 +403,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         .await
         .expect("Failed miserably while importing chain from snapshot");
         info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
-    }
-}
-
-async fn maybe_cancel<R>(mt: Option<JoinHandle<R>>) {
-    if let Some(t) = mt {
-        t.cancel().await;
     }
 }
 

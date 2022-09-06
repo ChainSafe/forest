@@ -17,7 +17,7 @@ pub const DEFAULT_BOOTSTRAP: &[&str] = &[
 ];
 
 /// Height epochs.
-pub const HEIGHT_INFOS: [HeightInfo; 18] = [
+pub const HEIGHT_INFOS: [HeightInfo; 17] = [
     HeightInfo {
         height: Height::Breeze,
         epoch: -1,
@@ -59,10 +59,6 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
         epoch: 300,
     },
     HeightInfo {
-        height: Height::Claus,
-        epoch: 270,
-    },
-    HeightInfo {
         height: Height::Trust,
         epoch: 330,
     },
@@ -92,9 +88,7 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     },
 ];
 
-lazy_static! {
-    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
-        height: 0,
-        config: &DRAND_MAINNET,
-    },];
-}
+pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
+    height: 0,
+    config: &DRAND_MAINNET,
+}];
