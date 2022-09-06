@@ -65,8 +65,8 @@ pub enum ChainCommands {
     /// Reads and prints out IPLD nodes referenced by the specified CID from chain
     /// block store and returns raw bytes
     ReadObj {
-        #[structopt(short)]
         /// Input a valid CID
+        #[structopt(short)]
         cid: String,
     },
 }

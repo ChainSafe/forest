@@ -19,8 +19,8 @@ pub enum AuthCommands {
     },
     /// Get RPC API Information
     ApiInfo {
-        #[structopt(short, long)]
         /// permission to assign the token, one of: read, write, sign, admin
+        #[structopt(short, long)]
         perm: String,
     },
 }
