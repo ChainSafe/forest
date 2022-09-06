@@ -5,6 +5,8 @@ services:
     image: ghcr.io/chainsafe/forest:${FOREST_TAG}
     hostname: forest-calibnet
     container_name: forest-calibnet
+    networks:
+      - calibnet
     volumes:
       - type: bind
         source: ${BASE_FOLDER}
@@ -18,11 +20,29 @@ services:
       - BASE_FOLDER
     command:
       - |
-        sudo apt-get install -y ruby ruby-dev
-        sudo gem install docker-api slack-ruby-client
-        export CHAIN_NAME=calibnet
+        forest --encrypt-keystore false --rpc-address 0.0.0.0:12345 --metrics-address 0.0.0.0:6116 --chain calibnet --import-snapshot /tmp/forest-iac-snapshots/s3/calibnet/forest_snapshot_calibnet_2022-09-05_height_1275882.car
+    restart: unless-stopped
+    labels:
+      com.centurylinklabs.watchtower.enable: true
+  tester:
+    image: fedora:36
+    networks:
+      - calibnet
+    volumes:
+      - type: bind
+        source: ${BASE_FOLDER}
+        target: ${BASE_FOLDER}
+      - type: volume
+        source: scripts
+        target: /scripts
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/bin/bash", "-c"]
+    environment:
+      - SLACK_HOOK
+      - BASE_FOLDER
+    command:
+      - |
         /scripts/upload_snapshot.sh
-        sleep infinity
     restart: unless-stopped
     labels:
       com.centurylinklabs.watchtower.enable: true
@@ -32,6 +52,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --label-enable --include-stopped --revive-stopped --stop-timeout 120s --interval 600
     restart: unless-stopped
+
+networks:
+  calibnet:
 
 volumes:
   scripts:

@@ -1,10 +1,8 @@
-FROM ubuntu:22.10
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM fedora:36
 
 # Install dependencies
-RUN apt-get update
-RUN apt-get install -y s3fs ca-certificates curl gnupg lsb-release docker-compose
+RUN dnf install -y docker docker-compose ruby ruby-devel make gcc s3fs-fuse
+RUN gem install docker-api slack-ruby-client activesupport
 
 COPY daily_snapshot/upload_snapshot.sh daily_snapshot/run_service.sh daily_snapshot/docker-compose.yml ./
 COPY ruby_common ruby_common
