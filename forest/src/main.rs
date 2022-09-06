@@ -16,7 +16,7 @@ use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
 use structopt::StructOpt;
-use tempfile::{Builder, NamedTempFile};
+use tempfile::{Builder, TempPath};
 
 use std::fs::File;
 use std::process;
@@ -25,10 +25,11 @@ use std::time::Duration;
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
 lazy_static! {
-    pub static ref IPC_FILE: NamedTempFile = Builder::new()
+    pub static ref IPC_PATH: TempPath = Builder::new()
         .prefix("forest-ipc")
         .tempfile()
-        .expect("tempfile must succeed");
+        .expect("tempfile must succeed")
+        .into_temp_path();
 }
 
 // The parent process and the daemonized child communicate through an Event in
@@ -39,7 +40,7 @@ fn ipc_shmem_conf() -> ShmemConf {
     ShmemConf::new()
         .size(Event::size_of(None))
         .force_create_flink()
-        .flink(IPC_FILE.path())
+        .flink(IPC_PATH.as_os_str())
 }
 
 // Initiate an Event object in shared memory.
@@ -123,7 +124,7 @@ fn main() {
                         }
                     }
                 }
-                task::block_on(daemon::start(cfg));
+                task::block_on(daemon::start(cfg, opts.detach));
             }
         },
         Err(e) => {
