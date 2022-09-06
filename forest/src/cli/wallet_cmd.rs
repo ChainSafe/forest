@@ -22,7 +22,7 @@ use super::{balance_to_fil, cli_error_and_die, handle_rpc_err};
 pub enum WalletCommands {
     /// Create a new wallet
     New {
-        /// The signature type to use. One of secp256k1, or bls
+        /// The signature type to use. One of SECP256k1, or BLS
         #[structopt(default_value = "secp256k1")]
         signature_type: String,
     },

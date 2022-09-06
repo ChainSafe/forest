@@ -33,6 +33,7 @@ pointer/SM
 PoSt
 RPC
 SECP
+SECP256k1
 serializable
 serializer/SM
 statediff

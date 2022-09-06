@@ -101,7 +101,7 @@ pub enum Subcommand {
     #[structopt(name = "wallet")]
     Wallet(WalletCommands),
 
-    /// Inspect or interact with the chain syncer
+    /// Inspect or interact with the chain synchronizer
     #[structopt(name = "sync")]
     Sync(SyncCommands),
 
