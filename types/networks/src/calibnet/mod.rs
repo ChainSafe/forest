@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
-use lazy_static::lazy_static;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -89,9 +88,7 @@ pub const HEIGHT_INFOS: [HeightInfo; 17] = [
     },
 ];
 
-lazy_static! {
-    pub(super) static ref DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
-        height: 0,
-        config: &DRAND_MAINNET,
-    },];
-}
+pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
+    height: 0,
+    config: &DRAND_MAINNET,
+}];
