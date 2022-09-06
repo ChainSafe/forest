@@ -32,9 +32,9 @@ lazy_static! {
 }
 
 // The parent process and the daemonized child communicate through an Event in
-// shared memory. The identity of the shared memory object is written to a local
-// file named .forest_daemon_ipc. The parent process is responsible for cleaning
-// up the local file and the shared memory object.
+// shared memory. The identity of the shared memory object is written to a
+// temporary file. The parent process is responsible for cleaning up the file
+// and the shared memory object.
 fn ipc_shmem_conf() -> ShmemConf {
     ShmemConf::new()
         .size(Event::size_of(None))
@@ -45,7 +45,7 @@ fn ipc_shmem_conf() -> ShmemConf {
 // Initiate an Event object in shared memory.
 fn create_ipc_lock() {
     let mut shmem = ipc_shmem_conf().create().expect("create must succeed");
-    // The shared memory object will not be deleted when 'shmen' is dropped
+    // The shared memory object will not be deleted when 'shmem' is dropped
     // because we're not the owner.
     shmem.set_owner(false);
     unsafe {

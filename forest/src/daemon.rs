@@ -43,7 +43,7 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
-// If we did not detach no existing mapping using the current configuration exists and this function is a no-op
+// If we did not detach, no existing mapping using the current configuration exists and this function is a no-op.
 fn unblock_parent_process() {
     if let Ok(shmem) = super::ipc_shmem_conf().open() {
         let (event, _) =
