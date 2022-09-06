@@ -20,8 +20,8 @@ const OUTPUT_PATH_DEFAULT_FORMAT: &str =
 pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
     Block {
-        #[structopt(short)]
         /// Input a valid CID
+        #[structopt(short)]
         cid: String,
     },
 

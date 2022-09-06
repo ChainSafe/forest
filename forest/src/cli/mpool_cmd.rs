@@ -29,8 +29,8 @@ pub enum MpoolCommands {
         /// Number of blocks to look back for minimum base fee
         #[structopt(short, default_value = "60")]
         base_fee_lookback: u32,
-        #[structopt(short)]
         /// Print stats for local addresses only
+        #[structopt(short)]
         local: bool,
     },
 }
