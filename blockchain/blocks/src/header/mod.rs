@@ -149,6 +149,18 @@ impl PartialEq for BlockHeader {
     }
 }
 
+impl quickcheck::Arbitrary for BlockHeader {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        // XXX: More fields can be randomly generated.
+        let block_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .epoch(ChainEpoch::arbitrary(g))
+            .build()
+            .unwrap();
+        block_header
+    }
+}
+
 impl Cbor for BlockHeader {
     fn marshal_cbor(&self) -> Result<Vec<u8>, EncodingError> {
         Ok(self.cached_bytes().clone())
