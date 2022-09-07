@@ -20,8 +20,8 @@ use crate::cli::to_size_string;
 
 use super::Config;
 
-/// Default mainnet snapshot URL. The assumption is that it will redirect once and will contain a
-/// sha256sum file with the same URL (but different extension).
+/// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
+/// `sha256sum` file with the same URL (but different extension).
 const DEFAULT_MAINNET_SNAPSHOT_URL: &str =  "https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car";
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
@@ -39,7 +39,7 @@ pub(crate) async fn snapshot_fetch(
     }
 }
 
-/// Fetches snapshot for mainnet from a default, trusted location. On success, the snapshot will be
+/// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
 /// not be removed.
 async fn snapshot_fetch_mainnet(snapshot_out_dir: &Path) -> anyhow::Result<PathBuf> {
