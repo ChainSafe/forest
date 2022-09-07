@@ -91,40 +91,47 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 }
 
 fn main() {
-    logger::setup_logger();
-
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
-        Ok(cfg) => match cmd {
-            Some(command) => {
-                task::block_on(subcommand::process(command, cfg));
-            }
-            None => {
-                if opts.detach {
-                    create_ipc_lock();
-                    info!(
-                        "Redirecting stdout and stderr to files {} and {}.",
-                        cfg.daemon.stdout.display(),
-                        cfg.daemon.stderr.display()
-                    );
-                    let result = build_daemon(&cfg.daemon)
-                        .unwrap_or_else(|e| {
-                            cli_error_and_die(format!("Error building daemon. Error was: {e}"), 1)
-                        })
-                        .start();
-                    match result {
-                        Ok(_) => info!("Process detached"),
-                        Err(e) => {
-                            cli_error_and_die(format!("Error when detaching. Error was: {e}"), 1);
+        Ok(cfg) => {
+            logger::setup_logger(&cfg.log);
+            match cmd {
+                Some(command) => {
+                    task::block_on(subcommand::process(command, cfg));
+                }
+                None => {
+                    if opts.detach {
+                        create_ipc_lock();
+                        info!(
+                            "Redirecting stdout and stderr to files {} and {}.",
+                            cfg.daemon.stdout.display(),
+                            cfg.daemon.stderr.display()
+                        );
+                        let result = build_daemon(&cfg.daemon)
+                            .unwrap_or_else(|e| {
+                                cli_error_and_die(
+                                    format!("Error building daemon. Error was: {e}"),
+                                    1,
+                                )
+                            })
+                            .start();
+                        match result {
+                            Ok(_) => info!("Process detached"),
+                            Err(e) => {
+                                cli_error_and_die(
+                                    format!("Error when detaching. Error was: {e}"),
+                                    1,
+                                );
+                            }
                         }
                     }
+                    task::block_on(daemon::start(cfg, opts.detach));
                 }
-                task::block_on(daemon::start(cfg, opts.detach));
             }
-        },
+        }
         Err(e) => {
             cli_error_and_die(format!("Error parsing config. Error was: {e}"), 1);
         }
