@@ -1,7 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_blocks::{tipset::tipset_json::TipsetJsonRef, Tipset};
+use forest_blocks::{
+    tipset::tipset_json::{TipsetJson, TipsetJsonRef},
+    Tipset,
+};
 use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -28,6 +31,20 @@ pub enum SyncStage {
 impl Default for SyncStage {
     fn default() -> Self {
         Self::Headers
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SyncStage {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        *g.choose(&[
+            SyncStage::Idle,
+            SyncStage::Headers,
+            SyncStage::PersistHeaders,
+            SyncStage::Messages,
+            SyncStage::Complete,
+        ])
+        .unwrap()
     }
 }
 
@@ -64,7 +81,7 @@ impl<'de> Deserialize<'de> for SyncStage {
             "idle worker" => SyncStage::Idle,
             "header sync" => SyncStage::Headers,
             "persisting headers" => SyncStage::PersistHeaders,
-            "message synce" => SyncStage::Messages,
+            "message sync" => SyncStage::Messages,
             "complete" => SyncStage::Complete,
             _ => SyncStage::Error,
         };
@@ -86,6 +103,29 @@ pub struct SyncState {
     start: Option<OffsetDateTime>,
     end: Option<OffsetDateTime>,
     message: String,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SyncState {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        SyncState {
+            base: Option::arbitrary(g),
+            target: Option::arbitrary(g),
+            stage: SyncStage::arbitrary(g),
+            epoch: ChainEpoch::arbitrary(g),
+            start: if bool::arbitrary(g) {
+                None
+            } else {
+                Some(OffsetDateTime::UNIX_EPOCH)
+            },
+            end: if bool::arbitrary(g) {
+                None
+            } else {
+                Some(OffsetDateTime::UNIX_EPOCH)
+            },
+            message: String::arbitrary(g),
+        }
+    }
 }
 
 impl SyncState {
@@ -191,10 +231,8 @@ impl<'de> Deserialize<'de> for SyncState {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct SyncStateDe {
-            #[serde(with = "forest_blocks::tipset_json")]
-            base: Arc<Tipset>,
-            #[serde(with = "forest_blocks::tipset_json")]
-            target: Arc<Tipset>,
+            base: Option<TipsetJson>,
+            target: Option<TipsetJson>,
 
             #[serde(with = "super::SyncStage")]
             stage: SyncStage,
@@ -215,8 +253,8 @@ impl<'de> Deserialize<'de> for SyncState {
             message,
         } = Deserialize::deserialize(deserializer)?;
         Ok(SyncState {
-            base: Some(base),
-            target: Some(target),
+            base: base.map(Into::into),
+            target: target.map(Into::into),
             stage,
             epoch,
             start,
@@ -264,5 +302,18 @@ pub mod vec {
             seq.serialize_element(&SyncStateRef(e))?;
         }
         seq.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn sync_state_roundtrip(ss: SyncState) {
+        let serialized = serde_json::to_string(&ss).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(ss, parsed);
     }
 }

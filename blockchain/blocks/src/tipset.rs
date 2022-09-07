@@ -47,6 +47,14 @@ impl PartialEq for Tipset {
     }
 }
 
+impl quickcheck::Arbitrary for Tipset {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        // XXX: Support random generation of tipsets with multiple blocks.
+        let first_header = BlockHeader::arbitrary(g);
+        Tipset::new(vec![first_header]).unwrap()
+    }
+}
+
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
