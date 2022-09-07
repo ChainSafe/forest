@@ -2738,7 +2738,6 @@ dependencies = [
  "anyhow",
  "base64 0.13.0",
  "bls-signatures",
- "fil_actors_runtime",
  "forest_encoding",
  "fvm_ipld_encoding",
  "fvm_shared",
