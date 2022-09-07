@@ -11,6 +11,9 @@ CBOR
 CID/M
 CIDs
 CLI
+codec
+cron
+crypto
 Filecoin
 HAMT
 IPFS

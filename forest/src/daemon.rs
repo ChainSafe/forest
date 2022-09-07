@@ -53,7 +53,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config) {
+pub(super) async fn start(config: Config, detached: bool) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -357,6 +357,9 @@ pub(super) async fn start(config: Config) {
         debug!("RPC disabled.");
         None
     };
+    if detached {
+        unblock_parent_process();
+    }
 
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
