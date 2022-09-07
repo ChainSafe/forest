@@ -4,7 +4,7 @@ FROM fedora:36
 RUN dnf install -y docker docker-compose ruby ruby-devel make gcc s3fs-fuse
 RUN gem install docker-api slack-ruby-client activesupport
 
-COPY daily_snapshot/upload_snapshot.sh daily_snapshot/run_service.sh daily_snapshot/docker-compose.yml ./
+COPY daily_snapshot/upload_snapshot.sh daily_snapshot/run_service.sh ./
 COPY ruby_common ruby_common
 RUN chmod +x run_service.sh
 ENTRYPOINT /run_service.sh
