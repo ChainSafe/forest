@@ -8,7 +8,6 @@ use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_db::rocks::RocksDb;
-use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -203,52 +202,9 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     info!("Using network :: {}", network_name);
 
-    select! {
-        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
-        _ = ctrlc_oneshot => {
-            return;
-        },
-    }
+    let (tipset_sink, tipset_stream) = bounded(20);
 
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                1,
-            );
-        }
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                cli_error_and_die(
-                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                    1,
-                );
-            }
-        }
-    }
-
-    // Halt
-    if config.client.halt_after_import {
-        info!("Forest finish shutdown");
-        return;
-    }
-
-    // Fetch and ensure verification keys are downloaded
-    if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
-            .await
-            .unwrap();
-    }
-
-    // Override bootstrap peers
+    // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
         let bootstrap_peers = config
             .chain
@@ -289,6 +245,8 @@ pub(super) async fn start(config: Config, detached: bool) {
     )
     .await
     .unwrap();
+    services.push(head_changes_task);
+    services.push(republish_task);
     let mpool = Arc::new(mpool);
 
     // For consensus types that do mining, create a component to submit their proposals.
@@ -299,8 +257,11 @@ pub(super) async fn start(config: Config, detached: bool) {
     );
 
     // Initialize Consensus. Mining may or may not happen, depending on type.
-    let (consensus, mining_task) =
-        cns::consensus(&state_manager, &keystore, &mpool, submitter).await;
+    let (consensus, mut mining_tasks) =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter)
+            .await
+            .unwrap();
+    services.append(&mut mining_tasks);
 
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
@@ -355,11 +316,61 @@ pub(super) async fn start(config: Config, detached: bool) {
         }))
     } else {
         debug!("RPC disabled.");
-        None
     };
     if detached {
         unblock_parent_process();
     }
+
+    select! {
+        () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        _ = ctrlc_oneshot => {
+            // Cancel all async services
+            for handle in services {
+                handle.cancel().await;
+            }
+            return;
+        },
+    }
+
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => {
+            cli_error_and_die(
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                1,
+            );
+        }
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                cli_error_and_die(
+                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                    1,
+                );
+            }
+        }
+    }
+
+    // Halt
+    if config.client.halt_after_import {
+        info!("Forest finish shutdown");
+        return;
+    }
+
+    // Fetch and ensure verification keys are downloaded
+    if cns::FETCH_PARAMS {
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
+        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
+            .await
+            .unwrap();
+    }
+
+    services.push(task::spawn(p2p_service.run()));
 
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);

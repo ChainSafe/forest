@@ -11,9 +11,6 @@ CBOR
 CID/M
 CIDs
 CLI
-codec
-cron
-crypto
 Filecoin
 HAMT
 IPFS
@@ -57,8 +54,6 @@ MDNS
 KV
 Kademlia
 LibP2P
+boolean
 TOML
-bitfield
 verifier
-VM
-VRF

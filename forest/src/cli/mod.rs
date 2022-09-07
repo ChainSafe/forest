@@ -18,7 +18,6 @@ pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::client::Client;
 pub use self::config::Config;
-pub use self::config::{LogConfig, LogValue};
 pub use self::config::DaemonConfig;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
@@ -181,13 +180,6 @@ pub struct CliOpts {
         possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
-    // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
-    // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
-    // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
-    // #[structopt(
-    //     help = "Specify a filename into which logging should be appended"
-    // )]
-    // pub log_file: Option<PathBuf>,
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,

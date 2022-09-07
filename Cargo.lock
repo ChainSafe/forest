@@ -7957,6 +7957,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "strfmt"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26cdabcdab6da7e8c2ac1160e917ec83e78bbe3e10325e17d532718c67a4828f"
+
+[[package]]
 name = "strobe-rs"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

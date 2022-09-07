@@ -4,13 +4,11 @@
 use super::errors::Error;
 use super::Store;
 use crate::rocks_config::{
-    
-    compaction_style_from_str, compression_type_from_str, log_level_from_str, log_level_from_str, RocksDbConfig,
-,
+    compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-pub use rocksdb::{LogLevel, LogLevel, Options, WriteBatch, DB};
+pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
