@@ -18,7 +18,6 @@ end
 BASE_FOLDER = get_and_assert_env_variable 'BASE_FOLDER'
 SLACK_TOKEN = get_and_assert_env_variable 'SLACK_API_TOKEN'
 CHANNEL = get_and_assert_env_variable 'SLACK_NOTIF_CHANNEL'
-SCRIPTS_DIR = '/scripts'
 LOG_DIR = './'
 
 CHAIN_NAME = ARGV[0]
@@ -26,9 +25,7 @@ raise 'No chain name supplied. Please provide chain identifier, e.g. calibnet or
 
 # Current datetime, to append to the log files
 DATE = Time.new.strftime '%FT%H:%M:%S'
-LOG_HEALTH = "#{LOG_DIR}/#{CHAIN_NAME}_#{DATE}_health"
-LOG_FOREST = "#{LOG_DIR}/#{CHAIN_NAME}_#{DATE}_forest"
-LOG_SYNC = "#{LOG_DIR}/#{CHAIN_NAME}_#{DATE}_sync"
+LOG_EXPORT = "#{LOG_DIR}/#{CHAIN_NAME}_#{DATE}_export"
 
 # Create log directory
 FileUtils.mkdir_p LOG_DIR
@@ -41,30 +38,21 @@ loop do
 
   if Time.new.strftime('%F') == File.stat(LATEST).mtime.strftime('%F')
     # We already have a snapshot for today. Do nothing.
-    #client.post_message "(temporary msg) No snapshot required for #{CHAIN_NAME}"
-    puts "(temporary msg) No snapshot required for #{CHAIN_NAME}"
+    puts "No snapshot required for #{CHAIN_NAME}"
   else
     puts "New snapshot required"
-    logger = Logger.new(LOG_SYNC)
 
-    # Run the actual health check
-    logger.info 'Syncing and exporting snapshot...'
-    # snapshot_uploaded = system("bash #{SCRIPTS_DIR}/upload_snapshot.sh #{CHAIN_NAME} #{LATEST} > #{LOG_HEALTH} 2>&1")
-    snapshot_uploaded = system("bash #{SCRIPTS_DIR}/upload_snapshot.sh #{CHAIN_NAME} #{LATEST}")
-    logger.info 'Export and upload completed'
-
-    # Save the log capture from the Forest container
-    container_logs = DockerUtils.get_container_logs "snapshot_forest"
-    File.write(LOG_FOREST, container_logs)
+    # Sync and export snapshot
+    snapshot_uploaded = system("bash upload_snapshot.sh #{CHAIN_NAME} #{LATEST} > #{LOG_EXPORT} 2>&1")
 
     client = SlackClient.new CHANNEL, SLACK_TOKEN
 
     if snapshot_uploaded
-      # client.post_message "✅ Snapshot uploaded for #{CHAIN_NAME}. 🌲🌳🌲🌳🌲"
+      client.post_message "✅ Snapshot uploaded for #{CHAIN_NAME}. 🌲🌳🌲🌳🌲"
     else
-      # client.post_message "⛔ Snapshot failed for #{CHAIN_NAME}. 🔥🌲🔥 "
+      client.post_message "⛔ Snapshot failed for #{CHAIN_NAME}. 🔥🌲🔥 "
+      client.attach_files(LOG_EXPORT)
     end
-    # client.attach_files(LOG_HEALTH, LOG_FOREST, LOG_SYNC)
 
     logger.info 'Sync check finished'
   end

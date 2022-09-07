@@ -4,32 +4,10 @@ set -e
 
 S3_FOLDER=$BASE_FOLDER/s3
 
-# error=0
-
-# # Check if an environment variable is set. If it isn't, set error=1.
-# check_env () {
-#     A="                            ";
-#     echo -n "${A:0:-${#1}} $1: "
-#     if [[ -z "${!1}" ]]; then
-#         echo "❌"
-#         error=1
-#     else
-#         echo "✅"
-#     fi
-# }
-
-# check_env "AWS_ACCESS_KEY_ID"
-# check_env "AWS_SECRET_ACCESS_KEY"
-# check_env "SLACK_API_TOKEN"
-# check_env "SLACK_NOTIF_CHANNEL"
-
-# if [ "$error" -ne "0" ]; then
-#     echo "Please set the required environment variables and try again."
-#     exit 1
-# fi
-
 # 1. Setup s3fs to get the snapshots.
-# 2. Run forest script with docker-compose.
+# 2. Make sure an instance of watchtower is running.
+# 3. Run Ruby script for exporting and uploading a new snapshot
+#    if there isn't one for today already.
 
 ## Setup s3
 umount "$S3_FOLDER" || true
@@ -40,18 +18,15 @@ s3fs forest-snapshots "$S3_FOLDER" \
     -o url=https://fra1.digitaloceanspaces.com/ \
     -o allow_other
 
-cp -r ruby_common upload_snapshot.sh /scripts/
-chmod +x /scripts/upload_snapshot.sh
+## Ensure watchtower is running
+docker stop watchtower 2> /dev/null || true
+docker wait watchtower 2> /dev/null || true
+docker run --rm \
+    --detach \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    --name watchtower \
+    containrrr/watchtower \
+    --label-enable --include-stopped --revive-stopped --stop-timeout 120s --interval 600
 
-# docker stop watchtower || true
-# docker run --rm \
-#     --detach \
-#     -v /var/run/docker.sock:/var/run/docker.sock \
-#     --name watchtower \
-#     containrrr/watchtower \
-#     --label-enable --include-stopped --revive-stopped --stop-timeout 120s --interval 600
-
-# ruby /scripts/ruby_common/daily_snapshot.rb calibnet
-
-docker-compose down
-docker-compose up --build --force-recreate
+# Export and upload snapshot
+ruby ruby_common/daily_snapshot.rb calibnet

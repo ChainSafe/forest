@@ -28,17 +28,14 @@ if [ "$error" -ne "0" ]; then
     exit 1
 fi
 
-#screen -S daily_snapshot -d -R \
 docker run \
     --device /dev/fuse \
     --cap-add SYS_ADMIN \
     --security-opt "apparmor=unconfined" \
     --env-file .env.bak \
     --network host \
-    --interactive --tty \
+    --detach \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$BASE_FOLDER":"$BASE_FOLDER":rshared \
-    --mount 'type=volume,src=scripts,dst=/scripts' \
-    forest-snapshot:latest
-    #ghcr.io/chainsafe/sync-snapshot
+    ghcr.io/chainsafe/sync-snapshot
