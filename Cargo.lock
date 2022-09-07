@@ -1578,6 +1578,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "daemonize-me"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b79373c44d0d32d795b1a29b5ecba172639d3db9826cc3db387833079bcf38b0"
+dependencies = [
+ "libc",
+ "nix 0.23.1",
+ "thiserror",
+]
+
+[[package]]
 name = "darling"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2474,6 +2485,7 @@ dependencies = [
  "byte-unit",
  "cid",
  "ctrlc",
+ "daemonize-me",
  "directories",
  "forest_actor_interface",
  "forest_auth",
@@ -2514,6 +2526,7 @@ dependencies = [
  "git-version",
  "hex",
  "jsonrpc-v2",
+ "lazy_static",
  "libp2p 0.46.1",
  "log",
  "multibase 0.9.1",
@@ -2525,11 +2538,13 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.5",
+ "raw_sync",
  "rayon",
  "rpassword",
  "rug",
  "serde",
  "serde_json",
+ "shared_memory",
  "strfmt",
  "structopt",
  "tempfile",
@@ -2633,6 +2648,7 @@ dependencies = [
  "log",
  "num-bigint 0.4.3",
  "once_cell",
+ "quickcheck",
  "serde",
  "serde_json",
  "sha2 0.9.9",
@@ -2729,8 +2745,11 @@ dependencies = [
  "pbr",
  "pretty_env_logger",
  "prometheus 0.12.0",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.7.3",
  "serde",
+ "serde_json",
  "smallvec",
  "thiserror",
  "time 0.3.9",
@@ -5776,6 +5795,19 @@ dependencies = [
 
 [[package]]
 name = "nix"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f866317acbd3a240710c63f065ffb1e4fd466259045ccb504130b7f668f35c6"
+dependencies = [
+ "bitflags",
+ "cc",
+ "cfg-if 1.0.0",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "195cdbc1741b8134346d515b3a56a1c94b0912758009cfd53f99ea0f57b065fc"
@@ -5783,6 +5815,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
+ "memoffset",
 ]
 
 [[package]]
@@ -6867,6 +6900,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "raw_sync"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a34bde3561f980a51c70495164200569a11662644fe5af017f0b5d7015688cc"
+dependencies = [
+ "cfg-if 0.1.10",
+ "libc",
+ "nix 0.24.2",
+ "rand 0.8.5",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "rawpointer"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7518,6 +7564,19 @@ checksum = "eaedf34ed289ea47c2b741bb72e5357a209512d67bcd4bda44359e5bf0470f56"
 dependencies = [
  "digest 0.10.3",
  "keccak",
+]
+
+[[package]]
+name = "shared_memory"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba8593196da75d9dc4f69349682bd4c2099f8cde114257d1ef7ef1b33d1aba54"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "nix 0.23.1",
+ "rand 0.8.5",
+ "win-sys",
 ]
 
 [[package]]
@@ -9002,6 +9061,15 @@ name = "widestring"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17882f045410753661207383517a6f62ec3dbeb6a4ed2acce01f0728238d1983"
+
+[[package]]
+name = "win-sys"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b7b128a98c1cfa201b09eb49ba285887deb3cbe7466a98850eb1adabb452be5"
+dependencies = [
+ "windows",
+]
 
 [[package]]
 name = "winapi"
