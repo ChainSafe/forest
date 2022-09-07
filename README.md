@@ -169,6 +169,16 @@ Forest developers will prepend this variable to CLI commands over using `export`
 FULLNODE_API_INFO="..." forest auth api-info -p admin
 ```
 
+### Detaching Forest process
+
+You can detach Forest process via the `--detach` flag so that it runs in the background:
+
+```bash
+./target/release/forest --target-peer-count 50 --detach
+```
+
+The command will block until the detached Forest process has started its RPC server, allowing you to chain some RPC command immediately after.
+
 ### Documentation
 _Work in progress_.
 - https://chainsafe.github.io/forest/

@@ -18,6 +18,7 @@ pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::client::Client;
 pub use self::config::Config;
+pub use self::config::DaemonConfig;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
@@ -179,6 +180,9 @@ pub struct CliOpts {
         possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
+    /// Daemonize Forest process
+    #[structopt(long)]
+    pub detach: bool,
 }
 
 impl CliOpts {
