@@ -34,6 +34,20 @@ impl Default for SyncStage {
     }
 }
 
+#[cfg(test)]
+impl quickcheck::Arbitrary for SyncStage {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        *g.choose(&[
+            SyncStage::Idle,
+            SyncStage::Headers,
+            SyncStage::PersistHeaders,
+            SyncStage::Messages,
+            SyncStage::Complete,
+        ])
+        .unwrap()
+    }
+}
+
 impl fmt::Display for SyncStage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -67,7 +81,7 @@ impl<'de> Deserialize<'de> for SyncStage {
             "idle worker" => SyncStage::Idle,
             "header sync" => SyncStage::Headers,
             "persisting headers" => SyncStage::PersistHeaders,
-            "message synce" => SyncStage::Messages,
+            "message sync" => SyncStage::Messages,
             "complete" => SyncStage::Complete,
             _ => SyncStage::Error,
         };
@@ -89,6 +103,29 @@ pub struct SyncState {
     start: Option<OffsetDateTime>,
     end: Option<OffsetDateTime>,
     message: String,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SyncState {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        SyncState {
+            base: Option::arbitrary(g),
+            target: Option::arbitrary(g),
+            stage: SyncStage::arbitrary(g),
+            epoch: ChainEpoch::arbitrary(g),
+            start: if bool::arbitrary(g) {
+                None
+            } else {
+                Some(OffsetDateTime::UNIX_EPOCH)
+            },
+            end: if bool::arbitrary(g) {
+                None
+            } else {
+                Some(OffsetDateTime::UNIX_EPOCH)
+            },
+            message: String::arbitrary(g),
+        }
+    }
 }
 
 impl SyncState {
@@ -216,8 +253,8 @@ impl<'de> Deserialize<'de> for SyncState {
             message,
         } = Deserialize::deserialize(deserializer)?;
         Ok(SyncState {
-            base: base.map(|v| v.0),
-            target: target.map(|v| v.0),
+            base: base.map(Into::into),
+            target: target.map(Into::into),
             stage,
             epoch,
             start,
@@ -265,5 +302,18 @@ pub mod vec {
             seq.serialize_element(&SyncStateRef(e))?;
         }
         seq.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn sync_state_roundtrip(ss: SyncState) {
+        let serialized = serde_json::to_string(&ss).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(ss, parsed);
     }
 }
