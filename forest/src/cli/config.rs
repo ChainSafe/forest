@@ -5,10 +5,22 @@ use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::client::Client;
+
+#[derive(Serialize, Deserialize, Default, PartialEq)]
+pub struct LogConfig {
+    pub log_values: HashSet<LogValue>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct LogValue {
+    pub module: String,
+    pub level: String,
+}
 
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq)]
@@ -45,6 +57,7 @@ pub struct Config {
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
+    pub log: LogConfig,
 }
 
 #[cfg(test)]
@@ -77,6 +90,7 @@ mod test {
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
+                log: Default::default(),
             }
         }
     }
