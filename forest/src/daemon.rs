@@ -24,6 +24,7 @@ use fvm_shared::version::NetworkVersion;
 use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
 use log::{debug, error, info, trace, warn};
+use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 
 use std::io::prelude::*;
@@ -42,8 +43,16 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
+fn unblock_parent_process() {
+    let shmem = super::ipc_shmem_conf().open().expect("open must succeed");
+    let (event, _) =
+        unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
+
+    event.set(EventState::Signaled).expect("set must succeed");
+}
+
 /// Starts daemon process
-pub(super) async fn start(config: Config) {
+pub(super) async fn start(config: Config, detached: bool) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -308,6 +317,9 @@ pub(super) async fn start(config: Config) {
     } else {
         debug!("RPC disabled.");
     };
+    if detached {
+        unblock_parent_process();
+    }
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},

@@ -19,6 +19,7 @@ pub(super) use self::chain_cmd::ChainCommands;
 pub use self::client::Client;
 pub use self::config::Config;
 pub use self::config::{LogConfig, LogValue};
+pub use self::config::DaemonConfig;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
@@ -187,6 +188,9 @@ pub struct CliOpts {
     //     help = "Specify a filename into which logging should be appended"
     // )]
     // pub log_file: Option<PathBuf>,
+    /// Daemonize Forest process
+    #[structopt(long)]
+    pub detach: bool,
 }
 
 impl CliOpts {
