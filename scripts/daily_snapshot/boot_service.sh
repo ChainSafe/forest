@@ -33,7 +33,6 @@ docker run \
     --cap-add SYS_ADMIN \
     --security-opt "apparmor=unconfined" \
     --env-file .env.bak \
-    --network host \
     --detach \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
