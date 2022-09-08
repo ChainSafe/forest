@@ -13,6 +13,9 @@ rand         = "0.8"
 serde        = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror    = "1.0"
 # Internal
+# anyhow is pinned here to ensure upgradability, 
+# as further versions probably break semver and cause issues 
+# when upgrading in http-types crate
 anyhow                = "=1.0.59"
 forest_crypto         = { version = "0.5", features = ["blst"] }
 forest_key_management = "0.1.0"
