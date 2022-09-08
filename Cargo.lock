@@ -3077,7 +3077,6 @@ dependencies = [
  "anyhow",
  "base64 0.13.0",
  "cid",
- "derive_builder 0.11.2",
  "forest_crypto",
  "forest_encoding",
  "forest_fil_types",
@@ -3166,7 +3165,6 @@ dependencies = [
  "anyhow",
  "fil_actors_runtime",
  "forest_beacon",
- "forest_fil_types",
  "forest_json",
  "fvm_shared",
  "lazy_static",
@@ -3288,7 +3286,6 @@ name = "forest_rpc-client"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "forest_auth",
  "forest_blocks",
  "forest_crypto",
  "forest_key_management",

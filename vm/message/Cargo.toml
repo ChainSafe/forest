@@ -14,7 +14,6 @@ features = ["json", "proofs"]
 anyhow            = "1.0"
 base64            = "0.13"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
-derive_builder    = "0.11"
 forest_crypto     = { default-features = false, version = "0.5" }
 forest_encoding   = "0.2"
 forest_fil_types  = { optional = true, version = "0.2" }
