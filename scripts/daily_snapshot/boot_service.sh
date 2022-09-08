@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# The .env file contains environment variables that we want access to.
 set -o allexport
 source .env
 set +o allexport
@@ -18,6 +19,7 @@ check_env () {
     fi
 }
 
+# Check that the environment variables in the .env file have been defined.
 check_env "AWS_ACCESS_KEY_ID"
 check_env "AWS_SECRET_ACCESS_KEY"
 check_env "SLACK_API_TOKEN"
@@ -28,11 +30,13 @@ if [ "$error" -ne "0" ]; then
     exit 1
 fi
 
+# With the access keys defined, let's run the snapshot generator. It requires
+# fuse, SYS_ADMIN, and "apparmor=unconfined" in order to mount s3fs.
 docker run \
     --device /dev/fuse \
     --cap-add SYS_ADMIN \
     --security-opt "apparmor=unconfined" \
-    --env-file .env.bak \
+    --env-file .env \
     --detach \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \

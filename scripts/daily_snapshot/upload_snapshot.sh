@@ -1,12 +1,16 @@
 #!/bin/bash
 
-SYNC_TIMEOUT=25m
+# If Forest hasn't synced to the network after 30 minutes, something has gone wrong.
+SYNC_TIMEOUT=30m
 
 CHAIN_NAME=$1
 NEWEST_SNAPSHOT=$2
 
+# Make sure we have the most recent Forest image
 docker pull ghcr.io/chainsafe/forest:"${FOREST_TAG}"
 
+# Sync and export is done in a single container to make sure everything is
+# properly cleaned up.
 COMMANDS="
 echo \"Chain: $CHAIN_NAME\"
 echo \"Snapshot: $NEWEST_SNAPSHOT\"

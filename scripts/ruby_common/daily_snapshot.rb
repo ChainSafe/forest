@@ -33,9 +33,11 @@ FileUtils.mkdir_p LOG_DIR
 loop do
   client = SlackClient.new CHANNEL, SLACK_TOKEN
 
+  # Find the snapshot with the most recent modification date
   LATEST = Dir.glob("#{BASE_FOLDER}/s3/#{CHAIN_NAME}/*").max_by {|f| File.mtime(f)}
 
 
+  # Check if the date of the most recent snapshot is today
   if Time.new.strftime('%F') == File.stat(LATEST).mtime.strftime('%F')
     # We already have a snapshot for today. Do nothing.
     puts "No snapshot required for #{CHAIN_NAME}"
@@ -57,5 +59,6 @@ loop do
     logger.info 'Sync check finished'
   end
 
-  sleep(4.hours)
+  # Loop such that a new snapshot will be updated once per day.
+  sleep(1.hours)
 end
