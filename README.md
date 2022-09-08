@@ -185,7 +185,7 @@ _Work in progress_.
 
 ## Contributing
 - Check out our contribution guidelines: [CONTRIBUTING.md](documentation/developer_documentation/CONTRIBUTING.md)
-- Have questions? Say _hi_ on [Discord](https://discord.gg/Q6A3YA2)!
+- Have questions? Feel free to post them in [Forest Q&A](https://github.com/ChainSafe/forest/discussions/categories/forest-q-a)!
 
 ## ChainSafe Security Policy
 
