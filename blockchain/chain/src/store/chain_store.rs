@@ -244,7 +244,7 @@ where
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
         let key = block_validation_key(cid);
 
-        Ok(self.db.write(key, &[])?)
+        Ok(self.db.write(key, [])?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
