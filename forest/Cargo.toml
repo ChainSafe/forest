@@ -6,7 +6,7 @@ description = "Filecoin implementation in Rust. This command will start the daem
 edition     = "2021"
 
 [dependencies]
-anyhow                 = "1.0"
+anyhow                 = "1.0.64"
 async-log              = "2.0"
 async-std              = { version = "1.9", features = ["attributes", "tokio1"] }
 base64                 = "0.13"
