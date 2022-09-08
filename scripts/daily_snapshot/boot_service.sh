@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -o allexport
-source .env.bak
+source .env
 set +o allexport
 
 error=0

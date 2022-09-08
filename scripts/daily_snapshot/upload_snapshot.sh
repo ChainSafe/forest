@@ -5,7 +5,7 @@ SYNC_TIMEOUT=25m
 CHAIN_NAME=$1
 NEWEST_SNAPSHOT=$2
 
-docker pull ghcr.io/chainsafe/forest:${FOREST_TAG}
+docker pull ghcr.io/chainsafe/forest:"${FOREST_TAG}"
 
 COMMANDS="
 echo \"Chain: $CHAIN_NAME\"
@@ -22,5 +22,5 @@ docker run \
   --rm \
   -v "$BASE_FOLDER":"$BASE_FOLDER":rshared \
   --entrypoint /bin/bash \
-  ghcr.io/chainsafe/forest:${FOREST_TAG} \
+  ghcr.io/chainsafe/forest:"${FOREST_TAG}" \
   -c "$COMMANDS"
