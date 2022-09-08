@@ -12,7 +12,6 @@ features = ["json"]
 
 [dependencies]
 anyhow              = "1.0"
-async-std           = "1.9"
 base64              = "0.13"
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
 filecoin-proofs-api = { version = "11.0", default_features = false, optional = true }

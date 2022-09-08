@@ -10,10 +10,7 @@ repository  = "https://github.com/ChainSafe/forest"
 [dependencies]
 blake2b_simd       = "1.0"
 cs_serde_bytes     = "0.12.2"
-fvm_ipld_encoding  = "0.2.1"
-fvm_shared         = { version = "0.8.0", default-features = false }
 serde              = { version = "1.0", features = ["derive"] }
 serde_ipld_dagcbor = "0.1"
 serde_repr         = "0.1"
 serde_tuple        = "0.5"
-thiserror          = "1.0"
