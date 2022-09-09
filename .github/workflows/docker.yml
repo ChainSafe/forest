@@ -68,7 +68,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: scripts/
-          file: scripts/Dockerfile.snapshot
+          file: scripts/Dockerfile-snapshot
           tags: |
             ghcr.io/chainsafe/sync-snapshot:latest
           # build on feature branches, push only on main branch
