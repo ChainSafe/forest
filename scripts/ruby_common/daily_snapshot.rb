@@ -4,6 +4,7 @@ require_relative 'docker_utils'
 require 'date'
 require 'logger'
 require 'fileutils'
+require 'active_support/time'
 
 # Retrieves an environmental variable, failing if its not set or empty.
 def get_and_assert_env_variable(name)
@@ -53,6 +54,5 @@ loop do
   end
 
   # Loop such that a new snapshot will be updated once per day.
-  HOUR=60*60
-  sleep(HOUR)
+  sleep(1.hour)
 end
