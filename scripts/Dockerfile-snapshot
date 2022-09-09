@@ -8,4 +8,3 @@ COPY daily_snapshot/upload_snapshot.sh daily_snapshot/run_service.sh ./
 COPY ruby_common ruby_common
 RUN chmod +x run_service.sh
 ENTRYPOINT /run_service.sh
-
