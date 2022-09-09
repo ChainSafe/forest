@@ -19,17 +19,13 @@ end
 BASE_FOLDER = get_and_assert_env_variable 'BASE_FOLDER'
 SLACK_TOKEN = get_and_assert_env_variable 'SLACK_API_TOKEN'
 CHANNEL = get_and_assert_env_variable 'SLACK_NOTIF_CHANNEL'
-LOG_DIR = './'
 
 CHAIN_NAME = ARGV[0]
 raise 'No chain name supplied. Please provide chain identifier, e.g. calibnet or mainnet' if ARGV.empty?
 
 # Current datetime, to append to the log files
 DATE = Time.new.strftime '%FT%H:%M:%S'
-LOG_EXPORT = "#{LOG_DIR}/#{CHAIN_NAME}_#{DATE}_export"
-
-# Create log directory
-FileUtils.mkdir_p LOG_DIR
+LOG_EXPORT = "#{CHAIN_NAME}_#{DATE}_export"
 
 loop do
   client = SlackClient.new CHANNEL, SLACK_TOKEN
