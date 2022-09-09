@@ -74,7 +74,6 @@ pub enum ChainCommands {
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
-    #[structopt()]
     Fetch {
         /// Directory to which the snapshot should be downloaded. If not provided, it will be saved
         /// in default Forest data location.
