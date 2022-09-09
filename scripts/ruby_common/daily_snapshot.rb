@@ -2,6 +2,7 @@
 
 require_relative 'slack_client'
 require_relative 'docker_utils'
+require 'date'
 require 'rubygems'
 require 'logger'
 require 'fileutils'
@@ -38,7 +39,7 @@ loop do
 
 
   # Check if the date of the most recent snapshot is today
-  if Time.new.strftime('%F') == File.stat(LATEST).mtime.strftime('%F')
+  if Time.new.to_date() == File.stat(LATEST).mtime.to_date()
     # We already have a snapshot for today. Do nothing.
     puts "No snapshot required for #{CHAIN_NAME}"
   else
