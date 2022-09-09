@@ -3,6 +3,11 @@
 # If Forest hasn't synced to the network after 30 minutes, something has gone wrong.
 SYNC_TIMEOUT=30m
 
+if [[ $# != 2 ]]; then
+  echo "Usage: bash $0 CHAIN_NAME SNAPSHOT_PATH"
+  exit 1
+fi
+
 CHAIN_NAME=$1
 NEWEST_SNAPSHOT=$2
 
