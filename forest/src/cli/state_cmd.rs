@@ -120,10 +120,10 @@ impl StateCommands {
                     "{}({}) / {}({}) ~= {}%",
                     &mp.quality_adj_power,
                     to_size_string(&mp.quality_adj_power)
-                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
+                        .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     &tp.quality_adj_power,
                     to_size_string(&tp.quality_adj_power)
-                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
+                        .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
             }
