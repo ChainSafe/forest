@@ -269,15 +269,31 @@ fn pp_actor_state(
         write!(&mut buffer, "{:?}", account_state)?;
         return Ok(buffer);
     }
-    if let Ok(state) = forest_ipld::from_ipld::<PowerState>(ipld.clone()) {
-        write!(&mut buffer, "{:?}", state)?;
+    if let Ok(power_state) = forest_ipld::from_ipld::<PowerState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", power_state)?;
         return Ok(buffer);
     }
-    // } else if let Ok(state) = ipld::from_ipld::<market::State>(ipld.clone()) {
-    //     write!(&mut buffer, "{:?}", state)?;
-    // } else {
+    if let Ok(init_state) = forest_ipld::from_ipld::<InitState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", init_state)?;
+        return Ok(buffer);
+    }
+    if let Ok(reward_state) = forest_ipld::from_ipld::<RewardState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", reward_state)?;
+        return Ok(buffer);
+    }
+    if let Ok(system_state) = forest_ipld::from_ipld::<SystemState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", system_state)?;
+        return Ok(buffer);
+    }
+    if let Ok(multi_sig_state) = forest_ipld::from_ipld::<MultiSigState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", multi_sig_state)?;
+        return Ok(buffer);
+    }
+    if let Ok(market_state) = forest_ipld::from_ipld::<MarketState>(ipld.clone()) {
+        write!(&mut buffer, "{:?}", market_state)?;
+        return Ok(buffer);
+    }
     buffer += &serde_json::to_string_pretty(&resolved)?;
-    // }
     Ok(buffer)
 }
 
