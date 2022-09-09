@@ -1,12 +1,9 @@
 # frozen_string_literal: true
-
 require_relative 'slack_client'
 require_relative 'docker_utils'
 require 'date'
-require 'rubygems'
 require 'logger'
 require 'fileutils'
-require 'active_support/time'
 
 # Retrieves an environmental variable, failing if its not set or empty.
 def get_and_assert_env_variable(name)
@@ -33,7 +30,6 @@ loop do
   # Find the snapshot with the most recent modification date
   LATEST = Dir.glob("#{BASE_FOLDER}/s3/#{CHAIN_NAME}/*").max_by {|f| File.mtime(f)}
 
-
   # Check if the date of the most recent snapshot is today
   if Time.new.to_date() == File.stat(LATEST).mtime.to_date()
     # We already have a snapshot for today. Do nothing.
@@ -57,5 +53,6 @@ loop do
   end
 
   # Loop such that a new snapshot will be updated once per day.
-  sleep(1.hours)
+  HOUR=60*60
+  sleep(HOUR)
 end
