@@ -35,6 +35,7 @@ fi
 docker run \
     --device /dev/fuse \
     --cap-add SYS_ADMIN \
+    --network host \
     --security-opt "apparmor=unconfined" \
     --env-file .env \
     --detach \
