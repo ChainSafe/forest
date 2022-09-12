@@ -130,7 +130,7 @@ jobs:
           args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
   unused_dependencies:
-  name: Unused dependencies
+  name: Unused_dependencies
   runs-on: ubuntu-latest
   steps:
     - name: Checkout Sources
