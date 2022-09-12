@@ -129,8 +129,8 @@ jobs:
           command: audit
           args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
-  unused-dependencied:
-  name: Unused dependencied
+  unused_dependencies:
+  name: Unused dependencies
   runs-on: ubuntu-latest
   steps:
     - name: Checkout Sources
