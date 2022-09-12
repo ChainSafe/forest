@@ -1,28 +1,34 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{
-    path::{Path, PathBuf},
-    time::Duration,
-};
-
 use anyhow::bail;
+use chrono::DateTime;
 use hex::{FromHex, ToHex};
 use log::info;
 use pbr::ProgressBar;
 use reqwest::{Client, Response, Url};
+use s3::Bucket;
 use sha2::{Digest, Sha256};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use tokio::{
     fs::{create_dir_all, File},
-    io::AsyncWriteExt,
+    io::{AsyncWriteExt, BufWriter},
 };
 
-use crate::cli::to_size_string;
-
 use super::Config;
+use crate::cli::to_size_string;
 
 /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
 /// `sha256sum` file with the same URL (but different extension).
 const DEFAULT_MAINNET_SNAPSHOT_URL: &str =  "https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car";
+
+const DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL: &str =
+    "https://forest-snapshots.fra1.digitaloceanspaces.com";
+const DEFAULT_CALIBNET_BUCKET_NAME: &str = "forest-snapshots";
+const DEFAULT_CALIBNET_REGION: &str = "fra1";
+const DEFAULT_CALIBNET_PATH: &str = "calibnet/";
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
@@ -32,11 +38,62 @@ pub(crate) async fn snapshot_fetch(
 ) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
         "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir).await,
+        "calibnet" => snapshot_fetch_calibnet(snapshot_out_dir).await,
         _ => Err(anyhow::anyhow!(
             "Fetch not supported for chain {}",
             config.chain.name,
         )),
     }
+}
+
+/// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
+/// saved in the given directory. In case of failure (e.g. connection interrupted) it will not be
+/// removed.
+async fn snapshot_fetch_calibnet(snapshot_out_dir: &Path) -> anyhow::Result<PathBuf> {
+    let bucket = Bucket::new_public(
+        DEFAULT_CALIBNET_BUCKET_NAME,
+        DEFAULT_CALIBNET_REGION.parse()?,
+    )?;
+
+    // Grab contents of the bucket
+    let bucket_contents = bucket
+        .list(DEFAULT_CALIBNET_PATH.to_string(), Some("/".to_string()))
+        .await?;
+
+    // Find the the last modified file that is not a directory or empty file
+    let last_modified = bucket_contents
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
+        .contents
+        .iter()
+        .filter(|obj| obj.size > 0)
+        .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
+        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
+        .to_owned();
+
+    // Grab the snapshot name and create requested directory tree.
+    let filename = last_modified.key.rsplit_once('/').unwrap().1;
+    let snapshot_path = snapshot_out_dir.join(filename);
+    create_dir_all(snapshot_out_dir).await?;
+
+    // Download the file
+    // It'd be better to use the bucket directly with `get_object_stream`, but at the time
+    // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
+    // https://github.com/durch/rust-s3/issues/275
+    let client = Client::new();
+    let url = Url::try_from(DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL)?
+        .join(DEFAULT_CALIBNET_PATH)?
+        .join(filename)?;
+
+    let snapshot_response = client.get(url).send().await?;
+    let total_size = last_modified.size;
+    let snapshot_digest =
+        download_snapshot_to_file(&snapshot_path, snapshot_response, total_size).await?;
+    info!(
+        "Snapshot checksum is {}. Validation is not yet available.",
+        snapshot_digest.encode_hex::<String>()
+    );
+    Ok(snapshot_path)
 }
 
 /// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
@@ -66,11 +123,6 @@ async fn snapshot_fetch_mainnet(snapshot_out_dir: &Path) -> anyhow::Result<PathB
     // Create requested directory tree to store the snapshot
     create_dir_all(snapshot_out_dir).await?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
-    info!(
-        "Snapshot will be downloaded to {} ({})",
-        snapshot_path.display(),
-        to_size_string(&total_size.into())?
-    );
 
     let snapshot_checksum =
         download_snapshot_to_file(&snapshot_path, snapshot_response, total_size).await?;
@@ -98,19 +150,26 @@ async fn download_snapshot_to_file(
     snapshot_response: Response,
     total_size: u64,
 ) -> anyhow::Result<Vec<u8>> {
+    info!(
+        "Snapshot will be downloaded to {} ({})",
+        snapshot_path.display(),
+        to_size_string(&total_size.into())?
+    );
+
     let mut progress_bar = ProgressBar::new(total_size);
     progress_bar.message("Downloading snapshot ");
     progress_bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
     progress_bar.set_units(pbr::Units::Bytes);
 
-    let mut file = File::create(&snapshot_path).await?;
+    let file = File::create(&snapshot_path).await?;
+    let mut writer = BufWriter::new(file);
     let mut downloaded: u64 = 0;
     let mut stream = snapshot_response.bytes_stream();
 
     let mut snapshot_hasher = Sha256::new();
     while let Some(item) = futures::StreamExt::next(&mut stream).await {
         let chunk = item?;
-        file.write_all(&chunk).await?;
+        writer.write_all(&chunk).await?;
         downloaded = total_size.min(downloaded + chunk.len() as u64);
         progress_bar.set(downloaded);
         snapshot_hasher.update(chunk);
