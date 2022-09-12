@@ -18,6 +18,7 @@ daemon
 daemonize
 Filecoin
 HAMT
+hasher
 IPFS
 IPLD
 JSON

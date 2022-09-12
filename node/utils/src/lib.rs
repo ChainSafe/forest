@@ -24,7 +24,7 @@ pub fn set_user_perm(file: &File) -> Result<()> {
 /// Note: `path` and `filename` are appended to produce the resulting file path.
 pub fn write_to_file(message: &[u8], path: &Path, file_name: &str) -> Result<File> {
     // Create path if it doesn't exist
-    create_dir_all(&path)?;
+    create_dir_all(path)?;
     let mut file = File::create(path.join(file_name))?;
     file.write_all(message)?;
     Ok(file)

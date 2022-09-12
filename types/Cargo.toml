@@ -21,7 +21,7 @@ forest_json         = "0.1.0"
 forest_json_utils   = "0.1"
 forest_vm           = "0.3"
 fvm_ipld_encoding   = "0.2"
-fvm_shared          = { version = "*", default-features = false }
+fvm_shared          = { version = "0.8.0", default-features = false }
 num-derive          = "0.3"
 num-traits          = "0.2"
 rayon               = "1.5"
