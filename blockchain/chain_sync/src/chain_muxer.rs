@@ -165,7 +165,7 @@ where
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::result_large_err)]
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
