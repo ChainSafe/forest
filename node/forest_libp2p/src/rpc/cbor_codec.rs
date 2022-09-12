@@ -193,7 +193,7 @@ mod tests {
         // Nothing there now
         assert!(all.is_empty());
         // Now we put some garbage there and see that it errors
-        all.extend(&[0, 1, 2, 3, 4]);
+        all.extend([0, 1, 2, 3, 4]);
         decoder.decode(&mut all).unwrap_err();
         // All 5 bytes are still there
         assert_eq!(5, all.len());
