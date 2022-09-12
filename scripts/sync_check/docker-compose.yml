@@ -75,8 +75,13 @@ services:
     volumes:
       - type: bind
         read_only: true
-        source: ../ruby_common
+        source: .
         target: ${FOREST_TARGET_SCRIPTS}
+      # Put common Ruby utils into a path that should be by default in Ruby PATH
+      - type: bind
+        read_only: true
+        source: ../ruby_common
+        target: /usr/local/share/ruby/site_ruby/cs_utils
       - type: bind
         source: ${FOREST_HOST_LOGS}
         target: ${FOREST_TARGET_LOGS}
