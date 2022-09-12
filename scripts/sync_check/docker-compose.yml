@@ -75,7 +75,7 @@ services:
     volumes:
       - type: bind
         read_only: true
-        source: .
+        source: ../ruby_common
         target: ${FOREST_TARGET_SCRIPTS}
       - type: bind
         source: ${FOREST_HOST_LOGS}
@@ -86,11 +86,11 @@ services:
       - SCRIPTS_DIR=${FOREST_TARGET_SCRIPTS}
       - SLACK_API_TOKEN=${FOREST_SLACK_API_TOKEN}
       - SLACK_NOTIF_CHANNEL=${FOREST_SLACK_NOTIF_CHANNEL}
-    entrypoint: ["/bin/bash","-c"]
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
-        ruby ${FOREST_TARGET_SCRIPTS}/src/sync_check.rb forest-mainnet &
-        ruby ${FOREST_TARGET_SCRIPTS}/src/sync_check.rb forest-calibnet &
+        ruby ${FOREST_TARGET_SCRIPTS}/sync_check.rb forest-mainnet &
+        ruby ${FOREST_TARGET_SCRIPTS}/sync_check.rb forest-calibnet &
         sleep infinity
     depends_on:
       - forest_mainnet
