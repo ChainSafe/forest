@@ -10,6 +10,7 @@ mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
+mod snapshot_fetch;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -368,9 +369,9 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 
 /// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
 /// Provided number cannot be negative, otherwise the function will panic.
-pub(super) fn to_size_string(input: &BigInt) -> Result<String, String> {
-    let bytes =
-        u128::try_from(input).map_err(|e| format!("error parsing the input {}: {}", input, e))?;
+pub(super) fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
+    let bytes = u128::try_from(input)
+        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
 
     Ok(Byte::from_bytes(bytes)
         .get_appropriate_unit(true)
@@ -481,7 +482,7 @@ mod test {
         ];
 
         for (input, expected) in cases {
-            assert_eq!(to_size_string(&input), Ok(expected.to_string()));
+            assert_eq!(to_size_string(&input).unwrap(), expected.to_string());
         }
     }
 
