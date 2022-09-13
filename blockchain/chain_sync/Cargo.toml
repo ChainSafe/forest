@@ -73,7 +73,7 @@ fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
 hex                    = "0.4"
 lazy_static            = "1.4.0"
-libp2p                 = { version = "0.40.0", default-features = false }
+libp2p                 = { version = "0.46", default-features = false }
 log                    = "0.4.17"
 lru                    = "0.7.8"
 nonempty               = "0.8.0"
