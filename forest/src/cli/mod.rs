@@ -175,12 +175,12 @@ pub struct CliOpts {
     /// Encrypt the key-store (default: true)
     #[structopt(long)]
     pub encrypt_keystore: Option<bool>,
+    /// Choose network chain to sync to
     #[structopt(
         long,
         default_value = "mainnet",
         possible_values = &["mainnet", "calibnet"],
     )]
-    /// Choose network chain to sync to
     pub chain: String,
     /// Daemonize Forest process
     #[structopt(long)]

@@ -19,7 +19,7 @@ pub enum NetCommands {
     Peers,
     /// Connects to a peer by its peer ID and multi-addresses
     Connect {
-        /// Multi-address (with /P2P/ protocol)
+        /// Multi-address (with `/p2p/` protocol)
         address: String,
     },
     /// Disconnects from a peer by it's peer ID
