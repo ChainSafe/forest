@@ -24,4 +24,4 @@ forest_rpc-api        = "0.1.0"
 [dependencies.jsonrpc-v2]
 default-features = false
 features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.10"
+version          = "0.11"

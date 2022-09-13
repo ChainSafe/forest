@@ -21,7 +21,7 @@ fvm                    = "1.1"
 fvm_ipld_bitfield      = "0.5.2"
 fvm_ipld_encoding      = "0.2"
 fvm_shared             = "0.8"
-libipld-core           = "0.13.1"
+libipld-core           = "0.14.0"
 serde                  = { version = "1.0", features = ["derive"] }
 serde_json             = "1.0"
 structopt              = "0.3"

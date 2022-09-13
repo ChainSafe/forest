@@ -16,9 +16,9 @@ forest_encoding   = "0.2"
 fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8.0", default-features = false }
 indexmap          = { version = "1.9", features = ["serde-1"] }
-libipld           = { version = "0.13", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
-libipld-core      = { version = "0.13", features = ["serde-codec"] }
-libipld-macro     = { version = "0.13" }
+libipld           = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
+libipld-core      = { version = "0.14", features = ["serde-codec"] }
+libipld-macro     = { version = "0.14" }
 multibase         = { version = "0.9" }
 serde             = { version = "1.0", features = ["derive"] }
 thiserror         = "1.0"

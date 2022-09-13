@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-ahash                  = "0.7"
+ahash                  = "0.8"
 anyhow                 = "1.0"
 async-std              = "1.12"
 byteorder              = "1.4"
@@ -26,7 +26,7 @@ forest_vm              = "0.3"
 fvm                    = "1.1"
 fvm_ipld_amt           = "0.4.2"
 fvm_ipld_blockstore    = "0.1.1"
-fvm_ipld_car           = "0.4.1"
+fvm_ipld_car           = "0.5.0"
 fvm_ipld_encoding      = "0.2"
 fvm_ipld_hamt          = "0.5.1"
 fvm_shared             = { version = "0.8.0", default-features = false }

@@ -8,7 +8,7 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-ahash                  = { version = "0.7", optional = true }
+ahash                  = { version = "0.8", optional = true }
 anyhow                 = "1.0"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 forest_db              = "0.1"

@@ -22,7 +22,7 @@ forest_networks = "0.1.0"
 forest_utils = "0.1.0"
 futures = "0.3"
 futures-util = "0.3"
-fvm_ipld_car = "0.4.1"
+fvm_ipld_car = "0.5.0"
 fvm_ipld_encoding = "0.2"
 fvm_shared = { version = "0.8.0", default-features = false, features = ["testing"] }
 git-version = "0.3"
