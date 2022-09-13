@@ -20,59 +20,60 @@ use super::{balance_to_fil, cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
-    #[structopt(about = "Create a new wallet")]
+    /// Create a new wallet
     New {
-        #[structopt(
-            default_value = "secp256k1",
-            help = "The signature type to use. One of secp256k1, or bls"
-        )]
+        /// The signature type to use. One of SECP256k1, or BLS
+        #[structopt(default_value = "secp256k1")]
         signature_type: String,
     },
-    #[structopt(about = "Get account balance")]
+    /// Get account balance
     Balance {
-        #[structopt(about = "The address of the account to check")]
+        /// The address of the account to check
         address: String,
     },
-    #[structopt(about = "Get the default address of the wallet")]
+    /// Get the default address of the wallet
     Default,
-    #[structopt(about = "Export the wallet's keys")]
+    /// Export the wallet's keys
     Export {
-        #[structopt(about = "The address that contains the keys to export")]
+        /// The address that contains the keys to export
         address: String,
     },
-    #[structopt(about = "Check if the wallet has a key")]
+    /// Check if the wallet has a key
     Has {
-        #[structopt(help = "The key to check")]
+        /// The key to check
         key: String,
     },
-    #[structopt(about = "Import keys from existing wallet")]
+    /// Import keys from existing wallet
     Import {
-        #[structopt(help = "The path to the private key")]
+        /// The path to the private key
         path: Option<String>,
     },
-    #[structopt(about = "List addresses of the wallet")]
+    /// List addresses of the wallet
     List,
-    #[structopt(about = "Set the default wallet address")]
+    /// Set the default wallet address
     SetDefault {
-        #[structopt(about = "The given key to set to the default address")]
+        /// The given key to set to the default address
         key: String,
     },
-    #[structopt(about = "Sign a message")]
+    /// Sign a message
     Sign {
-        #[structopt(about = "The hex encoded message to sign", short)]
+        /// The hex encoded message to sign
+        #[structopt(short)]
         message: String,
-        #[structopt(about = "The address to be used to sign the message", short)]
+        /// The address to be used to sign the message
+        #[structopt(short)]
         address: String,
     },
-    #[structopt(
-        about = "Verify the signature of a message. Returns true if the signature matches the message and address"
-    )]
+    /// Verify the signature of a message. Returns true if the signature matches the message and address
     Verify {
-        #[structopt(about = "The address used to sign the message", short)]
+        /// The address used to sign the message
+        #[structopt(short)]
         address: String,
-        #[structopt(about = "The message to verify", short)]
+        /// The message to verify
+        #[structopt(short)]
         message: String,
-        #[structopt(about = "The signature of the message to verify", short)]
+        /// The signature of the message to verify
+        #[structopt(short)]
         signature: String,
     },
 }
