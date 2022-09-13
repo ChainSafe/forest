@@ -28,9 +28,11 @@ use fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::tuple::*;
 use fvm_shared::bigint::bigint_ser;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::deal::DealID;
 use fvm_shared::econ::TokenAmount;
-use fvm_shared::sector::StoragePower;
+use fvm_shared::sector::{Spacetime, StoragePower};
 use fvm_shared::smooth::FilterEstimate;
+use fvm_shared::ActorID;
 
 /// State includes the address for the actor
 #[derive(Serialize_tuple, Deserialize_tuple, Debug)]
@@ -156,6 +158,125 @@ pub struct MinerState {
 
     // True when miner cron is active, false otherwise
     pub deadline_cron_active: bool,
+}
+
+#[derive(Clone, Default, Serialize_tuple, Deserialize_tuple, Debug)]
+pub struct MarketState {
+    /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
+    /// Array<DealID, DealProposal>
+    pub proposals: Cid,
+
+    // States contains state for deals that have been activated and not yet cleaned up after expiry or termination.
+    // After expiration, the state exists until the proposal is cleaned up too.
+    // Invariant: keys(States) ⊆ keys(Proposals).
+    /// Array<DealID, DealState>
+    pub states: Cid,
+
+    /// PendingProposals tracks dealProposals that have not yet reached their deal start date.
+    /// We track them here to ensure that miners can't publish the same deal proposal twice
+    pub pending_proposals: Cid,
+
+    /// Total amount held in escrow, indexed by actor address (including both locked and unlocked amounts).
+    pub escrow_table: Cid,
+
+    /// Amount locked, indexed by actor address.
+    /// Note: the amounts in this table do not affect the overall amount in escrow:
+    /// only the _portion_ of the total escrow amount that is locked.
+    pub locked_table: Cid,
+
+    /// Deal id state sequential incrementer
+    pub next_id: DealID,
+
+    /// Metadata cached for efficient iteration over deals.
+    /// SetMultimap<Address>
+    pub deal_ops_by_epoch: Cid,
+    pub last_cron: ChainEpoch,
+
+    /// Total Client Collateral that is locked -> unlocked when deal is terminated
+    pub total_client_locked_collateral: TokenAmount,
+    /// Total Provider Collateral that is locked -> unlocked when deal is terminated
+    pub total_provider_locked_collateral: TokenAmount,
+    /// Total storage fee that is locked in escrow -> unlocked when payments are made
+    pub total_client_storage_fee: TokenAmount,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Hash, Eq, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct TxnID(pub i64);
+
+#[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
+pub struct MultiSigState {
+    pub signers: Vec<Address>,
+    pub num_approvals_threshold: u64,
+    pub next_tx_id: TxnID,
+
+    // Linear unlock
+    pub initial_balance: TokenAmount,
+    pub start_epoch: ChainEpoch,
+    pub unlock_duration: ChainEpoch,
+
+    pub pending_txs: Cid,
+}
+
+#[derive(Default, Deserialize_tuple, Serialize_tuple, Debug)]
+pub struct SystemState {
+    // builtin actor registry: Vec<(String, Cid)>
+    pub builtin_actors: Cid,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple, Default, Debug)]
+pub struct RewardState {
+    /// Target CumsumRealized needs to reach for EffectiveNetworkTime to increase
+    /// Expressed in byte-epochs.
+    #[serde(with = "bigint_ser")]
+    pub cumsum_baseline: Spacetime,
+
+    /// CumsumRealized is cumulative sum of network power capped by BaselinePower(epoch).
+    /// Expressed in byte-epochs.
+    #[serde(with = "bigint_ser")]
+    pub cumsum_realized: Spacetime,
+
+    /// Ceiling of real effective network time `theta` based on
+    /// CumsumBaselinePower(theta) == CumsumRealizedPower
+    /// Theta captures the notion of how much the network has progressed in its baseline
+    /// and in advancing network time.
+    pub effective_network_time: ChainEpoch,
+
+    /// EffectiveBaselinePower is the baseline power at the EffectiveNetworkTime epoch.
+    #[serde(with = "bigint_ser")]
+    pub effective_baseline_power: StoragePower,
+
+    /// The reward to be paid in per WinCount to block producers.
+    /// The actual reward total paid out depends on the number of winners in any round.
+    /// This value is recomputed every non-null epoch and used in the next non-null epoch.
+    pub this_epoch_reward: TokenAmount,
+    /// Smoothed `this_epoch_reward`.
+    pub this_epoch_reward_smoothed: FilterEstimate,
+
+    /// The baseline power the network is targeting at st.Epoch.
+    #[serde(with = "bigint_ser")]
+    pub this_epoch_baseline_power: StoragePower,
+
+    /// Epoch tracks for which epoch the Reward was computed.
+    pub epoch: ChainEpoch,
+
+    // TotalStoragePowerReward tracks the total FIL awarded to block miners
+    pub total_storage_power_reward: TokenAmount,
+
+    // Simple and Baseline totals are constants used for computing rewards.
+    // They are on chain because of a historical fix resetting baseline value
+    // in a way that depended on the history leading immediately up to the
+    // migration fixing the value.  These values can be moved from state back
+    // into a code constant in a subsequent upgrade.
+    pub simple_total: TokenAmount,
+    pub baseline_total: TokenAmount,
+}
+
+#[derive(Serialize_tuple, Deserialize_tuple, Debug)]
+pub struct InitState {
+    pub address_map: Cid,
+    pub next_id: ActorID,
+    pub network_name: String,
 }
 
 #[derive(Serialize, Deserialize)]
