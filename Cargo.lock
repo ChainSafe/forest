@@ -2743,7 +2743,6 @@ dependencies = [
  "fvm_shared",
  "hex",
  "lazy_static",
- "libp2p",
  "log",
  "lru",
  "nonempty",
