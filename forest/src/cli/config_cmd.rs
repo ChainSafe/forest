@@ -8,7 +8,7 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum ConfigCommands {
-    #[structopt(about = "Dump current configuration to standard output")]
+    /// Dump current configuration to standard output
     Dump,
 }
 

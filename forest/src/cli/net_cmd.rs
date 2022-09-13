@@ -14,21 +14,17 @@ use forest_rpc_client::net_ops::*;
 #[derive(Debug, StructOpt)]
 pub enum NetCommands {
     /// Lists `libp2p` swarm listener addresses
-    #[structopt(about = "List listen addresses")]
     Listen,
     /// Lists `libp2p` swarm peers
-    #[structopt(about = "Print peers")]
     Peers,
-    /// Connects to a peer
-    #[structopt(about = "Connect to a peer by its peer ID and multiaddresses")]
+    /// Connects to a peer by its peer ID and multi-addresses
     Connect {
-        #[structopt(about = "Multiaddr (with /p2p/ protocol)")]
+        /// Multi-address (with `/p2p/` protocol)
         address: String,
     },
-    /// Disconnects from a peer
-    #[structopt(about = "Disconnect from a peer by its peer ID")]
+    /// Disconnects from a peer by it's peer ID
     Disconnect {
-        #[structopt(about = "Peer ID to disconnect from")]
+        /// Peer ID to disconnect from
         id: String,
     },
 }

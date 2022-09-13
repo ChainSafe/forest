@@ -17,21 +17,24 @@ use crate::cli::{format_vec_pretty, handle_rpc_err};
 
 #[derive(Debug, StructOpt)]
 pub enum SyncCommands {
-    #[structopt(about = "Wait for sync to be complete")]
+    /// Display continuous sync data until sync is complete
     Wait {
-        #[structopt(short, about = "Don't exit after node is synced")]
+        /// Don't exit after node is synced
+        #[structopt(short)]
         watch: bool,
     },
-    #[structopt(about = "Check sync status")]
+    /// Check sync status
     Status,
-    #[structopt(about = "Check if a given block is marked bad, and for what reason")]
+    /// Check if a given block is marked bad, and for what reason
     CheckBad {
-        #[structopt(short, about = "the block CID to check")]
+        #[structopt(short)]
+        /// The block CID to check
         cid: String,
     },
-    #[structopt(about = "Mark a given block as bad")]
+    /// Mark a given block as bad
     MarkBad {
-        #[structopt(short, about = "the block CID to mark as a bad block")]
+        /// The block CID to mark as a bad block
+        #[structopt(short)]
         cid: String,
     },
 }

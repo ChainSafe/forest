@@ -25,6 +25,7 @@ JSON
 JWT
 Kademlia
 libp2p
+localhost
 MDNS
 mempool
 Merkle
@@ -35,6 +36,7 @@ pointer/SM
 PoSt
 RPC
 SECP
+SECP256k1
 serializable
 serializer/SM
 statediff
