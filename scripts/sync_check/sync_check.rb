@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative 'slack_client'
-require_relative 'docker_utils'
+require 'cs_utils/slack_client'
+require 'cs_utils/docker_utils'
 require 'logger'
 require 'fileutils'
 
