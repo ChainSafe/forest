@@ -45,7 +45,7 @@ pub struct CronState {
     pub entries: Vec<CronEntry>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize_tuple, Deserialize_tuple)]
 pub struct CronEntry {
     /// The actor to call (ID address)
     pub receiver: Address,

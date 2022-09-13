@@ -130,7 +130,7 @@ where
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
-    info!("Importing chain from snapshot");
+    info!("Importing chain from snapshot at: {path}");
     // start import
     let cids = if is_remote_file {
         let url = Url::parse(path).expect("URL is invalid");

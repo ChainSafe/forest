@@ -4,12 +4,12 @@
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
-use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
-use crate::cli::{cli_error_and_die, handle_rpc_err};
+use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty, Config};
+use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
 use cid::Cid;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use strfmt::strfmt;
 use time::OffsetDateTime;
 
@@ -72,10 +72,18 @@ pub enum ChainCommands {
         #[structopt(short, help = "Input a valid CID")]
         cid: String,
     },
+
+    /// Fetches the most recent snapshot from a trusted, pre-defined location.
+    Fetch {
+        /// Directory to which the snapshot should be downloaded. If not provided, it will be saved
+        /// in default Forest data location.
+        #[structopt(short, long)]
+        snapshot_dir: Option<PathBuf>,
+    },
 }
 
 impl ChainCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
@@ -141,6 +149,19 @@ impl ChainCommands {
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res(chain_read_obj((CidJson(cid),)).await);
+            }
+            Self::Fetch { snapshot_dir } => {
+                let snapshot_dir = snapshot_dir.clone().unwrap_or_else(|| {
+                    config
+                        .client
+                        .data_dir
+                        .join("snapshots")
+                        .join(config.chain.name.clone())
+                });
+                match snapshot_fetch(&snapshot_dir, config).await {
+                    Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
+                    Err(e) => cli_error_and_die(format!("Failed fetchning the snapshot: {e}"), 1),
+                }
             }
         }
     }

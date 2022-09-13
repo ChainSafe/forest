@@ -138,7 +138,7 @@ impl WalletCommands {
 
                 let key = key.trim();
 
-                let decoded_key_result = hex::decode(&key);
+                let decoded_key_result = hex::decode(key);
 
                 if decoded_key_result.is_err() {
                     cli_error_and_die("Key must be hex encoded", 1);

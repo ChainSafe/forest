@@ -82,6 +82,7 @@ impl<'a> TipsetValidator<'a> {
         Ok(())
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn validate_epoch(
         &self,
         genesis_tipset: Arc<Tipset>,
@@ -100,6 +101,7 @@ impl<'a> TipsetValidator<'a> {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn validate_msg_root<DB: BlockStore>(
         &self,
         blockstore: &DB,
@@ -113,6 +115,7 @@ impl<'a> TipsetValidator<'a> {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn compute_msg_root<DB: BlockStore>(
         blockstore: &DB,
         bls_msgs: &[Message],
