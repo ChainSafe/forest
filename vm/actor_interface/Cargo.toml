@@ -30,5 +30,5 @@ fvm_ipld_bitfield      = "0.5.2"
 fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
 # cannot update due to version conflict
-libp2p                 = { version = "0.46", default-features = false }
-serde                  = { version = "1.0", features = ["derive"] }
+libp2p = { version = "0.46", default-features = false }
+serde  = { version = "1.0", features = ["derive"] }
