@@ -51,14 +51,14 @@ fn cid_conversions_ipld() {
     );
     let serialized = to_vec(&cid).unwrap();
     let ipld = ipld!(Ipld::Link(cid));
-    let ipld2 = to_ipld(&cid).unwrap();
+    let ipld2 = to_ipld(cid).unwrap();
     assert_eq!(ipld, ipld2);
     assert_eq!(to_vec(&ipld).unwrap(), serialized);
-    assert_eq!(to_ipld(&cid).unwrap(), Ipld::Link(cid));
+    assert_eq!(to_ipld(cid).unwrap(), Ipld::Link(cid));
 
     // Test with identity hash (different length prefix for cbor)
     let cid = Cid::new_v1(DAG_CBOR, Identity.digest(&[1, 2]));
     let ipld = ipld!(Ipld::Link(cid));
-    let ipld2 = to_ipld(&cid).unwrap();
+    let ipld2 = to_ipld(cid).unwrap();
     assert_eq!(ipld, ipld2);
 }

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use super::client::Client;
 
-#[derive(Serialize, Deserialize, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct LogConfig {
     pub log_values: HashSet<LogValue>,
 }
@@ -23,7 +23,7 @@ pub struct LogValue {
 }
 
 /// Structure that defines daemon configuration when process is detached
-#[derive(Deserialize, Serialize, PartialEq)]
+#[derive(Deserialize, Serialize, PartialEq, Eq)]
 pub struct DaemonConfig {
     pub user: Option<String>,
     pub group: Option<String>,

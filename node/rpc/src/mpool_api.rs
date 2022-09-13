@@ -172,7 +172,7 @@ where
     umsg.sequence = nonce;
     let key = forest_key_management::Key::try_from(forest_key_management::try_find(
         &key_addr,
-        &mut *keystore,
+        &mut keystore,
     )?)?;
     let sig = forest_key_management::sign(
         *key.key_info.key_type(),

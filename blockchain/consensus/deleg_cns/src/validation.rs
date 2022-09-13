@@ -51,6 +51,7 @@ pub(crate) async fn validate_block<DB: BlockStore + Sync + Send + 'static>(
 ///
 /// In particular it looks for an election proof and a ticket,
 /// which are needed for Filecoin consensus.
+#[allow(clippy::result_large_err)]
 fn block_sanity_checks(header: &BlockHeader) -> Result<(), DelegatedConsensusError> {
     if header.election_proof().is_some() {
         return Err(DelegatedConsensusError::BlockWithElectionProof);
@@ -64,6 +65,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), DelegatedConsensusErr
 /// Check the timestamp corresponds exactly to the number of epochs since the parents.
 ///
 /// This is the same as in the default `FilecoinConsensus`.
+#[allow(clippy::result_large_err)]
 fn block_timestamp_checks(
     header: &BlockHeader,
     base_tipset: &Tipset,
@@ -83,6 +85,7 @@ fn block_timestamp_checks(
 }
 
 /// Check that the miner who produced the block is the one we delegated to.
+#[allow(clippy::result_large_err)]
 fn validate_miner<DB>(
     header: &BlockHeader,
     base_tipset: &Tipset,

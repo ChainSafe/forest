@@ -1,0 +1,10 @@
+FROM fedora:36
+
+# Install dependencies
+RUN dnf install -y docker docker-compose ruby ruby-devel make gcc s3fs-fuse
+RUN gem install docker-api slack-ruby-client activesupport
+
+COPY ruby_common ruby_common
+COPY daily_snapshot/daily_snapshot.rb ruby_common/
+COPY daily_snapshot/upload_snapshot.sh daily_snapshot/run_service.sh ./
+ENTRYPOINT ["/bin/bash", "run_service.sh"]
