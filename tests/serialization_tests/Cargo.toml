@@ -8,7 +8,8 @@ edition = "2021"
 submodule_tests = []
 
 [dev-dependencies]
-base64            = { version = "0.13" }
+base64 = { version = "0.13" }
+# cannot update due to `blst` version conflict
 bls-signatures    = { version = "0.11", default-features = false, features = ["blst"] }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 forest_blocks     = "0.1.0"
