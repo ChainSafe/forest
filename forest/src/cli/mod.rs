@@ -10,7 +10,7 @@ mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
-mod snapshot_fetch;
+pub mod snapshot_fetch;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -188,7 +188,7 @@ pub struct CliOpts {
     pub detach: bool,
     /// Assume yes to any prompts requiring yes/no inputs after Forest starts
     #[structopt(long, short)]
-    pub assume_yes: bool,
+    pub yes: bool,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
@@ -253,6 +253,7 @@ impl CliOpts {
         }
 
         cfg.client.halt_after_import = self.halt_after_import;
+        cfg.client.assume_yes = self.yes;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);

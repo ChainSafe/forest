@@ -112,6 +112,7 @@ mod test {
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
+                    assume_yes: bool::arbitrary(g),
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),

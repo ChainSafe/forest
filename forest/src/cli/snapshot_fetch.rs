@@ -34,7 +34,7 @@ const DEFAULT_CALIBNET_PATH: &str = "calibnet/";
 /// from configuration.
 pub(crate) async fn snapshot_fetch(
     snapshot_out_dir: &Path,
-    config: Config,
+    config: &Config,
 ) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
         "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir).await,

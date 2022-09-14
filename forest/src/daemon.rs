@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
+use crate::cli::snapshot_fetch::snapshot_fetch;
 use crate::cli_error_and_die;
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
@@ -205,7 +206,7 @@ pub(super) async fn start(config: Config, detached: bool) {
     let (tipset_sink, tipset_stream) = bounded(20);
 
     // if bootstrap peers are not set, set them
-    let config = if config.network.bootstrap_peers.is_empty() {
+    let mut config = if config.network.bootstrap_peers.is_empty() {
         let bootstrap_peers = config
             .chain
             .bootstrap_peers
@@ -335,10 +336,31 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
         None => {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                1,
-            );
+            if !config.client.assume_yes {
+                let mut buffer = String::new();
+                let stdin = std::io::stdin(); // We get `Stdin` here.
+                print!("Forest needs a snapshot to sync with the network. Would you like to download one now?: (y/n)");
+                let _ = stdin.read_line(&mut buffer);
+                if buffer.to_lowercase() != "y" || buffer.to_lowercase() != "yes" {
+                    cli_error_and_die(
+                        "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                        1
+                    );
+                }
+            }
+
+            let snapshot_path = config
+                .client
+                .data_dir
+                .join("snapshots")
+                .join(config.chain.name.clone());
+
+            match snapshot_fetch(&snapshot_path, &config).await {
+                Ok(snapshot_path) => {
+                    config.client.snapshot_path = Some(snapshot_path.display().to_string())
+                }
+                Err(e) => cli_error_and_die(e.to_string(), 1),
+            };
         }
         Some(tipset) => {
             let epoch = tipset.epoch();
