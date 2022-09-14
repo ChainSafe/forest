@@ -36,7 +36,6 @@ fvm                    = "1.0"
 fvm_ipld_bitfield      = "0.5.2"
 fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
-lazy_static            = "1.4"
 log                    = "0.4.8"
 num-traits             = "0.2.11"
 once_cell              = "1.5"
