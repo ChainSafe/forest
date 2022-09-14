@@ -3134,8 +3134,6 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared",
- "git-version",
- "lazy_static",
  "libp2p 0.46.1",
  "libp2p-bitswap",
  "log",
