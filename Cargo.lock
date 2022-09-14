@@ -3399,7 +3399,6 @@ dependencies = [
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
- "forest_statediff",
  "forest_vm",
  "futures",
  "fvm",
