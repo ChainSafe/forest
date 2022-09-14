@@ -193,10 +193,13 @@ pub struct MarketState {
     pub last_cron: ChainEpoch,
 
     /// Total Client Collateral that is locked -> unlocked when deal is terminated
+    #[serde(with = "bigint_ser")]
     pub total_client_locked_collateral: TokenAmount,
     /// Total Provider Collateral that is locked -> unlocked when deal is terminated
+    #[serde(with = "bigint_ser")]
     pub total_provider_locked_collateral: TokenAmount,
     /// Total storage fee that is locked in escrow -> unlocked when payments are made
+    #[serde(with = "bigint_ser")]
     pub total_client_storage_fee: TokenAmount,
 }
 
@@ -211,6 +214,7 @@ pub struct MultiSigState {
     pub next_tx_id: TxnID,
 
     // Linear unlock
+    #[serde(with = "bigint_ser")]
     pub initial_balance: TokenAmount,
     pub start_epoch: ChainEpoch,
     pub unlock_duration: ChainEpoch,
@@ -249,6 +253,7 @@ pub struct RewardState {
     /// The reward to be paid in per WinCount to block producers.
     /// The actual reward total paid out depends on the number of winners in any round.
     /// This value is recomputed every non-null epoch and used in the next non-null epoch.
+    #[serde(with = "bigint_ser")]
     pub this_epoch_reward: TokenAmount,
     /// Smoothed `this_epoch_reward`.
     pub this_epoch_reward_smoothed: FilterEstimate,
@@ -261,6 +266,7 @@ pub struct RewardState {
     pub epoch: ChainEpoch,
 
     // TotalStoragePowerReward tracks the total FIL awarded to block miners
+    #[serde(with = "bigint_ser")]
     pub total_storage_power_reward: TokenAmount,
 
     // Simple and Baseline totals are constants used for computing rewards.
@@ -268,7 +274,9 @@ pub struct RewardState {
     // in a way that depended on the history leading immediately up to the
     // migration fixing the value.  These values can be moved from state back
     // into a code constant in a subsequent upgrade.
+    #[serde(with = "bigint_ser")]
     pub simple_total: TokenAmount,
+    #[serde(with = "bigint_ser")]
     pub baseline_total: TokenAmount,
 }
 
