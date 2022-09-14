@@ -42,7 +42,6 @@ impl ChainCommand {
 /// statediff binary sub-commands available.
 #[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
-#[structopt(about = "statediff subcommands")]
 enum Subcommand {
     #[structopt(name = "chain")]
     Chain(ChainCommand),
