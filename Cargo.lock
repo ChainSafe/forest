@@ -3065,7 +3065,7 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared",
- "libp2p 0.46.1",
+ "libp2p",
  "libp2p-bitswap",
  "log",
  "multihash",
