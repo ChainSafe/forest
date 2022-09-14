@@ -2520,7 +2520,7 @@ dependencies = [
  "forest_vm",
  "futures",
  "fvm",
- "fvm_ipld_car 0.5.0",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared",
  "git-version",
@@ -2535,7 +2535,7 @@ dependencies = [
  "once_cell",
  "pbr",
  "pretty_env_logger",
- "prometheus 0.13.2",
+ "prometheus",
  "quickcheck",
  "quickcheck_macros",
  "rand 0.8.5",
@@ -2685,7 +2685,7 @@ dependencies = [
  "forest_test_utils",
  "futures",
  "fvm",
- "fvm_ipld_car 0.5.0",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared",
  "lazy_static",
@@ -2733,7 +2733,7 @@ dependencies = [
  "futures",
  "futures-util",
  "fvm",
- "fvm_ipld_car 0.4.1",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared",
  "hex",
@@ -2746,11 +2746,9 @@ dependencies = [
  "num-traits",
  "pbr",
  "pretty_env_logger",
- "prometheus 0.12.0",
- "prometheus 0.13.2",
+ "prometheus",
  "quickcheck",
  "quickcheck_macros",
- "rand 0.7.3",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -2904,7 +2902,7 @@ dependencies = [
  "forest_networks",
  "forest_state_manager",
  "futures",
- "fvm_ipld_car 0.5.0",
+ "fvm_ipld_car",
  "log",
  "url",
 ]
@@ -3074,7 +3072,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "futures-util",
- "fvm_ipld_car 0.5.0",
+ "fvm_ipld_car",
  "fvm_ipld_encoding",
  "fvm_shared",
  "git-version",
@@ -3156,7 +3154,7 @@ dependencies = [
  "async-std",
  "fs_extra",
  "log",
- "prometheus 0.13.2",
+ "prometheus",
  "thiserror",
  "tide",
 ]
@@ -3707,21 +3705,6 @@ dependencies = [
  "anyhow",
  "cid",
  "multihash 0.16.3",
-]
-
-[[package]]
-name = "fvm_ipld_car"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ade8c2f76a9e014f2fdaeb693a0884f49eca5ee663958e1c8c1db8d23290817c"
-dependencies = [
- "cid",
- "futures",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
- "integer-encoding",
- "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -6580,20 +6563,6 @@ dependencies = [
 
 [[package]]
 name = "procfs"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab8809e0c18450a2db0f236d2a44ec0b4c1412d0eb936233579f0990faa5d5cd"
-dependencies = [
- "bitflags",
- "byteorder 1.4.3",
- "flate2",
- "hex",
- "lazy_static",
- "libc",
-]
-
-[[package]]
-name = "procfs"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0941606b9934e2d98a3677759a971756eb821f75764d0e0d26946d08e74d9104"
@@ -6603,23 +6572,6 @@ dependencies = [
  "hex",
  "lazy_static",
  "libc",
-]
-
-[[package]]
-name = "prometheus"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5986aa8d62380092d2f50f8b1cdba9cb9b6731ffd4b25b51fd126b6c3e05b99c"
-dependencies = [
- "cfg-if 1.0.0",
- "fnv",
- "lazy_static",
- "libc",
- "memchr",
- "parking_lot 0.11.2",
- "procfs 0.9.1",
- "protobuf",
- "thiserror",
 ]
 
 [[package]]
@@ -6634,7 +6586,7 @@ dependencies = [
  "libc",
  "memchr",
  "parking_lot 0.12.1",
- "procfs 0.12.0",
+ "procfs",
  "protobuf",
  "thiserror",
 ]
