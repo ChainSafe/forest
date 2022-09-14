@@ -129,6 +129,24 @@ jobs:
           command: audit
           args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
+  unused_dependencies:
+    name: Unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install udeps
+        run: cargo install cargo-udeps --locked
+      - name: Run udeps
+        uses: actions-rs/cargo@v1
+        with:
+          command: udeps 
+          args: --features test_constructors
+
   spellcheck:
     name: Spellcheck
     runs-on: ubuntu-latest
