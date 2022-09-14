@@ -146,7 +146,7 @@ jobs:
       - name: Run udeps
         uses: actions-rs/cargo@v1
         with:
-          command: udeps
+          command: udeps --features test_constructors
 
   spellcheck:
     name: Spellcheck
