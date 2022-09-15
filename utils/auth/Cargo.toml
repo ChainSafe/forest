@@ -6,9 +6,8 @@ edition = "2021"
 
 [dependencies]
 # Public
-fvm_shared = { version = "0.8", default-features = false }
-# cannot update as `validate_signature` in `Validation` struct became private
-jsonwebtoken = "7.2"
+fvm_shared   = { version = "0.8", default-features = false }
+jsonwebtoken = "8.1"
 once_cell    = "1.14"
 rand         = "0.8"
 serde        = { version = "1.0", default-features = false, features = ["derive"] }
