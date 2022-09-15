@@ -163,6 +163,7 @@ cargo install cargo-udeps --locked
 # Spellcheck
 cargo install cargo-spellcheck
 ```
+After everything is installed, you can run `make lint-all`.
 
 ### Joining the testnet
 
