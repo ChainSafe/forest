@@ -6,9 +6,10 @@ edition = "2021"
 
 [dependencies]
 # Public
-fvm_shared   = { version = "0.8", default-features = false }
+fvm_shared = { version = "0.8", default-features = false }
+# cannot update as `validate_signature` in `Validation` struct became private
 jsonwebtoken = "7.2"
-once_cell    = "1.7"
+once_cell    = "1.14"
 rand         = "0.8"
 serde        = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror    = "1.0"
@@ -19,4 +20,4 @@ forest_key_management = "0.1.0"
 [dependencies.jsonrpc-v2]
 default-features = false
 features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.10"
+version          = "0.11"

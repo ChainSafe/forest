@@ -5,10 +5,10 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-ahash                  = "0.7"
+ahash                  = "0.8"
 anyhow                 = "1.0"
-async-std              = "1.9"
-byteorder              = "1.3"
+async-std              = "1.12"
+byteorder              = "1.4"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 fil_actors_runtime     = "=8.0.0"
 forest_actor_interface = "0.1.0"
@@ -31,7 +31,7 @@ lazy_static            = "1.4"
 log                    = "0.4"
 num-traits             = "0.2"
 num_cpus               = "1.13"
-rayon                  = "1.3"
+rayon                  = "1.5"
 serde_ipld_dagcbor     = "0.1"
 
 [features]

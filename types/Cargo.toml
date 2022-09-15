@@ -11,9 +11,10 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json"]
 
 [dependencies]
-anyhow              = "1.0"
-base64              = "0.13"
-cid                 = { version = "0.8", default-features = false, features = ["std"] }
+anyhow = "1.0"
+base64 = "0.13"
+cid    = { version = "0.8", default-features = false, features = ["std"] }
+# cannot update due to `blst` version conflict
 filecoin-proofs-api = { version = "11.0", default_features = false, optional = true }
 forest_encoding     = "0.2"
 forest_json         = "0.1.0"

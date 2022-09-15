@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 cid = { version = "0.8", default-features = false, features = ["std"] }
 cs_serde_bytes = "0.12.2"
-data-encoding = "2.1"
+data-encoding = "2.3"
 data-encoding-macro = "0.1"
 forest_json_utils = "0.1"
 fvm_ipld_encoding = "0.2"
