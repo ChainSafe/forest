@@ -44,6 +44,18 @@ clean:
 	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 
+# Lints with everything we have in our CI arsenal
+lint-all: lint audit udeps spellcheck
+
+audit:
+	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
+
+udeps:
+	cargo udeps --features test_constructors
+
+spellcheck:
+	cargo spellcheck --code 1
+
 lint: license clean
 	cargo fmt --all --check
 	taplo fmt --check
