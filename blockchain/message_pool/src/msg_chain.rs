@@ -4,7 +4,6 @@
 use super::errors::Error;
 use crate::provider::Provider;
 use crate::utils::{get_gas_perf, get_gas_reward};
-use async_std::sync::RwLock;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
@@ -18,6 +17,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::{Index, IndexMut};
+use tokio::sync::RwLock;
 
 new_key_type! {
     pub struct NodeKey;

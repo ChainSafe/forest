@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::errors::Error;
-use async_std::sync::Arc;
 use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::BlockHeader;
@@ -17,6 +16,7 @@ use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
+use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 /// Provider Trait. This trait will be used by the message pool to interact with some medium in order to do

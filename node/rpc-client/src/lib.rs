@@ -10,7 +10,6 @@ pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
 
-use async_std::sync::RwLock;
 use forest_libp2p::{Multiaddr, Protocol};
 /// Filecoin HTTP JSON-RPC client methods
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
@@ -19,6 +18,7 @@ use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::env;
+use tokio::sync::RwLock;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";

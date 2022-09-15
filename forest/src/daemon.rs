@@ -3,6 +3,7 @@
 
 use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
+use async_std::{channel::bounded, net::TcpListener, task};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
@@ -19,13 +20,12 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
-use fvm_shared::version::NetworkVersion;
-
-use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
+use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
+use tokio::sync::RwLock;
 
 use std::io::prelude::*;
 use std::path::PathBuf;

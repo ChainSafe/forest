@@ -14,9 +14,9 @@ use forest_rpc_api::sync_api::*;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::message::Message;
 
-use async_std::sync::RwLock;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB, B>(
@@ -111,7 +111,6 @@ where
 mod tests {
     use super::*;
     use async_std::channel::{bounded, Receiver};
-    use async_std::sync::RwLock;
     use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_chain::ChainStore;
@@ -125,6 +124,7 @@ mod tests {
     use fvm_shared::address::Address;
     use serde_json::from_str;
     use std::{sync::Arc, time::Duration};
+    use tokio::sync::RwLock;
 
     const TEST_NET_NAME: &str = "test";
 
