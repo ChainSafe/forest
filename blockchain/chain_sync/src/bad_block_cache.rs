@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::num::NonZeroUsize;
+
 use async_std::sync::RwLock;
 use cid::Cid;
 use lru::LruCache;
@@ -14,12 +16,12 @@ pub struct BadBlockCache {
 
 impl Default for BadBlockCache {
     fn default() -> Self {
-        Self::new(1 << 15)
+        Self::new(NonZeroUsize::new(1 << 15).unwrap())
     }
 }
 
 impl BadBlockCache {
-    pub fn new(cap: usize) -> Self {
+    pub fn new(cap: NonZeroUsize) -> Self {
         Self {
             cache: RwLock::new(LruCache::new(cap)),
         }

@@ -37,12 +37,13 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroUsize;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
 
 // LruCache sizes have been taken from the lotus implementation
-const BLS_SIG_CACHE_SIZE: usize = 40000;
-const SIG_VAL_CACHE_SIZE: usize = 32000;
+const BLS_SIG_CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(40000).unwrap();
+const SIG_VAL_CACHE_SIZE: NonZeroUsize = NonZeroUsize::new(32000).unwrap();
 
 /// Simple structure that contains a hash-map of messages where k: a message from address, v: a message
 /// which corresponds to that address.

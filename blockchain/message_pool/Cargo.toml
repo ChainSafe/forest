@@ -30,7 +30,7 @@ fvm_shared             = { version = "0.8.0", default-features = false }
 libsecp256k1           = "0.7"
 log                    = "0.4.17"
 # cannot update lru as `LruCache::new` changed its arguments
-lru          = "0.7.8"
+lru          = "0.8.0"
 num-rational = "0.4"
 num-traits   = "0.2"
 rand         = "0.8.5"
