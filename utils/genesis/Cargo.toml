@@ -9,7 +9,7 @@ testing = []
 
 [dependencies]
 anyhow                 = "1.0"
-async-std              = "1.9"
+async-std              = "1.12"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 forest_blocks          = "0.1.0"
 forest_chain           = "0.1.0"
@@ -20,6 +20,6 @@ forest_net_utils       = "0.1.0"
 forest_networks        = "0.1.0"
 forest_state_manager   = "0.1.0"
 futures                = "0.3"
-fvm_ipld_car           = "0.4.1"
+fvm_ipld_car           = "0.5.0"
 log                    = "0.4"
-url                    = "2.1"
+url                    = "2.3"

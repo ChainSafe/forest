@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 # Public
 anyhow                 = "1.0"
-async-std              = { version = "1.9", features = ["attributes"] }
+async-std              = { version = "1.12", features = ["attributes"] }
 base64                 = "0.13"
 bls-signatures         = { version = "0.11", default-features = false, features = ["blst"] }
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
@@ -35,12 +35,12 @@ forest_networks        = "0.1.0"
 forest_rpc-api         = "0.1.0"
 forest_state_manager   = "0.1.0"
 futures                = "0.3"
-fvm                    = "1.0"
+fvm                    = "1.1"
 fvm_ipld_bitfield      = "0.5.2"
 fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
 hex                    = "0.4"
-libipld-core           = "0.13.1"
+libipld-core           = "0.14.0"
 log                    = "0.4"
 multibase              = "0.9"
 num-traits             = "0.2"
@@ -55,7 +55,7 @@ tide-websockets        = "0.4"
 [dependencies.jsonrpc-v2]
 default-features = false
 features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.10"
+version          = "0.11"
 
 [dev-dependencies]
 forest_db         = "0.1"

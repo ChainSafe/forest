@@ -24,20 +24,20 @@ forest_state_manager   = "0.1.0"
 forest_vm              = "0.3"
 # Public
 anyhow            = "1.0"
-async-std         = { version = "1.9", features = ["attributes"] }
+async-std         = { version = "1.12", features = ["attributes"] }
 cid               = { version = "0.8", default-features = false, features = ["std"] }
-fvm               = "1.0"
+fvm               = "1.1"
 fvm_ipld_bitfield = { version = "0.5.2", features = ["json"] }
 fvm_shared        = { version = "0.8.0", default-features = false }
 libp2p            = { version = "0.46", default-features = false }
-once_cell         = "1.7"
+once_cell         = "1.14"
 serde             = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json        = "1.0"
 
 [dependencies.jsonrpc-v2]
 default-features = false
 features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.10"
+version          = "0.11"
 
 [build-dependencies]
 anyhow     = "1.0"

@@ -15,18 +15,18 @@ cid               = { version = "0.8", default-features = false, features = ["st
 forest_encoding   = "0.2"
 fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8.0", default-features = false }
-indexmap          = { version = "1.8", features = ["serde-1"] }
-libipld           = { version = "0.13", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
-libipld-core      = { version = "0.13", features = ["serde-codec"] }
-libipld-macro     = { version = "0.13" }
+indexmap          = { version = "1.9", features = ["serde-1"] }
+libipld           = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
+libipld-core      = { version = "0.14", features = ["serde-codec"] }
+libipld-macro     = { version = "0.14" }
 multibase         = { version = "0.9" }
 serde             = { version = "1.0", features = ["derive"] }
 thiserror         = "1.0"
 
 [dev-dependencies]
-async-std              = { version = "1.9", features = ["attributes"] }
+async-std              = { version = "1.12", features = ["attributes"] }
 forest_db              = "0.1.0"
 forest_ipld_blockstore = "0.1.1"
 forest_json            = "0.1.0"
-multihash              = { version = "0.16.2", features = ["identity"] }
+multihash              = { version = "0.16.3", features = ["identity"] }
 serde_json             = "1.0"

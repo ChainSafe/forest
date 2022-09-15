@@ -8,22 +8,22 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-ahash             = "0.6"
+ahash             = "0.8"
 anyhow            = "1.0"
-async-std         = "1.9"
+async-std         = "1.12"
 async-trait       = "0.1"
 base64            = "0.13"
 bls-signatures    = { version = "0.11", default-features = false, features = ["blst"] }
-byteorder         = "1.3.4"
-forest_encoding   = "0.2.1"
+byteorder         = "1.4.3"
+forest_encoding   = "0.2.2"
 forest_json_utils = "0.1"
 fvm_shared        = { version = "0.8.0", default-features = false }
-hex               = "0.4.2"
+hex               = "0.4.3"
 serde             = { version = "1.0", features = ["derive"] }
-sha2              = { version = "0.9", default-features = false }
+sha2              = { version = "0.10", default-features = false }
 surf              = { version = "2.3", default-features = false, features = ["curl-client"] }
 
 [dev-dependencies]
-async-std  = { version = "1.9", features = ["attributes"] }
+async-std  = { version = "1.12", features = ["attributes"] }
 base64     = "0.13"
 serde_json = "1.0"

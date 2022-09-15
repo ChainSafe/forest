@@ -6,10 +6,10 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-async-std = "1.9"
+async-std = "1.12"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
-bytes = "1.0"
+bytes = "1.2"
 cid = { version = "0.8", default-features = false, features = ["std"] }
 fnv = "1.0"
 forest_blocks = "0.1.0"
@@ -22,7 +22,7 @@ forest_networks = "0.1.0"
 forest_utils = "0.1.0"
 futures = "0.3"
 futures-util = "0.3"
-fvm_ipld_car = "0.4.1"
+fvm_ipld_car = "0.5.0"
 fvm_ipld_encoding = "0.2"
 fvm_shared = { version = "0.8.0", default-features = false, features = ["testing"] }
 libp2p = { version = "0.46", default-features = false, features = [
@@ -43,11 +43,12 @@ libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "5
 log = "0.4"
 multihash = { version = "0.16", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_ipld_dagcbor = "0.1.0"
-smallvec = "1.1"
+serde_ipld_dagcbor = "0.1.2"
+smallvec = "1.9"
+# cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
 tiny-cid = "0.2"
 
 [dev-dependencies]
-async-std      = { version = "1.9", features = ["attributes", "unstable"] }
+async-std      = { version = "1.12", features = ["attributes", "unstable"] }
 forest_crypto  = { version = "0.5.2", features = ["blst"] }
 forest_genesis = { version = "0.1.0", features = ["testing"] }
