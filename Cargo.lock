@@ -3383,7 +3383,6 @@ dependencies = [
 name = "forest_state_migration"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "cid",
  "crossbeam-channel",
  "forest_encoding",
