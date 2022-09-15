@@ -684,7 +684,6 @@ mod test_selection {
     use crate::msgpool::test_provider::{mock_block, TestApi};
     use crate::msgpool::tests::create_smsg;
     use async_std::channel::bounded;
-    use async_std::task;
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
@@ -694,25 +693,23 @@ mod test_selection {
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
-    fn make_test_mpool() -> MessagePool<TestApi> {
+    async fn make_test_mpool() -> MessagePool<TestApi> {
         let tma = TestApi::default();
-        task::block_on(async move {
-            let (tx, _rx) = bounded(50);
-            MessagePool::new(
-                tma,
-                "mptest".to_string(),
-                tx,
-                Default::default(),
-                Arc::default(),
-            )
-            .await
-        })
+        let (tx, _rx) = bounded(50);
+        MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+        )
+        .await
         .unwrap()
     }
 
     #[async_std::test]
     async fn basic_message_selection() {
-        let mpool = make_test_mpool();
+        let mpool = make_test_mpool().await;
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -883,7 +880,7 @@ mod test_selection {
     // #[ignore = "test is incredibly slow"]
     // TODO optimize logic tested in this function
     async fn message_selection_trimming() {
-        let mpool = make_test_mpool();
+        let mpool = make_test_mpool().await;
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -962,7 +959,7 @@ mod test_selection {
     async fn message_selection_priority() {
         let db = MemoryDB::default();
 
-        let mut mpool = make_test_mpool();
+        let mut mpool = make_test_mpool().await;
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -1062,7 +1059,7 @@ mod test_selection {
         // this test uses just a single actor sending messages with a low tq
         // the chain depenent merging algorithm should pick messages from the actor
         // from the start
-        let mpool = make_test_mpool();
+        let mpool = make_test_mpool().await;
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1144,7 +1141,7 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the second actor from the start
-        let mpool = make_test_mpool();
+        let mpool = make_test_mpool().await;
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1259,7 +1256,7 @@ mod test_selection {
         // actors paying higher gas premium than the subsequent actors.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the median actor from the start
-        let mpool = make_test_mpool();
+        let mpool = make_test_mpool().await;
 
         let n_actors = 10;
 

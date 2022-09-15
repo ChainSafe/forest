@@ -1454,6 +1454,8 @@ where
         let sm = Arc::clone(&self.sm);
         let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
+            // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
+            //      refactoring the lookback code completely.
             let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
                 .unwrap_or_else(|err| {
                     panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
