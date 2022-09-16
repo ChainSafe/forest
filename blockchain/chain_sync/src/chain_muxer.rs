@@ -165,7 +165,7 @@ where
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
-    #[allow(clippy::too_many_arguments, clippy::result_large_err)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
@@ -176,7 +176,7 @@ where
         tipset_sender: Sender<Arc<Tipset>>,
         tipset_receiver: Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Result<Self, ChainMuxerError<C>> {
+    ) -> Result<Self, Box<ChainMuxerError<C>>> {
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),
@@ -462,7 +462,7 @@ where
                 "Validating tipset received through GossipSub failed: {}",
                 why
             );
-            return Err(why.into());
+            return Err((*why).into());
         }
 
         // Store block messages in the block store

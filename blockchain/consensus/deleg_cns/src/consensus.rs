@@ -136,6 +136,7 @@ impl Consensus for DelegatedConsensus {
     {
         crate::validation::validate_block(&self.chosen_one, state_manager, block)
             .await
+            .map_err(|err| *err)
             .map_err(NonEmpty::new)
     }
 }
