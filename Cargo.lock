@@ -1215,6 +1215,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbdcdcb6d86f71c5e97409ad45898af11cbc995b4ee8112d59095a28d376c935"
 
 [[package]]
+name = "const_format"
+version = "0.2.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "939dc9e2eb9077e0679d2ce32de1ded8531779360b003b4a972a7a39ec263495"
+dependencies = [
+ "const_format_proc_macros",
+]
+
+[[package]]
+name = "const_format_proc_macros"
+version = "0.2.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef196d5d972878a48da7decb7686eded338b4858fbabeed513d63a7c98b2b82d"
+dependencies = [
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "unicode-xid 0.2.3",
+]
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2671,6 +2691,7 @@ dependencies = [
  "forest_ipld",
  "forest_ipld_blockstore",
  "forest_legacy_ipld_amt",
+ "forest_macros",
  "forest_message",
  "forest_networks",
  "forest_test_utils",
@@ -2715,6 +2736,7 @@ dependencies = [
  "forest_json_utils",
  "forest_legacy_ipld_amt",
  "forest_libp2p",
+ "forest_macros",
  "forest_message",
  "forest_message_pool",
  "forest_networks",
@@ -3076,6 +3098,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "forest_macros"
+version = "0.1.0"
+dependencies = [
+ "const_format",
+]
+
+[[package]]
 name = "forest_message"
 version = "0.7.2"
 dependencies = [
@@ -3114,6 +3143,7 @@ dependencies = [
  "forest_ipld_blockstore",
  "forest_key_management",
  "forest_libp2p",
+ "forest_macros",
  "forest_message",
  "forest_networks",
  "forest_state_manager",

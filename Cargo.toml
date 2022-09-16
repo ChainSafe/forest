@@ -37,6 +37,7 @@ members = [
   "utils/net_utils",
   "utils/statediff",
   "utils/test_utils",
+  "utils/macros",
   "utils/metrics",
   "utils/paramfetch",
   "utils/json",
@@ -69,6 +70,7 @@ forest_encoding        = { path = "./encoding" }
 forest_hash_utils      = { path = "./utils/hash_utils" }
 forest_json_utils      = { path = "./utils/json_utils" }
 forest_test_utils      = { path = "./utils/test_utils" }
+forest_macros          = { path = "./utils/macros" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_genesis         = { path = "./utils/genesis" }
 forest_auth            = { path = "./utils/auth" }

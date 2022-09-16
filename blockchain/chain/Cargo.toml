@@ -23,6 +23,7 @@ forest_interpreter     = "0.1.0"
 forest_ipld            = "0.1.1"
 forest_ipld_blockstore = "0.1"
 forest_legacy_ipld_amt = "0.2.0"
+forest_macros          = "0.1"
 forest_message         = { version = "0.7", features = ["blst"] }
 forest_networks        = "0.1.0"
 futures                = "0.3.24"
