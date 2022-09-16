@@ -15,7 +15,7 @@ pub struct BadBlockCache {
 
 impl Default for BadBlockCache {
     fn default() -> Self {
-        Self::new(NonZeroUsize::new(1 << 15).unwrap())
+        Self::new(forest_macros::const_option!(NonZeroUsize::new(1 << 15)))
     }
 }
 

@@ -22,6 +22,7 @@ forest_ipld_blockstore = "0.1"
 forest_json_utils      = "0.1"
 forest_legacy_ipld_amt = "0.2.0"
 forest_libp2p          = "0.1.0"
+forest_macros          = "0.1"
 forest_message         = { version = "0.7", features = ["proofs", "blst"] }
 forest_message_pool    = "0.1.0"
 forest_networks        = "0.1.0"
