@@ -39,15 +39,15 @@ pub enum TipsetValidationError {
     Encoding(EncodingError),
 }
 
-impl From<IpldAmtError> for TipsetValidationError {
-    fn from(err: IpldAmtError) -> Self {
-        Self::IpldAmt(err.to_string())
+impl From<EncodingError> for Box<TipsetValidationError> {
+    fn from(err: EncodingError) -> Self {
+        Box::new(TipsetValidationError::Encoding(err))
     }
 }
 
-impl From<EncodingError> for TipsetValidationError {
-    fn from(err: EncodingError) -> Self {
-        Self::Encoding(err)
+impl From<IpldAmtError> for Box<TipsetValidationError> {
+    fn from(err: IpldAmtError) -> Self {
+        Box::new(TipsetValidationError::IpldAmt(err.to_string()))
     }
 }
 
@@ -125,23 +125,15 @@ impl<'a> TipsetValidator<'a> {
         let bls_cids = bls_msgs
             .iter()
             .map(Cbor::cid)
-            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()
-            .map_err(Into::into)
-            .map_err(Box::new)?;
+            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
         let secp_cids = secp_msgs
             .iter()
             .map(Cbor::cid)
-            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()
-            .map_err(Into::into)
-            .map_err(Box::new)?;
+            .collect::<Result<Vec<Cid>, fvm_ipld_encoding::Error>>()?;
 
         // Generate Amt and batch set message values
-        let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)
-            .map_err(Into::into)
-            .map_err(Box::new)?;
-        let secp_message_root = Amt::new_from_iter(blockstore, secp_cids)
-            .map_err(Into::into)
-            .map_err(Box::new)?;
+        let bls_message_root = Amt::new_from_iter(blockstore, bls_cids)?;
+        let secp_message_root = Amt::new_from_iter(blockstore, secp_cids)?;
         let meta = TxMeta {
             bls_message_root,
             secp_message_root,
