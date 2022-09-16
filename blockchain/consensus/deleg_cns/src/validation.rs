@@ -11,6 +11,12 @@ use fvm_shared::address::Address;
 
 use crate::DelegatedConsensusError;
 
+impl From<forest_chain::Error> for Box<DelegatedConsensusError> {
+    fn from(err: forest_chain::Error) -> Self {
+        Box::new(Into::into(err))
+    }
+}
+
 /// Validates block semantically according to the rules of Delegated Consensus.
 /// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
 ///
@@ -28,11 +34,7 @@ pub(crate) async fn validate_block<DB: BlockStore + Sync + Send + 'static>(
 
     block_sanity_checks(header)?;
 
-    let base_tipset = chain_store
-        .tipset_from_keys(header.parents())
-        .await
-        .map_err(Into::into)
-        .map_err(Box::new)?;
+    let base_tipset = chain_store.tipset_from_keys(header.parents()).await?;
 
     block_timestamp_checks(
         header,
