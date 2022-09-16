@@ -1,3 +1,5 @@
+// Copyright 2019-2022 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 pub extern crate const_format;
 
 /// Creates a constant value from an expression that returns an Option that we *know* is not None.
