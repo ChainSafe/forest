@@ -140,6 +140,31 @@ make test-vectors
 make test-all
 ```
 
+### Linters
+The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will has them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
+```bash
+# You can install those linters also with other package managers or by manually grabbing the binaries from the projects' repositories.
+
+# Rust code linter
+rustup component add clippy
+
+# Rust code formatter
+rustup component add rustfmt
+
+# TOML linter
+cargo install taplo-cli --locked
+
+# Scanning dependencies for security vulnerabilities
+cargo install cargo-audit
+
+# Unused dependencies check
+cargo install cargo-udeps --locked
+
+# Spellcheck
+cargo install cargo-spellcheck
+```
+After everything is installed, you can run `make lint-all`.
+
 ### Joining the testnet
 
 Select the builtin calibnet configuration with the `--chain` option:

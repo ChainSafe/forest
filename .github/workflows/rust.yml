@@ -124,10 +124,7 @@ jobs:
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
-        uses: actions-rs/cargo@v1
-        with:
-          command: audit
-          args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
+        run: make audit
 
   unused_dependencies:
     name: Unused dependencies
@@ -142,10 +139,7 @@ jobs:
       - name: Install udeps
         run: cargo install cargo-udeps --locked
       - name: Run udeps
-        uses: actions-rs/cargo@v1
-        with:
-          command: udeps 
-          args: --features test_constructors
+        run: make udeps
 
   spellcheck:
     name: Spellcheck
@@ -162,8 +156,7 @@ jobs:
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
-        run: |
-          cargo spellcheck --code 1
+        run: make spellcheck
 
   build:
     name: Build
