@@ -3,7 +3,7 @@
 pub extern crate const_format;
 
 /// Creates a constant value from an expression that returns an Option that we *know* is not None.
-/// Basically a workaround till https://github.com/rust-lang/rust/issues/67441 is stabilized.
+/// Basically a workaround till <https://github.com/rust-lang/rust/issues/67441> is stabilized.
 ///
 /// # Example
 /// ```
