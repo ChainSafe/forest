@@ -33,6 +33,7 @@ use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use serde::Serialize;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -47,7 +48,7 @@ const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
+const DEFAULT_TIPSET_CACHE_SIZE: Option<NonZeroUsize> = NonZeroUsize::new(8192);
 
 /// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
@@ -92,7 +93,10 @@ where
 {
     pub fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        // unfallible unwrap due to `DEFAULT_TIPSET_CACHE_SIZE` being a non-None const
+        let ts_cache = Arc::new(RwLock::new(LruCache::new(
+            DEFAULT_TIPSET_CACHE_SIZE.unwrap(),
+        )));
         let cs = Self {
             publisher,
             subscriptions: Default::default(),

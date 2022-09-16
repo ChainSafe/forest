@@ -4,6 +4,7 @@
 use async_std::sync::RwLock;
 use cid::Cid;
 use lru::LruCache;
+use std::num::NonZeroUsize;
 
 /// Thread-safe cache for tracking bad blocks.
 /// This cache is checked before validating a block, to ensure no duplicate work.
@@ -14,12 +15,12 @@ pub struct BadBlockCache {
 
 impl Default for BadBlockCache {
     fn default() -> Self {
-        Self::new(1 << 15)
+        Self::new(NonZeroUsize::new(1 << 15).unwrap())
     }
 }
 
 impl BadBlockCache {
-    pub fn new(cap: usize) -> Self {
+    pub fn new(cap: NonZeroUsize) -> Self {
         Self {
             cache: RwLock::new(LruCache::new(cap)),
         }

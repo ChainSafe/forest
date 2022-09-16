@@ -8,9 +8,9 @@ use forest_blocks::{Tipset, TipsetKeys};
 use forest_ipld_blockstore::BlockStore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
-const DEFAULT_CHAIN_INDEX_CACHE_SIZE: usize = 32 << 10;
+const DEFAULT_CHAIN_INDEX_CACHE_SIZE: Option<NonZeroUsize> = NonZeroUsize::new(32 << 10);
 
 /// Configuration which sets the length of tipsets to skip in between each cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
@@ -43,7 +43,8 @@ where
 {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
-            skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
+            // unfallible unwrap due to `DEFAULT_CHAIN_INDEX_CACHE_SIZE` being a non-None const
+            skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE.unwrap())),
             ts_cache,
             db,
         }

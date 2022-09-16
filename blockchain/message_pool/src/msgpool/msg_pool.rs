@@ -37,12 +37,13 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroUsize;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
 
 // LruCache sizes have been taken from the lotus implementation
-const BLS_SIG_CACHE_SIZE: usize = 40000;
-const SIG_VAL_CACHE_SIZE: usize = 32000;
+const BLS_SIG_CACHE_SIZE: Option<NonZeroUsize> = NonZeroUsize::new(40000);
+const SIG_VAL_CACHE_SIZE: Option<NonZeroUsize> = NonZeroUsize::new(32000);
 
 /// Simple structure that contains a hash-map of messages where k: a message from address, v: a message
 /// which corresponds to that address.
@@ -187,8 +188,10 @@ where
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
             || Error::Other("Failed to retrieve heaviest tipset from provider".to_owned()),
         )?));
-        let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
-        let sig_val_cache = Arc::new(RwLock::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
+        // unfallible unwrap due to `BLS_SIG_CACHE_SIZE` being a non-None const
+        let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(BLS_SIG_CACHE_SIZE.unwrap())));
+        // unfallible unwrap due to `SIG_VAL_CACHE_SIZE` being a non-None const
+        let sig_val_cache = Arc::new(RwLock::new(LruCache::new(SIG_VAL_CACHE_SIZE.unwrap())));
         let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
