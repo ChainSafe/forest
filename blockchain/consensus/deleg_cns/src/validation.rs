@@ -17,6 +17,12 @@ impl From<forest_chain::Error> for Box<DelegatedConsensusError> {
     }
 }
 
+impl From<forest_state_manager::Error> for Box<DelegatedConsensusError> {
+    fn from(err: forest_state_manager::Error) -> Self {
+        Box::new(Into::into(err))
+    }
+}
+
 /// Validates block semantically according to the rules of Delegated Consensus.
 /// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
 ///
@@ -104,9 +110,7 @@ where
     // Workaround for the bug where Forest strips the network type from the Address
     // and then puts back always the mainnet variant, so the `t` prefix becomes `f`.
     let chosen_addr = state_manager
-        .lookup_id(chosen_one, base_tipset)
-        .map_err(Into::into)
-        .map_err(Box::new)?
+        .lookup_id(chosen_one, base_tipset)?
         .unwrap_or(*chosen_one);
 
     // This is where a miner address of `t01000` becomes `f01000`.
