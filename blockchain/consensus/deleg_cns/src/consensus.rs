@@ -136,7 +136,7 @@ impl Scale for DelegatedConsensus {
 
 #[async_trait]
 impl Consensus for DelegatedConsensus {
-    type Error = DelegatedConsensusError;
+    type Error = Box<DelegatedConsensusError>;
 
     async fn validate_block<DB>(
         &self,
@@ -148,7 +148,6 @@ impl Consensus for DelegatedConsensus {
     {
         crate::validation::validate_block(&self.chosen_one, state_manager, block)
             .await
-            .map_err(|err| *err)
             .map_err(NonEmpty::new)
     }
 }
