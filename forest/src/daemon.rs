@@ -391,7 +391,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     if db_weak_ref.strong_count() != 0 {
         error!(
-            "Dangling reference to DB detected: {}. Please report this as a bug at https://github.com/ChainSafe/forest/issues",
+            "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
             db_weak_ref.strong_count()
         );
     }
