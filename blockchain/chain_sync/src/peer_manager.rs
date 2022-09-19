@@ -6,12 +6,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp::Ordering, collections::HashSet};
 
-use async_std::sync::RwLock;
 use forest_blocks::Tipset;
 use forest_libp2p::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;
 use smallvec::SmallVec;
+use tokio::sync::RwLock;
 
 use crate::metrics;
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.

@@ -9,7 +9,7 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use anyhow::Context;
 use async_log::span;
-use async_std::{sync::RwLock, task};
+use async_std::task;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
@@ -46,6 +46,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
@@ -1454,6 +1455,8 @@ where
         let sm = Arc::clone(&self.sm);
         let tipset = Arc::clone(&self.tipset);
         Box::new(move |round| {
+            // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
+            //      refactoring the lookback code completely.
             let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
                 .unwrap_or_else(|err| {
                     panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")

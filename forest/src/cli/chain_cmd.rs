@@ -4,12 +4,12 @@
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
-use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
-use crate::cli::{cli_error_and_die, handle_rpc_err};
+use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty, Config};
+use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
 use cid::Cid;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use strfmt::strfmt;
 use time::OffsetDateTime;
 
@@ -19,14 +19,13 @@ const OUTPUT_PATH_DEFAULT_FORMAT: &str =
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
-    #[structopt(about = "<Cid> Retrieve a block and print its details")]
     Block {
-        #[structopt(short, help = "Input a valid CID")]
+        /// Input a valid CID
+        #[structopt(short)]
         cid: String,
     },
 
     /// Export a snapshot of the chain to `<output_path>`
-    #[structopt(about = "Export chain snapshot to file")]
     Export {
         /// Tipset to start the export from, default is the chain head
         #[structopt(short, long)]
@@ -50,32 +49,38 @@ pub enum ChainCommands {
     },
 
     /// Prints out the genesis tipset
-    #[structopt(about = "Prints genesis tipset", help = "Prints genesis tipset")]
     Genesis,
 
     /// Prints out the canonical head of the chain
-    #[structopt(about = "Print chain head", help = "Print chain head")]
     Head,
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
-    #[structopt(about = "<CID> Retrieves and prints messages by CIDs")]
     Message {
-        #[structopt(short, help = "Input a valid CID")]
+        /// Input a valid CID
+        #[structopt(short)]
         cid: String,
     },
 
     /// Reads and prints out IPLD nodes referenced by the specified CID from chain
     /// block store and returns raw bytes
-    #[structopt(about = "<CID> Read the raw bytes of an object")]
     ReadObj {
-        #[structopt(short, help = "Input a valid CID")]
+        /// Input a valid CID
+        #[structopt(short)]
         cid: String,
+    },
+
+    /// Fetches the most recent snapshot from a trusted, pre-defined location.
+    Fetch {
+        /// Directory to which the snapshot should be downloaded. If not provided, it will be saved
+        /// in default Forest data location.
+        #[structopt(short, long)]
+        snapshot_dir: Option<PathBuf>,
     },
 }
 
 impl ChainCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
@@ -141,6 +146,19 @@ impl ChainCommands {
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res(chain_read_obj((CidJson(cid),)).await);
+            }
+            Self::Fetch { snapshot_dir } => {
+                let snapshot_dir = snapshot_dir.clone().unwrap_or_else(|| {
+                    config
+                        .client
+                        .data_dir
+                        .join("snapshots")
+                        .join(config.chain.name.clone())
+                });
+                match snapshot_fetch(&snapshot_dir, config).await {
+                    Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
+                    Err(e) => cli_error_and_die(format!("Failed fetchning the snapshot: {e}"), 1),
+                }
             }
         }
     }

@@ -62,10 +62,8 @@ pub fn create_token(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    let validation = jsonwebtoken::Validation {
-        validate_exp: false,
-        ..Default::default()
-    };
+    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
+    validation.validate_exp = false;
     let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
     Ok(token.claims.allow)
 }

@@ -16,10 +16,10 @@ mod sync_api;
 mod wallet_api;
 
 use async_std::net::TcpListener;
-use async_std::sync::Arc;
 use forest_chain::Scale;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use log::info;
+use std::sync::Arc;
 use tide_websockets::WebSocket;
 
 use forest_beacon::Beacon;

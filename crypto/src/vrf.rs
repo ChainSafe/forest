@@ -42,7 +42,7 @@ pub mod json {
     where
         S: Serializer,
     {
-        base64::encode(&m.as_bytes()).serialize(serializer)
+        base64::encode(m.as_bytes()).serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<VRFProof, D::Error>

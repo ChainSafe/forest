@@ -18,13 +18,13 @@ use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
-use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
 use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
+use forest_macros::const_option;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::{ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
@@ -37,12 +37,15 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::RwLock;
 
 // LruCache sizes have been taken from the lotus implementation
-const BLS_SIG_CACHE_SIZE: usize = 40000;
-const SIG_VAL_CACHE_SIZE: usize = 32000;
+const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
+const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000));
 
 /// Simple structure that contains a hash-map of messages where k: a message from address, v: a message
 /// which corresponds to that address.

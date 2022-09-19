@@ -10,6 +10,7 @@ mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
+mod snapshot_fetch;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -18,6 +19,9 @@ pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub use self::client::Client;
 pub use self::config::Config;
+pub use self::config::DaemonConfig;
+pub use self::config::LogConfig;
+pub use self::config::LogValue;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
@@ -77,108 +81,118 @@ pub struct Cli {
 #[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 pub enum Subcommand {
-    #[structopt(
-        name = "fetch-params",
-        about = "Download parameters for generating and verifying proofs for given size"
-    )]
+    /// Download parameters for generating and verifying proofs for given size
+    #[structopt(name = "fetch-params")]
     Fetch(FetchCommands),
 
-    #[structopt(name = "chain", about = "Interact with Filecoin blockchain")]
+    /// Interact with Filecoin blockchain
+    #[structopt(name = "chain")]
     Chain(ChainCommands),
 
-    #[structopt(name = "auth", about = "Manage RPC Permissions")]
+    /// Manage RPC permissions
+    #[structopt(name = "auth")]
     Auth(AuthCommands),
 
-    #[structopt(name = "genesis", about = "Work with blockchain genesis")]
+    /// Work with blockchain genesis
+    #[structopt(name = "genesis")]
     Genesis(GenesisCommands),
 
-    #[structopt(name = "net", about = "Manage P2P Network")]
+    /// Manage P2P network
+    #[structopt(name = "net")]
     Net(NetCommands),
 
-    #[structopt(name = "wallet", about = "Manage wallet")]
+    /// Manage wallet
+    #[structopt(name = "wallet")]
     Wallet(WalletCommands),
 
-    #[structopt(name = "sync", about = "Inspect or interact with the chain syncer")]
+    /// Inspect or interact with the chain synchronizer
+    #[structopt(name = "sync")]
     Sync(SyncCommands),
 
-    #[structopt(name = "mpool", about = "Interact with the Message Pool")]
+    /// Interact with the message pool
+    #[structopt(name = "mpool")]
     Mpool(MpoolCommands),
 
-    #[structopt(name = "state", about = "Interact with and query filecoin chain state")]
+    /// Interact with and query Filecoin chain state
+    #[structopt(name = "state")]
     State(StateCommands),
 
-    #[structopt(name = "config", about = "Manage node configuration")]
+    /// Manage node configuration
+    #[structopt(name = "config")]
     Config(ConfigCommands),
 }
 
 /// CLI options
 #[derive(StructOpt, Debug)]
 pub struct CliOpts {
-    #[structopt(short, long, help = "A toml file containing relevant configurations")]
+    /// A TOML file containing relevant configurations
+    #[structopt(short, long)]
     pub config: Option<String>,
-    #[structopt(short, long, help = "The genesis CAR file")]
+    /// The genesis CAR file
+    #[structopt(short, long)]
     pub genesis: Option<String>,
-    #[structopt(short, long, help = "Allow rpc to be active or not (default = true)")]
+    /// Allow RPC to be active or not (default: true)
+    #[structopt(short, long)]
     pub rpc: Option<bool>,
-    #[structopt(
-        short,
-        long,
-        help = "Client JWT token to use for JSON-RPC authentication"
-    )]
+    /// Client JWT token to use for JSON-RPC authentication
+    #[structopt(short, long)]
     pub token: Option<String>,
-    #[structopt(
-        long,
-        help = "Address used for metrics collection server. By defaults binds on localhost on port 6116."
-    )]
+    /// Address used for metrics collection server. By defaults binds on localhost on port 6116.
+    #[structopt(long)]
     pub metrics_address: Option<SocketAddr>,
-    #[structopt(
-        long,
-        help = "Address used for RPC. By defaults binds on localhost on port 1234."
-    )]
+    /// Address used for RPC. By defaults binds on localhost on port 1234.
+    #[structopt(long)]
     pub rpc_address: Option<SocketAddr>,
-    #[structopt(short, long, help = "Allow Kademlia (default = true)")]
+    /// Allow Kademlia (default: true)
+    #[structopt(short, long)]
     pub kademlia: Option<bool>,
-    #[structopt(long, help = "Allow MDNS (default = false)")]
+    /// Allow MDNS (default: false)
+    #[structopt(long)]
     pub mdns: Option<bool>,
-    #[structopt(long, help = "Validate snapshot at given EPOCH")]
+    /// Validate snapshot at given EPOCH
+    #[structopt(long)]
     pub height: Option<i64>,
-    #[structopt(long, help = "Import a snapshot from a local CAR file or url")]
+    /// Import a snapshot from a local CAR file or URL
+    #[structopt(long)]
     pub import_snapshot: Option<String>,
     /// Halt with exit code 0 after successfully importing a snapshot
     #[structopt(long)]
     pub halt_after_import: bool,
-    #[structopt(long, help = "Import a chain from a local CAR file or url")]
+    /// Import a chain from a local CAR file or URL
+    #[structopt(long)]
     pub import_chain: Option<String>,
-    #[structopt(
-        long,
-        help = "Skips loading CAR file and uses header to index chain.\
-                    Assumes a pre-loaded database"
-    )]
+    /// Skips loading CAR file and uses header to index chain. Assumes a pre-loaded database
+    #[structopt(long)]
     pub skip_load: bool,
-    #[structopt(
-        long,
-        help = "Number of tipsets requested over chain exchange (default is 200)"
-    )]
+    /// Number of tipsets requested over chain exchange (default is 200)
+    #[structopt(long)]
     pub req_window: Option<i64>,
-    #[structopt(
-        long,
-        help = "Number of tipsets to include in the sample that determines what the network head is"
-    )]
+    /// Number of tipsets to include in the sample that determines what the network head is
+    #[structopt(long)]
     pub tipset_sample_size: Option<u8>,
-    #[structopt(
-        long,
-        help = "Amount of Peers we want to be connected to (default is 75)"
-    )]
+    /// Amount of Peers we want to be connected to (default is 75)
+    #[structopt(long)]
     pub target_peer_count: Option<u32>,
-    #[structopt(long, help = "Encrypt the keystore (default = true)")]
+    /// Encrypt the key-store (default: true)
+    #[structopt(long)]
     pub encrypt_keystore: Option<bool>,
+    /// Choose network chain to sync to
     #[structopt(
         long,
-        help = "Choose network chain to sync to",
         default_value = "mainnet",
         possible_values = &["mainnet", "calibnet"],
     )]
     pub chain: String,
+    /// Daemonize Forest process
+    #[structopt(long)]
+    pub detach: bool,
+    // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
+    // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
+    // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
+    // #[structopt(
+    //     help = "Specify a filename into which logging should be appended"
+    // )]
+    // pub log_file: Option<PathBuf>,
 }
 
 impl CliOpts {
@@ -355,9 +369,9 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 
 /// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
 /// Provided number cannot be negative, otherwise the function will panic.
-pub(super) fn to_size_string(input: &BigInt) -> Result<String, String> {
-    let bytes =
-        u128::try_from(input).map_err(|e| format!("error parsing the input {}: {}", input, e))?;
+pub(super) fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
+    let bytes = u128::try_from(input)
+        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
 
     Ok(Byte::from_bytes(bytes)
         .get_appropriate_unit(true)
@@ -468,7 +482,7 @@ mod test {
         ];
 
         for (input, expected) in cases {
-            assert_eq!(to_size_string(&input), Ok(expected.to_string()));
+            assert_eq!(to_size_string(&input).unwrap(), expected.to_string());
         }
     }
 

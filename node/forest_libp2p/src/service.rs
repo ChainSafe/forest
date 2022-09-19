@@ -135,7 +135,7 @@ impl<DB> Libp2pService<DB>
 where
     DB: BlockStore + Sync + Send + 'static,
 {
-    pub fn new(
+    pub async fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
@@ -143,7 +143,7 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone());
+        let transport = build_transport(net_keypair.clone()).await;
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -154,7 +154,7 @@ where
 
         let mut swarm = SwarmBuilder::new(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name),
+            ForestBehaviour::new(&net_keypair, &config, network_name).await,
             peer_id,
         )
         .connection_limits(limits)
@@ -403,11 +403,11 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that libp2p will communicate over.
-pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::TcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
     let transport = libp2p::websocket::WsConfig::new(tcp_transport()).or_transport(tcp_transport());
-    let transport = async_std::task::block_on(libp2p::dns::DnsConfig::system(transport)).unwrap();
+    let transport = libp2p::dns::DnsConfig::system(transport).await.unwrap();
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
             .into_authentic(&local_key)

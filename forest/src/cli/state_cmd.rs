@@ -41,27 +41,26 @@ struct VestingScheduleEntry {
 
 #[derive(Debug, StructOpt)]
 pub enum StateCommands {
-    #[structopt(about = "Query miner power")]
+    /// Query miner power
     Power {
-        #[structopt(about = "The miner address to query")]
+        /// The miner address to query
         miner_address: String,
     },
-    #[structopt(about = "Print actor information")]
+    /// Print actor information
     GetActor {
-        #[structopt(about = "Address of actor to query")]
+        /// Address of actor to query
         address: String,
     },
-    #[structopt(about = "List all actors on the network")]
+    /// List all miners
     ListMiners,
-    #[structopt(about = "Find corresponding ID address")]
+    /// Find corresponding ID address
     Lookup {
         #[structopt(short)]
         reverse: bool,
-        #[structopt(about = "address")]
         address: String,
     },
     VestingTable {
-        #[structopt(about = "Miner address to display vesting table")]
+        /// Miner address to display vesting table
         address: String,
     },
 }
@@ -120,10 +119,10 @@ impl StateCommands {
                     "{}({}) / {}({}) ~= {}%",
                     &mp.quality_adj_power,
                     to_size_string(&mp.quality_adj_power)
-                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
+                        .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     &tp.quality_adj_power,
                     to_size_string(&tp.quality_adj_power)
-                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
+                        .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
             }

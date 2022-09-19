@@ -22,17 +22,15 @@ use crate::cli::handle_rpc_err;
 
 #[derive(Debug, StructOpt)]
 pub enum MpoolCommands {
-    #[structopt(help = "Get pending messages")]
+    /// Get pending messages
     Pending,
-    #[structopt(help = "Print mempool stats")]
+    /// Print mempool stats
     Stat {
-        #[structopt(
-            short,
-            help = "Number of blocks to lookback for minimum base fee",
-            default_value = "60"
-        )]
+        /// Number of blocks to look back for minimum base fee
+        #[structopt(short, default_value = "60")]
         base_fee_lookback: u32,
-        #[structopt(short, help = "Print stats for local addresses only")]
+        /// Print stats for local addresses only
+        #[structopt(short)]
         local: bool,
     },
 }

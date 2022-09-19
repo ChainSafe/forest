@@ -18,25 +18,21 @@ const ACCOUNT_START: u64 = 1000;
 #[derive(Debug, StructOpt)]
 pub enum GenesisCommands {
     /// Creates new genesis template
-    #[structopt(about = "Create new Genesis template")]
     NewTemplate {
-        #[structopt(short, help = "Input a network name")]
+        /// Input a network name
+        #[structopt(short)]
         network_name: Option<String>,
-        #[structopt(
-            short,
-            default_value = "genesis.json",
-            help = "File path, i.e, './genesis.json'. This command WILL NOT create a directory if it does not exist."
-        )]
+        /// File path, i.e, `./genesis.json`. This command WILL NOT create a directory if it does not exist.
+        #[structopt(short, default_value = "genesis.json")]
         file_path: String,
     },
-    /// Adds miner to Genesis.
-    #[structopt(
-        about = "Add genesis miner. Ex.: 'genesis add-miner [genesis.json] [preseal.json]'"
-    )]
+    /// Add a miner to Genesis.
     AddMiner {
-        #[structopt(short, help = "Genesis filepath")]
+        /// Genesis file path
+        #[structopt(short)]
         genesis_path: String,
-        #[structopt(short, help = "Preseal filepath")]
+        /// Pre-seal file path
+        #[structopt(short)]
         preseal_path: String,
     },
 }

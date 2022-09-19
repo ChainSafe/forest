@@ -3,6 +3,7 @@
 
 use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
 use crate::cli_error_and_die;
+use async_std::{channel::bounded, net::TcpListener, task};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
@@ -19,12 +20,12 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
-use fvm_shared::version::NetworkVersion;
-
-use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
+use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
+use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
+use tokio::sync::RwLock;
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -42,8 +43,16 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
+fn unblock_parent_process() {
+    let shmem = super::ipc_shmem_conf().open().expect("open must succeed");
+    let (event, _) =
+        unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
+
+    event.set(EventState::Signaled).expect("set must succeed");
+}
+
 /// Starts daemon process
-pub(super) async fn start(config: Config) {
+pub(super) async fn start(config: Config, detached: bool) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -157,7 +166,7 @@ pub(super) async fn start(config: Config) {
         .expect("Opening RocksDB must succeed");
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()));
+    let chain_store = Arc::new(ChainStore::new(db.clone()).await);
 
     let publisher = chain_store.publisher();
 
@@ -220,7 +229,8 @@ pub(super) async fn start(config: Config) {
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
-    );
+    )
+    .await;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -308,6 +318,9 @@ pub(super) async fn start(config: Config) {
     } else {
         debug!("RPC disabled.");
     };
+    if detached {
+        unblock_parent_process();
+    }
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
@@ -425,7 +438,7 @@ mod test {
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db));
+        let cs = Arc::new(ChainStore::new(db).await);
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)

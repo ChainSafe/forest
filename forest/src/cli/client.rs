@@ -10,7 +10,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct Client {
     pub data_dir: PathBuf,
