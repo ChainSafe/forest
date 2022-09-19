@@ -4,19 +4,57 @@
 use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
+use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::client::Client;
 
-#[derive(Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct LogConfig {
-    pub log_values: HashSet<LogValue>,
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct LogConfig(pub Vec<LogValue>);
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        let underlying = vec![
+            LogValue {
+                module: "libp2p_gossipsub".to_string(),
+                level: LevelFilter::Error.to_string(),
+            },
+            LogValue {
+                module: "filecoin_proofs".to_string(),
+                level: LevelFilter::Warn.to_string(),
+            },
+            LogValue {
+                module: "storage_proofs_core".to_string(),
+                level: LevelFilter::Warn.to_string(),
+            },
+            LogValue {
+                module: "surf::middleware".to_string(),
+                level: LevelFilter::Warn.to_string(),
+            },
+            LogValue {
+                module: "bellperson::groth16::aggregate::verify".to_string(),
+                level: LevelFilter::Warn.to_string(),
+            },
+            LogValue {
+                module: "tide".to_string(),
+                level: LevelFilter::Warn.to_string(),
+            },
+            LogValue {
+                module: "libp2p_bitswap".to_string(),
+                level: LevelFilter::Info.to_string(),
+            },
+            LogValue {
+                module: "rpc".to_string(),
+                level: LevelFilter::Error.to_string(),
+            },
+        ];
+        Self(underlying)
+    }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 pub struct LogValue {
     pub module: String,
     pub level: String,
@@ -51,13 +89,13 @@ impl Default for DaemonConfig {
 #[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
+    pub log: LogConfig,
     pub client: Client,
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
-    pub log: LogConfig,
 }
 
 #[cfg(test)]
