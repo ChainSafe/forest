@@ -147,7 +147,7 @@ impl<'a> DiscoveryConfig<'a> {
         DiscoveryBehaviour {
             user_defined,
             kademlia: kademlia_opt.into(),
-            next_kad_random_query: tokio::time::interval(Duration::new(0, 0)),
+            next_kad_random_query: tokio::time::interval(Duration::from_secs(1)),
             duration_to_next_kad: Duration::from_secs(1),
             pending_events: VecDeque::new(),
             num_connections: 0,
