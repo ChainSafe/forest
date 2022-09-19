@@ -176,7 +176,7 @@ where
         tipset_sender: Sender<Arc<Tipset>>,
         tipset_receiver: Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
-    ) -> Result<Self, Box<ChainMuxerError<C>>> {
+    ) -> Result<Self, ChainMuxerError<C>> {
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),

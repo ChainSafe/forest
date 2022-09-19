@@ -11,18 +11,6 @@ use fvm_shared::address::Address;
 
 use crate::DelegatedConsensusError;
 
-impl From<forest_chain::Error> for Box<DelegatedConsensusError> {
-    fn from(err: forest_chain::Error) -> Self {
-        Box::new(Into::into(err))
-    }
-}
-
-impl From<forest_state_manager::Error> for Box<DelegatedConsensusError> {
-    fn from(err: forest_state_manager::Error) -> Self {
-        Box::new(Into::into(err))
-    }
-}
-
 /// Validates block semantically according to the rules of Delegated Consensus.
 /// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
 ///
