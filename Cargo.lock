@@ -2635,6 +2635,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.5",
  "surf",
+ "tokio",
 ]
 
 [[package]]
@@ -2830,6 +2831,7 @@ dependencies = [
  "log",
  "nonempty",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -2874,6 +2876,7 @@ dependencies = [
  "nonempty",
  "num-traits",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3095,6 +3098,7 @@ dependencies = [
  "serde_ipld_dagcbor 0.1.2",
  "smallvec",
  "tiny-cid",
+ "tokio",
 ]
 
 [[package]]
@@ -3278,6 +3282,7 @@ dependencies = [
  "serde_json",
  "tide",
  "tide-websockets",
+ "tokio",
 ]
 
 [[package]]
@@ -3312,6 +3317,7 @@ dependencies = [
  "serde",
  "serde_json",
  "syn 1.0.99",
+ "tokio",
 ]
 
 [[package]]
@@ -3331,6 +3337,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
+ "tokio",
 ]
 
 [[package]]
@@ -3376,7 +3383,6 @@ dependencies = [
 name = "forest_state_migration"
 version = "0.1.0"
 dependencies = [
- "async-std",
  "cid",
  "crossbeam-channel",
  "forest_encoding",

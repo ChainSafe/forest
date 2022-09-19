@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
-use async_std::sync::RwLock;
 use async_trait::async_trait;
 use forest_key_management::KeyStore;
 use log::info;
@@ -9,6 +8,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use forest_blocks::{Block, Tipset};
 use forest_chain::Error as ChainStoreError;

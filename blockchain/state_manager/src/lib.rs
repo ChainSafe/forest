@@ -9,7 +9,7 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use anyhow::Context;
 use async_log::span;
-use async_std::{sync::RwLock, task};
+use async_std::task;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
@@ -46,6 +46,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.

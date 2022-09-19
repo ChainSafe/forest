@@ -31,6 +31,7 @@ log                    = "0.4.17"
 nonempty               = "0.8.0"
 num-traits             = "0.2"
 thiserror              = "1.0"
+tokio                  = { version = "1.0", features = ["sync"] }
 
 [features]
 insecure_post = []

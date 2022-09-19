@@ -18,7 +18,6 @@ use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
 use async_std::channel::{bounded, Sender};
 use async_std::stream::interval;
-use async_std::sync::{Arc, RwLock};
 use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -39,8 +38,10 @@ use log::warn;
 use lru::LruCache;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::RwLock;
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));

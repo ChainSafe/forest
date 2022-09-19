@@ -5,7 +5,6 @@ use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use async_std::channel::{self, bounded, Receiver};
-use async_std::sync::RwLock;
 use async_std::task;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -40,6 +39,7 @@ use std::{
     time::SystemTime,
 };
 use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
+use tokio::sync::RwLock;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";

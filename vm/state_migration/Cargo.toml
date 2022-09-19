@@ -5,7 +5,6 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-async-std              = "1.12"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 crossbeam-channel      = "0.5"
 forest_encoding        = "0.2"
