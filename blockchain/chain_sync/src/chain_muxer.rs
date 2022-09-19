@@ -51,7 +51,7 @@ pub enum ChainMuxerError<C: Consensus> {
     #[error("Tipset range syncer error: {0}")]
     TipsetRangeSyncer(#[from] TipsetRangeSyncerError<C>),
     #[error("Tipset validation error: {0}")]
-    TipsetValidator(#[from] TipsetValidationError),
+    TipsetValidator(#[from] Box<TipsetValidationError>),
     #[error("Sending tipset on channel failed: {0}")]
     TipsetChannelSend(String),
     #[error("Receiving p2p network event failed: {0}")]
@@ -165,7 +165,7 @@ where
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
-    #[allow(clippy::too_many_arguments, clippy::result_large_err)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,

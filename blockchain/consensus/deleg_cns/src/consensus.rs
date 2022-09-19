@@ -45,6 +45,18 @@ pub enum DelegatedConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
+impl From<forest_chain::Error> for Box<DelegatedConsensusError> {
+    fn from(err: forest_chain::Error) -> Self {
+        Box::new(Into::into(err))
+    }
+}
+
+impl From<forest_state_manager::Error> for Box<DelegatedConsensusError> {
+    fn from(err: forest_state_manager::Error) -> Self {
+        Box::new(Into::into(err))
+    }
+}
+
 /// In Delegated Consensus only the chosen one can propose blocks.
 ///
 /// This consensus is only used for demos.
@@ -124,7 +136,7 @@ impl Scale for DelegatedConsensus {
 
 #[async_trait]
 impl Consensus for DelegatedConsensus {
-    type Error = DelegatedConsensusError;
+    type Error = Box<DelegatedConsensusError>;
 
     async fn validate_block<DB>(
         &self,

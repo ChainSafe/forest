@@ -22,7 +22,7 @@ pub(crate) async fn validate_block<DB: BlockStore + Sync + Send + 'static>(
     chosen_one: &Address,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
-) -> Result<(), DelegatedConsensusError> {
+) -> Result<(), Box<DelegatedConsensusError>> {
     let chain_store = state_manager.chain_store().clone();
     let header = block.header();
 
@@ -51,13 +51,12 @@ pub(crate) async fn validate_block<DB: BlockStore + Sync + Send + 'static>(
 ///
 /// In particular it looks for an election proof and a ticket,
 /// which are needed for Filecoin consensus.
-#[allow(clippy::result_large_err)]
-fn block_sanity_checks(header: &BlockHeader) -> Result<(), DelegatedConsensusError> {
+fn block_sanity_checks(header: &BlockHeader) -> Result<(), Box<DelegatedConsensusError>> {
     if header.election_proof().is_some() {
-        return Err(DelegatedConsensusError::BlockWithElectionProof);
+        return Err(Box::new(DelegatedConsensusError::BlockWithElectionProof));
     }
     if header.ticket().is_some() {
-        return Err(DelegatedConsensusError::BlockWithTicket);
+        return Err(Box::new(DelegatedConsensusError::BlockWithTicket));
     }
     Ok(())
 }
@@ -65,33 +64,31 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), DelegatedConsensusErr
 /// Check the timestamp corresponds exactly to the number of epochs since the parents.
 ///
 /// This is the same as in the default `FilecoinConsensus`.
-#[allow(clippy::result_large_err)]
 fn block_timestamp_checks(
     header: &BlockHeader,
     base_tipset: &Tipset,
     chain_config: &ChainConfig,
-) -> Result<(), DelegatedConsensusError> {
+) -> Result<(), Box<DelegatedConsensusError>> {
     // Timestamp checks
     let block_delay = chain_config.block_delay_secs;
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
     let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
     if target_timestamp != header.timestamp() {
-        return Err(DelegatedConsensusError::UnequalBlockTimestamps(
+        return Err(Box::new(DelegatedConsensusError::UnequalBlockTimestamps(
             header.timestamp(),
             target_timestamp,
-        ));
+        )));
     }
     Ok(())
 }
 
 /// Check that the miner who produced the block is the one we delegated to.
-#[allow(clippy::result_large_err)]
 fn validate_miner<DB>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     state_manager: &StateManager<DB>,
     chosen_one: &Address,
-) -> Result<(), DelegatedConsensusError>
+) -> Result<(), Box<DelegatedConsensusError>>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
@@ -107,8 +104,8 @@ where
     // This is where a miner address of `t01000` becomes `f01000`.
     match state_manager.lookup_id(miner_addr, base_tipset) {
         Ok(Some(id)) if id == chosen_addr => Ok(()),
-        Ok(Some(id)) => Err(MinerNotEligibleToMine(chosen_addr, id)),
-        Ok(None) => Err(UnknownMiner(*miner_addr)),
-        Err(e) => Err(e.into()),
+        Ok(Some(id)) => Err(Box::new(MinerNotEligibleToMine(chosen_addr, id))),
+        Ok(None) => Err(Box::new(UnknownMiner(*miner_addr))),
+        Err(e) => Err(Box::new(e.into())),
     }
 }
