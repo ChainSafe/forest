@@ -335,41 +335,12 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     // Terminate if no snapshot is provided or DB isn't recent enough
     match chain_store.heaviest_tipset().await {
-        None => {
-            if !config.client.assume_yes {
-                let mut buffer = String::new();
-                let stdin = std::io::stdin(); // We get `Stdin` here.
-                print!("Forest needs a snapshot to sync with the network. Would you like to download one now?: (y/n)");
-                let _ = stdin.read_line(&mut buffer);
-                if buffer.to_lowercase() != "y" || buffer.to_lowercase() != "yes" {
-                    cli_error_and_die(
-                        "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                        1
-                    );
-                }
-            }
-
-            let snapshot_path = config
-                .client
-                .data_dir
-                .join("snapshots")
-                .join(config.chain.name.clone());
-
-            match snapshot_fetch(&snapshot_path, &config).await {
-                Ok(snapshot_path) => {
-                    config.client.snapshot_path = Some(snapshot_path.display().to_string())
-                }
-                Err(e) => cli_error_and_die(e.to_string(), 1),
-            };
-        }
+        None => prompt_and_fetch_snapshot(&mut config).await,
         Some(tipset) => {
             let epoch = tipset.epoch();
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
-                cli_error_and_die(
-                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                    1,
-                );
+                prompt_and_fetch_snapshot(&mut config).await
             }
         }
     }
@@ -417,6 +388,38 @@ pub(super) async fn start(config: Config, detached: bool) {
         );
     }
     info!("Forest finish shutdown");
+}
+
+async fn prompt_and_fetch_snapshot(config: &mut Config) {
+    if !config.client.assume_yes {
+        let mut buffer = String::new();
+        let stdin = std::io::stdin(); // We get `Stdin` here.
+        print!("Forest needs a snapshot to sync with the network. Would you like to download one now?: (y/n) ");
+        let _ = std::io::stdout().flush();
+        let _ = stdin.read_line(&mut buffer);
+        buffer = buffer.to_lowercase().trim().to_string();
+        if buffer != "y" || buffer != "yes" {
+            cli_error_and_die(
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                1
+            );
+        }
+    }
+
+    info!("assume yes??");
+
+    let snapshot_path = config
+        .client
+        .data_dir
+        .join("snapshots")
+        .join(config.chain.name.clone());
+
+    match snapshot_fetch(&snapshot_path, &config).await {
+        Ok(snapshot_path) => {
+            config.client.snapshot_path = Some(snapshot_path.display().to_string())
+        }
+        Err(e) => cli_error_and_die(e.to_string(), 1),
+    };
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
