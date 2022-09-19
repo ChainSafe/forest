@@ -92,7 +92,7 @@ impl<DB> ChainStore<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub fn new(db: DB) -> Self {
+    pub async fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         // unfallible unwrap due to `DEFAULT_TIPSET_CACHE_SIZE` being a non-None const
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
@@ -108,7 +108,7 @@ where
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = task::block_on(cs.load_heaviest_tipset());
+        let _ = cs.load_heaviest_tipset().await;
 
         cs
     }
@@ -479,6 +479,8 @@ where
                 }
             })?;
 
+            // XXX: This `block_on` can be removed by passing in a runtime Handle in tokio
+            //      or by refactoring `walk_snapshot` to take an async callback.
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
             let _ = task::block_on(tx.send((cid, block.clone())));
@@ -989,11 +991,11 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
 
-    #[test]
-    fn genesis_test() {
+    #[async_std::test]
+    async fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db).await;
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -1009,11 +1011,11 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
-    #[test]
-    fn block_validation_cache_basic() {
+    #[async_std::test]
+    async fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db).await;
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

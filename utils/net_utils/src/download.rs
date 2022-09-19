@@ -3,12 +3,10 @@
 
 use async_std::fs::File;
 use async_std::io::BufReader;
-use async_std::task;
 use futures::prelude::*;
 use isahc::{AsyncBody, HttpClient};
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
-use std::convert::TryFrom;
 use std::io::{self, Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -51,10 +49,8 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
     }
 }
 
-impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
-    type Error = anyhow::Error;
-
-    fn try_from(url: Url) -> Result<Self, Self::Error> {
+impl FetchProgress<AsyncBody, Stdout> {
+    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<AsyncBody, Stdout>> {
         let client = HttpClient::new()?;
         let total_size = {
             let resp = client.head(url.as_str())?;
@@ -69,7 +65,7 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
             }
         };
 
-        let request = task::block_on(client.get_async(url.as_str()))?;
+        let request = client.get_async(url.as_str()).await?;
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
@@ -83,11 +79,9 @@ impl TryFrom<Url> for FetchProgress<AsyncBody, Stdout> {
     }
 }
 
-impl TryFrom<File> for FetchProgress<BufReader<File>, Stdout> {
-    type Error = anyhow::Error;
-
-    fn try_from(file: File) -> Result<Self, Self::Error> {
-        let total_size = async_std::task::block_on(file.metadata())?.len();
+impl FetchProgress<BufReader<File>, Stdout> {
+    pub async fn fetch_from_file(file: File) -> anyhow::Result<Self> {
+        let total_size = file.metadata().await?.len();
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");

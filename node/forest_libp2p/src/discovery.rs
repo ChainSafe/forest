@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::stream::{self, Interval};
-use async_std::task;
 use futures::prelude::*;
 use libp2p::core::transport::ListenerId;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
@@ -89,7 +88,7 @@ impl<'a> DiscoveryConfig<'a> {
     }
 
     /// Create a `DiscoveryBehaviour` from this configuration.
-    pub fn finish(self) -> DiscoveryBehaviour {
+    pub async fn finish(self) -> DiscoveryBehaviour {
         let DiscoveryConfig {
             local_peer_id,
             user_defined,
@@ -138,11 +137,11 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let mdns_opt = if enable_mdns {
-            Some(task::block_on(async {
+            Some(
                 Mdns::new(Default::default())
                     .await
-                    .expect("Could not start mDNS")
-            }))
+                    .expect("Could not start mDNS"),
+            )
         } else {
             None
         };

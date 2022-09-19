@@ -232,6 +232,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
+        // XXX: This `block_on` can be removed by adding a runtime Handle to `ChainRand`.
         task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
     }
 
@@ -241,6 +242,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
+        // XXX: This `block_on` can be removed by adding a runtime Handle to `ChainRand`.
         task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
     }
 }

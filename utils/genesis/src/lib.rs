@@ -13,8 +13,8 @@ use forest_state_manager::StateManager;
 use futures::AsyncRead;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
+use std::io::Stdout;
 use std::sync::Arc;
-use std::{convert::TryFrom, io::Stdout};
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -110,9 +110,10 @@ where
     } else {
         debug!("Initialize ChainSyncer with new genesis from config");
         chain_store.set_genesis(&genesis_block)?;
-        async_std::task::block_on(
-            chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?)),
-        )?;
+
+        chain_store
+            .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))
+            .await?;
     }
     Ok(genesis_block)
 }
@@ -135,14 +136,14 @@ where
     let cids = if is_remote_file {
         let url = Url::parse(path).expect("URL is invalid");
         info!("Downloading file...");
-        let reader = FetchProgress::try_from(url)?;
+        let reader = FetchProgress::fetch_from_url(url).await?;
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     } else {
         let file = File::open(&path)
             .await
             .expect("Snapshot file path not found!");
         info!("Reading file...");
-        let reader = FetchProgress::try_from(file)?;
+        let reader = FetchProgress::fetch_from_file(file).await?;
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     };
     let ts = sm

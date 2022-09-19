@@ -325,7 +325,6 @@ pub mod tests {
     use crate::msg_chain::{create_message_chains, Chains};
     use crate::msg_pool::MessagePool;
     use async_std::channel::bounded;
-    use async_std::task;
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
@@ -361,8 +360,8 @@ pub mod tests {
         SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
 
-    #[test]
-    fn test_message_pool() {
+    #[async_std::test]
+    async fn test_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -370,58 +369,56 @@ pub mod tests {
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
-        task::block_on(async move {
-            let (tx, _rx) = bounded(50);
-            let mpool = MessagePool::new(
-                tma,
-                "mptest".to_string(),
-                tx,
-                Default::default(),
-                Arc::default(),
-            )
-            .await
-            .unwrap();
-            let mut smsg_vec = Vec::new();
-            for i in 0..2 {
-                let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
-                smsg_vec.push(msg);
-            }
+        let (tx, _rx) = bounded(50);
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+        )
+        .await
+        .unwrap();
+        let mut smsg_vec = Vec::new();
+        for i in 0..2 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
 
-            mpool.api.write().await.set_state_sequence(&sender, 0);
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
-            mpool.add(smsg_vec[0].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
-            mpool.add(smsg_vec[1].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+        mpool.api.write().await.set_state_sequence(&sender, 0);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
+        mpool.add(smsg_vec[0].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
+        mpool.add(smsg_vec[1].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
 
-            let a = mock_block(1, 1);
+        let a = mock_block(1, 1);
 
-            mpool.api.write().await.set_block_messages(&a, smsg_vec);
-            let api = mpool.api.clone();
-            let bls_sig_cache = mpool.bls_sig_cache.clone();
-            let pending = mpool.pending.clone();
-            let cur_tipset = mpool.cur_tipset.clone();
-            let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-            let republished = mpool.republished.clone();
-            head_change(
-                api.as_ref(),
-                bls_sig_cache.as_ref(),
-                repub_trigger,
-                republished.as_ref(),
-                pending.as_ref(),
-                cur_tipset.as_ref(),
-                Vec::new(),
-                vec![Tipset::new(vec![a]).unwrap()],
-            )
-            .await
-            .unwrap();
+        mpool.api.write().await.set_block_messages(&a, smsg_vec);
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger,
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::new(vec![a]).unwrap()],
+        )
+        .await
+        .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
-        })
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
     }
 
-    #[test]
-    fn test_revert_messages() {
+    #[async_std::test]
+    async fn test_revert_messages() {
         let tma = TestApi::default();
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
@@ -441,97 +438,95 @@ pub mod tests {
         }
         let (tx, _rx) = bounded(50);
 
-        task::block_on(async move {
-            let mpool = MessagePool::new(
-                tma,
-                "mptest".to_string(),
-                tx,
-                Default::default(),
-                Arc::default(),
-            )
-            .await
-            .unwrap();
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+        )
+        .await
+        .unwrap();
 
-            let mut api_temp = mpool.api.write().await;
-            api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
-            api_temp.set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
-            api_temp.set_state_sequence(&sender, 0);
-            drop(api_temp);
+        let mut api_temp = mpool.api.write().await;
+        api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
+        api_temp.set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
+        api_temp.set_state_sequence(&sender, 0);
+        drop(api_temp);
 
-            mpool.add(smsg_vec[0].clone()).await.unwrap();
-            mpool.add(smsg_vec[1].clone()).await.unwrap();
-            mpool.add(smsg_vec[2].clone()).await.unwrap();
-            mpool.add(smsg_vec[3].clone()).await.unwrap();
+        mpool.add(smsg_vec[0].clone()).await.unwrap();
+        mpool.add(smsg_vec[1].clone()).await.unwrap();
+        mpool.add(smsg_vec[2].clone()).await.unwrap();
+        mpool.add(smsg_vec[3].clone()).await.unwrap();
 
-            mpool.api.write().await.set_state_sequence(&sender, 0);
+        mpool.api.write().await.set_state_sequence(&sender, 0);
 
-            let api = mpool.api.clone();
-            let bls_sig_cache = mpool.bls_sig_cache.clone();
-            let pending = mpool.pending.clone();
-            let cur_tipset = mpool.cur_tipset.clone();
-            let repub_trigger = Arc::new(mpool.repub_trigger.clone());
-            let republished = mpool.republished.clone();
-            head_change(
-                api.as_ref(),
-                bls_sig_cache.as_ref(),
-                repub_trigger.clone(),
-                republished.as_ref(),
-                pending.as_ref(),
-                cur_tipset.as_ref(),
-                Vec::new(),
-                vec![Tipset::new(vec![a]).unwrap()],
-            )
-            .await
-            .unwrap();
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
+        let repub_trigger = Arc::new(mpool.repub_trigger.clone());
+        let republished = mpool.republished.clone();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::new(vec![a]).unwrap()],
+        )
+        .await
+        .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
-            mpool.api.write().await.set_state_sequence(&sender, 1);
+        mpool.api.write().await.set_state_sequence(&sender, 1);
 
-            let api = mpool.api.clone();
-            let bls_sig_cache = mpool.bls_sig_cache.clone();
-            let pending = mpool.pending.clone();
-            let cur_tipset = mpool.cur_tipset.clone();
+        let api = mpool.api.clone();
+        let bls_sig_cache = mpool.bls_sig_cache.clone();
+        let pending = mpool.pending.clone();
+        let cur_tipset = mpool.cur_tipset.clone();
 
-            head_change(
-                api.as_ref(),
-                bls_sig_cache.as_ref(),
-                repub_trigger.clone(),
-                republished.as_ref(),
-                pending.as_ref(),
-                cur_tipset.as_ref(),
-                Vec::new(),
-                vec![Tipset::new(vec![b.clone()]).unwrap()],
-            )
-            .await
-            .unwrap();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            Vec::new(),
+            vec![Tipset::new(vec![b.clone()]).unwrap()],
+        )
+        .await
+        .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
-            mpool.api.write().await.set_state_sequence(&sender, 0);
+        mpool.api.write().await.set_state_sequence(&sender, 0);
 
-            head_change(
-                api.as_ref(),
-                bls_sig_cache.as_ref(),
-                repub_trigger.clone(),
-                republished.as_ref(),
-                pending.as_ref(),
-                cur_tipset.as_ref(),
-                vec![Tipset::new(vec![b]).unwrap()],
-                Vec::new(),
-            )
-            .await
-            .unwrap();
+        head_change(
+            api.as_ref(),
+            bls_sig_cache.as_ref(),
+            repub_trigger.clone(),
+            republished.as_ref(),
+            pending.as_ref(),
+            cur_tipset.as_ref(),
+            vec![Tipset::new(vec![b]).unwrap()],
+            Vec::new(),
+        )
+        .await
+        .unwrap();
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
-            let (p, _) = mpool.pending().await.unwrap();
-            assert_eq!(p.len(), 3);
-        })
+        let (p, _) = mpool.pending().await.unwrap();
+        assert_eq!(p.len(), 3);
     }
 
-    #[test]
-    fn test_async_message_pool() {
+    #[async_std::test]
+    async fn test_async_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
@@ -541,48 +536,46 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = bounded(50);
 
-        task::block_on(async move {
-            let mpool = MessagePool::new(
-                tma,
-                "mptest".to_string(),
-                tx,
-                Default::default(),
-                Arc::default(),
-            )
+        let mpool = MessagePool::new(
+            tma,
+            "mptest".to_string(),
+            tx,
+            Default::default(),
+            Arc::default(),
+        )
+        .await
+        .unwrap();
+
+        let mut smsg_vec = Vec::new();
+        for i in 0..3 {
+            let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
+            smsg_vec.push(msg);
+        }
+
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
+        mpool.push(smsg_vec[0].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
+        mpool.push(smsg_vec[1].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+        mpool.push(smsg_vec[2].clone()).await.unwrap();
+        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
+
+        let header = mock_block(1, 1);
+        let tipset = Tipset::new(vec![header.clone()]).unwrap();
+
+        let ts = tipset.clone();
+        mpool
+            .api
+            .write()
             .await
-            .unwrap();
+            .set_heaviest_tipset(Arc::new(ts))
+            .await;
 
-            let mut smsg_vec = Vec::new();
-            for i in 0..3 {
-                let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
-                smsg_vec.push(msg);
-            }
+        // sleep allows for async block to update mpool's cur_tipset
+        sleep(Duration::new(2, 0));
 
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
-            mpool.push(smsg_vec[0].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
-            mpool.push(smsg_vec[1].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
-            mpool.push(smsg_vec[2].clone()).await.unwrap();
-            assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
-
-            let header = mock_block(1, 1);
-            let tipset = Tipset::new(vec![header.clone()]).unwrap();
-
-            let ts = tipset.clone();
-            mpool
-                .api
-                .write()
-                .await
-                .set_heaviest_tipset(Arc::new(ts))
-                .await;
-
-            // sleep allows for async block to update mpool's cur_tipset
-            sleep(Duration::new(2, 0));
-
-            let cur_ts = mpool.cur_tipset.read().await.clone();
-            assert_eq!(cur_ts.as_ref(), &tipset);
-        })
+        let cur_ts = mpool.cur_tipset.read().await.clone();
+        assert_eq!(cur_ts.as_ref(), &tipset);
     }
 
     #[async_std::test]
@@ -593,342 +586,341 @@ pub mod tests {
         let a2 = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let tma = TestApi::default();
         let gas_limit = 6955002;
-        task::block_on(async move {
-            let tma = RwLock::new(tma);
-            let a = mock_block(1, 1);
-            let ts = Tipset::new(vec![a]).unwrap();
-            let chain_config = ChainConfig::default();
 
-            // --- Test Chain Aggregations ---
-            // Test 1: 10 messages from a1 to a2, with increasing gasPerf; it should
-            // 	       make a single chain with 10 messages given enough balance
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            for i in 0..10 {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i);
-                smsg_vec.push(msg.clone());
-                mset.insert(i, msg);
-            }
+        let tma = RwLock::new(tma);
+        let a = mock_block(1, 1);
+        let ts = Tipset::new(vec![a]).unwrap();
+        let chain_config = ChainConfig::default();
 
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i64),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 1, "expected a single chain");
+        // --- Test Chain Aggregations ---
+        // Test 1: 10 messages from a1 to a2, with increasing gasPerf; it should
+        // 	       make a single chain with 10 messages given enough balance
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        for i in 0..10 {
+            let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i);
+            smsg_vec.push(msg.clone());
+            mset.insert(i, msg);
+        }
+
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i64),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 1, "expected a single chain");
+        assert_eq!(
+            chains[0].msgs.len(),
+            10,
+            "expected 10 messages in single chain, got: {}",
+            chains[0].msgs.len()
+        );
+        for (i, m) in chains[0].msgs.iter().enumerate() {
             assert_eq!(
-                chains[0].msgs.len(),
-                10,
-                "expected 10 messages in single chain, got: {}",
-                chains[0].msgs.len()
+                m.sequence(),
+                i as u64,
+                "expected sequence {} but got {}",
+                i,
+                m.sequence()
             );
-            for (i, m) in chains[0].msgs.iter().enumerate() {
+        }
+
+        // Test 2: 10 messages from a1 to a2, with decreasing gasPerf; it should
+        // 	         make 10 chains with 1 message each
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        for i in 0..10 {
+            let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 10 - i);
+            smsg_vec.push(msg.clone());
+            mset.insert(i, msg);
+        }
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i64),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 10, "expected 10 chains");
+
+        for i in 0..chains.len() {
+            assert_eq!(
+                chains[i].msgs.len(),
+                1,
+                "expected 1 message in chain {} but got {}",
+                i,
+                chains[i].msgs.len()
+            );
+        }
+
+        for i in 0..chains.len() {
+            let m = &chains[i].msgs[0];
+            assert_eq!(
+                m.sequence(),
+                i as u64,
+                "expected sequence {} but got {}",
+                i,
+                m.sequence()
+            );
+        }
+
+        // Test 3a: 10 messages from a1 to a2, with gasPerf increasing in groups of 3; it should
+        //          merge them in two chains, one with 9 messages and one with the last message
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        for i in 0..10 {
+            let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i % 3);
+            smsg_vec.push(msg.clone());
+            mset.insert(i, msg);
+        }
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i64),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 2, "expected 2 chains");
+        assert_eq!(chains[0].msgs.len(), 9);
+        assert_eq!(chains[1].msgs.len(), 1);
+        let mut next_nonce = 0;
+        for i in 0..chains.len() {
+            for m in chains[i].msgs.iter() {
                 assert_eq!(
+                    next_nonce,
                     m.sequence(),
-                    i as u64,
-                    "expected sequence {} but got {}",
-                    i,
-                    m.sequence()
-                );
-            }
-
-            // Test 2: 10 messages from a1 to a2, with decreasing gasPerf; it should
-            // 	         make 10 chains with 1 message each
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            for i in 0..10 {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 10 - i);
-                smsg_vec.push(msg.clone());
-                mset.insert(i, msg);
-            }
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i64),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 10, "expected 10 chains");
-
-            for i in 0..chains.len() {
-                assert_eq!(
-                    chains[i].msgs.len(),
-                    1,
-                    "expected 1 message in chain {} but got {}",
-                    i,
-                    chains[i].msgs.len()
-                );
-            }
-
-            for i in 0..chains.len() {
-                let m = &chains[i].msgs[0];
-                assert_eq!(
-                    m.sequence(),
-                    i as u64,
-                    "expected sequence {} but got {}",
-                    i,
-                    m.sequence()
-                );
-            }
-
-            // Test 3a: 10 messages from a1 to a2, with gasPerf increasing in groups of 3; it should
-            //          merge them in two chains, one with 9 messages and one with the last message
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            for i in 0..10 {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i % 3);
-                smsg_vec.push(msg.clone());
-                mset.insert(i, msg);
-            }
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i64),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 2, "expected 2 chains");
-            assert_eq!(chains[0].msgs.len(), 9);
-            assert_eq!(chains[1].msgs.len(), 1);
-            let mut next_nonce = 0;
-            for i in 0..chains.len() {
-                for m in chains[i].msgs.iter() {
-                    assert_eq!(
-                        next_nonce,
-                        m.sequence(),
-                        "expected nonce {} but got {}",
-                        next_nonce,
-                        m.sequence()
-                    );
-                    next_nonce += 1;
-                }
-            }
-
-            // Test 3b: 10 messages from a1 to a2, with gasPerf decreasing in groups of 3 with a bias for the
-            //          earlier chains; it should make 4 chains, the first 3 with 3 messages and the last with
-            //          a single message
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            for i in 0..10 {
-                let bias = (12 - i) / 3;
-                let msg = create_smsg(
-                    &a2,
-                    &a1,
-                    wallet.borrow_mut(),
-                    i,
-                    gas_limit,
-                    1 + i % 3 + bias,
-                );
-                smsg_vec.push(msg.clone());
-                mset.insert(i, msg);
-            }
-
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i32),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-
-            for i in 0..chains.len() {
-                let expected_len = if i > 2 { 1 } else { 3 };
-                assert_eq!(
-                    chains[i].msgs.len(),
-                    expected_len,
-                    "expected {} message in chain {} but got {}",
-                    expected_len,
-                    i,
-                    chains[i].msgs.len()
-                );
-            }
-
-            let mut next_nonce = 0;
-            for i in 0..chains.len() {
-                for m in chains[i].msgs.iter() {
-                    assert_eq!(
-                        next_nonce,
-                        m.sequence(),
-                        "expected nonce {} but got {}",
-                        next_nonce,
-                        m.sequence()
-                    );
-                    next_nonce += 1;
-                }
-            }
-
-            // --- Test Chain Breaks ---
-            // Test 4: 10 messages with non-consecutive nonces; it should make a single chain with just
-            //         the first message
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            for i in 0..10 {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i * 2, gas_limit, 1 + i);
-                smsg_vec.push(msg.clone());
-                mset.insert(i, msg);
-            }
-
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i32),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 1, "expected a single chain");
-            for (i, m) in chains[0].msgs.iter().enumerate() {
-                assert_eq!(
-                    m.sequence(),
-                    i as u64,
                     "expected nonce {} but got {}",
-                    i,
+                    next_nonce,
                     m.sequence()
                 );
+                next_nonce += 1;
             }
+        }
 
-            // Test 5: 10 messages with increasing gasLimit, except for the 6th message which has less than
-            //         the epoch gasLimit; it should create a single chain with the first 5 messages
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            tma.write()
-                .await
-                .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000_u64));
-            for i in 0..10 {
-                let msg = if i != 5 {
-                    create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
-                } else {
-                    create_smsg(&a2, &a1, wallet.borrow_mut(), i, 1, 1 + i)
-                };
-                smsg_vec.push(msg.clone());
-                mset.insert(i, msg);
-            }
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
+        // Test 3b: 10 messages from a1 to a2, with gasPerf decreasing in groups of 3 with a bias for the
+        //          earlier chains; it should make 4 chains, the first 3 with 3 messages and the last with
+        //          a single message
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        for i in 0..10 {
+            let bias = (12 - i) / 3;
+            let msg = create_smsg(
+                &a2,
                 &a1,
-                &mset,
-                &BigInt::from(0i32),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 1, "expected a single chain");
-            assert_eq!(chains[0].msgs.len(), 5);
-            for (i, m) in chains[0].msgs.iter().enumerate() {
-                assert_eq!(
-                    m.sequence(),
-                    i as u64,
-                    "expected nonce {} but got {}",
-                    i,
-                    m.sequence()
-                );
-            }
+                wallet.borrow_mut(),
+                i,
+                gas_limit,
+                1 + i % 3 + bias,
+            );
+            smsg_vec.push(msg.clone());
+            mset.insert(i, msg);
+        }
 
-            // Test 6: one more message than what can fit in a block according to gas limit, with increasing
-            //         gasPerf; it should create a single chain with the max messages
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            let max_messages = fvm_shared::BLOCK_GAS_LIMIT / gas_limit;
-            let n_messages = max_messages + 1;
-            for i in 0..n_messages {
-                let msg = create_smsg(
-                    &a2,
-                    &a1,
-                    wallet.borrow_mut(),
-                    i as u64,
-                    gas_limit,
-                    (1 + i) as u64,
-                );
-                smsg_vec.push(msg.clone());
-                mset.insert(i as u64, msg);
-            }
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i32),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 1, "expected a single chain");
-            assert_eq!(chains[0].msgs.len(), max_messages as usize);
-            for (i, m) in chains[0].msgs.iter().enumerate() {
-                assert_eq!(
-                    m.sequence(),
-                    i as u64,
-                    "expected nonce {} but got {}",
-                    i,
-                    m.sequence()
-                );
-            }
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i32),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
 
-            // Test 7: insufficient balance for all messages
-            tma.write()
-                .await
-                .set_state_balance_raw(&a1, (300 * gas_limit + 1).into());
-            let mut mset = HashMap::new();
-            let mut smsg_vec = Vec::new();
-            for i in 0..10 {
-                let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i);
-                smsg_vec.push(msg.clone());
-                mset.insert(i as u64, msg);
-            }
-            let mut chains = Chains::new();
-            create_message_chains(
-                &tma,
-                &a1,
-                &mset,
-                &BigInt::from(0i32),
-                &ts,
-                &mut chains,
-                &chain_config,
-            )
-            .await
-            .unwrap();
-            assert_eq!(chains.len(), 1, "expected a single chain");
-            assert_eq!(chains[0].msgs.len(), 2);
-            for (i, m) in chains[0].msgs.iter().enumerate() {
+        for i in 0..chains.len() {
+            let expected_len = if i > 2 { 1 } else { 3 };
+            assert_eq!(
+                chains[i].msgs.len(),
+                expected_len,
+                "expected {} message in chain {} but got {}",
+                expected_len,
+                i,
+                chains[i].msgs.len()
+            );
+        }
+
+        let mut next_nonce = 0;
+        for i in 0..chains.len() {
+            for m in chains[i].msgs.iter() {
                 assert_eq!(
+                    next_nonce,
                     m.sequence(),
-                    i as u64,
                     "expected nonce {} but got {}",
-                    i,
+                    next_nonce,
                     m.sequence()
                 );
+                next_nonce += 1;
             }
-        })
+        }
+
+        // --- Test Chain Breaks ---
+        // Test 4: 10 messages with non-consecutive nonces; it should make a single chain with just
+        //         the first message
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        for i in 0..10 {
+            let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i * 2, gas_limit, 1 + i);
+            smsg_vec.push(msg.clone());
+            mset.insert(i, msg);
+        }
+
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i32),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 1, "expected a single chain");
+        for (i, m) in chains[0].msgs.iter().enumerate() {
+            assert_eq!(
+                m.sequence(),
+                i as u64,
+                "expected nonce {} but got {}",
+                i,
+                m.sequence()
+            );
+        }
+
+        // Test 5: 10 messages with increasing gasLimit, except for the 6th message which has less than
+        //         the epoch gasLimit; it should create a single chain with the first 5 messages
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        tma.write()
+            .await
+            .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000_u64));
+        for i in 0..10 {
+            let msg = if i != 5 {
+                create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
+            } else {
+                create_smsg(&a2, &a1, wallet.borrow_mut(), i, 1, 1 + i)
+            };
+            smsg_vec.push(msg.clone());
+            mset.insert(i, msg);
+        }
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i32),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 1, "expected a single chain");
+        assert_eq!(chains[0].msgs.len(), 5);
+        for (i, m) in chains[0].msgs.iter().enumerate() {
+            assert_eq!(
+                m.sequence(),
+                i as u64,
+                "expected nonce {} but got {}",
+                i,
+                m.sequence()
+            );
+        }
+
+        // Test 6: one more message than what can fit in a block according to gas limit, with increasing
+        //         gasPerf; it should create a single chain with the max messages
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        let max_messages = fvm_shared::BLOCK_GAS_LIMIT / gas_limit;
+        let n_messages = max_messages + 1;
+        for i in 0..n_messages {
+            let msg = create_smsg(
+                &a2,
+                &a1,
+                wallet.borrow_mut(),
+                i as u64,
+                gas_limit,
+                (1 + i) as u64,
+            );
+            smsg_vec.push(msg.clone());
+            mset.insert(i as u64, msg);
+        }
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i32),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 1, "expected a single chain");
+        assert_eq!(chains[0].msgs.len(), max_messages as usize);
+        for (i, m) in chains[0].msgs.iter().enumerate() {
+            assert_eq!(
+                m.sequence(),
+                i as u64,
+                "expected nonce {} but got {}",
+                i,
+                m.sequence()
+            );
+        }
+
+        // Test 7: insufficient balance for all messages
+        tma.write()
+            .await
+            .set_state_balance_raw(&a1, (300 * gas_limit + 1).into());
+        let mut mset = HashMap::new();
+        let mut smsg_vec = Vec::new();
+        for i in 0..10 {
+            let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i);
+            smsg_vec.push(msg.clone());
+            mset.insert(i as u64, msg);
+        }
+        let mut chains = Chains::new();
+        create_message_chains(
+            &tma,
+            &a1,
+            &mset,
+            &BigInt::from(0i32),
+            &ts,
+            &mut chains,
+            &chain_config,
+        )
+        .await
+        .unwrap();
+        assert_eq!(chains.len(), 1, "expected a single chain");
+        assert_eq!(chains[0].msgs.len(), 2);
+        for (i, m) in chains[0].msgs.iter().enumerate() {
+            assert_eq!(
+                m.sequence(),
+                i as u64,
+                "expected nonce {} but got {}",
+                i,
+                m.sequence()
+            );
+        }
     }
 }

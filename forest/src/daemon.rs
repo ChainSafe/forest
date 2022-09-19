@@ -166,7 +166,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         .expect("Opening RocksDB must succeed");
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()));
+    let chain_store = Arc::new(ChainStore::new(db.clone()).await);
 
     let publisher = chain_store.publisher();
 
@@ -229,7 +229,8 @@ pub(super) async fn start(config: Config, detached: bool) {
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
-    );
+    )
+    .await;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -437,7 +438,7 @@ mod test {
     #[async_std::test]
     async fn import_snapshot_from_file() {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db));
+        let cs = Arc::new(ChainStore::new(db).await);
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
