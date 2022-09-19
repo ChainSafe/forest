@@ -49,8 +49,6 @@ loop do
       client.post_message "⛔ Snapshot failed for #{CHAIN_NAME}. 🔥🌲🔥 "
       client.attach_files(LOG_EXPORT)
     end
-
-    logger.info 'Sync check finished'
   end
 
   # Loop such that a new snapshot will be updated once per day.
