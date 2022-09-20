@@ -17,38 +17,14 @@ pub struct LogConfig(pub Vec<LogValue>);
 impl Default for LogConfig {
     fn default() -> Self {
         let underlying = vec![
-            LogValue {
-                module: "libp2p_gossipsub".to_string(),
-                level: LevelFilter::Error.to_string(),
-            },
-            LogValue {
-                module: "filecoin_proofs".to_string(),
-                level: LevelFilter::Warn.to_string(),
-            },
-            LogValue {
-                module: "storage_proofs_core".to_string(),
-                level: LevelFilter::Warn.to_string(),
-            },
-            LogValue {
-                module: "surf::middleware".to_string(),
-                level: LevelFilter::Warn.to_string(),
-            },
-            LogValue {
-                module: "bellperson::groth16::aggregate::verify".to_string(),
-                level: LevelFilter::Warn.to_string(),
-            },
-            LogValue {
-                module: "tide".to_string(),
-                level: LevelFilter::Warn.to_string(),
-            },
-            LogValue {
-                module: "libp2p_bitswap".to_string(),
-                level: LevelFilter::Info.to_string(),
-            },
-            LogValue {
-                module: "rpc".to_string(),
-                level: LevelFilter::Error.to_string(),
-            },
+            LogValue::new("libp2p_gossipsub", LevelFilter::Error),
+            LogValue::new("filecoin_proofs", LevelFilter::Warn),
+            LogValue::new("storage_proofs_core", LevelFilter::Warn),
+            LogValue::new("surf::middleware", LevelFilter::Warn),
+            LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
+            LogValue::new("tide", LevelFilter::Warn),
+            LogValue::new("libp2p_bitswap", LevelFilter::Info),
+            LogValue::new("rpc", LevelFilter::Error),
         ];
         Self(underlying)
     }
@@ -58,6 +34,15 @@ impl Default for LogConfig {
 pub struct LogValue {
     pub module: String,
     pub level: String,
+}
+
+impl LogValue {
+    pub fn new(module: &str, level: LevelFilter) -> Self {
+        Self {
+            module: module.to_string(),
+            level: level.to_string(),
+        }
+    }
 }
 
 /// Structure that defines daemon configuration when process is detached
