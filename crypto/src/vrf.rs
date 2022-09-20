@@ -28,6 +28,13 @@ impl VRFProof {
     }
 }
 
+#[cfg(test)]
+impl quickcheck::Arbitrary for VRFProof {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        VRFProof(Vec::arbitrary(g))
+    }
+}
+
 /// Verifies raw VRF proof. This VRF proof is a BLS signature.
 pub fn verify_vrf(worker: &Address, vrf_base: &[u8], vrf_proof: &[u8]) -> Result<(), String> {
     verify_bls_sig(vrf_proof, vrf_base, worker).map_err(|e| format!("VRF was invalid: {}", e))
@@ -53,5 +60,18 @@ pub mod json {
         Ok(VRFProof::new(
             base64::decode(s.as_ref()).map_err(de::Error::custom)?,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn vrfproof_roundtrip(proof: VRFProof) {
+        let serialized = serde_json::to_string(&proof).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(proof, parsed);
     }
 }

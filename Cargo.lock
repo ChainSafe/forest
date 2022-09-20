@@ -2631,6 +2631,8 @@ dependencies = [
  "forest_json_utils",
  "fvm_shared",
  "hex",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
  "serde_json",
  "sha2 0.10.5",
@@ -2784,9 +2786,12 @@ dependencies = [
  "libsecp256k1",
  "num-derive",
  "num-traits",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

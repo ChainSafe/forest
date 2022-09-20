@@ -19,12 +19,14 @@ forest_encoding   = "0.2.2"
 forest_json_utils = "0.1"
 fvm_shared        = { version = "0.8.0", default-features = false }
 hex               = "0.4.3"
+quickcheck        = { version = "1" }
 serde             = { version = "1.0", features = ["derive"] }
 sha2              = { version = "0.10", default-features = false }
 surf              = { version = "2.3", default-features = false, features = ["curl-client"] }
 tokio             = { version = "1.0", features = ["sync"] }
 
 [dev-dependencies]
-async-std  = { version = "1.12", features = ["attributes"] }
-base64     = "0.13"
-serde_json = "1.0"
+async-std         = { version = "1.12", features = ["attributes"] }
+base64            = "0.13"
+quickcheck_macros = "1"
+serde_json        = "1.0"
