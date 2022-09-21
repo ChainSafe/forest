@@ -21,6 +21,7 @@ use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use fvm_shared::version::NetworkVersion;
+use question::{Answer, Question};
 
 use async_std::{channel::bounded, net::TcpListener, sync::RwLock, task};
 use futures::{select, FutureExt};
@@ -392,13 +393,14 @@ pub(super) async fn start(config: Config, detached: bool) {
 
 async fn prompt_and_fetch_snapshot(config: &mut Config) {
     if !config.client.assume_yes {
-        let mut buffer = String::new();
-        let stdin = std::io::stdin(); // We get `Stdin` here.
-        print!("Forest needs a snapshot to sync with the network. Would you like to download one now?: (y/n) ");
-        let _ = std::io::stdout().flush();
-        let _ = stdin.read_line(&mut buffer);
-        buffer = buffer.to_lowercase().trim().to_string();
-        if buffer != "y" || buffer != "yes" {
+        let answer = Question::new(
+            "Forest needs a snapshot to sync with the network. Would you like to download one now?",
+        )
+        .default(Answer::NO)
+        .show_defaults()
+        .confirm();
+
+        if let Answer::NO = answer {
             cli_error_and_die(
                 "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
                 1
