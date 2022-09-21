@@ -408,8 +408,6 @@ async fn prompt_and_fetch_snapshot(config: &mut Config) {
         }
     }
 
-    info!("assume yes??");
-
     let snapshot_path = config
         .client
         .data_dir
