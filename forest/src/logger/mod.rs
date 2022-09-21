@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::LogConfig;
 use crate::cli::LogValue;
 use crate::cli_error_and_die;
 use log::LevelFilter;
