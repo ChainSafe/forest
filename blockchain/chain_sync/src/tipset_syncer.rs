@@ -1028,7 +1028,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     let mut in_batch = false;
     let mut range = (0, 0);
     for (idx, tipset) in tipsets.iter().enumerate() {
-        match chainstore.fill_tipset(&tipset) {
+        match chainstore.fill_tipset(tipset) {
             Some(full_tipset) => {
                 if in_batch {
                     items.push(Kind::Batch(&tipsets[range.0..range.1]));
