@@ -30,7 +30,7 @@ impl Default for LogConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct LogValue {
     pub module: String,
     pub level: String,
