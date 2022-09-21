@@ -6,6 +6,7 @@ use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -13,6 +14,13 @@ use super::client::Client;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct LogConfig(pub Vec<LogValue>);
+
+impl Deref for LogConfig {
+    type Target = Vec<LogValue>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Default for LogConfig {
     fn default() -> Self {
