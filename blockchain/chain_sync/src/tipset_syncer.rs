@@ -1081,27 +1081,6 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                         break;
                     }
 
-                    // {
-                    //     let mut last_epoch: ChainEpoch = -1;
-                    //     let mut iter = tipset_batch.iter().rev();
-                    //     if let Some(ts) = iter.next() {
-                    //         last_epoch = ts.epoch();
-                    //         for curr in iter {
-                    //             let expected_epoch = curr.epoch() - 1;
-                    //             if expected_epoch != last_epoch {
-                    //                 if expected_epoch == (last_epoch + 1) {
-                    //                     warn!("Missing epoch: {}", expected_epoch);
-                    //                 } else {
-                    //                     warn!("Missing epochs: {} -> {}", last_epoch + 1, expected_epoch);
-                    //                 }
-                    //             }
-                    //             last_epoch = curr.epoch();
-                    //         }
-                    //     }
-                    // }
-
-                    // By construction
-                    assert!(!tipsets.is_empty());
                     // Get chain head
                     let head = tipsets.last().unwrap();
                     debug!(
