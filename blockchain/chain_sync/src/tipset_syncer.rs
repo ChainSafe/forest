@@ -1015,15 +1015,47 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     genesis: Arc<Tipset>,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
-    // Iterate through tipsets in chronological order
-    let mut tipset_iter = tipsets.into_iter().rev();
-
     // Sync the messages for one tipset @ a time
     const REQUEST_WINDOW: usize = 1;
 
-    while let Some(tipset) = tipset_iter.next() {
+    // The kind of tipset to validate
+    enum Kind<'a> {
+        Full(FullTipset),
+        Batch(&'a [Arc<Tipset>]),
+    }
+    // TODO: rewrite this
+    let mut items = vec![];
+    let mut in_batch = false;
+    let mut range = (0, 0);
+    for (idx, tipset) in tipsets.iter().enumerate() {
         match chainstore.fill_tipset(&tipset) {
             Some(full_tipset) => {
+                if in_batch {
+                    items.push(Kind::Batch(&tipsets[range.0..range.1]));
+                    in_batch = false;
+                }
+                items.push(Kind::Full(full_tipset));
+            }
+            None => {
+                // Full tipset is not in storage; request messages via chain_exchange
+                if in_batch {
+                    range.1 += 1;
+                } else {
+                    // Create a new range of 1
+                    range = (idx, idx + 1);
+                    in_batch = true;
+                }
+            }
+        }
+    }
+    if in_batch {
+        // Push last batch if existing
+        items.push(Kind::Batch(&tipsets[range.0..range.1]));
+    }
+
+    for item in items.into_iter().rev() {
+        match item {
+            Kind::Full(full_tipset) => {
                 let current_epoch = full_tipset.epoch();
                 validate_tipset::<_, C>(
                     consensus.clone(),
@@ -1038,63 +1070,70 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 tracker.write().await.set_epoch(current_epoch);
                 metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
-            None => {
-                // Full tipset is not in storage; request messages via chain_exchange
-                let batch_size = REQUEST_WINDOW;
-                debug!(
-                    "ChainExchange message sync tipsets: epoch: {}, len: {}",
-                    tipset.epoch(),
-                    batch_size,
-                );
+            Kind::Batch(tipset_batch) => {
+                let mut rev_iter = tipset_batch.iter().rev();
+                loop {
+                    let tipsets = rev_iter
+                        .by_ref()
+                        .take(REQUEST_WINDOW)
+                        .collect::<Vec<&Arc<Tipset>>>();
+                    if tipsets.is_empty() {
+                        break;
+                    }
 
-                // Receive tipset bundle from block sync
-                let compacted_messages = network
-                    .chain_exchange_messages(None, tipset.key(), batch_size as u64)
-                    .await
-                    .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
-                // Chain current tipset with iterator
-                let mut inner_iter = std::iter::once(tipset).chain(&mut tipset_iter);
+                    // By construction
+                    assert!(!tipsets.is_empty());
+                    // Get chain head
+                    let head = tipsets.last().unwrap();
+                    debug!(
+                        "ChainExchange message sync tipsets: epoch: {}, len: {}",
+                        head.epoch(),
+                        tipsets.len(),
+                    );
 
-                // Since the bundle only has messages, we have to put the headers in them
-                for messages in compacted_messages {
-                    // Construct full tipset from fetched messages
-                    let tipset = inner_iter.next().ok_or_else(|| {
-                        TipsetRangeSyncerError::NetworkMessageQueryFailed(String::from(
-                            "Messages returned exceeded tipsets in chain",
-                        ))
-                    })?;
+                    // Receive tipset bundle from block sync
+                    let compacted_messages_iter = network
+                        .chain_exchange_messages(None, head.key(), tipsets.len() as u64)
+                        .await
+                        .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
+                        .into_iter()
+                        .rev();
 
-                    let bundle = TipsetBundle {
-                        blocks: tipset.blocks().to_vec(),
-                        messages: Some(messages),
-                    };
+                    // Since the bundle only has messages, we have to put the headers in them
+                    for (messages, tipset) in compacted_messages_iter.zip(tipsets.iter()) {
+                        // Construct full tipset from fetched messages
+                        let bundle = TipsetBundle {
+                            blocks: tipset.blocks().to_vec(),
+                            messages: Some(messages),
+                        };
 
-                    let full_tipset = FullTipset::try_from(&bundle)
-                        .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+                        let full_tipset = FullTipset::try_from(&bundle)
+                            .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
-                    // Validate the tipset and the messages
-                    let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
-                    let current_epoch = full_tipset.epoch();
-                    validate_tipset::<_, C>(
-                        consensus.clone(),
-                        state_manager.clone(),
-                        chainstore.clone(),
-                        bad_block_cache.clone(),
-                        full_tipset,
-                        genesis.clone(),
-                        invalid_block_strategy,
-                    )
-                    .await?;
-                    tracker.write().await.set_epoch(current_epoch);
-                    timer.observe_duration();
-                    metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
+                        // Validate the tipset and the messages
+                        let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
+                        let current_epoch = full_tipset.epoch();
+                        validate_tipset::<_, C>(
+                            consensus.clone(),
+                            state_manager.clone(),
+                            chainstore.clone(),
+                            bad_block_cache.clone(),
+                            full_tipset,
+                            genesis.clone(),
+                            invalid_block_strategy,
+                        )
+                        .await?;
+                        tracker.write().await.set_epoch(current_epoch);
+                        timer.observe_duration();
+                        metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
 
-                    // Persist the messages in the store
-                    if let Some(m) = bundle.messages {
-                        forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-                        forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
-                    } else {
-                        warn!("ChainExchange request for messages returned null messages");
+                        // Persist the messages in the store
+                        if let Some(m) = bundle.messages {
+                            forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
+                            forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
+                        } else {
+                            warn!("ChainExchange request for messages returned null messages");
+                        }
                     }
                 }
             }
