@@ -74,13 +74,13 @@ impl Default for DaemonConfig {
 #[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
-    pub log: LogConfig,
     pub client: Client,
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
+    pub log: LogConfig,
 }
 
 #[cfg(test)]
