@@ -163,16 +163,16 @@ pub struct MinerState {
 #[derive(Clone, Default, Serialize_tuple, Deserialize_tuple, Debug)]
 pub struct MarketState {
     /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
-    /// Array<DealID, DealProposal>
+    /// `Array<DealID, DealProposal>`
     pub proposals: Cid,
 
     // States contains state for deals that have been activated and not yet cleaned up after expiry or termination.
     // After expiration, the state exists until the proposal is cleaned up too.
     // Invariant: keys(States) ⊆ keys(Proposals).
-    /// Array<DealID, DealState>
+    /// `Array<DealID, DealState>`
     pub states: Cid,
 
-    /// PendingProposals tracks dealProposals that have not yet reached their deal start date.
+    /// `PendingProposals` tracks `dealProposals` that have not yet reached their deal start date.
     /// We track them here to ensure that miners can't publish the same deal proposal twice
     pub pending_proposals: Cid,
 
@@ -184,21 +184,21 @@ pub struct MarketState {
     /// only the _portion_ of the total escrow amount that is locked.
     pub locked_table: Cid,
 
-    /// Deal id state sequential incrementer
+    /// The next sequential deal id
     pub next_id: DealID,
 
     /// Metadata cached for efficient iteration over deals.
-    /// SetMultimap<Address>
+    /// `SetMultimap<Address>`
     pub deal_ops_by_epoch: Cid,
     pub last_cron: ChainEpoch,
 
-    /// Total Client Collateral that is locked -> unlocked when deal is terminated
+    /// Total Client Collateral that is locked. Unlocked when deal is terminated
     #[serde(with = "bigint_ser")]
     pub total_client_locked_collateral: TokenAmount,
-    /// Total Provider Collateral that is locked -> unlocked when deal is terminated
+    /// Total Provider Collateral that is locked. Unlocked when deal is terminated
     #[serde(with = "bigint_ser")]
     pub total_provider_locked_collateral: TokenAmount,
-    /// Total storage fee that is locked in escrow -> unlocked when payments are made
+    /// Total storage fee that is locked in escrow. Unlocked when payments are made
     #[serde(with = "bigint_ser")]
     pub total_client_storage_fee: TokenAmount,
 }
@@ -230,27 +230,27 @@ pub struct SystemState {
 
 #[derive(Serialize_tuple, Deserialize_tuple, Default, Debug)]
 pub struct RewardState {
-    /// Target CumsumRealized needs to reach for EffectiveNetworkTime to increase
+    /// Target `CumsumRealized` needs to reach for `EffectiveNetworkTime` to increase
     /// Expressed in byte-epochs.
     #[serde(with = "bigint_ser")]
     pub cumsum_baseline: Spacetime,
 
-    /// CumsumRealized is cumulative sum of network power capped by BaselinePower(epoch).
+    /// `CumsumRealized` is cumulative sum of network power capped by `BaselinePower(epoch)`.
     /// Expressed in byte-epochs.
     #[serde(with = "bigint_ser")]
     pub cumsum_realized: Spacetime,
 
     /// Ceiling of real effective network time `theta` based on
-    /// CumsumBaselinePower(theta) == CumsumRealizedPower
+    /// `CumsumBaselinePower(theta) == CumsumRealizedPower`
     /// Theta captures the notion of how much the network has progressed in its baseline
     /// and in advancing network time.
     pub effective_network_time: ChainEpoch,
 
-    /// EffectiveBaselinePower is the baseline power at the EffectiveNetworkTime epoch.
+    /// `EffectiveBaselinePower` is the baseline power at the `EffectiveNetworkTime` epoch.
     #[serde(with = "bigint_ser")]
     pub effective_baseline_power: StoragePower,
 
-    /// The reward to be paid in per WinCount to block producers.
+    /// The reward to be paid in per `WinCount` to block producers.
     /// The actual reward total paid out depends on the number of winners in any round.
     /// This value is recomputed every non-null epoch and used in the next non-null epoch.
     #[serde(with = "bigint_ser")]
