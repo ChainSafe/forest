@@ -17,5 +17,6 @@ pin-project-lite = "0.2"
 serde            = { version = "1.0", features = ["derive"] }
 serde_json       = "1.0"
 surf             = { version = "2.3", default-features = false, features = ["curl-client"] }
+tokio            = "1"
 tokio-util       = { version = "0.7.0", features = ["compat"] }
 url              = "2.3"

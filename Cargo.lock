@@ -3229,6 +3229,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
+ "tokio",
  "tokio-util",
  "url",
 ]

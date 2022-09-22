@@ -1,13 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::{
-    channel::bounded,
-    fs::{self, File},
-    io::{copy, BufWriter},
-    sync::Arc,
-    task,
-};
+use async_std::{channel::bounded, task};
 use blake2b_simd::{Hash, State as Blake2b};
 use core::time::Duration;
 use forest_fil_types::SectorSize;
@@ -19,9 +13,11 @@ use std::collections::HashMap;
 use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use surf::Client;
+use tokio::fs::{self, File};
+use tokio::io::{copy, BufWriter};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tokio_util::compat::TokioAsyncReadCompatExt;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
@@ -134,6 +130,7 @@ pub async fn get_params(
         }
     }
 
+    // XXX: We return OK(()) even if 'fetch_verify_params' fails. :-/
     Ok(())
 }
 
@@ -209,12 +206,11 @@ async fn fetch_params(
         let mut source = FetchProgress {
             inner: req.await.map_err(|e| anyhow::anyhow!(e))?.compat(),
             progress_bar: pb,
-        }
-        .compat();
+        };
         copy(&mut source, &mut writer).await?;
-        source.into_inner().finish();
+        source.finish();
     } else {
-        let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?;
+        let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?.compat();
         copy(&mut source, &mut writer).await?;
     };
 
