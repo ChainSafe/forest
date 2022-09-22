@@ -3186,6 +3186,8 @@ name = "forest_net_utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-std",
+ "futures",
  "isahc 1.7.2",
  "log",
  "pbr",
