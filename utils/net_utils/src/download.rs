@@ -1,9 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::fs::File;
-use async_std::io::BufReader;
-use futures::prelude::*;
+// use futures::prelude::*;
 use isahc::{AsyncBody, HttpClient};
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
@@ -12,6 +10,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use thiserror::Error;
+use tokio::fs::File;
+use tokio::io::AsyncRead;
+use tokio::io::{BufReader, ReadBuf};
 use url::Url;
 
 #[derive(Debug, Error)]
@@ -39,11 +40,11 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, io::Error>> {
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
         let r = Pin::new(&mut self.inner).poll_read(cx, buf);
-        if let Poll::Ready(Ok(size)) = r {
-            self.progress_bar.add(size as u64);
+        if let Poll::Ready(Ok(())) = r {
+            self.progress_bar.add(buf.filled().len() as u64);
         }
         r
     }

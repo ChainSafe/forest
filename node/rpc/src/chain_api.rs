@@ -3,7 +3,6 @@
 
 use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
-use async_std::{fs::File, io::BufWriter};
 use cid::Cid;
 use forest_beacon::Beacon;
 use forest_blocks::{
@@ -24,6 +23,8 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
+use tokio::{fs::File, io::BufWriter};
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -79,7 +80,12 @@ where
 
     if let Err(e) = data
         .chain_store
-        .export(&start_ts, recent_roots, skip_old_msgs, writer)
+        .export(
+            &start_ts,
+            recent_roots,
+            skip_old_msgs,
+            writer.compat_write(),
+        )
         .await
     {
         if let Err(e) = std::fs::remove_file(&out) {

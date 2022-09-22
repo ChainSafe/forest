@@ -151,16 +151,17 @@ where
 mod tests {
     use super::super::{HEADERS, MESSAGES};
     use super::*;
-    use async_std::io::BufReader;
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
     use fvm_ipld_car::load_car;
+    use tokio::io::BufReader;
+    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     async fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();
         let reader = BufReader::<&[u8]>::new(EXPORT_SR_40);
         // The cids are the tipset cids of the most recent tipset (39th)
-        let cids: Vec<Cid> = load_car(&db, reader).await.unwrap();
+        let cids: Vec<Cid> = load_car(&db, reader.compat()).await.unwrap();
         (cids, db)
     }
 

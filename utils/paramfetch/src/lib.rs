@@ -20,6 +20,8 @@ use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
 use std::path::{Path, PathBuf};
 use surf::Client;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
@@ -205,11 +207,12 @@ async fn fetch_params(
         pb.set_units(Units::Bytes);
 
         let mut source = FetchProgress {
-            inner: req.await.map_err(|e| anyhow::anyhow!(e))?,
+            inner: req.await.map_err(|e| anyhow::anyhow!(e))?.compat(),
             progress_bar: pb,
-        };
+        }
+        .compat();
         copy(&mut source, &mut writer).await?;
-        source.finish();
+        source.into_inner().finish();
     } else {
         let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?;
         copy(&mut source, &mut writer).await?;

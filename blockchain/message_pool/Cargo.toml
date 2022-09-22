@@ -39,7 +39,7 @@ serde        = { version = "1.0", features = ["derive"] }
 slotmap      = "1.0"
 statrs       = "0.16"
 thiserror    = "1.0"
-tokio        = { version = "1.21", features = ["sync"] }
+tokio        = { version = "1.21", features = ["sync", "macros"] }
 
 [dev-dependencies]
 forest_interpreter    = "0.1.0"

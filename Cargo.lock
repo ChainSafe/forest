@@ -2919,6 +2919,8 @@ dependencies = [
  "futures",
  "fvm_ipld_car",
  "log",
+ "tokio",
+ "tokio-util",
  "url",
 ]
 
@@ -3099,6 +3101,7 @@ dependencies = [
  "smallvec",
  "tiny-cid",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3193,6 +3196,7 @@ dependencies = [
  "pbr",
  "pin-project-lite 0.2.9",
  "thiserror",
+ "tokio",
  "url",
 ]
 
@@ -3227,6 +3231,7 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
+ "tokio-util",
  "url",
 ]
 
@@ -3283,6 +3288,7 @@ dependencies = [
  "tide",
  "tide-websockets",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -8478,7 +8484,19 @@ dependencies = [
  "once_cell",
  "pin-project-lite 0.2.9",
  "socket2",
+ "tokio-macros",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
+dependencies = [
+ "proc-macro2 1.0.43",
+ "quote 1.0.21",
+ "syn 1.0.99",
 ]
 
 [[package]]
@@ -8510,6 +8528,7 @@ checksum = "0bb2e075f03b3d66d8d8785356224ba688d2906a371015e225beeb65ca92c740"
 dependencies = [
  "bytes 1.2.1",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite 0.2.9",
  "tokio",

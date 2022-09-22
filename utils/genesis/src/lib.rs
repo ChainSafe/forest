@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::fs::File;
-use async_std::io::BufReader;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
@@ -15,6 +13,9 @@ use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
 use std::io::Stdout;
 use std::sync::Arc;
+use tokio::fs::File;
+use tokio::io::BufReader;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -34,14 +35,14 @@ where
         Some(path) => {
             let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader, cs).await?
+            process_car(reader.compat(), cs).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader, cs).await?
+            process_car(reader.compat(), cs).await?
         }
     };
 
@@ -174,13 +175,14 @@ where
 /// Loads car file into database, and returns the block header CIDs from the CAR header.
 async fn load_and_retrieve_header<DB, R>(
     store: &DB,
-    mut reader: FetchProgress<R, Stdout>,
+    reader: FetchProgress<R, Stdout>,
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where
     DB: BlockStore,
     R: AsyncRead + Send + Unpin,
 {
+    let mut reader = reader.compat();
     let result = if skip_load {
         CarReader::new(&mut reader).await?.header.roots
     } else {
