@@ -1085,7 +1085,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
 
             let compacted_messages = network.chain_exchange_messages(None, &tsk, len as u64).await;
-            s.send(compacted_messages).await;
+            s.send(compacted_messages).await.unwrap();
         }
     });
 
