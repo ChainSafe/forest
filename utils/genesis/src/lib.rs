@@ -8,12 +8,12 @@ use forest_fil_types::verifier::ProofVerifier;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_net_utils::FetchProgress;
 use forest_state_manager::StateManager;
-use futures::AsyncRead;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
 use std::io::Stdout;
 use std::sync::Arc;
 use tokio::fs::File;
+use tokio::io::AsyncRead;
 use tokio::io::BufReader;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
@@ -35,14 +35,14 @@ where
         Some(path) => {
             let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader.compat(), cs).await?
+            process_car(reader, cs).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader.compat(), cs).await?
+            process_car(reader, cs).await?
         }
     };
 
@@ -89,7 +89,7 @@ where
     BS: BlockStore + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).await?;
+    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader.compat()).await?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
@@ -182,12 +182,12 @@ where
     DB: BlockStore,
     R: AsyncRead + Send + Unpin,
 {
-    let mut reader = reader.compat();
+    let mut compat = reader.compat();
     let result = if skip_load {
-        CarReader::new(&mut reader).await?.header.roots
+        CarReader::new(&mut compat).await?.header.roots
     } else {
-        load_car(store, &mut reader).await?
+        load_car(store, &mut compat).await?
     };
-    reader.finish();
+    compat.into_inner().finish();
     Ok(result)
 }

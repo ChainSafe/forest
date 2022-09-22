@@ -3197,6 +3197,7 @@ dependencies = [
  "pin-project-lite 0.2.9",
  "thiserror",
  "tokio",
+ "tokio-util",
  "url",
 ]
 

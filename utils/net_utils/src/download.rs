@@ -5,7 +5,7 @@
 use isahc::{AsyncBody, HttpClient};
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
-use std::io::{self, Stdout, Write};
+use std::io::{Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -13,6 +13,7 @@ use thiserror::Error;
 use tokio::fs::File;
 use tokio::io::AsyncRead;
 use tokio::io::{BufReader, ReadBuf};
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
 
 #[derive(Debug, Error)]
@@ -51,7 +52,9 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
 }
 
 impl FetchProgress<AsyncBody, Stdout> {
-    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<AsyncBody, Stdout>> {
+    pub async fn fetch_from_url(
+        url: Url,
+    ) -> anyhow::Result<FetchProgress<Compat<AsyncBody>, Stdout>> {
         let client = HttpClient::new()?;
         let total_size = {
             let resp = client.head(url.as_str())?;
@@ -75,7 +78,7 @@ impl FetchProgress<AsyncBody, Stdout> {
 
         Ok(FetchProgress {
             progress_bar: pb,
-            inner: request.into_body(),
+            inner: request.into_body().compat(),
         })
     }
 }
