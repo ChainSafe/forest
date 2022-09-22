@@ -3189,8 +3189,6 @@ name = "forest_net_utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-std",
- "futures",
  "isahc 1.7.2",
  "log",
  "pbr",
@@ -3224,7 +3222,6 @@ dependencies = [
  "blake2b_simd 1.0.0",
  "forest_fil_types",
  "forest_net_utils",
- "futures",
  "isahc 1.7.2",
  "log",
  "pbr",
