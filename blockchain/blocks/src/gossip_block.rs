@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::BlockHeader;
-use cid::Cid;
+use cid::{multihash::Multihash, Cid};
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{address::Address, clock::ChainEpoch};
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,
     pub bls_messages: Vec<Cid>,
@@ -24,8 +24,8 @@ impl quickcheck::Arbitrary for GossipBlock {
             .unwrap();
         Self {
             header,
-            bls_messages: Vec::arbitrary(g),
-            secpk_messages: Vec::arbitrary(g),
+            bls_messages: vec![Cid::new_v0(Multihash::default()).unwrap()],
+            secpk_messages: vec![Cid::new_v0(Multihash::default()).unwrap()],
         }
     }
 }
@@ -93,5 +93,18 @@ pub mod json {
             bls_messages,
             secpk_messages,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::GossipBlock;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn gossip_block_roundtrip(block: GossipBlock) {
+        let serialized = serde_json::to_string(&block).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(block, parsed);
     }
 }
