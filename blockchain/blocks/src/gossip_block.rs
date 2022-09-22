@@ -5,6 +5,7 @@ use crate::BlockHeader;
 use cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
+use fvm_shared::{address::Address, clock::ChainEpoch};
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
@@ -12,6 +13,21 @@ pub struct GossipBlock {
     pub header: BlockHeader,
     pub bls_messages: Vec<Cid>,
     pub secpk_messages: Vec<Cid>,
+}
+
+impl quickcheck::Arbitrary for GossipBlock {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .epoch(ChainEpoch::arbitrary(g))
+            .build()
+            .unwrap();
+        Self {
+            header,
+            bls_messages: Vec::arbitrary(g),
+            secpk_messages: Vec::arbitrary(g),
+        }
+    }
 }
 
 impl Cbor for GossipBlock {}

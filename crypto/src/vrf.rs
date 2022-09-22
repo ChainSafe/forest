@@ -31,7 +31,8 @@ impl VRFProof {
 #[cfg(test)]
 impl quickcheck::Arbitrary for VRFProof {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        VRFProof(Vec::arbitrary(g))
+        let fmt_str = format!("===={}=====", u64::arbitrary(g));
+        VRFProof::new(fmt_str.into_bytes())
     }
 }
 
@@ -71,6 +72,7 @@ mod tests {
     #[quickcheck]
     fn vrfproof_roundtrip(proof: VRFProof) {
         let serialized = serde_json::to_string(&proof).unwrap();
+        println!("serialized {}", serialized);
         let parsed = serde_json::from_str(&serialized).unwrap();
         assert_eq!(proof, parsed);
     }
