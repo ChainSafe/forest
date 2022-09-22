@@ -4,22 +4,53 @@
 use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
+use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::client::Client;
 
-#[derive(Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct LogConfig {
-    pub log_values: HashSet<LogValue>,
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct LogConfig(pub Vec<LogValue>);
+
+impl Deref for LogConfig {
+    type Target = Vec<LogValue>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        let underlying = vec![
+            LogValue::new("libp2p_gossipsub", LevelFilter::Error),
+            LogValue::new("filecoin_proofs", LevelFilter::Warn),
+            LogValue::new("storage_proofs_core", LevelFilter::Warn),
+            LogValue::new("surf::middleware", LevelFilter::Warn),
+            LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
+            LogValue::new("tide", LevelFilter::Warn),
+            LogValue::new("libp2p_bitswap", LevelFilter::Info),
+            LogValue::new("rpc", LevelFilter::Error),
+        ];
+        Self(underlying)
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct LogValue {
     pub module: String,
     pub level: String,
+}
+
+impl LogValue {
+    pub fn new(module: &str, level: LevelFilter) -> Self {
+        Self {
+            module: module.to_string(),
+            level: level.to_string(),
+        }
+    }
 }
 
 /// Structure that defines daemon configuration when process is detached
