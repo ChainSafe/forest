@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
-use async_std::task;
+use async_std::{channel, task};
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -1053,6 +1053,42 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         items.push(Kind::Batch(&tipsets[range.0..range.1]));
     }
 
+    let req_infos = items
+        .iter()
+        .rev()
+        .filter_map(|item| {
+            match item {
+                Kind::Batch(tipset_batch) => {
+                    let mut result = vec![];
+                    let mut rev_iter = tipset_batch.iter().rev();
+                    loop {
+                        let tipsets = rev_iter.by_ref().take(REQUEST_WINDOW).collect::<Vec<_>>();
+                        if tipsets.is_empty() {
+                            break;
+                        }
+                        // Get chain head
+                        let head = tipsets.last().unwrap();
+                        result.push((head.epoch(), head.key().clone(), tipsets.len()));
+                    }
+                    Some(result)
+                }
+                Kind::Full(_) => None,
+            }
+        })
+        .flatten()
+        .collect::<Vec<_>>();
+
+    // Spawn a background task for the chainxchg requests
+    let (s, r) = channel::bounded(REQUEST_WINDOW);
+    task::spawn(async move {
+        for (epoch, tsk, len) in req_infos {
+            debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+
+            let compacted_messages = network.chain_exchange_messages(None, &tsk, len as u64).await;
+            s.send(compacted_messages).await;
+        }
+    });
+
     for item in items.into_iter().rev() {
         match item {
             Kind::Full(full_tipset) => {
@@ -1073,26 +1109,18 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             Kind::Batch(tipset_batch) => {
                 let mut rev_iter = tipset_batch.iter().rev();
                 loop {
-                    let tipsets = rev_iter
-                        .by_ref()
-                        .take(REQUEST_WINDOW)
-                        .collect::<Vec<&Arc<Tipset>>>();
+                    let tipsets = rev_iter.by_ref().take(REQUEST_WINDOW).collect::<Vec<_>>();
                     if tipsets.is_empty() {
                         break;
                     }
 
-                    // Get chain head
-                    let head = tipsets.last().unwrap();
-                    debug!(
-                        "ChainExchange message sync tipsets: epoch: {}, len: {}",
-                        head.epoch(),
-                        tipsets.len(),
-                    );
-
                     // Receive tipset bundle from block sync
-                    let compacted_messages_iter = network
-                        .chain_exchange_messages(None, head.key(), tipsets.len() as u64)
+                    let compacted_messages_iter = r
+                        .recv()
                         .await
+                        .map_err(|e| {
+                            TipsetRangeSyncerError::NetworkMessageQueryFailed(format!("{}", e))
+                        })?
                         .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
                         .into_iter()
                         .rev();
