@@ -416,7 +416,7 @@ async fn prompt_and_fetch_snapshot(config: &mut Config) {
         .join("snapshots")
         .join(config.chain.name.clone());
 
-    match snapshot_fetch(&snapshot_path, &config).await {
+    match snapshot_fetch(&snapshot_path, config).await {
         Ok(snapshot_path) => {
             config.client.snapshot_path = Some(snapshot_path.display().to_string())
         }
