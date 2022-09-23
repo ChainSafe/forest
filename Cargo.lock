@@ -2527,7 +2527,6 @@ dependencies = [
  "forest_rpc-api",
  "forest_rpc-client",
  "forest_state_manager",
- "forest_statediff",
  "forest_utils",
  "forest_vm",
  "futures",
