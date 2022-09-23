@@ -52,7 +52,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
-            assume_yes: true,
+            assume_yes: false,
         }
     }
 }
