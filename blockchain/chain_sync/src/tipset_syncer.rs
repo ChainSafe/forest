@@ -1072,7 +1072,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         .flatten()
         .collect::<Vec<_>>();
 
-    // Spawn a background task for the chainxchg requests
+    // Spawn a background task for the `chain_exchange` message requests
     let (s, r) = channel::bounded(REQUEST_WINDOW);
     task::spawn(async move {
         for (epoch, tsk, len) in request_infos {
