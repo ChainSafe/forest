@@ -2498,6 +2498,7 @@ dependencies = [
  "ctrlc",
  "daemonize-me",
  "directories",
+ "fil_actor_miner",
  "forest_actor_interface",
  "forest_auth",
  "forest_beacon",

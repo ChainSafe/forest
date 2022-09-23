@@ -36,19 +36,19 @@ use fvm_shared::ActorID;
 
 /// State includes the address for the actor
 #[derive(Serialize_tuple, Deserialize_tuple, Debug)]
-pub struct AccountState {
+struct AccountState {
     pub address: Address,
 }
 
 /// Cron actor state which holds entries to call during epoch tick
 #[derive(Default, Serialize_tuple, Deserialize_tuple, Debug)]
-pub struct CronState {
+struct CronState {
     /// Entries is a set of actors (and corresponding methods) to call during `EpochTick`.
     pub entries: Vec<CronEntry>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct CronEntry {
+struct CronEntry {
     /// The actor to call (ID address)
     pub receiver: Address,
     /// The method number to call (must accept empty parameters)
@@ -57,7 +57,7 @@ pub struct CronEntry {
 
 /// Storage power actor state
 #[derive(Default, Debug, Serialize_tuple, Deserialize_tuple)]
-pub struct PowerState {
+struct PowerState {
     #[serde(with = "bigint_ser")]
     pub total_raw_byte_power: StoragePower,
     #[serde(with = "bigint_ser")]
@@ -95,7 +95,7 @@ pub struct PowerState {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
-pub struct MinerState {
+struct MinerState {
     /// Contains static info about this miner
     pub info: Cid,
 
@@ -161,7 +161,7 @@ pub struct MinerState {
 }
 
 #[derive(Clone, Default, Serialize_tuple, Deserialize_tuple, Debug)]
-pub struct MarketState {
+struct MarketState {
     /// Proposals are deals that have been proposed and not yet cleaned up after expiry or termination.
     /// `Array<DealID, DealProposal>`
     pub proposals: Cid,
@@ -205,10 +205,10 @@ pub struct MarketState {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, Hash, Eq, PartialEq, PartialOrd)]
 #[serde(transparent)]
-pub struct TxnID(pub i64);
+struct TxnID(pub i64);
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
-pub struct MultiSigState {
+struct MultiSigState {
     pub signers: Vec<Address>,
     pub num_approvals_threshold: u64,
     pub next_tx_id: TxnID,
@@ -223,13 +223,13 @@ pub struct MultiSigState {
 }
 
 #[derive(Default, Deserialize_tuple, Serialize_tuple, Debug)]
-pub struct SystemState {
+struct SystemState {
     // builtin actor registry: Vec<(String, Cid)>
     pub builtin_actors: Cid,
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple, Default, Debug)]
-pub struct RewardState {
+struct RewardState {
     /// Target `CumsumRealized` needs to reach for `EffectiveNetworkTime` to increase
     /// Expressed in byte-epochs.
     #[serde(with = "bigint_ser")]
@@ -281,7 +281,7 @@ pub struct RewardState {
 }
 
 #[derive(Serialize_tuple, Deserialize_tuple, Debug)]
-pub struct InitState {
+struct InitState {
     pub address_map: Cid,
     pub next_id: ActorID,
     pub network_name: String,
