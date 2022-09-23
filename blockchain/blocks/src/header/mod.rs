@@ -503,8 +503,9 @@ mod tests {
                 .unwrap())
             .unwrap();
     }
-    #[test]
-    fn beacon_entry_exists() {
+
+    #[async_std::test]
+    async fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -518,12 +519,15 @@ mod tests {
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
-        if let Err(e) = async_std::task::block_on(block_header.validate_block_drand(
-            NetworkVersion::V16,
-            &beacon_schedule,
-            chain_epoch,
-            &beacon_entry,
-        )) {
+        if let Err(e) = block_header
+            .validate_block_drand(
+                NetworkVersion::V16,
+                &beacon_schedule,
+                chain_epoch,
+                &beacon_entry,
+            )
+            .await
+        {
             // Assert error is for not including a beacon entry in the block
             match e {
                 Error::Validation(why) => {

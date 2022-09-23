@@ -27,15 +27,15 @@ use forest_state_manager::StateManager;
 use fvm_shared::message::Message;
 
 use async_std::channel::{Receiver, Sender};
-use async_std::pin::Pin;
 use async_std::stream::StreamExt;
-use async_std::sync::RwLock;
-use async_std::task::{Context, Poll};
 use futures::stream::FuturesUnordered;
 use futures::{future::try_join_all, future::Future, try_join};
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -51,7 +51,7 @@ pub enum ChainMuxerError<C: Consensus> {
     #[error("Tipset range syncer error: {0}")]
     TipsetRangeSyncer(#[from] TipsetRangeSyncerError<C>),
     #[error("Tipset validation error: {0}")]
-    TipsetValidator(#[from] TipsetValidationError),
+    TipsetValidator(#[from] Box<TipsetValidationError>),
     #[error("Sending tipset on channel failed: {0}")]
     TipsetChannelSend(String),
     #[error("Receiving p2p network event failed: {0}")]
@@ -165,7 +165,7 @@ where
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
-    #[allow(clippy::too_many_arguments, clippy::result_large_err)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,

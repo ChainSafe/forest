@@ -6,16 +6,16 @@ edition = "2021"
 
 [dependencies]
 anyhow           = "1.0"
-async-std        = { version = "1.9", features = ["unstable", "attributes"] }
+async-std        = { version = "1.12", features = ["unstable", "attributes"] }
 blake2b_simd     = "1.0"
 forest_fil_types = "0.2"
 forest_net_utils = "0.1.0"
 futures          = "0.3"
-isahc            = "1.6"
+isahc            = "1.7"
 log              = "0.4"
 pbr              = "1.0"
 pin-project-lite = "0.2"
 serde            = { version = "1.0", features = ["derive"] }
 serde_json       = "1.0"
 surf             = { version = "2.3", default-features = false, features = ["curl-client"] }
-url              = "2.1"
+url              = "2.3"

@@ -4,7 +4,6 @@
 use super::beacon_entries::BeaconEntry;
 use ahash::AHashMap;
 use anyhow::Context;
-use async_std::sync::RwLock;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
@@ -14,6 +13,7 @@ use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";

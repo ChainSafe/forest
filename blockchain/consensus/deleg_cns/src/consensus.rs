@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
-use async_std::sync::RwLock;
 use async_trait::async_trait;
 use forest_key_management::KeyStore;
 use log::info;
@@ -9,6 +8,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use forest_blocks::{Block, Tipset};
 use forest_chain::Error as ChainStoreError;
@@ -43,6 +43,18 @@ pub enum DelegatedConsensusError {
     StateManager(#[from] StateManagerError),
     #[error("Encoding error: {0}")]
     ForestEncoding(#[from] ForestEncodingError),
+}
+
+impl From<forest_chain::Error> for Box<DelegatedConsensusError> {
+    fn from(err: forest_chain::Error) -> Self {
+        Box::new(Into::into(err))
+    }
+}
+
+impl From<forest_state_manager::Error> for Box<DelegatedConsensusError> {
+    fn from(err: forest_state_manager::Error) -> Self {
+        Box::new(Into::into(err))
+    }
 }
 
 /// In Delegated Consensus only the chosen one can propose blocks.
@@ -124,7 +136,7 @@ impl Scale for DelegatedConsensus {
 
 #[async_trait]
 impl Consensus for DelegatedConsensus {
-    type Error = DelegatedConsensusError;
+    type Error = Box<DelegatedConsensusError>;
 
     async fn validate_block<DB>(
         &self,

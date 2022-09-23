@@ -429,7 +429,7 @@ impl ForestBehaviour {
         Poll::Pending
     }
 
-    pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
+    pub async fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let mut gs_config_builder = GossipsubConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
@@ -471,7 +471,7 @@ impl ForestBehaviour {
 
         ForestBehaviour {
             gossipsub,
-            discovery: discovery_config.finish(),
+            discovery: discovery_config.finish().await,
             ping: Ping::default(),
             identify: Identify::new(IdentifyConfig::new("ipfs/0.1.0".into(), local_key.public())),
             bitswap,

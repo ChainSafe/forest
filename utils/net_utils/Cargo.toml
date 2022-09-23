@@ -6,11 +6,11 @@ edition = "2021"
 
 [dependencies]
 anyhow           = "1.0"
-async-std        = { version = "1.9", features = ["attributes"] }
+async-std        = { version = "1.12", features = ["attributes"] }
 futures          = "0.3"
-isahc            = "1.6"
+isahc            = "1.7"
 log              = "0.4"
 pbr              = "1.0"
 pin-project-lite = "0.2"
 thiserror        = "1.0"
-url              = "2.1"
+url              = "2.3"
