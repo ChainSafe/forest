@@ -1053,24 +1053,18 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         items.push(Kind::Batch(&tipsets[range.0..range.1]));
     }
 
-    let req_infos = items
+    let request_infos = items
         .iter()
         .rev()
         .filter_map(|item| {
             match item {
                 Kind::Batch(tipset_batch) => {
-                    let mut result = vec![];
-                    let mut rev_iter = tipset_batch.iter().rev();
-                    loop {
-                        let tipsets = rev_iter.by_ref().take(REQUEST_WINDOW).collect::<Vec<_>>();
-                        if tipsets.is_empty() {
-                            break;
-                        }
+                    let iter = tipset_batch.rchunks(REQUEST_WINDOW).map(|tipset_chunk| {
                         // Get chain head
-                        let head = tipsets.last().unwrap();
-                        result.push((head.epoch(), head.key().clone(), tipsets.len()));
-                    }
-                    Some(result)
+                        let head = tipset_chunk.first().unwrap(); // This is safe because a batch can't be empty
+                        (head.epoch(), head.key().clone(), tipset_chunk.len())
+                    });
+                    Some(iter)
                 }
                 Kind::Full(_) => None,
             }
@@ -1081,10 +1075,12 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     // Spawn a background task for the chainxchg requests
     let (s, r) = channel::bounded(REQUEST_WINDOW);
     task::spawn(async move {
-        for (epoch, tsk, len) in req_infos {
+        for (epoch, tsk, len) in request_infos {
             debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
 
-            let compacted_messages = network.chain_exchange_messages(None, &tsk, len as u64).await;
+            let compacted_messages = network
+                .chain_exchange_messages(None, &tsk, len as u64)
+                .await;
             s.send(compacted_messages).await.unwrap();
         }
     });
@@ -1107,15 +1103,9 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
             Kind::Batch(tipset_batch) => {
-                let mut rev_iter = tipset_batch.iter().rev();
-                loop {
-                    let tipsets = rev_iter.by_ref().take(REQUEST_WINDOW).collect::<Vec<_>>();
-                    if tipsets.is_empty() {
-                        break;
-                    }
-
+                for tipset_chunk in tipset_batch.rchunks(REQUEST_WINDOW) {
                     // Receive tipset bundle from block sync
-                    let compacted_messages_iter = r
+                    let messages_iter = r
                         .recv()
                         .await
                         .map_err(|e| {
@@ -1126,7 +1116,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                         .rev();
 
                     // Since the bundle only has messages, we have to put the headers in them
-                    for (messages, tipset) in compacted_messages_iter.zip(tipsets.iter()) {
+                    for (messages, tipset) in messages_iter.zip(tipset_chunk.iter().rev()) {
                         // Construct full tipset from fetched messages
                         let bundle = TipsetBundle {
                             blocks: tipset.blocks().to_vec(),
