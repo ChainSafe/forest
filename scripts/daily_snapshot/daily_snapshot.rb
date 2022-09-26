@@ -52,8 +52,8 @@ loop do
       client.post_message "✅ Snapshot uploaded for #{CHAIN_NAME}. 🌲🌳🌲🌳🌲"
     else
       client.post_message "⛔ Snapshot failed for #{CHAIN_NAME}. 🔥🌲🔥 "
-      client.attach_files(LOG_EXPORT)
     end
+    client.attach_files(LOG_EXPORT)
 
     # Prune snapshots
     pruned = prune_snapshots(SNAPSHOTS_DIR)
