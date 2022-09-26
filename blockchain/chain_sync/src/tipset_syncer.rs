@@ -4,6 +4,7 @@
 use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1018,47 +1019,50 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     // Sync the messages for one tipset @ a time
     const REQUEST_WINDOW: usize = 8;
 
-    // The kind of tipset to validate
-    enum Kind<'a> {
+    // The kind of tipset item to validate
+    enum Item<'a> {
         Full(FullTipset),
         Batch(&'a [Arc<Tipset>]),
     }
-    // TODO: rewrite this
-    let mut items = vec![];
-    let mut in_batch = false;
-    let mut range = (0, 0);
-    for (idx, tipset) in tipsets.iter().enumerate() {
-        match chainstore.fill_tipset(tipset) {
-            Some(full_tipset) => {
-                if in_batch {
-                    items.push(Kind::Batch(&tipsets[range.0..range.1]));
-                    in_batch = false;
+    let tipset_items = {
+        let mut result = Vec::with_capacity(tipsets.len());
+        let mut range = Range { start: 0, end: 0 };
+        for (idx, tipset) in tipsets.iter().enumerate() {
+            match chainstore.fill_tipset(tipset) {
+                Some(full_tipset) => {
+                    if !range.is_empty() {
+                        result.push(Item::Batch(&tipsets[range]));
+                        range = Range { start: 0, end: 0 };
+                    }
+                    result.push(Item::Full(full_tipset));
                 }
-                items.push(Kind::Full(full_tipset));
-            }
-            None => {
-                // Full tipset is not in storage; request messages via chain_exchange
-                if in_batch {
-                    range.1 += 1;
-                } else {
-                    // Create a new range of 1
-                    range = (idx, idx + 1);
-                    in_batch = true;
+                None => {
+                    // Full tipset is not in storage; request messages via chain_exchange
+                    if range.is_empty() {
+                        range = Range {
+                            start: idx,
+                            end: idx + 1,
+                        };
+                    } else {
+                        // Extend with one tipset
+                        range.end += 1;
+                    }
                 }
             }
         }
-    }
-    if in_batch {
-        // Push last batch if existing
-        items.push(Kind::Batch(&tipsets[range.0..range.1]));
-    }
+        if !range.is_empty() {
+            // Push last range if there's one
+            result.push(Item::Batch(&tipsets[range]));
+        }
+        result
+    };
 
-    let request_infos = items
+    let request_infos = tipset_items
         .iter()
         .rev()
         .filter_map(|item| {
             match item {
-                Kind::Batch(tipset_batch) => {
+                Item::Batch(tipset_batch) => {
                     let iter = tipset_batch.rchunks(REQUEST_WINDOW).map(|tipset_chunk| {
                         // Get chain head
                         let head = tipset_chunk.first().unwrap(); // This is safe because a batch can't be empty
@@ -1066,7 +1070,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                     });
                     Some(iter)
                 }
-                Kind::Full(_) => None,
+                Item::Full(_) => None,
             }
         })
         .flatten()
@@ -1085,9 +1089,9 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         }
     });
 
-    for item in items.into_iter().rev() {
+    for item in tipset_items.into_iter().rev() {
         match item {
-            Kind::Full(full_tipset) => {
+            Item::Full(full_tipset) => {
                 let current_epoch = full_tipset.epoch();
                 validate_tipset::<_, C>(
                     consensus.clone(),
@@ -1102,7 +1106,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 tracker.write().await.set_epoch(current_epoch);
                 metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
-            Kind::Batch(tipset_batch) => {
+            Item::Batch(tipset_batch) => {
                 for tipset_chunk in tipset_batch.rchunks(REQUEST_WINDOW) {
                     // Receive tipset bundle from block sync
                     let messages_iter = r
