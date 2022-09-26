@@ -17,7 +17,7 @@ use tokio::{
     io::{AsyncWriteExt, BufWriter},
 };
 
-use super::Config;
+use super::{config::SnapshotFetchConfig, Config};
 use crate::cli::to_size_string;
 
 /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
@@ -37,8 +37,8 @@ pub(crate) async fn snapshot_fetch(
     config: Config,
 ) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir).await,
-        "calibnet" => snapshot_fetch_calibnet(snapshot_out_dir).await,
+        "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch).await,
+        "calibnet" => snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch).await,
         _ => Err(anyhow::anyhow!(
             "Fetch not supported for chain {}",
             config.chain.name,
@@ -49,15 +49,29 @@ pub(crate) async fn snapshot_fetch(
 /// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. connection interrupted) it will not be
 /// removed.
-async fn snapshot_fetch_calibnet(snapshot_out_dir: &Path) -> anyhow::Result<PathBuf> {
-    let bucket = Bucket::new_public(
-        DEFAULT_CALIBNET_BUCKET_NAME,
-        DEFAULT_CALIBNET_REGION.parse()?,
-    )?;
+async fn snapshot_fetch_calibnet(
+    snapshot_out_dir: &Path,
+    snapshot_fetch_config: &SnapshotFetchConfig,
+) -> anyhow::Result<PathBuf> {
+    let name = snapshot_fetch_config
+        .calibnet_bucket_name
+        .clone()
+        .unwrap_or_else(|| DEFAULT_CALIBNET_BUCKET_NAME.to_string());
+    let region = snapshot_fetch_config
+        .calibnet_region
+        .clone()
+        .unwrap_or_else(|| DEFAULT_CALIBNET_REGION.to_string());
+    let bucket = Bucket::new_public(name.as_str(), region.as_str().parse()?)?;
 
     // Grab contents of the bucket
     let bucket_contents = bucket
-        .list(DEFAULT_CALIBNET_PATH.to_string(), Some("/".to_string()))
+        .list(
+            snapshot_fetch_config
+                .calibnet_path
+                .clone()
+                .unwrap_or_else(|| DEFAULT_CALIBNET_PATH.to_string()),
+            Some("/".to_string()),
+        )
         .await?;
 
     // Find the the last modified file that is not a directory or empty file
@@ -81,8 +95,16 @@ async fn snapshot_fetch_calibnet(snapshot_out_dir: &Path) -> anyhow::Result<Path
     // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
     // https://github.com/durch/rust-s3/issues/275
     let client = Client::new();
-    let url = Url::try_from(DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL)?
-        .join(DEFAULT_CALIBNET_PATH)?
+    let snapshot_spaces_url = snapshot_fetch_config
+        .calibnet_snapshot_spaces_url
+        .clone()
+        .unwrap_or_else(|| DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL.to_string());
+    let calibnet_path = snapshot_fetch_config
+        .calibnet_path
+        .clone()
+        .unwrap_or_else(|| DEFAULT_CALIBNET_PATH.to_string());
+    let url = Url::try_from(snapshot_spaces_url.as_str())?
+        .join(&calibnet_path)?
         .join(filename)?;
 
     let snapshot_response = client.get(url).send().await?;
@@ -99,10 +121,17 @@ async fn snapshot_fetch_calibnet(snapshot_out_dir: &Path) -> anyhow::Result<Path
 /// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
 /// not be removed.
-async fn snapshot_fetch_mainnet(snapshot_out_dir: &Path) -> anyhow::Result<PathBuf> {
+async fn snapshot_fetch_mainnet(
+    snapshot_out_dir: &Path,
+    snapshot_fetch_config: &SnapshotFetchConfig,
+) -> anyhow::Result<PathBuf> {
     let client = Client::new();
 
-    let snapshot_url: Url = DEFAULT_MAINNET_SNAPSHOT_URL.try_into()?;
+    let snapshot_url_str = snapshot_fetch_config
+        .mainnet_snapshot_url
+        .clone()
+        .unwrap_or_else(|| DEFAULT_MAINNET_SNAPSHOT_URL.to_string());
+    let snapshot_url: Url = snapshot_url_str.as_str().try_into()?;
     let snapshot_response = client.get(snapshot_url.clone()).send().await?;
 
     // Use the redirect if available.

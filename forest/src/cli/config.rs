@@ -53,6 +53,15 @@ impl LogValue {
     }
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct SnapshotFetchConfig {
+    pub mainnet_snapshot_url: Option<String>,
+    pub calibnet_snapshot_spaces_url: Option<String>,
+    pub calibnet_bucket_name: Option<String>,
+    pub calibnet_region: Option<String>,
+    pub calibnet_path: Option<String>,
+}
+
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq)]
 pub struct DaemonConfig {
@@ -89,6 +98,7 @@ pub struct Config {
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
     pub log: LogConfig,
+    pub snapshot_fetch: SnapshotFetchConfig,
 }
 
 #[cfg(test)]
@@ -122,6 +132,7 @@ mod test {
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
                 log: Default::default(),
+                snapshot_fetch: Default::default(),
             }
         }
     }
