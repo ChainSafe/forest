@@ -249,14 +249,15 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
+    use super::json::{SignedMessageJson, SignedMessageJsonRef};
     use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
     #[quickcheck]
     fn signed_message_roundtrip(message: SignedMessage) {
-        let serialized = serde_json::to_string(&message).unwrap();
-        let parsed = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(message, parsed);
+        let serialized = serde_json::to_string(&SignedMessageJsonRef(&message)).unwrap();
+        let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message, parsed.0);
     }
 }
