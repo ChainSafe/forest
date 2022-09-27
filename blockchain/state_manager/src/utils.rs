@@ -19,15 +19,12 @@ use fvm_shared::version::NetworkVersion;
 use serde::Serialize;
 
 /// Helper for building abortable futures and aborting them.
+#[derive(Default)]
 pub struct AbortHandleRegistry {
     handles: Vec<AbortHandle>,
 }
 
 impl AbortHandleRegistry {
-    pub fn new() -> Self {
-        Self { handles: vec![] }
-    }
-
     /// Returns a new abort registration and register its associated abort handle.
     pub fn new_abort_registration(&mut self) -> AbortRegistration {
         let (abort_handle, abort_registration) = AbortHandle::new_pair();

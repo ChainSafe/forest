@@ -122,7 +122,7 @@ where
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
             reward_calc,
-            handle_registry: RwLock::new(AbortHandleRegistry::new()),
+            handle_registry: RwLock::new(AbortHandleRegistry::default()),
         })
     }
 
@@ -150,7 +150,7 @@ where
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
             reward_calc,
-            handle_registry: RwLock::new(AbortHandleRegistry::new()),
+            handle_registry: RwLock::new(AbortHandleRegistry::default()),
         })
     }
 
