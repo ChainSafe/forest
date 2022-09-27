@@ -240,11 +240,11 @@ impl CliOpts {
             );
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
-                cfg.client.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.client.snapshot_path = Some(PathBuf::from(snapshot_path));
                 cfg.client.snapshot = true;
             }
             if let Some(snapshot_path) = &self.import_chain {
-                cfg.client.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.client.snapshot_path = Some(PathBuf::from(snapshot_path));
                 cfg.client.snapshot = false;
             }
             cfg.client.snapshot_height = self.height;

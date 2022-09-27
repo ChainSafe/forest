@@ -22,7 +22,7 @@ pub struct Client {
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
     pub snapshot_height: Option<i64>,
-    pub snapshot_path: Option<String>,
+    pub snapshot_path: Option<PathBuf>,
     pub halt_after_import: bool,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
