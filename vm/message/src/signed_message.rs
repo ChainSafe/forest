@@ -149,8 +149,7 @@ impl quickcheck::Arbitrary for SignedMessage {
             from: Address::new_id(u64::arbitrary(g)),
             ..Message::default()
         };
-        let signed_message = SignedMessage::new(msg.clone(), &DummySigner).unwrap();
-        signed_message
+        SignedMessage::new(msg, &DummySigner).unwrap()
     }
 }
 

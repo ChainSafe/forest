@@ -35,3 +35,6 @@ default = ["blst"]
 blst    = ["forest_crypto/blst", "fvm_shared/blst"]
 
 proofs = []
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["quickcheck"]
