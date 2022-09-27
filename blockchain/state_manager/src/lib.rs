@@ -47,6 +47,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use tokio::sync::RwLock;
+use utils::AbortHandleRegistry;
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
@@ -93,6 +94,7 @@ pub struct StateManager<DB> {
     chain_config: Arc<ChainConfig>,
     engine: fvm::machine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
+    handle_registry: RwLock<AbortHandleRegistry>,
 }
 
 impl<DB> StateManager<DB>
@@ -120,6 +122,7 @@ where
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
             reward_calc,
+            handle_registry: RwLock::new(AbortHandleRegistry::new()),
         })
     }
 
@@ -147,6 +150,7 @@ where
             chain_config,
             engine: fvm::machine::MultiEngine::new(),
             reward_calc,
+            handle_registry: RwLock::new(AbortHandleRegistry::new()),
         })
     }
 
@@ -161,6 +165,10 @@ where
 
     pub fn chain_config(&self) -> &Arc<ChainConfig> {
         &self.chain_config
+    }
+
+    pub fn handle_registry(&self) -> &RwLock<AbortHandleRegistry> {
+        &self.handle_registry
     }
 
     /// Gets actor from given [`Cid`], if it exists.

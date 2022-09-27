@@ -10,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
 use async_std::{channel, task};
+use futures::future::Abortable;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -1078,16 +1079,23 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 
     // Spawn a background task for the `chain_exchange` message requests
     let (s, r) = channel::bounded(REQUEST_WINDOW);
-    task::spawn(async move {
-        for (epoch, tsk, len) in request_infos {
-            debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+    let abort_registration = {
+        let mut guard = state_manager.handle_registry().write().await;
+        guard.new_abort_registration()
+    };
+    task::spawn(Abortable::new(
+        async move {
+            for (epoch, tsk, len) in request_infos {
+                debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
 
-            let compacted_messages = network
-                .chain_exchange_messages(None, &tsk, len as u64)
-                .await;
-            s.send(compacted_messages).await.unwrap();
-        }
-    });
+                let compacted_messages = network
+                    .chain_exchange_messages(None, &tsk, len as u64)
+                    .await;
+                s.send(compacted_messages).await.unwrap();
+            }
+        },
+        abort_registration,
+    ));
 
     for item in tipset_items.into_iter().rev() {
         match item {

@@ -11,11 +11,37 @@ use forest_actor_interface::{
 use forest_blocks::Tipset;
 use forest_fil_types::{verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber};
 use forest_ipld_blockstore::BlockStore;
+use futures::future::{AbortHandle, AbortRegistration};
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
 use serde::Serialize;
+
+/// Helper for building abortable futures and aborting them.
+pub struct AbortHandleRegistry {
+    handles: Vec<AbortHandle>,
+}
+
+impl AbortHandleRegistry {
+    pub fn new() -> Self {
+        AbortHandleRegistry { handles: vec![] }
+    }
+
+    /// Returns a new abort registration and register its associated abort handle.
+    pub fn new_abort_registration(&mut self) -> AbortRegistration {
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        self.handles.push(abort_handle);
+        abort_registration
+    }
+
+    /// Aborts all the abortable futures.
+    pub fn abort_futures(&self) {
+        for handle in self.handles.iter().rev() {
+            handle.abort();
+        }
+    }
+}
 
 impl<DB> StateManager<DB>
 where
