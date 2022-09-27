@@ -115,13 +115,14 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
+    use super::json::{BeaconEntryJson, BeaconEntryJsonRef};
     use super::*;
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]
     fn beacon_entry_roundtrip(entry: BeaconEntry) {
-        let serialized = serde_json::to_string(&entry).unwrap();
-        let parsed = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(entry, parsed);
+        let serialized = serde_json::to_string(&BeaconEntryJsonRef(&entry)).unwrap();
+        let parsed: BeaconEntryJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(entry, parsed.into());
     }
 }
