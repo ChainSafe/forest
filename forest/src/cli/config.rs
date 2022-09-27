@@ -5,12 +5,23 @@ use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::client::Client;
+
+/// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
+/// `sha256sum` file with the same URL (but different extension).
+const DEFAULT_MAINNET_SNAPSHOT_URL: &str =  "https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car";
+
+const DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL: &str =
+    "https://forest-snapshots.fra1.digitaloceanspaces.com";
+const DEFAULT_CALIBNET_BUCKET_NAME: &str = "forest-snapshots";
+const DEFAULT_CALIBNET_REGION: &str = "fra1";
+const DEFAULT_CALIBNET_PATH: &str = "calibnet/";
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct LogConfig(pub Vec<LogValue>);
@@ -55,11 +66,42 @@ impl LogValue {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct SnapshotFetchConfig {
-    pub mainnet_snapshot_url: Option<String>,
-    pub calibnet_snapshot_spaces_url: Option<String>,
-    pub calibnet_bucket_name: Option<String>,
-    pub calibnet_region: Option<String>,
-    pub calibnet_path: Option<String>,
+    pub mainnet: MainnetSnapshotFetchConfig,
+    pub calibnet: Calibnetsnapshotfetchconfig,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct MainnetSnapshotFetchConfig {
+    pub snapshot_url: Url,
+}
+
+impl Default for MainnetSnapshotFetchConfig {
+    fn default() -> Self {
+        // unfallible unwrap as we know that `DEFAULT_MAINNET_SNAPSHOT_URL` is correct
+        Self {
+            snapshot_url: Url::try_from(DEFAULT_MAINNET_SNAPSHOT_URL).unwrap(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct Calibnetsnapshotfetchconfig {
+    pub snapshot_spaces_url: Url,
+    pub bucket_name: String,
+    pub region: String,
+    pub path: String,
+}
+
+impl Default for Calibnetsnapshotfetchconfig {
+    fn default() -> Self {
+        // unfallible unwrap as we know that `DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL` is correct
+        Self {
+            snapshot_spaces_url: Url::try_from(DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL).unwrap(),
+            bucket_name: DEFAULT_CALIBNET_BUCKET_NAME.to_string(),
+            region: DEFAULT_CALIBNET_REGION.to_string(),
+            path: DEFAULT_CALIBNET_PATH.to_string(),
+        }
+    }
 }
 
 /// Structure that defines daemon configuration when process is detached

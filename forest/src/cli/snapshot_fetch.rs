@@ -20,16 +20,6 @@ use tokio::{
 use super::{config::SnapshotFetchConfig, Config};
 use crate::cli::to_size_string;
 
-/// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
-/// `sha256sum` file with the same URL (but different extension).
-const DEFAULT_MAINNET_SNAPSHOT_URL: &str =  "https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car";
-
-const DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL: &str =
-    "https://forest-snapshots.fra1.digitaloceanspaces.com";
-const DEFAULT_CALIBNET_BUCKET_NAME: &str = "forest-snapshots";
-const DEFAULT_CALIBNET_REGION: &str = "fra1";
-const DEFAULT_CALIBNET_PATH: &str = "calibnet/";
-
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
 pub(crate) async fn snapshot_fetch(
@@ -53,23 +43,14 @@ async fn snapshot_fetch_calibnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
 ) -> anyhow::Result<PathBuf> {
-    let name = snapshot_fetch_config
-        .calibnet_bucket_name
-        .clone()
-        .unwrap_or_else(|| DEFAULT_CALIBNET_BUCKET_NAME.to_string());
-    let region = snapshot_fetch_config
-        .calibnet_region
-        .clone()
-        .unwrap_or_else(|| DEFAULT_CALIBNET_REGION.to_string());
+    let name = snapshot_fetch_config.calibnet.bucket_name.clone();
+    let region = snapshot_fetch_config.calibnet.region.clone();
     let bucket = Bucket::new_public(name.as_str(), region.as_str().parse()?)?;
 
     // Grab contents of the bucket
     let bucket_contents = bucket
         .list(
-            snapshot_fetch_config
-                .calibnet_path
-                .clone()
-                .unwrap_or_else(|| DEFAULT_CALIBNET_PATH.to_string()),
+            snapshot_fetch_config.calibnet.path.clone(),
             Some("/".to_string()),
         )
         .await?;
@@ -95,17 +76,9 @@ async fn snapshot_fetch_calibnet(
     // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
     // https://github.com/durch/rust-s3/issues/275
     let client = Client::new();
-    let snapshot_spaces_url = snapshot_fetch_config
-        .calibnet_snapshot_spaces_url
-        .clone()
-        .unwrap_or_else(|| DEFAULT_CALIBNET_SNAPSHOT_SPACES_URL.to_string());
-    let calibnet_path = snapshot_fetch_config
-        .calibnet_path
-        .clone()
-        .unwrap_or_else(|| DEFAULT_CALIBNET_PATH.to_string());
-    let url = Url::try_from(snapshot_spaces_url.as_str())?
-        .join(&calibnet_path)?
-        .join(filename)?;
+    let snapshot_spaces_url = snapshot_fetch_config.calibnet.snapshot_spaces_url.clone();
+    let calibnet_path = snapshot_fetch_config.calibnet.path.clone();
+    let url = snapshot_spaces_url.join(&calibnet_path)?.join(filename)?;
 
     let snapshot_response = client.get(url).send().await?;
     let total_size = last_modified.size;
@@ -127,11 +100,7 @@ async fn snapshot_fetch_mainnet(
 ) -> anyhow::Result<PathBuf> {
     let client = Client::new();
 
-    let snapshot_url_str = snapshot_fetch_config
-        .mainnet_snapshot_url
-        .clone()
-        .unwrap_or_else(|| DEFAULT_MAINNET_SNAPSHOT_URL.to_string());
-    let snapshot_url: Url = snapshot_url_str.as_str().try_into()?;
+    let snapshot_url = snapshot_fetch_config.mainnet.snapshot_url.clone();
     let snapshot_response = client.get(snapshot_url.clone()).send().await?;
 
     // Use the redirect if available.
