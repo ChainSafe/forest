@@ -226,6 +226,18 @@ pub(super) async fn start(config: Config, detached: bool) {
         config
     };
 
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => prompt_and_fetch_snapshot(&mut config).await,
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                prompt_and_fetch_snapshot(&mut config).await
+            }
+        }
+    }
+
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -336,18 +348,6 @@ pub(super) async fn start(config: Config, detached: bool) {
         },
     }
 
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => prompt_and_fetch_snapshot(&mut config).await,
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                prompt_and_fetch_snapshot(&mut config).await
-            }
-        }
-    }
-
     // Halt
     if config.client.halt_after_import {
         info!("Forest finish shutdown");
@@ -394,7 +394,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 }
 
 async fn prompt_and_fetch_snapshot(config: &mut Config) {
-    if !config.client.assume_yes {
+    if !config.client.download_snapshot {
         let answer = Question::new(
             "Forest needs a snapshot to sync with the network. Would you like to download one now?",
         )
