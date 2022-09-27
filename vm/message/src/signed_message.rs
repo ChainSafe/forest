@@ -124,6 +124,36 @@ impl Cbor for SignedMessage {
     }
 }
 
+const DUMMY_SIG: [u8; 1] = [0u8];
+
+//#[derive(Clone)]
+struct DummySigner;
+impl Signer for DummySigner {
+    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
+        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+    }
+}
+
+// impl quickcheck::Arbitrary for dyn Signer {
+//     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+//         let dummy_signer = Signer::sign_bytes(_, g, Address).unwrap();
+//         dummy_signer
+//     }
+// }
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SignedMessage {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let msg = Message {
+            to: Address::new_id(u64::arbitrary(g)),
+            from: Address::new_id(u64::arbitrary(g)),
+            ..Message::default()
+        };
+        let signed_message = SignedMessage::new(msg.clone(), &DummySigner).unwrap();
+        signed_message
+    }
+}
+
 pub mod json {
     use super::*;
     use crate::message;
@@ -214,5 +244,19 @@ pub mod json {
         {
             deserializer.deserialize_any(GoVecVisitor::<SignedMessage, SignedMessageJson>::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[quickcheck]
+    fn signed_message_roundtrip(message: SignedMessage) {
+        let serialized = serde_json::to_string(&message).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message, parsed);
     }
 }

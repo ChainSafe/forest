@@ -3124,6 +3124,8 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "num-traits",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
  "serde_json",
 ]
