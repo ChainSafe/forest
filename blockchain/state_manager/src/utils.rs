@@ -25,7 +25,7 @@ pub struct AbortHandleRegistry {
 
 impl AbortHandleRegistry {
     pub fn new() -> Self {
-        AbortHandleRegistry { handles: vec![] }
+        Self { handles: vec![] }
     }
 
     /// Returns a new abort registration and register its associated abort handle.
