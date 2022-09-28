@@ -1003,7 +1003,7 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
 }
 
 async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: &channel::Sender<FullTipset>) {
-    // Batched tipsets are already in chronological order
+    // Tipsets in `batch` are already in chronological order
     let head = batch.last().unwrap(); // This is safe because a batch can't be empty
     let epoch = head.epoch();
     let len = batch.len();
@@ -1055,8 +1055,8 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     genesis: Arc<Tipset>,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
-    // Sync the messages for one tipset @ a time
-    const REQUEST_WINDOW: usize = 8;
+    // Sync the messages for one or many tipsets @ a time
+    const REQUEST_WINDOW: usize = 16;
 
     let task_chainstore = chainstore.clone();
 
