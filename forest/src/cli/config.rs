@@ -31,7 +31,7 @@ impl Default for LogConfig {
             LogValue::new("surf::middleware", LevelFilter::Warn),
             LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
             LogValue::new("tide", LevelFilter::Warn),
-            LogValue::new("libp2p_bitswap", LevelFilter::Info),
+            LogValue::new("libp2p_bitswap", LevelFilter::Warn),
             LogValue::new("rpc", LevelFilter::Error),
         ];
         Self(underlying)

@@ -29,4 +29,4 @@ docker run --rm \
     --label-enable --include-stopped --revive-stopped --stop-timeout 120s --interval 600
 
 # Export and upload snapshot
-ruby ruby_common/daily_snapshot.rb calibnet
+ruby daily_snapshot.rb calibnet
