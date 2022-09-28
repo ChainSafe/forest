@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
 use cid::Cid;
 use forest_beacon::Beacon;
@@ -9,7 +8,6 @@ use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use forest_chain::headchange_json::HeadChangeJson;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::cid::CidJson;
 use forest_message::message;
@@ -19,7 +17,7 @@ use forest_rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use fvm_shared::message::Message as FVMMessage;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
@@ -230,31 +228,31 @@ where
 //     Ok(subscription_id)
 // }
 
-pub(crate) async fn chain_notify<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    id: Id,
-) -> Result<ChainNotifyResult, JsonRpcError>
-where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    if let Id::Num(id) = id {
-        debug!("Requested ChainNotify from id: {}", id);
+// pub(crate) async fn chain_notify<DB, B>(
+//     data: Data<RPCState<DB, B>>,
+//     id: Id,
+// ) -> Result<ChainNotifyResult, JsonRpcError>
+// where
+//     DB: BlockStore + Send + Sync + 'static,
+//     B: Beacon + Send + Sync + 'static,
+// {
+//     if let Id::Num(id) = id {
+//         debug!("Requested ChainNotify from id: {}", id);
 
-        let event = data
-            .state_manager
-            .chain_store()
-            .next_head_change(&id)
-            .await
-            .unwrap();
+//         let event = data
+//             .state_manager
+//             .chain_store()
+//             .next_head_change(&id)
+//             .await
+//             .unwrap();
 
-        debug!("Responding to ChainNotify from id: {}", id);
+//         debug!("Responding to ChainNotify from id: {}", id);
 
-        Ok((id, vec![HeadChangeJson::from(event)]))
-    } else {
-        Err(get_error_obj(-32600, "Invalid request".to_owned()))
-    }
-}
+//         Ok((id, vec![HeadChangeJson::from(event)]))
+//     } else {
+//         Err(get_error_obj(-32600, "Invalid request".to_owned()))
+//     }
+// }
 
 pub(crate) async fn chain_tipset_weight<DB, B>(
     data: Data<RPCState<DB, B>>,

@@ -4,7 +4,6 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use async_std::channel::Receiver;
 use async_std::task;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
@@ -28,7 +27,6 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::message::Message;
-use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use serde::Serialize;
@@ -67,8 +65,9 @@ pub struct ChainStore<DB> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
 
-    /// Tracks head change subscription channels
-    subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
+    // XXX: 'subscriptions' disabled since it is unused.
+    // /// Tracks head change subscription channels
+    // subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
 
     // XXX: 'subscriptions_count' disabled since it is unused.
     // /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
@@ -99,7 +98,7 @@ where
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
-            subscriptions: Default::default(),
+            // subscriptions: Default::default(),
             // subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
@@ -573,30 +572,31 @@ where
     //     sub_id
     // }
 
-    pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
-        debug!(
-            "Getting subscription receiver for subscription ID: {}",
-            sub_id
-        );
-        if let Some(sub) = self.subscriptions.get(sub_id) {
-            if let Some(rx) = sub.val() {
-                debug!("Polling receiver for subscription ID: {}", sub_id);
-                match rx.recv().await {
-                    Ok(head_change) => {
-                        debug!("Got head change for subscription ID: {}", sub_id);
-                        Some(head_change)
-                    }
-                    Err(_) => None,
-                }
-            } else {
-                warn!("A subscription with this ID no longer exists");
-                None
-            }
-        } else {
-            warn!("No subscription with this ID");
-            None
-        }
-    }
+    // XXX: 'next_head_change' disabled since it is unsed.
+    // pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
+    //     debug!(
+    //         "Getting subscription receiver for subscription ID: {}",
+    //         sub_id
+    //     );
+    //     if let Some(sub) = self.subscriptions.get(sub_id) {
+    //         if let Some(rx) = sub.val() {
+    //             debug!("Polling receiver for subscription ID: {}", sub_id);
+    //             match rx.recv().await {
+    //                 Ok(head_change) => {
+    //                     debug!("Got head change for subscription ID: {}", sub_id);
+    //                     Some(head_change)
+    //                 }
+    //                 Err(_) => None,
+    //             }
+    //         } else {
+    //             warn!("A subscription with this ID no longer exists");
+    //             None
+    //         }
+    //     } else {
+    //         warn!("No subscription with this ID");
+    //         None
+    //     }
+    // }
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
     /// This is tracked based on the callback function loading blocks.
