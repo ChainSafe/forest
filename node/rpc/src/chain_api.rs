@@ -219,16 +219,16 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-pub(crate) async fn chain_head_subscription<DB, B>(
-    data: Data<RPCState<DB, B>>,
-) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
-where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
-    Ok(subscription_id)
-}
+// pub(crate) async fn chain_head_subscription<DB, B>(
+//     data: Data<RPCState<DB, B>>,
+// ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
+// where
+//     DB: BlockStore + Send + Sync + 'static,
+//     B: Beacon + Send + Sync + 'static,
+// {
+//     let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
+//     Ok(subscription_id)
+// }
 
 pub(crate) async fn chain_notify<DB, B>(
     data: Data<RPCState<DB, B>>,
