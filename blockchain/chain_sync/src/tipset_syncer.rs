@@ -1003,7 +1003,7 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: Arc<channel::Sender<FullTipset>>, window: usize) {
+async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: &channel::Sender<FullTipset>, window: usize) {
     for chunk in batch.rchunks(window) {
         let head = chunk.first().unwrap(); // This is safe because a batch/chunk can't be empty
         let epoch = head.epoch();
@@ -1075,7 +1075,6 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     task::spawn(Abortable::new(
         async move {
             let mut range = Range { start: 0, end: 0 };
-            let rs = Arc::new(s);
 
             // Visit tipsets in chronological order
             for (idx, tipset) in tipsets.iter().enumerate().rev() {
@@ -1083,10 +1082,10 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                     Some(full_tipset) => {
                         if !range.is_empty() {
                             let rev_range = Range { start: tipsets.len() - range.end, end: tipsets.len() - range.start };
-                            fetch_batch(&tipsets[rev_range], &network, &task_chainstore, rs.clone(), REQUEST_WINDOW).await;
+                            fetch_batch(&tipsets[rev_range], &network, &task_chainstore, &s, REQUEST_WINDOW).await;
                             range = Range { start: 0, end: 0 };
                         }
-                        rs.send(full_tipset).await.unwrap();
+                        s.send(full_tipset).await.unwrap();
                     },
                     None => {
                         // Full tipset is not in storage; request messages via chain_exchange
@@ -1105,7 +1104,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             if !range.is_empty() {
                 // Push last range if there's one
                 let rev_range = Range { start: tipsets.len() - range.end, end: tipsets.len() - range.start };
-                fetch_batch(&tipsets[rev_range], &network, &task_chainstore, rs.clone(), REQUEST_WINDOW).await;
+                fetch_batch(&tipsets[rev_range], &network, &task_chainstore, &s, REQUEST_WINDOW).await;
             }
         },
         abort_registration,
