@@ -174,6 +174,12 @@ async fn download_snapshot_to_file(
         progress_bar.set(downloaded);
         snapshot_hasher.update(chunk);
     }
+    writer.flush().await?;
+
+    let file_size = std::fs::metadata(snapshot_path)?.len();
+    if file_size != total_size {
+        bail!("Didn't manage to download the entire file. {file_size}/{total_size} [B]");
+    }
 
     progress_bar.finish_println("Finished downloading the snapshot.");
     Ok(snapshot_hasher.finalize().to_vec())
