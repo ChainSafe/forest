@@ -43,9 +43,9 @@ async fn snapshot_fetch_calibnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
 ) -> anyhow::Result<PathBuf> {
-    let name = snapshot_fetch_config.calibnet.bucket_name.clone();
-    let region = snapshot_fetch_config.calibnet.region.clone();
-    let bucket = Bucket::new_public(name.as_str(), region.as_str().parse()?)?;
+    let name = &snapshot_fetch_config.calibnet.bucket_name;
+    let region = &snapshot_fetch_config.calibnet.region;
+    let bucket = Bucket::new_public(name, region.parse()?)?;
 
     // Grab contents of the bucket
     let bucket_contents = bucket
@@ -76,9 +76,9 @@ async fn snapshot_fetch_calibnet(
     // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
     // https://github.com/durch/rust-s3/issues/275
     let client = Client::new();
-    let snapshot_spaces_url = snapshot_fetch_config.calibnet.snapshot_spaces_url.clone();
-    let calibnet_path = snapshot_fetch_config.calibnet.path.clone();
-    let url = snapshot_spaces_url.join(&calibnet_path)?.join(filename)?;
+    let snapshot_spaces_url = &snapshot_fetch_config.calibnet.snapshot_spaces_url;
+    let calibnet_path = &snapshot_fetch_config.calibnet.path;
+    let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
 
     let snapshot_response = client.get(url).send().await?;
     let total_size = last_modified.size;
