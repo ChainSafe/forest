@@ -43,9 +43,11 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
+        let prev_len = buf.filled().len();
         let r = Pin::new(&mut self.inner).poll_read(cx, buf);
         if let Poll::Ready(Ok(())) = r {
-            self.progress_bar.add(buf.filled().len() as u64);
+            self.progress_bar
+                .add((buf.filled().len() - prev_len) as u64);
         }
         r
     }
