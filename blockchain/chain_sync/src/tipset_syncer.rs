@@ -4,7 +4,6 @@
 use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
-use std::ops::Range;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1003,47 +1002,42 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: &channel::Sender<FullTipset>, window: usize) {
-    for chunk in batch.rchunks(window) {
-        let head = chunk.first().unwrap(); // This is safe because a batch/chunk can't be empty
-        let epoch = head.epoch();
-        let len = chunk.len() as u64;
+async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: &channel::Sender<FullTipset>) {
+    // Batched tipsets are already in chronological order
+    let head = batch.last().unwrap(); // This is safe because a batch can't be empty
+    let epoch = head.epoch();
+    let len = batch.len();
 
-        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+    debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
 
-        let compacted_messages = network
-            .chain_exchange_messages(None, head.key(), len as u64)
-            .await
-            //.map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
+    let compacted_messages = network
+        .chain_exchange_messages(None, head.key(), len as u64)
+        .await
+        //.map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
+        .unwrap();
+    let messages_iter = compacted_messages.into_iter().rev();
+
+    // Since the bundle only has messages, we have to put the headers in them
+    for (messages, tipset) in messages_iter.zip(batch.iter()) {
+        // Construct full tipset from fetched messages
+        let bundle = TipsetBundle {
+            blocks: tipset.blocks().to_vec(),
+            messages: Some(messages),
+        };
+
+        let full_tipset = FullTipset::try_from(&bundle)
             .unwrap();
-        let messages_iter = compacted_messages.into_iter().rev();
+            //.map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
-        // Since the bundle only has messages, we have to put the headers in them
-        for (messages, tipset) in messages_iter.zip(chunk.iter().rev()) {
-            // Construct full tipset from fetched messages
-            let bundle = TipsetBundle {
-                blocks: tipset.blocks().to_vec(),
-                messages: Some(messages),
-            };
-
-            let full_tipset = FullTipset::try_from(&bundle)
-                .unwrap();
-                //.map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
-
-            // Persist the messages in the store
-            if let Some(m) = bundle.messages {
-                forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs).unwrap();
-                forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs).unwrap();
-            } else {
-                warn!("ChainExchange request for messages returned null messages");
-            }
-
-            let result = s.send(full_tipset).await;
-            match result {
-                Err(e) => error!("{}", e),
-                Ok(_v) => (),
-            }
+        // Persist the messages in the store
+        if let Some(m) = bundle.messages {
+            forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs).unwrap();
+            forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs).unwrap();
+        } else {
+            warn!("ChainExchange request for messages returned null messages");
         }
+
+        s.send(full_tipset).await.unwrap();
     }
 }
 
@@ -1074,57 +1068,61 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     };
     task::spawn(Abortable::new(
         async move {
-            let mut range = Range { start: 0, end: 0 };
+            let mut batch: Vec<Arc<Tipset>> = vec![];
+            batch.reserve(REQUEST_WINDOW);
 
             // Visit tipsets in chronological order
-            for (idx, tipset) in tipsets.iter().enumerate().rev() {
-                match task_chainstore.fill_tipset(tipset) {
+            for tipset in tipsets.into_iter().rev() {
+                match task_chainstore.fill_tipset(&tipset) {
                     Some(full_tipset) => {
-                        if !range.is_empty() {
-                            let rev_range = Range { start: tipsets.len() - range.end, end: tipsets.len() - range.start };
-                            fetch_batch(&tipsets[rev_range], &network, &task_chainstore, &s, REQUEST_WINDOW).await;
-                            range = Range { start: 0, end: 0 };
+                        if !batch.is_empty() {
+                            fetch_batch(&batch, &network, &task_chainstore, &s).await;
+                            batch.clear();
                         }
                         s.send(full_tipset).await.unwrap();
                     },
                     None => {
                         // Full tipset is not in storage; request messages via chain_exchange
-                        if range.is_empty() {
-                            range = Range {
-                                start: idx,
-                                end: idx + 1,
-                            };
-                        } else {
-                            // Extend with one tipset
-                            range.end += 1;
+                        batch.push(tipset);
+                        if batch.len() == REQUEST_WINDOW {
+                            fetch_batch(&batch, &network, &task_chainstore, &s).await;
+                            batch.clear();
                         }
                     }
                 }
             }
-            if !range.is_empty() {
-                // Push last range if there's one
-                let rev_range = Range { start: tipsets.len() - range.end, end: tipsets.len() - range.start };
-                fetch_batch(&tipsets[rev_range], &network, &task_chainstore, &s, REQUEST_WINDOW).await;
+            if !batch.is_empty() {
+                // Fetch last batch if there's one
+                fetch_batch(&batch, &network, &task_chainstore, &s).await;
+                batch.clear();
             }
         },
         abort_registration,
     ));
 
     // Validation loop
-    while let Ok(full_tipset) = r.recv().await {
-        let current_epoch = full_tipset.epoch();
-        validate_tipset::<_, C>(
-            consensus.clone(),
-            state_manager.clone(),
-            &chainstore,
-            bad_block_cache.clone(),
-            full_tipset,
-            genesis.clone(),
-            invalid_block_strategy,
-        )
-        .await?;
-        tracker.write().await.set_epoch(current_epoch);
-        metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
+    loop {
+        match r.recv().await {
+            Ok(full_tipset) => {
+                let current_epoch = full_tipset.epoch();
+                validate_tipset::<_, C>(
+                    consensus.clone(),
+                    state_manager.clone(),
+                    &chainstore,
+                    bad_block_cache.clone(),
+                    full_tipset,
+                    genesis.clone(),
+                    invalid_block_strategy,
+                )
+                .await?;
+                tracker.write().await.set_epoch(current_epoch);
+                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
+            },
+            Err(e) => {
+                error!("Err: {}", e);
+                break;
+            }
+        };
     }
 
     Ok(())
