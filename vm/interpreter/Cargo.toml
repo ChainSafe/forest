@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 ahash                  = "0.8"
-anyhow                 = "1.0"
-async-std              = "1.12"
+anyhow.workspace       = true
+async-std.workspace    = true
 byteorder              = "1.4"
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 fil_actors_runtime     = "=8.0.0"
@@ -28,7 +28,7 @@ fvm_ipld_encoding      = "0.2"
 fvm_ipld_hamt          = "0.5.1"
 fvm_shared             = { version = "0.8.0", default-features = false }
 lazy_static            = "1.4"
-log                    = "0.4"
+log.workspace          = true
 num-traits             = "0.2"
 num_cpus               = "1.13"
 rayon                  = "1.5"

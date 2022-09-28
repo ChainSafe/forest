@@ -8,7 +8,7 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-anyhow            = "1.0"
+anyhow.workspace  = true
 async-recursion   = "1.0"
 async-trait       = "0.1"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
@@ -24,7 +24,7 @@ serde             = { version = "1.0", features = ["derive"] }
 thiserror         = "1.0"
 
 [dev-dependencies]
-async-std              = { version = "1.12", features = ["attributes"] }
+async-std              = { workspace = true, features = ["attributes"] }
 forest_db              = "0.1.0"
 forest_ipld_blockstore = "0.1.1"
 forest_json            = "0.1.0"

@@ -11,7 +11,7 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-anyhow            = "1.0"
+anyhow.workspace  = true
 base64            = "0.13"
 cid               = { version = "0.8", default-features = false, features = ["std"] }
 forest_crypto     = { default-features = false, version = "0.5" }

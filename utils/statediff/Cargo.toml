@@ -5,8 +5,8 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow                 = "1.0"
-async-std              = { version = "1.12", features = ["attributes", "tokio1"] }
+anyhow.workspace       = true
+async-std              = { workspace = true, features = ["attributes", "tokio1"] }
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
 colored                = "2.0"
 difference             = "2.0"

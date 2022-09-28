@@ -6,9 +6,9 @@ description = "Filecoin implementation in Rust. This command will start the daem
 edition     = "2021"
 
 [dependencies]
-anyhow                 = "1.0.64"
+anyhow.workspace       = true
 async-log              = "2.0"
-async-std              = { version = "1.12", features = ["attributes", "tokio1"] }
+async-std              = { workspace = true, features = ["attributes", "tokio1"] }
 base64                 = "0.13"
 byte-unit              = "4.0"
 chrono                 = "0.4"
@@ -56,7 +56,7 @@ git-version            = "0.3"
 hex                    = "0.4"
 lazy_static            = "1.4"
 libp2p                 = { version = "0.46", default-features = false, features = ["identify"] }
-log                    = "0.4"
+log.workspace          = true
 multibase              = "0.9"
 num-rational           = "0.4"
 num-traits             = "0.2"
@@ -79,7 +79,7 @@ structopt              = "0.3"
 tempfile               = "3.3"
 ticker                 = "0.1"
 time                   = "0.3"
-tokio                  = { version = "1.21", features = ["sync"] }
+tokio                  = { workspace = true, features = ["sync"] }
 toml                   = "0.5"
 uuid                   = { version = "1.1", features = ["v4"] }
 

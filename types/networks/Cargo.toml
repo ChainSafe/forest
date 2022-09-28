@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow             = "1.0"
+anyhow.workspace   = true
 fil_actors_runtime = "=8.0.0"
 forest_beacon      = "0.1.0"
 forest_json        = "0.1.0"

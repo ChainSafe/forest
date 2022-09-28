@@ -6,8 +6,8 @@ edition = "2021"
 
 [dependencies]
 # Public
-anyhow                 = "1.0"
-async-std              = { version = "1.12", features = ["attributes"] }
+anyhow.workspace       = true
+async-std              = { workspace = true, features = ["attributes"] }
 base64                 = "0.13"
 bls-signatures         = { version = "0.11", default-features = false, features = ["blst"] }
 cid                    = { version = "0.8", default-features = false, features = ["std"] }
@@ -41,7 +41,7 @@ fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
 hex                    = "0.4"
 libipld-core           = "0.14.0"
-log                    = "0.4"
+log.workspace          = true
 multibase              = "0.9"
 num-traits             = "0.2"
 rand                   = "0.8"
@@ -51,7 +51,7 @@ serde                  = { version = "1.0", default-features = false, features =
 serde_json             = "1.0"
 tide                   = "0.16"
 tide-websockets        = "0.4"
-tokio                  = { version = "1.0", features = ["sync"] }
+tokio                  = { workspace = true, features = ["sync"] }
 
 [dependencies.jsonrpc-v2]
 default-features = false

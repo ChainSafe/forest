@@ -28,11 +28,6 @@ jobs:
           brew install --verbose coreutils
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          target: wasm32-unknown-unknown
-          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Cargo Build
@@ -51,9 +46,9 @@ jobs:
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2
         with:
-            repo_token: ${{ github.token }}
-            file: ${{ matrix.file }}
-            asset_name: ${{ matrix.file }}
-            tag: ${{ github.ref_name }}
-            overwrite: true
-            prerelease: true
+          repo_token: ${{ github.token }}
+          file: ${{ matrix.file }}
+          asset_name: ${{ matrix.file }}
+          tag: ${{ github.ref_name }}
+          overwrite: true
+          prerelease: true
