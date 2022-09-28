@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// use futures::prelude::*;
 use isahc::{AsyncBody, HttpClient};
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;

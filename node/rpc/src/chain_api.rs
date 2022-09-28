@@ -217,6 +217,7 @@ where
     Ok(TipsetJson(heaviest))
 }
 
+// XXX: Disable 'chain_head_subscription' because it is unused.
 // pub(crate) async fn chain_head_subscription<DB, B>(
 //     data: Data<RPCState<DB, B>>,
 // ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
@@ -228,6 +229,7 @@ where
 //     Ok(subscription_id)
 // }
 
+// XXX: Disable 'chain_notify' because it is unused.
 // pub(crate) async fn chain_notify<DB, B>(
 //     data: Data<RPCState<DB, B>>,
 //     id: Id,
