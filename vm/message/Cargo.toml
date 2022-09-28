@@ -23,10 +23,10 @@ fvm               = "1.1"
 fvm_ipld_encoding = "0.2"
 fvm_shared        = { version = "0.8", default-features = false, features = ["testing"] }
 num-traits        = "0.2"
-quickcheck        = { version = "1" }
 serde             = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
+quickcheck        = { version = "1" }
 quickcheck_macros = "1"
 serde_json        = "1.0"
 
