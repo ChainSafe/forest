@@ -2498,6 +2498,7 @@ dependencies = [
  "ctrlc",
  "daemonize-me",
  "directories",
+ "fil_actor_miner",
  "forest_actor_interface",
  "forest_auth",
  "forest_beacon",
@@ -2526,7 +2527,6 @@ dependencies = [
  "forest_rpc-api",
  "forest_rpc-client",
  "forest_state_manager",
- "forest_statediff",
  "forest_utils",
  "forest_vm",
  "futures",
@@ -8256,18 +8256,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.34"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c1b05ca9d106ba7d2e31a9dab4a64e7be2cce415321966ea3132c49a656e252"
+checksum = "0a99cb8c4b9a8ef0e7907cd3b617cc8dc04d571c4e73c8ae403d80ac160bb122"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.34"
+version = "1.0.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8f2591983642de85c921015f3f070c665a197ed69e417af436115e3a1407487"
+checksum = "3a891860d3c8d66fec8e73ddb3765f90082374dbaaa833407b904a94f1a7eb43"
 dependencies = [
  "proc-macro2 1.0.43",
  "quote 1.0.21",

@@ -167,25 +167,49 @@ impl WalletCommands {
             }
             Self::List => {
                 let response = wallet_list().await.map_err(handle_rpc_err).unwrap();
-                let default = wallet_default_address()
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
 
-                println!("Address                                    Default  Balance");
+                let default = match wallet_default_address().await {
+                    Ok(addr) => addr,
+                    Err(err) => {
+                        println!("Failed get the wallet default address");
+                        handle_rpc_err(err);
+                    }
+                };
+
+                let (title_address, title_default_mark, title_balance) =
+                    ("Address", "Default", "Balance");
+                println!("{title_address:41} {title_default_mark:7} {title_balance}");
 
                 for address in response {
                     let addr = address.0.to_string();
                     let default_address_mark = if addr == default { "X" } else { "" };
-                    let balance_string = wallet_balance((addr.clone(),))
-                        .await
-                        .map_err(handle_rpc_err)
-                        .expect("Failed loading the wallet balance");
-                    let balance = balance_string
-                        .parse::<BigInt>()
-                        .expect("Couldn't convert balance string to BigInt");
-                    let balance_fil =
-                        balance_to_fil(balance).expect("Couldn't convert balance to FIL");
+
+                    let balance_string = match wallet_balance((addr.clone(),)).await {
+                        Ok(balance) => balance,
+                        Err(err) => {
+                            println!("Failed loading the wallet balance");
+                            handle_rpc_err(err);
+                        }
+                    };
+
+                    let balance_int = match balance_string.parse::<BigInt>() {
+                        Ok(balance) => balance,
+                        Err(err) => {
+                            println!(
+                                "Couldn't convert balance {} to BigInt: {}",
+                                balance_string, err
+                            );
+                            continue;
+                        }
+                    };
+
+                    let balance_fil = match balance_to_fil(balance_int.clone()) {
+                        Ok(balance) => balance,
+                        Err(err) => {
+                            println!("Couldn't convert balance {} to FIL: {}", balance_int, err);
+                            continue;
+                        }
+                    };
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_fil:.6} FIL");
                 }
