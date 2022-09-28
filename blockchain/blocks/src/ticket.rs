@@ -20,6 +20,15 @@ impl Ticket {
     }
 }
 
+#[cfg(test)]
+impl quickcheck::Arbitrary for Ticket {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let fmt_str = format!("===={}=====", u64::arbitrary(g));
+        let vrfproof = VRFProof::new(fmt_str.into_bytes());
+        Self { vrfproof }
+    }
+}
+
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -76,5 +85,19 @@ pub mod json {
             let s: Option<TicketJson> = Deserialize::deserialize(deserializer)?;
             Ok(s.map(|v| v.0))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json::{TicketJson, TicketJsonRef};
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn ticket_round_trip(ticket: Ticket) {
+        let serialized = serde_json::to_string(&TicketJsonRef(&ticket)).unwrap();
+        let parsed: TicketJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(ticket, parsed.0);
     }
 }
