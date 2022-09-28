@@ -10,6 +10,8 @@ use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
 use fvm_shared::message::Message;
 
+const DUMMY_SIG: [u8; 1] = [0u8];
+
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
 pub struct SignedMessage {
@@ -124,22 +126,12 @@ impl Cbor for SignedMessage {
     }
 }
 
-const DUMMY_SIG: [u8; 1] = [0u8];
-
-//#[derive(Clone)]
 struct DummySigner;
 impl Signer for DummySigner {
     fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
     }
 }
-
-// impl quickcheck::Arbitrary for dyn Signer {
-//     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-//         let dummy_signer = Signer::sign_bytes(_, g, Address).unwrap();
-//         dummy_signer
-//     }
-// }
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for SignedMessage {
