@@ -80,6 +80,7 @@ jobs:
       - name: Upload CodeCov
         uses: codecov/codecov-action@v3
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
 
@@ -124,10 +125,22 @@ jobs:
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
-        uses: actions-rs/cargo@v1
-        with:
-          command: audit
-          args: --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
+        run: make audit
+
+  unused_dependencies:
+    name: Unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Install Toolchain
+        uses: actions-rs/toolchain@v1
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: Install udeps
+        run: cargo install cargo-udeps --locked
+      - name: Run udeps
+        run: make udeps
 
   spellcheck:
     name: Spellcheck
@@ -144,8 +157,7 @@ jobs:
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
-        run: |
-          cargo spellcheck --code 1
+        run: make spellcheck
 
   build:
     name: Build

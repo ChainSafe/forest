@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::sync::Arc;
 use crossbeam::atomic::AtomicCell;
 use futures::StreamExt;
 use log::{debug, error, info, warn};
+use std::sync::Arc;
 use tide::http::headers::HeaderValues;
 use tide_websockets::{Message, WebSocketConnection};
 

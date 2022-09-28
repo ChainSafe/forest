@@ -3,6 +3,7 @@
 
 use std::str::FromStr;
 
+use fil_actor_miner_v8::State as MinerState;
 use forest_actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
 use forest_encoding::tuple::*;
@@ -12,7 +13,6 @@ use forest_rpc_client::{
     chain_head, chain_read_obj, state_account_key, state_get_actor, state_list_actors,
     state_lookup, state_miner_power,
 };
-use forest_statediff::MinerState;
 use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_ipld_encoding::RawBytes;
@@ -41,27 +41,26 @@ struct VestingScheduleEntry {
 
 #[derive(Debug, StructOpt)]
 pub enum StateCommands {
-    #[structopt(about = "Query miner power")]
+    /// Query miner power
     Power {
-        #[structopt(about = "The miner address to query")]
+        /// The miner address to query
         miner_address: String,
     },
-    #[structopt(about = "Print actor information")]
+    /// Print actor information
     GetActor {
-        #[structopt(about = "Address of actor to query")]
+        /// Address of actor to query
         address: String,
     },
-    #[structopt(about = "List all actors on the network")]
+    /// List all miners
     ListMiners,
-    #[structopt(about = "Find corresponding ID address")]
+    /// Find corresponding ID address
     Lookup {
         #[structopt(short)]
         reverse: bool,
-        #[structopt(about = "address")]
         address: String,
     },
     VestingTable {
-        #[structopt(about = "Miner address to display vesting table")]
+        /// Miner address to display vesting table
         address: String,
     },
 }
@@ -120,10 +119,10 @@ impl StateCommands {
                     "{}({}) / {}({}) ~= {}%",
                     &mp.quality_adj_power,
                     to_size_string(&mp.quality_adj_power)
-                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
+                        .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     &tp.quality_adj_power,
                     to_size_string(&tp.quality_adj_power)
-                        .unwrap_or_else(|e| cli_error_and_die(e, 1)),
+                        .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
             }

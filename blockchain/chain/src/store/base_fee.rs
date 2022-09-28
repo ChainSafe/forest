@@ -8,6 +8,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::BLOCK_GAS_LIMIT;
+use lazy_static::lazy_static;
 use std::collections::HashSet;
 
 /// Used in calculating the base fee change.

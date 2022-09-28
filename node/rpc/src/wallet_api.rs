@@ -63,7 +63,7 @@ where
 {
     let keystore = data.keystore.read().await;
 
-    let addr = forest_key_management::get_default(&*keystore)?;
+    let addr = forest_key_management::get_default(&keystore)?;
     Ok(addr.to_string())
 }
 
@@ -81,7 +81,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key_info = forest_key_management::export_key_info(&addr, &*keystore)?;
+    let key_info = forest_key_management::export_key_info(&addr, &keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
@@ -99,7 +99,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key = forest_key_management::find_key(&addr, &*keystore).is_ok();
+    let key = forest_key_management::find_key(&addr, &keystore).is_ok();
     Ok(key)
 }
 
@@ -145,7 +145,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
-    Ok(forest_key_management::list_addrs(&*keystore)?
+    Ok(forest_key_management::list_addrs(&keystore)?
         .into_iter()
         .map(AddressJson::from)
         .collect())
@@ -247,7 +247,7 @@ where
 
     let keystore = data.keystore.write().await;
 
-    let key = forest_key_management::find_key(&address, &*keystore)?;
+    let key = forest_key_management::find_key(&address, &keystore)?;
 
     let sig = forest_key_management::sign(
         *key.key_info.key_type(),

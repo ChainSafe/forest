@@ -25,9 +25,10 @@ forest_ipld_blockstore = "0.1"
 forest_json            = "0.1.0"
 forest_json_utils      = "0.1"
 forest_vm              = "0.3.1"
-fvm                    = "1.0"
+fvm                    = "1.1"
 fvm_ipld_bitfield      = "0.5.2"
 fvm_ipld_encoding      = "0.2"
 fvm_shared             = { version = "0.8.0", default-features = false }
-libp2p                 = { version = "0.46", default-features = false }
-serde                  = { version = "1.0", features = ["derive"] }
+# cannot update due to version conflict
+libp2p = { version = "0.46", default-features = false }
+serde  = { version = "1.0", features = ["derive"] }

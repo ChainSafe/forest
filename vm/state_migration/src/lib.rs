@@ -11,9 +11,9 @@ use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 
-use async_std::sync::Arc;
 use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 // pub mod nv12;
 

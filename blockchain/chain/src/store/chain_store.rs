@@ -5,7 +5,6 @@ use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use async_std::channel::{self, bounded, Receiver};
-use async_std::sync::RwLock;
 use async_std::task;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -33,12 +32,14 @@ use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use serde::Serialize;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     time::SystemTime,
 };
 use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
+use tokio::sync::RwLock;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -47,7 +48,8 @@ const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: usize = 8192;
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
+    forest_macros::const_option!(NonZeroUsize::new(8192));
 
 /// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
@@ -90,8 +92,9 @@ impl<DB> ChainStore<DB>
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    pub fn new(db: DB) -> Self {
+    pub async fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
+        // unfallible unwrap due to `DEFAULT_TIPSET_CACHE_SIZE` being a non-None const
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
@@ -105,7 +108,7 @@ where
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = task::block_on(cs.load_heaviest_tipset());
+        let _ = cs.load_heaviest_tipset().await;
 
         cs
     }
@@ -244,7 +247,7 @@ where
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
         let key = block_validation_key(cid);
 
-        Ok(self.db.write(key, &[])?)
+        Ok(self.db.write(key, [])?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -413,10 +416,7 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk<'a>(
-        &'a self,
-        key: &TipsetKeys,
-    ) -> anyhow::Result<StateTree<&'a DB>, Error> {
+    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<&DB>, Error> {
         let ts = self.tipset_from_keys(key).await?;
         StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
@@ -479,6 +479,8 @@ where
                 }
             })?;
 
+            // XXX: This `block_on` can be removed by passing in a runtime Handle in tokio
+            //      or by refactoring `walk_snapshot` to take an async callback.
             // * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
             let _ = task::block_on(tx.send((cid, block.clone())));
@@ -989,11 +991,11 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
 
-    #[test]
-    fn genesis_test() {
+    #[async_std::test]
+    async fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db).await;
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -1009,11 +1011,11 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
-    #[test]
-    fn block_validation_cache_basic() {
+    #[async_std::test]
+    async fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db).await;
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

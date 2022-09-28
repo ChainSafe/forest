@@ -27,6 +27,8 @@ Our crates:
 | `types` | the forest types (2 crates) |
 | `utils` | the forest toolbox (12 crates) |
 
+## Questions
+Have questions? Feel free to post them in [Forest Q&A](https://github.com/ChainSafe/forest/discussions/categories/forest-q-a)!
 
 ## Run with Docker
 
@@ -138,6 +140,31 @@ make test-vectors
 make test-all
 ```
 
+### Linters
+The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will has them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
+```bash
+# You can install those linters also with other package managers or by manually grabbing the binaries from the projects' repositories.
+
+# Rust code linter
+rustup component add clippy
+
+# Rust code formatter
+rustup component add rustfmt
+
+# TOML linter
+cargo install taplo-cli --locked
+
+# Scanning dependencies for security vulnerabilities
+cargo install cargo-audit
+
+# Unused dependencies check
+cargo install cargo-udeps --locked
+
+# Spellcheck
+cargo install cargo-spellcheck
+```
+After everything is installed, you can run `make lint-all`.
+
 ### Joining the testnet
 
 Select the builtin calibnet configuration with the `--chain` option:
@@ -169,13 +196,22 @@ Forest developers will prepend this variable to CLI commands over using `export`
 FULLNODE_API_INFO="..." forest auth api-info -p admin
 ```
 
+### Detaching Forest process
+
+You can detach Forest process via the `--detach` flag so that it runs in the background:
+
+```bash
+./target/release/forest --target-peer-count 50 --detach
+```
+
+The command will block until the detached Forest process has started its RPC server, allowing you to chain some RPC command immediately after.
+
 ### Documentation
 _Work in progress_.
 - https://chainsafe.github.io/forest/
 
 ## Contributing
 - Check out our contribution guidelines: [CONTRIBUTING.md](documentation/developer_documentation/CONTRIBUTING.md)
-- Have questions? Say _hi_ on [Discord](https://discord.gg/Q6A3YA2)!
 
 ## ChainSafe Security Policy
 
