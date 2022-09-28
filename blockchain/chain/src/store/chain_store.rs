@@ -94,7 +94,6 @@ where
 {
     pub async fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        // unfallible unwrap due to `DEFAULT_TIPSET_CACHE_SIZE` being a non-None const
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
