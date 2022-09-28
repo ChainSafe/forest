@@ -4,8 +4,9 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use async_std::channel::{bounded, Receiver};
+use async_std::channel::Receiver;
 use async_std::task;
+use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_actor_interface::{miner, EPOCHS_IN_DAY};
@@ -38,6 +39,7 @@ use std::{
     time::SystemTime,
 };
 use tokio::sync::broadcast::{self, Sender as Publisher};
+use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -456,12 +458,22 @@ where
     {
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
-        let (tx, mut rx) = bounded(CHANNEL_CAP);
+        let (tx, mut rx) = mpsc::channel(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
         // Spawns task which receives blocks to write to the car writer.
-        let write_task =
-            task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
+        let write_task = task::spawn(async move {
+            header
+                .write_stream_async(
+                    &mut writer,
+                    &mut Box::pin(stream! {
+                        while let Some(val) = rx.recv().await {
+                            yield val;
+                        }
+                    }),
+                )
+                .await
+        });
 
         let global_pre_time = SystemTime::now();
         info!("chain export started");

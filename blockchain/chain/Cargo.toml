@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow                 = "1.0"
 async-std              = { version = "1.12", features = ["tokio1"] }
+async-stream           = "0.3.3"
 blake2b_simd           = "1.0.0"
 bls-signatures         = { version = "0.11", default-features = false, features = ["blst"] }
 byteorder              = "1.4.3"
