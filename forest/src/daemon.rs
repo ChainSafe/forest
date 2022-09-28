@@ -366,7 +366,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         };
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys, false)
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
             .await
             .unwrap();
     }

@@ -1,17 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::{channel::bounded, task};
+use async_std::task;
 use blake2b_simd::{Hash, State as Blake2b};
-use core::time::Duration;
 use forest_fil_types::SectorSize;
-use forest_net_utils::FetchProgress;
 use log::{debug, warn};
-use pbr::{MultiBar, Units};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File as SyncFile;
-use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind, Stdout};
+use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use surf::Client;
@@ -73,18 +70,11 @@ pub async fn get_params(
     data_dir: &Path,
     param_json: &str,
     storage_size: SectorSizeOpt,
-    is_verbose: bool,
 ) -> Result<(), anyhow::Error> {
     fs::create_dir_all(param_dir(data_dir)).await?;
 
     let params: ParameterMap = serde_json::from_str(param_json)?;
     let mut tasks = Vec::with_capacity(params.len());
-
-    let mb = if is_verbose {
-        Some(Arc::new(MultiBar::new()))
-    } else {
-        None
-    };
 
     params
         .into_iter()
@@ -96,38 +86,16 @@ pub async fn get_params(
             SectorSizeOpt::All => true,
         })
         .for_each(|(name, info)| {
-            let cmb = mb.clone();
             let data_dir_clone = data_dir.to_owned();
             tasks.push(task::spawn(async move {
-                if let Err(e) =
-                    fetch_verify_params(&data_dir_clone, &name, Arc::new(info), cmb).await
-                {
+                if let Err(e) = fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await {
                     warn!("Error in validating params {}", e);
                 }
             }))
         });
 
-    if let Some(multi_bar) = mb {
-        let cmb = multi_bar.clone();
-        let (mb_send, mb_rx) = bounded(1);
-        let mb = task::spawn(async move {
-            while mb_rx.try_recv().is_err() {
-                cmb.listen();
-                task::sleep(Duration::from_millis(1000)).await;
-            }
-        });
-        for t in tasks {
-            t.await;
-        }
-        mb_send
-            .send(())
-            .await
-            .expect("Receiver should not be dropped");
-        mb.await;
-    } else {
-        for t in tasks {
-            t.await;
-        }
+    for t in tasks {
+        t.await;
     }
 
     // XXX: We return OK(()) even if 'fetch_verify_params' fails. :-/
@@ -139,16 +107,14 @@ pub async fn get_params(
 pub async fn get_params_default(
     data_dir: &Path,
     storage_size: SectorSizeOpt,
-    is_verbose: bool,
 ) -> Result<(), anyhow::Error> {
-    get_params(data_dir, DEFAULT_PARAMETERS, storage_size, is_verbose).await
+    get_params(data_dir, DEFAULT_PARAMETERS, storage_size).await
 }
 
 async fn fetch_verify_params(
     data_dir: &Path,
     name: &str,
     info: Arc<ParameterData>,
-    mb: Option<Arc<MultiBar<Stdout>>>,
 ) -> Result<(), anyhow::Error> {
     let path: PathBuf = param_dir(data_dir).join(name);
     let path: Arc<Path> = Arc::from(path.as_path());
@@ -162,7 +128,7 @@ async fn fetch_verify_params(
         }
     }
 
-    fetch_params(&path, &info, mb).await?;
+    fetch_params(&path, &info).await?;
 
     check_file(path, info).await.map_err(|e| {
         // TODO remove invalid file
@@ -170,11 +136,7 @@ async fn fetch_verify_params(
     })
 }
 
-async fn fetch_params(
-    path: &Path,
-    info: &ParameterData,
-    multi_bar: Option<Arc<MultiBar<Stdout>>>,
-) -> Result<(), anyhow::Error> {
+async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     debug!("Fetching {:?} from {}", path, gw);
 
@@ -187,32 +149,8 @@ async fn fetch_params(
 
     let req = client.get(url.as_str());
 
-    if let Some(mb) = multi_bar {
-        let total_size: u64 = {
-            // TODO head requests are broken in Surf right now, revisit when fixed
-            // let res = client.head(&url).await?;
-            // if res.status().is_success() {
-            //     res.header("Content-Length")
-            //         .and_then(|len| len.as_str().parse().ok())
-            //         .unwrap_or_default()
-            // } else {
-            //     return Err(format!("failed to download file: {}", url).into());
-            // }
-            100
-        };
-        let mut pb = mb.create_bar(total_size);
-        pb.set_units(Units::Bytes);
-
-        let mut source = FetchProgress {
-            inner: req.await.map_err(|e| anyhow::anyhow!(e))?.compat(),
-            progress_bar: pb,
-        };
-        copy(&mut source, &mut writer).await?;
-        source.finish();
-    } else {
-        let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?.compat();
-        copy(&mut source, &mut writer).await?;
-    };
+    let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?.compat();
+    copy(&mut source, &mut writer).await?;
 
     Ok(())
 }
