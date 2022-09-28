@@ -1003,6 +1003,50 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
+async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: Arc<channel::Sender<FullTipset>>, window: usize) {
+    for chunk in batch.rchunks(window) {
+        let head = chunk.first().unwrap(); // This is safe because a batch/chunk can't be empty
+        let epoch = head.epoch();
+        let len = chunk.len() as u64;
+
+        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+
+        let compacted_messages = network
+            .chain_exchange_messages(None, head.key(), len as u64)
+            .await
+            //.map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
+            .unwrap();
+        let messages_iter = compacted_messages.into_iter().rev();
+
+        // Since the bundle only has messages, we have to put the headers in them
+        for (messages, tipset) in messages_iter.zip(chunk.iter().rev()) {
+            // Construct full tipset from fetched messages
+            let bundle = TipsetBundle {
+                blocks: tipset.blocks().to_vec(),
+                messages: Some(messages),
+            };
+
+            let full_tipset = FullTipset::try_from(&bundle)
+                .unwrap();
+                //.map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+
+            // Persist the messages in the store
+            if let Some(m) = bundle.messages {
+                forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs).unwrap();
+                forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs).unwrap();
+            } else {
+                warn!("ChainExchange request for messages returned null messages");
+            }
+
+            let result = s.send(full_tipset).await;
+            match result {
+                Err(e) => error!("{}", e),
+                Ok(_v) => (),
+            }
+        }
+    }
+}
+
 /// Going forward along the tipsets, try to load the messages in them from the `BlockStore`,
 /// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
@@ -1020,62 +1064,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     // Sync the messages for one tipset @ a time
     const REQUEST_WINDOW: usize = 8;
 
-    // The kind of tipset item to validate
-    enum Item<'a> {
-        Full(FullTipset),
-        Batch(&'a [Arc<Tipset>]),
-    }
-    let tipset_items = {
-        let mut result = Vec::with_capacity(tipsets.len());
-        let mut range = Range { start: 0, end: 0 };
-        for (idx, tipset) in tipsets.iter().enumerate() {
-            match chainstore.fill_tipset(tipset) {
-                Some(full_tipset) => {
-                    if !range.is_empty() {
-                        result.push(Item::Batch(&tipsets[range]));
-                        range = Range { start: 0, end: 0 };
-                    }
-                    result.push(Item::Full(full_tipset));
-                }
-                None => {
-                    // Full tipset is not in storage; request messages via chain_exchange
-                    if range.is_empty() {
-                        range = Range {
-                            start: idx,
-                            end: idx + 1,
-                        };
-                    } else {
-                        // Extend with one tipset
-                        range.end += 1;
-                    }
-                }
-            }
-        }
-        if !range.is_empty() {
-            // Push last range if there's one
-            result.push(Item::Batch(&tipsets[range]));
-        }
-        result
-    };
-
-    let request_infos = tipset_items
-        .iter()
-        .rev()
-        .filter_map(|item| {
-            match item {
-                Item::Batch(tipset_batch) => {
-                    let iter = tipset_batch.rchunks(REQUEST_WINDOW).map(|tipset_chunk| {
-                        // Get chain head
-                        let head = tipset_chunk.first().unwrap(); // This is safe because a batch can't be empty
-                        (head.epoch(), head.key().clone(), tipset_chunk.len())
-                    });
-                    Some(iter)
-                }
-                Item::Full(_) => None,
-            }
-        })
-        .flatten()
-        .collect::<Vec<_>>();
+    let task_chainstore = chainstore.clone();
 
     // Spawn a background task for the `chain_exchange` message requests
     let (s, r) = channel::bounded(REQUEST_WINDOW);
@@ -1085,88 +1074,60 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     };
     task::spawn(Abortable::new(
         async move {
-            for (epoch, tsk, len) in request_infos {
-                debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+            let mut range = Range { start: 0, end: 0 };
+            let rs = Arc::new(s);
 
-                let compacted_messages = network
-                    .chain_exchange_messages(None, &tsk, len as u64)
-                    .await;
-                s.send(compacted_messages).await.unwrap();
+            // Visit tipsets in chronological order
+            for (idx, tipset) in tipsets.iter().enumerate().rev() {
+                match task_chainstore.fill_tipset(tipset) {
+                    Some(full_tipset) => {
+                        if !range.is_empty() {
+                            let rev_range = Range { start: tipsets.len() - range.end, end: tipsets.len() - range.start };
+                            fetch_batch(&tipsets[rev_range], &network, &task_chainstore, rs.clone(), REQUEST_WINDOW).await;
+                            range = Range { start: 0, end: 0 };
+                        }
+                        rs.send(full_tipset).await.unwrap();
+                    },
+                    None => {
+                        // Full tipset is not in storage; request messages via chain_exchange
+                        if range.is_empty() {
+                            range = Range {
+                                start: idx,
+                                end: idx + 1,
+                            };
+                        } else {
+                            // Extend with one tipset
+                            range.end += 1;
+                        }
+                    }
+                }
+            }
+            if !range.is_empty() {
+                // Push last range if there's one
+                let rev_range = Range { start: tipsets.len() - range.end, end: tipsets.len() - range.start };
+                fetch_batch(&tipsets[rev_range], &network, &task_chainstore, rs.clone(), REQUEST_WINDOW).await;
             }
         },
         abort_registration,
     ));
 
-    for item in tipset_items.into_iter().rev() {
-        match item {
-            Item::Full(full_tipset) => {
-                let current_epoch = full_tipset.epoch();
-                validate_tipset::<_, C>(
-                    consensus.clone(),
-                    state_manager.clone(),
-                    chainstore.clone(),
-                    bad_block_cache.clone(),
-                    full_tipset,
-                    genesis.clone(),
-                    invalid_block_strategy,
-                )
-                .await?;
-                tracker.write().await.set_epoch(current_epoch);
-                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
-            }
-            Item::Batch(tipset_batch) => {
-                for tipset_chunk in tipset_batch.rchunks(REQUEST_WINDOW) {
-                    // Receive tipset bundle from block sync
-                    let messages_iter = r
-                        .recv()
-                        .await
-                        .map_err(|e| {
-                            TipsetRangeSyncerError::NetworkMessageQueryFailed(format!("{}", e))
-                        })?
-                        .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
-                        .into_iter()
-                        .rev();
-
-                    // Since the bundle only has messages, we have to put the headers in them
-                    for (messages, tipset) in messages_iter.zip(tipset_chunk.iter().rev()) {
-                        // Construct full tipset from fetched messages
-                        let bundle = TipsetBundle {
-                            blocks: tipset.blocks().to_vec(),
-                            messages: Some(messages),
-                        };
-
-                        let full_tipset = FullTipset::try_from(&bundle)
-                            .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
-
-                        // Validate the tipset and the messages
-                        let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
-                        let current_epoch = full_tipset.epoch();
-                        validate_tipset::<_, C>(
-                            consensus.clone(),
-                            state_manager.clone(),
-                            chainstore.clone(),
-                            bad_block_cache.clone(),
-                            full_tipset,
-                            genesis.clone(),
-                            invalid_block_strategy,
-                        )
-                        .await?;
-                        tracker.write().await.set_epoch(current_epoch);
-                        timer.observe_duration();
-                        metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
-
-                        // Persist the messages in the store
-                        if let Some(m) = bundle.messages {
-                            forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-                            forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
-                        } else {
-                            warn!("ChainExchange request for messages returned null messages");
-                        }
-                    }
-                }
-            }
-        }
+    // Validation loop
+    while let Ok(full_tipset) = r.recv().await {
+        let current_epoch = full_tipset.epoch();
+        validate_tipset::<_, C>(
+            consensus.clone(),
+            state_manager.clone(),
+            &chainstore,
+            bad_block_cache.clone(),
+            full_tipset,
+            genesis.clone(),
+            invalid_block_strategy,
+        )
+        .await?;
+        tracker.write().await.set_epoch(current_epoch);
+        metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
+
     Ok(())
 }
 
@@ -1176,7 +1137,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    chainstore: Arc<ChainStore<DB>>,
+    chainstore: &Arc<ChainStore<DB>>,
     bad_block_cache: Arc<BadBlockCache>,
     full_tipset: FullTipset,
     genesis: Arc<Tipset>,
