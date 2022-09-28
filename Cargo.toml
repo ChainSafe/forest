@@ -45,50 +45,57 @@ members = [
 resolver = "2"
 
 [patch.crates-io]
+# Still need this patch because it's used by `fvm_ipld_hamt`
+forest_hash_utils = { path = "./utils/hash_utils" }
+
+[workspace.dependencies]
+anyhow             = "1.0"
+async-std          = "1.12"
+log                = "0.4"
+serde              = "1.0"
+serde_ipld_dagcbor = "0.1"
+serde_json         = "1.0"
+thiserror          = "1.0"
+tokio              = "1.21"
+
+forest_actor_interface = { path = "./vm/actor_interface" }
+forest_auth            = { path = "./utils/auth" }
 forest_beacon          = { path = "./blockchain/beacon" }
 forest_blocks          = { path = "./blockchain/blocks" }
 forest_chain           = { path = "./blockchain/chain" }
-forest_state_manager   = { path = "./blockchain/state_manager" }
 forest_chain_sync      = { path = "./blockchain/chain_sync" }
-forest_message_pool    = { path = "./blockchain/message_pool" }
-forest_fil_cns         = { path = "./blockchain/consensus/fil_cns" }
-forest_deleg_cns       = { path = "./blockchain/consensus/deleg_cns" }
-forest_ipld_blockstore = { path = "./ipld/blockstore" }
-forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
-forest_key_management  = { path = "./key_management" }
-forest_fil_types       = { path = "./types" }
-forest_networks        = { path = "./types/networks" }
-forest_db              = { path = "./node/db" }
-forest_utils           = { path = "./node/utils" }
-forest_libp2p          = { path = "./node/forest_libp2p" }
-forest_rpc             = { path = "./node/rpc" }
-forest_rpc-client      = { path = "./node/rpc-client" }
-forest_rpc-api         = { path = "./node/rpc-api" }
 forest_crypto          = { path = "./crypto" }
-forest_ipld            = { path = "./ipld" }
+forest_db              = { path = "./node/db" }
+forest_deleg_cns       = { path = "./blockchain/consensus/deleg_cns" }
 forest_encoding        = { path = "./encoding" }
-forest_hash_utils      = { path = "./utils/hash_utils" }
-forest_json_utils      = { path = "./utils/json_utils" }
-forest_test_utils      = { path = "./utils/test_utils" }
-forest_macros          = { path = "./utils/macros" }
-forest_statediff       = { path = "./utils/statediff" }
+forest_fil_cns         = { path = "./blockchain/consensus/fil_cns" }
+forest_fil_types       = { path = "./types" }
 forest_genesis         = { path = "./utils/genesis" }
-forest_auth            = { path = "./utils/auth" }
-forest_json            = { path = "./utils/json" }
-forest_net_utils       = { path = "./utils/net_utils" }
-forest_metrics         = { path = "./utils/metrics" }
-forest_paramfetch      = { path = "./utils/paramfetch" }
-forest_vm              = { path = "./vm" }
-forest_message         = { path = "./vm/message" }
+forest_hash_utils      = { path = "./utils/hash_utils" }
 forest_interpreter     = { path = "./vm/interpreter" }
-forest_actor_interface = { path = "./vm/actor_interface" }
+forest_ipld            = { path = "./ipld" }
+forest_ipld_blockstore = { path = "./ipld/blockstore" }
+forest_json            = { path = "./utils/json" }
+forest_json_utils      = { path = "./utils/json_utils" }
+forest_key_management  = { path = "./key_management" }
+forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
+forest_libp2p          = { path = "./node/forest_libp2p" }
+forest_macros          = { path = "./utils/macros" }
+forest_message         = { path = "./vm/message" }
+forest_message_pool    = { path = "./blockchain/message_pool" }
+forest_metrics         = { path = "./utils/metrics" }
+forest_net_utils       = { path = "./utils/net_utils" }
+forest_networks        = { path = "./types/networks" }
+forest_paramfetch      = { path = "./utils/paramfetch" }
+forest_rpc             = { path = "./node/rpc" }
+forest_rpc-api         = { path = "./node/rpc-api" }
+forest_rpc-client      = { path = "./node/rpc-client" }
+forest_state_manager   = { path = "./blockchain/state_manager" }
 forest_state_migration = { path = "./vm/state_migration" }
-
-[workspace.dependencies]
-anyhow    = "1.0"
-async-std = "1.12"
-log       = "0.4"
-tokio     = "1.21"
+forest_statediff       = { path = "./utils/statediff" }
+forest_test_utils      = { path = "./utils/test_utils" }
+forest_utils           = { path = "./node/utils" }
+forest_vm              = { path = "./vm" }
 
 [profile.dev]
 debug = 0
