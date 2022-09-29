@@ -5,6 +5,7 @@ use super::cli::{set_sigint_handler, Config, FOREST_VERSION_STRING};
 use crate::cli::snapshot_fetch::snapshot_fetch;
 use crate::cli_error_and_die;
 use async_std::{channel::bounded, net::TcpListener, task};
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
@@ -21,7 +22,6 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
-use question::{Answer, Question};
 use futures::{select, FutureExt};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
@@ -394,14 +394,13 @@ pub(super) async fn start(config: Config, detached: bool) {
 
 async fn prompt_and_fetch_snapshot(config: &mut Config) {
     if !config.client.download_snapshot {
-        let answer = Question::new(
-            "Forest needs a snapshot to sync with the network. Would you like to download one now?",
-        )
-        .default(Answer::NO)
-        .show_defaults()
-        .confirm();
-
-        if let Answer::NO = answer {
+        if !Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(
+                "Forest needs a snapshot to sync with the network. Would you like to download one now?",
+            )
+            .interact()
+            .unwrap() 
+        {
             cli_error_and_die(
                 "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
                 1
