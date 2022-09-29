@@ -142,8 +142,7 @@ pub mod json {
             gas_premium: m.gas_premium,
             method_num: m.method_num,
             params: Serialized::new(
-                base64::decode(&m.params.unwrap_or_else(|| "".to_string()))
-                    .map_err(de::Error::custom)?,
+                base64::decode(&m.params.unwrap_or_default()).map_err(de::Error::custom)?,
             ),
         })
     }

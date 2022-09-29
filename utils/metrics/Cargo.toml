@@ -5,9 +5,9 @@ authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-async-std  = { version = "1.12", features = ["tokio1", "unstable"] }
-fs_extra   = "1.2"
-log        = "0.4"
-prometheus = { version = "0.13", features = ["process"] }
-thiserror  = "1.0"
-tide       = "0.16"
+async-std           = { workspace = true, features = ["tokio1", "unstable"] }
+fs_extra            = "1.2"
+log.workspace       = true
+prometheus          = { workspace = true, features = ["process"] }
+thiserror.workspace = true
+tide                = "0.16"

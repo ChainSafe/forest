@@ -5,27 +5,27 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-async-std = "1.12"
-async-trait = "0.1"
+anyhow.workspace = true
+async-std.workspace = true
+async-trait.workspace = true
 asynchronous-codec = "0.6"
 bytes = "1.2"
-cid = { version = "0.8", default-features = false, features = ["std"] }
+cid = { workspace = true, default-features = false, features = ["std"] }
 fnv = "1.0"
-forest_blocks = "0.1.0"
-forest_chain = "0.1.0"
-forest_db = "0.1"
-forest_encoding = "0.2"
-forest_ipld_blockstore = "0.1"
-forest_message = "0.7"
-forest_networks = "0.1.0"
-forest_utils = "0.1.0"
-futures = "0.3"
-futures-util = "0.3"
-fvm_ipld_car = "0.5.0"
-fvm_ipld_encoding = "0.2"
-fvm_shared = { version = "0.8.0", default-features = false, features = ["testing"] }
-libp2p = { version = "0.46", default-features = false, features = [
+forest_blocks.workspace = true
+forest_chain.workspace = true
+forest_db.workspace = true
+forest_encoding.workspace = true
+forest_ipld_blockstore.workspace = true
+forest_message.workspace = true
+forest_networks.workspace = true
+forest_utils.workspace = true
+futures-util.workspace = true
+futures.workspace = true
+fvm_ipld_car.workspace = true
+fvm_ipld_encoding.workspace = true
+fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
+libp2p = { workspace = true, default-features = false, features = [
   "gossipsub",
   "kad",
   "identify",
@@ -39,17 +39,17 @@ libp2p = { version = "0.46", default-features = false, features = [
   "request-response",
   "websocket",
 ] }
-libp2p-bitswap = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "5c79b37feceb3ba76d5a488b1713cfaaf861baa3" }
-log = "0.4"
-multihash = { version = "0.16", default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_ipld_dagcbor = "0.1.2"
-smallvec = "1.9"
+libp2p-bitswap.workspace = true
+log.workspace = true
+multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+serde = { workspace = true, features = ["derive"] }
+serde_ipld_dagcbor.workspace = true
+smallvec.workspace = true
 # cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
 tiny-cid = "0.2"
-tokio    = { version = "1.0", features = ["sync", "time"] }
+tokio    = { workspace = true, features = ["sync", "time"] }
 
 [dev-dependencies]
-async-std      = { version = "1.12", features = ["attributes", "unstable"] }
-forest_crypto  = { version = "0.5.2", features = ["blst"] }
-forest_genesis = { version = "0.1.0", features = ["testing"] }
+async-std      = { workspace = true, features = ["attributes", "unstable"] }
+forest_crypto  = { workspace = true, features = ["blst"] }
+forest_genesis = { workspace = true, features = ["testing"] }
