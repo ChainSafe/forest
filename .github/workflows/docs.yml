@@ -21,8 +21,6 @@ jobs:
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Cargo Doc
@@ -43,8 +41,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
       - name: Install MDBook
         run: |
           cargo install mdbook mdbook-linkcheck
@@ -57,13 +53,13 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@v4.2.2
         if: ${{ github.event_name == 'pull_request' }}
         with:
-            branch: gh-pages
-            folder: ./documentation/book/
-            dry-run: true
+          branch: gh-pages
+          folder: ./documentation/book/
+          dry-run: true
       - name: Deploy GH Pages
         uses: JamesIves/github-pages-deploy-action@v4.2.2
         if: ${{ github.event_name == 'push' }}
         with:
-            branch: gh-pages
-            folder: ./documentation/book/
-            dry-run: false
+          branch: gh-pages
+          folder: ./documentation/book/
+          dry-run: false

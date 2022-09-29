@@ -8,20 +8,19 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-base64             = { version = "0.13" }
-bls-signatures     = { version = "0.11", default-features = false, features = ["blst"] }
-forest_crypto      = { version = "0.5", features = ["blst"] }
-forest_encoding    = "0.2"
-forest_utils       = "0.1.0"
-fvm_shared         = { version = "0.8", default-features = false }
-libsecp256k1       = "0.7"
-log                = "0.4"
-rand               = "0.8"
-serde              = { version = "1.0", features = ["derive"] }
-serde_ipld_dagcbor = "0.1"
-serde_json         = "1.0"
-sodiumoxide        = "0.2"
-thiserror          = "1.0"
+base64.workspace             = true
+bls-signatures               = { version = "0.11", default-features = false, features = ["blst"] }
+forest_crypto                = { workspace = true, features = ["blst"] }
+forest_encoding.workspace    = true
+forest_utils.workspace       = true
+fvm_shared                   = { workspace = true, default-features = false }
+libsecp256k1.workspace       = true
+log.workspace                = true
+rand.workspace               = true
+serde                        = { workspace = true, features = ["derive"] }
+serde_ipld_dagcbor.workspace = true
+serde_json.workspace         = true
+sodiumoxide                  = "0.2"
+thiserror.workspace          = true
 
 [dev-dependencies]
-fvm_shared = { version = "0.8", default-features = false, features = ["crypto"] }

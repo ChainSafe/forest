@@ -8,25 +8,25 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-anyhow            = "1.0"
-async-recursion   = "1.0"
-async-trait       = "0.1"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
-forest_encoding   = "0.2"
-fvm_ipld_encoding = "0.2"
-fvm_shared        = { version = "0.8.0", default-features = false }
-indexmap          = { version = "1.9", features = ["serde-1"] }
-libipld           = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
-libipld-core      = { version = "0.14", features = ["serde-codec"] }
-libipld-macro     = { version = "0.14" }
-multibase         = { version = "0.9" }
-serde             = { version = "1.0", features = ["derive"] }
-thiserror         = "1.0"
+anyhow.workspace            = true
+async-recursion             = "1.0"
+async-trait.workspace       = true
+cid                         = { workspace = true, default-features = false, features = ["std"] }
+forest_encoding.workspace   = true
+fvm_ipld_encoding.workspace = true
+fvm_shared                  = { workspace = true, default-features = false }
+indexmap                    = { version = "1.9", features = ["serde-1"] }
+libipld                     = { workspace = true, default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
+libipld-core                = { workspace = true, features = ["serde-codec"] }
+libipld-macro.workspace     = true
+multibase.workspace         = true
+serde                       = { workspace = true, features = ["derive"] }
+thiserror.workspace         = true
 
 [dev-dependencies]
-async-std              = { version = "1.12", features = ["attributes"] }
-forest_db              = "0.1.0"
-forest_ipld_blockstore = "0.1.1"
-forest_json            = "0.1.0"
-multihash              = { version = "0.16.3", features = ["identity"] }
-serde_json             = "1.0"
+async-std                        = { workspace = true, features = ["attributes"] }
+forest_db.workspace              = true
+forest_ipld_blockstore.workspace = true
+forest_json.workspace            = true
+multihash                        = { workspace = true, features = ["identity"] }
+serde_json.workspace             = true

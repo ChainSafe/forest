@@ -375,7 +375,7 @@ impl KeyStore {
 
     /// Return all of the keys that are stored in the `KeyStore`
     pub fn list(&self) -> Vec<String> {
-        self.key_info.iter().map(|(key, _)| key.clone()).collect()
+        self.key_info.keys().cloned().collect()
     }
 
     /// Return `KeyInfo` that corresponds to a given key
