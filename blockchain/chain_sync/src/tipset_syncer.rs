@@ -862,7 +862,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
         pb.set((work_to_be_done - total_size).unsigned_abs());
-        validate_tipset_against_cache(&bad_block_cache, oldest_parent.parents(), &parent_blocks)
+        validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)
             .await?;
 
         // Check if we are at the end of the range
@@ -891,7 +891,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
             if tipset.epoch() < current_head.epoch() {
                 break 'sync;
             }
-            validate_tipset_against_cache(&bad_block_cache, tipset.key(), &parent_blocks).await?;
+            validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks).await?;
             parent_blocks.extend_from_slice(tipset.cids());
             tracker.write().await.set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
@@ -1114,9 +1114,9 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             consensus.clone(),
             state_manager.clone(),
             &chainstore,
-            &bad_block_cache,
+            bad_block_cache,
             full_tipset,
-            &genesis,
+            genesis,
             invalid_block_strategy,
         )
         .await?;
