@@ -1040,7 +1040,9 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
             warn!("ChainExchange request for messages returned null messages");
         }
 
-        s.send(full_tipset).await.unwrap();
+        s.send(full_tipset)
+            .await
+            .map_err(|e| TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", e)))?;
     }
 
     Ok(())
@@ -1083,7 +1085,9 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                             fetch_batch(&batch, &network, &task_chainstore, &s).await?;
                             batch.clear();
                         }
-                        s.send(full_tipset).await.unwrap();
+                        s.send(full_tipset).await.map_err(|e| {
+                            TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", e))
+                        })?;
                     }
                     None => {
                         // Full tipset is not in storage; request messages via chain_exchange
