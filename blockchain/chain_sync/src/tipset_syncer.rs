@@ -1112,6 +1112,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     // Validation loop
     while let Ok(full_tipset) = r.recv().await {
         let current_epoch = full_tipset.epoch();
+        let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
         validate_tipset::<_, C>(
             consensus.clone(),
             state_manager.clone(),
@@ -1122,6 +1123,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             invalid_block_strategy,
         )
         .await?;
+        timer.observe_duration();
         tracker.write().await.set_epoch(current_epoch);
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
