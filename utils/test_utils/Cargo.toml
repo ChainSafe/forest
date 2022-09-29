@@ -8,17 +8,17 @@ edition = "2021"
 features = ["test_constructors"]
 
 [dependencies]
-anyhow            = "1.0"
-base64            = "0.13"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
-forest_blocks     = { version = "0.1.0", optional = true }
-forest_chain      = { version = "0.1.0", optional = true }
-forest_crypto     = { version = "0.5", features = ["blst"] }
-forest_encoding   = "0.2"
-forest_libp2p     = { version = "0.1.0", optional = true }
-forest_message    = { version = "0.7", optional = true, features = ["blst"] }
-fvm_ipld_encoding = "0.2"
-fvm_shared        = { version = "0.8.0", default-features = false }
+anyhow.workspace            = true
+base64.workspace            = true
+cid                         = { workspace = true, default-features = false, features = ["std"] }
+forest_blocks               = { workspace = true, optional = true }
+forest_chain                = { workspace = true, optional = true }
+forest_crypto               = { workspace = true, features = ["blst"] }
+forest_encoding.workspace   = true
+forest_libp2p               = { workspace = true, optional = true }
+forest_message              = { workspace = true, optional = true, features = ["blst"] }
+fvm_ipld_encoding.workspace = true
+fvm_shared                  = { workspace = true, default-features = false }
 
 [features]
 test_constructors = ["forest_blocks", "forest_chain", "forest_message", "forest_libp2p"]

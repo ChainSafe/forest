@@ -4,7 +4,7 @@ column_width      = 120
 array_auto_expand = true
 
 [[rule]]
-keys = ["dependencies", "dev-dependencies"]
+keys = ["dependencies", "dev-dependencies", "toolchain", "workspace.dependencies"]
 
 [rule.formatting]
 reorder_keys = true

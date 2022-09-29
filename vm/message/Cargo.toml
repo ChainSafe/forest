@@ -11,22 +11,22 @@ repository  = "https://github.com/ChainSafe/forest"
 features = ["json", "proofs"]
 
 [dependencies]
-anyhow            = "1.0"
-base64            = "0.13"
-cid               = { version = "0.8", default-features = false, features = ["std"] }
-forest_crypto     = { default-features = false, version = "0.5" }
-forest_encoding   = "0.2"
-forest_json       = "0.1.0"
-forest_json_utils = "0.1"
-forest_vm         = "0.3"
-fvm               = "1.1"
-fvm_ipld_encoding = "0.2"
-fvm_shared        = { version = "0.8", default-features = false, features = ["testing"] }
-num-traits        = "0.2"
-serde             = { version = "1.0", features = ["derive"] }
+anyhow.workspace            = true
+base64.workspace            = true
+cid                         = { workspace = true, default-features = false, features = ["std"] }
+forest_crypto               = { workspace = true, default-features = false }
+forest_encoding.workspace   = true
+forest_json.workspace       = true
+forest_json_utils.workspace = true
+forest_vm.workspace         = true
+fvm.workspace               = true
+fvm_ipld_encoding.workspace = true
+fvm_shared                  = { workspace = true, default-features = false, features = ["testing"] }
+num-traits.workspace        = true
+serde                       = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-serde_json = "1.0"
+serde_json.workspace = true
 
 [features]
 default = ["blst"]

@@ -5,17 +5,17 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-cid                    = { version = "0.8", default-features = false, features = ["std"] }
-crossbeam-channel      = "0.5"
-forest_encoding        = "0.2"
-forest_hash_utils      = "0.1"
-forest_ipld_blockstore = "0.1"
-forest_json_utils      = "0.1"
-forest_vm              = "0.3.1"
-fvm                    = "1.0"
-fvm_shared             = { version = "0.8.0", default-features = false }
-log                    = "0.4"
-num_cpus               = "1.13"
-rayon                  = "1.5"
-serde                  = { version = "1.0", features = ["derive"] }
-thiserror              = "1.0"
+cid                              = { workspace = true, default-features = false, features = ["std"] }
+crossbeam-channel                = "0.5"
+forest_encoding.workspace        = true
+forest_hash_utils.workspace      = true
+forest_ipld_blockstore.workspace = true
+forest_json_utils.workspace      = true
+forest_vm.workspace              = true
+fvm.workspace                    = true
+fvm_shared                       = { workspace = true, default-features = false }
+log.workspace                    = true
+num_cpus.workspace               = true
+rayon.workspace                  = true
+serde                            = { workspace = true, features = ["derive"] }
+thiserror.workspace              = true
