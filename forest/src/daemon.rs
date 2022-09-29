@@ -400,7 +400,7 @@ async fn prompt_and_fetch_snapshot(config: &mut Config) {
             )
             .default(false)
             .interact()
-            .unwrap() 
+            .expect("infallible. yes or no with default")
         {
             cli_error_and_die(
                 "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
