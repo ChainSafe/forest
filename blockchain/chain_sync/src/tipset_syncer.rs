@@ -771,9 +771,9 @@ fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             tracker.clone(),
             tipset_range_length,
             proposed_head.clone(),
-            current_head.clone(),
-            bad_block_cache.clone(),
-            chain_store.clone(),
+            &current_head,
+            &bad_block_cache,
+            &chain_store,
             network.clone(),
         )
         .await
@@ -801,9 +801,9 @@ fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             state_manager,
             network,
             chain_store.clone(),
-            bad_block_cache,
+            &bad_block_cache,
             parent_tipsets,
-            genesis,
+            &genesis,
             InvalidBlockStrategy::Strict,
         )
         .await
@@ -841,9 +841,9 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
     tracker: crate::chain_muxer::WorkerState,
     tipset_range_length: u64,
     proposed_head: Arc<Tipset>,
-    current_head: Arc<Tipset>,
-    bad_block_cache: Arc<BadBlockCache>,
-    chain_store: Arc<ChainStore<DB>>,
+    current_head: &Tipset,
+    bad_block_cache: &BadBlockCache,
+    chain_store: &ChainStore<DB>,
     network: SyncNetworkContext<DB>,
 ) -> Result<Vec<Arc<Tipset>>, TipsetRangeSyncerError<C>> {
     let mut parent_blocks: Vec<Cid> = vec![];
@@ -862,12 +862,8 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
         pb.set((work_to_be_done - total_size).unsigned_abs());
-        validate_tipset_against_cache(
-            bad_block_cache.clone(),
-            oldest_parent.parents(),
-            &parent_blocks,
-        )
-        .await?;
+        validate_tipset_against_cache(&bad_block_cache, oldest_parent.parents(), &parent_blocks)
+            .await?;
 
         // Check if we are at the end of the range
         if oldest_parent.epoch() <= current_head.epoch() {
@@ -895,8 +891,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
             if tipset.epoch() < current_head.epoch() {
                 break 'sync;
             }
-            validate_tipset_against_cache(bad_block_cache.clone(), tipset.key(), &parent_blocks)
-                .await?;
+            validate_tipset_against_cache(&bad_block_cache, tipset.key(), &parent_blocks).await?;
             parent_blocks.extend_from_slice(tipset.cids());
             tracker.write().await.set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
@@ -982,9 +977,9 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             state_manager,
             network,
             chain_store.clone(),
-            bad_block_cache,
+            &bad_block_cache,
             vec![proposed_head.clone()],
-            genesis,
+            &genesis,
             InvalidBlockStrategy::Forgiving,
         )
         .await
@@ -1011,7 +1006,7 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
 async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     batch: &[Arc<Tipset>],
     network: &SyncNetworkContext<DB>,
-    chainstore: &Arc<ChainStore<DB>>,
+    chainstore: &ChainStore<DB>,
     s: &channel::Sender<FullTipset>,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Tipsets in `batch` are already in chronological order
@@ -1061,9 +1056,9 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chainstore: Arc<ChainStore<DB>>,
-    bad_block_cache: Arc<BadBlockCache>,
+    bad_block_cache: &BadBlockCache,
     tipsets: Vec<Arc<Tipset>>,
-    genesis: Arc<Tipset>,
+    genesis: &Tipset,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Sync the messages for one or many tipsets @ a time
@@ -1119,9 +1114,9 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             consensus.clone(),
             state_manager.clone(),
             &chainstore,
-            bad_block_cache.clone(),
+            &bad_block_cache,
             full_tipset,
-            genesis.clone(),
+            &genesis,
             invalid_block_strategy,
         )
         .await?;
@@ -1139,10 +1134,10 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    chainstore: &Arc<ChainStore<DB>>,
-    bad_block_cache: Arc<BadBlockCache>,
+    chainstore: &ChainStore<DB>,
+    bad_block_cache: &BadBlockCache,
     full_tipset: FullTipset,
-    genesis: Arc<Tipset>,
+    genesis: &Tipset,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     if full_tipset.key().eq(genesis.key()) {
@@ -1605,7 +1600,7 @@ fn block_timestamp_checks<C: Consensus>(
 /// Check if any CID in `tipset` is a known bad block.
 /// If so, add all their descendants to the bad block cache and return an error.
 async fn validate_tipset_against_cache<C: Consensus>(
-    bad_block_cache: Arc<BadBlockCache>,
+    bad_block_cache: &BadBlockCache,
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError<C>> {
