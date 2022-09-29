@@ -1056,7 +1056,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Sync the messages for one or many tipsets @ a time
-    const REQUEST_WINDOW: usize = 16;
+    const REQUEST_WINDOW: usize = 8;
 
     let task_chainstore = chainstore.clone();
 
