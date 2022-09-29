@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
-use async_std::{channel, task};
+use async_std::{channel, channel::SendError, task};
 use futures::future::Abortable;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
@@ -113,6 +113,12 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(C::Error),
+}
+
+impl<C: Consensus, T> From<SendError<T>> for TipsetRangeSyncerError<C> {
+    fn from(err: SendError<T>) -> Self {
+        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
+    }
 }
 
 impl<C: Consensus> TipsetRangeSyncerError<C> {
@@ -1040,9 +1046,7 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
             warn!("ChainExchange request for messages returned null messages");
         }
 
-        s.send(full_tipset)
-            .await
-            .map_err(|e| TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", e)))?;
+        s.send(full_tipset).await?;
     }
 
     Ok(())
@@ -1084,9 +1088,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 // it directly to the validator.
                 if batch.is_empty() {
                     if let Some(full_tipset) = task_chainstore.fill_tipset(&tipset) {
-                        s.send(full_tipset).await.map_err(|e| {
-                            TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", e))
-                        })?;
+                        s.send(full_tipset).await?;
                         continue;
                     }
                 }
