@@ -7,7 +7,6 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use async_std::prelude::FutureExt;
 use async_std::stream::{Stream, StreamExt};
 use async_std::{channel, task};
 use futures::future::Abortable;
@@ -1074,8 +1073,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     };
     let handle = task::spawn(Abortable::new(
         async move {
-            let mut batch: Vec<Arc<Tipset>> = vec![];
-            batch.reserve(REQUEST_WINDOW);
+            let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
 
             // Visit tipsets in chronological order
             for tipset in tipsets.into_iter().rev() {
@@ -1109,35 +1107,23 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     ));
 
     // Validation loop
-    loop {
-        match r.recv().await {
-            Ok(full_tipset) => {
-                let current_epoch = full_tipset.epoch();
-                validate_tipset::<_, C>(
-                    consensus.clone(),
-                    state_manager.clone(),
-                    &chainstore,
-                    bad_block_cache.clone(),
-                    full_tipset,
-                    genesis.clone(),
-                    invalid_block_strategy,
-                )
-                .await?;
-                tracker.write().await.set_epoch(current_epoch);
-                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
-            }
-            Err(_e) => {
-                break;
-            }
-        };
+    while let Ok(full_tipset) = r.recv().await {
+        let current_epoch = full_tipset.epoch();
+        validate_tipset::<_, C>(
+            consensus.clone(),
+            state_manager.clone(),
+            &chainstore,
+            bad_block_cache.clone(),
+            full_tipset,
+            genesis.clone(),
+            invalid_block_strategy,
+        )
+        .await?;
+        tracker.write().await.set_epoch(current_epoch);
+        metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
 
-    match handle.await {
-        Err(_e) => (),
-        Ok(result) => result?,
-    }
-
-    Ok(())
+    handle.await.unwrap_or(Ok(()))
 }
 
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
