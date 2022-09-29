@@ -187,7 +187,7 @@ pub struct CliOpts {
     #[structopt(long)]
     pub detach: bool,
     /// Automatically download the latest snapshot from a trusted source
-    #[structopt(long, short)]
+    #[structopt(long)]
     pub download_snapshot: bool,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
