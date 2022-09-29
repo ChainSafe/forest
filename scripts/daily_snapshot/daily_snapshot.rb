@@ -46,14 +46,15 @@ loop do
     # Sync and export snapshot
     snapshot_uploaded = system("bash upload_snapshot.sh #{CHAIN_NAME} #{latest} > #{LOG_EXPORT} 2>&1")
 
-    client = SlackClient.new CHANNEL, SLACK_TOKEN
-
     if snapshot_uploaded
       client.post_message "✅ Snapshot uploaded for #{CHAIN_NAME}. 🌲🌳🌲🌳🌲"
     else
       client.post_message "⛔ Snapshot failed for #{CHAIN_NAME}. 🔥🌲🔥 "
     end
+
+    # attach the log file and print the contents to STDOUT
     client.attach_files(LOG_EXPORT)
+    puts "Snapshot export log:\n#{File.read(LOG_EXPORT)}"
 
     # Prune snapshots
     pruned = prune_snapshots(SNAPSHOTS_DIR)

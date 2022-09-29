@@ -5,6 +5,7 @@ use forest_chain_sync::SyncConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -53,6 +54,51 @@ impl LogValue {
     }
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct SnapshotFetchConfig {
+    pub mainnet: MainnetSnapshotFetchConfig,
+    pub calibnet: CalibnetSnapshotFetchConfig,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct MainnetSnapshotFetchConfig {
+    pub snapshot_url: Url,
+}
+
+impl Default for MainnetSnapshotFetchConfig {
+    fn default() -> Self {
+        // unfallible unwrap as we know that the value is correct
+        Self {
+            /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
+            /// `sha256sum` file with the same URL (but different extension).
+            snapshot_url: Url::try_from("https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car").unwrap(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct CalibnetSnapshotFetchConfig {
+    pub snapshot_spaces_url: Url,
+    pub bucket_name: String,
+    pub region: String,
+    pub path: String,
+}
+
+impl Default for CalibnetSnapshotFetchConfig {
+    fn default() -> Self {
+        // unfallible unwrap as we know that the value is correct
+        Self {
+            snapshot_spaces_url: Url::try_from(
+                "https://forest-snapshots.fra1.digitaloceanspaces.com",
+            )
+            .unwrap(),
+            bucket_name: "forest-snapshots".to_string(),
+            region: "fra1".to_string(),
+            path: "calibnet/".to_string(),
+        }
+    }
+}
+
 /// Structure that defines daemon configuration when process is detached
 #[derive(Deserialize, Serialize, PartialEq, Eq)]
 pub struct DaemonConfig {
@@ -89,6 +135,7 @@ pub struct Config {
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
     pub log: LogConfig,
+    pub snapshot_fetch: SnapshotFetchConfig,
 }
 
 #[cfg(test)]
@@ -122,6 +169,7 @@ mod test {
                 chain: Arc::new(ChainConfig::default()),
                 daemon: DaemonConfig::default(),
                 log: Default::default(),
+                snapshot_fetch: Default::default(),
             }
         }
     }
