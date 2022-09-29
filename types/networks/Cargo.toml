@@ -5,13 +5,13 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow             = "1.0"
-fil_actors_runtime = "=8.0.0"
-forest_beacon      = "0.1.0"
-forest_json        = "0.1.0"
-fvm_shared         = { version = "0.8.0", default-features = false }
-serde              = { version = "1.0", features = ["derive"] }
-serde_json         = "1.0"
+anyhow.workspace        = true
+fil_actors_runtime      = "=8.0.0"
+forest_beacon.workspace = true
+forest_json.workspace   = true
+fvm_shared              = { workspace = true, default-features = false }
+serde                   = { workspace = true, features = ["derive"] }
+serde_json.workspace    = true
 
 [dev-dependencies]
 toml = "0.5"

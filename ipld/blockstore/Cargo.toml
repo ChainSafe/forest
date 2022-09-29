@@ -8,10 +8,10 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-anyhow              = "1.0"
-cid                 = { version = "0.8", default-features = false, features = ["std"] }
-forest_db           = "0.1"
-forest_encoding     = "0.2"
-forest_ipld         = { optional = true, version = "0.1" }
-fvm_ipld_blockstore = "0.1.1"
-fvm_ipld_encoding   = "0.2"
+anyhow.workspace              = true
+cid                           = { workspace = true, default-features = false, features = ["std"] }
+forest_db.workspace           = true
+forest_encoding.workspace     = true
+forest_ipld                   = { workspace = true, optional = true }
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace   = true

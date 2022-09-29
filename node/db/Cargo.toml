@@ -8,15 +8,15 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-anyhow              = "1"
-cid                 = { version = "0.8", default-features = false, features = ["std"] }
-forest_encoding     = "0.2"
-fvm_ipld_blockstore = "0.1.1"
-num_cpus            = "1.13"
-parking_lot         = "0.12"
-rocksdb             = "0.19"
-serde               = { version = "1.0", features = ["derive"] }
-thiserror           = "1.0"
+anyhow.workspace              = true
+cid                           = { workspace = true, default-features = false, features = ["std"] }
+forest_encoding.workspace     = true
+fvm_ipld_blockstore.workspace = true
+num_cpus.workspace            = true
+parking_lot                   = "0.12"
+rocksdb                       = "0.19"
+serde                         = { workspace = true, features = ["derive"] }
+thiserror.workspace           = true
 
 [dev-dependencies]
 tempfile = "3.3"

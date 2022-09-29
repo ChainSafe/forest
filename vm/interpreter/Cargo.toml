@@ -5,34 +5,34 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-ahash                  = "0.8"
-anyhow                 = "1.0"
-async-std              = "1.12"
-byteorder              = "1.4"
-cid                    = { version = "0.8", default-features = false, features = ["std"] }
-fil_actors_runtime     = "=8.0.0"
-forest_actor_interface = "0.1.0"
-forest_blocks          = "0.1.0"
-forest_crypto          = { default_features = false, version = "0.5", features = ["blst"] }
-forest_db              = { version = "0.1" }
-forest_encoding        = "0.2"
-forest_fil_types       = { version = "0.2", features = ["proofs"] }
-forest_ipld_blockstore = "0.1"
-forest_message         = { default_features = false, version = "0.7", features = ["blst"] }
-forest_networks        = "0.1.0"
-forest_vm              = "0.3"
-fvm                    = "1.1"
-fvm_ipld_amt           = "0.4.2"
-fvm_ipld_blockstore    = "0.1.1"
-fvm_ipld_encoding      = "0.2"
-fvm_ipld_hamt          = "0.5.1"
-fvm_shared             = { version = "0.8.0", default-features = false }
-lazy_static            = "1.4"
-log                    = "0.4"
-num-traits             = "0.2"
-num_cpus               = "1.13"
-rayon                  = "1.5"
-serde_ipld_dagcbor     = "0.1"
+ahash                            = "0.8"
+anyhow.workspace                 = true
+async-std.workspace              = true
+byteorder                        = "1.4"
+cid                              = { workspace = true, default-features = false, features = ["std"] }
+fil_actors_runtime               = "=8.0.0"
+forest_actor_interface.workspace = true
+forest_blocks.workspace          = true
+forest_crypto                    = { workspace = true, default_features = false, features = ["blst"] }
+forest_db.workspace              = true
+forest_encoding.workspace        = true
+forest_fil_types                 = { workspace = true, features = ["proofs"] }
+forest_ipld_blockstore.workspace = true
+forest_message                   = { workspace = true, default_features = false, features = ["blst"] }
+forest_networks.workspace        = true
+forest_vm.workspace              = true
+fvm.workspace                    = true
+fvm_ipld_amt.workspace           = true
+fvm_ipld_blockstore.workspace    = true
+fvm_ipld_encoding.workspace      = true
+fvm_ipld_hamt.workspace          = true
+fvm_shared                       = { workspace = true, default-features = false }
+lazy_static.workspace            = true
+log.workspace                    = true
+num-traits.workspace             = true
+num_cpus.workspace               = true
+rayon.workspace                  = true
+serde_ipld_dagcbor.workspace     = true
 
 [features]
 test_vectors = []
