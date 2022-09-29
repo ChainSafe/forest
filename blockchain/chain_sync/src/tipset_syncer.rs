@@ -1068,7 +1068,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     let task_chainstore = chainstore.clone();
 
     // Spawn a background task for the `chain_exchange` message requests
-    let (s, r) = channel::bounded(REQUEST_WINDOW);
+    let (s, r) = channel::bounded(REQUEST_WINDOW * 2);
     let abort_registration = {
         let mut guard = state_manager.handle_registry().write().await;
         guard.new_abort_registration()
@@ -1079,24 +1079,23 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 
             // Visit tipsets in chronological order
             for tipset in tipsets.into_iter().rev() {
-                match task_chainstore.fill_tipset(&tipset) {
-                    Some(full_tipset) => {
-                        if !batch.is_empty() {
-                            fetch_batch(&batch, &network, &task_chainstore, &s).await?;
-                            batch.clear();
-                        }
+                // If the current tipset batch is empty and we already have the
+                // messages for the current tipset, skip the download and send
+                // it directly to the validator.
+                if batch.is_empty() {
+                    if let Some(full_tipset) = task_chainstore.fill_tipset(&tipset) {
                         s.send(full_tipset).await.map_err(|e| {
                             TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", e))
                         })?;
+                        continue;
                     }
-                    None => {
-                        // Full tipset is not in storage; request messages via chain_exchange
-                        batch.push(tipset);
-                        if batch.len() == REQUEST_WINDOW {
-                            fetch_batch(&batch, &network, &task_chainstore, &s).await?;
-                            batch.clear();
-                        }
-                    }
+                }
+
+                // request tipset messages via chain_exchange
+                batch.push(tipset);
+                if batch.len() == REQUEST_WINDOW {
+                    fetch_batch(&batch, &network, &task_chainstore, &s).await?;
+                    batch.clear();
                 }
             }
             if !batch.is_empty() {
