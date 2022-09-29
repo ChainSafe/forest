@@ -1,3 +1,4 @@
+# This workflow should auto-update PRs that have automatic-merge enabled, i.e. reviewed and ready to merge.
 name: autoupdate
 on:
   push:
