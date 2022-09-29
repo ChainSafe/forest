@@ -10,7 +10,7 @@ testing = []
 [dependencies]
 anyhow.workspace                 = true
 async-std.workspace              = true
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 forest_blocks.workspace          = true
 forest_chain.workspace           = true
 forest_encoding.workspace        = true
@@ -19,7 +19,7 @@ forest_ipld_blockstore.workspace = true
 forest_net_utils.workspace       = true
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
-futures                          = "0.3"
-fvm_ipld_car                     = "0.5.0"
+futures.workspace                = true
+fvm_ipld_car.workspace           = true
 log.workspace                    = true
-url                              = "2.3"
+url.workspace                    = true

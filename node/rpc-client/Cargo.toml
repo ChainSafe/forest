@@ -8,7 +8,7 @@ version = "0.1.0"
 # Public
 async-std            = { workspace = true, features = ["attributes"] }
 log.workspace        = true
-once_cell            = "1.14"
+once_cell.workspace  = true
 serde.workspace      = true
 serde_json.workspace = true
 surf                 = { version = "2.3", default-features = false, features = ["curl-client"] }

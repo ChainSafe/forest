@@ -7,9 +7,9 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1"] }
-async-trait                      = "0.1"
-blake2b_simd                     = "1.0.0"
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+async-trait.workspace            = true
+blake2b_simd.workspace           = true
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 forest_blocks.workspace          = true
 forest_chain.workspace           = true
 forest_crypto                    = { workspace = true, features = ["blst"] }
@@ -24,22 +24,22 @@ forest_message                   = { workspace = true, features = ["proofs", "bl
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
 forest_vm.workspace              = true
-futures                          = "0.3.24"
-fvm                              = "1.1"
-fvm_ipld_encoding                = "0.2"
-fvm_shared                       = { version = "0.8.0", default-features = false }
-libsecp256k1                     = "0.7"
+futures.workspace                = true
+fvm.workspace                    = true
+fvm_ipld_encoding.workspace      = true
+fvm_shared                       = { workspace = true, default-features = false }
+libsecp256k1.workspace           = true
 log.workspace                    = true
 # cannot update lru as `LruCache::new` changed its arguments
-lru                 = "0.8.0"
-num-rational        = "0.4"
-num-traits          = "0.2"
-rand                = "0.8.5"
-serde               = { workspace = true, features = ["derive"] }
-slotmap             = "1.0"
-statrs              = "0.16"
-thiserror.workspace = true
-tokio               = { workspace = true, features = ["sync"] }
+lru                    = "0.8.0"
+num-rational.workspace = true
+num-traits.workspace   = true
+rand.workspace         = true
+serde                  = { workspace = true, features = ["derive"] }
+slotmap                = "1.0"
+statrs                 = "0.16"
+thiserror.workspace    = true
+tokio                  = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 forest_key_management.workspace = true

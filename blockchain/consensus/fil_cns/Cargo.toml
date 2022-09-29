@@ -7,8 +7,8 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1", "unstable"] }
-async-trait                      = "0.1"
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+async-trait.workspace            = true
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 fil_actors_runtime               = "=8.0.0"
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
@@ -23,13 +23,13 @@ forest_ipld_blockstore.workspace = true
 forest_key_management.workspace  = true
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
-futures                          = "0.3.24"
-fvm                              = "1.1"
-fvm_ipld_encoding                = "0.2"
-fvm_shared                       = { version = "0.8.0", default-features = false }
+futures.workspace                = true
+fvm.workspace                    = true
+fvm_ipld_encoding.workspace      = true
+fvm_shared                       = { workspace = true, default-features = false }
 log.workspace                    = true
 nonempty                         = "0.8.0"
-num-traits                       = "0.2"
+num-traits.workspace             = true
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
 

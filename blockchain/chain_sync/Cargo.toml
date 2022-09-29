@@ -7,8 +7,8 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1", "unstable"] }
-async-trait                      = "0.1"
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+async-trait.workspace            = true
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true
@@ -28,34 +28,34 @@ forest_message_pool.workspace    = true
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
 forest_vm.workspace              = true
-futures                          = "0.3.24"
-futures-util                     = "0.3.24"
-fvm                              = "1.1"
-fvm_ipld_encoding                = "0.2"
-fvm_shared                       = { version = "0.8.0", default-features = false }
-lazy_static                      = "1.4.0"
+futures-util.workspace           = true
+futures.workspace                = true
+fvm.workspace                    = true
+fvm_ipld_encoding.workspace      = true
+fvm_shared                       = { workspace = true, default-features = false }
+lazy_static.workspace            = true
 log.workspace                    = true
 lru                              = "0.8.0"
 nonempty                         = "0.8.0"
-num-bigint                       = "0.4"
-num-traits                       = "0.2"
-pbr                              = "1.0.4"
-prometheus                       = { version = "0.13.2", features = ["process"] }
+num-bigint.workspace             = true
+num-traits.workspace             = true
+pbr.workspace                    = true
+prometheus                       = { workspace = true, features = ["process"] }
 quickcheck                       = { version = "1" }
-rand                             = "0.8.5"
+rand.workspace                   = true
 serde                            = { workspace = true, features = ["derive", "rc"] }
-smallvec                         = "1.9.0"
+smallvec.workspace               = true
 thiserror.workspace              = true
 time                             = { version = "0.3", features = ["serde"] }
 tokio                            = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-base64                = "0.13"
-forest_genesis        = { workspace = true, features = ["testing"] }
-forest_ipld.workspace = true
-forest_test_utils     = { workspace = true, features = ["test_constructors"] }
-fvm_ipld_car          = "0.5.0"
-hex                   = "0.4"
-pretty_env_logger     = "0.4.0"
-quickcheck_macros     = "1"
-serde_json.workspace  = true
+base64.workspace            = true
+forest_genesis              = { workspace = true, features = ["testing"] }
+forest_ipld.workspace       = true
+forest_test_utils           = { workspace = true, features = ["test_constructors"] }
+fvm_ipld_car.workspace      = true
+hex.workspace               = true
+pretty_env_logger.workspace = true
+quickcheck_macros           = "1"
+serde_json.workspace        = true

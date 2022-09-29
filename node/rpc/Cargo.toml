@@ -8,11 +8,11 @@ edition = "2021"
 # Public
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["attributes"] }
-base64                           = "0.13"
+base64.workspace                 = true
 bls-signatures                   = { version = "0.11", default-features = false, features = ["blst"] }
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 crossbeam                        = "0.8"
-fil_actor_miner_v8               = { package = "fil_actor_miner", version = "=8.0.0" }
+fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true
 forest_auth.workspace            = true
 forest_beacon.workspace          = true
@@ -34,17 +34,17 @@ forest_message_pool.workspace    = true
 forest_networks.workspace        = true
 forest_rpc-api.workspace         = true
 forest_state_manager.workspace   = true
-futures                          = "0.3"
-fvm                              = "1.1"
-fvm_ipld_bitfield                = "0.5.2"
-fvm_ipld_encoding                = "0.2"
-fvm_shared                       = { version = "0.8.0", default-features = false }
-hex                              = "0.4"
-libipld-core                     = "0.14.0"
+futures.workspace                = true
+fvm.workspace                    = true
+fvm_ipld_bitfield.workspace      = true
+fvm_ipld_encoding.workspace      = true
+fvm_shared                       = { workspace = true, default-features = false }
+hex.workspace                    = true
+libipld-core.workspace           = true
 log.workspace                    = true
-multibase                        = "0.9"
-num-traits                       = "0.2"
-rand                             = "0.8"
+multibase.workspace              = true
+num-traits.workspace             = true
+rand.workspace                   = true
 rand_distr                       = "0.4"
 semver                           = "1.0"
 serde                            = { workspace = true, default-features = false, features = ["derive"] }
@@ -61,5 +61,5 @@ version          = "0.11"
 [dev-dependencies]
 forest_db.workspace = true
 forest_test_utils   = { workspace = true, features = ["test_constructors"] }
-futures             = "0.3"
-hex                 = "0.4"
+futures.workspace   = true
+hex.workspace       = true

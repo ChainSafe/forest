@@ -8,9 +8,9 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-base64                      = "0.13"
+base64.workspace            = true
 byteorder                   = "1.4.3"
-cid                         = { version = "0.8", default-features = false, features = ["std"] }
+cid                         = { workspace = true, default-features = false, features = ["std"] }
 derive_builder              = "0.11"
 forest_beacon.workspace     = true
 forest_crypto               = { workspace = true, features = ["blst"] }
@@ -20,12 +20,12 @@ forest_json.workspace       = true
 forest_json_utils.workspace = true
 forest_message              = { workspace = true, features = ["blst"] }
 forest_vm.workspace         = true
-fvm_ipld_encoding           = "0.2"
-fvm_shared                  = { version = "0.8.0", default-features = false }
-lazy_static                 = "1.4.0"
+fvm_ipld_encoding.workspace = true
+fvm_shared                  = { workspace = true, default-features = false }
+lazy_static.workspace       = true
 log.workspace               = true
-num-bigint                  = "0.4"
-once_cell                   = "1.14.0"
+num-bigint.workspace        = true
+once_cell.workspace         = true
 quickcheck                  = { version = "1" }
 serde                       = { workspace = true, features = ["derive"] }
 sha2                        = { version = "0.10", default-features = false }
@@ -33,7 +33,6 @@ thiserror.workspace         = true
 
 [dev-dependencies]
 async-std.workspace  = true
-base64               = "0.13"
 forest_test_utils    = { workspace = true, features = ["test_constructors"] }
-hex                  = "0.4.3"
+hex.workspace        = true
 serde_json.workspace = true

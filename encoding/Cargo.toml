@@ -8,8 +8,8 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-blake2b_simd                 = "1.0"
-cs_serde_bytes               = "0.12.2"
+blake2b_simd.workspace       = true
+cs_serde_bytes.workspace     = true
 serde                        = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_repr                   = "0.1"

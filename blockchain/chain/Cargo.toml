@@ -7,10 +7,10 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1"] }
-blake2b_simd                     = "1.0.0"
+blake2b_simd.workspace           = true
 bls-signatures                   = { version = "0.11", default-features = false, features = ["blst"] }
 byteorder                        = "1.4.3"
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 crossbeam                        = "0.8.2"
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
@@ -26,21 +26,21 @@ forest_legacy_ipld_amt.workspace = true
 forest_macros.workspace          = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true
-futures                          = "0.3.24"
-fvm                              = "1.1"
-fvm_ipld_car                     = "0.5.0"
-fvm_ipld_encoding                = "0.2"
-fvm_shared                       = { version = "0.8.0", default-features = false }
-lazy_static                      = "1.4"
+futures.workspace                = true
+fvm.workspace                    = true
+fvm_ipld_car.workspace           = true
+fvm_ipld_encoding.workspace      = true
+fvm_shared                       = { workspace = true, default-features = false }
+lazy_static.workspace            = true
 lockfree                         = "0.5.1"
 log.workspace                    = true
 lru                              = "0.8.0"
-num-traits                       = "0.2"
-pbr                              = "1.0.4"
+num-traits.workspace             = true
+pbr.workspace                    = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 forest_test_utils = { workspace = true, features = ["test_constructors"] }
-multihash         = { version = "0.16.3", default-features = false, features = ["std", "blake2b", "derive"] }
+multihash         = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }

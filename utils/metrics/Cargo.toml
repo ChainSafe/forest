@@ -8,6 +8,6 @@ edition = "2021"
 async-std           = { workspace = true, features = ["tokio1", "unstable"] }
 fs_extra            = "1.2"
 log.workspace       = true
-prometheus          = { version = "0.13", features = ["process"] }
+prometheus          = { workspace = true, features = ["process"] }
 thiserror.workspace = true
 tide                = "0.16"

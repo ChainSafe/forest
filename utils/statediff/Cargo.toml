@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 colored                          = "2.0"
 difference                       = "2.0"
 directories                      = "4.0.1"
@@ -15,11 +15,11 @@ forest_db.workspace              = true
 forest_ipld.workspace            = true
 forest_ipld_blockstore.workspace = true
 forest_json.workspace            = true
-fvm                              = "1.0"
-fvm_ipld_bitfield                = "0.5.0"
-fvm_ipld_encoding                = "0.2"
-fvm_shared                       = "0.8"
-libipld-core                     = "0.14.0"
+fvm.workspace                    = true
+fvm_ipld_bitfield.workspace      = true
+fvm_ipld_encoding.workspace      = true
+fvm_shared.workspace             = true
+libipld-core.workspace           = true
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 structopt                        = "0.3"

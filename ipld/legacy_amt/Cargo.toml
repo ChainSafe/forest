@@ -10,13 +10,13 @@ repository  = "https://github.com/ChainSafe/forest"
 [dependencies]
 ahash                            = { version = "0.8", optional = true }
 anyhow.workspace                 = true
-cid                              = { version = "0.8", default-features = false, features = ["std"] }
+cid                              = { workspace = true, default-features = false, features = ["std"] }
 forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_ipld_blockstore.workspace = true
-fvm_ipld_encoding                = "0.2"
+fvm_ipld_encoding.workspace      = true
 itertools                        = "0.10"
-once_cell                        = "1.14"
+once_cell.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 
