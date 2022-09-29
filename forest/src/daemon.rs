@@ -394,10 +394,11 @@ pub(super) async fn start(config: Config, detached: bool) {
 
 async fn prompt_and_fetch_snapshot(config: &mut Config) {
     if !config.client.download_snapshot {
-        if !Confirm::with_theme(&ColorfulTheme::default())
+        if let false = Confirm::with_theme(&ColorfulTheme::default())
             .with_prompt(
                 "Forest needs a snapshot to sync with the network. Would you like to download one now?",
             )
+            .default(false)
             .interact()
             .unwrap() 
         {
