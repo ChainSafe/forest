@@ -1117,7 +1117,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
 
-    Ok(handle.await?)
+    handle.await
 }
 
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
