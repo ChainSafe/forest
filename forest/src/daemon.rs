@@ -329,7 +329,6 @@ pub(super) async fn start(config: Config, detached: bool) {
             for handle in services {
                 handle.cancel().await;
             }
-            state_manager.handle_registry().read().await.abort_futures();
             return;
         },
     }
@@ -388,7 +387,6 @@ pub(super) async fn start(config: Config, detached: bool) {
     for handle in services {
         handle.cancel().await;
     }
-    state_manager.handle_registry().read().await.abort_futures();
     keystore_write.await;
 
     if db_weak_ref.strong_count() != 0 {

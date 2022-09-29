@@ -9,7 +9,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
 use async_std::{channel, channel::SendError, task};
-use futures::future::Abortable;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -1068,43 +1067,36 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 
     // Spawn a background task for the `chain_exchange` message requests
     let (s, r) = channel::bounded(REQUEST_WINDOW * 2);
-    let abort_registration = {
-        let mut guard = state_manager.handle_registry().write().await;
-        guard.new_abort_registration()
-    };
-    let handle = task::spawn(Abortable::new(
-        async move {
-            let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
+    let handle = task::spawn(async move {
+        let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
 
-            // Visit tipsets in chronological order
-            for tipset in tipsets.into_iter().rev() {
-                // If the current tipset batch is empty and we already have the
-                // messages for the current tipset, skip the download and send
-                // it directly to the validator.
-                if batch.is_empty() {
-                    if let Some(full_tipset) = task_chainstore.fill_tipset(&tipset) {
-                        s.send(full_tipset).await?;
-                        continue;
-                    }
-                }
-
-                // request tipset messages via chain_exchange
-                batch.push(tipset);
-                if batch.len() == REQUEST_WINDOW {
-                    fetch_batch(&batch, &network, &task_chainstore, &s).await?;
-                    batch.clear();
+        // Visit tipsets in chronological order
+        for tipset in tipsets.into_iter().rev() {
+            // If the current tipset batch is empty and we already have the
+            // messages for the current tipset, skip the download and send
+            // it directly to the validator.
+            if batch.is_empty() {
+                if let Some(full_tipset) = task_chainstore.fill_tipset(&tipset) {
+                    s.send(full_tipset).await?;
+                    continue;
                 }
             }
-            if !batch.is_empty() {
-                // Fetch last batch if there's one
+
+            // request tipset messages via chain_exchange
+            batch.push(tipset);
+            if batch.len() == REQUEST_WINDOW {
                 fetch_batch(&batch, &network, &task_chainstore, &s).await?;
                 batch.clear();
             }
+        }
+        if !batch.is_empty() {
+            // Fetch last batch if there's one
+            fetch_batch(&batch, &network, &task_chainstore, &s).await?;
+            batch.clear();
+        }
 
-            Ok::<(), TipsetRangeSyncerError<C>>(())
-        },
-        abort_registration,
-    ));
+        Ok::<(), TipsetRangeSyncerError<C>>(())
+    });
 
     // Validation loop
     while let Ok(full_tipset) = r.recv().await {
@@ -1125,7 +1117,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
 
-    handle.await.unwrap_or(Ok(()))
+    Ok(handle.await?)
 }
 
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
