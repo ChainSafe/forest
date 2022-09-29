@@ -38,6 +38,7 @@ docker run \
     --network host \
     --security-opt "apparmor=unconfined" \
     --env-file .env \
+    --restart unless-stopped \
     --detach \
     --label com.centurylinklabs.watchtower.enable=true \
     -v /var/run/docker.sock:/var/run/docker.sock \
