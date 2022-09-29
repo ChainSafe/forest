@@ -22,7 +22,6 @@ use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use question::{Answer, Question};
-
 use futures::{select, FutureExt};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
