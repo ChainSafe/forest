@@ -7,6 +7,7 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use async_std::prelude::FutureExt;
 use async_std::stream::{Stream, StreamExt};
 use async_std::{channel, task};
 use futures::future::Abortable;
@@ -1002,12 +1003,12 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(
+async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     batch: &[Arc<Tipset>],
     network: &SyncNetworkContext<DB>,
     chainstore: &Arc<ChainStore<DB>>,
     s: &channel::Sender<FullTipset>,
-) {
+) -> Result<(), TipsetRangeSyncerError<C>> {
     // Tipsets in `batch` are already in chronological order
     let head = batch.last().unwrap(); // This is safe because a batch can't be empty
     let epoch = head.epoch();
@@ -1018,8 +1019,7 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(
     let compacted_messages = network
         .chain_exchange_messages(None, head.key(), len as u64)
         .await
-        //.map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?
-        .unwrap();
+        .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
     let messages_iter = compacted_messages.into_iter().rev();
 
     // Since the bundle only has messages, we have to put the headers in them
@@ -1030,19 +1030,21 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(
             messages: Some(messages),
         };
 
-        let full_tipset = FullTipset::try_from(&bundle).unwrap();
-        //.map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+        let full_tipset = FullTipset::try_from(&bundle)
+            .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
         // Persist the messages in the store
         if let Some(m) = bundle.messages {
-            forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs).unwrap();
-            forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs).unwrap();
+            forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
+            forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
         } else {
             warn!("ChainExchange request for messages returned null messages");
         }
 
         s.send(full_tipset).await.unwrap();
     }
+
+    Ok(())
 }
 
 /// Going forward along the tipsets, try to load the messages in them from the `BlockStore`,
@@ -1070,7 +1072,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         let mut guard = state_manager.handle_registry().write().await;
         guard.new_abort_registration()
     };
-    task::spawn(Abortable::new(
+    let handle = task::spawn(Abortable::new(
         async move {
             let mut batch: Vec<Arc<Tipset>> = vec![];
             batch.reserve(REQUEST_WINDOW);
@@ -1080,7 +1082,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 match task_chainstore.fill_tipset(&tipset) {
                     Some(full_tipset) => {
                         if !batch.is_empty() {
-                            fetch_batch(&batch, &network, &task_chainstore, &s).await;
+                            fetch_batch(&batch, &network, &task_chainstore, &s).await?;
                             batch.clear();
                         }
                         s.send(full_tipset).await.unwrap();
@@ -1089,7 +1091,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                         // Full tipset is not in storage; request messages via chain_exchange
                         batch.push(tipset);
                         if batch.len() == REQUEST_WINDOW {
-                            fetch_batch(&batch, &network, &task_chainstore, &s).await;
+                            fetch_batch(&batch, &network, &task_chainstore, &s).await?;
                             batch.clear();
                         }
                     }
@@ -1097,9 +1099,11 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             }
             if !batch.is_empty() {
                 // Fetch last batch if there's one
-                fetch_batch(&batch, &network, &task_chainstore, &s).await;
+                fetch_batch(&batch, &network, &task_chainstore, &s).await?;
                 batch.clear();
             }
+
+            Ok::<(), TipsetRangeSyncerError<C>>(())
         },
         abort_registration,
     ));
@@ -1122,11 +1126,15 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 tracker.write().await.set_epoch(current_epoch);
                 metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
             }
-            Err(e) => {
-                error!("Err: {}", e);
+            Err(_e) => {
                 break;
             }
         };
+    }
+
+    match handle.await {
+        Err(_e) => (),
+        Ok(result) => result?,
     }
 
     Ok(())
