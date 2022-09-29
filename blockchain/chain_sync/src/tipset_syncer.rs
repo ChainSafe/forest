@@ -1002,7 +1002,12 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset>], network: &SyncNetworkContext<DB>, chainstore: &Arc<ChainStore<DB>>, s: &channel::Sender<FullTipset>) {
+async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(
+    batch: &[Arc<Tipset>],
+    network: &SyncNetworkContext<DB>,
+    chainstore: &Arc<ChainStore<DB>>,
+    s: &channel::Sender<FullTipset>,
+) {
     // Tipsets in `batch` are already in chronological order
     let head = batch.last().unwrap(); // This is safe because a batch can't be empty
     let epoch = head.epoch();
@@ -1025,9 +1030,8 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static>(batch: &[Arc<Tipset
             messages: Some(messages),
         };
 
-        let full_tipset = FullTipset::try_from(&bundle)
-            .unwrap();
-            //.map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+        let full_tipset = FullTipset::try_from(&bundle).unwrap();
+        //.map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
         // Persist the messages in the store
         if let Some(m) = bundle.messages {
@@ -1080,7 +1084,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                             batch.clear();
                         }
                         s.send(full_tipset).await.unwrap();
-                    },
+                    }
                     None => {
                         // Full tipset is not in storage; request messages via chain_exchange
                         batch.push(tipset);
@@ -1117,7 +1121,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 .await?;
                 tracker.write().await.set_epoch(current_epoch);
                 metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
-            },
+            }
             Err(e) => {
                 error!("Err: {}", e);
                 break;
