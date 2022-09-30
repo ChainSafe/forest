@@ -1,6 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(test)]
+use fvm_shared::bigint::BigInt;
+
 pub mod json {
     use num_bigint::BigInt;
     use serde::{Deserialize, Serialize};
@@ -46,5 +49,33 @@ pub mod json {
             }
             Ok(None)
         }
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq)]
+struct BigIntWrapper {
+    bigint: BigInt,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for BigIntWrapper {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let bigint = BigInt::from(u32::arbitrary(g));
+        BigIntWrapper { bigint }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use std::str::FromStr;
+
+    #[quickcheck]
+    fn bigint_roundtrip(bigint: BigIntWrapper) {
+        let serialized = BigInt::to_string(&bigint.bigint);
+        let parsed = BigInt::from_str(&serialized).unwrap();
+        assert_eq!(bigint.bigint, parsed);
     }
 }

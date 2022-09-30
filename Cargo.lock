@@ -3014,7 +3014,10 @@ dependencies = [
  "fvm_shared",
  "multihash",
  "num-bigint 0.4.3",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
