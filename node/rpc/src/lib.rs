@@ -82,6 +82,7 @@ where
             // * Filecoin.ChainNotify is handled specifically in middleware for streaming
             // XXX: CHAIN_NOTIFY disabled since it is unsed
             // .with_method(CHAIN_NOTIFY, chain_notify::<DB, B>)
+            // Tracking issue for unused RPC endpoints: https://github.com/ChainSafe/forest/issues/1976
             .with_method(
                 CHAIN_GET_RANDOMNESS_FROM_TICKETS,
                 chain_get_randomness_from_tickets::<DB, B>,
