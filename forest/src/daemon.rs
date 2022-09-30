@@ -416,7 +416,10 @@ async fn prompt_and_fetch_snapshot(config: &mut Config) {
         .join(config.chain.name.clone());
 
     match snapshot_fetch(&snapshot_path, config).await {
-        Ok(snapshot_path) => config.client.snapshot_path = Some(snapshot_path),
+        Ok(snapshot_path) => {
+            config.client.snapshot_path = Some(snapshot_path);
+            config.client.snapshot = true;
+        }
         Err(e) => cli_error_and_die(e.to_string(), 1),
     };
 }
@@ -427,6 +430,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         let validate_height = if config.client.snapshot {
             config.client.snapshot_height
         } else {
+            info!("SNAPSHOT_HEIGHT WAS 0");
             Some(0)
         };
 
