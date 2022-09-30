@@ -9,7 +9,6 @@ anyhow.workspace           = true
 async-std                  = { workspace = true, features = ["unstable", "attributes"] }
 blake2b_simd.workspace     = true
 forest_fil_types.workspace = true
-forest_net_utils.workspace = true
 log.workspace              = true
 pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }
