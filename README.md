@@ -16,7 +16,7 @@ Our crates:
 
 | component | description/crates |
 | - | - |
-| `forest` | the command-line interface and daemon (1 crate/workspace) |
+| `forest` | the command-line interface and daemon (3 crate/workspace) |
 | `node` | the networking stack and storage (7 crates) |
 | `blockchain` | the chain structure and synchronization (8 crates) |
 | `vm` | state transition and actors, messages, addresses (9 crates) |

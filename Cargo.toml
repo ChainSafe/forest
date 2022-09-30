@@ -1,6 +1,8 @@
 [workspace]
 members = [
-  "forest",
+  "forest/cli",
+  "forest/daemon",
+  "forest/shared",
   "blockchain/beacon",
   "blockchain/blocks",
   "blockchain/chain",

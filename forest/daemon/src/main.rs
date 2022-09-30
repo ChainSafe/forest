@@ -3,15 +3,17 @@
 
 mod cli;
 mod daemon;
-mod logger;
-mod subcommand;
 
-use cli::{cli_error_and_die, Cli, DaemonConfig};
+use cli::Cli;
 
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
+use forest_cli_shared::{
+    cli::{cli_error_and_die, DaemonConfig},
+    logger,
+};
 use lazy_static::lazy_static;
-use log::info;
+use log::{info, warn};
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
@@ -99,8 +101,8 @@ fn main() {
         Ok(cfg) => {
             logger::setup_logger(&cfg.log);
             match cmd {
-                Some(command) => {
-                    task::block_on(subcommand::process(command, cfg));
+                Some(_) => {
+                    warn!("All subcommands have been moved to forest-cli tool");
                 }
                 None => {
                     if opts.detach {

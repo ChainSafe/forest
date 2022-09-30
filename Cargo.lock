@@ -2482,7 +2482,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
-name = "forest"
+name = "forest-cli"
 version = "0.2.2"
 dependencies = [
  "anyhow",
@@ -2491,6 +2491,84 @@ dependencies = [
  "async-std",
  "base64 0.13.0",
  "byte-unit",
+ "chrono",
+ "cid",
+ "directories",
+ "fil_actor_miner",
+ "forest_actor_interface",
+ "forest_auth",
+ "forest_beacon",
+ "forest_blocks",
+ "forest_chain",
+ "forest_chain_sync",
+ "forest_cli_shared",
+ "forest_crypto",
+ "forest_db",
+ "forest_encoding",
+ "forest_fil_types",
+ "forest_interpreter",
+ "forest_ipld_blockstore",
+ "forest_json",
+ "forest_key_management",
+ "forest_libp2p",
+ "forest_message",
+ "forest_message_pool",
+ "forest_net_utils",
+ "forest_networks",
+ "forest_paramfetch",
+ "forest_rpc-api",
+ "forest_rpc-client",
+ "forest_state_manager",
+ "forest_utils",
+ "forest_vm",
+ "futures",
+ "fvm",
+ "fvm_ipld_car",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "git-version",
+ "hex",
+ "jsonrpc-v2",
+ "lazy_static",
+ "libp2p",
+ "log",
+ "multibase 0.9.1",
+ "num-rational",
+ "num-traits",
+ "once_cell",
+ "pbr",
+ "pretty_env_logger",
+ "prometheus",
+ "quickcheck",
+ "quickcheck_macros",
+ "rand 0.8.5",
+ "rayon",
+ "reqwest",
+ "rpassword",
+ "rug",
+ "rust-s3",
+ "serde",
+ "serde_json",
+ "sha2 0.10.6",
+ "strfmt",
+ "structopt",
+ "tempfile",
+ "ticker",
+ "time 0.3.9",
+ "tokio",
+ "toml",
+ "uuid",
+]
+
+[[package]]
+name = "forest-daemon"
+version = "0.2.2"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "async-log",
+ "async-std",
+ "base64 0.13.0",
  "chrono",
  "cid",
  "ctrlc",
@@ -2503,6 +2581,7 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_chain_sync",
+ "forest_cli_shared",
  "forest_crypto",
  "forest_db",
  "forest_deleg_cns",
@@ -2552,20 +2631,15 @@ dependencies = [
  "rayon",
  "reqwest",
  "rpassword",
- "rug",
- "rust-s3",
  "serde",
  "serde_json",
  "sha2 0.10.6",
  "shared_memory",
- "strfmt",
  "structopt",
  "tempfile",
- "ticker",
  "time 0.3.9",
  "tokio",
  "toml",
- "uuid",
 ]
 
 [[package]]
@@ -2767,6 +2841,74 @@ dependencies = [
  "thiserror",
  "time 0.3.9",
  "tokio",
+]
+
+[[package]]
+name = "forest_cli_shared"
+version = "0.2.2"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "async-log",
+ "async-std",
+ "base64 0.13.0",
+ "cid",
+ "directories",
+ "fil_actor_miner",
+ "forest_actor_interface",
+ "forest_beacon",
+ "forest_blocks",
+ "forest_chain",
+ "forest_chain_sync",
+ "forest_crypto",
+ "forest_db",
+ "forest_deleg_cns",
+ "forest_encoding",
+ "forest_fil_types",
+ "forest_interpreter",
+ "forest_ipld_blockstore",
+ "forest_json",
+ "forest_key_management",
+ "forest_libp2p",
+ "forest_message",
+ "forest_message_pool",
+ "forest_networks",
+ "forest_rpc-api",
+ "forest_rpc-client",
+ "forest_state_manager",
+ "forest_utils",
+ "forest_vm",
+ "futures",
+ "fvm",
+ "fvm_ipld_car",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "git-version",
+ "hex",
+ "jsonrpc-v2",
+ "lazy_static",
+ "libp2p",
+ "log",
+ "multibase 0.9.1",
+ "num-rational",
+ "num-traits",
+ "once_cell",
+ "pbr",
+ "pretty_env_logger",
+ "prometheus",
+ "quickcheck",
+ "quickcheck_macros",
+ "rand 0.8.5",
+ "rayon",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.6",
+ "structopt",
+ "tempfile",
+ "time 0.3.9",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -4566,9 +4708,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.133"
+version = "0.2.134"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f80d65747a3e43d1596c7c5492d95d5edddaabd45a7fcdb02b95f644164966"
+checksum = "329c933548736bc49fd575ee68c89e8be4d260064184389a5b77517cddd99ffb"
 
 [[package]]
 name = "libipld"

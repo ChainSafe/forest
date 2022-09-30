@@ -1,5 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use super::{Config, SnapshotFetchConfig};
 use anyhow::bail;
 use chrono::DateTime;
 use hex::{FromHex, ToHex};
@@ -17,7 +18,6 @@ use tokio::{
     io::{AsyncWriteExt, BufWriter},
 };
 
-use super::{config::SnapshotFetchConfig, Config};
 use crate::cli::to_size_string;
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred

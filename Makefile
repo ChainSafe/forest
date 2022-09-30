@@ -10,8 +10,13 @@ ifndef RUST_TEST_THREADS
 	endif # $(OS)
 endif
 
-install:
-	cargo install --locked --path forest --force
+install-cli:
+	cargo install --locked --path forest/cli --force
+
+install-daemon:
+	cargo install --locked --path forest/daemon --force
+
+install: install-cli install-daemon
 
 clean-all:
 	cargo clean
@@ -106,7 +111,7 @@ test-all: test-release test-vectors
 
 # Checks if all headers are present and adds if not
 license:
-	./scripts/add_license.sh
+	./scripts/add_license.shin
 
 docs:
 	cargo doc --no-deps
@@ -117,4 +122,4 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors
