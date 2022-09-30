@@ -475,9 +475,9 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10f203db73a71dfa2fb6dd22763990fa26f3d2625a6da2da900d23b87d26be27"
 dependencies = [
- "proc-macro2 1.0.43",
+ "proc-macro2 1.0.46",
  "quote 1.0.21",
- "syn 1.0.99",
+ "syn 1.0.101",
 ]
 
 [[package]]
@@ -3241,6 +3241,7 @@ dependencies = [
  "async-std",
  "blake2b_simd 1.0.0",
  "forest_fil_types",
+ "forest_net_utils",
  "log",
  "pin-project-lite 0.2.9",
  "serde",
@@ -8506,9 +8507,9 @@ version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
 dependencies = [
- "proc-macro2 1.0.43",
+ "proc-macro2 1.0.46",
  "quote 1.0.21",
- "syn 1.0.99",
+ "syn 1.0.101",
 ]
 
 [[package]]
