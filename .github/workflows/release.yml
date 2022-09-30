@@ -38,8 +38,7 @@ jobs:
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}
-          cp -v target/release/forest forest-${{ github.ref_name }}
-          cp -v target/release/forest-cli forest-cli-${{ github.ref_name }}
+          cp -v target/release/forest target/release/forest-cli forest-${{ github.ref_name }}
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
           strip forest-${{ github.ref_name }}/forest forest-${{ github.ref_name }}/forest-cli
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
