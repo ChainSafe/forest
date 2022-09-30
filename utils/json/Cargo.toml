@@ -4,19 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cid = { version = "0.8", default-features = false, features = ["std"] }
-cs_serde_bytes = "0.12.2"
+cid = { workspace = true, default-features = false, features = ["std"] }
+cs_serde_bytes.workspace = true
 data-encoding = "2.3"
 data-encoding-macro = "0.1"
-forest_json_utils = "0.1"
-fvm_ipld_encoding = "0.2"
-fvm_shared = { version = "0.8.0", default-features = false }
-multihash = { version = "0.16", default-features = false, features = [
+forest_json_utils.workspace = true
+fvm_ipld_encoding.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+multihash = { workspace = true, default-features = false, features = [
   "std",
   "blake2b",
   "derive",
   "serde-codec",
   "identity",
 ] }
-num-bigint = "0.4"
-serde = { version = "1.0", features = ["derive"] }
+num-bigint.workspace = true
+serde = { workspace = true, features = ["derive"] }
