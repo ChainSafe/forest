@@ -112,7 +112,7 @@ where
     Ok(out)
 }
 
-/// Calculates the SHA256 of the provided file, prints its
+/// Calculates the SHA-256 of the provided file, prints its
 /// hex-encoded representation and saves it to a file with the same
 /// name but with a `.sha256sum` extension.
 async fn calculate_and_save_checksum(source: &Path) -> Result<()> {
