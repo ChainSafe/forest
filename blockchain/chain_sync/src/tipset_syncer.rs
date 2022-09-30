@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
-use async_std::task;
+use async_std::{channel, channel::SendError, task};
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -112,6 +112,12 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(C::Error),
+}
+
+impl<C: Consensus, T> From<SendError<T>> for TipsetRangeSyncerError<C> {
+    fn from(err: SendError<T>) -> Self {
+        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
+    }
 }
 
 impl<C: Consensus> TipsetRangeSyncerError<C> {
@@ -764,9 +770,9 @@ fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             tracker.clone(),
             tipset_range_length,
             proposed_head.clone(),
-            current_head.clone(),
-            bad_block_cache.clone(),
-            chain_store.clone(),
+            &current_head,
+            &bad_block_cache,
+            &chain_store,
             network.clone(),
         )
         .await
@@ -794,9 +800,9 @@ fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             state_manager,
             network,
             chain_store.clone(),
-            bad_block_cache,
+            &bad_block_cache,
             parent_tipsets,
-            genesis,
+            &genesis,
             InvalidBlockStrategy::Strict,
         )
         .await
@@ -834,9 +840,9 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
     tracker: crate::chain_muxer::WorkerState,
     tipset_range_length: u64,
     proposed_head: Arc<Tipset>,
-    current_head: Arc<Tipset>,
-    bad_block_cache: Arc<BadBlockCache>,
-    chain_store: Arc<ChainStore<DB>>,
+    current_head: &Tipset,
+    bad_block_cache: &BadBlockCache,
+    chain_store: &ChainStore<DB>,
     network: SyncNetworkContext<DB>,
 ) -> Result<Vec<Arc<Tipset>>, TipsetRangeSyncerError<C>> {
     let mut parent_blocks: Vec<Cid> = vec![];
@@ -855,12 +861,8 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
         pb.set((work_to_be_done - total_size).unsigned_abs());
-        validate_tipset_against_cache(
-            bad_block_cache.clone(),
-            oldest_parent.parents(),
-            &parent_blocks,
-        )
-        .await?;
+        validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)
+            .await?;
 
         // Check if we are at the end of the range
         if oldest_parent.epoch() <= current_head.epoch() {
@@ -888,8 +890,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
             if tipset.epoch() < current_head.epoch() {
                 break 'sync;
             }
-            validate_tipset_against_cache(bad_block_cache.clone(), tipset.key(), &parent_blocks)
-                .await?;
+            validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks).await?;
             parent_blocks.extend_from_slice(tipset.cids());
             tracker.write().await.set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
@@ -975,9 +976,9 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             state_manager,
             network,
             chain_store.clone(),
-            bad_block_cache,
+            &bad_block_cache,
             vec![proposed_head.clone()],
-            genesis,
+            &genesis,
             InvalidBlockStrategy::Forgiving,
         )
         .await
@@ -1001,6 +1002,50 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
+async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
+    batch: &[Arc<Tipset>],
+    network: &SyncNetworkContext<DB>,
+    chainstore: &ChainStore<DB>,
+    s: &channel::Sender<FullTipset>,
+) -> Result<(), TipsetRangeSyncerError<C>> {
+    // Tipsets in `batch` are already in chronological order
+    if let Some(head) = batch.last() {
+        let epoch = head.epoch();
+        let len = batch.len();
+
+        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+
+        let compacted_messages = network
+            .chain_exchange_messages(None, head.key(), len as u64)
+            .await
+            .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
+
+        // Since the bundle only has messages, we have to put the headers in them
+        for (messages, tipset) in compacted_messages.into_iter().rev().zip(batch.iter()) {
+            // Construct full tipset from fetched messages
+            let bundle = TipsetBundle {
+                blocks: tipset.blocks().to_vec(),
+                messages: Some(messages),
+            };
+
+            let full_tipset = FullTipset::try_from(&bundle)
+                .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+
+            // Persist the messages in the store
+            if let Some(m) = bundle.messages {
+                forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
+                forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
+            } else {
+                warn!("ChainExchange request for messages returned null messages");
+            }
+
+            s.send(full_tipset).await?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Going forward along the tipsets, try to load the messages in them from the `BlockStore`,
 /// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
@@ -1010,97 +1055,66 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chainstore: Arc<ChainStore<DB>>,
-    bad_block_cache: Arc<BadBlockCache>,
+    bad_block_cache: &BadBlockCache,
     tipsets: Vec<Arc<Tipset>>,
-    genesis: Arc<Tipset>,
+    genesis: &Tipset,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
-    // Iterate through tipsets in chronological order
-    let mut tipset_iter = tipsets.into_iter().rev();
+    // Sync the messages for one or many tipsets @ a time
+    const REQUEST_WINDOW: usize = 8;
 
-    // Sync the messages for one tipset @ a time
-    const REQUEST_WINDOW: usize = 1;
+    let task_chainstore = chainstore.clone();
 
-    while let Some(tipset) = tipset_iter.next() {
-        match chainstore.fill_tipset(&tipset) {
-            Some(full_tipset) => {
-                let current_epoch = full_tipset.epoch();
-                validate_tipset::<_, C>(
-                    consensus.clone(),
-                    state_manager.clone(),
-                    chainstore.clone(),
-                    bad_block_cache.clone(),
-                    full_tipset,
-                    genesis.clone(),
-                    invalid_block_strategy,
-                )
-                .await?;
-                tracker.write().await.set_epoch(current_epoch);
-                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
-            }
-            None => {
-                // Full tipset is not in storage; request messages via chain_exchange
-                let batch_size = REQUEST_WINDOW;
-                debug!(
-                    "ChainExchange message sync tipsets: epoch: {}, len: {}",
-                    tipset.epoch(),
-                    batch_size,
-                );
+    // Spawn a background task for the chain_exchange message requests
+    let (s, r) = channel::bounded(REQUEST_WINDOW * 2);
+    let handle = task::spawn(async move {
+        let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
 
-                // Receive tipset bundle from block sync
-                let compacted_messages = network
-                    .chain_exchange_messages(None, tipset.key(), batch_size as u64)
-                    .await
-                    .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
-                // Chain current tipset with iterator
-                let mut inner_iter = std::iter::once(tipset).chain(&mut tipset_iter);
-
-                // Since the bundle only has messages, we have to put the headers in them
-                for messages in compacted_messages {
-                    // Construct full tipset from fetched messages
-                    let tipset = inner_iter.next().ok_or_else(|| {
-                        TipsetRangeSyncerError::NetworkMessageQueryFailed(String::from(
-                            "Messages returned exceeded tipsets in chain",
-                        ))
-                    })?;
-
-                    let bundle = TipsetBundle {
-                        blocks: tipset.blocks().to_vec(),
-                        messages: Some(messages),
-                    };
-
-                    let full_tipset = FullTipset::try_from(&bundle)
-                        .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
-
-                    // Validate the tipset and the messages
-                    let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
-                    let current_epoch = full_tipset.epoch();
-                    validate_tipset::<_, C>(
-                        consensus.clone(),
-                        state_manager.clone(),
-                        chainstore.clone(),
-                        bad_block_cache.clone(),
-                        full_tipset,
-                        genesis.clone(),
-                        invalid_block_strategy,
-                    )
-                    .await?;
-                    tracker.write().await.set_epoch(current_epoch);
-                    timer.observe_duration();
-                    metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
-
-                    // Persist the messages in the store
-                    if let Some(m) = bundle.messages {
-                        forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-                        forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
-                    } else {
-                        warn!("ChainExchange request for messages returned null messages");
-                    }
+        // Visit tipsets in chronological order
+        for tipset in tipsets.into_iter().rev() {
+            // If the current tipset batch is empty and we already have the
+            // messages for the current tipset, skip the download and send
+            // it directly to the validator.
+            if batch.is_empty() {
+                if let Some(full_tipset) = task_chainstore.fill_tipset(&tipset) {
+                    s.send(full_tipset).await?;
+                    continue;
                 }
             }
+
+            // Request tipset messages via chain_exchange
+            batch.push(tipset);
+            if batch.len() == REQUEST_WINDOW {
+                fetch_batch(&batch, &network, &task_chainstore, &s).await?;
+                batch.clear();
+            }
         }
+        // Fetch last batch
+        fetch_batch(&batch, &network, &task_chainstore, &s).await?;
+
+        Ok(())
+    });
+
+    // Validation loop
+    while let Ok(full_tipset) = r.recv().await {
+        let current_epoch = full_tipset.epoch();
+        let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
+        validate_tipset::<_, C>(
+            consensus.clone(),
+            state_manager.clone(),
+            &chainstore,
+            bad_block_cache,
+            full_tipset,
+            genesis,
+            invalid_block_strategy,
+        )
+        .await?;
+        timer.observe_duration();
+        tracker.write().await.set_epoch(current_epoch);
+        metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
-    Ok(())
+
+    handle.await
 }
 
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
@@ -1109,10 +1123,10 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
-    chainstore: Arc<ChainStore<DB>>,
-    bad_block_cache: Arc<BadBlockCache>,
+    chainstore: &ChainStore<DB>,
+    bad_block_cache: &BadBlockCache,
     full_tipset: FullTipset,
-    genesis: Arc<Tipset>,
+    genesis: &Tipset,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     if full_tipset.key().eq(genesis.key()) {
@@ -1575,7 +1589,7 @@ fn block_timestamp_checks<C: Consensus>(
 /// Check if any CID in `tipset` is a known bad block.
 /// If so, add all their descendants to the bad block cache and return an error.
 async fn validate_tipset_against_cache<C: Consensus>(
-    bad_block_cache: Arc<BadBlockCache>,
+    bad_block_cache: &BadBlockCache,
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError<C>> {
