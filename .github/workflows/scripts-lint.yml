@@ -21,7 +21,12 @@ jobs:
   rubocop:
     runs-on: ubuntu-latest
     steps:
-    - name: RuboCop Linter Action
-      uses: andrewmcodes/rubocop-linter-action@v3.3.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v2
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+      - name: Run rubocop
+        run: |
+          gem install rubocop --no-document
+          rubocop scripts/
