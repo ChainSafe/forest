@@ -137,10 +137,10 @@ pub async fn get_params(
         Ok(())
     } else {
         let error_messages: Vec<_> = errors.iter().map(|e| format!("{e}")).collect();
-        anyhow::bail!(format!(
+        anyhow::bail!(anyhow::Error::msg(format!(
             "Aggregated errors:\n{}",
-            anyhow::Error::msg(error_messages.join("\n\n"))
-        ))
+            error_messages.join("\n\n")
+        )))
     }
 }
 
