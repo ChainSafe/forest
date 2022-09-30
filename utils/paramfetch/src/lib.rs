@@ -99,6 +99,7 @@ pub async fn get_params(
     }
 
     // XXX: We return OK(()) even if 'fetch_verify_params' fails. :-/
+    //      Tracking issue: https://github.com/ChainSafe/forest/issues/1975
     Ok(())
 }
 
