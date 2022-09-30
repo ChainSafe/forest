@@ -116,3 +116,32 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq)]
+struct AddressWrapper {
+    address: Address,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for AddressWrapper {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let address = Address::new_id(u64::arbitrary(g));
+        AddressWrapper { address }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use forest_json::address::json::{AddressJson, AddressJsonRef};
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[quickcheck]
+    fn address_roundtrip(address: AddressWrapper) {
+        let serialized = serde_json::to_string(&AddressJsonRef(&address.address)).unwrap();
+        let parsed: AddressJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(address.address, parsed.0);
+    }
+}
