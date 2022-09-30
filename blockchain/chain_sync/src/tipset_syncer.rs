@@ -1019,10 +1019,9 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
             .chain_exchange_messages(None, head.key(), len as u64)
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
-        let messages_iter = compacted_messages.into_iter().rev();
 
         // Since the bundle only has messages, we have to put the headers in them
-        for (messages, tipset) in messages_iter.zip(batch.iter()) {
+        for (messages, tipset) in compacted_messages.into_iter().rev().zip(batch.iter()) {
             // Construct full tipset from fetched messages
             let bundle = TipsetBundle {
                 blocks: tipset.blocks().to_vec(),
@@ -1092,9 +1091,8 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
         }
         // Fetch last batch
         fetch_batch(&batch, &network, &task_chainstore, &s).await?;
-        batch.clear();
 
-        Ok::<(), TipsetRangeSyncerError<C>>(())
+        Ok(())
     });
 
     // Validation loop
