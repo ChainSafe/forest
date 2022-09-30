@@ -224,7 +224,7 @@ fn replace_extension_url(mut url: Url, extension: &str) -> anyhow::Result<Url> {
 }
 
 /// Creates regular checksum (raw bytes) from a checksum file with format:
-/// `<hex-encodec checksum> -`
+/// `<hex-encoded checksum> -`
 fn checksum_from_file(content: &[u8], digest_length: usize) -> anyhow::Result<Vec<u8>> {
     let checksum_hex = content
         .iter()
