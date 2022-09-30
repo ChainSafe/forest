@@ -1,7 +1,7 @@
 [package]
 name        = "forest_fil_types"
 description = "Filecoin types used in Forest."
-version     = "0.2.2"
+version     = "0.4.0"
 license     = "MIT OR Apache-2.0"
 authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 edition     = "2021"
