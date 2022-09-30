@@ -125,17 +125,14 @@ impl Cbor for SignedMessage {
 }
 
 #[cfg(test)]
-impl quickcheck::Arbitrary for SignedMessage {
+#[derive(Clone, Debug, PartialEq)]
+struct MessageWrapper {
+    message: Message,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for MessageWrapper {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        const DUMMY_SIG: [u8; 1] = [0u8];
-
-        struct DummySigner;
-        impl Signer for DummySigner {
-            fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-                Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-            }
-        }
-
         let msg = Message {
             to: Address::new_id(u64::arbitrary(g)),
             from: Address::new_id(u64::arbitrary(g)),
@@ -148,7 +145,23 @@ impl quickcheck::Arbitrary for SignedMessage {
             gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
             gas_premium: TokenAmount::from(i64::arbitrary(g)),
         };
-        SignedMessage::new(msg, &DummySigner).unwrap()
+        MessageWrapper { message: msg }
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for SignedMessage {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        const DUMMY_SIG: [u8; 1] = [0u8];
+
+        struct DummySigner;
+        impl Signer for DummySigner {
+            fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
+                Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+            }
+        }
+
+        SignedMessage::new(MessageWrapper::arbitrary(g).message, &DummySigner).unwrap()
     }
 }
 
