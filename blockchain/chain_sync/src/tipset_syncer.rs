@@ -1009,38 +1009,39 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     s: &channel::Sender<FullTipset>,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Tipsets in `batch` are already in chronological order
-    let head = batch.last().unwrap(); // This is safe because a batch can't be empty
-    let epoch = head.epoch();
-    let len = batch.len();
+    if let Some(head) = batch.last() {
+        let epoch = head.epoch();
+        let len = batch.len();
 
-    debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
+        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
 
-    let compacted_messages = network
-        .chain_exchange_messages(None, head.key(), len as u64)
-        .await
-        .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
-    let messages_iter = compacted_messages.into_iter().rev();
+        let compacted_messages = network
+            .chain_exchange_messages(None, head.key(), len as u64)
+            .await
+            .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
+        let messages_iter = compacted_messages.into_iter().rev();
 
-    // Since the bundle only has messages, we have to put the headers in them
-    for (messages, tipset) in messages_iter.zip(batch.iter()) {
-        // Construct full tipset from fetched messages
-        let bundle = TipsetBundle {
-            blocks: tipset.blocks().to_vec(),
-            messages: Some(messages),
-        };
+        // Since the bundle only has messages, we have to put the headers in them
+        for (messages, tipset) in messages_iter.zip(batch.iter()) {
+            // Construct full tipset from fetched messages
+            let bundle = TipsetBundle {
+                blocks: tipset.blocks().to_vec(),
+                messages: Some(messages),
+            };
 
-        let full_tipset = FullTipset::try_from(&bundle)
-            .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
+            let full_tipset = FullTipset::try_from(&bundle)
+                .map_err(TipsetRangeSyncerError::GeneratingTipsetFromTipsetBundle)?;
 
-        // Persist the messages in the store
-        if let Some(m) = bundle.messages {
-            forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-            forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
-        } else {
-            warn!("ChainExchange request for messages returned null messages");
+            // Persist the messages in the store
+            if let Some(m) = bundle.messages {
+                forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
+                forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
+            } else {
+                warn!("ChainExchange request for messages returned null messages");
+            }
+
+            s.send(full_tipset).await?;
         }
-
-        s.send(full_tipset).await?;
     }
 
     Ok(())
@@ -1065,7 +1066,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 
     let task_chainstore = chainstore.clone();
 
-    // Spawn a background task for the `chain_exchange` message requests
+    // Spawn a background task for the chain_exchange message requests
     let (s, r) = channel::bounded(REQUEST_WINDOW * 2);
     let handle = task::spawn(async move {
         let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
@@ -1082,18 +1083,16 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
                 }
             }
 
-            // request tipset messages via chain_exchange
+            // Request tipset messages via chain_exchange
             batch.push(tipset);
             if batch.len() == REQUEST_WINDOW {
                 fetch_batch(&batch, &network, &task_chainstore, &s).await?;
                 batch.clear();
             }
         }
-        if !batch.is_empty() {
-            // Fetch last batch if there's one
-            fetch_batch(&batch, &network, &task_chainstore, &s).await?;
-            batch.clear();
-        }
+        // Fetch last batch
+        fetch_batch(&batch, &network, &task_chainstore, &s).await?;
+        batch.clear();
 
         Ok::<(), TipsetRangeSyncerError<C>>(())
     });
