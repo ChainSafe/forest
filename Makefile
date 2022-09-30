@@ -23,7 +23,9 @@ clean-all:
 
 clean:
 	@echo "Cleaning local packages..."
-	@cargo clean -p forest
+	@cargo clean -p forest-cli
+	@cargo clean -p forest-daemon
+	@cargo clean -p forest_cli_shared
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p forest_chain_sync
@@ -111,7 +113,7 @@ test-all: test-release test-vectors
 
 # Checks if all headers are present and adds if not
 license:
-	./scripts/add_license.shin
+	./scripts/add_license.sh
 
 docs:
 	cargo doc --no-deps

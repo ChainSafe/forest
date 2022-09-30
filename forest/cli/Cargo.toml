@@ -88,6 +88,6 @@ quickcheck_macros = "1"
 rand.workspace    = true
 
 [features]
-default          = []
-testnet          = []
-release          = []
+default = []
+testnet = []
+release = []
