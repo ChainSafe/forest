@@ -157,7 +157,7 @@ impl ChainCommands {
                 });
                 match snapshot_fetch(&snapshot_dir, &config).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
-                    Err(e) => cli_error_and_die(format!("Failed fetchning the snapshot: {e}"), 1),
+                    Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
             }
         }
