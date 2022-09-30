@@ -1,5 +1,33 @@
+## Forest v0.5.0 (unreleased, scheduled for 2022-12-30)
 
-## Forest v0.3.0 (unreleased)
+## Forest v0.4.0 (2022-09-30)
+
+Notable updates:
+* Support for nv16.
+* Built-in method of downloading snapshots.
+* Vastly improved automated testing.
+
+### Added
+* New `forest chain export` command for generating snapshots.
+* New `forest chain fetch` command for downloading recent snapshots.
+* Logging settings are now part of the configuration file rather than only being
+  accessible through an environment variable.
+* A `--detach` flag for running the Forest node in the background.
+* A `--halt-after-import` for exiting Forest directly after importing a snapshot.
+* Delegated Consensus: A consensus mode useful for testing.
+* FIP-0023: Break ties between tipsets of equal weight.
+### Changed
+* Improve error messages if Forest isn't initiated with a valid database.
+* Formatting clean-up in the forest wallet.
+* Improved pretty-printing of debugging statediffs.
+* Several dozen spelling fixes in the documentation.
+* Fixed dead links in documentation (with automated detection).
+* Avoided a segmentation fault caused by an improper shutdown of the database.
+* Bump required rust version from nightly-2022-09-08 to nightly-2022-09-28.
+### Removed
+* Support for the `sled` database.
+
+## Forest v0.3.0 (2022-07-04)
 
 Notable updates:
 * Support nv15 entirely through the FVM.
