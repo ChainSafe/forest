@@ -48,12 +48,10 @@ Use dockerized Forest with host database:
 
 ## Dependencies
 
-* Rust `rustc >= 1.58.1`
-* Rust WASM target `wasm32-unknown-unknown`
+* Rust `rustc >= nightly-2022-09-28`
 
 ```shell
 rustup install nightly
-rustup target add wasm32-unknown-unknown
 ```
 
 * OS Base-Devel/Build-Essential
