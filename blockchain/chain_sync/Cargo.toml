@@ -27,7 +27,6 @@ forest_message                   = { workspace = true, features = ["proofs", "bl
 forest_message_pool.workspace    = true
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
-forest_vm.workspace              = true
 futures-util.workspace           = true
 futures.workspace                = true
 fvm.workspace                    = true
