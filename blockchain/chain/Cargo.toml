@@ -7,11 +7,11 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1"] }
+async-stream                     = "0.3.3"
 blake2b_simd.workspace           = true
 bls-signatures                   = { version = "0.11", default-features = false, features = ["blst"] }
 byteorder                        = "1.4.3"
 cid                              = { workspace = true, default-features = false, features = ["std"] }
-crossbeam                        = "0.8.2"
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true
@@ -32,7 +32,6 @@ fvm_ipld_car.workspace           = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 lazy_static.workspace            = true
-lockfree                         = "0.5.1"
 log.workspace                    = true
 lru.workspace                    = true
 num-traits.workspace             = true
