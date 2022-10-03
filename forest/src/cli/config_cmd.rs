@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cli::Config;
-use async_std::io::Write;
-use async_std::io::WriteExt;
+use std::io::Write;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -22,7 +21,6 @@ impl ConfigCommands {
                     toml::to_string(config)
                         .expect("Could not convert configuration to TOML format")
                 )
-                .await
                 .expect("Failed to write the configuration");
             }
         }
@@ -36,7 +34,7 @@ mod tests {
     #[async_std::test]
     async fn given_default_configuration_should_print_valid_toml() {
         let expected_config = Config::default();
-        let mut sink = futures::io::BufWriter::new(Vec::new());
+        let mut sink = std::io::BufWriter::new(Vec::new());
 
         ConfigCommands::Dump.run(&expected_config, &mut sink).await;
 

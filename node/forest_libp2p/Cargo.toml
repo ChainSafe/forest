@@ -53,3 +53,4 @@ tokio    = { workspace = true, features = ["sync", "time"] }
 async-std      = { workspace = true, features = ["attributes", "unstable"] }
 forest_crypto  = { workspace = true, features = ["blst"] }
 forest_genesis = { workspace = true, features = ["testing"] }
+tokio-util     = { version = "0.7.0", features = ["compat"] }
