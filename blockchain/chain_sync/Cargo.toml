@@ -35,7 +35,7 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 lazy_static.workspace            = true
 log.workspace                    = true
-lru                              = "0.8.0"
+lru.workspace                    = true
 nonempty                         = "0.8.0"
 num-bigint.workspace             = true
 num-traits.workspace             = true

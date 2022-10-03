@@ -34,7 +34,7 @@ fvm_shared                       = { workspace = true, default-features = false 
 lazy_static.workspace            = true
 lockfree                         = "0.5.1"
 log.workspace                    = true
-lru                              = "0.8.0"
+lru.workspace                    = true
 num-traits.workspace             = true
 pbr.workspace                    = true
 serde                            = { workspace = true, features = ["derive"] }
