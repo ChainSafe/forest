@@ -5875,6 +5875,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "quickcheck",
 ]
 
 [[package]]

@@ -53,29 +53,28 @@ pub mod json {
 }
 
 #[cfg(test)]
-#[derive(Clone, Debug, PartialEq)]
-struct BigIntWrapper {
-    bigint: BigInt,
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for BigIntWrapper {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let bigint = BigInt::from(u32::arbitrary(g));
-        BigIntWrapper { bigint }
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
-    use std::str::FromStr;
+
+    macro_rules! to_string_with {
+        ($obj:expr, $serializer:path) => {{
+            let mut writer = Vec::new();
+            $serializer($obj, &mut serde_json::ser::Serializer::new(&mut writer)).unwrap();
+            String::from_utf8(writer).unwrap()
+        }};
+    }
+
+    macro_rules! from_str_with {
+        ($str:expr, $deserializer:path) => {
+            $deserializer(&mut serde_json::de::Deserializer::from_str($str)).unwrap()
+        };
+    }
 
     #[quickcheck]
-    fn bigint_roundtrip(bigint: BigIntWrapper) {
-        let serialized = BigInt::to_string(&bigint.bigint);
-        let parsed = BigInt::from_str(&serialized).unwrap();
-        assert_eq!(bigint.bigint, parsed);
+    fn bigint_roundtrip(bigint: BigInt) {
+        let serialized: String = to_string_with!(&bigint, json::serialize);
+        let parsed = from_str_with!(&serialized, json::deserialize);
+        assert_eq!(bigint, parsed);
     }
 }
