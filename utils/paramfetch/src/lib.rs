@@ -88,19 +88,27 @@ pub async fn get_params(
         .for_each(|(name, info)| {
             let data_dir_clone = data_dir.to_owned();
             tasks.push(task::spawn(async move {
-                if let Err(e) = fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await {
-                    warn!("Error in validating params {}", e);
-                }
+                fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await
             }))
         });
 
+    let mut errors = vec![];
+
     for t in tasks {
-        t.await;
+        if let Err(err) = t.await {
+            errors.push(err);
+        }
     }
 
-    // XXX: We return OK(()) even if 'fetch_verify_params' fails. :-/
-    //      Tracking issue: https://github.com/ChainSafe/forest/issues/1975
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        let error_messages: Vec<_> = errors.iter().map(|e| format!("{e}")).collect();
+        anyhow::bail!(anyhow::Error::msg(format!(
+            "Aggregated errors:\n{}",
+            error_messages.join("\n\n")
+        )))
+    }
 }
 
 /// Get proofs parameters and all verification keys for a given sector size using default manifest.

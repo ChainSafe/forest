@@ -113,3 +113,38 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+#[derive(Clone, Debug)]
+struct MessageReceiptWrapper {
+    message_receipt: MessageReceipt,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for MessageReceiptWrapper {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let message_receipt = MessageReceipt {
+            exit_code: fvm_shared::error::ExitCode::new(u32::arbitrary(g)),
+            return_data: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
+            gas_used: i64::arbitrary(g),
+        };
+        MessageReceiptWrapper { message_receipt }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json::{MessageReceiptJson, MessageReceiptJsonRef};
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[quickcheck]
+    fn message_receipt_roundtrip(message_receipt: MessageReceiptWrapper) {
+        let serialized =
+            serde_json::to_string(&MessageReceiptJsonRef(&message_receipt.message_receipt))
+                .unwrap();
+        let parsed: MessageReceiptJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message_receipt.message_receipt, parsed.0);
+    }
+}
