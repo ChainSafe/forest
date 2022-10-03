@@ -24,13 +24,13 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use sha2::{digest::Output, Sha256};
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
 use tokio::io::AsyncWriteExt;
 use tokio::{fs::File, io::BufWriter};
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

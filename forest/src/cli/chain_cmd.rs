@@ -46,7 +46,7 @@ pub enum ChainCommands {
         ///  - height - the epoch
         #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
         output_path: PathBuf,
-        /// Skip calculating and creating the checksum file.
+        /// Skip creating the checksum file.
         #[structopt(long)]
         skip_checksum: bool,
     },
