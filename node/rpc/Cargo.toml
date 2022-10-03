@@ -34,6 +34,7 @@ forest_message_pool.workspace    = true
 forest_networks.workspace        = true
 forest_rpc-api.workspace         = true
 forest_state_manager.workspace   = true
+forest_utils_sink.workspace      = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true

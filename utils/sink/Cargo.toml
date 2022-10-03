@@ -1,0 +1,18 @@
+[package]
+name        = "forest_utils_sink"
+description = "Shared sink utilities."
+version     = "0.1.0"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+edition     = "2021"
+repository  = "https://github.com/ChainSafe/forest"
+
+[dependencies]
+digest                     = "0.10.5"
+futures.workspace          = true
+pin-project-lite.workspace = true
+tokio.workspace            = true
+
+[dev-dependencies]
+sha2  = { version = "0.10", default-features = false }
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -41,6 +41,7 @@ members = [
   "utils/metrics",
   "utils/paramfetch",
   "utils/json",
+  "utils/sink",
 ]
 resolver = "2"
 
@@ -146,6 +147,7 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./node/utils" }
+forest_utils_sink      = { path = "./utils/sink" }
 forest_vm              = { path = "./vm" }
 
 [profile.dev]
