@@ -407,15 +407,21 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             Some(0)
         };
 
-        import_chain::<FullVerifier, _>(
+        match import_chain::<FullVerifier, _>(
             state_manager,
             path,
             validate_height,
             config.client.skip_load,
         )
         .await
-        .expect("Failed miserably while importing chain from snapshot");
-        info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+        {
+            Ok(_) => {
+                info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
+            }
+            Err(err) => {
+                error!("Failed miserably while importing chain from snapshot {path}: {err}")
+            }
+        }
     }
 }
 
@@ -436,15 +442,41 @@ mod test {
     use fvm_shared::address::Address;
 
     #[async_std::test]
-    async fn import_snapshot_from_file() {
+    async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
+            .await
+            .is_ok());
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn import_snapshot_from_file_invalid() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("Cargo.toml").await.is_err());
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn import_snapshot_from_file_not_found() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("dummy.car").await.is_err());
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
+        anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
+            .await
+            .is_err());
+        Ok(())
+    }
+
+    async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
         let cs = Arc::new(ChainStore::new(db).await);
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
-            .build()
-            .unwrap();
-        cs.set_genesis(&genesis_header).unwrap();
+            .build()?;
+        cs.set_genesis(&genesis_header)?;
         let chain_config = Arc::new(ChainConfig::default());
         let sm = Arc::new(
             StateManager::new(
@@ -452,12 +484,10 @@ mod test {
                 chain_config,
                 Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
-            .await
-            .unwrap(),
+            .await?,
         );
-        import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", None, false)
-            .await
-            .expect("Failed to import chain");
+        import_chain::<FullVerifier, _>(&sm, file_path, None, false).await?;
+        Ok(())
     }
 
     // FIXME: This car file refers to actors that are not available in FVM yet.

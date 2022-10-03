@@ -30,16 +30,15 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 libsecp256k1.workspace           = true
 log.workspace                    = true
-# cannot update lru as `LruCache::new` changed its arguments
-lru                    = "0.8.0"
-num-rational.workspace = true
-num-traits.workspace   = true
-rand.workspace         = true
-serde                  = { workspace = true, features = ["derive"] }
-slotmap                = "1.0"
-statrs                 = "0.16"
-thiserror.workspace    = true
-tokio                  = { workspace = true, features = ["sync"] }
+lru.workspace                    = true
+num-rational.workspace           = true
+num-traits.workspace             = true
+rand.workspace                   = true
+serde                            = { workspace = true, features = ["derive"] }
+slotmap                          = "1.0"
+statrs                           = "0.16"
+thiserror.workspace              = true
+tokio                            = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 forest_key_management.workspace = true
