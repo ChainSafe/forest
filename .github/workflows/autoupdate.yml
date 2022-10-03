@@ -13,3 +13,4 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ secrets.ACTIONS_PAT }}'
           PR_FILTER: "auto_merge"
+          MERGE_CONFLICT_ACTION: "ignore"
