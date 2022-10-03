@@ -11,8 +11,9 @@ pin_project! {
     /// Both `Writer` and `Digest` parameters are generic so one can use freely the relevant
     /// structures, e.g. `BufWriter` and `Sha256`.
     pub struct AsyncWriterWithChecksum<D, W> {
+        #[pin]
         inner: W,
-        hasher: D
+        hasher: D,
     }
 }
 
@@ -29,8 +30,8 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
         buf: &[u8],
     ) -> std::task::Poll<std::io::Result<usize>> {
         let w = Pin::new(&mut self.inner).poll_write(cx, buf);
-        if let Poll::Ready(Ok(_)) = w {
-            self.hasher.update(buf);
+        if let Poll::Ready(Ok(size)) = w {
+            self.hasher.update(&buf[0..size]);
         }
         w
     }
