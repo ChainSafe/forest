@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::fs::File;
-use async_std::io::BufReader;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
@@ -10,11 +8,14 @@ use forest_fil_types::verifier::ProofVerifier;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_net_utils::FetchProgress;
 use forest_state_manager::StateManager;
-use futures::AsyncRead;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
 use std::io::Stdout;
 use std::sync::Arc;
+use tokio::fs::File;
+use tokio::io::AsyncRead;
+use tokio::io::BufReader;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -88,7 +89,7 @@ where
     BS: BlockStore + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader).await?;
+    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader.compat()).await?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
@@ -172,18 +173,19 @@ where
 /// Loads car file into database, and returns the block header CIDs from the CAR header.
 async fn load_and_retrieve_header<DB, R>(
     store: &DB,
-    mut reader: FetchProgress<R, Stdout>,
+    reader: FetchProgress<R, Stdout>,
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where
     DB: BlockStore,
     R: AsyncRead + Send + Unpin,
 {
+    let mut compat = reader.compat();
     let result = if skip_load {
-        CarReader::new(&mut reader).await?.header.roots
+        CarReader::new(&mut compat).await?.header.roots
     } else {
-        load_car(store, &mut reader).await?
+        load_car(store, &mut compat).await?
     };
-    reader.finish();
+    compat.into_inner().finish();
     Ok(result)
 }
