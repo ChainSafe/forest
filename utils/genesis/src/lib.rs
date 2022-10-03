@@ -134,15 +134,13 @@ where
     info!("Importing chain from snapshot at: {path}");
     // start import
     let cids = if is_remote_file {
-        let url = Url::parse(path).expect("URL is invalid");
         info!("Downloading file...");
+        let url = Url::parse(path)?;
         let reader = FetchProgress::fetch_from_url(url).await?;
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     } else {
-        let file = File::open(&path)
-            .await
-            .expect("Snapshot file path not found!");
         info!("Reading file...");
+        let file = File::open(&path).await?;
         let reader = FetchProgress::fetch_from_file(file).await?;
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     };
