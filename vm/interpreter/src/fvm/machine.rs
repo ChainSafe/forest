@@ -3,14 +3,14 @@
 use crate::fvm::externs::ForestExterns;
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use forest_vm::TokenAmount;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::ActorID;
 
 pub struct ForestMachine<DB: 'static> {
     pub machine: fvm::machine::DefaultMachine<DB, ForestExterns<DB>>,
-    pub circ_supply: Option<TokenAmount>,
+    pub circ_supply: Option<BigInt>,
 }
 
 impl<DB: BlockStore> Machine for ForestMachine<DB> {
@@ -53,12 +53,7 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.create_actor(addr, act)
     }
 
-    fn transfer(
-        &mut self,
-        from: ActorID,
-        to: ActorID,
-        value: &TokenAmount,
-    ) -> fvm::kernel::Result<()> {
+    fn transfer(&mut self, from: ActorID, to: ActorID, value: &BigInt) -> fvm::kernel::Result<()> {
         self.machine.transfer(from, to, value)
     }
 

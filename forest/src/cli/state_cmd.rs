@@ -13,7 +13,6 @@ use forest_rpc_client::{
     chain_head, chain_read_obj, state_account_key, state_get_actor, state_list_actors,
     state_lookup, state_miner_power,
 };
-use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
@@ -36,7 +35,7 @@ struct VestingSchedule {
 struct VestingScheduleEntry {
     epoch: ChainEpoch,
     #[serde(with = "bigint_ser")]
-    amount: TokenAmount,
+    amount: BigInt,
 }
 
 #[derive(Debug, StructOpt)]

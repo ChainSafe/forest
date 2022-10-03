@@ -11,7 +11,7 @@ use forest_message::signed_message::{
     json::{SignedMessageJson, SignedMessageJsonRef},
     SignedMessage,
 };
-use forest_vm::Serialized;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
@@ -51,7 +51,7 @@ fn message_json_annotations() {
         sequence: 5,
         value: 6.into(),
         method_num: 7,
-        params: Serialized::default(),
+        params: RawBytes::default(),
         gas_limit: 8,
         gas_fee_cap: 10.into(),
         gas_premium: 9.into(),

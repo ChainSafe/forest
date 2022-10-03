@@ -56,8 +56,9 @@ pub mod json {
     use cid::Cid;
     use forest_json::address::json::AddressJson;
     use forest_json::bigint;
-    use forest_vm::{Serialized, TokenAmount};
     use fvm_ipld_encoding::Cbor;
+    use fvm_ipld_encoding::RawBytes;
+    use fvm_shared::bigint::BigInt;
     use fvm_shared::message::Message;
     use serde::{de, ser};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -93,12 +94,12 @@ pub mod json {
         #[serde(rename = "Nonce")]
         sequence: u64,
         #[serde(with = "bigint::json")]
-        value: TokenAmount,
+        value: BigInt,
         gas_limit: i64,
         #[serde(with = "bigint::json")]
-        gas_fee_cap: TokenAmount,
+        gas_fee_cap: BigInt,
         #[serde(with = "bigint::json")]
-        gas_premium: TokenAmount,
+        gas_premium: BigInt,
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,
@@ -141,7 +142,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap,
             gas_premium: m.gas_premium,
             method_num: m.method_num,
-            params: Serialized::new(
+            params: RawBytes::new(
                 base64::decode(&m.params.unwrap_or_default()).map_err(de::Error::custom)?,
             ),
         })

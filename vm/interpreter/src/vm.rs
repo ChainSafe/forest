@@ -7,12 +7,11 @@ use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_ipld_blockstore::BlockStore;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
-use forest_vm::{Serialized, TokenAmount};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
 use fvm::machine::{Engine, Machine, NetworkConfig};
 use fvm::state_tree::StateTree;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -43,7 +42,7 @@ pub trait CircSupplyCalc: Clone + 'static {
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error>;
+    ) -> Result<BigInt, anyhow::Error>;
 }
 
 /// Allows the generation of a reward message based on gas fees and penalties.
@@ -110,7 +109,7 @@ where
         network_version: NetworkVersion,
         circ_supply_calc: C,
         reward_calc: Arc<dyn RewardCalc>,
-        override_circ_supply: Option<TokenAmount>,
+        override_circ_supply: Option<BigInt>,
         lb_state: &LB,
         engine: Engine,
         heights: Heights,
@@ -367,7 +366,7 @@ impl RewardCalc for RewardActorMessageCalc {
         penalty: BigInt,
         gas_reward: BigInt,
     ) -> Result<Option<Message>, anyhow::Error> {
-        let params = Serialized::serialize(AwardBlockRewardParams {
+        let params = RawBytes::serialize(AwardBlockRewardParams {
             miner,
             penalty,
             gas_reward,

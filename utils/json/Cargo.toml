@@ -11,6 +11,7 @@ data-encoding-macro = "0.1"
 forest_json_utils.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+fvm.workspace = true
 multihash = { workspace = true, default-features = false, features = [
   "std",
   "blake2b",

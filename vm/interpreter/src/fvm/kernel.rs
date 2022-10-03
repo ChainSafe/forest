@@ -3,7 +3,6 @@
 use super::ForestMachine;
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use forest_vm::TokenAmount;
 use fvm::call_manager::*;
 use fvm::gas::{Gas, PriceList};
 use fvm::kernel::BlockRegistry;
@@ -13,6 +12,7 @@ use fvm::kernel::{
     SendResult,
 };
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::ConsensusFault;
 use fvm_shared::crypto::signature::SignatureType;
@@ -23,7 +23,7 @@ use fvm_shared::{ActorID, MethodNum};
 
 pub struct ForestKernel<DB: BlockStore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
-    Option<TokenAmount>,
+    Option<BigInt>,
 );
 
 impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
@@ -39,7 +39,7 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
         caller: ActorID,
         actor_id: ActorID,
         method: MethodNum,
-        value_received: TokenAmount,
+        value_received: BigInt,
     ) -> Self
     where
         Self: Sized,
@@ -103,7 +103,7 @@ impl<DB: BlockStore> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
-    fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
+    fn total_fil_circ_supply(&self) -> fvm::kernel::Result<BigInt> {
         match self.1.clone() {
             Some(supply) => Ok(supply),
             None => self.0.total_fil_circ_supply(),
@@ -216,7 +216,7 @@ impl<DB: BlockStore> MessageOps for ForestKernel<DB> {
         self.0.msg_method_number()
     }
 
-    fn msg_value_received(&self) -> TokenAmount {
+    fn msg_value_received(&self) -> BigInt {
         self.0.msg_value_received()
     }
 }
@@ -229,7 +229,7 @@ impl<DB: BlockStore> NetworkOps for ForestKernel<DB> {
         self.0.network_version()
     }
 
-    fn network_base_fee(&self) -> &TokenAmount {
+    fn network_base_fee(&self) -> &BigInt {
         self.0.network_base_fee()
     }
 }
@@ -263,7 +263,7 @@ impl<DB: BlockStore> SelfOps for ForestKernel<DB> {
         self.0.set_root(root)
     }
 
-    fn current_balance(&self) -> Result<TokenAmount> {
+    fn current_balance(&self) -> Result<BigInt> {
         self.0.current_balance()
     }
 
@@ -277,7 +277,7 @@ impl<DB: BlockStore> SendOps for ForestKernel<DB> {
         recipient: &Address,
         method: u64,
         params: BlockId,
-        value: &TokenAmount,
+        value: &BigInt,
     ) -> Result<SendResult> {
         self.0.send(recipient, method, params, value)
     }

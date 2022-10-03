@@ -5,9 +5,9 @@ use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
 use cid::Cid;
-use forest_vm::{MethodNum, Serialized, TokenAmount};
-use fvm_ipld_encoding::{Cbor, Error};
+use fvm_ipld_encoding::{Cbor, Error, RawBytes};
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 
@@ -47,19 +47,19 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.sequence,
         }
     }
-    fn value(&self) -> &TokenAmount {
+    fn value(&self) -> &BigInt {
         match self {
             Self::Signed(t) => t.value(),
             Self::Unsigned(t) => &t.value,
         }
     }
-    fn method_num(&self) -> MethodNum {
+    fn method_num(&self) -> u64 {
         match self {
             Self::Signed(t) => t.method_num(),
             Self::Unsigned(t) => t.method_num,
         }
     }
-    fn params(&self) -> &Serialized {
+    fn params(&self) -> &RawBytes {
         match self {
             Self::Signed(t) => t.params(),
             Self::Unsigned(t) => &t.params,
@@ -83,33 +83,33 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.sequence = new_sequence,
         }
     }
-    fn required_funds(&self) -> TokenAmount {
+    fn required_funds(&self) -> BigInt {
         match self {
             Self::Signed(t) => t.required_funds(),
             Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
         }
     }
-    fn gas_fee_cap(&self) -> &TokenAmount {
+    fn gas_fee_cap(&self) -> &BigInt {
         match self {
             Self::Signed(t) => t.gas_fee_cap(),
             Self::Unsigned(t) => &t.gas_fee_cap,
         }
     }
-    fn gas_premium(&self) -> &TokenAmount {
+    fn gas_premium(&self) -> &BigInt {
         match self {
             Self::Signed(t) => t.gas_premium(),
             Self::Unsigned(t) => &t.gas_premium,
         }
     }
 
-    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
+    fn set_gas_fee_cap(&mut self, cap: BigInt) {
         match self {
             Self::Signed(t) => t.set_gas_fee_cap(cap),
             Self::Unsigned(t) => t.gas_fee_cap = cap,
         }
     }
 
-    fn set_gas_premium(&mut self, prem: TokenAmount) {
+    fn set_gas_premium(&mut self, prem: BigInt) {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
             Self::Unsigned(t) => t.gas_premium = prem,

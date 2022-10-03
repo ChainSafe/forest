@@ -4,7 +4,6 @@
 use cid::Cid;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
-use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
@@ -87,7 +86,7 @@ impl State {
     }
 
     /// Consume state to return just total funds locked
-    pub fn total_locked(&self) -> TokenAmount {
+    pub fn total_locked(&self) -> BigInt {
         match self {
             State::V8(st) => st.total_locked(),
         }
@@ -156,11 +155,11 @@ pub struct DealProposal {
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
     #[serde(with = "json")]
-    pub storage_price_per_epoch: TokenAmount,
+    pub storage_price_per_epoch: BigInt,
     #[serde(with = "json")]
-    pub provider_collateral: TokenAmount,
+    pub provider_collateral: BigInt,
     #[serde(with = "json")]
-    pub client_collateral: TokenAmount,
+    pub client_collateral: BigInt,
 }
 
 pub enum DealStates<'a, BS> {
@@ -188,7 +187,7 @@ impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, _key: &Address) -> anyhow::Result<TokenAmount> {
+    pub fn get(&self, _key: &Address) -> anyhow::Result<BigInt> {
         unimplemented!()
     }
 }

@@ -26,7 +26,6 @@ use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
-use forest_vm::TokenAmount;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
@@ -1401,7 +1400,7 @@ where
         self: &Arc<Self>,
         height: ChainEpoch,
         state_tree: &StateTree<&DB>,
-    ) -> Result<TokenAmount, anyhow::Error> {
+    ) -> Result<BigInt, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }
 
@@ -1431,8 +1430,8 @@ where
 // * There is not a great reason this is a separate type from the one on the RPC.
 // * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
-    pub miner_power: Option<TokenAmount>,
-    pub network_power: Option<TokenAmount>,
+    pub miner_power: Option<BigInt>,
+    pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfo>,
     pub worker_key: Address,
     pub sector_size: SectorSize,

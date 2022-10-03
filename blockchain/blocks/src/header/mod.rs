@@ -9,7 +9,6 @@ use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
 use forest_fil_types::PoStProof;
-use forest_vm::TokenAmount;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::{
@@ -128,7 +127,7 @@ pub struct BlockHeader {
     bls_aggregate: Option<Signature>,
     /// the base fee of the parent block
     #[builder(default)]
-    parent_base_fee: TokenAmount,
+    parent_base_fee: BigInt,
     // CACHE
     /// stores the `cid` for the block after the first call to `cid()`
     #[builder(default, setter(skip))]

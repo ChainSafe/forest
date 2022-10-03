@@ -6,9 +6,9 @@
 
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use forest_vm::TokenAmount;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 
 use rayon::ThreadPoolBuildError;
@@ -167,7 +167,7 @@ pub struct ActorMigrationInput {
     /// Actor's address
     address: Address,
     /// Actor's balance
-    balance: TokenAmount,
+    balance: BigInt,
     /// Actor's state head CID
     head: Cid,
     /// Epoch of last state transition prior to migration

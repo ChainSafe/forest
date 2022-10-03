@@ -28,7 +28,6 @@ use forest_message::{
 };
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
-use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::address::Address;
@@ -89,7 +88,7 @@ pub struct BlockMessages {
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
     #[serde(with = "json")]
-    max_fee: TokenAmount,
+    max_fee: BigInt,
 }
 
 // State API
