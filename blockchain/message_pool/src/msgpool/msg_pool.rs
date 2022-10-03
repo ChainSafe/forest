@@ -17,7 +17,6 @@ use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
 use async_std::channel::{bounded, Sender};
-use async_std::stream::interval;
 use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -28,7 +27,7 @@ use forest_macros::const_option;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::{ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
-use futures::{future::select, StreamExt};
+use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
@@ -42,6 +41,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::RwLock;
+use tokio::time::interval;
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
@@ -281,7 +281,10 @@ where
         let republish_task = task::spawn(async move {
             let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
-                select(interval.next(), repub_trigger_rx.next()).await;
+                tokio::select! {
+                    _ = interval.tick() => (),
+                    _ = repub_trigger_rx.next() => (),
+                }
                 if let Err(e) = republish_pending_messages(
                     api.as_ref(),
                     network_sender.as_ref(),

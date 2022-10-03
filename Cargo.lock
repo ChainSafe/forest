@@ -460,6 +460,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-stream"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dad5c83079eae9969be7fadefe640a1c566901f05ff91ab221de4b6f68d9507e"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10f203db73a71dfa2fb6dd22763990fa26f3d2625a6da2da900d23b87d26be27"
+dependencies = [
+ "proc-macro2 1.0.46",
+ "quote 1.0.21",
+ "syn 1.0.101",
+]
+
+[[package]]
 name = "async-task"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2674,11 +2695,11 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
+ "async-stream",
  "blake2b_simd 1.0.0",
  "bls-signatures",
  "byteorder 1.4.3",
  "cid",
- "crossbeam",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -2700,7 +2721,6 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared",
  "lazy_static",
- "lockfree",
  "log",
  "lru 0.8.1",
  "multihash",
@@ -2917,6 +2937,8 @@ dependencies = [
  "futures",
  "fvm_ipld_car",
  "log",
+ "tokio",
+ "tokio-util",
  "url",
 ]
 
@@ -3097,6 +3119,7 @@ dependencies = [
  "smallvec",
  "tiny-cid",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3186,13 +3209,13 @@ name = "forest_net_utils"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
- "futures",
  "isahc 1.7.2",
  "log",
  "pbr",
  "pin-project-lite 0.2.9",
  "thiserror",
+ "tokio",
+ "tokio-util",
  "url",
 ]
 
@@ -3219,14 +3242,13 @@ dependencies = [
  "blake2b_simd 1.0.0",
  "forest_fil_types",
  "forest_net_utils",
- "futures",
- "isahc 1.7.2",
  "log",
- "pbr",
  "pin-project-lite 0.2.9",
  "serde",
  "serde_json",
  "surf",
+ "tokio",
+ "tokio-util",
  "url",
 ]
 
@@ -3283,6 +3305,7 @@ dependencies = [
  "tide",
  "tide-websockets",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -5347,15 +5370,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lockfree"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74ee94b5ad113c7cb98c5a040f783d0952ee4fe100993881d1673c2cb002dd23"
-dependencies = [
- "owned-alloc",
-]
-
-[[package]]
 name = "log"
 version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6057,12 +6071,6 @@ checksum = "628223faebab4e3e40667ee0b2336d34a5b960ff60ea743ddfdbcf7770bcfb66"
 dependencies = [
  "winapi 0.3.9",
 ]
-
-[[package]]
-name = "owned-alloc"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30fceb411f9a12ff9222c5f824026be368ff15dc2f13468d850c7d3f502205d6"
 
 [[package]]
 name = "owning_ref"
@@ -8489,7 +8497,19 @@ dependencies = [
  "num_cpus",
  "pin-project-lite 0.2.9",
  "socket2",
+ "tokio-macros",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
+dependencies = [
+ "proc-macro2 1.0.46",
+ "quote 1.0.21",
+ "syn 1.0.101",
 ]
 
 [[package]]
@@ -8521,6 +8541,7 @@ checksum = "0bb2e075f03b3d66d8d8785356224ba688d2906a371015e225beeb65ca92c740"
 dependencies = [
  "bytes 1.2.1",
  "futures-core",
+ "futures-io",
  "futures-sink",
  "pin-project-lite 0.2.9",
  "tokio",

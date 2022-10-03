@@ -4,11 +4,10 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use async_std::channel::{self, bounded, Receiver};
 use async_std::task;
+use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
-use crossbeam::atomic::AtomicCell;
 use forest_actor_interface::{miner, EPOCHS_IN_DAY};
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -28,7 +27,6 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::message::Message;
-use lockfree::map::Map as LockfreeMap;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use serde::Serialize;
@@ -38,7 +36,8 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     time::SystemTime,
 };
-use tokio::sync::broadcast::{self, error::RecvError, Sender as Publisher};
+use tokio::sync::broadcast::{self, Sender as Publisher};
+use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -66,12 +65,13 @@ pub struct ChainStore<DB> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
 
-    /// Tracks head change subscription channels
-    subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
+    // XXX: 'subscriptions' disabled since it is unused.
+    // /// Tracks head change subscription channels
+    // subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
 
-    /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
-    subscriptions_count: AtomicCell<usize>,
-
+    // XXX: 'subscriptions_count' disabled since it is unused.
+    // /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
+    // subscriptions_count: AtomicCell<usize>,
     /// key-value `datastore`.
     pub db: DB,
 
@@ -94,12 +94,11 @@ where
 {
     pub async fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        // unfallible unwrap due to `DEFAULT_TIPSET_CACHE_SIZE` being a non-None const
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
-            subscriptions: Default::default(),
-            subscriptions_count: Default::default(),
+            // subscriptions: Default::default(),
+            // subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
             tipset_tracker: TipsetTracker::new(db.clone()),
             db,
@@ -457,12 +456,22 @@ where
     {
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
-        let (tx, mut rx) = bounded(CHANNEL_CAP);
+        let (tx, mut rx) = mpsc::channel(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
         // Spawns task which receives blocks to write to the car writer.
-        let write_task =
-            task::spawn(async move { header.write_stream_async(&mut writer, &mut rx).await });
+        let write_task = task::spawn(async move {
+            header
+                .write_stream_async(
+                    &mut writer,
+                    &mut Box::pin(stream! {
+                        while let Some(val) = rx.recv().await {
+                            yield val;
+                        }
+                    }),
+                )
+                .await
+        });
 
         let global_pre_time = SystemTime::now();
         info!("chain export started");
@@ -504,87 +513,89 @@ where
         Ok(())
     }
 
-    /// Subscribes to head changes. This function will send the current tipset through a channel,
-    /// start a task that listens to each head change event and forwards into the channel,
-    /// then returns an id corresponding to the receiver of this channel from the function.
-    /// This function is not blocking on events, and does not stall publishing events as it will
-    /// skip over lagged events.
-    pub async fn sub_head_changes(&self) -> i64 {
-        let (tx, rx) = channel::bounded(16);
-        let mut subscriber = self.publisher.subscribe();
+    // XXX: 'sub_head_changes' disabled since it is unsed.
+    // /// Subscribes to head changes. This function will send the current tipset through a channel,
+    // /// start a task that listens to each head change event and forwards into the channel,
+    // /// then returns an id corresponding to the receiver of this channel from the function.
+    // /// This function is not blocking on events, and does not stall publishing events as it will
+    // /// skip over lagged events.
+    // pub async fn sub_head_changes(&self) -> i64 {
+    //     let (tx, rx) = channel::bounded(16);
+    //     let mut subscriber = self.publisher.subscribe();
 
-        debug!("Reading subscription length");
-        let sub_id = self.subscriptions_count.load() as i64 + 1;
+    //     debug!("Reading subscription length");
+    //     let sub_id = self.subscriptions_count.load() as i64 + 1;
 
-        debug!("Incrementing subscriptions count");
-        self.subscriptions_count.fetch_add(1);
+    //     debug!("Incrementing subscriptions count");
+    //     self.subscriptions_count.fetch_add(1);
 
-        debug!("Writing subscription receiver");
-        self.subscriptions.insert(sub_id, Some(rx));
+    //     debug!("Writing subscription receiver");
+    //     self.subscriptions.insert(sub_id, Some(rx));
 
-        debug!("Subscription ID {} created", sub_id);
+    //     debug!("Subscription ID {} created", sub_id);
 
-        // Send current heaviest tipset into receiver as first event.
-        if let Some(ts) = self.heaviest_tipset().await {
-            debug!("Tipset published");
-            tx.send(HeadChange::Current(ts))
-                .await
-                .expect("Receiver guaranteed to not drop by now")
-        }
+    //     // Send current heaviest tipset into receiver as first event.
+    //     if let Some(ts) = self.heaviest_tipset().await {
+    //         debug!("Tipset published");
+    //         tx.send(HeadChange::Current(ts))
+    //             .await
+    //             .expect("Receiver guaranteed to not drop by now")
+    //     }
 
-        let subscriptions = self.subscriptions.clone();
-        debug!("Spawning subscription task");
+    //     let subscriptions = self.subscriptions.clone();
+    //     debug!("Spawning subscription task");
 
-        task::spawn(async move {
-            loop {
-                match subscriber.recv().await {
-                    Ok(change) => {
-                        debug!("Received head changes for subscription ID: {}", sub_id);
-                        if tx.send(change).await.is_err() {
-                            // Subscriber dropped, no need to keep task alive
-                            subscriptions.insert(sub_id, None);
-                            break;
-                        }
-                    }
-                    Err(RecvError::Lagged(_)) => {
-                        // Can keep polling, as long as receiver is not dropped
-                        warn!("Subscriber lagged, ignored head change events");
-                    }
-                    // This can only happen if chain store is dropped, but fine to exit silently
-                    // if this ever does happen.
-                    Err(RecvError::Closed) => break,
-                }
-            }
-        });
+    //     task::spawn(async move {
+    //         loop {
+    //             match subscriber.recv().await {
+    //                 Ok(change) => {
+    //                     debug!("Received head changes for subscription ID: {}", sub_id);
+    //                     if tx.send(change).await.is_err() {
+    //                         // Subscriber dropped, no need to keep task alive
+    //                         subscriptions.insert(sub_id, None);
+    //                         break;
+    //                     }
+    //                 }
+    //                 Err(RecvError::Lagged(_)) => {
+    //                     // Can keep polling, as long as receiver is not dropped
+    //                     warn!("Subscriber lagged, ignored head change events");
+    //                 }
+    //                 // This can only happen if chain store is dropped, but fine to exit silently
+    //                 // if this ever does happen.
+    //                 Err(RecvError::Closed) => break,
+    //             }
+    //         }
+    //     });
 
-        debug!("Returning subscription ID {}", sub_id);
-        sub_id
-    }
+    //     debug!("Returning subscription ID {}", sub_id);
+    //     sub_id
+    // }
 
-    pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
-        debug!(
-            "Getting subscription receiver for subscription ID: {}",
-            sub_id
-        );
-        if let Some(sub) = self.subscriptions.get(sub_id) {
-            if let Some(rx) = sub.val() {
-                debug!("Polling receiver for subscription ID: {}", sub_id);
-                match rx.recv().await {
-                    Ok(head_change) => {
-                        debug!("Got head change for subscription ID: {}", sub_id);
-                        Some(head_change)
-                    }
-                    Err(_) => None,
-                }
-            } else {
-                warn!("A subscription with this ID no longer exists");
-                None
-            }
-        } else {
-            warn!("No subscription with this ID");
-            None
-        }
-    }
+    // XXX: 'next_head_change' disabled since it is unsed.
+    // pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
+    //     debug!(
+    //         "Getting subscription receiver for subscription ID: {}",
+    //         sub_id
+    //     );
+    //     if let Some(sub) = self.subscriptions.get(sub_id) {
+    //         if let Some(rx) = sub.val() {
+    //             debug!("Polling receiver for subscription ID: {}", sub_id);
+    //             match rx.recv().await {
+    //                 Ok(head_change) => {
+    //                     debug!("Got head change for subscription ID: {}", sub_id);
+    //                     Some(head_change)
+    //                 }
+    //                 Err(_) => None,
+    //             }
+    //         } else {
+    //             warn!("A subscription with this ID no longer exists");
+    //             None
+    //         }
+    //     } else {
+    //         warn!("No subscription with this ID");
+    //         None
+    //     }
+    // }
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
     /// This is tracked based on the callback function loading blocks.

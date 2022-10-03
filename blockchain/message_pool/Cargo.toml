@@ -38,7 +38,7 @@ serde                            = { workspace = true, features = ["derive"] }
 slotmap                          = "1.0"
 statrs                           = "0.16"
 thiserror.workspace              = true
-tokio                            = { workspace = true, features = ["sync"] }
+tokio                            = { workspace = true, features = ["sync", "macros"] }
 
 [dev-dependencies]
 forest_key_management.workspace = true

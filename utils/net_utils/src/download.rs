@@ -1,17 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::fs::File;
-use async_std::io::BufReader;
-use futures::prelude::*;
 use isahc::{AsyncBody, HttpClient};
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
-use std::io::{self, Stdout, Write};
+use std::io::{Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use thiserror::Error;
+use tokio::fs::File;
+use tokio::io::AsyncRead;
+use tokio::io::{BufReader, ReadBuf};
+use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
 
 #[derive(Debug, Error)]
@@ -39,18 +40,22 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, io::Error>> {
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let prev_len = buf.filled().len();
         let r = Pin::new(&mut self.inner).poll_read(cx, buf);
-        if let Poll::Ready(Ok(size)) = r {
-            self.progress_bar.add(size as u64);
+        if let Poll::Ready(Ok(())) = r {
+            self.progress_bar
+                .add((buf.filled().len() - prev_len) as u64);
         }
         r
     }
 }
 
 impl FetchProgress<AsyncBody, Stdout> {
-    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<AsyncBody, Stdout>> {
+    pub async fn fetch_from_url(
+        url: Url,
+    ) -> anyhow::Result<FetchProgress<Compat<AsyncBody>, Stdout>> {
         let client = HttpClient::new()?;
         let total_size = {
             let resp = client.head(url.as_str())?;
@@ -74,7 +79,7 @@ impl FetchProgress<AsyncBody, Stdout> {
 
         Ok(FetchProgress {
             progress_bar: pb,
-            inner: request.into_body(),
+            inner: request.into_body().compat(),
         })
     }
 }
