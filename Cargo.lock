@@ -2483,7 +2483,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "forest-cli"
-version = "0.2.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2562,7 +2562,7 @@ dependencies = [
 
 [[package]]
 name = "forest-daemon"
-version = "0.2.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2644,7 +2644,7 @@ dependencies = [
 
 [[package]]
 name = "forest_actor_interface"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -2675,7 +2675,7 @@ dependencies = [
 
 [[package]]
 name = "forest_auth"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "forest_crypto",
  "forest_key_management",
@@ -2690,7 +2690,7 @@ dependencies = [
 
 [[package]]
 name = "forest_beacon"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ahash 0.8.0",
  "anyhow",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "forest_blocks"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "base64 0.13.0",
@@ -2744,7 +2744,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -2776,7 +2776,7 @@ dependencies = [
  "lazy_static",
  "lockfree",
  "log",
- "lru 0.8.0",
+ "lru 0.8.1",
  "multihash",
  "num-traits",
  "pbr",
@@ -2787,7 +2787,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain_sync"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -2825,7 +2825,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
- "lru 0.8.0",
+ "lru 0.8.1",
  "nonempty",
  "num-bigint 0.4.3",
  "num-traits",
@@ -2845,7 +2845,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cli_shared"
-version = "0.2.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2913,7 +2913,7 @@ dependencies = [
 
 [[package]]
 name = "forest_crypto"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -2932,7 +2932,7 @@ dependencies = [
 
 [[package]]
 name = "forest_db"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -2948,7 +2948,7 @@ dependencies = [
 
 [[package]]
 name = "forest_deleg_cns"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "forest_encoding"
-version = "0.2.2"
+version = "0.4.0"
 dependencies = [
  "blake2b_simd 1.0.0",
  "cs_serde_bytes",
@@ -2988,7 +2988,7 @@ dependencies = [
 
 [[package]]
 name = "forest_fil_cns"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3021,7 +3021,7 @@ dependencies = [
 
 [[package]]
 name = "forest_fil_types"
-version = "0.2.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -3043,7 +3043,7 @@ dependencies = [
 
 [[package]]
 name = "forest_genesis"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3072,7 +3072,7 @@ dependencies = [
 
 [[package]]
 name = "forest_interpreter"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ahash 0.8.0",
  "anyhow",
@@ -3106,7 +3106,7 @@ dependencies = [
 
 [[package]]
 name = "forest_ipld"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3132,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "forest_ipld_blockstore"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -3145,7 +3145,7 @@ dependencies = [
 
 [[package]]
 name = "forest_json"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cid",
  "cs_serde_bytes",
@@ -3161,7 +3161,7 @@ dependencies = [
 
 [[package]]
 name = "forest_json_utils"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3169,7 +3169,7 @@ dependencies = [
 
 [[package]]
 name = "forest_key_management"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "base64 0.13.0",
  "bls-signatures",
@@ -3206,7 +3206,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3243,14 +3243,14 @@ dependencies = [
 
 [[package]]
 name = "forest_macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "const_format",
 ]
 
 [[package]]
 name = "forest_message"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -3272,7 +3272,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message_pool"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3300,7 +3300,7 @@ dependencies = [
  "fvm_shared",
  "libsecp256k1",
  "log",
- "lru 0.8.0",
+ "lru 0.8.1",
  "num-rational",
  "num-traits",
  "rand 0.8.5",
@@ -3313,7 +3313,7 @@ dependencies = [
 
 [[package]]
 name = "forest_metrics"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "fs_extra",
@@ -3325,7 +3325,7 @@ dependencies = [
 
 [[package]]
 name = "forest_net_utils"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3340,7 +3340,7 @@ dependencies = [
 
 [[package]]
 name = "forest_networks"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "fil_actors_runtime",
@@ -3354,7 +3354,7 @@ dependencies = [
 
 [[package]]
 name = "forest_paramfetch"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3374,7 +3374,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3429,7 +3429,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3464,7 +3464,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "forest_blocks",
@@ -3523,7 +3523,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_migration"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cid",
  "crossbeam-channel",
@@ -3543,7 +3543,7 @@ dependencies = [
 
 [[package]]
 name = "forest_statediff"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
@@ -3567,7 +3567,7 @@ dependencies = [
 
 [[package]]
 name = "forest_test_utils"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -3595,7 +3595,7 @@ dependencies = [
 
 [[package]]
 name = "forest_vm"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "cid",
  "forest_encoding",
@@ -5519,9 +5519,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "936d98d2ddd79c18641c6709e7bb09981449694e402d1a0f0f657ea8d61f4a51"
+checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
 dependencies = [
  "hashbrown 0.12.3",
 ]
@@ -6331,9 +6331,9 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "pest"
-version = "2.3.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb779fcf4bb850fbbb0edc96ff6cf34fd90c4b1a112ce042653280d9a7364048"
+checksum = "dbc7bc69c062e492337d74d59b120c274fd3d261b6bf6d3207d499b4b379c41a"
 dependencies = [
  "thiserror",
  "ucd-trie",
@@ -7871,9 +7871,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fd0db749597d91ff862fd1d55ea87f7855a744a8425a64695b6fca237d1dad1"
+checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "smartstring"
