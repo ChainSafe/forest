@@ -101,14 +101,11 @@ pub async fn get_params(
             let cmb = mb.clone();
             let data_dir_clone = data_dir.to_owned();
             tasks.push(task::spawn(async move {
-                if let Err(e) =
-                    fetch_verify_params(&data_dir_clone, &name, Arc::new(info), cmb).await
-                {
-                    warn!("Error in validating params {}", e);
-                }
+                fetch_verify_params(&data_dir_clone, &name, Arc::new(info), cmb).await
             }))
         });
 
+    let mut errors = vec![];
     if let Some(multi_bar) = mb {
         let cmb = multi_bar.clone();
         let (mb_send, mb_rx) = bounded(1);
@@ -119,7 +116,9 @@ pub async fn get_params(
             }
         });
         for t in tasks {
-            t.await;
+            if let Err(err) = t.await {
+                errors.push(err);
+            }
         }
         mb_send
             .send(())
@@ -128,11 +127,21 @@ pub async fn get_params(
         mb.await;
     } else {
         for t in tasks {
-            t.await;
+            if let Err(err) = t.await {
+                errors.push(err);
+            }
         }
     }
 
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        let error_messages: Vec<_> = errors.iter().map(|e| format!("{e}")).collect();
+        anyhow::bail!(anyhow::Error::msg(format!(
+            "Aggregated errors:\n{}",
+            error_messages.join("\n\n")
+        )))
+    }
 }
 
 /// Get proofs parameters and all verification keys for a given sector size using default manifest.
