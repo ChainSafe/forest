@@ -20,7 +20,6 @@ use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
 use forest_utils_sink::Checksum;
-use futures::AsyncWrite;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
@@ -38,9 +37,11 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     time::SystemTime,
 };
+use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -462,7 +463,7 @@ where
         let (tx, mut rx) = mpsc::channel(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
-        let writer = Arc::new(Mutex::new(writer));
+        let writer = Arc::new(Mutex::new(writer.compat_write()));
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
@@ -517,7 +518,7 @@ where
             .expect("time cannot go backwards");
         info!("export finished, took {} seconds", time.as_secs());
 
-        let digest = writer.lock().await.finalize();
+        let digest = writer.lock().await.get_mut().finalize();
         Ok(digest)
     }
 

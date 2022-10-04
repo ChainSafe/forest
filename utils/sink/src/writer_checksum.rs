@@ -3,8 +3,8 @@
 use std::{pin::Pin, task::Poll};
 
 use digest::{Digest, Output};
-use futures::AsyncWrite;
 use pin_project_lite::pin_project;
+use tokio::io::AsyncWrite;
 
 pin_project! {
     /// Wrapper `AsyncWriter` implementation that calculates the checksum on the fly.
@@ -43,11 +43,11 @@ impl<D: Digest, W: AsyncWrite + Unpin> AsyncWrite for AsyncWriterWithChecksum<D,
         Pin::new(&mut self.inner).poll_flush(cx)
     }
 
-    fn poll_close(
-        mut self: std::pin::Pin<&mut Self>,
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        Pin::new(&mut self.inner).poll_close(cx)
+    ) -> Poll<Result<(), std::io::Error>> {
+        Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }
 
@@ -70,8 +70,8 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use futures::{io::BufWriter, AsyncWriteExt};
     use sha2::{Sha256, Sha512};
+    use tokio::io::{AsyncWriteExt, BufWriter};
 
     #[tokio::test]
     async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum() {

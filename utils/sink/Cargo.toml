@@ -9,8 +9,8 @@ repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 digest                     = "0.10.5"
-futures.workspace          = true
 pin-project-lite.workspace = true
+tokio                      = { workspace = true, features = ["io-util"] }
 
 [dev-dependencies]
 sha2  = { version = "0.10", default-features = false }

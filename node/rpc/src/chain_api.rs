@@ -30,7 +30,6 @@ use std::{
 };
 use tokio::io::AsyncWriteExt;
 use tokio::{fs::File, io::BufWriter};
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -78,7 +77,7 @@ where
     }
 
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
-    let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file).compat_write());
+    let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
 

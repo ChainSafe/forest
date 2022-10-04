@@ -2731,6 +2731,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3482,7 +3483,6 @@ name = "forest_utils_sink"
 version = "0.1.0"
 dependencies = [
  "digest 0.10.5",
- "futures",
  "pin-project-lite 0.2.9",
  "sha2 0.10.6",
  "tokio",
