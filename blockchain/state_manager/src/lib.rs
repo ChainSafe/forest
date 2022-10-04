@@ -1431,8 +1431,8 @@ where
 // * There is not a great reason this is a separate type from the one on the RPC.
 // * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
-    pub miner_power: Option<TokenAmount>,
-    pub network_power: Option<TokenAmount>,
+    pub miner_power: Option<BigInt>,
+    pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfo>,
     pub worker_key: Address,
     pub sector_size: SectorSize,

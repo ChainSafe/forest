@@ -203,7 +203,7 @@ fn get_fil_power_locked<DB: BlockStore>(
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let fil_reserved: TokenAmount = BigInt::from(300_000_000) * FILECOIN_PRECISION;
+    let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
@@ -238,7 +238,7 @@ fn get_circulating_supply<DB: BlockStore>(
     } else {
         TokenAmount::default()
     };
-    let fil_circulating = TokenAmount::max(
+    let fil_circulating = BigInt::max(
         &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
         TokenAmount::default(),
     );
