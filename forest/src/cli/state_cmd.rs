@@ -17,11 +17,11 @@ use fvm::state_tree::ActorState;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::bigint_ser;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use num_traits::cast::FromPrimitive;
 use structopt::StructOpt;
-use fvm_shared::bigint::BigInt;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
 

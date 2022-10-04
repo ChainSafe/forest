@@ -11,11 +11,11 @@ use forest_ipld_blockstore::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::bigint::Integer;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::FILECOIN_PRECISION;
 use once_cell::sync::OnceCell;
-use fvm_shared::bigint::Integer;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
@@ -209,7 +209,9 @@ fn get_fil_reserve_disbursed<DB: BlockStore>(
     Ok(fil_reserved - reserve_actor.balance)
 }
 
-fn get_fil_locked<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_locked<DB: BlockStore>(
+    state_tree: &StateTree<DB>,
+) -> Result<TokenAmount, anyhow::Error> {
     let market_locked = get_fil_market_locked(state_tree)?;
     let power_locked = get_fil_power_locked(state_tree)?;
     Ok(power_locked + market_locked)
@@ -246,7 +248,9 @@ fn get_circulating_supply<DB: BlockStore>(
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
         .into_iter()
-        .map(|(unlock_duration, initial_balance)| (unlock_duration, TokenAmount::from(initial_balance)))
+        .map(|(unlock_duration, initial_balance)| {
+            (unlock_duration, TokenAmount::from(initial_balance))
+        })
         .collect()
 }
 
@@ -286,7 +290,6 @@ fn v0_amount_locked(
     initial_balance: &TokenAmount,
     elapsed_epoch: ChainEpoch,
 ) -> TokenAmount {
-
     if elapsed_epoch >= unlock_duration {
         return TokenAmount::from(0);
     }
