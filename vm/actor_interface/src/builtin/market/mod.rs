@@ -8,6 +8,7 @@ use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::piece::PaddedPieceSize;
 use serde::Serialize;
 use std::marker::PhantomData;
@@ -86,7 +87,7 @@ impl State {
     }
 
     /// Consume state to return just total funds locked
-    pub fn total_locked(&self) -> BigInt {
+    pub fn total_locked(&self) -> TokenAmount {
         match self {
             State::V8(st) => st.total_locked(),
         }
@@ -155,11 +156,11 @@ pub struct DealProposal {
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
     #[serde(with = "json")]
-    pub storage_price_per_epoch: BigInt,
+    pub storage_price_per_epoch: TokenAmount,
     #[serde(with = "json")]
-    pub provider_collateral: BigInt,
+    pub provider_collateral: TokenAmount,
     #[serde(with = "json")]
-    pub client_collateral: BigInt,
+    pub client_collateral: TokenAmount,
 }
 
 pub enum DealStates<'a, BS> {
