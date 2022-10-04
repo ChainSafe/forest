@@ -33,9 +33,9 @@ use fvm::machine::NetworkConfig;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
@@ -1431,8 +1431,8 @@ where
 // * There is not a great reason this is a separate type from the one on the RPC.
 // * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
-    pub miner_power: Option<BigInt>,
-    pub network_power: Option<BigInt>,
+    pub miner_power: Option<TokenAmount>,
+    pub network_power: Option<TokenAmount>,
     pub sectors: Vec<SectorInfo>,
     pub worker_key: Address,
     pub sector_size: SectorSize,

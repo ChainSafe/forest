@@ -3,8 +3,7 @@
 
 use forest_json::address::json as addr_json;
 use forest_json::bigint::json as bigint_json;
-use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use fvm_shared::sector::SectorSize;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -24,7 +23,7 @@ pub enum ActorType {
 pub struct Actor {
     pub actor_type: ActorType,
     #[serde(with = "bigint_json")]
-    pub balance: BigInt,
+    pub balance: TokenAmount,
 
     #[serde(with = "addr_json")]
     pub owner: Address,
@@ -42,9 +41,9 @@ pub struct Miner {
     pub peer_id: String,
 
     #[serde(with = "bigint_json")]
-    pub market_balance: BigInt,
+    pub market_balance: TokenAmount,
     #[serde(with = "bigint_json")]
-    pub power_balance: BigInt,
+    pub power_balance: TokenAmount,
     pub sector_size: SectorSize,
 }
 

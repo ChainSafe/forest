@@ -11,10 +11,11 @@ use forest_ipld_blockstore::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::FILECOIN_PRECISION;
 use once_cell::sync::OnceCell;
+use fvm_shared::bigint::Integer;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
@@ -39,8 +40,8 @@ pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
-    genesis_pledge: OnceCell<BigInt>,
-    genesis_market_funds: OnceCell<BigInt>,
+    genesis_pledge: OnceCell<TokenAmount>,
+    genesis_market_funds: OnceCell<TokenAmount>,
 
     /// Heights epoch
     ignition_height: ChainEpoch,
@@ -73,9 +74,9 @@ impl GenesisInfo {
 /// to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
-    genesis: OnceCell<Vec<(ChainEpoch, BigInt)>>,
-    ignition: OnceCell<Vec<(ChainEpoch, ChainEpoch, BigInt)>>,
-    calico: OnceCell<Vec<(ChainEpoch, ChainEpoch, BigInt)>>,
+    genesis: OnceCell<Vec<(ChainEpoch, TokenAmount)>>,
+    ignition: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
+    calico: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -83,7 +84,7 @@ impl CircSupplyCalc for GenesisInfo {
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<BigInt, anyhow::Error> {
+    ) -> Result<TokenAmount, anyhow::Error> {
         // TODO investigate a better way to handle initializing the genesis actors rather than
         // on first circ supply call. This is currently necessary because it is how Lotus does it
         // but it's not ideal to have the side effect from the VM to modify the genesis info
@@ -117,8 +118,8 @@ fn get_actor_state<DB: BlockStore>(
         .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {}", addr))
 }
 
-fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> BigInt {
-    let mut return_value = BigInt::default();
+fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
+    let mut return_value = TokenAmount::default();
 
     let pre_ignition = genesis_info
         .vesting
@@ -167,7 +168,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> BigInt {
     return_value
 }
 
-fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<BigInt, anyhow::Error> {
+fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
         .context("Reward actor address could not be resolved")?;
@@ -178,7 +179,7 @@ fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<BigInt, a
 
 fn get_fil_market_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<BigInt, anyhow::Error> {
+) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&market::ADDRESS)?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
@@ -189,7 +190,7 @@ fn get_fil_market_locked<DB: BlockStore>(
 
 fn get_fil_power_locked<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<BigInt, anyhow::Error> {
+) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
@@ -200,21 +201,21 @@ fn get_fil_power_locked<DB: BlockStore>(
 
 fn get_fil_reserve_disbursed<DB: BlockStore>(
     state_tree: &StateTree<DB>,
-) -> Result<BigInt, anyhow::Error> {
-    let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
+) -> Result<TokenAmount, anyhow::Error> {
+    let fil_reserved: TokenAmount = TokenAmount::from(300_000_000) * FILECOIN_PRECISION;
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
     Ok(fil_reserved - reserve_actor.balance)
 }
 
-fn get_fil_locked<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<BigInt, anyhow::Error> {
+fn get_fil_locked<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let market_locked = get_fil_market_locked(state_tree)?;
     let power_locked = get_fil_power_locked(state_tree)?;
     Ok(power_locked + market_locked)
 }
 
-fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<BigInt, anyhow::Error> {
+fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
@@ -224,7 +225,7 @@ fn get_circulating_supply<DB: BlockStore>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<DB>,
-) -> Result<BigInt, anyhow::Error> {
+) -> Result<TokenAmount, anyhow::Error> {
     let fil_vested = get_fil_vested(genesis_info, height);
     let fil_mined = get_fil_mined(state_tree)?;
     let fil_burnt = get_fil_burnt(state_tree)?;
@@ -232,47 +233,47 @@ fn get_circulating_supply<DB: BlockStore>(
     let fil_reserve_distributed = if height > genesis_info.actors_v2_height {
         get_fil_reserve_disbursed(state_tree)?
     } else {
-        BigInt::default()
+        TokenAmount::default()
     };
-    let fil_circulating = BigInt::max(
+    let fil_circulating = TokenAmount::max(
         &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
-        BigInt::default(),
+        TokenAmount::default(),
     );
 
     Ok(fil_circulating)
 }
 
-fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, BigInt)> {
+fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
         .into_iter()
-        .map(|(unlock_duration, initial_balance)| (unlock_duration, BigInt::from(initial_balance)))
+        .map(|(unlock_duration, initial_balance)| (unlock_duration, TokenAmount::from(initial_balance)))
         .collect()
 }
 
 fn setup_ignition_vesting_schedule(
     liftoff_height: ChainEpoch,
-) -> Vec<(ChainEpoch, ChainEpoch, BigInt)> {
+) -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
             (
                 liftoff_height,
                 unlock_duration,
-                BigInt::from(initial_balance) * FILECOIN_PRECISION,
+                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
             )
         })
         .collect()
 }
 fn setup_calico_vesting_schedule(
     liftoff_height: ChainEpoch,
-) -> Vec<(ChainEpoch, ChainEpoch, BigInt)> {
+) -> Vec<(ChainEpoch, ChainEpoch, TokenAmount)> {
     CALICO_VESTING
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
             (
                 liftoff_height,
                 unlock_duration,
-                BigInt::from(initial_balance) * FILECOIN_PRECISION,
+                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
             )
         })
         .collect()
@@ -282,18 +283,17 @@ fn setup_calico_vesting_schedule(
 /// Returns amount locked in multisig contract
 fn v0_amount_locked(
     unlock_duration: ChainEpoch,
-    initial_balance: &BigInt,
+    initial_balance: &TokenAmount,
     elapsed_epoch: ChainEpoch,
-) -> BigInt {
-    use fvm_shared::bigint::Integer;
+) -> TokenAmount {
 
     if elapsed_epoch >= unlock_duration {
-        return BigInt::from(0);
+        return TokenAmount::from(0);
     }
     if elapsed_epoch < 0 {
         return initial_balance.clone();
     }
     // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
-    let unit_locked: BigInt = initial_balance.div_floor(&BigInt::from(unlock_duration));
+    let unit_locked: TokenAmount = initial_balance.div_floor(&TokenAmount::from(unlock_duration));
     unit_locked * (unlock_duration - elapsed_epoch)
 }

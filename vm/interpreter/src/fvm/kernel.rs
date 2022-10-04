@@ -16,6 +16,7 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::ConsensusFault;
 use fvm_shared::crypto::signature::SignatureType;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::piece::PieceInfo;
 use fvm_shared::randomness::RANDOMNESS_LENGTH;
 use fvm_shared::sector::*;
@@ -23,7 +24,7 @@ use fvm_shared::{ActorID, MethodNum};
 
 pub struct ForestKernel<DB: BlockStore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
-    Option<BigInt>,
+    Option<TokenAmount>,
 );
 
 impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
@@ -103,7 +104,7 @@ impl<DB: BlockStore> fvm::kernel::IpldBlockOps for ForestKernel<DB> {
     }
 }
 impl<DB: BlockStore> fvm::kernel::CircSupplyOps for ForestKernel<DB> {
-    fn total_fil_circ_supply(&self) -> fvm::kernel::Result<BigInt> {
+    fn total_fil_circ_supply(&self) -> fvm::kernel::Result<TokenAmount> {
         match self.1.clone() {
             Some(supply) => Ok(supply),
             None => self.0.total_fil_circ_supply(),
@@ -229,7 +230,7 @@ impl<DB: BlockStore> NetworkOps for ForestKernel<DB> {
         self.0.network_version()
     }
 
-    fn network_base_fee(&self) -> &BigInt {
+    fn network_base_fee(&self) -> &TokenAmount {
         self.0.network_base_fee()
     }
 }
@@ -263,7 +264,7 @@ impl<DB: BlockStore> SelfOps for ForestKernel<DB> {
         self.0.set_root(root)
     }
 
-    fn current_balance(&self) -> Result<BigInt> {
+    fn current_balance(&self) -> Result<TokenAmount> {
         self.0.current_balance()
     }
 
@@ -277,7 +278,7 @@ impl<DB: BlockStore> SendOps for ForestKernel<DB> {
         recipient: &Address,
         method: u64,
         params: BlockId,
-        value: &BigInt,
+        value: &TokenAmount,
     ) -> Result<SendResult> {
         self.0.send(recipient, method, params, value)
     }

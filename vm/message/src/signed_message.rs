@@ -5,9 +5,10 @@ use super::Message as MessageTrait;
 use forest_crypto::Signer;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
+use fvm_shared::MethodNum;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 
 /// Represents a wrapped message with signature bytes.
@@ -77,10 +78,10 @@ impl MessageTrait for SignedMessage {
     fn sequence(&self) -> u64 {
         self.message.sequence
     }
-    fn value(&self) -> &BigInt {
+    fn value(&self) -> &TokenAmount {
         &self.message.value
     }
-    fn method_num(&self) -> u64 {
+    fn method_num(&self) -> MethodNum {
         self.message.method_num
     }
     fn params(&self) -> &RawBytes {
@@ -95,21 +96,21 @@ impl MessageTrait for SignedMessage {
     fn set_sequence(&mut self, new_sequence: u64) {
         self.message.sequence = new_sequence;
     }
-    fn required_funds(&self) -> BigInt {
+    fn required_funds(&self) -> TokenAmount {
         &self.message.gas_fee_cap * self.message.gas_limit + &self.message.value
     }
-    fn gas_fee_cap(&self) -> &BigInt {
+    fn gas_fee_cap(&self) -> &TokenAmount {
         &self.message.gas_fee_cap
     }
-    fn gas_premium(&self) -> &BigInt {
+    fn gas_premium(&self) -> &TokenAmount {
         &self.message.gas_premium
     }
 
-    fn set_gas_fee_cap(&mut self, cap: BigInt) {
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         self.message.gas_fee_cap = cap;
     }
 
-    fn set_gas_premium(&mut self, prem: BigInt) {
+    fn set_gas_premium(&mut self, prem: TokenAmount) {
         self.message.gas_premium = prem;
     }
 }
@@ -141,12 +142,12 @@ impl quickcheck::Arbitrary for SignedMessage {
             from: Address::new_id(u64::arbitrary(g)),
             version: i64::arbitrary(g),
             sequence: u64::arbitrary(g),
-            value: BigInt::from(i64::arbitrary(g)),
+            value: TokenAmount::from(i64::arbitrary(g)),
             method_num: u64::arbitrary(g),
             params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
             gas_limit: i64::arbitrary(g),
-            gas_fee_cap: BigInt::from(i64::arbitrary(g)),
-            gas_premium: BigInt::from(i64::arbitrary(g)),
+            gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
+            gas_premium: TokenAmount::from(i64::arbitrary(g)),
         };
         SignedMessage::new(msg, &DummySigner).unwrap()
     }

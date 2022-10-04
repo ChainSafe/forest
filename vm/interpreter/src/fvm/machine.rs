@@ -7,10 +7,11 @@ use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::ActorID;
+use fvm_shared::econ::TokenAmount;
 
 pub struct ForestMachine<DB: 'static> {
     pub machine: fvm::machine::DefaultMachine<DB, ForestExterns<DB>>,
-    pub circ_supply: Option<BigInt>,
+    pub circ_supply: Option<TokenAmount>,
 }
 
 impl<DB: BlockStore> Machine for ForestMachine<DB> {

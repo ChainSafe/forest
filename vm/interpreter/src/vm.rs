@@ -15,6 +15,7 @@ use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
@@ -42,7 +43,7 @@ pub trait CircSupplyCalc: Clone + 'static {
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
-    ) -> Result<BigInt, anyhow::Error>;
+    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Allows the generation of a reward message based on gas fees and penalties.
@@ -109,7 +110,7 @@ where
         network_version: NetworkVersion,
         circ_supply_calc: C,
         reward_calc: Arc<dyn RewardCalc>,
-        override_circ_supply: Option<BigInt>,
+        override_circ_supply: Option<TokenAmount>,
         lb_state: &LB,
         engine: Engine,
         heights: Heights,

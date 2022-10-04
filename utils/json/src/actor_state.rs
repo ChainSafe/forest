@@ -4,7 +4,7 @@
 pub mod json {
     use cid::Cid;
     use fvm::state_tree::ActorState;
-    use fvm_shared::bigint::BigInt;
+    use fvm_shared::econ::TokenAmount;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
 
@@ -73,7 +73,7 @@ pub mod json {
             code,
             state,
             sequence,
-            balance: BigInt::from_str(&balance).map_err(de::Error::custom)?,
+            balance: TokenAmount::from_str(&balance).map_err(de::Error::custom)?,
         })
     }
 }

@@ -11,7 +11,7 @@ use forest_json_utils::go_vec_visitor;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::address::Address;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::deal::DealID;
@@ -165,7 +165,7 @@ impl State {
     }
 
     /// Gets fee debt of miner state
-    pub fn fee_debt(&self) -> BigInt {
+    pub fn fee_debt(&self) -> TokenAmount {
         match self {
             State::V8(st) => st.fee_debt.clone(),
         }
@@ -307,13 +307,13 @@ pub struct SectorOnChainInfo {
     pub verified_deal_weight: BigInt,
     /// Pledge collected to commit this sector
     #[serde(with = "json")]
-    pub initial_pledge: BigInt,
+    pub initial_pledge: TokenAmount,
     /// Expected one day projection of reward for sector computed at activation time
     #[serde(with = "json")]
-    pub expected_day_reward: BigInt,
+    pub expected_day_reward: TokenAmount,
     /// Expected twenty day projection of reward for sector computed at activation time
     #[serde(with = "json")]
-    pub expected_storage_pledge: BigInt,
+    pub expected_storage_pledge: TokenAmount,
 }
 
 impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
@@ -339,7 +339,7 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
 pub struct SectorPreCommitOnChainInfo {
     pub info: SectorPreCommitInfo,
     #[serde(with = "json")]
-    pub pre_commit_deposit: BigInt,
+    pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
     /// Integral of active deals over sector lifetime, 0 if `CommittedCapacity` sector
     #[serde(with = "json")]

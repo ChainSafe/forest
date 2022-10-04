@@ -58,7 +58,7 @@ pub mod json {
     use forest_json::bigint;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding::RawBytes;
-    use fvm_shared::bigint::BigInt;
+    use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
     use serde::{de, ser};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -94,12 +94,12 @@ pub mod json {
         #[serde(rename = "Nonce")]
         sequence: u64,
         #[serde(with = "bigint::json")]
-        value: BigInt,
+        value: TokenAmount,
         gas_limit: i64,
         #[serde(with = "bigint::json")]
-        gas_fee_cap: BigInt,
+        gas_fee_cap: TokenAmount,
         #[serde(with = "bigint::json")]
-        gas_premium: BigInt,
+        gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,
         params: Option<String>,

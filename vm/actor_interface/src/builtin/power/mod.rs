@@ -10,7 +10,7 @@ use forest_ipld_blockstore::BlockStoreExt;
 use forest_json::bigint::json;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use serde::{Deserialize, Serialize};
 
 use anyhow::Context;
@@ -84,7 +84,7 @@ impl State {
     }
 
     /// Consume state to return total locked funds
-    pub fn into_total_locked(self) -> BigInt {
+    pub fn into_total_locked(self) -> TokenAmount {
         match self {
             State::V8(st) => st.into_total_locked(),
         }
@@ -126,7 +126,7 @@ impl State {
     }
 
     /// Returns total locked funds
-    pub fn total_locked(&self) -> BigInt {
+    pub fn total_locked(&self) -> TokenAmount {
         match self {
             State::V8(st) => st.total_pledge_collateral.clone(),
         }

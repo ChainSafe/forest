@@ -6,8 +6,8 @@ use crate::signed_message::SignedMessage;
 
 use cid::Cid;
 use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::MethodNum;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 
@@ -47,13 +47,13 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.sequence,
         }
     }
-    fn value(&self) -> &BigInt {
+    fn value(&self) -> &TokenAmount {
         match self {
             Self::Signed(t) => t.value(),
             Self::Unsigned(t) => &t.value,
         }
     }
-    fn method_num(&self) -> u64 {
+    fn method_num(&self) -> MethodNum {
         match self {
             Self::Signed(t) => t.method_num(),
             Self::Unsigned(t) => t.method_num,
@@ -83,33 +83,33 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.sequence = new_sequence,
         }
     }
-    fn required_funds(&self) -> BigInt {
+    fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
             Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
         }
     }
-    fn gas_fee_cap(&self) -> &BigInt {
+    fn gas_fee_cap(&self) -> &TokenAmount {
         match self {
             Self::Signed(t) => t.gas_fee_cap(),
             Self::Unsigned(t) => &t.gas_fee_cap,
         }
     }
-    fn gas_premium(&self) -> &BigInt {
+    fn gas_premium(&self) -> &TokenAmount {
         match self {
             Self::Signed(t) => t.gas_premium(),
             Self::Unsigned(t) => &t.gas_premium,
         }
     }
 
-    fn set_gas_fee_cap(&mut self, cap: BigInt) {
+    fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_fee_cap(cap),
             Self::Unsigned(t) => t.gas_fee_cap = cap,
         }
     }
 
-    fn set_gas_premium(&mut self, prem: BigInt) {
+    fn set_gas_premium(&mut self, prem: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
             Self::Unsigned(t) => t.gas_premium = prem,
