@@ -157,3 +157,27 @@ jobs:
         with:
           command: build
           args: --profile dev
+
+  gh-pages:
+    env:
+      # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
+      RUSTDOCFLAGS: "-Zunstable-options --enable-index-page"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - run: make rustdoc
+      - run: mkdir -p ./gh-pages/
+      - run: mv ./target/doc ./gh-pages/rustdoc
+      - uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
