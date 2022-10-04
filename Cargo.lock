@@ -3009,7 +3009,6 @@ dependencies = [
  "cs_serde_bytes",
  "data-encoding",
  "data-encoding-macro",
- "forest_json",
  "forest_json_utils",
  "fvm_ipld_encoding",
  "fvm_shared",
