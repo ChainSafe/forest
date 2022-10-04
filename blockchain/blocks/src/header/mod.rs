@@ -17,6 +17,7 @@ use fvm_shared::bigint::{
 };
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::BLOCKS_PER_EPOCH;
 use once_cell::sync::OnceCell;
@@ -127,7 +128,7 @@ pub struct BlockHeader {
     bls_aggregate: Option<Signature>,
     /// the base fee of the parent block
     #[builder(default)]
-    parent_base_fee: BigInt,
+    parent_base_fee: TokenAmount,
     // CACHE
     /// stores the `cid` for the block after the first call to `cid()`
     #[builder(default, setter(skip))]

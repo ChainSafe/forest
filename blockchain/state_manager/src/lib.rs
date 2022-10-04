@@ -35,6 +35,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use fvm_shared::bigint::{bigint_ser, BigInt};
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
@@ -1400,7 +1401,7 @@ where
         self: &Arc<Self>,
         height: ChainEpoch,
         state_tree: &StateTree<&DB>,
-    ) -> Result<BigInt, anyhow::Error> {
+    ) -> Result<TokenAmount, anyhow::Error> {
         self.genesis_info.get_supply(height, state_tree)
     }
 

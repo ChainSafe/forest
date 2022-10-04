@@ -13,6 +13,7 @@ pub use signed_message::SignedMessage;
 
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::MethodNum;
 
 /// Message interface to interact with Signed and unsigned messages in a generic context.
 pub trait Message {
@@ -25,7 +26,7 @@ pub trait Message {
     /// Returns the amount sent in message.
     fn value(&self) -> &BigInt;
     /// Returns the method number to be called.
-    fn method_num(&self) -> u64;
+    fn method_num(&self) -> MethodNum;
     /// Returns the encoded parameters for the method call.
     fn params(&self) -> &RawBytes;
     /// sets the gas limit for the message.
