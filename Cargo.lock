@@ -3010,6 +3010,7 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "forest_json_utils",
+ "forest_test_utils",
  "fvm_ipld_encoding",
  "fvm_shared",
  "multihash",
