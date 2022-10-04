@@ -208,8 +208,8 @@ You can detach Forest process via the `--detach` flag so that it runs in the bac
 The command will block until the detached Forest process has started its RPC server, allowing you to chain some RPC command immediately after.
 
 ### Documentation
-_Work in progress_.
-- https://chainsafe.github.io/forest/
+- [forest book (_Work in progress_)](https://chainsafe.github.io/forest/)
+- [rust doc]((https://chainsafe.github.io/forest/rustdoc/))
 
 ## Contributing
 - Check out our contribution guidelines: [CONTRIBUTING.md](documentation/developer_documentation/CONTRIBUTING.md)
