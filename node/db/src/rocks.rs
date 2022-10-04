@@ -9,7 +9,7 @@ use crate::rocks_config::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
-pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
+pub use rocksdb::{DBCompressionType, LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
@@ -50,7 +50,7 @@ impl RocksDb {
         if let Some(compression_type) = &config.compression_type {
             db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
         } else {
-            db.opts.set_compression_type(DBCompressionType::None);
+            db_opts.set_compression_type(DBCompressionType::None);
         }
         if config.enable_statistics {
             //db_opts.set_stats_dump_period_sec(5);
