@@ -22,6 +22,8 @@ num-bigint.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+arbitrary.workspace         = true
+fvm_shared                  = { workspace = true, features = ["arb"] }
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true

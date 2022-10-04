@@ -130,7 +130,10 @@ mod tests {
     #[cfg(test)]
     impl quickcheck::Arbitrary for AddressWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let address = Address::new_id(u64::arbitrary(g));
+            let address = arbitrary::Arbitrary::arbitrary(&mut arbitrary::Unstructured::new(
+                &Vec::arbitrary(g),
+            ))
+            .unwrap();
             AddressWrapper { address }
         }
     }
