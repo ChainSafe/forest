@@ -58,7 +58,6 @@ pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompression
         "snappy" => Ok(DBCompressionType::Snappy),
         "zlib" => Ok(DBCompressionType::Zlib),
         "zstd" => Ok(DBCompressionType::Zstd),
-        "none" => Ok(DBCompressionType::None),
         _ => Err(anyhow!("invalid compression option")),
     }
 }
@@ -107,7 +106,6 @@ mod test {
             ("SNAPPY", Ok(DBCompressionType::Snappy)),
             ("zlib", Ok(DBCompressionType::Zlib)),
             ("ZSTD", Ok(DBCompressionType::Zstd)),
-            ("none", Ok(DBCompressionType::None)),
             ("cthulhu", Err(anyhow!("some error message"))),
         ];
         for (input, expected) in test_cases {

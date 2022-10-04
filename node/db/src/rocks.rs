@@ -49,6 +49,8 @@ impl RocksDb {
         }
         if let Some(compression_type) = &config.compression_type {
             db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
+        } else {
+            db.opts.set_compression_type(DBCompressionType::None);
         }
         if config.enable_statistics {
             //db_opts.set_stats_dump_period_sec(5);
