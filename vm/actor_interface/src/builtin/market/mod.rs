@@ -188,7 +188,7 @@ impl<BS> BalanceTable<'_, BS>
 where
     BS: BlockStore,
 {
-    pub fn get(&self, _key: &Address) -> anyhow::Result<BigInt> {
+    pub fn get(&self, _key: &Address) -> anyhow::Result<TokenAmount> {
         unimplemented!()
     }
 }

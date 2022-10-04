@@ -192,9 +192,9 @@ pub struct BlockTemplate {
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
     #[serde(with = "json::option")]
-    pub miner_power: Option<TokenAmount>,
+    pub miner_power: Option<BigInt>,
     #[serde(with = "json::option")]
-    pub network_power: Option<TokenAmount>,
+    pub network_power: Option<BigInt>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,
