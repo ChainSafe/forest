@@ -8,11 +8,12 @@ use crate::rocks_config::{
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use log::info;
 pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RocksDb {
     pub db: Arc<DB>,
 }
@@ -50,6 +51,7 @@ impl RocksDb {
             db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
         }
         if config.enable_statistics {
+            //db_opts.set_stats_dump_period_sec(5);
             db_opts.enable_statistics();
         };
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
@@ -102,6 +104,27 @@ impl Store for RocksDb {
             batch.put(k, v);
         }
         Ok(self.db.write(batch)?)
+    }
+
+    fn begin_import(&self) -> Result<(), Error> {
+        self.db.set_options(&[
+            ("disable_auto_compactions", "true"),
+            //("compaction_style", "kCompactionStyleNone"),
+        ])?;
+
+        Ok(())
+    }
+
+    fn end_import(&self) -> Result<(), Error> {
+        self.db.set_options(&[
+            ("disable_auto_compactions", "false"),
+            //("compaction_style", "kCompactionStyleLevel"),
+        ])?;
+
+        log::info!("Compacting range...");
+        self.db.compact_range::<&str, &str>(None, None);
+
+        Ok(())
     }
 }
 

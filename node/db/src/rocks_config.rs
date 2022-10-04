@@ -28,13 +28,13 @@ impl Default for RocksDbConfig {
         Self {
             create_if_missing: true,
             parallelism: num_cpus::get() as i32,
-            write_buffer_size: 256 * 1024 * 1024,
+            write_buffer_size: 64 * 1024 * 1024, // TODO: scale down during import
             max_open_files: 1024,
             max_background_jobs: None,
             compaction_style: Some("level".into()),
             compression_type: Some("lz4".into()),
-            enable_statistics: false,
-            log_level: "warn".into(),
+            enable_statistics: true,
+            log_level: "debug".into(),
         }
     }
 }

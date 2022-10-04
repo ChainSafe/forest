@@ -15,6 +15,7 @@ use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
 use std::io::Stdout;
 use std::sync::Arc;
+use std::time;
 use url::Url;
 
 #[cfg(feature = "testing")]
@@ -143,8 +144,15 @@ where
             .await
             .expect("Snapshot file path not found!");
         info!("Reading file...");
+        let stopwatch = time::Instant::now();
         let reader = FetchProgress::fetch_from_file(file).await?;
-        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
+        {
+            sm.blockstore().begin_import()?;
+            let cids = load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?;
+            info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
+            sm.blockstore().end_import()?;
+            cids
+        }
     };
     let ts = sm
         .chain_store()
