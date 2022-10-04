@@ -5,7 +5,6 @@ use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::ActorID;
 
@@ -54,7 +53,12 @@ impl<DB: BlockStore> Machine for ForestMachine<DB> {
         self.machine.create_actor(addr, act)
     }
 
-    fn transfer(&mut self, from: ActorID, to: ActorID, value: &BigInt) -> fvm::kernel::Result<()> {
+    fn transfer(
+        &mut self,
+        from: ActorID,
+        to: ActorID,
+        value: &TokenAmount,
+    ) -> fvm::kernel::Result<()> {
         self.machine.transfer(from, to, value)
     }
 

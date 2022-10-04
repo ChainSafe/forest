@@ -8,7 +8,6 @@ use forest_ipld_blockstore::BlockStore;
 use forest_ipld_blockstore::BlockStoreExt;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use serde::Serialize;
 
@@ -71,9 +70,9 @@ impl State {
     pub fn initial_pledge_for_power(
         &self,
         _sector_weight: &StoragePower,
-        _network_total_pledge: &BigInt,
+        _network_total_pledge: &TokenAmount,
         _network_qa_power: FilterEstimate,
-        _circ_supply: &BigInt,
+        _circ_supply: &TokenAmount,
     ) -> TokenAmount {
         todo!()
     }

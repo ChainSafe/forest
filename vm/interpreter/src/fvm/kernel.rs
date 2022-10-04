@@ -12,7 +12,6 @@ use fvm::kernel::{
     SendResult,
 };
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::ConsensusFault;
 use fvm_shared::crypto::signature::SignatureType;
@@ -40,7 +39,7 @@ impl<DB: BlockStore> fvm::Kernel for ForestKernel<DB> {
         caller: ActorID,
         actor_id: ActorID,
         method: MethodNum,
-        value_received: BigInt,
+        value_received: TokenAmount,
     ) -> Self
     where
         Self: Sized,
@@ -217,7 +216,7 @@ impl<DB: BlockStore> MessageOps for ForestKernel<DB> {
         self.0.msg_method_number()
     }
 
-    fn msg_value_received(&self) -> BigInt {
+    fn msg_value_received(&self) -> TokenAmount {
         self.0.msg_value_received()
     }
 }
