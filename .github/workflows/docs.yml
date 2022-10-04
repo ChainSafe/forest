@@ -28,11 +28,18 @@ jobs:
         with:
           command: doc
           args: --no-deps --workspace
-      - name: Link Checker
+      - name: Link Checker (Docs)
+        uses: lycheeverse/lychee-action@v1.5.1
+        with:
+          # Check all docs
+          args: --verbose --no-progress './target/doc/*/index.html'
+          # Fail action on broken links
+          fail: true
+      - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
           # Check all markdown and html files in repo (default)
-          args: --verbose --no-progress './target/doc/*/index.html'
+          args: --verbose --no-progress '.'
           # Fail action on broken links
           fail: true
   publish-docs:
