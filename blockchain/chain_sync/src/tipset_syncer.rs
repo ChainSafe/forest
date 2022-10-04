@@ -913,15 +913,16 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
         let mut potential_common_ancestor =
             chain_store.tipset_from_keys(current_head.parents()).await?;
+        let mut i = 0;
         let mut fork_length = 1;
-        for (i, tipset) in fork_tipsets.iter().enumerate() {
-            if tipset.epoch() == 0 {
+        while i < fork_tipsets.len() {
+            if fork_tipsets[i].epoch() == 0 {
                 return Err(TipsetRangeSyncerError::ForkAtGenesisBlock(format!(
                     "{:?}",
                     oldest_tipset.cids()
                 )));
             }
-            if potential_common_ancestor == *tipset {
+            if potential_common_ancestor == fork_tipsets[i] {
                 // Remove elements from the vector since the Drain
                 // iterator is immediately dropped
                 let mut fork_tipsets = fork_tipsets;
@@ -933,21 +934,22 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
             // If the potential common ancestor has an epoch which
             // is lower than the current fork tipset under evaluation
             // move to the next iteration without updated the potential common ancestor
-            if potential_common_ancestor.epoch() < tipset.epoch() {
-                continue;
+            if potential_common_ancestor.epoch() < fork_tipsets[i].epoch() {
+                i += 1;
+            } else {
+                fork_length += 1;
+                // Increment the fork length and enfore the fork length check
+                if fork_length > FORK_LENGTH_THRESHOLD {
+                    return Err(TipsetRangeSyncerError::ChainForkLengthExceedsMaximum);
+                }
+                // If we have not found a common ancestor by the last iteration, then return an error
+                if i == (fork_tipsets.len() - 1) {
+                    return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
+                }
+                potential_common_ancestor = chain_store
+                    .tipset_from_keys(potential_common_ancestor.parents())
+                    .await?;
             }
-            fork_length += 1;
-            // Increment the fork length and enfore the fork length check
-            if fork_length > FORK_LENGTH_THRESHOLD {
-                return Err(TipsetRangeSyncerError::ChainForkLengthExceedsMaximum);
-            }
-            // If we have not found a common ancestor by the last iteration, then return an error
-            if i == (fork_tipsets.len() - 1) {
-                return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
-            }
-            potential_common_ancestor = chain_store
-                .tipset_from_keys(potential_common_ancestor.parents())
-                .await?;
         }
     }
     Ok(parent_tipsets)
