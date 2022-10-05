@@ -23,16 +23,22 @@ jobs:
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
+      - name: Link Checker (Repo)
+        uses: lycheeverse/lychee-action@v1.5.1
+        with:
+          args: --verbose --no-progress 'README.md'
+          # Fail action on broken links
+          fail: true
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
         run: make rustdoc
-      - name: Run checks for rustdoc
+      - name: Link Checker (Docs)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
-          # Check all markdown and html files in repo (default)
+          # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'
           # Fail action on broken links
           fail: true
