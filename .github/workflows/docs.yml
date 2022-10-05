@@ -21,6 +21,12 @@ jobs:
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
+      - name: Link Checker (Repo)
+        uses: lycheeverse/lychee-action@v1.5.1
+        with:
+          args: --verbose --no-progress 'README.md'
+          # Fail action on broken links
+          fail: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Cargo Doc
@@ -28,10 +34,10 @@ jobs:
         with:
           command: doc
           args: --no-deps --workspace
-      - name: Link Checker
+      - name: Link Checker (Docs)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
-          # Check all markdown and html files in repo (default)
+          # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'
           # Fail action on broken links
           fail: true
