@@ -1,4 +1,0 @@
-[client]
-data_dir         = "/opt/forest"
-encrypt_keystore = false
-metrics_address  = "0.0.0.0:6116"
