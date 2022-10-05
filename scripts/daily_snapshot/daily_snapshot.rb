@@ -34,7 +34,7 @@ loop do
   client = SlackClient.new CHANNEL, SLACK_TOKEN
 
   # Find the snapshot with the most recent modification date
-  latest = Dir.glob(File.join(SNAPSHOTS_DIR, '/*')).max_by { |f| File.mtime(f) }
+  latest = Dir.glob(File.join(SNAPSHOTS_DIR, '/*.car')).max_by { |f| File.mtime(f) }
 
   # Check if the date of the most recent snapshot is today
   if Time.new.to_date == File.stat(latest).mtime.to_date
