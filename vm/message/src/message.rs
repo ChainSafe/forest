@@ -1,12 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(test)]
-use forest_vm::TokenAmount;
 #[cfg(feature = "proofs")]
 use fvm::gas::Gas;
-#[cfg(test)]
-use fvm_shared::address::Address;
 #[cfg(any(feature = "proofs", test))]
 use fvm_shared::message::Message;
 
@@ -177,36 +173,36 @@ pub mod json {
 }
 
 #[cfg(test)]
-#[derive(Clone, Debug, PartialEq)]
-struct MessageWrapper {
-    message: Message,
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for MessageWrapper {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let msg = Message {
-            to: Address::new_id(u64::arbitrary(g)),
-            from: Address::new_id(u64::arbitrary(g)),
-            version: i64::arbitrary(g),
-            sequence: u64::arbitrary(g),
-            value: TokenAmount::from(i64::arbitrary(g)),
-            method_num: u64::arbitrary(g),
-            params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
-            gas_limit: i64::arbitrary(g),
-            gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
-            gas_premium: TokenAmount::from(i64::arbitrary(g)),
-        };
-        MessageWrapper { message: msg }
-    }
-}
-
-#[cfg(test)]
-mod tests {
+pub mod tests {
     use super::json::{MessageJson, MessageJsonRef};
     use super::*;
+    use forest_vm::TokenAmount;
+    use fvm_shared::address::Address;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct MessageWrapper {
+        pub message: Message,
+    }
+
+    impl quickcheck::Arbitrary for MessageWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let msg = Message {
+                to: Address::new_id(u64::arbitrary(g)),
+                from: Address::new_id(u64::arbitrary(g)),
+                version: i64::arbitrary(g),
+                sequence: u64::arbitrary(g),
+                value: TokenAmount::from(i64::arbitrary(g)),
+                method_num: u64::arbitrary(g),
+                params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
+                gas_limit: i64::arbitrary(g),
+                gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
+                gas_premium: TokenAmount::from(i64::arbitrary(g)),
+            };
+            MessageWrapper { message: msg }
+        }
+    }
 
     #[quickcheck]
     fn message_roundtrip(message: MessageWrapper) {
