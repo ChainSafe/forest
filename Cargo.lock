@@ -3241,7 +3241,6 @@ dependencies = [
  "async-std",
  "blake2b_simd 1.0.0",
  "forest_fil_types",
- "forest_net_utils",
  "log",
  "pin-project-lite 0.2.9",
  "serde",

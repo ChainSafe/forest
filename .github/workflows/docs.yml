@@ -8,12 +8,14 @@ on:
     branches:
       - main
 
+env:
+  # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
+  RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
+
 jobs:
-  check-docs:
-    name: Check API documentation
+  check-publish-docs:
+    name: Publish
     runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: "-Dwarnings"
     steps:
       - name: Apt Dependencies
         run: |
@@ -27,13 +29,12 @@ jobs:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
-      - name: Cargo Doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --workspace
+      - name: Install MDBook
+        run: cargo install mdbook mdbook-linkcheck
+      - name: Execute MDBook
+        run: make mdbook-build
+      - name: Build rustdoc
+        run: make rustdoc
       - name: Link Checker (Docs)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
@@ -41,18 +42,8 @@ jobs:
           args: --verbose --no-progress './target/doc/*/index.html'
           # Fail action on broken links
           fail: true
-  publish-docs:
-    name: Publish
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-      - name: Install MDBook
-        run: |
-          cargo install mdbook mdbook-linkcheck
-      - name: Execute MDBook
-        run: |
-          mdbook build ./documentation/
+      - name: Prepare rustdoc for publishing
+        run: mv ./target/doc ./documentation/book/html/rustdoc
       # The deploy steps are identical expect for name and 'dry-run' attribute.
       # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
