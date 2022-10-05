@@ -64,7 +64,7 @@ impl RocksDb {
         if let Some(cache_size) = config.optimize_for_point_lookup {
             db_opts.optimize_for_point_lookup(cache_size);
         }
-        db_opts.set_unordered_write(config.set_unordered_write);
+        db_opts.set_unordered_write(config.unordered_write);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })

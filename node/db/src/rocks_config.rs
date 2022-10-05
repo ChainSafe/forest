@@ -24,7 +24,7 @@ pub struct RocksDbConfig {
     pub prepare_for_bulk_load: bool,
     pub optimize_filters_for_hits: bool,
     pub optimize_for_point_lookup: Option<u64>,
-    pub set_unordered_write: bool,
+    pub unordered_write: bool,
 }
 
 impl Default for RocksDbConfig {
@@ -42,7 +42,7 @@ impl Default for RocksDbConfig {
             prepare_for_bulk_load: false,
             optimize_filters_for_hits: false,
             optimize_for_point_lookup: None,
-            set_unordered_write: false,
+            unordered_write: false,
         }
     }
 }
