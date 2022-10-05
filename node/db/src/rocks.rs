@@ -57,6 +57,9 @@ impl RocksDb {
             db_opts.enable_statistics();
         };
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
+        if config.prepare_for_bulk_load {
+            db_opts.prepare_for_bulk_load();
+        }
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
@@ -109,22 +112,20 @@ impl Store for RocksDb {
     }
 
     fn begin_import(&self) -> Result<(), Error> {
-        self.db.set_options(&[
-            ("disable_auto_compactions", "true"),
-            //("compaction_style", "kCompactionStyleNone"),
-        ])?;
+        // self.db.set_options(&[
+        //     ("disable_auto_compactions", "true"),
+        // ])?;
 
         Ok(())
     }
 
     fn end_import(&self) -> Result<(), Error> {
-        self.db.set_options(&[
-            ("disable_auto_compactions", "false"),
-            //("compaction_style", "kCompactionStyleLevel"),
-        ])?;
+        // self.db.set_options(&[
+        //     ("disable_auto_compactions", "false"),
+        // ])?;
 
-        log::info!("Compacting range...");
-        self.db.compact_range::<&str, &str>(None, None);
+        //log::info!("Compacting range...");
+        //self.db.compact_range::<&str, &str>(None, None);
 
         Ok(())
     }

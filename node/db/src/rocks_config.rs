@@ -21,6 +21,7 @@ pub struct RocksDbConfig {
     pub compaction_style: Option<String>,
     pub enable_statistics: bool,
     pub log_level: String,
+    pub prepare_for_bulk_load: bool,
 }
 
 impl Default for RocksDbConfig {
@@ -35,6 +36,7 @@ impl Default for RocksDbConfig {
             compression_type: Some("lz4".into()),
             enable_statistics: true,
             log_level: "debug".into(),
+            prepare_for_bulk_load: true,
         }
     }
 }
