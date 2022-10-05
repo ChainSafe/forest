@@ -27,7 +27,7 @@ use std::fmt;
 const BYTES_JSON_KEY: &str = "bytes";
 
 /// Wrapper for serializing and de-serializing a IPLD from JSON.
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(transparent)]
 pub struct IpldJson(#[serde(with = "self")] pub Ipld);
 
@@ -211,5 +211,74 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         E: de::Error,
     {
         Ok(Ipld::Float(v))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+    use cid::Cid;
+
+    // #[derive(Clone, Debug, PartialEq)]
+    // struct IpldWrapper {
+    //     ipld: libipld_macro::Ipld,
+    // }
+
+    // impl quickcheck::Arbitrary for IpldWrapper {
+    //     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+    //         let ipld = libipld_macro::Ipld;
+    //         IpldWrapper { ipld }
+    //     }
+    // }
+
+    impl quickcheck::Arbitrary for IpldJson {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let bool_item = bool::arbitrary(g);
+            let int_item = i128::arbitrary(g);
+            let float_item = f64::arbitrary(g);
+            let string_item = String::arbitrary(g);
+            let bytes_item = Vec::arbitrary(g);
+            let list_item = Vec::new();
+            let map_item = BTreeMap::new();
+            let cid = Cid::new_v1(
+                u64::arbitrary(g),
+                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+            );
+            // let ipld = g
+            // .choose(&[
+            //     Ipld::Null,
+            //     Ipld::Bool(bool_item),
+            //     Ipld::Integer(int_item),
+            //     Ipld::Float(float_item),
+            //     Ipld::String(string_item),
+            //     Ipld::Bytes(bytes_item),
+            //     Ipld::List(list_item),
+            //     Ipld::Map(map_item),
+            //     Ipld::Link(cid),
+            // ])
+            // .unwrap();
+            let binding = [
+                Ipld::Null,
+                Ipld::Bool(bool_item),
+                Ipld::Integer(int_item),
+                Ipld::Float(float_item),
+                Ipld::String(string_item),
+                Ipld::Bytes(bytes_item),
+                Ipld::List(list_item),
+                Ipld::Map(map_item),
+                Ipld::Link(cid),
+            ];
+            let ipld = g.choose(&binding).unwrap();
+            IpldJson(ipld.clone())
+        }
+    }
+
+    #[quickcheck]
+    fn ipldjsonref_roundtrip(ipldjsonref: IpldJson) {
+        let serialized: String = forest_test_utils::to_string_with!(&ipldjsonref.0, crate::json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, crate::json::deserialize);
+        assert_eq!(ipldjsonref.0, parsed);
     }
 }
