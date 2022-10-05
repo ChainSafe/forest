@@ -22,6 +22,9 @@ pub struct RocksDbConfig {
     pub enable_statistics: bool,
     pub log_level: String,
     pub prepare_for_bulk_load: bool,
+    pub optimize_filters_for_hits: bool,
+    pub optimize_for_point_lookup: Option<u64>,
+    pub set_unordered_write: bool,
 }
 
 impl Default for RocksDbConfig {
@@ -36,7 +39,10 @@ impl Default for RocksDbConfig {
             compression_type: Some("lz4".into()),
             enable_statistics: true,
             log_level: "debug".into(),
-            prepare_for_bulk_load: true,
+            prepare_for_bulk_load: false,
+            optimize_filters_for_hits: false,
+            optimize_for_point_lookup: None,
+            set_unordered_write: false,
         }
     }
 }

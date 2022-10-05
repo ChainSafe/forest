@@ -60,6 +60,11 @@ impl RocksDb {
         if config.prepare_for_bulk_load {
             db_opts.prepare_for_bulk_load();
         }
+        db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
+        if let Some(cache_size) = config.optimize_for_point_lookup {
+            db_opts.optimize_for_point_lookup(cache_size);
+        }
+        db_opts.set_unordered_write(config.set_unordered_write);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
