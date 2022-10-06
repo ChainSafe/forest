@@ -5,10 +5,10 @@ use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
 use cid::Cid;
-use forest_vm::{MethodNum, Serialized, TokenAmount};
-use fvm_ipld_encoding::{Cbor, Error};
-use fvm_shared::address::Address;
+use fvm_ipld_encoding::{Cbor, Error, RawBytes};
 use fvm_shared::message::Message;
+use fvm_shared::MethodNum;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types
@@ -59,7 +59,7 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.method_num,
         }
     }
-    fn params(&self) -> &Serialized {
+    fn params(&self) -> &RawBytes {
         match self {
             Self::Signed(t) => t.params(),
             Self::Unsigned(t) => &t.params,

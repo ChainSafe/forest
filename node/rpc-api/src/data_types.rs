@@ -28,12 +28,12 @@ use forest_message::{
 };
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
-use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
@@ -192,9 +192,9 @@ pub struct BlockTemplate {
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
     #[serde(with = "json::option")]
-    pub miner_power: Option<BigInt>,
+    pub miner_power: Option<TokenAmount>,
     #[serde(with = "json::option")]
-    pub network_power: Option<BigInt>,
+    pub network_power: Option<TokenAmount>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,
