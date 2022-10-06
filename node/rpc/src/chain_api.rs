@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ::forest_message::message::json::MessageJson;
+use anyhow::Result;
 use cid::Cid;
 use forest_beacon::Beacon;
 use forest_blocks::{
@@ -16,13 +17,19 @@ use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use forest_utils::io::AsyncWriterWithChecksum;
 use fvm_shared::message::Message as FVMMessage;
+use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use sha2::{digest::Output, Sha256};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tokio::io::AsyncWriteExt;
 use tokio::{fs::File, io::BufWriter};
-use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -58,7 +65,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk)) = params;
+    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk), skip_checksum) = params;
     let skip_old_msgs = !include_olds_msgs;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
@@ -70,32 +77,56 @@ where
     }
 
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
-    let writer = BufWriter::new(file);
+    let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
 
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
 
-    if let Err(e) = data
+    match data
         .chain_store
-        .export(
-            &start_ts,
-            recent_roots,
-            skip_old_msgs,
-            writer.compat_write(),
-        )
+        .export(&start_ts, recent_roots, skip_old_msgs, writer)
         .await
     {
-        if let Err(e) = std::fs::remove_file(&out) {
-            error!("failed to remove incomplete export file at {out}: {e}");
-        } else {
-            debug!("incomplete export file at {out} removed");
+        Ok(checksum) => {
+            if !skip_checksum {
+                save_checksum(&out, checksum).await?;
+            }
         }
+        Err(e) => {
+            if let Err(e) = std::fs::remove_file(&out) {
+                error!(
+                    "failed to remove incomplete export file at {}: {e}",
+                    out.display()
+                );
+            } else {
+                debug!("incomplete export file at {} removed", out.display());
+            }
 
-        return Err(JsonRpcError::from(e));
-    }
+            return Err(JsonRpcError::from(e));
+        }
+    };
 
-    Ok(PathBuf::from(out))
+    Ok(out)
+}
+
+/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file with the same
+/// name but with a `.sha256sum` extension.
+async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
+    let encoded_hash = hash.encode_hex::<String>();
+
+    let mut checksum_path = PathBuf::from(source);
+    checksum_path.set_extension("sha256sum");
+
+    let mut checksum_file = File::create(&checksum_path).await?;
+    checksum_file.write_all(encoded_hash.as_bytes()).await?;
+    checksum_file.flush().await?;
+    log::info!(
+        "Snapshot checksum: {encoded_hash} saved to {}",
+        checksum_path.display()
+    );
+
+    Ok(())
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(

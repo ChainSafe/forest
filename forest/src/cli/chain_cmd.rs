@@ -45,7 +45,10 @@ pub enum ChainCommands {
         ///  - day
         ///  - height - the epoch
         #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
-        output_path: String,
+        output_path: PathBuf,
+        /// Skip creating the checksum file.
+        #[structopt(long)]
+        skip_checksum: bool,
     },
 
     /// Prints out the genesis tipset
@@ -91,6 +94,7 @@ impl ChainCommands {
                 recent_stateroots,
                 output_path,
                 include_old_messages,
+                skip_checksum,
             } => {
                 let chain_head = match chain_head().await {
                     Ok(head) => head.0,
@@ -113,8 +117,8 @@ impl ChainCommands {
                     ("chain".to_string(), chain_name),
                     ("height".to_string(), epoch.to_string()),
                 ]);
-                let output_path = match strfmt(output_path, &vars) {
-                    Ok(path) => path,
+                let output_path = match strfmt(&output_path.display().to_string(), &vars) {
+                    Ok(path) => path.into(),
                     Err(e) => {
                         cli_error_and_die(format!("Unparsable string error: {}", e), 1);
                     }
@@ -126,6 +130,7 @@ impl ChainCommands {
                     *include_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
+                    *skip_checksum,
                 );
 
                 // infallible unwrap
