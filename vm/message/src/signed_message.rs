@@ -4,11 +4,12 @@
 use super::Message as MessageTrait;
 use forest_crypto::Signer;
 use forest_encoding::tuple::*;
-use forest_vm::{MethodNum, Serialized, TokenAmount};
-use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::MethodNum;
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
@@ -83,7 +84,7 @@ impl MessageTrait for SignedMessage {
     fn method_num(&self) -> MethodNum {
         self.message.method_num
     }
-    fn params(&self) -> &Serialized {
+    fn params(&self) -> &RawBytes {
         &self.message.params
     }
     fn gas_limit(&self) -> i64 {

@@ -3,9 +3,8 @@
 
 use forest_json::address::json as addr_json;
 use forest_json::bigint::json as bigint_json;
-use forest_vm::TokenAmount;
-use fvm_shared::address::Address;
 use fvm_shared::sector::SectorSize;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 

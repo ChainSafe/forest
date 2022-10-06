@@ -1,16 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_util::get_error_obj;
 use ::forest_message::message::json::MessageJson;
-use async_std::{fs::File, io::BufWriter};
+use anyhow::Result;
 use cid::Cid;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use forest_chain::headchange_json::HeadChangeJson;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::cid::CidJson;
 use forest_message::message;
@@ -19,11 +17,19 @@ use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use forest_utils::io::AsyncWriterWithChecksum;
 use fvm_shared::message::Message as FVMMessage;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Id, Params};
+use hex::ToHex;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use sha2::{digest::Output, Sha256};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tokio::io::AsyncWriteExt;
+use tokio::{fs::File, io::BufWriter};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -59,7 +65,7 @@ where
     DB: BlockStore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
-    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk)) = params;
+    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk), skip_checksum) = params;
     let skip_old_msgs = !include_olds_msgs;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
@@ -71,27 +77,56 @@ where
     }
 
     let file = File::create(&out).await.map_err(JsonRpcError::from)?;
-    let writer = BufWriter::new(file);
+    let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
 
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
 
-    if let Err(e) = data
+    match data
         .chain_store
         .export(&start_ts, recent_roots, skip_old_msgs, writer)
         .await
     {
-        if let Err(e) = std::fs::remove_file(&out) {
-            error!("failed to remove incomplete export file at {out}: {e}");
-        } else {
-            debug!("incomplete export file at {out} removed");
+        Ok(checksum) => {
+            if !skip_checksum {
+                save_checksum(&out, checksum).await?;
+            }
         }
+        Err(e) => {
+            if let Err(e) = std::fs::remove_file(&out) {
+                error!(
+                    "failed to remove incomplete export file at {}: {e}",
+                    out.display()
+                );
+            } else {
+                debug!("incomplete export file at {} removed", out.display());
+            }
 
-        return Err(JsonRpcError::from(e));
-    }
+            return Err(JsonRpcError::from(e));
+        }
+    };
 
-    Ok(PathBuf::from(out))
+    Ok(out)
+}
+
+/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file with the same
+/// name but with a `.sha256sum` extension.
+async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
+    let encoded_hash = hash.encode_hex::<String>();
+
+    let mut checksum_path = PathBuf::from(source);
+    checksum_path.set_extension("sha256sum");
+
+    let mut checksum_file = File::create(&checksum_path).await?;
+    checksum_file.write_all(encoded_hash.as_bytes()).await?;
+    checksum_file.flush().await?;
+    log::info!(
+        "Snapshot checksum: {encoded_hash} saved to {}",
+        checksum_path.display()
+    );
+
+    Ok(())
 }
 
 pub(crate) async fn chain_read_obj<DB, B>(
@@ -213,42 +248,44 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-pub(crate) async fn chain_head_subscription<DB, B>(
-    data: Data<RPCState<DB, B>>,
-) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
-where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
-    Ok(subscription_id)
-}
+// XXX: Disable 'chain_head_subscription' because it is unused.
+// pub(crate) async fn chain_head_subscription<DB, B>(
+//     data: Data<RPCState<DB, B>>,
+// ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
+// where
+//     DB: BlockStore + Send + Sync + 'static,
+//     B: Beacon + Send + Sync + 'static,
+// {
+//     let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
+//     Ok(subscription_id)
+// }
 
-pub(crate) async fn chain_notify<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    id: Id,
-) -> Result<ChainNotifyResult, JsonRpcError>
-where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-{
-    if let Id::Num(id) = id {
-        debug!("Requested ChainNotify from id: {}", id);
+// XXX: Disable 'chain_notify' because it is unused.
+// pub(crate) async fn chain_notify<DB, B>(
+//     data: Data<RPCState<DB, B>>,
+//     id: Id,
+// ) -> Result<ChainNotifyResult, JsonRpcError>
+// where
+//     DB: BlockStore + Send + Sync + 'static,
+//     B: Beacon + Send + Sync + 'static,
+// {
+//     if let Id::Num(id) = id {
+//         debug!("Requested ChainNotify from id: {}", id);
 
-        let event = data
-            .state_manager
-            .chain_store()
-            .next_head_change(&id)
-            .await
-            .unwrap();
+//         let event = data
+//             .state_manager
+//             .chain_store()
+//             .next_head_change(&id)
+//             .await
+//             .unwrap();
 
-        debug!("Responding to ChainNotify from id: {}", id);
+//         debug!("Responding to ChainNotify from id: {}", id);
 
-        Ok((id, vec![HeadChangeJson::from(event)]))
-    } else {
-        Err(get_error_obj(-32600, "Invalid request".to_owned()))
-    }
-}
+//         Ok((id, vec![HeadChangeJson::from(event)]))
+//     } else {
+//         Err(get_error_obj(-32600, "Invalid request".to_owned()))
+//     }
+// }
 
 pub(crate) async fn chain_tipset_weight<DB, B>(
     data: Data<RPCState<DB, B>>,

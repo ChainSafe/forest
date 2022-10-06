@@ -1,6 +1,6 @@
 [package]
 name    = "forest_genesis"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
@@ -22,4 +22,6 @@ forest_state_manager.workspace   = true
 futures.workspace                = true
 fvm_ipld_car.workspace           = true
 log.workspace                    = true
+tokio-util                       = { version = "0.7.0", features = ["compat"] }
+tokio.workspace                  = true
 url.workspace                    = true

@@ -2,7 +2,7 @@
 name        = "forest_crypto"
 description = "Filecoin crypto utilities for use in Forest"
 license     = "MIT OR Apache-2.0"
-version     = "0.5.2"
+version     = "0.6.0"
 authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
