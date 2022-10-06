@@ -2700,6 +2700,7 @@ dependencies = [
  "bls-signatures",
  "byteorder 1.4.3",
  "cid",
+ "digest 0.10.5",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -2715,6 +2716,7 @@ dependencies = [
  "forest_message",
  "forest_networks",
  "forest_test_utils",
+ "forest_utils",
  "futures",
  "fvm",
  "fvm_ipld_car",
@@ -2729,6 +2731,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3285,6 +3288,7 @@ dependencies = [
  "forest_rpc-api",
  "forest_state_manager",
  "forest_test_utils",
+ "forest_utils",
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
@@ -3301,6 +3305,7 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "serde_json",
+ "sha2 0.10.6",
  "tide",
  "tide-websockets",
  "tokio",
@@ -3466,10 +3471,14 @@ dependencies = [
 name = "forest_utils"
 version = "0.1.0"
 dependencies = [
+ "digest 0.10.5",
  "libc",
  "log",
+ "pin-project-lite 0.2.9",
  "serde",
  "serde_derive",
+ "sha2 0.10.6",
+ "tokio",
  "toml",
 ]
 
