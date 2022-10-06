@@ -2908,6 +2908,7 @@ dependencies = [
  "forest_encoding",
  "forest_json",
  "forest_json_utils",
+ "forest_test_utils",
  "forest_vm",
  "fvm_ipld_encoding",
  "fvm_shared",
