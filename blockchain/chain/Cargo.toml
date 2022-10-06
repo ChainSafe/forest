@@ -12,6 +12,7 @@ blake2b_simd.workspace           = true
 bls-signatures                   = { version = "0.11", default-features = false, features = ["blst"] }
 byteorder                        = "1.4.3"
 cid                              = { workspace = true, default-features = false, features = ["std"] }
+digest                           = "0.10.5"
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true
@@ -26,6 +27,7 @@ forest_legacy_ipld_amt.workspace = true
 forest_macros.workspace          = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true
+forest_utils.workspace           = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_car.workspace           = true
@@ -39,6 +41,7 @@ pbr.workspace                    = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
+tokio-util                       = { version = "0.7.0", features = ["compat"] }
 
 [dev-dependencies]
 forest_test_utils = { workspace = true, features = ["test_constructors"] }
