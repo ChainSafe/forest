@@ -1,6 +1,6 @@
 [package]
 name        = "forest"
-version     = "0.2.2"
+version     = "0.4.0"
 authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
 edition     = "2021"
@@ -46,7 +46,6 @@ forest_rpc-client.workspace      = true
 forest_rpc.workspace             = true
 forest_state_manager.workspace   = true
 forest_utils.workspace           = true
-forest_vm.workspace              = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_car.workspace           = true

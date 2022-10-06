@@ -1,6 +1,6 @@
 [package]
 name    = "forest_actor_interface"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
@@ -24,7 +24,6 @@ forest_hash_utils.workspace      = true
 forest_ipld_blockstore.workspace = true
 forest_json.workspace            = true
 forest_json_utils.workspace      = true
-forest_vm.workspace              = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true
 fvm_ipld_encoding.workspace      = true

@@ -35,7 +35,7 @@ pub(super) async fn process(command: Subcommand, config: Config) {
             cmd.run().await;
         }
         Subcommand::Config(cmd) => {
-            cmd.run(&config, &mut async_std::io::stdout()).await;
+            cmd.run(&config, &mut std::io::stdout()).await;
         }
     }
 }

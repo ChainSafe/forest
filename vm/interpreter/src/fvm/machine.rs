@@ -3,9 +3,9 @@
 use crate::fvm::externs::ForestExterns;
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use forest_vm::TokenAmount;
 use fvm::machine::{Machine, MachineContext};
 use fvm::state_tree::ActorState;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::ActorID;
 
 pub struct ForestMachine<DB: 'static> {

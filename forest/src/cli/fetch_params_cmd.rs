@@ -21,9 +21,6 @@ pub struct FetchCommands {
     /// Size in bytes
     #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]))]
     params_size: Option<String>,
-    /// Show verbose logging
-    #[structopt(short, long)]
-    verbose: bool,
 }
 
 impl FetchCommands {
@@ -42,7 +39,7 @@ impl FetchCommands {
             );
         };
 
-        get_params_default(&config.client.data_dir, sizes, self.verbose)
+        get_params_default(&config.client.data_dir, sizes)
             .await
             .unwrap();
     }

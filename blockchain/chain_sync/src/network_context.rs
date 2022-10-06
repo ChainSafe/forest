@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use async_std::channel::Sender;
-use async_std::future;
+use tokio::time::timeout;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
@@ -134,7 +134,7 @@ where
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-        let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res = timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
         match res {
             Ok(Ok(())) => {
                 match self.db.get_obj(&content) {
@@ -242,7 +242,7 @@ where
 
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures this.
-        let res = future::timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res = timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();
@@ -308,7 +308,7 @@ where
         let sent = SystemTime::now();
 
         // Add timeout and create future to be polled asynchronously.
-        let rx = future::timeout(Duration::from_secs(10), rx);
+        let rx = timeout(Duration::from_secs(10), rx);
         let res = rx.await;
         match res {
             // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
