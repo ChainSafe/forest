@@ -11,11 +11,6 @@ jobs:
     runs-on: buildjet-16vcpu-ubuntu-2004
 
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.9.1
-        if: ${{ github.event_name == 'pull_request' }}
-        with:
-          access_token: ${{ github.token }}
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -47,11 +42,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.9.1
-        if: ${{ github.event_name == 'pull_request' }}
-        with:
-          access_token: ${{ github.token }}
       - name: Checkout code
         uses: actions/checkout@v2
 
