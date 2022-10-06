@@ -15,7 +15,7 @@ use serde::{
 use std::error::Error as StdError;
 
 /// This represents a link to another Node
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) enum Link<V> {
     /// Unchanged link to data with an atomic cache.
     Cid {
@@ -67,7 +67,7 @@ impl<V> From<Cid> for Link<V> {
 }
 
 /// Node represents either a shard of values in the form of bytes or links to other nodes
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
     /// Node is a link node, contains array of Cid or cached sub nodes.

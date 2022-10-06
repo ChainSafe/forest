@@ -8,7 +8,7 @@ use serde::{
 };
 
 /// Root of an AMT vector, can be serialized and keeps track of height and count
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub(super) struct Root<V> {
     pub bit_width: usize,
     pub height: usize,
@@ -59,5 +59,31 @@ where
             count,
             node: node.expand(DEFAULT_BIT_WIDTH).map_err(de::Error::custom)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    impl<V: std::clone::Clone + 'static + serde::Serialize + for<'de> serde::Deserialize<'de>> quickcheck::Arbitrary for Root<V> {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let node = Node::empty();
+            Root {
+                bit_width: usize::arbitrary(g),
+                height: usize::arbitrary(g),
+                count: usize::arbitrary(g),
+                node: node,
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn root_roundtrip<V: std::cmp::PartialEq + std::fmt::Debug>(root: Root<V>) {
+        let serialized: String = forest_test_utils::to_string_with!(&root, json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(root, parsed);
     }
 }

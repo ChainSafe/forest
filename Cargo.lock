@@ -3077,10 +3077,14 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_ipld_blockstore",
+ "forest_test_utils",
  "fvm_ipld_encoding",
  "itertools 0.10.5",
  "once_cell",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
