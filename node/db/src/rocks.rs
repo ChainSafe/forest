@@ -9,7 +9,7 @@ use crate::rocks_config::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
-pub use rocksdb::{DBCompressionType, LogLevel, Options, WriteBatch, DB};
+pub use rocksdb::{CompactOptions, DBCompressionType, LogLevel, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
@@ -69,6 +69,14 @@ impl RocksDb {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
     }
+
+    pub fn show_stats(&self) {
+        if let Ok(value) = self.db.property_value("rocksdb.stats") {
+            if let Some(stats) = value {
+                info!("{stats}");
+            }
+        }
+    }
 }
 
 impl Store for RocksDb {
@@ -117,20 +125,27 @@ impl Store for RocksDb {
     }
 
     fn begin_import(&self) -> Result<(), Error> {
-        // self.db.set_options(&[
-        //     ("disable_auto_compactions", "true"),
-        // ])?;
+        self.show_stats();
+
+        self.db
+            .set_options(&[("disable_auto_compactions", "true")])?;
 
         Ok(())
     }
 
     fn end_import(&self) -> Result<(), Error> {
-        // self.db.set_options(&[
-        //     ("disable_auto_compactions", "false"),
-        // ])?;
+        self.show_stats();
 
-        //log::info!("Compacting range...");
-        //self.db.compact_range::<&str, &str>(None, None);
+        log::info!("Compacting range...");
+        let mut opts = CompactOptions::default();
+        // Move L0 to minimum level
+        opts.set_change_level(true);
+        self.db.compact_range_opt::<&str, &str>(None, None, &opts);
+
+        self.show_stats();
+
+        self.db
+            .set_options(&[("disable_auto_compactions", "false")])?;
 
         Ok(())
     }
