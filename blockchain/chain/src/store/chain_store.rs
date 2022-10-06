@@ -18,6 +18,7 @@ use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
+use forest_utils::const_option;
 use futures::AsyncWrite;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
@@ -47,8 +48,7 @@ const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
 
-const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_macros::const_option!(NonZeroUsize::new(8192));
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(8192));
 
 /// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]

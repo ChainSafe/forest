@@ -16,7 +16,7 @@ use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_message::SignedMessage;
-use forest_utils::read_file_to_vec;
+use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;

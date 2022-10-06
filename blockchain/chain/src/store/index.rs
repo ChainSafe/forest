@@ -5,13 +5,13 @@ use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_ipld_blockstore::BlockStore;
+use forest_utils::const_option;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::RwLock;
 
-const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
-    forest_macros::const_option!(NonZeroUsize::new(32 << 10));
+const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32 << 10));
 
 /// Configuration which sets the length of tipsets to skip in between each cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;

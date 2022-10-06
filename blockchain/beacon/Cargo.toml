@@ -8,21 +8,21 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-ahash                       = "0.8"
-anyhow.workspace            = true
-async-std.workspace         = true
-async-trait.workspace       = true
-base64.workspace            = true
-bls-signatures              = { version = "0.11", default-features = false, features = ["blst"] }
-byteorder                   = "1.4.3"
-forest_encoding.workspace   = true
-forest_json_utils.workspace = true
-fvm_shared                  = { workspace = true, default-features = false }
-hex.workspace               = true
-serde                       = { workspace = true, features = ["derive"] }
-sha2                        = { version = "0.10", default-features = false }
-surf                        = { version = "2.3", default-features = false, features = ["curl-client"] }
-tokio                       = { workspace = true, features = ["sync"] }
+ahash                     = "0.8"
+anyhow.workspace          = true
+async-std.workspace       = true
+async-trait.workspace     = true
+base64.workspace          = true
+bls-signatures            = { version = "0.11", default-features = false, features = ["blst"] }
+byteorder                 = "1.4.3"
+forest_encoding.workspace = true
+forest_utils.workspace    = true
+fvm_shared                = { workspace = true, default-features = false }
+hex.workspace             = true
+serde                     = { workspace = true, features = ["derive"] }
+sha2                      = { version = "0.10", default-features = false }
+surf                      = { version = "2.3", default-features = false, features = ["curl-client"] }
+tokio                     = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 async-std            = { workspace = true, features = ["attributes"] }
