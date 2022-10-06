@@ -29,6 +29,8 @@ jobs:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook
