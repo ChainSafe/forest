@@ -3,7 +3,7 @@
 
 #[cfg(feature = "proofs")]
 use fvm::gas::Gas;
-#[cfg(any(feature = "proofs", test))]
+#[cfg(feature = "proofs")]
 use fvm_shared::message::Message;
 
 /// Semantic validation and validates the message has enough gas.
@@ -176,9 +176,9 @@ pub mod json {
 #[cfg(test)]
 pub mod tests {
     use super::json::{MessageJson, MessageJsonRef};
-    use super::*;
-    use forest_vm::TokenAmount;
     use fvm_shared::address::Address;
+    use fvm_shared::econ::TokenAmount;
+    use fvm_shared::message::Message;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
