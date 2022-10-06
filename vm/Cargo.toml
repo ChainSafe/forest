@@ -23,3 +23,10 @@ num-traits.workspace        = true
 serde                       = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor          = "0.2"
 thiserror.workspace         = true
+
+[dev-dependencies]
+forest_test_utils.workspace = true
+forest_vm.workspace         = true
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
