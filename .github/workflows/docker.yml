@@ -13,6 +13,7 @@ jobs:
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           access_token: ${{ github.token }}
       - name: Checkout code
@@ -48,6 +49,7 @@ jobs:
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.9.1
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           access_token: ${{ github.token }}
       - name: Checkout code
