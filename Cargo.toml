@@ -10,7 +10,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm",
   "vm/actor_interface",
   "vm/message",
   "vm/interpreter",
@@ -146,7 +145,6 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./node/utils" }
-forest_vm              = { path = "./vm" }
 
 [profile.dev]
 debug = 0

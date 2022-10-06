@@ -22,7 +22,6 @@ clean:
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p forest_chain_sync
-	@cargo clean -p forest_vm
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
