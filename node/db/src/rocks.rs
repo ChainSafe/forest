@@ -53,7 +53,7 @@ impl RocksDb {
             db_opts.set_compression_type(DBCompressionType::None);
         }
         if config.enable_statistics {
-            //db_opts.set_stats_dump_period_sec(5);
+            db_opts.set_stats_dump_period_sec(20);
             db_opts.enable_statistics();
         };
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
