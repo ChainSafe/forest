@@ -26,7 +26,7 @@ forest_beacon.workspace          = true
 forest_blocks.workspace          = true
 forest_chain.workspace           = true
 forest_chain_sync.workspace      = true
-forest_cli_shared.path           = "../shared"
+forest_cli_shared.workspace      = true
 forest_crypto.workspace          = true
 forest_db.workspace              = true
 forest_deleg_cns                 = { workspace = true, optional = true }
