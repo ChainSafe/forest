@@ -1,6 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// Due to https://git.wiki.kernel.org/index.php/GitFaq#Why_does_Git_not_.22track.22_renames.3F
+// we cannot rewire the git history of this file.
+// check out the original commit history here:
+// https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
+
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
