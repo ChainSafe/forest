@@ -1,10 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod client;
-
-pub use self::client::Client;
-
 use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};

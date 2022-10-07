@@ -3,7 +3,6 @@
 
 mod auth_cmd;
 mod chain_cmd;
-mod client;
 mod config_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
@@ -16,7 +15,6 @@ mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
-pub use self::client::Client;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
