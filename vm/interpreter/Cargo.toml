@@ -20,7 +20,6 @@ forest_fil_types                 = { workspace = true, features = ["proofs"] }
 forest_ipld_blockstore.workspace = true
 forest_message                   = { workspace = true, default_features = false, features = ["blst"] }
 forest_networks.workspace        = true
-forest_vm.workspace              = true
 fvm.workspace                    = true
 fvm_ipld_amt.workspace           = true
 fvm_ipld_blockstore.workspace    = true

@@ -6,11 +6,11 @@
 
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use forest_vm::TokenAmount;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 
+use fvm_shared::econ::TokenAmount;
 use rayon::ThreadPoolBuildError;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
