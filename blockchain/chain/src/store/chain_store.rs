@@ -8,6 +8,7 @@ use async_std::task;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
+use digest::Digest;
 use forest_actor_interface::{miner, EPOCHS_IN_DAY};
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
@@ -18,7 +19,7 @@ use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
-use futures::AsyncWrite;
+use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
@@ -36,9 +37,11 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     time::SystemTime,
 };
+use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tokio::sync::mpsc;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -444,26 +447,31 @@ where
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
-    pub async fn export<W>(
+    pub async fn export<W, D>(
         &self,
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         skip_old_msgs: bool,
-        mut writer: W,
-    ) -> Result<(), Error>
+        writer: W,
+    ) -> Result<digest::Output<D>, Error>
     where
-        W: AsyncWrite + Send + Unpin + 'static,
+        D: Digest,
+        W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
     {
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
         let (tx, mut rx) = mpsc::channel(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
+        let writer = Arc::new(Mutex::new(writer.compat_write()));
+        let writer_clone = writer.clone();
+
         // Spawns task which receives blocks to write to the car writer.
         let write_task = task::spawn(async move {
+            let mut writer = writer_clone.lock().await;
             header
                 .write_stream_async(
-                    &mut writer,
+                    &mut *writer,
                     &mut Box::pin(stream! {
                         while let Some(val) = rx.recv().await {
                             yield val;
@@ -510,7 +518,8 @@ where
             .expect("time cannot go backwards");
         info!("export finished, took {} seconds", time.as_secs());
 
-        Ok(())
+        let digest = writer.lock().await.get_mut().finalize();
+        Ok(digest)
     }
 
     // XXX: 'sub_head_changes' disabled since it is unsed.

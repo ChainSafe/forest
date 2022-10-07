@@ -29,7 +29,6 @@ clean:
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p forest_chain_sync
-	@cargo clean -p forest_vm
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
@@ -124,4 +123,7 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors
+rustdoc:
+	cargo doc --workspace --all-features --no-deps
+
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors rustdoc

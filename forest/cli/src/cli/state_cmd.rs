@@ -13,13 +13,13 @@ use forest_rpc_client::{
     chain_head, chain_read_obj, state_account_key, state_get_actor, state_list_actors,
     state_lookup, state_miner_power,
 };
-use forest_vm::TokenAmount;
 use fvm::state_tree::ActorState;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::bigint_ser;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use num_traits::cast::FromPrimitive;
 use structopt::StructOpt;
 

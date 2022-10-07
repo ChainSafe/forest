@@ -9,6 +9,7 @@ cs_serde_bytes.workspace = true
 data-encoding = "2.3"
 data-encoding-macro = "0.1"
 forest_json_utils.workspace = true
+fvm.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 multihash = { workspace = true, default-features = false, features = [
