@@ -3028,12 +3028,16 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "forest_json_utils",
+ "forest_test_utils",
  "fvm",
  "fvm_ipld_encoding",
  "fvm_shared",
  "multihash",
  "num-bigint 0.4.3",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
