@@ -10,7 +10,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm",
   "vm/actor_interface",
   "vm/message",
   "vm/interpreter",
@@ -99,6 +98,8 @@ pbr                   = "1.0"
 pin-project-lite      = "0.2"
 pretty_env_logger     = "0.4"
 prometheus            = "0.13"
+quickcheck            = "1"
+quickcheck_macros     = "1"
 rand                  = "0.8"
 rayon                 = "1.5"
 serde                 = "1.0"
@@ -146,7 +147,6 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./node/utils" }
-forest_vm              = { path = "./vm" }
 
 [profile.dev]
 debug = 0

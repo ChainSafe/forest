@@ -7,15 +7,15 @@ use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_ipld_blockstore::BlockStore;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
-use forest_vm::{Serialized, TokenAmount};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
 use fvm::machine::{Engine, Machine, NetworkConfig};
 use fvm::state_tree::StateTree;
-use fvm_ipld_encoding::Cbor;
+use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::version::NetworkVersion;
@@ -367,7 +367,7 @@ impl RewardCalc for RewardActorMessageCalc {
         penalty: BigInt,
         gas_reward: BigInt,
     ) -> Result<Option<Message>, anyhow::Error> {
-        let params = Serialized::serialize(AwardBlockRewardParams {
+        let params = RawBytes::serialize(AwardBlockRewardParams {
             miner,
             penalty,
             gas_reward,

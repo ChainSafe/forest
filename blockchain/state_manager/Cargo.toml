@@ -29,7 +29,6 @@ forest_ipld_blockstore.workspace = true
 forest_legacy_ipld_amt.workspace = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true
-forest_vm.workspace              = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true
