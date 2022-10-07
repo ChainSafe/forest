@@ -1,0 +1,23 @@
+# https://github.com/marketplace/actions/cancel-workflow-action#advanced-pull-requests-from-forks
+name: Cancel stale workflows
+on:
+  # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_runbranchesbranches-ignore
+  workflow_run:
+    workflows:
+      - "Build and publish Forest Docker image"
+      - "Docs"
+      - "Rust"
+      - "Scripts"
+    types:
+      - requested
+    branches:
+      - "!main"
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: styfle/cancel-workflow-action@0.10.1
+        with:
+          workflow_id: ${{ github.event.workflow.id }}
+          # https://github.com/styfle/cancel-workflow-action#advanced-all-but-latest
+          all_but_latest: true
