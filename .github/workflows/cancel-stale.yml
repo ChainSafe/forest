@@ -21,3 +21,4 @@ jobs:
           workflow_id: ${{ github.event.workflow.id }}
           # https://github.com/styfle/cancel-workflow-action#advanced-all-but-latest
           all_but_latest: true
+# kick off
