@@ -12,6 +12,7 @@ on:
       - requested
     branches:
       - "!main"
+  push:
 jobs:
   cancel:
     runs-on: ubuntu-latest
