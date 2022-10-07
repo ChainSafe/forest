@@ -56,8 +56,9 @@ pub mod json {
     use cid::Cid;
     use forest_json::address::json::AddressJson;
     use forest_json::bigint;
-    use forest_vm::{Serialized, TokenAmount};
     use fvm_ipld_encoding::Cbor;
+    use fvm_ipld_encoding::RawBytes;
+    use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
     use serde::{de, ser};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -141,7 +142,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap,
             gas_premium: m.gas_premium,
             method_num: m.method_num,
-            params: Serialized::new(
+            params: RawBytes::new(
                 base64::decode(&m.params.unwrap_or_default()).map_err(de::Error::custom)?,
             ),
         })

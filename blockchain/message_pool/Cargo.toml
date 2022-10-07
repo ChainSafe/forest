@@ -23,7 +23,6 @@ forest_macros.workspace          = true
 forest_message                   = { workspace = true, features = ["proofs", "blst"] }
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
-forest_vm.workspace              = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_encoding.workspace      = true

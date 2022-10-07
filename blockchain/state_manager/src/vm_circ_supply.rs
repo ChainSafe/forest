@@ -9,11 +9,12 @@ use forest_chain::*;
 use forest_interpreter::CircSupplyCalc;
 use forest_ipld_blockstore::BlockStore;
 use forest_networks::{ChainConfig, Height};
-use forest_vm::TokenAmount;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::bigint::Integer;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::FILECOIN_PRECISION;
 use once_cell::sync::OnceCell;
 
@@ -290,8 +291,6 @@ fn v0_amount_locked(
     initial_balance: &TokenAmount,
     elapsed_epoch: ChainEpoch,
 ) -> TokenAmount {
-    use fvm_shared::bigint::Integer;
-
     if elapsed_epoch >= unlock_duration {
         return TokenAmount::from(0);
     }

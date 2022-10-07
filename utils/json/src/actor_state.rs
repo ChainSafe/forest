@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use crate::TokenAmount;
     use cid::Cid;
     use fvm::state_tree::ActorState;
+    use fvm_shared::econ::TokenAmount;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
 
@@ -31,9 +31,9 @@ pub mod json {
         #[derive(Serialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateSer<'a> {
-            #[serde(with = "forest_json::cid")]
+            #[serde(with = "crate::cid")]
             pub code: &'a Cid,
-            #[serde(rename = "Head", with = "forest_json::cid")]
+            #[serde(rename = "Head", with = "crate::cid")]
             pub state: &'a Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,
@@ -55,9 +55,9 @@ pub mod json {
         #[derive(Deserialize)]
         #[serde(rename_all = "PascalCase")]
         struct ActorStateDe {
-            #[serde(with = "forest_json::cid")]
+            #[serde(with = "crate::cid")]
             pub code: Cid,
-            #[serde(rename = "Head", with = "forest_json::cid")]
+            #[serde(rename = "Head", with = "crate::cid")]
             pub state: Cid,
             #[serde(rename = "Nonce")]
             pub sequence: u64,
