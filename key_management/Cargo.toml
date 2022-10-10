@@ -12,7 +12,7 @@ base64.workspace             = true
 bls-signatures               = { version = "0.11", default-features = false, features = ["blst"] }
 forest_crypto                = { workspace = true, features = ["blst"] }
 forest_encoding.workspace    = true
-forest_node_utils.workspace       = true
+forest_utils.workspace       = true
 fvm_shared                   = { workspace = true, default-features = false }
 libsecp256k1.workspace       = true
 log.workspace                = true

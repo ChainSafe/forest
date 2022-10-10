@@ -17,12 +17,20 @@ log.workspace              = true
 pbr.workspace              = true
 pin-project-lite.workspace = true
 thiserror.workspace        = true
-tokio-util                 = { version = "0.7.0", features = ["compat"] }
+tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
 tokio.workspace            = true
 url.workspace              = true
 
 serde.workspace = true
+digest                     = "0.10.5"
+libc                       = "0.2"
+toml                       = "0.5"
+
 
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+
+serde_derive = "1.0"
+sha2         = { version = "0.10", default-features = false }
+tokio        = { workspace = true, features = ["macros", "rt"] }

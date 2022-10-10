@@ -18,7 +18,6 @@ members = [
   "node/rpc",
   "node/rpc-client",
   "node/rpc-api",
-  "node/utils",
   "node/forest_libp2p",
   "crypto",
   "encoding",
@@ -140,7 +139,6 @@ forest_rpc-client      = { path = "./node/rpc-client" }
 forest_state_manager   = { path = "./blockchain/state_manager" }
 forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
-forest_node_utils           = { path = "./node/utils" }
 forest_test_utils           = { path = "./utils/test_utils" }
 forest_utils = { path = "./forest_utils" }
 

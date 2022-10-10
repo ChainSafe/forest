@@ -2540,7 +2540,6 @@ dependencies = [
  "forest_message_pool",
  "forest_metrics",
  "forest_networks",
- "forest_node_utils",
  "forest_paramfetch",
  "forest_rpc",
  "forest_rpc-api",
@@ -2711,7 +2710,6 @@ dependencies = [
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
- "forest_node_utils",
  "forest_test_utils",
  "forest_utils",
  "futures",
@@ -3047,7 +3045,7 @@ dependencies = [
  "bls-signatures",
  "forest_crypto",
  "forest_encoding",
- "forest_node_utils",
+ "forest_utils",
  "fvm_shared",
  "libsecp256k1",
  "log",
@@ -3096,7 +3094,6 @@ dependencies = [
  "forest_ipld_blockstore",
  "forest_message",
  "forest_networks",
- "forest_node_utils",
  "forest_utils",
  "futures",
  "futures-util",
@@ -3203,21 +3200,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_node_utils"
-version = "0.1.0"
-dependencies = [
- "digest 0.10.5",
- "libc",
- "log",
- "pin-project-lite 0.2.9",
- "serde",
- "serde_derive",
- "sha2 0.10.6",
- "tokio",
- "toml",
-]
-
-[[package]]
 name = "forest_paramfetch"
 version = "0.2.0"
 dependencies = [
@@ -3266,10 +3248,10 @@ dependencies = [
  "forest_message",
  "forest_message_pool",
  "forest_networks",
- "forest_node_utils",
  "forest_rpc-api",
  "forest_state_manager",
  "forest_test_utils",
+ "forest_utils",
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
@@ -3450,15 +3432,20 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "const_format",
+ "digest 0.10.5",
  "isahc 1.7.2",
+ "libc",
  "log",
  "pbr",
  "pin-project-lite 0.2.9",
  "serde",
+ "serde_derive",
  "serde_json",
+ "sha2 0.10.6",
  "thiserror",
  "tokio",
  "tokio-util",
+ "toml",
  "url",
 ]
 
