@@ -34,7 +34,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --bin forest --bin forest-cli --features release
+          args: --release --bin forest --bin forest-cli
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}

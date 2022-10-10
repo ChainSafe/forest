@@ -75,10 +75,10 @@ fmt:
 	taplo fmt
 
 build:
-	cargo build --bin forest
+	cargo build --bin forest --bin forest-cli
 
 release:
-	cargo build --release --bin forest
+	cargo build --release --bin forest --bin forest-cli
 
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest

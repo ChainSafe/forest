@@ -84,8 +84,3 @@ assert_cmd        = "2"
 quickcheck        = "1"
 quickcheck_macros = "1"
 rand.workspace    = true
-
-[features]
-default = []
-testnet = []
-release = []

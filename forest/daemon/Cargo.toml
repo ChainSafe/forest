@@ -96,7 +96,5 @@ rand.workspace    = true
 [features]
 default          = ["forest_fil_cns"]
 insecure_post    = ["forest_fil_cns/insecure_post"]
-testnet          = []
-release          = []
 forest_fil_cns   = ["dep:forest_fil_cns"]
 forest_deleg_cns = ["dep:forest_deleg_cns"]

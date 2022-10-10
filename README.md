@@ -88,7 +88,11 @@ To create release binaries, checkout the latest tag and compile with the release
 
 ```shell
 git checkout $TAG
-cargo build --release --bin forest --features release
+make build # make debug build of forest daemon and cli
+# or
+make release # make release build of forest daemon and cli
+# or
+make install # install forest daemon and cli
 ```
 
 ### Config
