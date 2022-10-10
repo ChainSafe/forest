@@ -109,8 +109,7 @@ pub enum Subcommand {
     Config(ConfigCommands),
 
     /// Send funds between accounts
-    #[structopt(name = "send")]
-    SendCmd(SendCommand),
+    Send(SendCommand),
 }
 
 /// Pretty-print a JSON-RPC error and exit
