@@ -9,7 +9,10 @@ use crate::rocks_config::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
-pub use rocksdb::{CompactOptions, DBCompressionType, LogLevel, Options, WriteBatch, DB};
+pub use rocksdb::{
+    CompactOptions, DBCompressionType, IngestExternalFileOptions, LogLevel, Options, SstFileWriter,
+    WriteBatch, DB,
+};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
@@ -28,6 +31,43 @@ pub struct RocksDb {
 /// let mut db = RocksDb::open("test_db", &RocksDbConfig::default()).unwrap();
 /// ```
 impl RocksDb {
+    pub fn to_options(config: &RocksDbConfig) -> Options {
+        let mut db_opts = Options::default();
+        db_opts.create_if_missing(config.create_if_missing);
+        db_opts.increase_parallelism(config.parallelism);
+        db_opts.set_write_buffer_size(config.write_buffer_size);
+        db_opts.set_max_open_files(config.max_open_files);
+
+        if let Some(max_background_jobs) = config.max_background_jobs {
+            db_opts.set_max_background_jobs(max_background_jobs);
+        }
+        if let Some(compaction_style) = &config.compaction_style {
+            db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
+            db_opts.set_disable_auto_compactions(false);
+        } else {
+            db_opts.set_disable_auto_compactions(true);
+        }
+        if let Some(compression_type) = &config.compression_type {
+            db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
+        } else {
+            db_opts.set_compression_type(DBCompressionType::None);
+        }
+        if config.enable_statistics {
+            db_opts.set_stats_dump_period_sec(20);
+            db_opts.enable_statistics();
+        };
+        db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
+        if config.prepare_for_bulk_load {
+            db_opts.prepare_for_bulk_load();
+        }
+        db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
+        if let Some(cache_size) = config.optimize_for_point_lookup {
+            db_opts.optimize_for_point_lookup(cache_size);
+        }
+        db_opts.set_unordered_write(config.unordered_write);
+        db_opts
+    }
+
     pub fn open<P>(path: P, config: &RocksDbConfig) -> Result<Self, Error>
     where
         P: AsRef<Path>,
@@ -146,6 +186,29 @@ impl Store for RocksDb {
 
         self.db
             .set_options(&[("disable_auto_compactions", "false")])?;
+
+        Ok(())
+    }
+
+    fn ingest_sst_files<P>(&self, paths: Vec<P>) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+    {
+        self.show_stats();
+
+        let mut opts = IngestExternalFileOptions::default();
+        opts.set_move_files(true);
+        self.db.ingest_external_file_opts(&opts, paths).unwrap();
+
+        self.show_stats();
+
+        log::info!("Compacting range...");
+        let mut opts = CompactOptions::default();
+        // Move L0 to minimum level
+        opts.set_change_level(true);
+        self.db.compact_range_opt::<&str, &str>(None, None, &opts);
+
+        self.show_stats();
 
         Ok(())
     }

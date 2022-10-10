@@ -10,6 +10,8 @@ pub mod rocks_config;
 pub use errors::Error;
 pub use memory::MemoryDB;
 
+use std::path::Path;
+
 /// Store interface used as a KV store implementation
 pub trait Store {
     /// Read single value from data store and return `None` if key doesn't exist.
@@ -68,6 +70,14 @@ pub trait Store {
     /// Mark the end of a snapshot import. Only a performance hint, could be a no-op.
     fn end_import(&self) -> Result<(), Error> {
         Ok(())
+    }
+
+    /// Ingest sst files. Only available for RocksDb.
+    fn ingest_sst_files<P>(&self, paths: Vec<P>) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+    {
+        Err(Error::Unsupported)
     }
 }
 
@@ -129,5 +139,12 @@ impl<BS: Store> Store for &BS {
 
     fn end_import(&self) -> Result<(), Error> {
         (*self).end_import()
+    }
+
+    fn ingest_sst_files<P>(&self, paths: Vec<P>) -> Result<(), Error>
+    where
+        P: AsRef<Path>,
+    {
+        (*self).ingest_sst_files(paths)
     }
 }

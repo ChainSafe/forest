@@ -412,6 +412,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             path,
             validate_height,
             config.client.skip_load,
+            &config.rocks_db,
         )
         .await
         {
@@ -437,7 +438,7 @@ fn chain_path(config: &Config) -> PathBuf {
 mod test {
     use super::*;
     use forest_blocks::BlockHeader;
-    use forest_db::MemoryDB;
+    use forest_db::{rocks_config::RocksDbConfig, MemoryDB};
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
 
@@ -486,7 +487,8 @@ mod test {
             )
             .await?,
         );
-        import_chain::<FullVerifier, _>(&sm, file_path, None, false).await?;
+        let config = RocksDbConfig::default();
+        import_chain::<FullVerifier, _>(&sm, file_path, None, false, &config).await?;
         Ok(())
     }
 
