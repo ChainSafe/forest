@@ -61,7 +61,7 @@ async fn snapshot_fetch_calibnet(
         .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
         .contents
         .iter()
-        .filter(|obj| obj.size > 0)
+        .filter(|obj| obj.size > 0 && obj.key.rsplit_once('.').unwrap_or_default().1 == "car")
         .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
         .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
         .to_owned();
@@ -80,14 +80,13 @@ async fn snapshot_fetch_calibnet(
     let calibnet_path = &snapshot_fetch_config.calibnet.path;
     let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
 
-    let snapshot_response = client.get(url).send().await?;
+    let snapshot_response = client.get(url.clone()).send().await?;
     let total_size = last_modified.size;
-    let snapshot_digest =
+    let snapshot_checksum =
         download_snapshot_to_file(&snapshot_path, snapshot_response, total_size).await?;
-    info!(
-        "Snapshot checksum is {}. Validation is not yet available.",
-        snapshot_digest.encode_hex::<String>()
-    );
+
+    fetch_checksum_and_validate(client, url, &snapshot_checksum).await?;
+
     Ok(snapshot_path)
 }
 
@@ -125,19 +124,7 @@ async fn snapshot_fetch_mainnet(
     let snapshot_checksum =
         download_snapshot_to_file(&snapshot_path, snapshot_response, total_size).await?;
 
-    info!("Validating checksum...");
-    let checksum_url = replace_extension_url(snapshot_url, "sha256sum")?;
-    let checksum_expected_file = client.get(checksum_url).send().await?.bytes().await?;
-
-    // checksum file is hex-encoded with trailing `- ` at the end. Take only what's needed, i.e.
-    // encoded digest, for SHA256 it's 32 bytes * 2.
-    let checksum_expected = checksum_from_file(&checksum_expected_file, Sha256::output_size())?;
-
-    validate_checksum(&checksum_expected, &snapshot_checksum)?;
-    info!(
-        "Snapshot checksum correct. {}",
-        snapshot_checksum.encode_hex::<String>()
-    );
+    fetch_checksum_and_validate(client, snapshot_url, &snapshot_checksum).await?;
 
     Ok(snapshot_path)
 }
@@ -221,6 +208,37 @@ fn replace_extension_url(mut url: Url, extension: &str) -> anyhow::Result<Url> {
         .push(&new_filename);
 
     Ok(url)
+}
+
+/// Fetches the relevant checksum for the snapshot, compares it with the result one. Fails if they
+/// don't match. The checksum is expected to be located in the same location as the snapshot but
+/// with a `.sha256sum` extension.
+async fn fetch_checksum_and_validate(
+    client: Client,
+    url: Url,
+    snapshot_checksum: &[u8],
+) -> anyhow::Result<()> {
+    info!("Validating checksum...");
+    let checksum_url = replace_extension_url(url, "sha256sum")?;
+    let checksum_expected_file = client.get(checksum_url).send().await?;
+    if !checksum_expected_file.status().is_success() {
+        bail!("Unable to get the checksum file. Snapshot downloaded but not verified.");
+    }
+
+    // checksum file is hex-encoded with optionally trailing `- ` at the end. Take only what's needed, i.e.
+    // encoded digest, for SHA256 it's 32 bytes.
+    let checksum_expected = checksum_from_file(
+        &checksum_expected_file.bytes().await?,
+        Sha256::output_size(),
+    )?;
+
+    validate_checksum(&checksum_expected, snapshot_checksum)?;
+    info!(
+        "Snapshot checksum correct. {}",
+        snapshot_checksum.encode_hex::<String>()
+    );
+
+    Ok(())
 }
 
 /// Creates regular checksum (raw bytes) from a checksum file with format:
