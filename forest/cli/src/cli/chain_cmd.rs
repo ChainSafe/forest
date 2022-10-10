@@ -5,8 +5,9 @@ use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty, Config};
-use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
+use forest_cli_shared::cli::snapshot_fetch;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
 use std::{collections::HashMap, path::PathBuf};

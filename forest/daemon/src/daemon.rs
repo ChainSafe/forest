@@ -8,7 +8,7 @@ use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
-use forest_cli_shared::cli::{cli_error_and_die, Config, FOREST_VERSION_STRING};
+use forest_cli_shared::cli::{cli_error_and_die, snapshot_fetch, Config, FOREST_VERSION_STRING};
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};

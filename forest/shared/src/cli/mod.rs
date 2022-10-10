@@ -3,12 +3,14 @@
 
 mod client;
 mod config;
+mod snapshot_fetch;
 
-pub use self::{client::*, config::*};
+pub use self::{client::*, config::*, snapshot_fetch::*};
 
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::{read_file_to_string, read_toml};
+use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
@@ -17,6 +19,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use structopt::StructOpt;
+use byte_unit::Byte;
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
@@ -173,6 +176,17 @@ impl CliOpts {
 
         Ok(cfg)
     }
+}
+
+/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
+/// Provided number cannot be negative, otherwise the function will panic.
+pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
+    let bytes = u128::try_from(input)
+        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
+
+    Ok(Byte::from_bytes(bytes)
+        .get_appropriate_unit(true)
+        .to_string())
 }
 
 fn find_default_config() -> Option<Config> {

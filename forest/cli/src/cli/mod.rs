@@ -13,7 +13,6 @@ mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
-mod snapshot_fetch;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -27,11 +26,9 @@ pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
-pub(crate) use forest_cli_shared::cli::{
-    CliOpts, Config, SnapshotFetchConfig, FOREST_VERSION_STRING,
-};
+pub(crate) use forest_cli_shared::cli::{CliOpts, Config, FOREST_VERSION_STRING};
 
-use byte_unit::Byte;
+use forest_cli_shared::cli::to_size_string;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;
@@ -128,17 +125,6 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
 /// Format a vector to a prettified string
 pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
-}
-
-/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
-/// Provided number cannot be negative, otherwise the function will panic.
-pub(super) fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
-    let bytes = u128::try_from(input)
-        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
-
-    Ok(Byte::from_bytes(bytes)
-        .get_appropriate_unit(true)
-        .to_string())
 }
 
 /// Print an error message and exit the program with an error code
