@@ -24,6 +24,7 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 forest_test_utils.workspace = true
+num-bigint                  = { workspace = true, features = ["quickcheck"] }
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true
