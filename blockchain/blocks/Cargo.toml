@@ -32,6 +32,6 @@ thiserror.workspace         = true
 
 [dev-dependencies]
 async-std.workspace  = true
-forest_test_utils    = { workspace = true, features = ["test_constructors"] }
+forest_test_utils.workspace = true
 hex.workspace        = true
 serde_json.workspace = true

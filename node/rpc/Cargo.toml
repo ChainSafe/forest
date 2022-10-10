@@ -63,6 +63,6 @@ version          = "0.11"
 
 [dev-dependencies]
 forest_db.workspace = true
-forest_test_utils   = { workspace = true, features = ["test_constructors"] }
+forest_test_utils.workspace = true
 futures.workspace   = true
 hex.workspace       = true
