@@ -7,6 +7,7 @@ mod chain_structures;
 #[cfg(feature = "test_constructors")]
 pub use self::chain_structures::*;
 
+// Serialize macro used for testing
 #[macro_export]
 macro_rules! to_string_with {
     ($obj:expr, $serializer:path) => {{
@@ -16,6 +17,7 @@ macro_rules! to_string_with {
     }};
 }
 
+// Deserialize macro used for testing
 #[macro_export]
 macro_rules! from_str_with {
     ($str:expr, $deserializer:path) => {
