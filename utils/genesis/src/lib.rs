@@ -6,7 +6,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_fil_types::verifier::ProofVerifier;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
-use forest_net_utils::FetchProgress;
+use forest_utils::net::FetchProgress;
 use forest_state_manager::StateManager;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};

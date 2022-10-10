@@ -44,7 +44,7 @@ struct CidMap {
 
 pub mod vec {
     use super::*;
-    use forest_json_utils::GoVecVisitor;
+    use forest_utils::json::GoVecVisitor;
     use serde::ser::SerializeSeq;
 
     /// Wrapper for serializing and de-serializing a Cid vector from JSON.
@@ -114,8 +114,8 @@ mod tests {
 
     #[quickcheck]
     fn cid_roundtrip(cid: CidJson) {
-        let serialized = forest_test_utils::to_string_with!(&cid.0, serialize);
-        let parsed: Cid = forest_test_utils::from_str_with!(&serialized, deserialize);
+        let serialized = forest_utils::test::to_string_with!(&cid.0, serialize);
+        let parsed: Cid = forest_utils::test::from_str_with!(&serialized, deserialize);
         assert_eq!(cid.0, parsed);
     }
 }

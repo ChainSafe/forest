@@ -23,7 +23,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
 use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use forest_macros::const_option;
+use forest_utils::const_option;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::{ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};

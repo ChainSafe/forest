@@ -19,7 +19,7 @@ use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
-use forest_utils::io::Checksum;
+use forest_node_utils::io::Checksum;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
@@ -51,7 +51,7 @@ const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_macros::const_option!(NonZeroUsize::new(8192));
+    forest_utils::const_option!(NonZeroUsize::new(8192));
 
 /// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]

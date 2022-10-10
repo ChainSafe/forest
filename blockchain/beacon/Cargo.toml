@@ -16,7 +16,7 @@ base64.workspace            = true
 bls-signatures              = { version = "0.11", default-features = false, features = ["blst"] }
 byteorder                   = "1.4.3"
 forest_encoding.workspace   = true
-forest_json_utils.workspace = true
+forest_utils.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
 hex.workspace               = true
 serde                       = { workspace = true, features = ["derive"] }

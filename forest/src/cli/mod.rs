@@ -55,7 +55,7 @@ use structopt::StructOpt;
 use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_utils::{read_file_to_string, read_toml};
+use forest_node_utils::{read_file_to_string, read_toml};
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
