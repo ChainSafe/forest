@@ -1,12 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::LogValue;
-use crate::cli_error_and_die;
+use crate::cli::{cli_error_and_die, LogValue};
 use log::LevelFilter;
 use std::str::FromStr;
 
-pub(crate) fn setup_logger(log_config: &[LogValue]) {
+pub fn setup_logger(log_config: &[LogValue]) {
     let mut logger_builder = pretty_env_logger::formatted_timed_builder();
 
     // Assign default log level settings

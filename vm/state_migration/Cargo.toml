@@ -10,8 +10,6 @@ crossbeam-channel                = "0.5"
 forest_encoding.workspace        = true
 forest_hash_utils.workspace      = true
 forest_ipld_blockstore.workspace = true
-forest_json_utils.workspace      = true
-forest_vm.workspace              = true
 fvm.workspace                    = true
 fvm_shared                       = { workspace = true, default-features = false }
 log.workspace                    = true

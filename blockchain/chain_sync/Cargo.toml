@@ -1,6 +1,6 @@
 [package]
 name    = "forest_chain_sync"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
@@ -27,7 +27,6 @@ forest_message                   = { workspace = true, features = ["proofs", "bl
 forest_message_pool.workspace    = true
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
-forest_vm.workspace              = true
 futures-util.workspace           = true
 futures.workspace                = true
 fvm.workspace                    = true
@@ -35,7 +34,7 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 lazy_static.workspace            = true
 log.workspace                    = true
-lru                              = "0.8.0"
+lru.workspace                    = true
 nonempty                         = "0.8.0"
 num-bigint.workspace             = true
 num-traits.workspace             = true

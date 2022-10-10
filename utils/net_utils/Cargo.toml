@@ -6,11 +6,11 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace           = true
-async-std                  = { workspace = true, features = ["attributes"] }
-futures.workspace          = true
 isahc.workspace            = true
 log.workspace              = true
 pbr.workspace              = true
 pin-project-lite.workspace = true
 thiserror.workspace        = true
+tokio-util                 = { version = "0.7.0", features = ["compat"] }
+tokio.workspace            = true
 url.workspace              = true
