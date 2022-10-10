@@ -20,7 +20,7 @@ forest_interpreter.workspace     = true
 forest_ipld_blockstore.workspace = true
 forest_libp2p.workspace          = true
 forest_macros.workspace          = true
-forest_message                   = { workspace = true, features = ["proofs", "blst"] }
+forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
 futures.workspace                = true
