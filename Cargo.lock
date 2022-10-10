@@ -1198,6 +1198,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "codespan-reporting"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
+dependencies = [
+ "termcolor",
+ "unicode-width",
+]
+
+[[package]]
 name = "colored"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1237,9 +1247,9 @@ checksum = "fbdcdcb6d86f71c5e97409ad45898af11cbc995b4ee8112d59095a28d376c935"
 
 [[package]]
 name = "const_format"
-version = "0.2.26"
+version = "0.2.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "939dc9e2eb9077e0679d2ce32de1ded8531779360b003b4a972a7a39ec263495"
+checksum = "79f926bc2341a80e6bb5a16e18057c8c90ca3edbdeb9fa497bd0f82b1f4df4e6"
 dependencies = [
  "const_format_proc_macros",
 ]
@@ -1653,6 +1663,50 @@ dependencies = [
  "rand_core 0.6.4",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "cxx"
+version = "1.0.78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19f39818dcfc97d45b03953c1292efc4e80954e1583c4aa770bac1383e2310a4"
+dependencies = [
+ "cc",
+ "cxxbridge-flags",
+ "cxxbridge-macro",
+ "link-cplusplus",
+]
+
+[[package]]
+name = "cxx-build"
+version = "1.0.78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e580d70777c116df50c390d1211993f62d40302881e54d4b79727acb83d0199"
+dependencies = [
+ "cc",
+ "codespan-reporting",
+ "once_cell",
+ "proc-macro2 1.0.46",
+ "quote 1.0.21",
+ "scratch",
+ "syn 1.0.102",
+]
+
+[[package]]
+name = "cxxbridge-flags"
+version = "1.0.78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56a46460b88d1cec95112c8c363f0e2c39afdb237f60583b0b36343bf627ea9c"
+
+[[package]]
+name = "cxxbridge-macro"
+version = "1.0.78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "747b608fecf06b0d72d440f27acc99288207324b793be2c17991839f3d4995ea"
+dependencies = [
+ "proc-macro2 1.0.46",
+ "quote 1.0.21",
+ "syn 1.0.102",
 ]
 
 [[package]]
@@ -2503,85 +2557,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
-name = "forest-cli"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "async-log",
- "async-std",
- "base64 0.13.0",
- "byte-unit",
- "chrono",
- "cid",
- "directories",
- "fil_actor_miner",
- "forest_actor_interface",
- "forest_auth",
- "forest_beacon",
- "forest_blocks",
- "forest_chain",
- "forest_chain_sync",
- "forest_cli_shared",
- "forest_crypto",
- "forest_db",
- "forest_encoding",
- "forest_fil_types",
- "forest_interpreter",
- "forest_ipld_blockstore",
- "forest_json",
- "forest_key_management",
- "forest_libp2p",
- "forest_message",
- "forest_message_pool",
- "forest_networks",
- "forest_paramfetch",
- "forest_rpc-api",
- "forest_rpc-client",
- "forest_state_manager",
- "forest_utils",
- "futures",
- "fvm",
- "fvm_ipld_car",
- "fvm_ipld_encoding",
- "fvm_shared",
- "git-version",
- "hex",
- "jsonrpc-v2",
- "lazy_static",
- "libp2p",
- "log",
- "multibase 0.9.1",
- "num-rational",
- "num-traits",
- "once_cell",
- "pbr",
- "pretty_env_logger",
- "prometheus",
- "quickcheck",
- "quickcheck_macros",
- "rand 0.8.5",
- "rayon",
- "reqwest",
- "rpassword",
- "rug",
- "rust-s3",
- "serde",
- "serde_json",
- "sha2 0.10.6",
- "strfmt",
- "structopt",
- "tempfile",
- "ticker",
- "time 0.3.9",
- "tokio",
- "toml",
- "uuid",
-]
-
-[[package]]
-name = "forest-daemon"
-version = "0.4.0"
+name = "forest"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2658,6 +2635,83 @@ dependencies = [
  "time 0.3.9",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "forest-cli"
+version = "0.4.1"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "async-log",
+ "async-std",
+ "base64 0.13.0",
+ "byte-unit",
+ "chrono",
+ "cid",
+ "directories",
+ "fil_actor_miner",
+ "forest_actor_interface",
+ "forest_auth",
+ "forest_beacon",
+ "forest_blocks",
+ "forest_chain",
+ "forest_chain_sync",
+ "forest_cli_shared",
+ "forest_crypto",
+ "forest_db",
+ "forest_encoding",
+ "forest_fil_types",
+ "forest_interpreter",
+ "forest_ipld_blockstore",
+ "forest_json",
+ "forest_key_management",
+ "forest_libp2p",
+ "forest_message",
+ "forest_message_pool",
+ "forest_networks",
+ "forest_paramfetch",
+ "forest_rpc-api",
+ "forest_rpc-client",
+ "forest_state_manager",
+ "forest_utils",
+ "futures",
+ "fvm",
+ "fvm_ipld_car",
+ "fvm_ipld_encoding",
+ "fvm_shared",
+ "git-version",
+ "hex",
+ "jsonrpc-v2",
+ "lazy_static",
+ "libp2p",
+ "log",
+ "multibase 0.9.1",
+ "num-rational",
+ "num-traits",
+ "once_cell",
+ "pbr",
+ "pretty_env_logger",
+ "prometheus",
+ "quickcheck",
+ "quickcheck_macros",
+ "rand 0.8.5",
+ "rayon",
+ "reqwest",
+ "rpassword",
+ "rug",
+ "rust-s3",
+ "serde",
+ "serde_json",
+ "sha2 0.10.6",
+ "strfmt",
+ "structopt",
+ "tempfile",
+ "ticker",
+ "time 0.3.9",
+ "tokio",
+ "toml",
+ "uuid",
 ]
 
 [[package]]
@@ -2805,7 +2859,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain_sync"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "async-std",
@@ -2862,7 +2916,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cli_shared"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -3167,12 +3221,16 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "forest_json_utils",
+ "forest_test_utils",
  "fvm",
  "fvm_ipld_encoding",
  "fvm_shared",
  "multihash",
  "num-bigint 0.4.3",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4377,15 +4435,26 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.50"
+version = "0.1.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd911b35d940d2bd0bea0f9100068e5b97b51a1cbe13d13382f132e0365257a0"
+checksum = "f5a6ef98976b22b3b7f2f3a806f858cb862044cfa66805aa3ad84cb3d3b785ed"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
+ "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "iana-time-zone-haiku"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fde6edd6cef363e9359ed3c98ba64590ba9eecba2293eb5a723ab32aee8926aa"
+dependencies = [
+ "cxx",
+ "cxx-build",
 ]
 
 [[package]]
@@ -5462,6 +5531,15 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "link-cplusplus"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9272ab7b96c9046fbc5bc56c06c117cb639fe2d509df0c421cad82d2915cf369"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -7390,6 +7468,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "scratch"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c8132065adcfd6e02db789d9285a0deb2f3fcb04002865ab67d5fb103533898"
+
+[[package]]
 name = "sct"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7545,9 +7629,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.85"
+version = "1.0.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e55a28e3aaef9d5ce0506d0a14dbba8054ddc7e499ef522dd8b26859ec9d4a44"
+checksum = "41feea4228a6f1cd09ec7a3593a682276702cd67b5273544757dae23c096f074"
 dependencies = [
  "itoa",
  "ryu",
@@ -8833,9 +8917,9 @@ checksum = "099b7128301d285f79ddd55b9a83d5e6b9e97c92e0ea0daebee7263e932de992"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcc811dc4066ac62f84f11307873c4850cb653bfa9b1719cee2bd2204a4bc5dd"
+checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
 
 [[package]]
 name = "unicode-normalization"
@@ -8930,9 +9014,9 @@ checksum = "5190c9442dcdaf0ddd50f37420417d219ae5261bbf5db120d0f9bab996c9cba1"
 
 [[package]]
 name = "uuid"
-version = "1.1.2"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd6469f4314d5f1ffec476e05f17cc9a78bc7a27a6a857842170bdf8d6f98d2f"
+checksum = "feb41e78f93363bb2df8b0e86a2ca30eed7806ea16ea0c790d757cf93f79be83"
 dependencies = [
  "getrandom 0.2.7",
 ]
@@ -9313,9 +9397,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3aba2d1dac31ac7cae82847ac5b8be822aee8f99a4e100f279605016b185c5f"
+checksum = "ae41ecad2489a1655c8ef8489444b0b113c0a0c795944a3572a0931cf7d2525c"
 dependencies = [
  "bytemuck",
  "safe_arch",
