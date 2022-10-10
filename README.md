@@ -19,7 +19,7 @@ Our crates:
 
 | component | description/crates |
 | - | - |
-| `forest` | the command-line interface and daemon (1 crate/workspace) |
+| `forest` | the command-line interface and daemon (3 crate/workspace) |
 | `node` | the networking stack and storage (7 crates) |
 | `blockchain` | the chain structure and synchronization (8 crates) |
 | `vm` | state transition and actors, messages, addresses (9 crates) |
@@ -88,7 +88,11 @@ To create release binaries, checkout the latest tag and compile with the release
 
 ```shell
 git checkout $TAG
-cargo build --release --bin forest --features release
+make build # make debug build of forest daemon and cli
+# or
+make release # make release build of forest daemon and cli
+# or
+make install # install forest daemon and cli
 ```
 
 ### Config

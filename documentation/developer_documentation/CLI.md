@@ -31,48 +31,48 @@ All wallet commands require write permissions to interact with the keystore
 
 Balance
 Retrieve the FIL balance of a given address
-Usage: `forest wallet balance <address>`
+Usage: `forest-cli wallet balance <address>`
 
 Default
 Get the default, persisted address from the keystore
-Usage: `forest wallet default`
+Usage: `forest-cli wallet default`
 
 Has
 Check if an address exists in the keystore
 shows true/false if exists or doesn't
-Usage: `forest wallet has <address>`
+Usage: `forest-cli wallet has <address>`
 
 List
 Display the keys in the keystore
-Usage: `forest wallet list`
+Usage: `forest-cli wallet list`
 
 New
 Create a new wallet
 The signature type can either be secp256k1 or bls. Defaults to use bls
-Usage: `forest wallet new <bls/secp256k1>`
+Usage: `forest-cli wallet new <bls/secp256k1>`
 
 Set-default
 Set an address to be the default address of the keystore
-Usage: `forest wallet set-default <address>`
+Usage: `forest-cli wallet set-default <address>`
 
 Import
 Import a private key to the keystore and create a new address.
 The default format for importing keys is hex encoded JSON. Use the `export`
 command to get formatted keys for importing.
-Usage: `forest wallet import <hex encoded json key>`
+Usage: `forest-cli wallet import <hex encoded json key>`
 
 Export
 Export a key by address. Use a wallet address to export a key. Returns a formatted key
 to be used to import on another node, or into a new keystore.
-Usage: `forest wallet export <address>`
+Usage: `forest-cli wallet export <address>`
 
 Sign
 Use an address to sign a vector of bytes
-Usage: `forest wallet sign -m <hex message> -a <address>`
+Usage: `forest-cli wallet sign -m <hex message> -a <address>`
 
 Verify
 Verify the message's integrity with an address and signature
-Usage: `forest wallet verify -m <hex message> -a <address> -s <signature>`
+Usage: `forest-cli wallet verify -m <hex message> -a <address> -s <signature>`
 
 
 ## Chain-Sync
@@ -82,20 +82,20 @@ of the syncing process, and check blocks that will never be synced (and for what
 
 Wait
 Wait for the sync process to be complete
-Usage: `forest sync wait`
+Usage: `forest-cli sync wait`
 Permissions: Read
 
 Status
 Check the current state of the syncing process, displaying some information
-Usage: `forest sync status`
+Usage: `forest-cli sync status`
 Permissions: Read
 
 Check Bad
 Check if a block has been marked by, identifying the block by CID
-Usage: `forest sync check-bad -c <block cid>`
+Usage: `forest-cli sync check-bad -c <block cid>`
 Permissions: Read
 
 Mark Bad
 Mark a block as bad, the syncer will never sync this block
-Usage: `forest sync mark-bad -c <block cid>`
+Usage: `forest-cli sync mark-bad -c <block cid>`
 Permissions: Admin

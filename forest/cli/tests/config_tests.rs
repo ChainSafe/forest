@@ -1,14 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use assert_cmd::Command;
-use forest::cli::{Client, Config};
+use forest_cli_shared::cli::{Client, Config};
 use rand::Rng;
 use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 use tempfile::TempDir;
 
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
-    let cmd = Command::cargo_bin("forest")
+    let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
         .arg("--rpc")
         .arg("true")
@@ -28,7 +28,7 @@ fn test_overrides_are_reflected_in_configuration_dump() {
     let mut rng = rand::thread_rng();
     let randomized_metrics_host = format!("127.0.0.1:{}", rng.gen::<u16>());
 
-    let cmd = Command::cargo_bin("forest")
+    let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
         .arg("--rpc")
         .arg("true")
@@ -72,7 +72,7 @@ fn test_reading_configuration_from_file() {
         .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    let cmd = Command::cargo_bin("forest")
+    let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
         .arg("--rpc")
         .arg("true")
@@ -108,7 +108,7 @@ fn test_config_env_var() {
         .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    let cmd = Command::cargo_bin("forest")
+    let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
         .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("config")
@@ -127,7 +127,7 @@ fn test_config_env_var() {
 fn test_download_location_of_proof_parameter_files_env() {
     let tmp_dir = TempDir::new().unwrap();
 
-    Command::cargo_bin("forest")
+    Command::cargo_bin("forest-cli")
         .unwrap()
         .env("FIL_PROOFS_PARAMETER_CACHE", tmp_dir.path())
         .arg("fetch-params")
@@ -157,7 +157,7 @@ fn test_download_location_of_proof_parameter_files_default() {
         .write_all(toml::to_string(&config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    Command::cargo_bin("forest")
+    Command::cargo_bin("forest-cli")
         .unwrap()
         .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("fetch-params")

@@ -1,16 +1,19 @@
 [package]
-name        = "forest"
+name        = "forest-daemon"
 version     = "0.4.1"
 authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
 edition     = "2021"
+
+[[bin]]
+name = "forest"
+path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace                 = true
 async-log                        = "2.0"
 async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
-byte-unit                        = "4.0"
 chrono                           = "0.4"
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 ctrlc                            = "3.2"
@@ -23,6 +26,7 @@ forest_beacon.workspace          = true
 forest_blocks.workspace          = true
 forest_chain.workspace           = true
 forest_chain_sync.workspace      = true
+forest_cli_shared.workspace      = true
 forest_crypto.workspace          = true
 forest_db.workspace              = true
 forest_deleg_cns                 = { workspace = true, optional = true }
@@ -67,20 +71,15 @@ raw_sync                         = "0.1"
 rayon.workspace                  = true
 reqwest                          = { version = "0.11", features = ["stream"] }
 rpassword                        = "7.0"
-rug                              = "1.17"
-rust-s3                          = "0.32.3"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2                             = "0.10.5"
 shared_memory                    = "0.12"
-strfmt                           = "0.2.2"
 structopt                        = "0.3"
 tempfile                         = "3.3"
-ticker                           = "0.1"
 time                             = "0.3"
 tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"
-uuid                             = { version = "1.1", features = ["v4"] }
 
 
 [dependencies.jsonrpc-v2]
@@ -97,7 +96,5 @@ rand.workspace    = true
 [features]
 default          = ["forest_fil_cns"]
 insecure_post    = ["forest_fil_cns/insecure_post"]
-testnet          = []
-release          = []
 forest_fil_cns   = ["dep:forest_fil_cns"]
 forest_deleg_cns = ["dep:forest_deleg_cns"]
