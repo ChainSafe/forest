@@ -9,7 +9,7 @@ pub mod json {
     use std::str::FromStr;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize, Clone, Debug)]
     #[serde(transparent)]
     pub struct ActorStateJson(#[serde(with = "self")] pub ActorState);
 
@@ -75,5 +75,36 @@ pub mod json {
             sequence,
             balance: TokenAmount::from_str(&balance).map_err(de::Error::custom)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::actor_state::json::{deserialize, serialize, ActorStateJson};
+    use cid::Cid;
+    use fvm::state_tree::ActorState;
+    use fvm_shared::econ::TokenAmount;
+    use quickcheck_macros::quickcheck;
+
+    impl quickcheck::Arbitrary for ActorStateJson {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let cid = Cid::new_v1(
+                u64::arbitrary(g),
+                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+            );
+            ActorStateJson(ActorState {
+                code: cid,
+                state: cid,
+                sequence: u64::arbitrary(g),
+                balance: TokenAmount::from(i64::arbitrary(g)),
+            })
+        }
+    }
+
+    #[quickcheck]
+    fn actorstate_roundtrip(actorstate: ActorStateJson) {
+        let serialized: String = forest_test_utils::to_string_with!(&actorstate.0, serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, deserialize);
+        assert_eq!(actorstate.0, parsed);
     }
 }
