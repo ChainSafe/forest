@@ -560,44 +560,29 @@ mod test {
 }
 
 #[cfg(test)]
-impl quickcheck::Arbitrary for KeyInfo {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let sigtype = g
-            .choose(&[
-                fvm_shared::crypto::signature::SignatureType::BLS,
-                fvm_shared::crypto::signature::SignatureType::Secp256k1,
-            ])
-            .unwrap();
-        KeyInfo {
-            key_type: *sigtype,
-            private_key: Vec::arbitrary(g),
-        }
-    }
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
 
-    macro_rules! to_string_with {
-        ($obj:expr, $serializer:path) => {{
-            let mut writer = Vec::new();
-            $serializer($obj, &mut serde_json::ser::Serializer::new(&mut writer)).unwrap();
-            String::from_utf8(writer).unwrap()
-        }};
-    }
-
-    macro_rules! from_str_with {
-        ($str:expr, $deserializer:path) => {
-            $deserializer(&mut serde_json::de::Deserializer::from_str($str)).unwrap()
-        };
+    impl quickcheck::Arbitrary for KeyInfo {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let sigtype = g
+                .choose(&[
+                    fvm_shared::crypto::signature::SignatureType::BLS,
+                    fvm_shared::crypto::signature::SignatureType::Secp256k1,
+                ])
+                .unwrap();
+            KeyInfo {
+                key_type: *sigtype,
+                private_key: Vec::arbitrary(g),
+            }
+        }
     }
 
     #[quickcheck]
     fn keyinfo_roundtrip(keyinfo: KeyInfo) {
-        let serialized: String = to_string_with!(&keyinfo, json::serialize);
-        let parsed = from_str_with!(&serialized, json::deserialize);
+        let serialized: String = forest_test_utils::to_string_with!(&keyinfo, json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
         assert_eq!(keyinfo, parsed);
     }
 }

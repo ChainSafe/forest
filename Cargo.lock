@@ -1809,7 +1809,7 @@ checksum = "226ad66541d865d7a7173ad6a9e691c33fdb910ac723f4bc734b3e5294a1f931"
 dependencies = [
  "proc-macro2 1.0.46",
  "quote 1.0.21",
- "syn 1.0.101",
+ "syn 1.0.102",
 ]
 
 [[package]]
@@ -3273,6 +3273,7 @@ dependencies = [
  "bls-signatures",
  "forest_crypto",
  "forest_encoding",
+ "forest_test_utils",
  "forest_utils",
  "fvm_shared",
  "libsecp256k1",
