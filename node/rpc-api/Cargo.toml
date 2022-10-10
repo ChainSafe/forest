@@ -21,7 +21,6 @@ forest_libp2p.workspace          = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace    = true
 forest_state_manager.workspace   = true
-forest_vm.workspace              = true
 # Public
 anyhow.workspace     = true
 async-std            = { workspace = true, features = ["attributes"] }

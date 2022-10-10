@@ -1,6 +1,8 @@
 [workspace]
 members = [
-  "forest",
+  "forest/cli",
+  "forest/daemon",
+  "forest/shared",
   "blockchain/beacon",
   "blockchain/blocks",
   "blockchain/chain",
@@ -10,7 +12,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm",
   "vm/actor_interface",
   "vm/message",
   "vm/interpreter",
@@ -86,6 +87,7 @@ libp2p                = "0.46"
 libp2p-bitswap        = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "5c79b37feceb3ba76d5a488b1713cfaaf861baa3" }
 libsecp256k1          = "0.7"
 log                   = "0.4"
+lru                   = "0.8"
 multibase             = "0.9"
 multihash             = "0.16"
 num-bigint            = "0.4"
@@ -116,6 +118,7 @@ forest_beacon          = { path = "./blockchain/beacon" }
 forest_blocks          = { path = "./blockchain/blocks" }
 forest_chain           = { path = "./blockchain/chain" }
 forest_chain_sync      = { path = "./blockchain/chain_sync" }
+forest_cli_shared      = { path = "./forest/shared" }
 forest_crypto          = { path = "./crypto" }
 forest_db              = { path = "./node/db" }
 forest_deleg_cns       = { path = "./blockchain/consensus/deleg_cns" }
@@ -147,7 +150,6 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./node/utils" }
-forest_vm              = { path = "./vm" }
 
 [profile.dev]
 debug = 0

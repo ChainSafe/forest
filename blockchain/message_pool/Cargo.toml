@@ -23,23 +23,21 @@ forest_macros.workspace          = true
 forest_message                   = { workspace = true, features = ["proofs", "blst"] }
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
-forest_vm.workspace              = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 libsecp256k1.workspace           = true
 log.workspace                    = true
-# cannot update lru as `LruCache::new` changed its arguments
-lru                    = "0.8.0"
-num-rational.workspace = true
-num-traits.workspace   = true
-rand.workspace         = true
-serde                  = { workspace = true, features = ["derive"] }
-slotmap                = "1.0"
-statrs                 = "0.16"
-thiserror.workspace    = true
-tokio                  = { workspace = true, features = ["sync"] }
+lru.workspace                    = true
+num-rational.workspace           = true
+num-traits.workspace             = true
+rand.workspace                   = true
+serde                            = { workspace = true, features = ["derive"] }
+slotmap                          = "1.0"
+statrs                           = "0.16"
+thiserror.workspace              = true
+tokio                            = { workspace = true, features = ["sync", "macros"] }
 
 [dev-dependencies]
 forest_key_management.workspace = true
