@@ -8,7 +8,7 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
-features = ["json", "proofs"]
+features = ["proofs"]
 
 [dependencies]
 anyhow.workspace            = true
