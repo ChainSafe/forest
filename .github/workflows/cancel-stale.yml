@@ -10,8 +10,6 @@ on:
       - "Scripts"
     types:
       - requested
-    branches:
-      - "!main"
 jobs:
   cancel:
     runs-on: ubuntu-latest
