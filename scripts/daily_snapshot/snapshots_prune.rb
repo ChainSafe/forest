@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'date'
+require 'pathname'
 
 # Class representing a snapshot bucket with a defined number of entries.
 class SnapshotBucket
@@ -56,5 +57,12 @@ def prune_snapshots(snapshots_directory)
      .sort_by { |f| File.mtime(f) }
      .reverse
      .reject  { |f| buckets.any? { |bucket| bucket.add? f } }
-     .each    { |f| File.delete f }
+     .each    { |f| remove_snapshot f }
+end
+
+# Removes the snapshot and optionally the related checksum file if it exists.
+def remove_snapshot(snapshot)
+  checksum = Pathname.new(snapshot.path).sub_ext('.sha256sum')
+  File.delete checksum if checksum.file?
+  File.delete snapshot
 end

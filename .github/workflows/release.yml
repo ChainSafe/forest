@@ -34,14 +34,15 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --bin forest --features release
+          args: --release --bin forest --bin forest-cli
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}
-          cp -v target/release/forest forest-${{ github.ref_name }}
+          cp -v target/release/forest target/release/forest-cli forest-${{ github.ref_name }}
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
-          strip forest-${{ github.ref_name }}/forest
+          strip forest-${{ github.ref_name }}/forest forest-${{ github.ref_name }}/forest-cli
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
+          sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
         uses: svenstaro/upload-release-action@v2

@@ -1,6 +1,6 @@
 [package]
 name    = "forest_chain_sync"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 

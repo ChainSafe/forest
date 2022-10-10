@@ -172,3 +172,43 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::json::{MessageJson, MessageJsonRef};
+    use fvm_shared::address::Address;
+    use fvm_shared::econ::TokenAmount;
+    use fvm_shared::message::Message;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct MessageWrapper {
+        pub message: Message,
+    }
+
+    impl quickcheck::Arbitrary for MessageWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let msg = Message {
+                to: Address::new_id(u64::arbitrary(g)),
+                from: Address::new_id(u64::arbitrary(g)),
+                version: i64::arbitrary(g),
+                sequence: u64::arbitrary(g),
+                value: TokenAmount::from(i64::arbitrary(g)),
+                method_num: u64::arbitrary(g),
+                params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
+                gas_limit: i64::arbitrary(g),
+                gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
+                gas_premium: TokenAmount::from(i64::arbitrary(g)),
+            };
+            MessageWrapper { message: msg }
+        }
+    }
+
+    #[quickcheck]
+    fn message_roundtrip(message: MessageWrapper) {
+        let serialized = serde_json::to_string(&MessageJsonRef(&message.message)).unwrap();
+        let parsed: MessageJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message.message, parsed.0);
+    }
+}
