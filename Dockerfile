@@ -24,13 +24,13 @@ WORKDIR /usr/src/forest
 COPY . .
 
 # Grab the correct toolchain
-RUN rustup toolchain install nightly && rustup target add wasm32-unknown-unknown
+RUN rustup toolchain install nightly
 
 # Install Forest
 RUN make install
 
 # strip symbols to make executable smaller
-RUN strip /usr/local/cargo/bin/forest
+RUN strip /usr/local/cargo/bin/forest /usr/local/cargo/bin/forest-cli
 
 ##
 # Prod image for forest binary
@@ -44,7 +44,8 @@ LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates
 RUN update-ca-certificates
 
-# Copy forest binary from the build-env
+# Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
+COPY --from=build-env /usr/local/cargo/bin/forest-cli /usr/local/bin/forest-cli
 
 ENTRYPOINT ["/usr/local/bin/forest"]

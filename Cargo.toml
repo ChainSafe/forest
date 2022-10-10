@@ -1,6 +1,8 @@
 [workspace]
 members = [
-  "forest",
+  "forest/cli",
+  "forest/daemon",
+  "forest/shared",
   "blockchain/beacon",
   "blockchain/blocks",
   "blockchain/chain",
@@ -10,7 +12,6 @@ members = [
   "blockchain/message_pool",
   "blockchain/consensus/fil_cns",
   "blockchain/consensus/deleg_cns",
-  "vm",
   "vm/actor_interface",
   "vm/message",
   "vm/interpreter",
@@ -118,6 +119,7 @@ forest_beacon          = { path = "./blockchain/beacon" }
 forest_blocks          = { path = "./blockchain/blocks" }
 forest_chain           = { path = "./blockchain/chain" }
 forest_chain_sync      = { path = "./blockchain/chain_sync" }
+forest_cli_shared      = { path = "./forest/shared" }
 forest_crypto          = { path = "./crypto" }
 forest_db              = { path = "./node/db" }
 forest_deleg_cns       = { path = "./blockchain/consensus/deleg_cns" }
@@ -149,7 +151,6 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./node/utils" }
-forest_vm              = { path = "./vm" }
 
 [profile.dev]
 debug = 0

@@ -48,3 +48,17 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fvm_shared::bigint::BigInt;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn bigint_roundtrip(bigint: BigInt) {
+        let serialized: String = forest_test_utils::to_string_with!(&bigint, json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+        assert_eq!(bigint, parsed);
+    }
+}

@@ -1,5 +1,10 @@
 ## Forest v0.5.0 (unreleased, scheduled for 2022-12-30)
 
+## Forest v0.4.1 (2022-10-04)
+
+### Changed
+* Fix bug in handling of blockchain forks.
+
 ## Forest v0.4.0 (2022-09-30)
 
 Notable updates:

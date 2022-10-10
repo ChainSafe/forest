@@ -18,7 +18,6 @@ forest_crypto               = { workspace = true, default-features = false }
 forest_encoding.workspace   = true
 forest_json.workspace       = true
 forest_json_utils.workspace = true
-forest_vm.workspace         = true
 fvm.workspace               = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false, features = ["testing"] }

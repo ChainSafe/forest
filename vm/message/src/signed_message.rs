@@ -4,11 +4,12 @@
 use super::Message as MessageTrait;
 use forest_crypto::Signer;
 use forest_encoding::tuple::*;
-use forest_vm::{MethodNum, Serialized, TokenAmount};
-use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::MethodNum;
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
@@ -83,7 +84,7 @@ impl MessageTrait for SignedMessage {
     fn method_num(&self) -> MethodNum {
         self.message.method_num
     }
-    fn params(&self) -> &Serialized {
+    fn params(&self) -> &RawBytes {
         &self.message.params
     }
     fn gas_limit(&self) -> i64 {
@@ -121,34 +122,6 @@ impl Cbor for SignedMessage {
         } else {
             Ok(to_vec(&self)?)
         }
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for SignedMessage {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        const DUMMY_SIG: [u8; 1] = [0u8];
-
-        struct DummySigner;
-        impl Signer for DummySigner {
-            fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-                Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-            }
-        }
-
-        let msg = Message {
-            to: Address::new_id(u64::arbitrary(g)),
-            from: Address::new_id(u64::arbitrary(g)),
-            version: i64::arbitrary(g),
-            sequence: u64::arbitrary(g),
-            value: TokenAmount::from(i64::arbitrary(g)),
-            method_num: u64::arbitrary(g),
-            params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
-            gas_limit: i64::arbitrary(g),
-            gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
-            gas_premium: TokenAmount::from(i64::arbitrary(g)),
-        };
-        SignedMessage::new(msg, &DummySigner).unwrap()
     }
 }
 
@@ -251,6 +224,25 @@ mod tests {
     use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    impl quickcheck::Arbitrary for SignedMessage {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            const DUMMY_SIG: [u8; 1] = [0u8];
+
+            struct DummySigner;
+            impl Signer for DummySigner {
+                fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
+                    Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+                }
+            }
+
+            SignedMessage::new(
+                crate::message::tests::MessageWrapper::arbitrary(g).message,
+                &DummySigner,
+            )
+            .unwrap()
+        }
+    }
 
     #[quickcheck]
     fn signed_message_roundtrip(message: SignedMessage) {
