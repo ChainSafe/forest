@@ -7,6 +7,7 @@ mod snapshot_fetch;
 
 pub use self::{client::*, config::*, snapshot_fetch::*};
 
+use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::{read_file_to_string, read_toml};
@@ -14,12 +15,11 @@ use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
-use std::io::{self};
+use std::io;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use structopt::StructOpt;
-use byte_unit::Byte;
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
