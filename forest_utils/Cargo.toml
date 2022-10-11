@@ -1,5 +1,5 @@
 [package]
-name = "forest_utils"
+name    = "forest_utils"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,28 +9,25 @@ edition = "2021"
 features = ["test_constructors"]
 
 [dependencies]
-const_format = "0.2.26"
-
 anyhow.workspace           = true
+const_format               = "0.2.26"
+digest                     = "0.10.5"
 isahc.workspace            = true
+libc                       = "0.2"
 log.workspace              = true
 pbr.workspace              = true
 pin-project-lite.workspace = true
+serde.workspace            = true
 thiserror.workspace        = true
 tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
 tokio.workspace            = true
-url.workspace              = true
-
-serde.workspace = true
-digest                     = "0.10.5"
-libc                       = "0.2"
 toml                       = "0.5"
+url.workspace              = true
 
 
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }
+serde_derive         = "1.0"
 serde_json.workspace = true
-
-serde_derive = "1.0"
-sha2         = { version = "0.10", default-features = false }
-tokio        = { workspace = true, features = ["macros", "rt"] }
+sha2                 = { version = "0.10", default-features = false }
+tokio                = { workspace = true, features = ["macros", "rt"] }
