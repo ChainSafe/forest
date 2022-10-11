@@ -19,8 +19,8 @@ pbr.workspace              = true
 pin-project-lite.workspace = true
 serde.workspace            = true
 thiserror.workspace        = true
+tokio                      = { workspace = true, features = ["fs"] }
 tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
-tokio.workspace            = true
 toml                       = "0.5"
 url.workspace              = true
 
@@ -30,4 +30,4 @@ serde                = { workspace = true, features = ["derive"] }
 serde_derive         = "1.0"
 serde_json.workspace = true
 sha2                 = { version = "0.10", default-features = false }
-tokio                = { workspace = true, features = ["macros", "rt"] }
+tokio                = { workspace = true, features = ["macros", "rt", "fs"] }
