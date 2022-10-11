@@ -75,7 +75,7 @@ pub enum SnapshotCommands {
 
         /// Answer yes to all forest-cli yes/no questions without prompting
         #[structopt(short, long)]
-        yes: Option<bool>,
+        yes: bool,
     },
 }
 
@@ -168,7 +168,7 @@ impl SnapshotCommands {
                 snapshot_dir,
                 yes,
             } => {
-                let yes = yes.unwrap_or_default();
+                let yes = *yes;
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
