@@ -8,3 +8,9 @@ use jsonrpc_v2::Error;
 pub async fn mpool_pending(params: MpoolPendingParams) -> Result<MpoolPendingResult, Error> {
     call(MPOOL_PENDING, params).await
 }
+
+pub async fn mpool_push_message(
+    params: MpoolPushMessageParams,
+) -> Result<MpoolPushMessageResult, Error> {
+    call(MPOOL_PUSH_MESSAGE, params).await
+}
