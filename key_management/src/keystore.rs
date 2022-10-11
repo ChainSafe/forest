@@ -61,7 +61,7 @@ pub mod json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `KeyInfo` from JSON.
-    #[derive(Clone, Deserialize, Serialize)]
+    #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
@@ -463,7 +463,9 @@ impl EncryptedKeyStore {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::json::KeyInfoJson;
     use crate::wallet;
+    use quickcheck_macros::quickcheck;
 
     const PASSPHRASE: &str = "foobarbaz";
 
@@ -557,14 +559,8 @@ mod test {
         let ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
         ks.flush().unwrap();
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use quickcheck_macros::quickcheck;
-
-    impl quickcheck::Arbitrary for KeyInfo {
+    impl quickcheck::Arbitrary for KeyInfoJson {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
                 .choose(&[
@@ -572,17 +568,18 @@ mod tests {
                     fvm_shared::crypto::signature::SignatureType::Secp256k1,
                 ])
                 .unwrap();
-            KeyInfo {
+            let keyinfo = KeyInfo {
                 key_type: *sigtype,
                 private_key: Vec::arbitrary(g),
-            }
+            };
+            KeyInfoJson(keyinfo)
         }
     }
 
     #[quickcheck]
-    fn keyinfo_roundtrip(keyinfo: KeyInfo) {
-        let serialized: String = forest_test_utils::to_string_with!(&keyinfo, json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
+    fn keyinfo_roundtrip(keyinfo: KeyInfoJson) {
+        let serialized: String = serde_json::to_string(&keyinfo).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
         assert_eq!(keyinfo, parsed);
     }
 }
