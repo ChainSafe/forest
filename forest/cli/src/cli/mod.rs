@@ -36,6 +36,7 @@ pub(crate) use forest_cli_shared::cli::{
 };
 
 use byte_unit::Byte;
+use dialoguer::console;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
 use jsonrpc_v2::Error as JsonRpcError;

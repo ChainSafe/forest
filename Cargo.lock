@@ -1871,6 +1871,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dialoguer"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a92e7e37ecef6857fdc0c0c5d42fd5b0938e46590c2183cc92dd310a6d078eb1"
+dependencies = [
+ "console",
+ "tempfile",
+ "zeroize",
+]
+
+[[package]]
 name = "difference"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2607,7 +2618,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "cid",
- "console",
+ "dialoguer",
  "directories",
  "fil_actor_miner",
  "forest_actor_interface",

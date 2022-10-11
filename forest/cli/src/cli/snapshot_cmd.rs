@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use dialoguer::Confirm;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use structopt::StructOpt;
 
@@ -180,15 +181,16 @@ impl SnapshotCommands {
                     let term = Term::stdout();
                     term.write_line(&format!("Deleting {:?}", snapshot_path))
                         .unwrap();
-                    if !yes {
-                        term.write_line("\nDo you want to continue? [Y/n]").unwrap();
-                        if let Ok(key) = term.read_key() {
-                            if key != console::Key::Char('y') && key != console::Key::Char('Y') {
-                                term.write_line("Aborted.").unwrap();
-                                return;
-                            }
-                        }
+                    if !yes
+                        && !Confirm::new()
+                            .with_prompt("Do you want to continue?")
+                            .interact()
+                            .unwrap()
+                    {
+                        term.write_line("Aborted.").unwrap();
+                        return;
                     }
+
                     let mut checksum_path = snapshot_path.clone();
                     checksum_path.set_extension("sha256sum");
                     for path in [snapshot_path, checksum_path] {
