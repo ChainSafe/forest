@@ -11,14 +11,14 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace                 = true
-async-log                        = "2.0"
+async-log.workspace              = true
 async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
-chrono                           = "0.4"
+chrono.workspace                 = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
-directories                      = "4.0.1"
+directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true
 forest_auth.workspace            = true
