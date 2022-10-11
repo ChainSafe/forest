@@ -38,7 +38,7 @@ members = [
   "utils/metrics",
   "utils/paramfetch",
   "utils/json",
-  "forest_utils",
+  "utils/forest_utils",
 ]
 resolver = "2"
 
@@ -144,7 +144,7 @@ forest_state_manager   = { path = "./blockchain/state_manager" }
 forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
-forest_utils           = { path = "./forest_utils" }
+forest_utils           = { path = "./utils/forest_utils" }
 
 [profile.dev]
 debug = 0
