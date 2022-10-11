@@ -1,13 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "proofs")]
 use fvm::gas::Gas;
-#[cfg(feature = "proofs")]
 use fvm_shared::message::Message;
 
 /// Semantic validation and validates the message has enough gas.
-#[cfg(feature = "proofs")]
 pub fn valid_for_block_inclusion(
     msg: &Message,
     min_gas: Gas,

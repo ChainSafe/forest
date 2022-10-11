@@ -7,9 +7,6 @@ authors     = ["ChainSafe Systems <info@chainsafe.io>"]
 edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
-[package.metadata.docs.rs]
-features = ["json", "proofs"]
-
 [dependencies]
 anyhow.workspace            = true
 base64.workspace            = true
@@ -32,5 +29,3 @@ serde_json.workspace = true
 [features]
 default = ["blst"]
 blst    = ["forest_crypto/blst", "fvm_shared/blst"]
-
-proofs = []
