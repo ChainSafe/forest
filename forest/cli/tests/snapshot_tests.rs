@@ -100,6 +100,109 @@ fn test_snapshot_subcommand_remove_success() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_snapshot_subcommand_prune_empty() -> Result<()> {
+    let tmp_dir = TempDir::new().unwrap();
+    let cmd = cli()?
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("snapshot")
+        .arg("prune")
+        .arg("--yes")
+        .arg("--snapshot-dir")
+        .arg(tmp_dir.path().as_os_str().to_str().unwrap_or_default())
+        .assert()
+        .success();
+
+    let output = std::str::from_utf8(&cmd.get_output().stdout)?.to_owned();
+    ensure!(output.contains("No files to delete"), output);
+
+    Ok(())
+}
+
+#[test]
+fn test_snapshot_subcommand_prune_single() -> Result<()> {
+    let tmp_dir = TempDir::new().unwrap();
+    let filenames = ["forest_snapshot_calibnet_2022-09-28_height_1342143.car"];
+    setup_data_dir(&tmp_dir, filenames.as_slice())?;
+
+    let cmd = cli()?
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("snapshot")
+        .arg("prune")
+        .arg("--yes")
+        .arg("--snapshot-dir")
+        .arg(tmp_dir.path().as_os_str().to_str().unwrap_or_default())
+        .assert()
+        .success();
+
+    let output = std::str::from_utf8(&cmd.get_output().stdout)?.to_owned();
+    ensure!(output.contains("No files to delete"), output);
+
+    Ok(())
+}
+
+#[test]
+fn test_snapshot_subcommand_prune_single_with_custom() -> Result<()> {
+    let tmp_dir = TempDir::new().unwrap();
+    let filenames = [
+        "forest_snapshot_calibnet_2022-09-28_height_1342143.car",
+        "custom.car",
+    ];
+    setup_data_dir(&tmp_dir, filenames.as_slice())?;
+
+    let cmd = cli()?
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("snapshot")
+        .arg("prune")
+        .arg("--yes")
+        .arg("--snapshot-dir")
+        .arg(tmp_dir.path().as_os_str().to_str().unwrap_or_default())
+        .assert()
+        .success();
+
+    let output = std::str::from_utf8(&cmd.get_output().stdout)?.to_owned();
+    ensure!(output.contains("No files to delete"), output);
+
+    Ok(())
+}
+
+#[test]
+fn test_snapshot_subcommand_prune_double() -> Result<()> {
+    let tmp_dir = TempDir::new().unwrap();
+    let filenames = [
+        "forest_snapshot_calibnet_2022-10-10_height_1376736.car",
+        "forest_snapshot_calibnet_2022-09-28_height_1342143.car",
+        "custom.car",
+    ];
+    setup_data_dir(&tmp_dir, filenames.as_slice())?;
+
+    let cmd = cli()?
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("snapshot")
+        .arg("prune")
+        .arg("--yes")
+        .arg("--snapshot-dir")
+        .arg(tmp_dir.path().as_os_str().to_str().unwrap_or_default())
+        .assert()
+        .success();
+
+    let output = std::str::from_utf8(&cmd.get_output().stdout)?.to_owned();
+    ensure!(
+        output.contains("forest_snapshot_calibnet_2022-09-28_height_1342143.car"),
+        output
+    );
+    ensure!(
+        output.contains("forest_snapshot_calibnet_2022-09-28_height_1342143.sha256sum"),
+        output
+    );
+
+    Ok(())
+}
+
 fn cli() -> Result<Command> {
     Ok(Command::cargo_bin("forest-cli")?)
 }

@@ -69,7 +69,7 @@ pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
 rayon.workspace                  = true
-reqwest                          = { version = "0.11", features = ["stream"] }
+reqwest                          = { workspace = true, features = ["stream"] }
 rpassword                        = "7.0"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
@@ -77,7 +77,7 @@ sha2                             = "0.10.5"
 shared_memory                    = "0.12"
 structopt                        = "0.3"
 tempfile                         = "3.3"
-time                             = "0.3"
+time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"
 
