@@ -76,43 +76,35 @@ pub enum Subcommand {
     Fetch(FetchCommands),
 
     /// Interact with Filecoin blockchain
-    #[structopt(name = "chain")]
     Chain(ChainCommands),
 
     /// Manage RPC permissions
-    #[structopt(name = "auth")]
     Auth(AuthCommands),
 
     /// Work with blockchain genesis
-    #[structopt(name = "genesis")]
     Genesis(GenesisCommands),
 
     /// Manage P2P network
-    #[structopt(name = "net")]
     Net(NetCommands),
 
     /// Manage wallet
-    #[structopt(name = "wallet")]
     Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
-    #[structopt(name = "sync")]
     Sync(SyncCommands),
 
     /// Interact with the message pool
-    #[structopt(name = "mpool")]
     Mpool(MpoolCommands),
 
     /// Interact with and query Filecoin chain state
-    #[structopt(name = "state")]
     State(StateCommands),
 
     /// Manage node configuration
-    #[structopt(name = "config")]
     Config(ConfigCommands),
 
     /// Manage snapshots
     Snapshot(SnapshotCommands),
+
     /// Send funds between accounts
     Send(SendCommand),
 }
