@@ -13,6 +13,7 @@ mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
+mod send_cmd;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -23,6 +24,7 @@ pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
 pub(super) use self::net_cmd::NetCommands;
+pub(super) use self::send_cmd::SendCommand;
 pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
@@ -102,6 +104,9 @@ pub enum Subcommand {
     /// Manage node configuration
     #[structopt(name = "config")]
     Config(ConfigCommands),
+
+    /// Send funds between accounts
+    Send(SendCommand),
 }
 
 /// Pretty-print a JSON-RPC error and exit

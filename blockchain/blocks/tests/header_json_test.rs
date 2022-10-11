@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "json")]
-
 use forest_blocks::header::json::{BlockHeaderJson, BlockHeaderJsonRef};
 use serde_json::{from_str, to_string};
 
