@@ -276,9 +276,9 @@ mod tests {
     }
 
     #[quickcheck]
-    fn ipldjsonref_roundtrip(ipldjsonref: IpldJson) {
-        let serialized: String = forest_test_utils::to_string_with!(&ipldjsonref.0, crate::json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, crate::json::deserialize);
-        assert_eq!(ipldjsonref.0, parsed);
+    fn ipldjson_roundtrip(ipldjson: IpldJson) {
+        let serialized: String = serde_json::to_string(&ipldjson).unwrap();
+        let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(ipldjson, parsed);
     }
 }
