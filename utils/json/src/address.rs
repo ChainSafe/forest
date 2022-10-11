@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-// use data_encoding::Encoding;
-
 use fvm_shared::address::Address;
 
 pub mod json {
@@ -114,5 +112,36 @@ pub mod json {
                 Address::from_str(&address_as_string).map_err(de::Error::custom)?,
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[cfg(test)]
+    #[derive(Clone, Debug, PartialEq)]
+    struct AddressWrapper {
+        address: Address,
+    }
+
+    #[cfg(test)]
+    impl quickcheck::Arbitrary for AddressWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let address = arbitrary::Arbitrary::arbitrary(&mut arbitrary::Unstructured::new(
+                &Vec::arbitrary(g),
+            ))
+            .unwrap();
+            AddressWrapper { address }
+        }
+    }
+
+    #[quickcheck]
+    fn address_roundtrip(address: AddressWrapper) {
+        let serialized = serde_json::to_string(&json::AddressJsonRef(&address.address)).unwrap();
+        let parsed: json::AddressJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(address.address, parsed.0);
     }
 }

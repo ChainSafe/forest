@@ -1,6 +1,8 @@
 [workspace]
 members = [
-  "forest",
+  "forest/cli",
+  "forest/daemon",
+  "forest/shared",
   "blockchain/beacon",
   "blockchain/blocks",
   "blockchain/chain",
@@ -46,6 +48,7 @@ forest_hash_utils = { path = "./utils/hash_utils" }
 
 [workspace.dependencies]
 anyhow                = "1.0"
+arbitrary             = "1.1"
 async-std             = "1.12"
 async-trait           = "0.1"
 base64                = "0.13"
@@ -113,6 +116,7 @@ forest_beacon          = { path = "./blockchain/beacon" }
 forest_blocks          = { path = "./blockchain/blocks" }
 forest_chain           = { path = "./blockchain/chain" }
 forest_chain_sync      = { path = "./blockchain/chain_sync" }
+forest_cli_shared      = { path = "./forest/shared" }
 forest_crypto          = { path = "./crypto" }
 forest_db              = { path = "./node/db" }
 forest_deleg_cns       = { path = "./blockchain/consensus/deleg_cns" }
