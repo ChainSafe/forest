@@ -19,7 +19,7 @@ use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
-use forest_utils::io::io::Checksum;
+use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
