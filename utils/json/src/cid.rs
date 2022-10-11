@@ -114,8 +114,8 @@ mod tests {
 
     #[quickcheck]
     fn cid_roundtrip(cid: CidJson) {
-        let serialized = forest_utils::test::to_string_with!(&cid.0, serialize);
-        let parsed: Cid = forest_utils::test::from_str_with!(&serialized, deserialize);
+        let serialized = forest_test::to_string_with!(&cid.0, serialize);
+        let parsed: Cid = forest_test::from_str_with!(&serialized, deserialize);
         assert_eq!(cid.0, parsed);
     }
 }
