@@ -32,6 +32,7 @@ pub struct Client {
     pub metrics_address: SocketAddr,
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
+    /// Download a chain specific snapshot to sync with the Filecoin network
     pub download_snapshot: bool,
 }
 

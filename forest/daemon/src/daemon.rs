@@ -8,7 +8,9 @@ use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
-use forest_cli_shared::cli::{cli_error_and_die, snapshot_fetch, Config, FOREST_VERSION_STRING};
+use forest_cli_shared::cli::{
+    cli_error_and_die, get_default_snapshot_path, snapshot_fetch, Config, FOREST_VERSION_STRING,
+};
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -393,26 +395,29 @@ pub(super) async fn start(config: Config, detached: bool) {
 
 async fn prompt_and_fetch_snapshot(config: &mut Config) {
     if !config.client.download_snapshot {
-        if let false = Confirm::with_theme(&ColorfulTheme::default())
+        let download_snapshot = match Confirm::with_theme(&ColorfulTheme::default())
             .with_prompt(
                 "Forest needs a snapshot to sync with the network. Would you like to download one now?",
             )
             .default(false)
             .interact()
-            .expect("infallible. yes or no with default")
         {
+            Ok(result) => result,
+            Err(e) => {
+                info!("An error occured while requesting user input. Assuming false for input. Error was {}", e);
+                false
+            }
+        };
+
+        if !download_snapshot {
             cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
+                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically",
                 1
             );
         }
     }
 
-    let snapshot_path = config
-        .client
-        .data_dir
-        .join("snapshots")
-        .join(config.chain.name.clone());
+    let snapshot_path = get_default_snapshot_path(config);
 
     match snapshot_fetch(&snapshot_path, config).await {
         Ok(snapshot_path) => {
@@ -429,7 +434,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
         let validate_height = if config.client.snapshot {
             config.client.snapshot_height
         } else {
-            info!("SNAPSHOT_HEIGHT WAS 0");
             Some(0)
         };
 

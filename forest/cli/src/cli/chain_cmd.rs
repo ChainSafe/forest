@@ -7,7 +7,7 @@ use structopt::StructOpt;
 use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty, Config};
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use cid::Cid;
-use forest_cli_shared::cli::snapshot_fetch;
+use forest_cli_shared::cli::{get_default_snapshot_path, snapshot_fetch};
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
 use std::{collections::HashMap, path::PathBuf};
@@ -154,13 +154,9 @@ impl ChainCommands {
                 print_rpc_res(chain_read_obj((CidJson(cid),)).await);
             }
             Self::Fetch { snapshot_dir } => {
-                let snapshot_dir = snapshot_dir.clone().unwrap_or_else(|| {
-                    config
-                        .client
-                        .data_dir
-                        .join("snapshots")
-                        .join(config.chain.name.clone())
-                });
+                let snapshot_dir = snapshot_dir
+                    .clone()
+                    .unwrap_or_else(|| get_default_snapshot_path(&config));
                 match snapshot_fetch(&snapshot_dir, &config).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),

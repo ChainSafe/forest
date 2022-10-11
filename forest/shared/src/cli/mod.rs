@@ -90,6 +90,9 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
+    /// Download a chain specfic snapshot to sync with the Filecoin network
+    #[structopt(long)]
+    pub download_snapshot: bool,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
@@ -178,17 +181,6 @@ impl CliOpts {
     }
 }
 
-/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
-/// Provided number cannot be negative, otherwise the function will panic.
-pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
-    let bytes = u128::try_from(input)
-        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
-
-    Ok(Byte::from_bytes(bytes)
-        .get_appropriate_unit(true)
-        .to_string())
-}
-
 fn find_default_config() -> Option<Config> {
     if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
         info!(
@@ -236,9 +228,66 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
     }
 }
 
+pub fn get_default_snapshot_path(config: &Config) -> PathBuf {
+    config
+        .client
+        .data_dir
+        .join("snapshots")
+        .join(config.chain.name.clone())
+}
+
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     error!("Error: {}", msg.as_ref());
     std::process::exit(code);
+}
+
+/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
+/// Provided number cannot be negative, otherwise the function will panic.
+pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
+    let bytes = u128::try_from(input)
+        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
+
+    Ok(Byte::from_bytes(bytes)
+        .get_appropriate_unit(true)
+        .to_string())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use fvm_shared::bigint::Zero;
+
+    #[test]
+    fn to_size_string_valid_input() {
+        let cases = [
+            (BigInt::zero(), "0 B"),
+            (BigInt::from(1 << 10), "1024 B"),
+            (BigInt::from((1 << 10) + 1), "1.00 KiB"),
+            (BigInt::from((1 << 10) + 512), "1.50 KiB"),
+            (BigInt::from(1 << 20), "1024.00 KiB"),
+            (BigInt::from((1 << 20) + 1), "1.00 MiB"),
+            (BigInt::from(1 << 29), "512.00 MiB"),
+            (BigInt::from((1 << 30) + 1), "1.00 GiB"),
+            (BigInt::from((1u64 << 40) + 1), "1.00 TiB"),
+            (BigInt::from((1u64 << 50) + 1), "1.00 PiB"),
+            // ZiB is 2^70, 288230376151711744 is 2^58
+            (BigInt::from(u128::MAX), "288230376151711744.00 ZiB"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(to_size_string(&input).unwrap(), expected.to_string());
+        }
+    }
+
+    #[test]
+    fn to_size_string_negative_input_should_fail() {
+        assert!(to_size_string(&BigInt::from(-1i8)).is_err());
+    }
+
+    #[test]
+    fn to_size_string_too_large_input_should_fail() {
+        assert!(to_size_string(&(BigInt::from(u128::MAX) + 1)).is_err());
+    }
 }
