@@ -51,6 +51,7 @@ forest_hash_utils = { path = "./utils/hash_utils" }
 
 [workspace.dependencies]
 anyhow                = "1.0"
+arbitrary             = "1.1"
 async-std             = "1.12"
 async-trait           = "0.1"
 base64                = "0.13"

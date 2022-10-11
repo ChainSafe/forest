@@ -57,7 +57,7 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
 udeps:
-	cargo udeps --features test_constructors
+	cargo udeps
 
 spellcheck:
 	cargo spellcheck --code 1

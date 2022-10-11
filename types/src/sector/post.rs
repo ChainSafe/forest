@@ -102,3 +102,47 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use fvm_shared::sector::{PoStProof, RegisteredPoStProof};
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct PoStProofWrapper {
+        postproof: PoStProof,
+    }
+
+    impl quickcheck::Arbitrary for PoStProofWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let registered_postproof = g
+                .choose(&[
+                    RegisteredPoStProof::StackedDRGWinning2KiBV1,
+                    RegisteredPoStProof::StackedDRGWinning8MiBV1,
+                    RegisteredPoStProof::StackedDRGWinning512MiBV1,
+                    RegisteredPoStProof::StackedDRGWinning32GiBV1,
+                    RegisteredPoStProof::StackedDRGWinning64GiBV1,
+                    RegisteredPoStProof::StackedDRGWindow2KiBV1,
+                    RegisteredPoStProof::StackedDRGWindow8MiBV1,
+                    RegisteredPoStProof::StackedDRGWindow512MiBV1,
+                    RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                    RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                ])
+                .unwrap();
+            let postproof = PoStProof {
+                post_proof: *registered_postproof,
+                proof_bytes: Vec::arbitrary(g),
+            };
+            PoStProofWrapper { postproof }
+        }
+    }
+
+    #[quickcheck]
+    fn postproof_roundtrip(postproof: PoStProofWrapper) {
+        let serialized: String =
+            forest_test_utils::to_string_with!(&postproof.postproof, crate::json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, crate::json::deserialize);
+        assert_eq!(postproof.postproof, parsed);
+    }
+}
