@@ -136,7 +136,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
 where
     DB: BlockStore + Send + Sync + 'static,
 {
-    const SST_INGESTION: bool = true;
+    const SST_INGESTION: bool = false;
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
     info!("Importing chain from snapshot at: {path}");

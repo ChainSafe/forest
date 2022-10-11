@@ -65,6 +65,7 @@ impl RocksDb {
             db_opts.optimize_for_point_lookup(cache_size);
         }
         db_opts.set_unordered_write(config.unordered_write);
+        db_opts.set_max_subcompactions(config.max_subcompactions);
         db_opts
     }
 
@@ -72,39 +73,7 @@ impl RocksDb {
     where
         P: AsRef<Path>,
     {
-        let mut db_opts = Options::default();
-        db_opts.create_if_missing(config.create_if_missing);
-        db_opts.increase_parallelism(config.parallelism);
-        db_opts.set_write_buffer_size(config.write_buffer_size);
-        db_opts.set_max_open_files(config.max_open_files);
-
-        if let Some(max_background_jobs) = config.max_background_jobs {
-            db_opts.set_max_background_jobs(max_background_jobs);
-        }
-        if let Some(compaction_style) = &config.compaction_style {
-            db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
-            db_opts.set_disable_auto_compactions(false);
-        } else {
-            db_opts.set_disable_auto_compactions(true);
-        }
-        if let Some(compression_type) = &config.compression_type {
-            db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
-        } else {
-            db_opts.set_compression_type(DBCompressionType::None);
-        }
-        if config.enable_statistics {
-            db_opts.set_stats_dump_period_sec(20);
-            db_opts.enable_statistics();
-        };
-        db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
-        if config.prepare_for_bulk_load {
-            db_opts.prepare_for_bulk_load();
-        }
-        db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
-        if let Some(cache_size) = config.optimize_for_point_lookup {
-            db_opts.optimize_for_point_lookup(cache_size);
-        }
-        db_opts.set_unordered_write(config.unordered_write);
+        let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })

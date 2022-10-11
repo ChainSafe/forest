@@ -26,6 +26,7 @@ pub struct RocksDbConfig {
     pub optimize_filters_for_hits: bool,
     pub optimize_for_point_lookup: Option<u64>,
     pub unordered_write: bool,
+    pub max_subcompactions: u32,
 }
 
 impl Default for RocksDbConfig {
@@ -44,6 +45,7 @@ impl Default for RocksDbConfig {
             optimize_filters_for_hits: false,
             optimize_for_point_lookup: None,
             unordered_write: false,
+            max_subcompactions: 1,
         }
     }
 }
