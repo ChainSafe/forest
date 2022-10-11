@@ -16,7 +16,7 @@ forest_blocks.workspace          = true
 forest_crypto                    = { workspace = true, default_features = false, features = ["blst"] }
 forest_db.workspace              = true
 forest_encoding.workspace        = true
-forest_fil_types                 = { workspace = true, features = ["proofs"] }
+forest_fil_types.workspace       = true
 forest_ipld_blockstore.workspace = true
 forest_message                   = { workspace = true, default_features = false, features = ["blst"] }
 forest_networks.workspace        = true

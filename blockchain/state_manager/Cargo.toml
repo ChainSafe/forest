@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
-[package.metadata.docs.rs]
-features = ["forest_statediff"]
-
 [dependencies]
 anyhow.workspace                 = true
 async-log                        = "2.0.0"
@@ -29,6 +26,7 @@ forest_ipld_blockstore.workspace = true
 forest_legacy_ipld_amt.workspace = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true
+forest_statediff.workspace       = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true
