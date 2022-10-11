@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "json")]
-
 use forest_crypto::Signer;
 use forest_message::message;
 use forest_message::message::json::{MessageJson, MessageJsonRef};
