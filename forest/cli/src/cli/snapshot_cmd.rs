@@ -189,12 +189,17 @@ impl SnapshotCommands {
                             }
                         }
                     }
-                    if let Err(err) = fs::remove_file(&snapshot_path) {
-                        term.write_line(&format!("Failed to delete {:?}\n{err}", snapshot_path))
-                            .unwrap();
-                    } else {
-                        term.write_line(&format!("Deleted {:?}", snapshot_path))
-                            .unwrap();
+                    let mut checksum_path = snapshot_path.clone();
+                    checksum_path.set_extension("sha256sum");
+                    for path in [snapshot_path, checksum_path] {
+                        if path.exists() {
+                            if let Err(err) = fs::remove_file(&path) {
+                                term.write_line(&format!("Failed to delete {:?}\n{err}", path))
+                                    .unwrap();
+                            } else {
+                                term.write_line(&format!("Deleted {:?}", path)).unwrap();
+                            }
+                        }
                     }
                 } else {
                     let term = Term::stdout();
