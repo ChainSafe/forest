@@ -315,7 +315,7 @@ fn delete_snapshot(snapshot_path: &PathBuf) {
     checksum_path.set_extension("sha256sum");
     for path in [snapshot_path, &checksum_path] {
         if path.exists() {
-            if let Err(err) = fs::remove_file(&path) {
+            if let Err(err) = fs::remove_file(path) {
                 term.write_line(&format!("Failed to delete {:?}\n{err}", path))
                     .unwrap();
             } else {
