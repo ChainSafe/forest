@@ -157,6 +157,7 @@ impl CliOpts {
         }
 
         cfg.client.halt_after_import = self.halt_after_import;
+        cfg.client.download_snapshot = self.download_snapshot;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
