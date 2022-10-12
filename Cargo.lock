@@ -3652,7 +3652,6 @@ dependencies = [
  "anyhow",
  "const_format",
  "digest 0.10.5",
- "fil_actors_runtime",
  "fvm_ipld_hamt",
  "isahc 1.7.2",
  "libc",
