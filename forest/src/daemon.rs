@@ -412,7 +412,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             path,
             validate_height,
             config.client.skip_load,
-            &config.rocks_db,
         )
         .await
         {
@@ -487,8 +486,7 @@ mod test {
             )
             .await?,
         );
-        let config = RocksDbConfig::default();
-        import_chain::<FullVerifier, _>(&sm, file_path, None, false, &config).await?;
+        import_chain::<FullVerifier, _>(&sm, file_path, None, false).await?;
         Ok(())
     }
 

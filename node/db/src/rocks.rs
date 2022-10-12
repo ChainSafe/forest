@@ -9,10 +9,7 @@ use crate::rocks_config::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
-pub use rocksdb::{
-    CompactOptions, DBCompressionType, IngestExternalFileOptions, LogLevel, Options, SstFileWriter,
-    WriteBatch, DB,
-};
+pub use rocksdb::{CompactOptions, DBCompressionType, Options, WriteBatch, DB};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
@@ -36,6 +33,8 @@ impl RocksDb {
         db_opts.create_if_missing(config.create_if_missing);
         db_opts.increase_parallelism(config.parallelism);
         db_opts.set_write_buffer_size(config.write_buffer_size);
+        //db_opts.set_max_write_buffer_number(4);
+        //db_opts.set_min_write_buffer_number_to_merge(2);
         db_opts.set_max_open_files(config.max_open_files);
 
         if let Some(max_background_jobs) = config.max_background_jobs {
@@ -73,6 +72,7 @@ impl RocksDb {
     where
         P: AsRef<Path>,
     {
+        log::info!("RocksDB config:\n{:?}", config);
         let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
@@ -155,29 +155,6 @@ impl Store for RocksDb {
 
         self.db
             .set_options(&[("disable_auto_compactions", "false")])?;
-
-        Ok(())
-    }
-
-    fn ingest_sst_files<P>(&self, paths: Vec<P>) -> Result<(), Error>
-    where
-        P: AsRef<Path>,
-    {
-        self.show_stats();
-
-        let mut opts = IngestExternalFileOptions::default();
-        opts.set_move_files(true);
-        self.db.ingest_external_file_opts(&opts, paths).unwrap();
-
-        self.show_stats();
-
-        log::info!("Compacting range...");
-        let mut opts = CompactOptions::default();
-        // Move L0 to minimum level
-        opts.set_change_level(true);
-        self.db.compact_range_opt::<&str, &str>(None, None, &opts);
-
-        self.show_stats();
 
         Ok(())
     }
