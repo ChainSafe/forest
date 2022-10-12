@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub extern crate const_format;
 
-pub mod hash;
 pub mod io;
 pub mod json;
 pub mod macros;
