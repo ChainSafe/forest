@@ -47,6 +47,15 @@ impl PartialEq for Tipset {
     }
 }
 
+impl quickcheck::Arbitrary for TipsetKeys {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let header = BlockHeader::arbitrary(g);
+        Self {
+            cids: vec![*header.cid()],
+        }
+    }
+}
+
 impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // XXX: Support random generation of tipsets with multiple blocks.
@@ -541,5 +550,29 @@ mod test {
     #[test]
     fn ensure_there_are_blocks() {
         assert_eq!(Tipset::new(vec![]).unwrap_err(), Error::NoBlocks);
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use super::tipset_json::{TipsetJson, TipsetJsonRef};
+    use super::tipset_keys_json::TipsetKeysJson;
+    use super::{Tipset, TipsetKeys};
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+    use std::sync::Arc;
+
+    #[quickcheck]
+    fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
+        let serialized = serde_json::to_string(&TipsetKeysJson(tipset_keys.clone())).unwrap();
+        let parsed: TipsetKeysJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tipset_keys, parsed.0);
+    }
+
+    #[quickcheck]
+    fn tipset_roundtrip(tipset: Tipset) {
+        let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
+        let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(Arc::new(tipset), parsed.0);
     }
 }

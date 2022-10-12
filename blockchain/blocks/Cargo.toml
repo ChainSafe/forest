@@ -31,4 +31,5 @@ thiserror.workspace         = true
 async-std.workspace         = true
 forest_test_utils.workspace = true
 hex.workspace               = true
+quickcheck_macros           = "1"
 serde_json.workspace        = true
