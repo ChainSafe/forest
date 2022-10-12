@@ -72,8 +72,8 @@ pub enum SnapshotCommands {
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(short, long)]
-        yes: bool,
+        #[structopt(long)]
+        force: bool,
     },
 
     /// Prune local snapshot, keeps the latest only.
@@ -86,8 +86,8 @@ pub enum SnapshotCommands {
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(short, long)]
-        yes: bool,
+        #[structopt(long)]
+        force: bool,
     },
 }
 
@@ -162,12 +162,15 @@ impl SnapshotCommands {
             Self::Remove {
                 filename,
                 snapshot_dir,
-                yes,
+                force,
             } => {
-                remove(&config, filename, snapshot_dir, *yes);
+                remove(&config, filename, snapshot_dir, *force);
             }
-            Self::Prune { snapshot_dir, yes } => {
-                prune(&config, snapshot_dir, *yes);
+            Self::Prune {
+                snapshot_dir,
+                force,
+            } => {
+                prune(&config, snapshot_dir, *force);
             }
         }
     }
