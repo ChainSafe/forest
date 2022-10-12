@@ -8,13 +8,13 @@ use forest_fil_types::{
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;
-use forest_vm::{DealID, TokenAmount};
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::deal::DealID;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;

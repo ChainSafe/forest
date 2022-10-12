@@ -10,19 +10,25 @@ ifndef RUST_TEST_THREADS
 	endif # $(OS)
 endif
 
-install:
-	cargo install --locked --path forest --force
+install-cli:
+	cargo install --locked --path forest/cli --force
+
+install-daemon:
+	cargo install --locked --path forest/daemon --force
+
+install: install-cli install-daemon
 
 clean-all:
 	cargo clean
 
 clean:
 	@echo "Cleaning local packages..."
-	@cargo clean -p forest
+	@cargo clean -p forest-cli
+	@cargo clean -p forest-daemon
+	@cargo clean -p forest_cli_shared
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p forest_chain_sync
-	@cargo clean -p forest_vm
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
@@ -51,7 +57,7 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
 udeps:
-	cargo udeps --features test_constructors
+	cargo udeps
 
 spellcheck:
 	cargo spellcheck --code 1
@@ -69,10 +75,10 @@ fmt:
 	taplo fmt
 
 build:
-	cargo build --bin forest
+	cargo build --bin forest --bin forest-cli
 
 release:
-	cargo build --release --bin forest
+	cargo build --release --bin forest --bin forest-cli
 
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
@@ -117,4 +123,7 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors
+rustdoc:
+	cargo doc --workspace --all-features --no-deps
+
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors rustdoc

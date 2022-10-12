@@ -4,11 +4,12 @@
 use super::Message as MessageTrait;
 use forest_crypto::Signer;
 use forest_encoding::tuple::*;
-use forest_vm::{MethodNum, Serialized, TokenAmount};
-use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::MethodNum;
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
@@ -83,7 +84,7 @@ impl MessageTrait for SignedMessage {
     fn method_num(&self) -> MethodNum {
         self.message.method_num
     }
-    fn params(&self) -> &Serialized {
+    fn params(&self) -> &RawBytes {
         &self.message.params
     }
     fn gas_limit(&self) -> i64 {
@@ -214,5 +215,39 @@ pub mod json {
         {
             deserializer.deserialize_any(GoVecVisitor::<SignedMessage, SignedMessageJson>::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json::{SignedMessageJson, SignedMessageJsonRef};
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    impl quickcheck::Arbitrary for SignedMessage {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            const DUMMY_SIG: [u8; 1] = [0u8];
+
+            struct DummySigner;
+            impl Signer for DummySigner {
+                fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
+                    Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+                }
+            }
+
+            SignedMessage::new(
+                crate::message::tests::MessageWrapper::arbitrary(g).message,
+                &DummySigner,
+            )
+            .unwrap()
+        }
+    }
+
+    #[quickcheck]
+    fn signed_message_roundtrip(message: SignedMessage) {
+        let serialized = serde_json::to_string(&SignedMessageJsonRef(&message)).unwrap();
+        let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message, parsed.0);
     }
 }

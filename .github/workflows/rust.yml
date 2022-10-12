@@ -8,8 +8,7 @@ on:
     branches:
       - main
   schedule:
-    -
-      cron: "0 0 * * *"
+    - cron: "0 0 * * *"
 
 env:
   CI: 1
@@ -22,21 +21,12 @@ jobs:
     env:
       RUSTFLAGS: "-D warnings"
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          target: wasm32-unknown-unknown
-          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Cargo Check
@@ -50,10 +40,6 @@ jobs:
     name: Cover
     runs-on: buildjet-16vcpu-ubuntu-2004
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -62,13 +48,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           submodules: true
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          target: wasm32-unknown-unknown
-          override: true
-      - name: Add component llvm-tools-preview
-        run: rustup component add llvm-tools-preview
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Run cargo-llvm-cov
@@ -80,6 +59,7 @@ jobs:
       - name: Upload CodeCov
         uses: codecov/codecov-action@v3
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
 
@@ -93,17 +73,8 @@ jobs:
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          target: wasm32-unknown-unknown
-          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
-      - name: Install Clippy
-        run: rustup component add clippy
-      - name: Install RustFmt
-        run: rustup component add rustfmt
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
       - name: Run Linters
@@ -115,10 +86,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Install Audit
@@ -132,8 +99,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Install udeps
@@ -147,10 +112,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Install spellcheck
@@ -167,10 +128,6 @@ jobs:
         #rv: [1.58.1, stable, beta, nightly]
         rv: [nightly]
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
       - name: Install Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
@@ -178,12 +135,6 @@ jobs:
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v2
-      - name: Install Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          #toolchain: ${{ matrix.rv }}
-          target: wasm32-unknown-unknown
-          override: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v1.3.0
       - name: Cargo Build

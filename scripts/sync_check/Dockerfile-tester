@@ -1,6 +1,0 @@
-FROM fedora:36
-
-RUN dnf install -y docker ruby ruby-devel make gcc
-
-# Install required Ruby packages
-RUN gem install docker-api slack-ruby-client

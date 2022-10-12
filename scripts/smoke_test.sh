@@ -8,7 +8,7 @@ echo "encrypt_keystore=false" > $FOREST_CONFIG
 RUST_LOG=off forest -c $FOREST_CONFIG > /dev/null &
 
 # get token and multiaddr info
-FULL_ADDR=$(forest -c $FOREST_CONFIG auth api-info -p admin)
+FULL_ADDR=$(forest-cli -c $FOREST_CONFIG auth api-info -p admin)
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'

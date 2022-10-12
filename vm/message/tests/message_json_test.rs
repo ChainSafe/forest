@@ -1,8 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![cfg(feature = "json")]
-
 use forest_crypto::Signer;
 use forest_message::message;
 use forest_message::message::json::{MessageJson, MessageJsonRef};
@@ -11,7 +9,7 @@ use forest_message::signed_message::{
     json::{SignedMessageJson, SignedMessageJsonRef},
     SignedMessage,
 };
-use forest_vm::Serialized;
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
@@ -51,7 +49,7 @@ fn message_json_annotations() {
         sequence: 5,
         value: 6.into(),
         method_num: 7,
-        params: Serialized::default(),
+        params: RawBytes::default(),
         gas_limit: 8,
         gas_fee_cap: 10.into(),
         gas_premium: 9.into(),
