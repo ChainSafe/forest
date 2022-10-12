@@ -21,7 +21,6 @@ tokio-util                 = { version = "0.7.0", features = ["compat", "io-util
 toml                       = "0.5"
 url.workspace              = true
 
-
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }
 serde_derive         = "1.0"
