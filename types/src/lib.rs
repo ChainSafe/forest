@@ -7,7 +7,6 @@ pub mod sector;
 
 pub mod genesis;
 
-#[cfg(feature = "proofs")]
 pub mod verifier;
 
 pub use self::sector::*;

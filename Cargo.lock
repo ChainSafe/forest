@@ -2906,6 +2906,7 @@ dependencies = [
  "forest_message_pool",
  "forest_networks",
  "forest_state_manager",
+ "forest_statediff",
  "forest_test_utils",
  "futures",
  "futures-util",
@@ -3604,6 +3605,7 @@ dependencies = [
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
+ "forest_statediff",
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
@@ -4800,9 +4802,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.134"
+version = "0.2.135"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "329c933548736bc49fd575ee68c89e8be4d260064184389a5b77517cddd99ffb"
+checksum = "68783febc7782c6c5cb401fbda4de5a9898be1762314da0bb2c10ced61f18b0c"
 
 [[package]]
 name = "libipld"

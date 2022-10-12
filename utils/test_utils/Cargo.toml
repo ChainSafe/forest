@@ -4,21 +4,15 @@ version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
-[package.metadata.docs.rs]
-features = ["test_constructors"]
-
 [dependencies]
 anyhow.workspace            = true
 base64.workspace            = true
 cid                         = { workspace = true, default-features = false, features = ["std"] }
-forest_blocks               = { workspace = true, optional = true }
-forest_chain                = { workspace = true, optional = true }
+forest_blocks.workspace     = true
+forest_chain.workspace      = true
 forest_crypto               = { workspace = true, features = ["blst"] }
 forest_encoding.workspace   = true
-forest_libp2p               = { workspace = true, optional = true }
-forest_message              = { workspace = true, optional = true, features = ["blst"] }
+forest_libp2p.workspace     = true
+forest_message              = { workspace = true, features = ["blst"] }
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
-
-[features]
-test_constructors = ["forest_blocks", "forest_chain", "forest_message", "forest_libp2p"]
