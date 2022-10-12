@@ -20,15 +20,13 @@ fvm_shared                  = { workspace = true, default-features = false }
 libsecp256k1.workspace      = true
 num-derive.workspace        = true
 num-traits.workspace        = true
-quickcheck                  = { version = "1" }
 serde                       = { workspace = true, features = ["derive"] }
 serde_json                  = "1.0"
 thiserror.workspace         = true
 
 [dev-dependencies]
-quickcheck_macros = "1"
-rand.workspace    = true
-rand_chacha       = "0.3"
+rand.workspace = true
+rand_chacha    = "0.3"
 
 [features]
 default = ["blst"]

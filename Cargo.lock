@@ -3018,8 +3018,6 @@ dependencies = [
  "libsecp256k1",
  "num-derive",
  "num-traits",
- "quickcheck",
- "quickcheck_macros",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
