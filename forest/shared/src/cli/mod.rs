@@ -90,7 +90,7 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
-    /// Download a chain specfic snapshot to sync with the Filecoin network
+    /// Download a chain specific snapshot to sync with the Filecoin network
     #[structopt(long)]
     pub download_snapshot: bool,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
