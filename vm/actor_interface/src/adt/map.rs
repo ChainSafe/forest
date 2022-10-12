@@ -5,8 +5,7 @@ use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use fvm_ipld_hamt::BytesKey;
-use fvm_ipld_hamt::Hash;
+use fvm_ipld_hamt::{BytesKey, Hash};
 use fvm_shared::HAMT_BIT_WIDTH;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
@@ -64,7 +63,7 @@ where
     }
 
     /// Returns a reference to the value corresponding to the key.
-    pub fn get<Q: ?Sized + Hash>(&self, k: &Q) -> Result<Option<&V>, AnyhowError>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Result<Option<&V>, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -76,7 +75,7 @@ where
     }
 
     /// Returns `true` if a value exists for the given key in the `Map`.
-    pub fn contains_key<Q: ?Sized + Hash>(&self, k: &Q) -> Result<bool, AnyhowError>
+    pub fn contains_key<Q: ?Sized>(&self, k: &Q) -> Result<bool, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
@@ -88,7 +87,7 @@ where
 
     /// Removes a key from the `Map`, returning the value at the key if the key
     /// was previously in the `Map`.
-    pub fn delete<Q: ?Sized + Hash>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, AnyhowError>
+    pub fn delete<Q: ?Sized>(&mut self, k: &Q) -> Result<Option<(BytesKey, V)>, AnyhowError>
     where
         BytesKey: Borrow<Q>,
         Q: Hash + Eq,
