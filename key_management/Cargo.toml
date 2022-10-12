@@ -24,3 +24,7 @@ sodiumoxide                  = "0.2"
 thiserror.workspace          = true
 
 [dev-dependencies]
+forest_test_utils.workspace = true
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
