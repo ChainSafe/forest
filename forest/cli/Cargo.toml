@@ -13,7 +13,6 @@ base64.workspace                 = true
 byte-unit                        = "4.0"
 chrono.workspace                 = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
-dialoguer.workspace              = true
 directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true
