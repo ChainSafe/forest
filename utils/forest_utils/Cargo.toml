@@ -24,6 +24,8 @@ fil_actors_runtime = "=8.0.0"
 serde              = { workspace = true, features = ["derive"] }
 serde_bytes        = "0.11"
 
+fvm_ipld_hamt = "0.5"
+
 
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }

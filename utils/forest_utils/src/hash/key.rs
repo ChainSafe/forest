@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fil_actors_runtime::fvm_ipld_hamt::Hash;
+use fvm_ipld_hamt::Hash;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 use std::hash::Hasher;

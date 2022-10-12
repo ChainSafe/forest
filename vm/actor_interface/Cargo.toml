@@ -26,6 +26,7 @@ forest_utils.workspace           = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true
 fvm_ipld_encoding.workspace      = true
+fvm_ipld_hamt                    = "0.5"
 fvm_shared                       = { workspace = true, default-features = false }
 # cannot update due to version conflict
 libp2p = { workspace = true, default-features = false }
