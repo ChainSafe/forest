@@ -9,7 +9,7 @@ pub mod json {
     use std::str::FromStr;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize, Clone, Debug)]
     #[serde(transparent)]
     pub struct ActorStateJson(#[serde(with = "self")] pub ActorState);
 
@@ -75,5 +75,43 @@ pub mod json {
             sequence,
             balance: TokenAmount::from_str(&balance).map_err(de::Error::custom)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::actor_state::json::{ActorStateJson, ActorStateJsonRef};
+    use cid::Cid;
+    use fvm::state_tree::ActorState;
+    use fvm_shared::econ::TokenAmount;
+    use quickcheck_macros::quickcheck;
+
+    #[derive(Clone, Debug)]
+    struct ActorStateWrapper {
+        actorstate: ActorState,
+    }
+
+    impl quickcheck::Arbitrary for ActorStateWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let cid = Cid::new_v1(
+                u64::arbitrary(g),
+                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+            );
+            let actorstate = ActorState {
+                code: cid,
+                state: cid,
+                sequence: u64::arbitrary(g),
+                balance: TokenAmount::from(i64::arbitrary(g)),
+            };
+            ActorStateWrapper { actorstate }
+        }
+    }
+
+    #[quickcheck]
+    fn actorstate_roundtrip(actorstate: ActorStateWrapper) {
+        let serialized: String =
+            serde_json::to_string(&ActorStateJsonRef(&actorstate.actorstate)).unwrap();
+        let parsed: ActorStateJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(actorstate.actorstate, parsed.0);
     }
 }
