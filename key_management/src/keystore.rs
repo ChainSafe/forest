@@ -463,6 +463,7 @@ impl EncryptedKeyStore {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::json::{KeyInfoJson, KeyInfoJsonRef};
     use crate::wallet;
     use quickcheck_macros::quickcheck;
 
@@ -576,8 +577,8 @@ mod test {
 
     #[quickcheck]
     fn keyinfo_roundtrip(keyinfo: KeyInfo) {
-        let serialized: String = serde_json::to_string(&keyinfo).unwrap();
-        let parsed = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(keyinfo, parsed);
+        let serialized: String = serde_json::to_string(&KeyInfoJsonRef(&keyinfo)).unwrap();
+        let parsed: KeyInfoJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(keyinfo, parsed.0);
     }
 }
