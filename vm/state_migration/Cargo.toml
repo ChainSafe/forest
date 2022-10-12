@@ -9,7 +9,6 @@ cid                              = { workspace = true, default-features = false,
 crossbeam-channel                = "0.5"
 forest_encoding.workspace        = true
 forest_ipld_blockstore.workspace = true
-forest_utils.workspace           = true
 fvm.workspace                    = true
 fvm_shared                       = { workspace = true, default-features = false }
 log.workspace                    = true

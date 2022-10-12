@@ -3594,7 +3594,6 @@ dependencies = [
  "crossbeam-channel",
  "forest_encoding",
  "forest_ipld_blockstore",
- "forest_utils",
  "fvm",
  "fvm_shared",
  "log",
