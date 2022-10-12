@@ -1319,17 +1319,15 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
             })?;
 
         if &state_root != header.state_root() {
-            #[cfg(feature = "statediff")]
-            {
-                if let Err(err) = forest_statediff::print_state_diff(
-                    v_state_manager.blockstore(),
-                    &state_root,
-                    header.state_root(),
-                    Some(1),
-                ) {
-                    eprintln!("Failed to print state-diff: {}", err);
-                }
+            if let Err(err) = forest_statediff::print_state_diff(
+                v_state_manager.blockstore(),
+                &state_root,
+                header.state_root(),
+                Some(1),
+            ) {
+                eprintln!("Failed to print state-diff: {}", err);
             }
+
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),

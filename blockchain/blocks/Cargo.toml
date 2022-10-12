@@ -4,9 +4,6 @@ version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
-[package.metadata.docs.rs]
-features = ["json"]
-
 [dependencies]
 base64.workspace            = true
 byteorder                   = "1.4.3"
@@ -31,7 +28,7 @@ sha2                        = { version = "0.10", default-features = false }
 thiserror.workspace         = true
 
 [dev-dependencies]
-async-std.workspace  = true
-forest_test_utils    = { workspace = true, features = ["test_constructors"] }
-hex.workspace        = true
-serde_json.workspace = true
+async-std.workspace         = true
+forest_test_utils.workspace = true
+hex.workspace               = true
+serde_json.workspace        = true
