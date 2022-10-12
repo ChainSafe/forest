@@ -9,14 +9,12 @@ edition = "2021"
 anyhow.workspace           = true
 const_format               = "0.2.26"
 digest                     = "0.10.5"
-fvm_ipld_hamt              = "0.5"
 isahc.workspace            = true
 libc                       = "0.2"
 log.workspace              = true
 pbr.workspace              = true
 pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }
-serde_bytes                = "0.11"
 thiserror.workspace        = true
 tokio                      = { workspace = true, features = ["fs"] }
 tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
