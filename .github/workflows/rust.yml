@@ -36,33 +36,6 @@ jobs:
       - name: Make Test-All
         run: make test-all
 
-  codecov:
-    name: Cover
-    runs-on: buildjet-16vcpu-ubuntu-2004
-    steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
-      - name: Run cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
-        # with:
-        #   args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
-      - name: Upload CodeCov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
-          fail_ci_if_error: true
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
