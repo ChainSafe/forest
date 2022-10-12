@@ -463,7 +463,6 @@ impl EncryptedKeyStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::json::KeyInfoJson;
     use crate::wallet;
     use quickcheck_macros::quickcheck;
 
@@ -560,7 +559,7 @@ mod test {
         ks.flush().unwrap();
     }
 
-    impl quickcheck::Arbitrary for KeyInfoJson {
+    impl quickcheck::Arbitrary for KeyInfo {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
                 .choose(&[
@@ -568,16 +567,15 @@ mod test {
                     fvm_shared::crypto::signature::SignatureType::Secp256k1,
                 ])
                 .unwrap();
-            let keyinfo = KeyInfo {
+            KeyInfo {
                 key_type: *sigtype,
                 private_key: Vec::arbitrary(g),
-            };
-            KeyInfoJson(keyinfo)
+            }
         }
     }
 
     #[quickcheck]
-    fn keyinfo_roundtrip(keyinfo: KeyInfoJson) {
+    fn keyinfo_roundtrip(keyinfo: KeyInfo) {
         let serialized: String = serde_json::to_string(&keyinfo).unwrap();
         let parsed = serde_json::from_str(&serialized).unwrap();
         assert_eq!(keyinfo, parsed);
