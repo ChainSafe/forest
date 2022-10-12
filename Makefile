@@ -46,7 +46,6 @@ clean:
 	@cargo clean -p forest_message_pool
 	@cargo clean -p forest_genesis
 	@cargo clean -p forest_actor_interface
-	@cargo clean -p forest_hash_utils
 	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 

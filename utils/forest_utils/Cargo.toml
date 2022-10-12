@@ -17,12 +17,15 @@ libc                       = "0.2"
 log.workspace              = true
 pbr.workspace              = true
 pin-project-lite.workspace = true
-serde.workspace            = true
 thiserror.workspace        = true
 tokio                      = { workspace = true, features = ["fs"] }
 tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
 toml                       = "0.5"
 url.workspace              = true
+
+fil_actors_runtime = "=8.0.0"
+serde              = { workspace = true, features = ["derive"] }
+serde_bytes        = "0.11"
 
 
 [dev-dependencies]

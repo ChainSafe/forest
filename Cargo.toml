@@ -32,7 +32,6 @@ members = [
   "types/networks",
   "utils/auth",
   "utils/genesis",
-  "utils/hash_utils",
   "utils/statediff",
   "utils/test_utils",
   "utils/metrics",
@@ -41,10 +40,6 @@ members = [
   "utils/forest_utils",
 ]
 resolver = "2"
-
-[patch.crates-io]
-# Still need this patch because it's used by `fvm_ipld_hamt`
-forest_hash_utils = { path = "./utils/hash_utils" }
 
 [workspace.dependencies]
 anyhow                = "1.0"
@@ -124,7 +119,6 @@ forest_encoding        = { path = "./encoding" }
 forest_fil_cns         = { path = "./blockchain/consensus/fil_cns" }
 forest_fil_types       = { path = "./types" }
 forest_genesis         = { path = "./utils/genesis" }
-forest_hash_utils      = { path = "./utils/hash_utils" }
 forest_interpreter     = { path = "./vm/interpreter" }
 forest_ipld            = { path = "./ipld" }
 forest_ipld_blockstore = { path = "./ipld/blockstore" }
