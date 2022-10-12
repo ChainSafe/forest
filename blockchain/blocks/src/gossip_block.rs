@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::BlockHeader;
-use cid::{multihash::Multihash, Cid};
+use cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{address::Address, clock::ChainEpoch};
@@ -22,10 +22,14 @@ impl quickcheck::Arbitrary for GossipBlock {
             .epoch(ChainEpoch::arbitrary(g))
             .build()
             .unwrap();
+        let cid = Cid::new_v1(
+            u64::arbitrary(g),
+            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+        );
         Self {
             header,
-            bls_messages: vec![Cid::new_v0(Multihash::default()).unwrap()],
-            secpk_messages: vec![Cid::new_v0(Multihash::default()).unwrap()],
+            bls_messages: vec![cid],
+            secpk_messages: vec![cid],
         }
     }
 }
@@ -98,13 +102,14 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use crate::GossipBlock;
+    use super::json::{GossipBlockJson, GossipBlockJsonRef};
+    use super::*;
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]
     fn gossip_block_roundtrip(block: GossipBlock) {
-        let serialized = serde_json::to_string(&block).unwrap();
-        let parsed = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(block, parsed);
+        let serialized = serde_json::to_string(&GossipBlockJsonRef(&block)).unwrap();
+        let parsed: GossipBlockJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(block, parsed.0);
     }
 }
