@@ -47,7 +47,7 @@ serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 smallvec.workspace = true
 # cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
-quickcheck = { version = "1" }
+quickcheck.workspace = true
 tiny-cid   = "0.2"
 tokio      = { workspace = true, features = ["sync", "time"] }
 
