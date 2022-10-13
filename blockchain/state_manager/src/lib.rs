@@ -638,6 +638,8 @@ where
         ts: &Arc<Tipset>,
         mcid: Cid,
     ) -> Result<(Message, ApplyRet), Error> {
+        const ERROR_MSG: &str = "replay_halt";
+
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
         let (m_tx, m_rx) = std::sync::mpsc::channel();
@@ -646,14 +648,14 @@ where
             if *cid == mcid {
                 m_tx.send(unsigned.message().clone())?;
                 r_tx.send(apply_ret.clone())?;
-                anyhow::bail!("halt");
+                anyhow::bail!(ERROR_MSG);
             }
             Ok(())
         };
         let result = self.compute_tipset_state(ts, Some(callback)).await;
 
         if let Err(error_message) = result {
-            if error_message.to_string() != "halt" {
+            if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {:}",
                     error_message
