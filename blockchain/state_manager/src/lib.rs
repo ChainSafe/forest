@@ -639,10 +639,6 @@ where
     ) -> Result<(Message, ApplyRet), Error> {
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
-        // let outm: Arc<Mutex<Option<Message>>> = Default::default();
-        // let outr: Arc<Mutex<Option<ApplyRet>>> = Default::default();
-        // let m_clone = outm.clone();
-        // let r_clone = outr.clone();
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
         let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
