@@ -22,15 +22,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Link Checker (Repo)
-        uses: lycheeverse/lychee-action@v1.5.1
+        uses: lycheeverse/lychee-action@v1
         with:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook
@@ -38,7 +38,7 @@ jobs:
       - name: Build rustdoc
         run: make rustdoc
       - name: Link Checker (Docs)
-        uses: lycheeverse/lychee-action@v1.5.1
+        uses: lycheeverse/lychee-action@v1
         with:
           # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'
@@ -49,14 +49,14 @@ jobs:
       # The deploy steps are identical expect for name and 'dry-run' attribute.
       # Ideally this would be refactored.
       - name: Deploy GH Pages (dry-run)
-        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
         if: ${{ github.event_name == 'pull_request' }}
         with:
           branch: gh-pages
           folder: ./documentation/book/html/
           dry-run: true
       - name: Deploy GH Pages
-        uses: JamesIves/github-pages-deploy-action@v4.2.2
+        uses: JamesIves/github-pages-deploy-action@v4.4.1
         if: ${{ github.event_name == 'push' }}
         with:
           branch: gh-pages

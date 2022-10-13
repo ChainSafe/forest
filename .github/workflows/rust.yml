@@ -27,9 +27,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Cargo Check
         run: cargo check
       - name: Make Test-All
@@ -44,9 +44,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
       - name: Run Linters
@@ -57,9 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
@@ -70,9 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Install udeps
         run: cargo install cargo-udeps --locked
       - name: Run udeps
@@ -83,9 +83,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
@@ -106,9 +106,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Cargo Build
         run: cargo build --profile dev
 
@@ -122,11 +122,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
         with:
           submodules: true
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: build and install binaries
         run: make install
       - name: download snapshot

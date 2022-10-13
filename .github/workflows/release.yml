@@ -27,9 +27,9 @@ jobs:
         run: |
           brew install --verbose coreutils
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2.5.0
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v2.0.0
       - name: Cargo Build
         run: cargo build --release --bin forest --bin forest-cli
       - name: Compress Binary
@@ -42,7 +42,7 @@ jobs:
           sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}
       - name: Upload Binary
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@2.3.0
         with:
           repo_token: ${{ github.token }}
           file: ${{ matrix.file }}
