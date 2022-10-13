@@ -26,8 +26,6 @@ thiserror.workspace         = true
 [dev-dependencies]
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
-rand.workspace              = true
-rand_chacha                 = "0.3"
 serde_json.workspace        = true
 
 [features]
