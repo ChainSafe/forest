@@ -5,7 +5,7 @@ use super::*;
 use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use forest_beacon::beacon_entries;
 use forest_crypto::signature;
-use forest_fil_types::sector::post;
+use forest_json::sector;
 use serde::{de, Deserialize, Serialize};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.
@@ -38,7 +38,7 @@ where
         election_proof: &'a Option<ElectionProof>,
         #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: &'a [BeaconEntry],
-        #[serde(rename = "WinPoStProof", with = "post::json::vec")]
+        #[serde(rename = "WinPoStProof", with = "sector::json::vec")]
         winning_post_proof: &'a [PoStProof],
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: &'a TipsetKeys,
@@ -96,7 +96,7 @@ where
         election_proof: Option<ElectionProof>,
         #[serde(default, with = "beacon_entries::json::vec")]
         beacon_entries: Vec<BeaconEntry>,
-        #[serde(default, rename = "WinPoStProof", with = "post::json::vec")]
+        #[serde(default, rename = "WinPoStProof", with = "sector::json::vec")]
         winning_post_proof: Vec<PoStProof>,
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: TipsetKeys,

@@ -4,13 +4,13 @@
 use crate::FilterEstimate;
 use cid::Cid;
 use fil_actors_runtime_v8::runtime::Policy;
-use forest_fil_types::StoragePower;
 use forest_ipld_blockstore::BlockStore;
 use forest_ipld_blockstore::BlockStoreExt;
 use forest_json::bigint::json;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
+use fvm_shared::sector::StoragePower;
 use serde::{Deserialize, Serialize};
 
 use anyhow::Context;
