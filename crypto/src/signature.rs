@@ -135,8 +135,8 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use crate::signature::json::signature_type::SignatureTypeJson;
-    use crate::signature::json::{SignatureJson, SignatureJsonRef};
+    use super::json::signature_type::SignatureTypeJson;
+    use super::json::{SignatureJson, SignatureJsonRef};
     use fvm_shared::crypto::signature::{Signature, SignatureType};
     use quickcheck_macros::quickcheck;
     use serde_json;
