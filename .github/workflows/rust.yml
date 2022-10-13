@@ -27,13 +27,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Cargo Check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: cargo check
       - name: Make Test-All
         run: make test-all
 
@@ -46,9 +44,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
       - name: Run Linters
@@ -59,9 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
@@ -72,9 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Install udeps
         run: cargo install cargo-udeps --locked
       - name: Run udeps
@@ -85,9 +83,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
@@ -108,14 +106,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Cargo Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --profile dev
+        run: cargo build --profile dev
 
   calibnet-check:
     name: Calibnet sync check
@@ -127,11 +122,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: build and install binaries
         run: make install
       - name: download snapshot
