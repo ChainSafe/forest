@@ -5,12 +5,12 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-ahash                            = "0.8"
+ahash.workspace                  = true
 anyhow.workspace                 = true
 async-std.workspace              = true
-byteorder                        = "1.4"
+byteorder.workspace              = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
-fil_actors_runtime               = "=8.0.0"
+fil_actors_runtime.workspace     = true
 forest_actor_interface.workspace = true
 forest_blocks.workspace          = true
 forest_crypto                    = { workspace = true, default_features = false, features = ["blst"] }
