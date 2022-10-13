@@ -24,7 +24,6 @@ forest_interpreter.workspace     = true
 forest_ipld.workspace            = true
 forest_ipld_blockstore.workspace = true
 forest_legacy_ipld_amt.workspace = true
-forest_macros.workspace          = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true
 forest_utils.workspace           = true

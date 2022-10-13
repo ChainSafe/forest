@@ -2690,7 +2690,6 @@ dependencies = [
  "forest_message",
  "forest_message_pool",
  "forest_metrics",
- "forest_net_utils",
  "forest_networks",
  "forest_paramfetch",
  "forest_rpc",
@@ -2752,13 +2751,13 @@ dependencies = [
  "fil_actors_runtime",
  "forest_encoding",
  "forest_fil_types",
- "forest_hash_utils",
  "forest_ipld_blockstore",
  "forest_json",
- "forest_json_utils",
+ "forest_utils",
  "fvm",
  "fvm_ipld_bitfield",
  "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
  "fvm_shared",
  "libp2p",
  "serde",
@@ -2791,7 +2790,7 @@ dependencies = [
  "bls-signatures",
  "byteorder 1.4.3",
  "forest_encoding",
- "forest_json_utils",
+ "forest_utils",
  "fvm_shared",
  "hex",
  "serde",
@@ -2815,9 +2814,9 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_json",
- "forest_json_utils",
  "forest_message",
  "forest_test_utils",
+ "forest_utils",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
@@ -2855,7 +2854,6 @@ dependencies = [
  "forest_ipld",
  "forest_ipld_blockstore",
  "forest_legacy_ipld_amt",
- "forest_macros",
  "forest_message",
  "forest_networks",
  "forest_test_utils",
@@ -2898,16 +2896,15 @@ dependencies = [
  "forest_interpreter",
  "forest_ipld",
  "forest_ipld_blockstore",
- "forest_json_utils",
  "forest_legacy_ipld_amt",
  "forest_libp2p",
- "forest_macros",
  "forest_message",
  "forest_message_pool",
  "forest_networks",
  "forest_state_manager",
  "forest_statediff",
  "forest_test_utils",
+ "forest_utils",
  "futures",
  "futures-util",
  "fvm",
@@ -3119,8 +3116,8 @@ dependencies = [
  "cid",
  "filecoin-proofs-api",
  "forest_json",
- "forest_json_utils",
  "forest_test_utils",
+ "forest_utils",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
@@ -3145,9 +3142,9 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_ipld_blockstore",
- "forest_net_utils",
  "forest_networks",
  "forest_state_manager",
+ "forest_utils",
  "futures",
  "fvm_ipld_car",
  "log",
@@ -3159,9 +3156,11 @@ dependencies = [
 [[package]]
 name = "forest_hash_utils"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edb061ad769411763a5d6ae39d596696657472b25a66387fbb0ba8c133bb6575"
 dependencies = [
+ "cs_serde_bytes",
  "serde",
- "serde_bytes",
 ]
 
 [[package]]
@@ -3245,8 +3244,8 @@ dependencies = [
  "cs_serde_bytes",
  "data-encoding",
  "data-encoding-macro",
- "forest_json_utils",
  "forest_test_utils",
+ "forest_utils",
  "fvm",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -3259,14 +3258,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_json_utils"
-version = "0.2.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "forest_key_management"
 version = "0.2.0"
 dependencies = [
@@ -3274,10 +3265,13 @@ dependencies = [
  "bls-signatures",
  "forest_crypto",
  "forest_encoding",
+ "forest_test_utils",
  "forest_utils",
  "fvm_shared",
  "libsecp256k1",
  "log",
+ "quickcheck",
+ "quickcheck_macros",
  "rand 0.8.5",
  "serde",
  "serde_ipld_dagcbor 0.1.2",
@@ -3342,13 +3336,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_macros"
-version = "0.2.0"
-dependencies = [
- "const_format",
-]
-
-[[package]]
 name = "forest_message"
 version = "0.8.0"
 dependencies = [
@@ -3358,7 +3345,7 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "forest_json",
- "forest_json_utils",
+ "forest_utils",
  "fvm",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -3388,10 +3375,10 @@ dependencies = [
  "forest_ipld_blockstore",
  "forest_key_management",
  "forest_libp2p",
- "forest_macros",
  "forest_message",
  "forest_networks",
  "forest_state_manager",
+ "forest_utils",
  "futures",
  "fvm",
  "fvm_ipld_encoding 0.2.2",
@@ -3419,21 +3406,6 @@ dependencies = [
  "prometheus",
  "thiserror",
  "tide",
-]
-
-[[package]]
-name = "forest_net_utils"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "isahc 1.7.2",
- "log",
- "pbr",
- "pin-project-lite 0.2.9",
- "thiserror",
- "tokio",
- "tokio-util",
- "url",
 ]
 
 [[package]]
@@ -3626,7 +3598,6 @@ dependencies = [
  "cid",
  "crossbeam-channel",
  "forest_encoding",
- "forest_hash_utils",
  "forest_ipld_blockstore",
  "fvm",
  "fvm_shared",
@@ -3682,15 +3653,23 @@ dependencies = [
 name = "forest_utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "const_format",
  "digest 0.10.5",
+ "isahc 1.7.2",
  "libc",
  "log",
+ "pbr",
  "pin-project-lite 0.2.9",
  "serde",
  "serde_derive",
+ "serde_json",
  "sha2 0.10.6",
+ "thiserror",
  "tokio",
+ "tokio-util",
  "toml",
+ "url",
 ]
 
 [[package]]
