@@ -36,33 +36,6 @@ jobs:
       - name: Make Test-All
         run: make test-all
 
-  codecov:
-    name: Cover
-    runs-on: buildjet-16vcpu-ubuntu-2004
-    steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
-      - name: Checkout Sources
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
-      - name: Run cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
-        # with:
-        #   args: '--locked --jobs 16 --timeout 600 --skip-clean -- --test-threads 16'
-      - name: Upload CodeCov
-        uses: codecov/codecov-action@v3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
-          fail_ci_if_error: true
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -142,3 +115,34 @@ jobs:
         with:
           command: build
           args: --profile dev
+
+  calibnet-check:
+    name: Calibnet sync check
+    runs-on: buildjet-16vcpu-ubuntu-2004
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v1.3.0
+      - name: build and install binaries
+        run: make install
+      - name: download snapshot
+        run: forest-cli --chain calibnet chain fetch -s /tmp/snapshots/
+      - name: import snapshot and run Forest
+        run: |
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
+      - name: wait for sync and check health
+        run: |
+          forest-cli sync wait
+          bash scripts/health_check.sh localhost
+      - name: kill Forest process, print forest logs
+        run: |
+          pkill forest
+          cat forest.out forest.err
