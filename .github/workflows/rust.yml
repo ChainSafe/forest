@@ -18,6 +18,7 @@ jobs:
   test:
     name: Test
     runs-on: buildjet-16vcpu-ubuntu-2004
+    timeout-minutes: 30
     env:
       RUSTFLAGS: "-D warnings"
     steps:
@@ -119,6 +120,7 @@ jobs:
   calibnet-check:
     name: Calibnet sync check
     runs-on: buildjet-16vcpu-ubuntu-2004
+    timeout-minutes: 30
     steps:
       - name: Install Dependencies
         run: |
