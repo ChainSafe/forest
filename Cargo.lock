@@ -3011,9 +3011,10 @@ dependencies = [
  "libsecp256k1",
  "num-derive",
  "num-traits",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
