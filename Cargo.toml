@@ -20,7 +20,6 @@ members = [
   "node/rpc",
   "node/rpc-client",
   "node/rpc-api",
-  "node/utils",
   "node/forest_libp2p",
   "crypto",
   "encoding",
@@ -33,21 +32,14 @@ members = [
   "types/networks",
   "utils/auth",
   "utils/genesis",
-  "utils/hash_utils",
-  "utils/json_utils",
-  "utils/net_utils",
   "utils/statediff",
   "utils/test_utils",
-  "utils/macros",
   "utils/metrics",
   "utils/paramfetch",
   "utils/json",
+  "utils/forest_utils",
 ]
 resolver = "2"
-
-[patch.crates-io]
-# Still need this patch because it's used by `fvm_ipld_hamt`
-forest_hash_utils = { path = "./utils/hash_utils" }
 
 [workspace.dependencies]
 anyhow                = "1.0"
@@ -127,20 +119,16 @@ forest_encoding        = { path = "./encoding" }
 forest_fil_cns         = { path = "./blockchain/consensus/fil_cns" }
 forest_fil_types       = { path = "./types" }
 forest_genesis         = { path = "./utils/genesis" }
-forest_hash_utils      = { path = "./utils/hash_utils" }
 forest_interpreter     = { path = "./vm/interpreter" }
 forest_ipld            = { path = "./ipld" }
 forest_ipld_blockstore = { path = "./ipld/blockstore" }
 forest_json            = { path = "./utils/json" }
-forest_json_utils      = { path = "./utils/json_utils" }
 forest_key_management  = { path = "./key_management" }
 forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
 forest_libp2p          = { path = "./node/forest_libp2p" }
-forest_macros          = { path = "./utils/macros" }
 forest_message         = { path = "./vm/message" }
 forest_message_pool    = { path = "./blockchain/message_pool" }
 forest_metrics         = { path = "./utils/metrics" }
-forest_net_utils       = { path = "./utils/net_utils" }
 forest_networks        = { path = "./types/networks" }
 forest_paramfetch      = { path = "./utils/paramfetch" }
 forest_rpc             = { path = "./node/rpc" }
@@ -150,7 +138,7 @@ forest_state_manager   = { path = "./blockchain/state_manager" }
 forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
-forest_utils           = { path = "./node/utils" }
+forest_utils           = { path = "./utils/forest_utils" }
 
 [profile.dev]
 debug = 0

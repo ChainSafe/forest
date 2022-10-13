@@ -8,7 +8,7 @@ pub use self::{client::*, config::*};
 
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
-use forest_utils::{read_file_to_string, read_toml};
+use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;

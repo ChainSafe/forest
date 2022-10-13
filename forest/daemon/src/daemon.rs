@@ -19,7 +19,7 @@ use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
-use forest_utils::write_to_file;
+use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
@@ -70,7 +70,7 @@ pub(super) async fn start(config: Config, detached: bool) {
             Ok(file) => {
                 // Restrict permissions on files containing private keys
                 #[cfg(unix)]
-                forest_utils::set_user_perm(&file).expect("Set user perms on unix systems");
+                forest_utils::io::set_user_perm(&file).expect("Set user perms on unix systems");
             }
             Err(e) => {
                 info!("Could not write keystore to disk!");

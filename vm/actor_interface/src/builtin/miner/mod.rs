@@ -7,7 +7,7 @@ use forest_fil_types::{
 };
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
-use forest_json_utils::go_vec_visitor;
+use forest_utils::json::go_vec_visitor;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::BytesDe;
