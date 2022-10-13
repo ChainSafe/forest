@@ -1,19 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-pub extern crate const_format;
 
 /// Creates a constant value from an expression that returns an Option that we *know* is not None.
 /// Basically a workaround till <https://github.com/rust-lang/rust/issues/67441> is stabilized.
 ///
 /// # Example
 /// ```
-/// use forest_macros::const_option;
+/// use forest_utils::const_option;
 /// const MY_CONST: i32 = const_option!(Some(42));
 /// ```
 ///
 /// # This will at fail compile-time.
 /// ```compile_fail
-/// use forest_macros::const_option;
+/// use forest_utils::const_option;
 /// const MY_CONST: i32 = const_option!(None);
 /// ```
 #[macro_export]

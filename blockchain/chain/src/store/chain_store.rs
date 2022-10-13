@@ -51,7 +51,7 @@ const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_macros::const_option!(NonZeroUsize::new(8192));
+    forest_utils::const_option!(NonZeroUsize::new(8192));
 
 /// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]

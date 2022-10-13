@@ -195,7 +195,7 @@ pub mod json {
 
     pub mod vec {
         use super::*;
-        use forest_json_utils::GoVecVisitor;
+        use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         pub fn serialize<S>(m: &[SignedMessage], serializer: S) -> Result<S::Ok, S::Error>

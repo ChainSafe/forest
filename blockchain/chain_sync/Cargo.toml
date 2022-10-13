@@ -19,15 +19,14 @@ forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_interpreter.workspace     = true
 forest_ipld_blockstore.workspace = true
-forest_json_utils.workspace      = true
 forest_legacy_ipld_amt.workspace = true
 forest_libp2p.workspace          = true
-forest_macros.workspace          = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace    = true
 forest_networks.workspace        = true
 forest_state_manager.workspace   = true
 forest_statediff.workspace       = true
+forest_utils.workspace           = true
 futures-util.workspace           = true
 futures.workspace                = true
 fvm.workspace                    = true
