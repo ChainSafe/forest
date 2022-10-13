@@ -29,12 +29,9 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
       - name: Cargo Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --bin forest --bin forest-cli
+        run: cargo build --release --bin forest --bin forest-cli
       - name: Compress Binary
         run: |
           mkdir -p forest-${{ github.ref_name }}
