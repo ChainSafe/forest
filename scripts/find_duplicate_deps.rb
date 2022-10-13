@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'toml-rb'
 
 # Versioned dependencies, mapping dependency to an array of files where it is declared
