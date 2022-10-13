@@ -49,10 +49,11 @@ impl PartialEq for Tipset {
 
 impl quickcheck::Arbitrary for TipsetKeys {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let header = BlockHeader::arbitrary(g);
-        Self {
-            cids: vec![*header.cid()],
-        }
+        let cid = Cid::new_v1(
+            u64::arbitrary(g),
+            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+        );
+        Self { cids: vec![cid] }
     }
 }
 
@@ -560,7 +561,6 @@ mod property_tests {
     use super::{Tipset, TipsetKeys};
     use quickcheck_macros::quickcheck;
     use serde_json;
-    use std::sync::Arc;
 
     #[quickcheck]
     fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
