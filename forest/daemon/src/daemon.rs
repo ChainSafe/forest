@@ -25,6 +25,7 @@ use forest_state_manager::StateManager;
 use forest_utils::write_to_file;
 use futures::{select, FutureExt};
 use fvm_shared::version::NetworkVersion;
+use isatty;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
@@ -394,22 +395,20 @@ pub(super) async fn start(config: Config, detached: bool) {
 }
 
 async fn prompt_and_fetch_snapshot(config: &mut Config) {
-    if !config.client.download_snapshot {
+    if !config.client.download_snapshot && isatty::stdin_isatty() {
         let download_snapshot = match Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(
-                "Forest needs a snapshot to sync with the network. Would you like to download one now?",
-            )
-            .default(false)
-            .interact()
-        {
-            Ok(result) => result,
-            Err(e) => {
-                info!("An error occured while requesting user input. Assuming false for input. Error was {}", e);
-                false
-            }
-        };
-
-        info!("user prompt result {}", download_snapshot);
+                .with_prompt(
+                    "Forest needs a snapshot to sync with the network. Would you like to download one now?",
+                )
+                .default(false)
+                .interact()
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    info!("An error occured while requesting user input. Assuming false for input. Error was {}", e);
+                    false
+                }
+            };
 
         if !download_snapshot {
             cli_error_and_die(
