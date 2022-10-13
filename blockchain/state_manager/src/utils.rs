@@ -9,11 +9,12 @@ use forest_actor_interface::{
     power,
 };
 use forest_blocks::Tipset;
-use forest_fil_types::{verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber};
+use forest_fil_types::verifier::ProofVerifier;
 use forest_ipld_blockstore::BlockStore;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
+use fvm_shared::sector::{RegisteredSealProof, SectorInfo, SectorNumber};
 use fvm_shared::version::NetworkVersion;
 use serde::Serialize;
 

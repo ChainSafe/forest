@@ -2811,7 +2811,6 @@ dependencies = [
  "forest_beacon",
  "forest_crypto",
  "forest_encoding",
- "forest_fil_types",
  "forest_json",
  "forest_message",
  "forest_test_utils",
@@ -3240,6 +3239,7 @@ name = "forest_json"
 version = "0.2.0"
 dependencies = [
  "arbitrary",
+ "base64 0.13.0",
  "cid",
  "cs_serde_bytes",
  "data-encoding",
@@ -3429,7 +3429,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "blake2b_simd 1.0.0",
- "forest_fil_types",
+ "fvm_shared",
  "log",
  "pin-project-lite 0.2.9",
  "serde",
