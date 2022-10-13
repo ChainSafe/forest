@@ -41,12 +41,11 @@ clean:
 	@cargo clean -p forest_ipld_blockstore
 	@cargo clean -p forest_rpc
 	@cargo clean -p forest_key_management
-	@cargo clean -p forest_json_utils
+	@cargo clean -p forest_utils
 	@cargo clean -p forest_test_utils
 	@cargo clean -p forest_message_pool
 	@cargo clean -p forest_genesis
 	@cargo clean -p forest_actor_interface
-	@cargo clean -p forest_hash_utils
 	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 

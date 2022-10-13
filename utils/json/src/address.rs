@@ -50,7 +50,7 @@ pub mod json {
     pub mod vec {
         use super::*;
         use super::{AddressJson, AddressJsonRef};
-        use forest_json_utils::GoVecVisitor;
+        use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         /// Wrapper for serializing and de-serializing a Cid vector from JSON.
