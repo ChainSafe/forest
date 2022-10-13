@@ -573,6 +573,6 @@ mod property_tests {
     fn tipset_roundtrip(tipset: Tipset) {
         let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
         let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(Arc::new(tipset), parsed.0);
+        assert_eq!(&tipset, parsed.0.as_ref());
     }
 }
