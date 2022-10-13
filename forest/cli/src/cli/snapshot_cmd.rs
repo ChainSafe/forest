@@ -154,7 +154,7 @@ impl SnapshotCommands {
             }
             Self::Dir => {
                 let dir = default_snapshot_dir(&config);
-                println!("Default snapshot dir: {:?}", dir);
+                println!("Default snapshot dir: {}", dir.display());
             }
             Self::List { snapshot_dir } => {
                 list(&config, snapshot_dir);
@@ -180,35 +180,27 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) {
     let snapshot_dir = snapshot_dir
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {:?}", snapshot_dir);
+    println!("Snapshot dir: {}", snapshot_dir.display());
     if let Ok(dir) = fs::read_dir(snapshot_dir) {
         println!("\nLocal snapshots:");
-        for path in dir
-            .flatten()
+        dir.flatten()
             .map(|entry| entry.path())
-            .filter(|p| p.is_file())
-        {
-            if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                if filename.ends_with(".car") {
-                    println!("{filename}");
-                }
-            }
-        }
+            .filter(|p| p.extension().unwrap_or_default() == "car")
+            .for_each(|p| println!("{}", p.display()));
     }
 }
 
-fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, yes: bool) {
+fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, force: bool) {
     let snapshot_dir = snapshot_dir
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
-    let mut snapshot_path = snapshot_dir;
-    snapshot_path.push(filename);
+    let snapshot_path = snapshot_dir.join(filename);
     if snapshot_path.exists()
         && snapshot_path.is_file()
         && snapshot_path.extension() == Some(OsStr::new("car"))
     {
-        println!("Deleting {:?}", snapshot_path);
-        if !yes && !prompt_confirm() {
+        println!("Deleting {}", snapshot_path.display());
+        if !force && !prompt_confirm() {
             println!("Aborted.");
             return;
         }
@@ -216,17 +208,17 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, y
         delete_snapshot(&snapshot_path);
     } else {
         println!(
-                "{:?} is not a valid snapshot file path, to list all snapshots, run forest-cli snapshot list",
-                snapshot_path);
+                "{} is not a valid snapshot file path, to list all snapshots, run forest-cli snapshot list",
+                snapshot_path.display());
     }
 }
 
-fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, yes: bool) {
+fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
     {
         let snapshot_dir = snapshot_dir
             .clone()
             .unwrap_or_else(|| default_snapshot_dir(config));
-        println!("Snapshot dir: {:?}", snapshot_dir);
+        println!("Snapshot dir: {}", snapshot_dir.display());
         let mut snapshots_with_valid_name = vec![];
         let mut snapshot_to_keep = None;
         let mut latest_date = Date::MIN;
@@ -243,25 +235,25 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, yes: bool) {
                 .filter(|p| p.is_file())
             {
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                    let captures = pattern.captures(filename);
-                    if let Some(captures) = captures {
-                        if let Some(date) = captures.name("date") {
-                            if let Ok(date) = time::Date::parse(date.as_str(), &Iso8601::DEFAULT) {
-                                if let Some(height) = captures.name("height") {
-                                    if let Ok(height) = height.as_str().parse::<i64>() {
-                                        if date > latest_date {
-                                            latest_date = date;
-                                            latest_height = height;
-                                            snapshot_to_keep = Some(path.clone());
-                                        } else if date == latest_date && height > latest_height {
-                                            latest_height = height;
-                                            snapshot_to_keep = Some(path.clone());
-                                        }
-
-                                        snapshots_with_valid_name.push(path);
-                                    }
-                                }
+                    if let Some(captures) = pattern.captures(filename) {
+                        let date = captures.name("date").unwrap();
+                        if let Ok(date) = time::Date::parse(date.as_str(), &Iso8601::DEFAULT) {
+                            let height = captures
+                                .name("height")
+                                .unwrap()
+                                .as_str()
+                                .parse::<i64>()
+                                .unwrap();
+                            if date > latest_date {
+                                latest_date = date;
+                                latest_height = height;
+                                snapshot_to_keep = Some(path.clone());
+                            } else if date == latest_date && height > latest_height {
+                                latest_height = height;
+                                snapshot_to_keep = Some(path.clone());
                             }
+
+                            snapshots_with_valid_name.push(path);
                         }
                     }
                 }
@@ -279,7 +271,7 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, yes: bool) {
         if let Some(snapshot_to_keep) = snapshot_to_keep {
             for (i, path) in snapshots_to_delete.iter().enumerate() {
                 if &snapshot_to_keep != path {
-                    println!("{:?}", path.as_path());
+                    println!("{}", path.as_path().display());
                 } else {
                     index_to_keep = i;
                 }
@@ -287,7 +279,7 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, yes: bool) {
         }
         snapshots_to_delete.remove(index_to_keep);
 
-        if !yes && !prompt_confirm() {
+        if !force && !prompt_confirm() {
             println!("Aborted.");
             return;
         }
@@ -307,14 +299,13 @@ fn default_snapshot_dir(config: &Config) -> PathBuf {
 }
 
 fn delete_snapshot(snapshot_path: &PathBuf) {
-    let mut checksum_path = snapshot_path.clone();
-    checksum_path.set_extension("sha256sum");
+    let checksum_path = snapshot_path.with_extension("sha256sum");
     for path in [snapshot_path, &checksum_path] {
         if path.exists() {
             if let Err(err) = fs::remove_file(path) {
-                println!("Failed to delete {:?}\n{err}", path);
+                println!("Failed to delete {}\n{err}", path.display());
             } else {
-                println!("Deleted {:?}", path);
+                println!("Deleted {}", path.display());
             }
         }
     }
