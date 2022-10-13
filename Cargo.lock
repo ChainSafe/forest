@@ -2205,7 +2205,7 @@ checksum = "20323a847ff50d9aea94a8fed0854210013f6e2fa791c91731717377e6ebd2e7"
 dependencies = [
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2220,7 +2220,7 @@ checksum = "e77043824f3e78af50222356539e7528ac5139d3d3b162a1cb94da1e3b31d3e0"
 dependencies = [
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
  "num-derive",
@@ -2238,7 +2238,7 @@ dependencies = [
  "cid",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "log",
@@ -2258,7 +2258,7 @@ dependencies = [
  "fil_actors_runtime",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "libipld-core 0.13.1",
@@ -2281,7 +2281,7 @@ dependencies = [
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "itertools 0.10.5",
@@ -2302,7 +2302,7 @@ dependencies = [
  "cid",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "indexmap",
@@ -2322,7 +2322,7 @@ dependencies = [
  "cid",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "indexmap",
@@ -2342,7 +2342,7 @@ checksum = "44d9a701025ae9c52de4ec728e4112457ce8c77018edd86a533da95088e94b7f"
 dependencies = [
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "lazy_static",
  "log",
@@ -2361,7 +2361,7 @@ dependencies = [
  "cid",
  "fil_actors_runtime",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -2381,7 +2381,7 @@ dependencies = [
  "cid",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_sdk",
  "fvm_shared",
@@ -2616,7 +2616,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_car",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "git-version",
  "hex",
@@ -2635,6 +2635,7 @@ dependencies = [
  "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
+ "regex",
  "reqwest",
  "rpassword",
  "rug",
@@ -2699,7 +2700,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_car",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "git-version",
  "hex",
@@ -2755,7 +2756,7 @@ dependencies = [
  "forest_utils",
  "fvm",
  "fvm_ipld_bitfield",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "libp2p",
@@ -2815,7 +2816,7 @@ dependencies = [
  "forest_message",
  "forest_test_utils",
  "forest_utils",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
  "lazy_static",
@@ -2859,7 +2860,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_car",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "lazy_static",
  "log",
@@ -2907,7 +2908,7 @@ dependencies = [
  "futures-util",
  "fvm",
  "fvm_ipld_car",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
  "lazy_static",
@@ -2967,7 +2968,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_car",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "git-version",
  "hex",
@@ -3005,7 +3006,7 @@ dependencies = [
  "base64 0.13.0",
  "bls-signatures",
  "forest_encoding",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "libsecp256k1",
  "num-derive",
@@ -3053,7 +3054,7 @@ dependencies = [
  "forest_networks",
  "forest_state_manager",
  "futures",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
  "nonempty",
@@ -3097,7 +3098,7 @@ dependencies = [
  "forest_state_manager",
  "futures",
  "fvm",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
  "nonempty",
@@ -3117,7 +3118,7 @@ dependencies = [
  "forest_json",
  "forest_test_utils",
  "forest_utils",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
  "num-traits",
@@ -3184,7 +3185,7 @@ dependencies = [
  "fvm",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "lazy_static",
@@ -3208,7 +3209,7 @@ dependencies = [
  "forest_encoding",
  "forest_ipld_blockstore",
  "forest_json",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "indexmap",
  "libipld",
@@ -3231,7 +3232,7 @@ dependencies = [
  "forest_encoding",
  "forest_ipld",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
 ]
 
 [[package]]
@@ -3247,7 +3248,7 @@ dependencies = [
  "forest_test_utils",
  "forest_utils",
  "fvm",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "multihash",
  "num-bigint 0.4.3",
@@ -3290,7 +3291,7 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "itertools 0.10.5",
  "once_cell",
  "serde",
@@ -3321,7 +3322,7 @@ dependencies = [
  "futures",
  "futures-util",
  "fvm_ipld_car",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "libp2p",
  "libp2p-bitswap",
@@ -3347,7 +3348,7 @@ dependencies = [
  "forest_json",
  "forest_utils",
  "fvm",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-traits",
  "quickcheck",
@@ -3381,7 +3382,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "libsecp256k1",
  "log",
@@ -3478,7 +3479,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
  "jsonrpc-v2",
@@ -3581,7 +3582,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
  "num-traits",
@@ -3624,7 +3625,7 @@ dependencies = [
  "forest_json",
  "fvm",
  "fvm_ipld_bitfield",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "libipld-core 0.14.0",
  "serde",
@@ -3645,7 +3646,7 @@ dependencies = [
  "forest_encoding",
  "forest_libp2p",
  "forest_message",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
 ]
 
@@ -3864,7 +3865,7 @@ dependencies = [
  "fvm-wasm-instrument",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "lazy_static",
@@ -3902,7 +3903,7 @@ dependencies = [
  "anyhow",
  "cid",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "itertools 0.10.5",
  "once_cell",
  "serde",
@@ -3911,12 +3912,11 @@ dependencies = [
 
 [[package]]
 name = "fvm_ipld_bitfield"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97dfb38431e301bf063a412f870a3d9ebb541d581d1884f95e921f5ea823d29d"
+checksum = "d1950291f40d2d1047eb0a4568f7ef6d5b4973452dcef012dffb1957fe483ff7"
 dependencies = [
- "cs_serde_bytes",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.3.0",
  "serde",
  "thiserror",
  "unsigned-varint 0.7.1",
@@ -3942,7 +3942,7 @@ dependencies = [
  "cid",
  "futures",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "integer-encoding",
  "serde",
  "thiserror",
@@ -3967,6 +3967,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm_ipld_encoding"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf531c59e7c9a4c9044a34d1b44c9d544fab1eb0ba50aaa18121fe698d4fec35"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "multihash",
+ "serde",
+ "serde_ipld_dagcbor 0.2.2",
+ "serde_repr",
+ "serde_tuple",
+ "thiserror",
+]
+
+[[package]]
 name = "fvm_ipld_hamt"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3978,7 +3995,7 @@ dependencies = [
  "cs_serde_bytes",
  "forest_hash_utils",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "libipld-core 0.13.1",
  "multihash",
  "once_cell",
@@ -3994,7 +4011,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d013aaca686496e85886d96e5c4c228555141849d59347d1f22d793d5be2572b"
 dependencies = [
  "cid",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "lazy_static",
  "log",
@@ -4020,7 +4037,7 @@ dependencies = [
  "data-encoding-macro",
  "filecoin-proofs-api",
  "fvm_ipld_blockstore",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "lazy_static",
  "libsecp256k1",
  "log",
@@ -7711,7 +7728,7 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "forest_message",
- "fvm_ipld_encoding",
+ "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
  "serde",
@@ -8732,9 +8749,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6edf2d6bc038a43d31353570e27270603f4648d18f5ed10c0e179abe43255af"
+checksum = "d660770404473ccd7bc9f8b28494a811bc18542b915c0855c51e8f419d5223ce"
 dependencies = [
  "futures-core",
  "pin-project-lite 0.2.9",

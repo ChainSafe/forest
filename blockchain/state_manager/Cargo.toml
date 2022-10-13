@@ -6,12 +6,12 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace                 = true
-async-log                        = "2.0.0"
+async-log.workspace              = true
 async-std                        = { workspace = true, features = ["unstable", "tokio1"] }
 blake2b_simd.workspace           = true
-byteorder                        = "1.4.3"
+byteorder.workspace              = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
-fil_actors_runtime               = "=8.0.0"
+fil_actors_runtime.workspace     = true
 filecoin-proofs-api              = { version = "11.0.0", default_features = false }
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true

@@ -42,14 +42,19 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+ahash                 = "0.8"
 anyhow                = "1.0"
 arbitrary             = "1.1"
+async-log             = "2.0"
 async-std             = "1.12"
 async-trait           = "0.1"
 base64                = "0.13"
 blake2b_simd          = "1.0"
+byteorder             = "1.4.3"
+chrono                = "0.4"
 cid                   = "0.8"
 cs_serde_bytes        = "0.12.2"
+directories           = "4.0.1"
 fil_actor_account_v8  = { package = "fil_actor_account", version = "=8.0.0" }
 fil_actor_cron_v8     = { package = "fil_actor_cron", version = "=8.0.0" }
 fil_actor_init_v8     = { package = "fil_actor_init", version = "=8.0.0" }
@@ -59,6 +64,7 @@ fil_actor_multisig_v8 = { package = "fil_actor_multisig", version = "=8.0.0" }
 fil_actor_power_v8    = { package = "fil_actor_power", version = "=8.0.0" }
 fil_actor_reward_v8   = { package = "fil_actor_reward", version = "=8.0.0" }
 fil_actor_system_v8   = { package = "fil_actor_system", version = "=8.0.0" }
+fil_actors_runtime    = "=8.0.0"
 fil_actors_runtime_v8 = { package = "fil_actors_runtime", version = "=8.0.0" }
 futures               = "0.3"
 futures-util          = "0.3"
@@ -97,11 +103,14 @@ quickcheck            = "1"
 quickcheck_macros     = "1"
 rand                  = "0.8"
 rayon                 = "1.5"
+regex                 = "1.6"
+reqwest               = "0.11"
 serde                 = "1.0"
 serde_ipld_dagcbor    = "0.1"
 serde_json            = "1.0"
 smallvec              = "1.9"
 thiserror             = "1.0"
+time                  = "0.3"
 tokio                 = "1.21"
 url                   = "2.3"
 
