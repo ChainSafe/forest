@@ -11,14 +11,14 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace                 = true
-async-log                        = "2.0"
+async-log.workspace              = true
 async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
-chrono                           = "0.4"
+chrono.workspace                 = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
-directories                      = "4.0.1"
+directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true
 forest_auth.workspace            = true
@@ -68,7 +68,7 @@ pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
 rayon.workspace                  = true
-reqwest                          = { version = "0.11", features = ["stream"] }
+reqwest                          = { workspace = true, features = ["stream"] }
 rpassword                        = "7.0"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
@@ -76,7 +76,7 @@ sha2                             = "0.10.5"
 shared_memory                    = "0.12"
 structopt                        = "0.3"
 tempfile                         = "3.3"
-time                             = "0.3"
+time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"
 
