@@ -1,13 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::randomness::Randomness;
-
-/// Randomness type used for generating PoSt proof randomness.
-pub type PoStRandomness = Randomness;
-
 pub mod json {
-    use crate::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber};
+    use fvm_shared::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber};
     use cid::Cid;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -27,7 +22,7 @@ pub mod json {
         #[serde(rename = "SealProof")]
         pub proof: RegisteredSealProof,
         pub sector_number: SectorNumber,
-        #[serde(with = "forest_json::cid")]
+        #[serde(with = "crate::cid")]
         #[serde(rename = "SealedCID")]
         pub sealed_cid: Cid,
     }

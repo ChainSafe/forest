@@ -21,6 +21,7 @@ multihash = { workspace = true, default-features = false, features = [
 ] }
 num-bigint.workspace = true
 serde = { workspace = true, features = ["derive"] }
+base64.workspace = true
 
 [dev-dependencies]
 arbitrary.workspace         = true

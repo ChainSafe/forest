@@ -17,3 +17,4 @@ surf                       = { version = "2.3", default-features = false, featur
 tokio-util                 = { version = "0.7.0", features = ["compat"] }
 tokio.workspace            = true
 url.workspace              = true
+fvm_shared.workspace = true

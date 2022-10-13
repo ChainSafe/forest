@@ -8,7 +8,7 @@ use cid::Cid;
 use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
-use forest_fil_types::PoStProof;
+use fvm_shared::sector::PoStProof;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::{

@@ -4,9 +4,10 @@
 use fvm_shared::clock::ChainEpoch;
 pub use fvm_shared::clock::QuantSpec;
 use serde::{Deserialize, Serialize};
+use fvm_shared::clock::NO_QUANTIZATION;
 
 /// Constant defining the `[QuantSpec]` which performs no quantization.
-pub const NO_QUANTIZATION: QuantSpec = QuantSpec { unit: 1, offset: 0 };
+// pub const NO_QUANTIZATION: QuantSpec = QuantSpec { unit: 1, offset: 0 };
 
 /// Deadline calculations with respect to a current epoch.
 /// "Deadline" refers to the window during which proofs may be submitted.

@@ -3,7 +3,7 @@
 
 use async_std::task;
 use blake2b_simd::{Hash, State as Blake2b};
-use forest_fil_types::SectorSize;
+use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

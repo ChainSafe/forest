@@ -3,7 +3,7 @@
 
 use jsonrpc_v2::Error as JsonRpcError;
 
-use forest_fil_types::build_version::{APIVersion, Version};
+use forest_rpc_api::data_types::{APIVersion, Version};
 use forest_rpc_api::common_api::*;
 use semver::Version as SemVer;
 

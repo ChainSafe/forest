@@ -22,10 +22,8 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset,
 };
-use forest_fil_types::{
-    verifier::{FullVerifier, ProofVerifier},
-    PoStProof,
-};
+use forest_fil_types::verifier::{FullVerifier, ProofVerifier};
+use fvm_shared::sector::PoStProof;
 use forest_ipld::json::IpldJson;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::address::json::AddressJson;

@@ -4,7 +4,7 @@
 use crate::FilterEstimate;
 use cid::Cid;
 use fil_actors_runtime_v8::runtime::Policy;
-use forest_fil_types::StoragePower;
+use fvm_shared::sector::StoragePower;
 use forest_ipld_blockstore::BlockStore;
 use forest_ipld_blockstore::BlockStoreExt;
 use forest_json::bigint::json;

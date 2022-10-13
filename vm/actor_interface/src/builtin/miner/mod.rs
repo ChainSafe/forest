@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_fil_types::{
-    deadlines::DeadlineInfo, RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize,
-};
+use forest_fil_types::deadlines::DeadlineInfo;
+use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize};
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
 use forest_json_utils::go_vec_visitor;

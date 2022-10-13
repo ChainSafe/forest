@@ -17,7 +17,8 @@ use forest_actor_interface::*;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
-use forest_fil_types::{verifier::ProofVerifier, SectorInfo, SectorSize};
+use forest_fil_types::verifier::ProofVerifier;
+use fvm_shared::sector::{SectorInfo, SectorSize};
 use forest_interpreter::{
     resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
     VM,

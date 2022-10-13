@@ -1,11 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod mock;
-
-pub use self::mock::*;
-
-use crate::{
+use fvm_shared::sector::{
     AggregateSealVerifyProofAndInfos, PoStProof, RegisteredPoStProof, SealVerifyInfo, SectorInfo,
 };
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};

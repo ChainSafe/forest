@@ -3,7 +3,7 @@
 
 use crate::FilterEstimate;
 use cid::Cid;
-use forest_fil_types::StoragePower;
+use fvm_shared::sector::StoragePower;
 use forest_ipld_blockstore::BlockStore;
 use forest_ipld_blockstore::BlockStoreExt;
 use fvm::state_tree::ActorState;
