@@ -6,16 +6,15 @@ edition = "2021"
 
 [dependencies]
 base64.workspace            = true
-byteorder                   = "1.4.3"
+byteorder.workspace         = true
 cid                         = { workspace = true, default-features = false, features = ["std"] }
 derive_builder              = "0.11"
 forest_beacon.workspace     = true
 forest_crypto               = { workspace = true, features = ["blst"] }
 forest_encoding.workspace   = true
-forest_fil_types.workspace  = true
 forest_json.workspace       = true
-forest_json_utils.workspace = true
 forest_message              = { workspace = true, features = ["blst"] }
+forest_utils.workspace      = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
 lazy_static.workspace       = true
