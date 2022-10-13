@@ -371,13 +371,13 @@ pub mod state_api {
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
     use forest_fil_types::deadlines::DeadlineInfo;
-    use fvm_shared::sector::SectorNumber;
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
     use forest_message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
     use forest_state_manager::{InvocResult, MarketBalance};
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
+    use fvm_shared::sector::SectorNumber;
     use fvm_shared::version::NetworkVersion;
 
     pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";

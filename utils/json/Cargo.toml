@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
+base64.workspace = true
 cid = { workspace = true, default-features = false, features = ["std"] }
 cs_serde_bytes.workspace = true
 data-encoding = "2.3"
@@ -21,7 +22,6 @@ multihash = { workspace = true, default-features = false, features = [
 ] }
 num-bigint.workspace = true
 serde = { workspace = true, features = ["derive"] }
-base64.workspace = true
 
 [dev-dependencies]
 arbitrary.workspace         = true

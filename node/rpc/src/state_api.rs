@@ -23,7 +23,6 @@ use forest_blocks::{
     Tipset,
 };
 use forest_fil_types::verifier::{FullVerifier, ProofVerifier};
-use fvm_shared::sector::PoStProof;
 use forest_ipld::json::IpldJson;
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::address::json::AddressJson;
@@ -39,6 +38,7 @@ use forest_rpc_api::{
 };
 use forest_state_manager::{InvocResult, StateManager};
 use fvm::state_tree::StateTree;
+use fvm_shared::sector::PoStProof;
 use fvm_shared::{address::Address, bigint::BigInt};
 use libipld_core::ipld::Ipld;
 

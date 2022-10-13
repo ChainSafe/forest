@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use fvm_shared::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber};
     use cid::Cid;
+    use fvm_shared::sector::{
+        PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
+    };
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing a `PoStProof` to JSON.
@@ -136,8 +138,8 @@ mod tests {
     #[quickcheck]
     fn postproof_roundtrip(postproof: PoStProofWrapper) {
         let serialized: String =
-            forest_test_utils::to_string_with!(&postproof.postproof, crate::json::serialize);
-        let parsed = forest_test_utils::from_str_with!(&serialized, crate::json::deserialize);
+            forest_test_utils::to_string_with!(&postproof.postproof, super::json::serialize);
+        let parsed = forest_test_utils::from_str_with!(&serialized, super::json::deserialize);
         assert_eq!(postproof.postproof, parsed);
     }
 }
