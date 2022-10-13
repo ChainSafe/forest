@@ -61,7 +61,7 @@ pub mod json {
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `KeyInfo` from JSON.
-    #[derive(Clone, Deserialize, Serialize)]
+    #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
     #[serde(transparent)]
     pub struct KeyInfoJson(#[serde(with = "self")] pub KeyInfo);
 
@@ -463,7 +463,9 @@ impl EncryptedKeyStore {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::json::{KeyInfoJson, KeyInfoJsonRef};
     use crate::wallet;
+    use quickcheck_macros::quickcheck;
 
     const PASSPHRASE: &str = "foobarbaz";
 
@@ -556,5 +558,27 @@ mod test {
         let keystore_location = PathBuf::from("/tmp/forest-db");
         let ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
         ks.flush().unwrap();
+    }
+
+    impl quickcheck::Arbitrary for KeyInfo {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let sigtype = g
+                .choose(&[
+                    fvm_shared::crypto::signature::SignatureType::BLS,
+                    fvm_shared::crypto::signature::SignatureType::Secp256k1,
+                ])
+                .unwrap();
+            KeyInfo {
+                key_type: *sigtype,
+                private_key: Vec::arbitrary(g),
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn keyinfo_roundtrip(keyinfo: KeyInfo) {
+        let serialized: String = serde_json::to_string(&KeyInfoJsonRef(&keyinfo)).unwrap();
+        let parsed: KeyInfoJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(keyinfo, parsed.0);
     }
 }

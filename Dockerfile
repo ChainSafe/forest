@@ -35,13 +35,13 @@ RUN strip /usr/local/cargo/bin/forest /usr/local/cargo/bin/forest-cli
 ##
 # Prod image for forest binary
 ##
-FROM debian:buster-slim
+FROM debian:10-slim
 
 # Link package to the repository
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates
+RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates libcurl4
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env
