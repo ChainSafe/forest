@@ -132,3 +132,56 @@ pub mod json {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::json::signature_type::SignatureTypeJson;
+    use super::json::{SignatureJson, SignatureJsonRef};
+    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct SignatureWrapper {
+        signature: Signature,
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct SignatureTypeWrapper {
+        sigtype: SignatureType,
+    }
+
+    impl quickcheck::Arbitrary for SignatureWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let sigtype = SignatureTypeWrapper::arbitrary(g);
+            let signature = Signature {
+                bytes: Vec::arbitrary(g),
+                sig_type: sigtype.sigtype,
+            };
+            SignatureWrapper { signature }
+        }
+    }
+
+    impl quickcheck::Arbitrary for SignatureTypeWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let sigtype = g
+                .choose(&[SignatureType::Secp256k1, SignatureType::BLS])
+                .unwrap();
+            SignatureTypeWrapper { sigtype: *sigtype }
+        }
+    }
+
+    #[quickcheck]
+    fn signature_roundtrip(signature: SignatureWrapper) {
+        let serialized = serde_json::to_string(&SignatureJsonRef(&signature.signature)).unwrap();
+        let parsed: SignatureJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(signature.signature, parsed.0);
+    }
+
+    #[quickcheck]
+    fn signaturetype_roundtrip(sigtype: SignatureTypeWrapper) {
+        let serialized = serde_json::to_string(&SignatureTypeJson(sigtype.sigtype)).unwrap();
+        let parsed: SignatureTypeJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(sigtype.sigtype, parsed.0);
+    }
+}
