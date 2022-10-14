@@ -2561,6 +2561,10 @@ version = "0.10.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1657b4441c3403d9f7b3409e47575237dac27b1b5726df654a6ecbf92f0f7577"
 dependencies = [
+ "futures-core",
+ "futures-sink",
+ "nanorand",
+ "pin-project",
  "spin 0.9.4",
 ]
 
@@ -2678,6 +2682,7 @@ dependencies = [
  "daemonize-me",
  "directories",
  "fil_actor_miner",
+ "flume 0.10.14",
  "forest_actor_interface",
  "forest_auth",
  "forest_beacon",
@@ -2894,6 +2899,7 @@ dependencies = [
  "async-trait",
  "base64 0.13.0",
  "cid",
+ "flume 0.10.14",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -3321,6 +3327,7 @@ dependencies = [
  "asynchronous-codec",
  "bytes 1.2.1",
  "cid",
+ "flume 0.10.14",
  "fnv",
  "forest_blocks",
  "forest_chain",
@@ -3379,6 +3386,7 @@ dependencies = [
  "async-trait",
  "blake2b_simd 1.0.0",
  "cid",
+ "flume 0.10.14",
  "forest_blocks",
  "forest_chain",
  "forest_crypto",
@@ -3465,6 +3473,7 @@ dependencies = [
  "cid",
  "crossbeam",
  "fil_actor_miner",
+ "flume 0.10.14",
  "forest_actor_interface",
  "forest_auth",
  "forest_beacon",
@@ -3519,6 +3528,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "cid",
+ "flume 0.10.14",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -5925,6 +5935,15 @@ dependencies = [
  "proc-macro2 1.0.47",
  "quote 1.0.21",
  "syn 1.0.102",
+]
+
+[[package]]
+name = "nanorand"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
+dependencies = [
+ "getrandom 0.2.7",
 ]
 
 [[package]]

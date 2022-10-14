@@ -146,7 +146,7 @@ pub struct MessagePool<T> {
     // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
-    pub network_sender: Sender<NetworkMessage>,
+    pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
     pub bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     /// A cache for BLS signature keyed by Cid
@@ -171,7 +171,7 @@ where
     pub async fn with_tasks(
         mut api: T,
         network_name: String,
-        network_sender: Sender<NetworkMessage>,
+        network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
     ) -> Result<
@@ -308,7 +308,7 @@ where
     pub async fn new(
         api: T,
         network_name: String,
-        network_sender: Sender<NetworkMessage>,
+        network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
     ) -> Result<MessagePool<T>, Error>
@@ -337,7 +337,7 @@ where
         self.add_local(msg).await?;
         if publish {
             self.network_sender
-                .send(NetworkMessage::PubsubMessage {
+                .send_async(NetworkMessage::PubsubMessage {
                     topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg_ser,
                 })
@@ -504,7 +504,7 @@ where
 
         if publish {
             self.network_sender
-                .send(NetworkMessage::PubsubMessage {
+                .send_async(NetworkMessage::PubsubMessage {
                     topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg.marshal_cbor()?,
                 })

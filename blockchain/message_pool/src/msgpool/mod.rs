@@ -58,7 +58,7 @@ where
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
-    network_sender: &Sender<NetworkMessage>,
+    network_sender: &flume::Sender<NetworkMessage>,
     network_name: &str,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Arc<Tipset>>,
@@ -97,7 +97,7 @@ where
     for m in msgs.iter() {
         let mb = m.marshal_cbor()?;
         network_sender
-            .send(NetworkMessage::PubsubMessage {
+            .send_async(NetworkMessage::PubsubMessage {
                 topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
                 message: mb,
             })
@@ -325,7 +325,6 @@ pub mod tests {
     use super::*;
     use crate::msg_chain::{create_message_chains, Chains};
     use crate::msg_pool::MessagePool;
-    use async_std::channel::bounded;
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
@@ -370,7 +369,7 @@ pub mod tests {
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
         let mpool = MessagePool::new(
             tma,
             "mptest".to_string(),
@@ -437,7 +436,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
 
         let mpool = MessagePool::new(
             tma,
@@ -535,7 +534,7 @@ pub mod tests {
 
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
 
         let mpool = MessagePool::new(
             tma,
