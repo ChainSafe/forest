@@ -26,6 +26,7 @@ use std::fmt;
 
 const BYTES_JSON_KEY: &str = "bytes";
 const INT_JSON_KEY: &str = "int";
+const FLOAT_JSON_KEY: &str = "float";
 
 /// Wrapper for serializing and de-serializing a IPLD from JSON.
 #[derive(Deserialize, Serialize)]
@@ -48,7 +49,10 @@ where
             &ipld!({ "/": { INT_JSON_KEY: i128.to_string() } }),
             serializer,
         ),
-        Ipld::Float(f64) => serializer.serialize_f64(*f64),
+        Ipld::Float(f64) => serialize(
+            &ipld!({ "/": { FLOAT_JSON_KEY: f64.to_string() } }),
+            serializer,
+        ),
         Ipld::String(string) => serializer.serialize_str(string),
         Ipld::Bytes(bytes) => serialize(
             &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(Base::Base64, bytes) } }),
@@ -206,6 +210,13 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
                                 .parse::<i128>()
                                 .map_err(|e| de::Error::custom(e.to_string()))?;
                             return Ok(Ipld::Integer(s));
+                        }
+                        if let Some(Ipld::String(s)) = obj.get(FLOAT_JSON_KEY) {
+                            // { "/": { "float": "f64" } }
+                            let s = s
+                                .parse::<f64>()
+                                .map_err(|e| de::Error::custom(e.to_string()))?;
+                            return Ok(Ipld::Float(s));
                         }
                     }
                     _ => (),
