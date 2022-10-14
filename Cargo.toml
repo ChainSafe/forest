@@ -29,7 +29,7 @@ members = [
   "key_management",
   "tests/serialization_tests",
   "types",
-  "types/networks",
+  "networks",
   "utils/auth",
   "utils/genesis",
   "utils/statediff",
@@ -138,7 +138,7 @@ forest_libp2p          = { path = "./node/forest_libp2p" }
 forest_message         = { path = "./vm/message" }
 forest_message_pool    = { path = "./blockchain/message_pool" }
 forest_metrics         = { path = "./utils/metrics" }
-forest_networks        = { path = "./types/networks" }
+forest_networks        = { path = "./networks" }
 forest_paramfetch      = { path = "./utils/paramfetch" }
 forest_rpc             = { path = "./node/rpc" }
 forest_rpc-api         = { path = "./node/rpc-api" }
