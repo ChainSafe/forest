@@ -42,7 +42,6 @@ use fvm_shared::sector::{SectorInfo, SectorSize};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
 use num_traits::identities::Zero;
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -639,25 +638,24 @@ where
         ts: &Arc<Tipset>,
         mcid: Cid,
     ) -> Result<(Message, ApplyRet), Error> {
+        const ERROR_MSG: &str = "replay_halt";
+
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
-        let outm: OnceCell<Message> = Default::default();
-        let outr: OnceCell<ApplyRet> = Default::default();
-        let m_clone = outm.clone();
-        let r_clone = outr.clone();
+        let (m_tx, m_rx) = std::sync::mpsc::channel();
+        let (r_tx, r_rx) = std::sync::mpsc::channel();
         let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
             if *cid == mcid {
-                let _ = m_clone.set(unsigned.message().clone());
-                let _ = r_clone.set(apply_ret.clone());
-                anyhow::bail!("halt");
+                m_tx.send(unsigned.message().clone())?;
+                r_tx.send(apply_ret.clone())?;
+                anyhow::bail!(ERROR_MSG);
             }
-
             Ok(())
         };
         let result = self.compute_tipset_state(ts, Some(callback)).await;
 
         if let Err(error_message) = result {
-            if error_message.to_string() != "halt" {
+            if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {:}",
                     error_message
@@ -665,12 +663,13 @@ where
             }
         }
 
-        let out_mes = outm
-            .into_inner()
-            .ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
-        let out_ret = outr
-            .into_inner()
-            .ok_or_else(|| Error::Other("message did not have a return".to_string()))?;
+        // Use try_recv here assuming callback execution is syncronous
+        let out_mes = m_rx
+            .try_recv()
+            .map_err(|err| Error::Other(format!("given message not found in tipset: {err}")))?;
+        let out_ret = r_rx
+            .try_recv()
+            .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
         Ok((out_mes, out_ret))
     }
 
