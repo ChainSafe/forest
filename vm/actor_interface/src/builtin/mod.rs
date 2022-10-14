@@ -11,8 +11,6 @@ pub mod power;
 pub mod reward;
 pub mod system;
 
-use crate::ActorVersion;
-
 use cid::Cid;
 
 use fil_actors_runtime_v8::builtin::network;
@@ -76,27 +74,12 @@ macro_rules! load_actor_state {
     };
 }
 
-/// Returns true if the code belongs to a builtin actor.
-pub fn is_builtin_actor(_code: &Cid) -> bool {
-    unimplemented!()
-}
-
 /// Returns true if the code belongs to an account actor.
 pub fn is_account_actor(code: &Cid) -> bool {
     account::is_v8_account_cid(code)
 }
 
-/// Returns true if the code belongs to a singleton actor.
-pub fn is_singleton_actor(_code: &Cid) -> bool {
-    unimplemented!()
-}
-
 /// Returns true if the code belongs to a miner actor.
 pub fn is_miner_actor(_code: &Cid) -> bool {
     unimplemented!()
-}
-
-/// Returns an actor's version or None if it was not a builtin
-pub fn actor_version(_code: &Cid) -> Option<ActorVersion> {
-    None
 }

@@ -37,10 +37,6 @@ fn header_cbor_vectors() {
     let vectors: Vec<BlockHeaderVector> =
         serde_json::from_str(&string).expect("Test vector deserialization failed");
     for tv in vectors {
-        encode_assert_cbor(
-            &BlockHeader::from(tv.block),
-            &tv.cbor_hex,
-            &tv.cid.parse().unwrap(),
-        )
+        encode_assert_cbor(&tv.block, &tv.cbor_hex, &tv.cid.parse().unwrap())
     }
 }
