@@ -31,6 +31,8 @@ jobs:
           fail: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook
