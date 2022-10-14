@@ -49,6 +49,24 @@ fn test_snapshot_subcommand_list() -> Result<()> {
 }
 
 #[test]
+fn test_snapshot_subcommand_list_invalid_dir() -> Result<()> {
+    let cmd = cli()?
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("snapshot")
+        .arg("list")
+        .arg("--snapshot-dir")
+        .arg("/this/is/dummy/path")
+        .assert()
+        .failure();
+
+    let stderr = std::str::from_utf8(&cmd.get_output().stderr)?.to_owned();
+    ensure!(stderr.contains("No such file or directory"));
+
+    Ok(())
+}
+
+#[test]
 fn test_snapshot_subcommand_remove_invalid() -> Result<()> {
     let tmp_dir = TempDir::new().unwrap();
     let filenames = ["snapshot1.car", "snapshot2.car"];
