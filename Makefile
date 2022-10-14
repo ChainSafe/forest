@@ -10,19 +10,25 @@ ifndef RUST_TEST_THREADS
 	endif # $(OS)
 endif
 
-install:
-	cargo install --locked --path forest --force
+install-cli:
+	cargo install --locked --path forest/cli --force
+
+install-daemon:
+	cargo install --locked --path forest/daemon --force
+
+install: install-cli install-daemon
 
 clean-all:
 	cargo clean
 
 clean:
 	@echo "Cleaning local packages..."
-	@cargo clean -p forest
+	@cargo clean -p forest-cli
+	@cargo clean -p forest-daemon
+	@cargo clean -p forest_cli_shared
 	@cargo clean -p forest_libp2p
 	@cargo clean -p forest_blocks
 	@cargo clean -p forest_chain_sync
-	@cargo clean -p forest_vm
 	@cargo clean -p forest_message
 	@cargo clean -p forest_state_manager
 	@cargo clean -p forest_interpreter
@@ -35,12 +41,11 @@ clean:
 	@cargo clean -p forest_ipld_blockstore
 	@cargo clean -p forest_rpc
 	@cargo clean -p forest_key_management
-	@cargo clean -p forest_json_utils
+	@cargo clean -p forest_utils
 	@cargo clean -p forest_test_utils
 	@cargo clean -p forest_message_pool
 	@cargo clean -p forest_genesis
 	@cargo clean -p forest_actor_interface
-	@cargo clean -p forest_hash_utils
 	@cargo clean -p forest_networks
 	@echo "Done cleaning."
 
@@ -51,7 +56,7 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
 udeps:
-	cargo udeps --features test_constructors
+	cargo udeps
 
 spellcheck:
 	cargo spellcheck --code 1
@@ -69,10 +74,10 @@ fmt:
 	taplo fmt
 
 build:
-	cargo build --bin forest
+	cargo build --bin forest --bin forest-cli
 
 release:
-	cargo build --release --bin forest
+	cargo build --release --bin forest --bin forest-cli
 
 docker-run:
 	docker build -t forest:latest -f ./Dockerfile . && docker run forest
@@ -120,4 +125,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --all-features --no-deps
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors rustdoc

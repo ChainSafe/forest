@@ -7,6 +7,7 @@
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
 [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest)
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
+[![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
 [![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
@@ -18,7 +19,7 @@ Our crates:
 
 | component | description/crates |
 | - | - |
-| `forest` | the command-line interface and daemon (1 crate/workspace) |
+| `forest` | the command-line interface and daemon (3 crate/workspace) |
 | `node` | the networking stack and storage (7 crates) |
 | `blockchain` | the chain structure and synchronization (8 crates) |
 | `vm` | state transition and actors, messages, addresses (9 crates) |
@@ -87,7 +88,11 @@ To create release binaries, checkout the latest tag and compile with the release
 
 ```shell
 git checkout $TAG
-cargo build --release --bin forest --features release
+make build # make debug build of forest daemon and cli
+# or
+make release # make release build of forest daemon and cli
+# or
+make install # install forest daemon and cli
 ```
 
 ### Config
@@ -208,6 +213,7 @@ The command will block until the detached Forest process has started its RPC ser
 
 ### Documentation
 - [forest book (_Work in progress_)](https://chainsafe.github.io/forest/)
+- [rust doc](https://chainsafe.github.io/forest/rustdoc/)
 
 ## Contributing
 - Check out our contribution guidelines: [CONTRIBUTING.md](documentation/developer_documentation/CONTRIBUTING.md)

@@ -9,7 +9,7 @@ anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1", "unstable"] }
 async-trait.workspace            = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
-fil_actors_runtime               = "=8.0.0"
+fil_actors_runtime.workspace     = true
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true

@@ -1,13 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "proofs")]
 use fvm::gas::Gas;
-#[cfg(feature = "proofs")]
 use fvm_shared::message::Message;
 
 /// Semantic validation and validates the message has enough gas.
-#[cfg(feature = "proofs")]
 pub fn valid_for_block_inclusion(
     msg: &Message,
     min_gas: Gas,
@@ -56,8 +53,9 @@ pub mod json {
     use cid::Cid;
     use forest_json::address::json::AddressJson;
     use forest_json::bigint;
-    use forest_vm::{Serialized, TokenAmount};
     use fvm_ipld_encoding::Cbor;
+    use fvm_ipld_encoding::RawBytes;
+    use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
     use serde::{de, ser};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -141,7 +139,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap,
             gas_premium: m.gas_premium,
             method_num: m.method_num,
-            params: Serialized::new(
+            params: RawBytes::new(
                 base64::decode(&m.params.unwrap_or_default()).map_err(de::Error::custom)?,
             ),
         })
@@ -149,7 +147,7 @@ pub mod json {
 
     pub mod vec {
         use super::*;
-        use forest_json_utils::GoVecVisitor;
+        use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         pub fn serialize<S>(m: &[Message], serializer: S) -> Result<S::Ok, S::Error>
@@ -169,5 +167,45 @@ pub mod json {
         {
             deserializer.deserialize_any(GoVecVisitor::<Message, MessageJson>::new())
         }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::json::{MessageJson, MessageJsonRef};
+    use fvm_shared::address::Address;
+    use fvm_shared::econ::TokenAmount;
+    use fvm_shared::message::Message;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct MessageWrapper {
+        pub message: Message,
+    }
+
+    impl quickcheck::Arbitrary for MessageWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let msg = Message {
+                to: Address::new_id(u64::arbitrary(g)),
+                from: Address::new_id(u64::arbitrary(g)),
+                version: i64::arbitrary(g),
+                sequence: u64::arbitrary(g),
+                value: TokenAmount::from(i64::arbitrary(g)),
+                method_num: u64::arbitrary(g),
+                params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
+                gas_limit: i64::arbitrary(g),
+                gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
+                gas_premium: TokenAmount::from(i64::arbitrary(g)),
+            };
+            MessageWrapper { message: msg }
+        }
+    }
+
+    #[quickcheck]
+    fn message_roundtrip(message: MessageWrapper) {
+        let serialized = serde_json::to_string(&MessageJsonRef(&message.message)).unwrap();
+        let parsed: MessageJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(message.message, parsed.0);
     }
 }
