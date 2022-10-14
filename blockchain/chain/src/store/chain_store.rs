@@ -486,7 +486,7 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self.blockstore().get_bytes(&cid)?.ok_or_else(|| {
+            let block = self.blockstore().get(&cid)?.ok_or_else(|| {
                 if skip_old_msgs {
                     anyhow::anyhow!("Cid {cid} not found in blockstore")
                 } else {
