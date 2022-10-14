@@ -3586,7 +3586,6 @@ dependencies = [
  "fvm_shared",
  "log",
  "num-traits",
- "once_cell",
  "serde",
  "thiserror",
  "tokio",
