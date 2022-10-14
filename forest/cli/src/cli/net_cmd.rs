@@ -1,12 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::Config;
+use crate::cli::cli_error_and_die;
 use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::data_types::AddrInfo;
 use std::collections::HashSet;
 use structopt::StructOpt;
-
-use crate::cli::cli_error_and_die;
 
 use super::{handle_rpc_err, print_stdout};
 use forest_rpc_client::net_ops::*;
@@ -30,9 +30,9 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         match self {
-            Self::Listen => match net_addrs_listen(()).await {
+            Self::Listen => match net_addrs_listen((), &config.client.rpc_token).await {
                 Ok(info) => {
                     let addresses: Vec<String> = info
                         .addrs
@@ -44,7 +44,7 @@ impl NetCommands {
                 }
                 Err(e) => handle_rpc_err(e),
             },
-            Self::Peers => match net_peers(()).await {
+            Self::Peers => match net_peers((), &config.client.rpc_token).await {
                 Ok(addrs) => {
                     let output: Vec<String> = addrs
                         .into_iter()
@@ -101,19 +101,21 @@ impl NetCommands {
                     addrs,
                 };
 
-                match net_connect((addr_info,)).await {
+                match net_connect((addr_info,), &config.client.rpc_token).await {
                     Ok(_) => {
                         println!("connect {}: success", id);
                     }
                     Err(e) => handle_rpc_err(e),
                 }
             }
-            Self::Disconnect { id } => match net_disconnect((id.to_owned(),)).await {
-                Ok(_) => {
-                    println!("disconnect {}: success", id);
+            Self::Disconnect { id } => {
+                match net_disconnect((id.to_owned(),), &config.client.rpc_token).await {
+                    Ok(_) => {
+                        println!("disconnect {}: success", id);
+                    }
+                    Err(e) => handle_rpc_err(e),
                 }
-                Err(e) => handle_rpc_err(e),
-            },
+            }
         }
     }
 }

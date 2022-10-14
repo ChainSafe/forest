@@ -1,15 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    io::{stdout, Write},
-    time::Duration,
-};
-
+use super::Config;
 use cid::Cid;
 use forest_chain_sync::SyncStage;
 use forest_json::cid::CidJson;
 use forest_rpc_client::*;
+use std::{
+    io::{stdout, Write},
+    time::Duration,
+};
 use structopt::StructOpt;
 use ticker::Ticker;
 
@@ -40,7 +40,7 @@ pub enum SyncCommands {
 }
 
 impl SyncCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         match self {
             Self::Wait { watch } => {
                 let watch = *watch;
@@ -49,7 +49,10 @@ impl SyncCommands {
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = sync_status(()).await.map_err(handle_rpc_err).unwrap();
+                    let response = sync_status((), &config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap();
                     let state = &response.active_syncs[0];
 
                     let target_height = if let Some(tipset) = state.target() {
@@ -88,7 +91,10 @@ impl SyncCommands {
                 }
             }
             Self::Status => {
-                let response = sync_status(()).await.map_err(handle_rpc_err).unwrap();
+                let response = sync_status((), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let state = &response.active_syncs[0];
                 let base = state.base();
@@ -124,7 +130,7 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                let response = sync_check_bad((CidJson(cid),))
+                let response = sync_check_bad((CidJson(cid),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -137,7 +143,7 @@ impl SyncCommands {
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                match sync_mark_bad((CidJson(cid),)).await {
+                match sync_mark_bad((CidJson(cid),), &config.client.rpc_token).await {
                     Ok(()) => println!("OK"),
                     Err(error) => handle_rpc_err(error),
                 }
