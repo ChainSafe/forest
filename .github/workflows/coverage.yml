@@ -21,6 +21,8 @@ jobs:
           submodules: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage

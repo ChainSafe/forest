@@ -89,6 +89,18 @@ pub enum SnapshotCommands {
         #[structopt(long)]
         force: bool,
     },
+
+    /// Clean all local snapshots, use with care.
+    Clean {
+        /// Directory to which the snapshots are downloaded. If not provided, it will be the
+        /// default Forest data location.
+        #[structopt(short, long)]
+        snapshot_dir: Option<PathBuf>,
+
+        /// Answer yes to all forest-cli yes/no questions without prompting
+        #[structopt(long)]
+        force: bool,
+    },
 }
 
 impl SnapshotCommands {
@@ -157,7 +169,7 @@ impl SnapshotCommands {
                 println!("Default snapshot dir: {}", dir.display());
             }
             Self::List { snapshot_dir } => {
-                list(&config, snapshot_dir);
+                list(&config, snapshot_dir).unwrap();
             }
             Self::Remove {
                 filename,
@@ -172,22 +184,29 @@ impl SnapshotCommands {
             } => {
                 prune(&config, snapshot_dir, *force);
             }
+            Self::Clean {
+                snapshot_dir,
+                force,
+            } => {
+                clean(&config, snapshot_dir, *force).unwrap();
+            }
         }
     }
 }
 
-fn list(config: &Config, snapshot_dir: &Option<PathBuf>) {
+fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
     let snapshot_dir = snapshot_dir
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
-    if let Ok(dir) = fs::read_dir(snapshot_dir) {
-        println!("\nLocal snapshots:");
-        dir.flatten()
-            .map(|entry| entry.path())
-            .filter(|p| p.extension().unwrap_or_default() == "car")
-            .for_each(|p| println!("{}", p.display()));
-    }
+    println!("\nLocal snapshots:");
+    fs::read_dir(snapshot_dir)?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| p.extension().unwrap_or_default() == "car")
+        .for_each(|p| println!("{}", p.display()));
+
+    Ok(())
 }
 
 fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, force: bool) {
@@ -228,7 +247,6 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
         )
         .unwrap();
         if let Ok(dir) = fs::read_dir(snapshot_dir) {
-            println!("\nLocal snapshots:");
             for path in dir
                 .flatten()
                 .map(|entry| entry.path())
@@ -288,6 +306,34 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
             delete_snapshot(&snapshot_path);
         }
     }
+}
+
+fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow::Result<()> {
+    let snapshot_dir = snapshot_dir
+        .clone()
+        .unwrap_or_else(|| default_snapshot_dir(config));
+    println!("Snapshot dir: {}", snapshot_dir.display());
+    let snapshots_to_delete: Vec<_> = fs::read_dir(snapshot_dir)?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| p.extension().unwrap_or_default() == "car")
+        .collect();
+
+    if snapshots_to_delete.is_empty() {
+        println!("No files to delete");
+        return Ok(());
+    }
+
+    if !force && !prompt_confirm() {
+        println!("Aborted.");
+        return Ok(());
+    }
+
+    for snapshot_path in snapshots_to_delete {
+        delete_snapshot(&snapshot_path);
+    }
+
+    Ok(())
 }
 
 fn default_snapshot_dir(config: &Config) -> PathBuf {
