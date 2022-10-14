@@ -89,6 +89,18 @@ pub enum SnapshotCommands {
         #[structopt(long)]
         force: bool,
     },
+
+    /// Clean all local snapshots, use with care.
+    Clean {
+        /// Directory to which the snapshots are downloaded. If not provided, it will be the
+        /// default Forest data location.
+        #[structopt(short, long)]
+        snapshot_dir: Option<PathBuf>,
+
+        /// Answer yes to all forest-cli yes/no questions without prompting
+        #[structopt(long)]
+        force: bool,
+    },
 }
 
 impl SnapshotCommands {
@@ -172,6 +184,12 @@ impl SnapshotCommands {
             } => {
                 prune(&config, snapshot_dir, *force);
             }
+            Self::Clean {
+                snapshot_dir,
+                force,
+            } => {
+                clean(&config, snapshot_dir, *force);
+            }
         }
     }
 }
@@ -228,7 +246,6 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
         )
         .unwrap();
         if let Ok(dir) = fs::read_dir(snapshot_dir) {
-            println!("\nLocal snapshots:");
             for path in dir
                 .flatten()
                 .map(|entry| entry.path())
@@ -278,6 +295,36 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
             }
         }
         snapshots_to_delete.remove(index_to_keep);
+
+        if !force && !prompt_confirm() {
+            println!("Aborted.");
+            return;
+        }
+
+        for snapshot_path in snapshots_to_delete {
+            delete_snapshot(&snapshot_path);
+        }
+    }
+}
+
+fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
+    {
+        let snapshot_dir = snapshot_dir
+            .clone()
+            .unwrap_or_else(|| default_snapshot_dir(config));
+        println!("Snapshot dir: {}", snapshot_dir.display());
+        let mut snapshots_to_delete = vec![];
+        if let Ok(dir) = fs::read_dir(snapshot_dir) {
+            dir.flatten()
+                .map(|entry| entry.path())
+                .filter(|p| p.extension().unwrap_or_default() == "car")
+                .for_each(|p| snapshots_to_delete.push(p));
+        }
+
+        if snapshots_to_delete.is_empty() {
+            println!("No files to delete");
+            return;
+        }
 
         if !force && !prompt_confirm() {
             println!("Aborted.");
