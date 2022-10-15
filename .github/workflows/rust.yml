@@ -36,6 +36,7 @@ jobs:
       - name: Cargo Check
         run: cargo check
       - name: Make Test-All
+        uses: taiki-e/install-action@nextest
         run: make test-all
 
   lint:
