@@ -9,7 +9,10 @@ use crate::rocks_config::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use log::info;
-pub use rocksdb::{CompactOptions, DBCompressionType, Options, WriteBatch, DB};
+pub use rocksdb::{
+    BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
+    WriteBatch, DB,
+};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
@@ -56,15 +59,24 @@ impl RocksDb {
             db_opts.enable_statistics();
         };
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
-        if config.prepare_for_bulk_load {
-            db_opts.prepare_for_bulk_load();
-        }
         db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
         if let Some(cache_size) = config.optimize_for_point_lookup {
             db_opts.optimize_for_point_lookup(cache_size);
         }
-        db_opts.set_unordered_write(config.unordered_write);
-        db_opts.set_max_subcompactions(config.max_subcompactions);
+        // Comes from https://github.com/facebook/rocksdb/blob/main/options/options.cc#L606
+        // Only modified to upgrade format to v5
+        if let Some(cache_size) = config.optimize_for_point_lookup {
+            let mut opts = BlockBasedOptions::default();
+            opts.set_format_version(5);
+            opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
+            opts.set_data_block_hash_ratio(0.75);
+            opts.set_bloom_filter(10.0, false);
+            let cache = Cache::new_lru_cache(cache_size as usize * 1024 * 1024).unwrap();
+            opts.set_block_cache(&cache);
+            db_opts.set_block_based_table_factory(&opts);
+            db_opts.set_memtable_prefix_bloom_ratio(0.02);
+            db_opts.set_memtable_whole_key_filtering(true);
+        }
         db_opts
     }
 

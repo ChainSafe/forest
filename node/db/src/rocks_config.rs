@@ -22,11 +22,8 @@ pub struct RocksDbConfig {
     pub compaction_style: Option<String>,
     pub enable_statistics: bool,
     pub log_level: String,
-    pub prepare_for_bulk_load: bool,
     pub optimize_filters_for_hits: bool,
     pub optimize_for_point_lookup: Option<u64>,
-    pub unordered_write: bool,
-    pub max_subcompactions: u32,
 }
 
 impl Default for RocksDbConfig {
@@ -41,11 +38,8 @@ impl Default for RocksDbConfig {
             compression_type: Some("lz4".into()),
             enable_statistics: false,
             log_level: "warn".into(),
-            prepare_for_bulk_load: false,
-            optimize_filters_for_hits: false,
-            optimize_for_point_lookup: None,
-            unordered_write: false,
-            max_subcompactions: 1,
+            optimize_filters_for_hits: true,
+            optimize_for_point_lookup: Some(8),
         }
     }
 }
