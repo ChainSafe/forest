@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod default_runtime;
-mod fvm;
+pub mod fvm;
 mod gas_block_store;
 mod vm;
 
