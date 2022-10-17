@@ -18,8 +18,8 @@ pub struct RocksDbConfig {
     pub write_buffer_size: usize,
     pub max_open_files: i32,
     pub max_background_jobs: Option<i32>,
-    pub compression_type: Option<String>,
     pub compaction_style: Option<String>,
+    pub compression_type: String,
     pub enable_statistics: bool,
     pub stats_dump_period_sec: u32,
     pub log_level: String,
@@ -36,7 +36,7 @@ impl Default for RocksDbConfig {
             max_open_files: 1024,
             max_background_jobs: None,
             compaction_style: Some("level".into()),
-            compression_type: Some("lz4".into()),
+            compression_type: "lz4".into(),
             enable_statistics: false,
             stats_dump_period_sec: 600,
             log_level: "warn".into(),
@@ -65,6 +65,7 @@ pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompression
         "snappy" => Ok(DBCompressionType::Snappy),
         "zlib" => Ok(DBCompressionType::Zlib),
         "zstd" => Ok(DBCompressionType::Zstd),
+        "none" => Ok(DBCompressionType::None),
         _ => Err(anyhow!("invalid compression option")),
     }
 }
@@ -113,6 +114,7 @@ mod test {
             ("SNAPPY", Ok(DBCompressionType::Snappy)),
             ("zlib", Ok(DBCompressionType::Zlib)),
             ("ZSTD", Ok(DBCompressionType::Zstd)),
+            ("none", Ok(DBCompressionType::None)),
             ("cthulhu", Err(anyhow!("some error message"))),
         ];
         for (input, expected) in test_cases {
