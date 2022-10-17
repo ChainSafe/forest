@@ -40,8 +40,8 @@ impl RocksDb {
         if let Some(max_background_jobs) = config.max_background_jobs {
             db_opts.set_max_background_jobs(max_background_jobs);
         }
-        if let Some(compaction_style) = &config.compaction_style {
-            db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
+        if let Some(compaction_style) = compaction_style_from_str(&config.compaction_style).unwrap() {
+            db_opts.set_compaction_style(compaction_style);
             db_opts.set_disable_auto_compactions(false);
         } else {
             db_opts.set_disable_auto_compactions(true);

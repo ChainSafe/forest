@@ -18,7 +18,7 @@ pub struct RocksDbConfig {
     pub write_buffer_size: usize,
     pub max_open_files: i32,
     pub max_background_jobs: Option<i32>,
-    pub compaction_style: Option<String>,
+    pub compaction_style: String,
     pub compression_type: String,
     pub enable_statistics: bool,
     pub stats_dump_period_sec: u32,
@@ -35,7 +35,7 @@ impl Default for RocksDbConfig {
             write_buffer_size: 256 * 1024 * 1024,
             max_open_files: 1024,
             max_background_jobs: None,
-            compaction_style: Some("level".into()),
+            compaction_style: "level".into(),
             compression_type: "lz4".into(),
             enable_statistics: false,
             stats_dump_period_sec: 600,
@@ -47,11 +47,12 @@ impl Default for RocksDbConfig {
 }
 
 /// Converts string to a compaction style `RocksDB` variant.
-pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<DBCompactionStyle> {
+pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<Option<DBCompactionStyle>> {
     match s.to_lowercase().as_str() {
-        "level" => Ok(DBCompactionStyle::Level),
-        "universal" => Ok(DBCompactionStyle::Universal),
-        "fifo" => Ok(DBCompactionStyle::Fifo),
+        "level" => Ok(Some(DBCompactionStyle::Level)),
+        "universal" => Ok(Some(DBCompactionStyle::Universal)),
+        "fifo" => Ok(Some(DBCompactionStyle::Fifo)),
+        "none" => Ok(None),
         _ => Err(anyhow!("invalid compaction option")),
     }
 }
@@ -90,9 +91,10 @@ mod test {
     #[test]
     fn compaction_style_from_str_test() {
         let test_cases = vec![
-            ("Level", Ok(DBCompactionStyle::Level)),
-            ("UNIVERSAL", Ok(DBCompactionStyle::Universal)),
-            ("fifo", Ok(DBCompactionStyle::Fifo)),
+            ("Level", Ok(Some(DBCompactionStyle::Level))),
+            ("UNIVERSAL", Ok(Some(DBCompactionStyle::Universal))),
+            ("fifo", Ok(Some(DBCompactionStyle::Fifo))),
+            ("none", Ok(None)),
             ("cthulhu", Err(anyhow!("some error message"))),
         ];
         for (input, expected) in test_cases {
