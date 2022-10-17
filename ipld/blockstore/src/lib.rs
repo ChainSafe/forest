@@ -14,7 +14,7 @@ pub trait BlockStore: Blockstore + Store + Clone {}
 impl<T: Blockstore + Store + Clone> BlockStore for T {}
 
 /// Extension methods for inserting and retrieving IPLD data with CIDs
-pub trait BlockStoreExt: fvm_ipld_blockstore::Blockstore {
+pub trait BlockStoreExt: Blockstore {
     /// Get typed object from block store by CID
     fn get_obj<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
     where

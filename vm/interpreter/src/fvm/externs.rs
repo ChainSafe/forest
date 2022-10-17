@@ -229,10 +229,13 @@ fn cal_gas_used_from_stats(
 ) -> anyhow::Result<Gas> {
     let price_list = price_list_by_network_version(network_version);
     let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
+    // num of reads
     for _ in 0..stats.r {
         gas_tracker.apply_charge(price_list.on_block_open_base())?;
     }
+    // num of writes
     if stats.w > 0 {
+        // total bytes written
         gas_tracker.apply_charge(price_list.on_block_link(stats.bw))?;
         for _ in 1..stats.w {
             gas_tracker.apply_charge(price_list.on_block_link(0))?;
@@ -288,7 +291,6 @@ mod tests {
             br: 0, // Not used in current logic
             bw: write_bytes.iter().sum(),
         };
-        println!("stats: {:?}", stats);
         let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version)?;
 
         // Simulates logic in old GasBlockStore

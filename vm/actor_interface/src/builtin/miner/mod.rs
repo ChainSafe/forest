@@ -8,6 +8,7 @@ use forest_json::bigint::json;
 use forest_utils::json::go_vec_visitor;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -47,7 +48,7 @@ pub enum State {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: fvm_ipld_blockstore::Blockstore,
+        BS: Blockstore,
     {
         if is_v8_miner_cid(&actor.code) {
             return store
@@ -58,10 +59,7 @@ impl State {
         Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
     }
 
-    pub fn info<BS: fvm_ipld_blockstore::Blockstore>(
-        &self,
-        store: &BS,
-    ) -> anyhow::Result<MinerInfo> {
+    pub fn info<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V8(st) => {
                 let info = st.get_info(store)?;
@@ -90,7 +88,7 @@ impl State {
     }
 
     /// Loads deadlines for a miner's state
-    pub fn for_each_deadline<BS: fvm_ipld_blockstore::Blockstore>(
+    pub fn for_each_deadline<BS: Blockstore>(
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
@@ -106,7 +104,7 @@ impl State {
     }
 
     /// Loads deadline at index for a miner's state
-    pub fn load_deadline<BS: fvm_ipld_blockstore::Blockstore>(
+    pub fn load_deadline<BS: Blockstore>(
         &self,
         _store: &BS,
         _idx: u64,
@@ -115,7 +113,7 @@ impl State {
     }
 
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
-    pub fn load_sectors<BS: fvm_ipld_blockstore::Blockstore>(
+    pub fn load_sectors<BS: Blockstore>(
         &self,
         store: &BS,
         sectors: Option<&BitField>,
@@ -142,7 +140,7 @@ impl State {
     }
 
     /// Gets pre-committed on chain info
-    pub fn get_precommitted_sector<BS: fvm_ipld_blockstore::Blockstore>(
+    pub fn get_precommitted_sector<BS: Blockstore>(
         &self,
         _store: &BS,
         _sector_num: SectorNumber,
@@ -151,7 +149,7 @@ impl State {
     }
 
     /// Loads a specific sector number
-    pub fn get_sector<BS: fvm_ipld_blockstore::Blockstore>(
+    pub fn get_sector<BS: Blockstore>(
         &self,
         _store: &BS,
         _sector_num: u64,

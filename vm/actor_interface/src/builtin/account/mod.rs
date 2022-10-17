@@ -3,6 +3,7 @@
 
 use cid::Cid;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use serde::Serialize;
 
@@ -34,7 +35,7 @@ pub fn is_v8_account_cid(cid: &Cid) -> bool {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: fvm_ipld_blockstore::Blockstore,
+        BS: Blockstore,
     {
         if is_v8_account_cid(&actor.code) {
             return store
