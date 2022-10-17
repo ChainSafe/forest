@@ -25,7 +25,6 @@ use forest_state_manager::StateManager;
 use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
 use fvm_shared::version::NetworkVersion;
-use isatty;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
