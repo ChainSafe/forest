@@ -12,7 +12,6 @@ use crate::msg_chain::{create_message_chains, Chains};
 use crate::msg_pool::MsgSet;
 use crate::msg_pool::{add_helper, remove};
 use crate::provider::Provider;
-use async_std::channel::Sender;
 use cid::Cid;
 use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
@@ -214,7 +213,7 @@ where
 pub async fn head_change<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
-    repub_trigger: Arc<Sender<()>>,
+    repub_trigger: Arc<flume::Sender<()>>,
     republished: &RwLock<HashSet<Cid>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Arc<Tipset>>,
@@ -269,7 +268,7 @@ where
     }
     if repub {
         repub_trigger
-            .send(())
+            .send_async(())
             .await
             .map_err(|_| Error::Other("Republish receiver dropped".to_string()))?;
     }
