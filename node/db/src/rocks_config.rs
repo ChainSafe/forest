@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct RocksDbConfig {
     pub create_if_missing: bool,
     pub parallelism: i32,
-    /// This is the memtable size in bytes.
+    /// This is the `memtable` size in bytes.
     pub write_buffer_size: usize,
     pub max_open_files: i32,
     pub max_background_jobs: Option<i32>,
