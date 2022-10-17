@@ -122,7 +122,7 @@ where
         LB: LookbackStateGetter,
     {
         let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc.get_supply(epoch, &state).unwrap();
+        let circ_supply = circ_supply_calc.get_supply(epoch, &state)?;
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);

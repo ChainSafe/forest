@@ -16,7 +16,6 @@ use fvm_shared::bigint::Integer;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::FILECOIN_PRECISION;
-use once_cell::sync::OnceCell;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
@@ -41,13 +40,12 @@ pub(crate) struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
-    genesis_pledge: OnceCell<TokenAmount>,
-    genesis_market_funds: OnceCell<TokenAmount>,
+    genesis_pledge: TokenAmount,
+    genesis_market_funds: TokenAmount,
 
     /// Heights epoch
     ignition_height: ChainEpoch,
     actors_v2_height: ChainEpoch,
-    liftoff_height: ChainEpoch,
     calico_height: ChainEpoch,
 }
 
@@ -60,14 +58,10 @@ impl GenesisInfo {
         Self {
             ignition_height,
             actors_v2_height,
-            liftoff_height,
             calico_height,
+            vesting: GenesisInfoVesting::new(liftoff_height),
             ..GenesisInfo::default()
         }
-    }
-
-    fn init<DB: BlockStore>(&self, _bs: &DB) -> Result<(), anyhow::Error> {
-        Ok(())
     }
 }
 
@@ -75,9 +69,19 @@ impl GenesisInfo {
 /// to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
-    genesis: OnceCell<Vec<(ChainEpoch, TokenAmount)>>,
-    ignition: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
-    calico: OnceCell<Vec<(ChainEpoch, ChainEpoch, TokenAmount)>>,
+    genesis: Vec<(ChainEpoch, TokenAmount)>,
+    ignition: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,
+    calico: Vec<(ChainEpoch, ChainEpoch, TokenAmount)>,
+}
+
+impl GenesisInfoVesting {
+    fn new(liftoff_height: i64) -> Self {
+        Self {
+            genesis: setup_genesis_vesting_schedule(),
+            ignition: setup_ignition_vesting_schedule(liftoff_height),
+            calico: setup_calico_vesting_schedule(liftoff_height),
+        }
+    }
 }
 
 impl CircSupplyCalc for GenesisInfo {
@@ -86,26 +90,6 @@ impl CircSupplyCalc for GenesisInfo {
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
-        // TODO investigate a better way to handle initializing the genesis actors rather than
-        // on first circ supply call. This is currently necessary because it is how Lotus does it
-        // but it's not ideal to have the side effect from the VM to modify the genesis info
-        // of the state manager. This isn't terrible because it's just caching to avoid
-        // recalculating using the store, and it avoids computing until circ_supply is called.
-        self.vesting
-            .genesis
-            .get_or_try_init(|| -> Result<_, anyhow::Error> {
-                self.init(state_tree.store())?;
-                Ok(setup_genesis_vesting_schedule())
-            })?;
-
-        self.vesting
-            .ignition
-            .get_or_init(|| setup_ignition_vesting_schedule(self.liftoff_height));
-
-        self.vesting
-            .calico
-            .get_or_init(|| setup_calico_vesting_schedule(self.liftoff_height));
-
         get_circulating_supply(self, height, state_tree)
     }
 }
@@ -122,21 +106,9 @@ fn get_actor_state<DB: BlockStore>(
 fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
     let mut return_value = TokenAmount::default();
 
-    let pre_ignition = genesis_info
-        .vesting
-        .genesis
-        .get()
-        .expect("Pre ignition should be initialized");
-    let post_ignition = genesis_info
-        .vesting
-        .ignition
-        .get()
-        .expect("Post ignition should be initialized");
-    let calico_vesting = genesis_info
-        .vesting
-        .calico
-        .get()
-        .expect("calico vesting should be initialized");
+    let pre_ignition = &genesis_info.vesting.genesis;
+    let post_ignition = &genesis_info.vesting.ignition;
+    let calico_vesting = &genesis_info.vesting.calico;
 
     if height <= genesis_info.ignition_height {
         for (unlock_duration, initial_balance) in pre_ignition {
@@ -156,14 +128,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     }
 
     if height <= genesis_info.actors_v2_height {
-        return_value += genesis_info
-            .genesis_pledge
-            .get()
-            .expect("Genesis info should be initialized")
-            + genesis_info
-                .genesis_market_funds
-                .get()
-                .expect("Genesis info should be initialized");
+        return_value += &genesis_info.genesis_pledge + &genesis_info.genesis_market_funds;
     }
 
     return_value

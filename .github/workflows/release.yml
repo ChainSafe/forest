@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: 5
+        continue-on-error: true
       - name: Cargo Build
         run: cargo build --release --bin forest --bin forest-cli
       - name: Compress Binary
