@@ -47,13 +47,26 @@ impl PartialEq for Tipset {
     }
 }
 
-impl quickcheck::Arbitrary for TipsetKeys {
+#[cfg(test)]
+#[derive(Clone)]
+struct ArbitraryCid(Cid);
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for ArbitraryCid {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let cid = Cid::new_v1(
+        ArbitraryCid(Cid::new_v1(
             u64::arbitrary(g),
             cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-        );
-        Self { cids: vec![cid] }
+        ))
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for TipsetKeys {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
+        let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
+        Self { cids }
     }
 }
 
