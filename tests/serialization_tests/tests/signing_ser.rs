@@ -46,7 +46,7 @@ fn signing_test() {
         assert_eq!(sig, test_vec.signature);
 
         let smsg = SignedMessage::new_from_parts(test_vec.unsigned, sig).unwrap();
-        let cid = Cid::from(smsg.cid().unwrap());
+        let cid = smsg.cid().unwrap();
 
         let cid_test = Cid::from_str(&test_vec.cid).unwrap();
 

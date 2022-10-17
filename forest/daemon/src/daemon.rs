@@ -355,6 +355,10 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     // Halt
     if config.client.halt_after_import {
+        // Cancel all async services
+        for handle in services {
+            handle.cancel().await;
+        }
         info!("Forest finish shutdown");
         return;
     }
