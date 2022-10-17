@@ -8,7 +8,6 @@ use crate::rocks_config::{
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use log::info;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
@@ -36,8 +35,6 @@ impl RocksDb {
         db_opts.create_if_missing(config.create_if_missing);
         db_opts.increase_parallelism(config.parallelism);
         db_opts.set_write_buffer_size(config.write_buffer_size);
-        //db_opts.set_max_write_buffer_number(4);
-        //db_opts.set_min_write_buffer_number_to_merge(2);
         db_opts.set_max_open_files(config.max_open_files);
 
         if let Some(max_background_jobs) = config.max_background_jobs {
@@ -84,19 +81,10 @@ impl RocksDb {
     where
         P: AsRef<Path>,
     {
-        log::info!("RocksDB config:\n{:?}", config);
         let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
-    }
-
-    pub fn show_stats(&self) {
-        if let Ok(value) = self.db.property_value("rocksdb.stats") {
-            if let Some(stats) = value {
-                info!("{stats}");
-            }
-        }
     }
 }
 

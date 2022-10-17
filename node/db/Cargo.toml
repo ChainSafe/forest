@@ -17,7 +17,6 @@ parking_lot                   = "0.12"
 rocksdb                       = "0.19"
 serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
-log.workspace                 = true
 
 [dev-dependencies]
 tempfile = "3.3"
