@@ -16,7 +16,6 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use fvm_shared::version::NetworkVersion;
 use std::cell::Ref;
-use std::iter::repeat;
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
@@ -230,21 +229,13 @@ fn cal_gas_used_from_stats(
 ) -> anyhow::Result<Gas> {
     let price_list = price_list_by_network_version(network_version);
     let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
-    if stats.r > 0 {
-        repeat(()).take(stats.r).for_each(|_| {
-            gas_tracker
-                .apply_charge(price_list.on_block_open_base())
-                .unwrap()
-        });
+    for _ in 0..stats.r {
+        gas_tracker.apply_charge(price_list.on_block_open_base())?;
     }
     if stats.w > 0 {
         gas_tracker.apply_charge(price_list.on_block_link(stats.bw))?;
-        if stats.w > 1 {
-            repeat(()).take(stats.w - 1).for_each(|_| {
-                gas_tracker
-                    .apply_charge(price_list.on_block_link(0))
-                    .unwrap()
-            });
+        for _ in 1..stats.w {
+            gas_tracker.apply_charge(price_list.on_block_link(0))?;
         }
     }
     Ok(gas_tracker.gas_used())
@@ -254,7 +245,7 @@ fn cal_gas_used_from_stats(
 mod tests {
     use super::*;
     use anyhow::ensure;
-    use std::cell::RefCell;
+    use std::{cell::RefCell, iter::repeat};
 
     #[test]
     fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {
