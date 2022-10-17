@@ -13,6 +13,7 @@ on:
 env:
   CI: 1
   CARGO_INCREMENTAL: 1
+  CACHE_TIMEOUT_MINUTES: 5
 
 jobs:
   test:
@@ -30,6 +31,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Cargo Check
         run: cargo check
       - name: Make Test-All
@@ -47,6 +50,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
       - name: Run Linters
@@ -60,6 +65,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
@@ -73,6 +80,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install udeps
         run: cargo install cargo-udeps --locked
       - name: Run udeps
@@ -86,6 +95,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
@@ -109,6 +120,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Cargo Build
         run: cargo build --profile dev
 
@@ -127,6 +140,8 @@ jobs:
           submodules: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: build and install binaries
         run: make install
       - name: download snapshot
