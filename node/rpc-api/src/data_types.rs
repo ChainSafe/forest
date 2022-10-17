@@ -12,13 +12,12 @@ use forest_blocks::{
 };
 use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use forest_chain_sync::{BadBlockCache, SyncState};
-use forest_fil_types::SectorSize;
-use forest_fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_ipld::json::IpldJson;
 use forest_ipld_blockstore::BlockStore;
 use forest_json::address::json::AddressJson;
 use forest_json::bigint::json;
 use forest_json::cid::CidJson;
+use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
@@ -35,6 +34,7 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::sector::SectorSize;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -240,4 +240,24 @@ pub struct AddrInfo {
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {
     pub multihash: Multihash,
+}
+
+/// Represents the current version of the API.
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct APIVersion {
+    pub version: String,
+    pub api_version: Version,
+    pub block_delay: u64,
+}
+
+/// Integer based value on version information. Highest order bits for Major, Mid order for Minor
+/// and lowest for Patch.
+#[derive(Serialize)]
+pub struct Version(u32);
+
+impl Version {
+    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
+        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
+    }
 }

@@ -10,7 +10,7 @@ pub use self::{client::*, config::*, snapshot_fetch::*};
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
-use forest_utils::{read_file_to_string, read_toml};
+use forest_utils::io::{read_file_to_string, read_toml};
 use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::{error, info, warn};

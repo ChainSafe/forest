@@ -8,7 +8,7 @@ edition = "2021"
 anyhow.workspace           = true
 async-std                  = { workspace = true, features = ["unstable", "attributes"] }
 blake2b_simd.workspace     = true
-forest_fil_types.workspace = true
+fvm_shared.workspace       = true
 log.workspace              = true
 pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }

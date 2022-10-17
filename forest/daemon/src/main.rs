@@ -27,7 +27,7 @@ use std::time::Duration;
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
 lazy_static! {
-    pub static ref IPC_PATH: TempPath = Builder::new()
+    static ref IPC_PATH: TempPath = Builder::new()
         .prefix("forest-ipc")
         .tempfile()
         .expect("tempfile must succeed")

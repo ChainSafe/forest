@@ -10,7 +10,7 @@ async-std                        = { workspace = true, features = ["attributes",
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 colored                          = "2.0"
 difference                       = "2.0"
-directories                      = "4.0.1"
+directories.workspace            = true
 forest_db.workspace              = true
 forest_ipld.workspace            = true
 forest_ipld_blockstore.workspace = true

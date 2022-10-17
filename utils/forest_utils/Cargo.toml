@@ -1,0 +1,29 @@
+[package]
+name    = "forest_utils"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow.workspace           = true
+const_format               = "0.2.26"
+digest                     = "0.10.5"
+isahc.workspace            = true
+libc                       = "0.2"
+log.workspace              = true
+pbr.workspace              = true
+pin-project-lite.workspace = true
+serde                      = { workspace = true, features = ["derive"] }
+thiserror.workspace        = true
+tokio                      = { workspace = true, features = ["fs"] }
+tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
+toml                       = "0.5"
+url.workspace              = true
+
+[dev-dependencies]
+serde                = { workspace = true, features = ["derive"] }
+serde_derive         = "1.0"
+serde_json.workspace = true
+sha2                 = { version = "0.10", default-features = false }
+tokio                = { workspace = true, features = ["macros", "rt", "fs"] }

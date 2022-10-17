@@ -51,7 +51,7 @@ const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 const SINK_CAP: usize = 200;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_macros::const_option!(NonZeroUsize::new(8192));
+    forest_utils::const_option!(NonZeroUsize::new(8192));
 
 /// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
 #[derive(Clone, Debug)]
@@ -486,7 +486,7 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self.blockstore().get_bytes(&cid)?.ok_or_else(|| {
+            let block = self.blockstore().get(&cid)?.ok_or_else(|| {
                 if skip_old_msgs {
                     anyhow::anyhow!("Cid {cid} not found in blockstore")
                 } else {

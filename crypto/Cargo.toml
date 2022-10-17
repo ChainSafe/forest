@@ -24,8 +24,9 @@ serde                       = { workspace = true, features = ["derive"] }
 thiserror.workspace         = true
 
 [dev-dependencies]
-rand.workspace = true
-rand_chacha    = "0.3"
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
 
 [features]
 default = ["blst"]

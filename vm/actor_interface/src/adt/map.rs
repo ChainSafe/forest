@@ -4,8 +4,8 @@
 use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
 use cid::Cid;
-use forest_hash_utils::{BytesKey, Hash};
 use forest_ipld_blockstore::BlockStore;
+use fvm_ipld_hamt::{BytesKey, Hash};
 use fvm_shared::HAMT_BIT_WIDTH;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
@@ -14,7 +14,7 @@ pub enum Map<BS, V> {
     V8(fil_actors_runtime_v8::fvm_ipld_hamt::Hamt<BS, V, BytesKey>),
 }
 
-impl<'a, BS, V> Map<BS, V>
+impl<BS, V> Map<BS, V>
 where
     V: Serialize + DeserializeOwned + PartialEq,
     BS: BlockStore,
@@ -32,7 +32,7 @@ where
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
+    pub fn load(cid: &Cid, store: &BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
             ActorVersion::V8 => Ok(Map::V8(
                 fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::load_with_bit_width(

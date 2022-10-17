@@ -1,13 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod mock;
-
-pub use self::mock::*;
-
-use crate::{
-    AggregateSealVerifyProofAndInfos, PoStProof, RegisteredPoStProof, SealVerifyInfo, SectorInfo,
-};
 use filecoin_proofs_api::{self as proofs, ProverId, SectorId};
 use filecoin_proofs_api::{
     post, seal::verify_aggregate_seal_commit_proofs, seal::verify_seal as proofs_verify_seal,
@@ -17,6 +10,9 @@ use fvm_ipld_encoding::bytes_32;
 use fvm_shared::address::Address;
 use fvm_shared::commcid::{cid_to_data_commitment_v1, cid_to_replica_commitment_v1};
 use fvm_shared::randomness::Randomness;
+use fvm_shared::sector::{
+    AggregateSealVerifyProofAndInfos, PoStProof, RegisteredPoStProof, SealVerifyInfo, SectorInfo,
+};
 use proofs::seal;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::BTreeMap;
