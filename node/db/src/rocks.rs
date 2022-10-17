@@ -55,13 +55,14 @@ impl RocksDb {
         db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
         // Comes from https://github.com/facebook/rocksdb/blob/main/options/options.cc#L606
         // Only modified to upgrade format to v5
-        if let Some(cache_size) = config.optimize_for_point_lookup {
+        if !config.optimize_for_point_lookup.is_negative() {
+            let cache_size = config.optimize_for_point_lookup as usize;
             let mut opts = BlockBasedOptions::default();
             opts.set_format_version(5);
             opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
             opts.set_data_block_hash_ratio(0.75);
             opts.set_bloom_filter(10.0, false);
-            let cache = Cache::new_lru_cache(cache_size as usize * 1024 * 1024).unwrap();
+            let cache = Cache::new_lru_cache(cache_size * 1024 * 1024).unwrap();
             opts.set_block_cache(&cache);
             db_opts.set_block_based_table_factory(&opts);
             db_opts.set_memtable_prefix_bloom_ratio(0.02);

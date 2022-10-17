@@ -24,7 +24,7 @@ pub struct RocksDbConfig {
     pub stats_dump_period_sec: u32,
     pub log_level: String,
     pub optimize_filters_for_hits: bool,
-    pub optimize_for_point_lookup: Option<u64>,
+    pub optimize_for_point_lookup: i32,
 }
 
 impl Default for RocksDbConfig {
@@ -41,7 +41,7 @@ impl Default for RocksDbConfig {
             stats_dump_period_sec: 600,
             log_level: "warn".into(),
             optimize_filters_for_hits: true,
-            optimize_for_point_lookup: Some(8),
+            optimize_for_point_lookup: 8,
         }
     }
 }
