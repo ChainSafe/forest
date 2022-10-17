@@ -3333,7 +3333,7 @@ dependencies = [
  "serde",
  "serde_ipld_dagcbor 0.1.2",
  "smallvec",
- "tiny-cid",
+ "tiny-cid 0.3.0",
  "tokio",
  "tokio-util",
 ]
@@ -5013,8 +5013,8 @@ dependencies = [
  "prost 0.8.0",
  "prost-build 0.8.0",
  "thiserror",
- "tiny-cid",
- "tiny-multihash",
+ "tiny-cid 0.2.8",
+ "tiny-multihash 0.4.7",
  "unsigned-varint 0.5.1",
 ]
 
@@ -8649,7 +8649,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8db0f10795d9047653976779741a9f5b763a87aadc7bf0c80be5a2361ecc7a9"
 dependencies = [
  "multibase 0.8.0",
- "tiny-multihash",
+ "tiny-multihash 0.4.7",
+ "unsigned-varint 0.5.1",
+]
+
+[[package]]
+name = "tiny-cid"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "add6ab1597c883a38fc0ade108679461b297ab696d417151b85996047a605c81"
+dependencies = [
+ "multibase 0.8.0",
+ "tiny-multihash 0.5.0",
  "unsigned-varint 0.5.1",
 ]
 
@@ -8676,7 +8687,18 @@ dependencies = [
  "sha2 0.9.9",
  "sha3 0.9.1",
  "strobe-rs",
- "tiny-multihash-derive",
+ "tiny-multihash-derive 0.4.2",
+ "unsigned-varint 0.5.1",
+]
+
+[[package]]
+name = "tiny-multihash"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de7d692794abd4dbba87073e4701150029887b01993e4d152d7ad3376701f50d"
+dependencies = [
+ "generic-array 0.14.6",
+ "tiny-multihash-derive 0.5.0",
  "unsigned-varint 0.5.1",
 ]
 
@@ -8685,6 +8707,20 @@ name = "tiny-multihash-derive"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfcc7989e2269ece9a93256298139f1f28b5d2cc483cd033b60c0c76f36d9377"
+dependencies = [
+ "proc-macro-crate 0.1.5",
+ "proc-macro-error",
+ "proc-macro2 1.0.46",
+ "quote 1.0.21",
+ "syn 1.0.102",
+ "synstructure",
+]
+
+[[package]]
+name = "tiny-multihash-derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "010febb03c87ee95ee6823f001345e92ddc073e85e0b8873ff725e261b4e5e0d"
 dependencies = [
  "proc-macro-crate 0.1.5",
  "proc-macro-error",
