@@ -30,7 +30,7 @@ pub struct RocksDb {
 /// let mut db = RocksDb::open("test_db", &RocksDbConfig::default()).unwrap();
 /// ```
 impl RocksDb {
-    pub fn to_options(config: &RocksDbConfig) -> Options {
+    fn to_options(config: &RocksDbConfig) -> Options {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(config.create_if_missing);
         db_opts.increase_parallelism(config.parallelism);
@@ -52,14 +52,11 @@ impl RocksDb {
             db_opts.set_compression_type(DBCompressionType::None);
         }
         if config.enable_statistics {
-            db_opts.set_stats_dump_period_sec(20);
+            db_opts.set_stats_dump_period_sec(config.stats_dump_period_sec);
             db_opts.enable_statistics();
         };
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
         db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
-        if let Some(cache_size) = config.optimize_for_point_lookup {
-            db_opts.optimize_for_point_lookup(cache_size);
-        }
         // Comes from https://github.com/facebook/rocksdb/blob/main/options/options.cc#L606
         // Only modified to upgrade format to v5
         if let Some(cache_size) = config.optimize_for_point_lookup {
