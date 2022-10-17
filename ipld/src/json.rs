@@ -25,6 +25,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 const BYTES_JSON_KEY: &str = "bytes";
+const INT_JSON_KEY: &str = "int";
+const FLOAT_JSON_KEY: &str = "float";
 
 /// Wrapper for serializing and de-serializing a IPLD from JSON.
 #[derive(Deserialize, Serialize)]
@@ -43,8 +45,14 @@ where
     match &ipld {
         Ipld::Null => serializer.serialize_none(),
         Ipld::Bool(bool) => serializer.serialize_bool(*bool),
-        Ipld::Integer(i128) => serializer.serialize_i128(*i128),
-        Ipld::Float(f64) => serializer.serialize_f64(*f64),
+        Ipld::Integer(i128) => serialize(
+            &ipld!({ "/": { INT_JSON_KEY: i128.to_string() } }),
+            serializer,
+        ),
+        Ipld::Float(f64) => serialize(
+            &ipld!({ "/": { FLOAT_JSON_KEY: f64.to_string() } }),
+            serializer,
+        ),
         Ipld::String(string) => serializer.serialize_str(string),
         Ipld::Bytes(bytes) => serialize(
             &ipld!({ "/": { BYTES_JSON_KEY: multibase::encode(Base::Base64, bytes) } }),
@@ -196,6 +204,20 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
                                 .map_err(|e| de::Error::custom(e.to_string()))?;
                             return Ok(Ipld::Bytes(bz));
                         }
+                        if let Some(Ipld::String(s)) = obj.get(INT_JSON_KEY) {
+                            // { "/": { "int": "i128" } }
+                            let s = s
+                                .parse::<i128>()
+                                .map_err(|e| de::Error::custom(e.to_string()))?;
+                            return Ok(Ipld::Integer(s));
+                        }
+                        if let Some(Ipld::String(s)) = obj.get(FLOAT_JSON_KEY) {
+                            // { "/": { "float": "f64" } }
+                            let s = s
+                                .parse::<f64>()
+                                .map_err(|e| de::Error::custom(e.to_string()))?;
+                            return Ok(Ipld::Float(s));
+                        }
                     }
                     _ => (),
                 }
@@ -211,5 +233,54 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         E: de::Error,
     {
         Ok(Ipld::Float(v))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cid::Cid;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct IpldWrapper {
+        ipld: libipld_macro::Ipld,
+    }
+
+    impl quickcheck::Arbitrary for IpldWrapper {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let bool_item = bool::arbitrary(g);
+            let int_item = i128::arbitrary(g);
+            let float_item = f64::arbitrary(g);
+            let string_item = String::arbitrary(g);
+            let bytes_item = Vec::arbitrary(g);
+            let list_item = Vec::new();
+            let map_item = BTreeMap::new();
+            let cid = Cid::new_v1(
+                u64::arbitrary(g),
+                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+            );
+            let binding = [
+                Ipld::Null,
+                Ipld::Bool(bool_item),
+                Ipld::Integer(int_item),
+                Ipld::Float(float_item),
+                Ipld::String(string_item),
+                Ipld::Bytes(bytes_item),
+                Ipld::List(list_item),
+                Ipld::Map(map_item),
+                Ipld::Link(cid),
+            ];
+            let ipld = g.choose(&binding).unwrap();
+            IpldWrapper { ipld: ipld.clone() }
+        }
+    }
+
+    #[quickcheck]
+    fn ipld_roundtrip(ipld: IpldWrapper) {
+        let serialized: String = serde_json::to_string(&IpldJsonRef(&ipld.ipld)).unwrap();
+        let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(ipld.ipld, parsed.0);
     }
 }
