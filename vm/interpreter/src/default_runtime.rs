@@ -14,7 +14,7 @@ pub fn resolve_to_key_addr<BS, S>(
     addr: &Address,
 ) -> Result<Address, anyhow::Error>
 where
-    BS: BlockStore,
+    BS: fvm_ipld_blockstore::Blockstore,
     S: BlockStore,
 {
     if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {

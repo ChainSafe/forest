@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_ipld_blockstore::BlockStore;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use serde::Serialize;
@@ -35,7 +34,7 @@ pub fn is_v8_account_cid(cid: &Cid) -> bool {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: fvm_ipld_blockstore::Blockstore,
     {
         if is_v8_account_cid(&actor.code) {
             return store
