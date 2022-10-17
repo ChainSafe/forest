@@ -148,6 +148,7 @@ forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff       = { path = "./utils/statediff" }
 forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./utils/forest_utils" }
+flume = "0.10"
 
 [profile.dev]
 debug = 0
