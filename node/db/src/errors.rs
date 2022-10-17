@@ -17,8 +17,6 @@ pub enum Error {
     Encoding(#[from] CborError),
     #[error("{0}")]
     Other(String),
-    #[error("Unsupported operation")]
-    Unsupported,
 }
 
 impl PartialEq for Error {

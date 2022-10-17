@@ -437,7 +437,7 @@ fn chain_path(config: &Config) -> PathBuf {
 mod test {
     use super::*;
     use forest_blocks::BlockHeader;
-    use forest_db::{rocks_config::RocksDbConfig, MemoryDB};
+    use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
 
