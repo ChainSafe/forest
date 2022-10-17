@@ -59,16 +59,6 @@ pub trait Store {
     {
         keys.iter().try_for_each(|key| self.delete(key))
     }
-
-    /// Mark the beginning of a snapshot import. Only a performance hint, could be a no-op.
-    fn begin_import(&self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    /// Mark the end of a snapshot import. Only a performance hint, could be a no-op.
-    fn end_import(&self) -> Result<(), Error> {
-        Ok(())
-    }
 }
 
 impl<BS: Store> Store for &BS {
@@ -121,13 +111,5 @@ impl<BS: Store> Store for &BS {
         K: AsRef<[u8]>,
     {
         (*self).bulk_delete(keys)
-    }
-
-    fn begin_import(&self) -> Result<(), Error> {
-        (*self).begin_import()
-    }
-
-    fn end_import(&self) -> Result<(), Error> {
-        (*self).end_import()
     }
 }

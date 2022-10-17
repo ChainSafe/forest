@@ -146,10 +146,8 @@ where
         let reader = FetchProgress::fetch_from_file(file).await?;
         {
             let stopwatch = time::Instant::now();
-            sm.blockstore().begin_import()?;
             let cids = load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?;
             info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
-            sm.blockstore().end_import()?;
             cids
         }
     };

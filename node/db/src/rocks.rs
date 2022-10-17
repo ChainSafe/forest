@@ -132,32 +132,6 @@ impl Store for RocksDb {
         }
         Ok(self.db.write(batch)?)
     }
-
-    fn begin_import(&self) -> Result<(), Error> {
-        self.show_stats();
-
-        self.db
-            .set_options(&[("disable_auto_compactions", "true")])?;
-
-        Ok(())
-    }
-
-    fn end_import(&self) -> Result<(), Error> {
-        self.show_stats();
-
-        log::info!("Compacting range...");
-        let mut opts = CompactOptions::default();
-        // Move L0 to minimum level
-        opts.set_change_level(true);
-        self.db.compact_range_opt::<&str, &str>(None, None, &opts);
-
-        self.show_stats();
-
-        self.db
-            .set_options(&[("disable_auto_compactions", "false")])?;
-
-        Ok(())
-    }
 }
 
 impl Blockstore for RocksDb {
