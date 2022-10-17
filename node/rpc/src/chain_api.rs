@@ -141,7 +141,7 @@ where
     let ret = data
         .state_manager
         .blockstore()
-        .get_bytes(&obj_cid)?
+        .get(&obj_cid)?
         .ok_or("can't find object with that cid")?;
     Ok(hex::encode(ret))
 }
@@ -155,11 +155,7 @@ where
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(obj_cid),) = params;
-    Ok(data
-        .state_manager
-        .blockstore()
-        .get_bytes(&obj_cid)?
-        .is_some())
+    Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
 pub(crate) async fn chain_get_block_messages<DB, B>(

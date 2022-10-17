@@ -4,9 +4,7 @@
 mod default_runtime;
 mod fvm;
 mod gas_block_store;
-mod gas_tracker;
 mod vm;
 
 pub use self::default_runtime::*;
-pub use self::gas_tracker::*;
 pub use self::vm::*;
