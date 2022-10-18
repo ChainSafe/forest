@@ -3217,6 +3217,8 @@ dependencies = [
  "libipld-macro",
  "multibase 0.9.1",
  "multihash",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
  "serde_json",
  "thiserror",
