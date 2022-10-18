@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
-use async_std::{channel::bounded, net::TcpListener, task};
+use async_std::{net::TcpListener, task};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
@@ -202,7 +202,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     info!("Using network :: {}", network_name);
 
-    let (tipset_sink, tipset_stream) = bounded(20);
+    let (tipset_sink, tipset_stream) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {

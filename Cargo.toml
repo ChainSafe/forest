@@ -114,6 +114,7 @@ time                  = "0.3"
 tokio                 = "1.21"
 url                   = "2.3"
 
+flume                  = "0.10"
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }
 forest_beacon          = { path = "./blockchain/beacon" }

@@ -1,23 +1,21 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::gas_block_store::GasBlockStore;
+
+use crate::resolve_to_key_addr;
+use anyhow::bail;
 use cid::Cid;
+use forest_blocks::BlockHeader;
 use forest_ipld_blockstore::BlockStore;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
+use fvm::state_tree::StateTree;
+use fvm_ipld_blockstore::tracking::{BSStats, TrackingBlockstore};
 use fvm_ipld_encoding::Cbor;
+use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use fvm_shared::version::NetworkVersion;
-
-use crate::resolve_to_key_addr;
-use forest_blocks::BlockHeader;
-use fvm::state_tree::StateTree;
-use fvm_shared::address::Address;
-
-use anyhow::bail;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::cell::Ref;
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
@@ -70,25 +68,18 @@ impl<DB: BlockStore> ForestExterns<DB> {
             .get_actor(miner_addr)?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
-        let tracker = Rc::new(RefCell::new(GasTracker::new(
-            Gas::new(i64::MAX),
-            Gas::new(0),
-        )));
-        let gbs = GasBlockStore {
-            price_list: price_list_by_network_version(self.network_version).clone(),
-            gas: tracker.clone(),
-            store: &self.db,
-        };
+        let tbs = TrackingBlockstore::new(&self.db);
 
-        let ms = forest_actor_interface::miner::State::load(&gbs, &actor)?;
+        let ms = forest_actor_interface::miner::State::load(&tbs, &actor)?;
 
-        let worker = ms.info(&gbs)?.worker;
+        let worker = ms.info(&tbs)?.worker;
 
         let state = StateTree::new_from_root(&self.db, &self.root)?;
 
-        let addr = resolve_to_key_addr(&state, &gbs, &worker)?;
+        let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
-        let gas_used = tracker.borrow().gas_used();
+        let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), self.network_version)?;
+
         Ok((addr, gas_used.round_up()))
     }
 
@@ -229,5 +220,93 @@ impl<DB: BlockStore> Consensus for ForestExterns<DB> {
         total_gas += self.verify_block_signature(&bh_2)?;
 
         Ok((cf, total_gas))
+    }
+}
+
+fn cal_gas_used_from_stats(
+    stats: Ref<BSStats>,
+    network_version: NetworkVersion,
+) -> anyhow::Result<Gas> {
+    let price_list = price_list_by_network_version(network_version);
+    let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
+    // num of reads
+    for _ in 0..stats.r {
+        gas_tracker.apply_charge(price_list.on_block_open_base())?;
+    }
+    // num of writes
+    if stats.w > 0 {
+        // total bytes written
+        gas_tracker.apply_charge(price_list.on_block_link(stats.bw))?;
+        for _ in 1..stats.w {
+            gas_tracker.apply_charge(price_list.on_block_link(0))?;
+        }
+    }
+    Ok(gas_tracker.gas_used())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::ensure;
+    use std::{cell::RefCell, iter::repeat};
+
+    #[test]
+    fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {
+        test_cal_gas_used_from_stats_inner(1, &[])
+    }
+
+    #[test]
+    fn test_cal_gas_used_from_stats_1_write() -> anyhow::Result<()> {
+        test_cal_gas_used_from_stats_inner(0, &[100])
+    }
+
+    #[test]
+    fn test_cal_gas_used_from_stats_multi_read() -> anyhow::Result<()> {
+        test_cal_gas_used_from_stats_inner(10, &[])
+    }
+
+    #[test]
+    fn test_cal_gas_used_from_stats_multi_write() -> anyhow::Result<()> {
+        test_cal_gas_used_from_stats_inner(0, &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109])
+    }
+
+    #[test]
+    fn test_cal_gas_used_from_stats_1_read_1_write() -> anyhow::Result<()> {
+        test_cal_gas_used_from_stats_inner(1, &[100])
+    }
+
+    #[test]
+    fn test_cal_gas_used_from_stats_multi_read_multi_write() -> anyhow::Result<()> {
+        test_cal_gas_used_from_stats_inner(10, &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109])
+    }
+
+    fn test_cal_gas_used_from_stats_inner(
+        read_count: usize,
+        write_bytes: &[usize],
+    ) -> anyhow::Result<()> {
+        let network_version = NetworkVersion::V8;
+        let stats = BSStats {
+            r: read_count,
+            w: write_bytes.len(),
+            br: 0, // Not used in current logic
+            bw: write_bytes.iter().sum(),
+        };
+        let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version)?;
+
+        // Simulates logic in old GasBlockStore
+        let price_list = price_list_by_network_version(network_version);
+        let mut tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
+        repeat(()).take(read_count).for_each(|_| {
+            tracker
+                .apply_charge(price_list.on_block_open_base())
+                .unwrap()
+        });
+        for &bytes in write_bytes {
+            tracker.apply_charge(price_list.on_block_link(bytes))?;
+        }
+        let expected = tracker.gas_used();
+
+        ensure!(result == expected);
+        Ok(())
     }
 }

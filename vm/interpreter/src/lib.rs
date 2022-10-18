@@ -3,7 +3,6 @@
 
 mod default_runtime;
 mod fvm;
-mod gas_block_store;
 mod vm;
 
 pub use self::default_runtime::*;
