@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::channel::Sender;
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::BeaconEntry;
@@ -60,9 +59,9 @@ where
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
-    pub network_send: Sender<NetworkMessage>,
+    pub network_send: flume::Sender<NetworkMessage>,
     pub network_name: String,
-    pub new_mined_block_tx: Sender<Arc<Tipset>>,
+    pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 

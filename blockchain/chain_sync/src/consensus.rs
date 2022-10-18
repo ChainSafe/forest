@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use async_std::stream::StreamExt;
 use async_std::task::{self, JoinHandle};
-use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
 use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
@@ -166,15 +166,15 @@ where
 /// Similar to `sync_api::sync_submit_block` but assumes that the block is correct and already persisted.
 pub struct SyncGossipSubmitter {
     network_name: String,
-    network_tx: Sender<NetworkMessage>,
-    tipset_tx: Sender<Arc<Tipset>>,
+    network_tx: flume::Sender<NetworkMessage>,
+    tipset_tx: flume::Sender<Arc<Tipset>>,
 }
 
 impl SyncGossipSubmitter {
     pub fn new(
         network_name: String,
-        network_tx: Sender<NetworkMessage>,
-        tipset_tx: Sender<Arc<Tipset>>,
+        network_tx: flume::Sender<NetworkMessage>,
+        tipset_tx: flume::Sender<Arc<Tipset>>,
     ) -> Self {
         Self {
             network_name,
@@ -190,8 +190,8 @@ impl SyncGossipSubmitter {
             topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name)),
             message: data,
         };
-        self.tipset_tx.send(ts).await?;
-        self.network_tx.send(msg).await?;
+        self.tipset_tx.send_async(ts).await?;
+        self.network_tx.send_async(msg).await?;
         Ok(())
     }
 }
