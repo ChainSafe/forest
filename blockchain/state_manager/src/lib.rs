@@ -19,8 +19,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_fil_types::verifier::ProofVerifier;
 use forest_interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
-    VM,
+    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, RewardCalc, VM,
 };
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
@@ -349,10 +348,6 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let db = self.blockstore_cloned();
-        let lb_wrapper = SMLookbackWrapper {
-            sm: Arc::clone(self),
-            tipset: Arc::clone(tipset),
-        };
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
@@ -369,7 +364,7 @@ where
                 self.genesis_info.clone(),
                 self.reward_calc.clone(),
                 None,
-                &lb_wrapper,
+                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
@@ -491,11 +486,6 @@ where
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
 
-            let lb_wrapper = SMLookbackWrapper {
-                sm: Arc::clone(self),
-                tipset: Arc::clone(tipset),
-            };
-
             let store_arc = self.blockstore_cloned();
 
             let heights = Heights::new(&self.chain_config);
@@ -510,7 +500,7 @@ where
                 self.genesis_info.clone(),
                 self.reward_calc.clone(),
                 None,
-                &lb_wrapper,
+                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
@@ -587,10 +577,6 @@ where
 
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
-        let lb_wrapper = SMLookbackWrapper {
-            sm: Arc::clone(self),
-            tipset: Arc::clone(&ts),
-        };
         let store_arc = self.blockstore_cloned();
         let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
@@ -605,7 +591,7 @@ where
             self.genesis_info.clone(),
             self.reward_calc.clone(),
             None,
-            &lb_wrapper,
+            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
                 .get(&NetworkConfig::new(network_version))
                 .unwrap(),
@@ -1440,27 +1426,21 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<DB> {
+fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-}
-
-impl<DB> LookbackStateGetter for SMLookbackWrapper<DB>
+) -> Box<dyn Fn(ChainEpoch) -> Cid>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
 {
-    fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
-        let sm = Arc::clone(&self.sm);
-        let tipset = Arc::clone(&self.tipset);
-        Box::new(move |round| {
-            // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
-            //      refactoring the lookback code completely.
-            let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
-                .unwrap_or_else(|err| {
-                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-                });
-            st
-        })
-    }
+    Box::new(move |round| {
+        // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
+        //      refactoring the lookback code completely.
+        let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+            .unwrap_or_else(|err| {
+                panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+            });
+        st
+    })
 }
