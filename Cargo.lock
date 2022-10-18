@@ -2794,6 +2794,7 @@ dependencies = [
  "forest_utils",
  "fvm",
  "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
