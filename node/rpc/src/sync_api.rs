@@ -96,10 +96,10 @@ where
     forest_chain::persist_objects(data.state_manager.blockstore(), &secp_msgs)?;
 
     let ts = Arc::new(Tipset::new(vec![blk.header.clone()])?);
-    data.new_mined_block_tx.send(ts).await?;
+    data.new_mined_block_tx.send_async(ts).await?;
     // TODO validate by constructing full block and validate (cids of messages could be invalid)
     data.network_send
-        .send(NetworkMessage::PubsubMessage {
+        .send_async(NetworkMessage::PubsubMessage {
             topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, data.network_name)),
             message: blk.marshal_cbor().map_err(|e| e.to_string())?,
         })
@@ -110,7 +110,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::channel::{bounded, Receiver};
     use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_chain::ChainStore;
@@ -130,14 +129,14 @@ mod tests {
 
     async fn state_setup() -> (
         Arc<RPCState<MemoryDB, MockBeacon>>,
-        Receiver<NetworkMessage>,
+        flume::Receiver<NetworkMessage>,
     ) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
             beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
         }]));
 
-        let (network_send, network_rx) = bounded(5);
+        let (network_send, network_rx) = flume::bounded(5);
         let db = MemoryDB::default();
         let cs_arc = Arc::new(ChainStore::new(db.clone()).await);
         let genesis_header = BlockHeader::builder()
@@ -184,7 +183,7 @@ mod tests {
             .await
             .unwrap()
         };
-        let (new_mined_block_tx, _) = bounded(5);
+        let (new_mined_block_tx, _) = flume::bounded(5);
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),

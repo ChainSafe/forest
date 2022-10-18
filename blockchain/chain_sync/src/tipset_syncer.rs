@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
-use async_std::{channel, channel::SendError, task};
+use async_std::task;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -114,8 +114,8 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
     ConsensusError(C::Error),
 }
 
-impl<C: Consensus, T> From<SendError<T>> for TipsetRangeSyncerError<C> {
-    fn from(err: SendError<T>) -> Self {
+impl<C: Consensus, T> From<flume::SendError<T>> for TipsetRangeSyncerError<C> {
+    fn from(err: flume::SendError<T>) -> Self {
         TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
     }
 }
@@ -1008,7 +1008,7 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
     batch: &[Arc<Tipset>],
     network: &SyncNetworkContext<DB>,
     chainstore: &ChainStore<DB>,
-    s: &channel::Sender<FullTipset>,
+    s: &flume::Sender<FullTipset>,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Tipsets in `batch` are already in chronological order
     if let Some(head) = batch.last() {
@@ -1041,7 +1041,7 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
                 warn!("ChainExchange request for messages returned null messages");
             }
 
-            s.send(full_tipset).await?;
+            s.send_async(full_tipset).await?;
         }
     }
 
@@ -1068,7 +1068,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     let task_chainstore = chainstore.clone();
 
     // Spawn a background task for the chain_exchange message requests
-    let (s, r) = channel::bounded(REQUEST_WINDOW * 2);
+    let (s, r) = flume::bounded(REQUEST_WINDOW * 2);
     let handle = task::spawn(async move {
         let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
 
@@ -1079,7 +1079,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
             // it directly to the validator.
             if batch.is_empty() {
                 if let Some(full_tipset) = task_chainstore.fill_tipset(&tipset) {
-                    s.send(full_tipset).await?;
+                    s.send_async(full_tipset).await?;
                     continue;
                 }
             }
@@ -1098,7 +1098,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
     });
 
     // Validation loop
-    while let Ok(full_tipset) = r.recv().await {
+    while let Ok(full_tipset) = r.recv_async().await {
         let current_epoch = full_tipset.epoch();
         let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
         validate_tipset::<_, C>(

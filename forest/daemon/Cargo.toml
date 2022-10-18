@@ -20,6 +20,7 @@ ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
 directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
+flume.workspace                  = true
 forest_actor_interface.workspace = true
 forest_auth.workspace            = true
 forest_beacon.workspace          = true
