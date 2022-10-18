@@ -10,6 +10,7 @@ use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs::{self, create_dir, File};
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
@@ -420,26 +421,25 @@ impl EncryptedKeyStore {
             }
         };
 
-        let hasher = {
-            let mut param_builder = ParamsBuilder::new();
-            // #define crypto_pwhash_argon2id_MEMLIMIT_INTERACTIVE 67108864U
-            param_builder.m_cost(67108864 / 1024).unwrap();
-            // #define crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE 2U
-            param_builder.t_cost(2).unwrap();
-            // https://docs.rs/sodiumoxide/latest/sodiumoxide/crypto/secretbox/xsalsa20poly1305/constant.KEYBYTES.html
-            // KEYBYTES = 0x20
-            // param_builder.output_len(32)?;
-            Argon2::new(
-                argon2::Algorithm::Argon2id,
-                argon2::Version::V0x13,
-                param_builder.params().unwrap(),
-            )
-        };
-        let salt_string =
-            SaltString::b64_encode(&salt).map_err(|err| anyhow::Error::msg(err.to_string()))?;
+        let mut param_builder = ParamsBuilder::new();
+        // #define crypto_pwhash_argon2id_MEMLIMIT_INTERACTIVE 67108864U
+        param_builder
+            .m_cost(67108864 / 1024)
+            .map_err(map_err_to_anyhow)?;
+        // #define crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE 2U
+        param_builder.t_cost(2).map_err(map_err_to_anyhow)?;
+        // https://docs.rs/sodiumoxide/latest/sodiumoxide/crypto/secretbox/xsalsa20poly1305/constant.KEYBYTES.html
+        // KEYBYTES = 0x20
+        // param_builder.output_len(32)?;
+        let hasher = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            param_builder.params().unwrap(),
+        );
+        let salt_string = SaltString::b64_encode(&salt).map_err(map_err_to_anyhow)?;
         let pw_hash = hasher
             .hash_password(passphrase.as_bytes(), &salt_string)
-            .map_err(|err| anyhow::Error::msg(err.to_string()))?;
+            .map_err(map_err_to_anyhow)?;
         if let Some(hash) = pw_hash.hash {
             Ok((salt, hash.as_bytes().to_vec()))
         } else {
@@ -453,9 +453,7 @@ impl EncryptedKeyStore {
         let nonce = GenericArray::from_slice(&nonce);
         let key = GenericArray::from_slice(encryption_key);
         let cipher = XSalsa20Poly1305::new(key);
-        let mut ciphertext = cipher
-            .encrypt(nonce, msg)
-            .map_err(|err| anyhow::Error::msg(err.to_string()))?;
+        let mut ciphertext = cipher.encrypt(nonce, msg).map_err(map_err_to_anyhow)?;
         ciphertext.extend(nonce.iter());
         Ok(ciphertext)
     }
@@ -468,9 +466,13 @@ impl EncryptedKeyStore {
         let cipher = XSalsa20Poly1305::new(key);
         let plaintext = cipher
             .decrypt(nonce, ciphertext)
-            .map_err(|err| anyhow::Error::msg(err.to_string()))?;
+            .map_err(map_err_to_anyhow)?;
         Ok(plaintext)
     }
+}
+
+fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
+    anyhow::Error::msg(e.to_string())
 }
 
 #[cfg(test)]
