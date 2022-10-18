@@ -265,7 +265,8 @@ mod tests {
                 Ipld::Null,
                 Ipld::Bool(bool_item),
                 Ipld::Integer(int_item),
-                Ipld::Float(float_item),
+                // Filter out problematic NaN values.
+                Ipld::Float(if float_item.is_nan() { 0.0 } else { float_item }),
                 Ipld::String(string_item),
                 Ipld::Bytes(bytes_item),
                 Ipld::List(list_item),
