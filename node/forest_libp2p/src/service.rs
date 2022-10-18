@@ -9,7 +9,7 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::{stream, task};
+use async_std::stream;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
@@ -258,7 +258,7 @@ where
                             debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
 
-                            task::spawn(async move {
+                            tokio::task::spawn(async move {
                                 channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
                             });
                         }

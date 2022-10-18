@@ -79,7 +79,7 @@ shared_memory                    = "0.12"
 structopt.workspace              = true
 tempfile.workspace               = true
 time.workspace                   = true
-tokio                            = { workspace = true, features = ["sync"] }
+tokio                            = { workspace = true, features = ["sync", "macros", "rt"] }
 toml.workspace                   = true
 
 [dev-dependencies]

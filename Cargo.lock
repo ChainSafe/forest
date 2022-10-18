@@ -2953,7 +2953,6 @@ version = "0.2.0"
 dependencies = [
  "ahash 0.8.2",
  "anyhow",
- "async-std",
  "async-trait",
  "base64 0.13.1",
  "bls-signatures",
@@ -2975,7 +2974,6 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
- "async-std",
  "base64 0.13.1",
  "byteorder",
  "cid",
@@ -3000,6 +2998,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3379,7 +3378,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-recursion",
- "async-std",
  "async-trait",
  "cid",
  "forest_db",
@@ -3399,6 +3397,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

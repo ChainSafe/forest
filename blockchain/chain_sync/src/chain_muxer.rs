@@ -390,7 +390,7 @@ where
                     .with_label_values(&[metrics::values::PEER_CONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
-                async_std::task::spawn(Self::handle_peer_connected_event(
+                tokio::task::spawn(Self::handle_peer_connected_event(
                     network.clone(),
                     chain_store.clone(),
                     peer_id,
@@ -403,7 +403,7 @@ where
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
-                async_std::task::spawn(Self::handle_peer_disconnected_event(
+                tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
                     peer_id,
                 ));
@@ -425,7 +425,7 @@ where
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
-                        async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                        tokio::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
                     }
                     return Ok(None);
                 }

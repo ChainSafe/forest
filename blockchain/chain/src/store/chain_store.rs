@@ -4,7 +4,6 @@
 use crate::Scale;
 
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use async_std::task;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -467,7 +466,7 @@ where
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
-        let write_task = task::spawn(async move {
+        let write_task = tokio::task::spawn(async move {
             let mut writer = writer_clone.lock().await;
             header
                 .write_stream_async(
@@ -479,10 +478,13 @@ where
                     }),
                 )
                 .await
+                .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))
         });
 
         let global_pre_time = SystemTime::now();
         info!("chain export started");
+
+        let async_handle = tokio::runtime::Handle::current();
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
@@ -496,11 +498,9 @@ where
                 }
             })?;
 
-            // XXX: This `block_on` can be removed by passing in a runtime Handle in tokio
-            //      or by refactoring `walk_snapshot` to take an async callback.
-            // * If cb can return a generic type, deserializing would remove need to clone.
+            // XXX: * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
-            let _ = task::block_on(tx.send((cid, block.clone())));
+            let _ = async_handle.block_on(tx.send((cid, block.clone())));
             Ok(block)
         })
         .await?;
@@ -511,7 +511,7 @@ where
         // Await on values being written.
         write_task
             .await
-            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))?;
+            .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))??;
 
         let time = SystemTime::now()
             .duration_since(global_pre_time)
@@ -1011,7 +1011,7 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
 
-    #[async_std::test]
+    #[tokio::test]
     async fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
@@ -1031,7 +1031,7 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 

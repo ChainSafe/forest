@@ -124,7 +124,7 @@ mod tests {
     use fvm_shared::address::Address;
     use serde_json::from_str;
     use std::{sync::Arc, time::Duration};
-    use tokio::sync::RwLock;
+    use tokio::{sync::RwLock, task::JoinSet};
 
     const TEST_NET_NAME: &str = "test";
 
@@ -138,6 +138,7 @@ mod tests {
         }]));
 
         let (network_send, network_rx) = flume::bounded(5);
+        let mut services = JoinSet::new();
         let db = MemoryDB::default();
         let cs_arc = Arc::new(ChainStore::new(db.clone()).await);
         let genesis_header = BlockHeader::builder()
@@ -180,6 +181,7 @@ mod tests {
                 mpool_network_send,
                 Default::default(),
                 Arc::clone(state_manager_for_thread.chain_config()),
+                &mut services,
             )
             .await
             .unwrap()
@@ -200,7 +202,7 @@ mod tests {
         (state, network_rx)
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn set_check_bad() {
         let (state, _) = state_setup().await;
 
@@ -222,7 +224,7 @@ mod tests {
         }
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn sync_state_test() {
         let (state, _) = state_setup().await;
 

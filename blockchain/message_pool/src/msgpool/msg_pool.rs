@@ -16,7 +16,6 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
-use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
@@ -42,6 +41,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 use tokio::time::interval;
 
 // LruCache sizes have been taken from the lotus implementation
@@ -170,20 +170,14 @@ where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
     /// Creates a new `MessagePool` instance.
-    pub async fn with_tasks(
+    pub async fn new(
         mut api: T,
         network_name: String,
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-    ) -> Result<
-        (
-            MessagePool<T>,
-            async_std::task::JoinHandle<()>,
-            async_std::task::JoinHandle<()>,
-        ),
-        Error,
-    >
+        services: &mut JoinSet<()>,
+    ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
     {
@@ -231,7 +225,7 @@ where
         let repub_trigger = Arc::new(mp.repub_trigger.clone());
 
         // Reacts to new HeadChanges
-        let head_changes_task = task::spawn(async move {
+        services.spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(ts) => {
@@ -279,9 +273,9 @@ where
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
-        let mut repub_trigger_rx = repub_trigger_rx.into_stream();
         // Reacts to republishing requests
-        let republish_task = task::spawn(async move {
+        services.spawn(async move {
+            let mut repub_trigger_rx = repub_trigger_rx.stream();
             let mut interval = interval(Duration::from_secs(republish_interval));
             loop {
                 tokio::select! {
@@ -304,23 +298,7 @@ where
                 }
             }
         });
-        Ok((mp, head_changes_task, republish_task))
-    }
-
-    /// Creates a new `MessagePool` instance.
-    pub async fn new(
-        api: T,
-        network_name: String,
-        network_sender: flume::Sender<NetworkMessage>,
-        config: MpoolConfig,
-        chain_config: Arc<ChainConfig>,
-    ) -> Result<MessagePool<T>, Error>
-    where
-        T: Provider,
-    {
-        let (mpool, _, _) =
-            Self::with_tasks(api, network_name, network_sender, config, chain_config).await?;
-        Ok(mpool)
+        Ok(mp)
     }
 
     /// Add a signed message to the pool and its address.

@@ -1,14 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::cmp::{min, Ordering};
-use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use async_std::stream::{Stream, StreamExt};
-use async_std::task;
 use forest_utils::io::ProgressBar;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
@@ -16,9 +9,14 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
+use std::cmp::{min, Ordering};
+use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
 
 use crate::bad_block_cache::BadBlockCache;
@@ -118,6 +116,12 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
 
 impl<C: Consensus, T> From<flume::SendError<T>> for TipsetRangeSyncerError<C> {
     fn from(err: flume::SendError<T>) -> Self {
+        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
+    }
+}
+
+impl<C: Consensus> From<tokio::task::JoinError> for TipsetRangeSyncerError<C> {
+    fn from(err: tokio::task::JoinError) -> Self {
         TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
     }
 }
@@ -1076,8 +1080,9 @@ async fn sync_messages_check_state<
     let task_chainstore = chainstore.clone();
 
     // Spawn a background task for the chain_exchange message requests
+
     let (s, r) = flume::bounded(REQUEST_WINDOW * 2);
-    let handle = task::spawn(async move {
+    let handle = tokio::task::spawn(async move {
         let mut batch: Vec<Arc<Tipset>> = Vec::with_capacity(REQUEST_WINDOW);
 
         // Visit tipsets in chronological order
@@ -1124,7 +1129,7 @@ async fn sync_messages_check_state<
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
 
-    handle.await
+    handle.await?
 }
 
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
@@ -1149,7 +1154,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
 
     let mut validations = FuturesUnordered::new();
     for b in full_tipset.into_blocks() {
-        let validation_fn = task::spawn(validate_block::<_, C>(
+        let validation_fn = tokio::task::spawn(validate_block::<_, C>(
             consensus.clone(),
             state_manager.clone(),
             Arc::new(b),
@@ -1161,7 +1166,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
-        match result {
+        match result? {
             Ok(block) => {
                 chainstore.add_to_tipset_tracker(block.header()).await;
             }
@@ -1267,7 +1272,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let validations = FuturesUnordered::new();
 
     // Check block messages
-    validations.push(task::spawn(check_block_messages::<_, C>(
+    validations.push(tokio::task::spawn(check_block_messages::<_, C>(
         Arc::clone(&state_manager),
         Arc::clone(&block),
         Arc::clone(&base_tipset),
@@ -1278,7 +1283,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_block_store = state_manager.blockstore().clone();
     let v_block = Arc::clone(&block);
-    validations.push(task::spawn_blocking(move || {
+    validations.push(tokio::task::spawn_blocking(move || {
         let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetRangeSyncerError::<C>::Validation(format!(
@@ -1300,7 +1305,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_block_store = state_manager.blockstore().clone();
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
-    validations.push(task::spawn_blocking(move || {
+    validations.push(tokio::task::spawn_blocking(move || {
         let calc_weight = C::weight(&v_block_store, &v_base_tipset).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
         })?;
@@ -1317,7 +1322,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_state_manager = Arc::clone(&state_manager);
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_block = Arc::clone(&block);
-    validations.push(task::spawn(async move {
+    validations.push(tokio::task::spawn(async move {
         let header = v_block.header();
         let (state_root, receipt_root) = v_state_manager
             .tipset_state(&v_base_tipset)
@@ -1355,13 +1360,13 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
 
     // Block signature check
     let v_block = block.clone();
-    validations.push(task::spawn_blocking(move || {
+    validations.push(tokio::task::spawn_blocking(move || {
         v_block.header().check_block_signature(&work_addr)?;
         Ok(())
     }));
 
     let v_block = block.clone();
-    validations.push(task::spawn(async move {
+    validations.push(tokio::task::spawn(async move {
         consensus
             .validate_block(state_manager, v_block)
             .map_err(|errs| {
