@@ -135,6 +135,7 @@ where
 
     info!("Importing chain from snapshot at: {path}");
     // start import
+    let stopwatch = time::Instant::now();
     let cids = if is_remote_file {
         info!("Downloading file...");
         let url = Url::parse(path)?;
@@ -144,13 +145,9 @@ where
         info!("Reading file...");
         let file = File::open(&path).await?;
         let reader = FetchProgress::fetch_from_file(file).await?;
-        {
-            let stopwatch = time::Instant::now();
-            let cids = load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?;
-            info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
-            cids
-        }
+        load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     };
+    info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
     let ts = sm
         .chain_store()
         .tipset_from_keys(&TipsetKeys::new(cids))
