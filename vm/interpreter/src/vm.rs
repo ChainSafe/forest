@@ -1,16 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
+use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_ipld_blockstore::BlockStore;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
-use fvm::executor::ApplyRet;
+use fvm::call_manager::DefaultCallManager;
+use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
-use fvm::machine::{Engine, Machine, NetworkConfig};
+use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
 use fvm::state_tree::StateTree;
+use fvm::DefaultKernel;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
@@ -24,8 +26,9 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-// const GAS_OVERUSE_NUM: i64 = 11;
-// const GAS_OVERUSE_DENOM: i64 = 10;
+type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
+type ForestKernel<DB> = DefaultKernel<DefaultCallManager<ForestMachine<DB>>>;
+type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
 
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
@@ -83,7 +86,7 @@ impl Heights {
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
 pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
-    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
+    fvm_executor: ForestExecutor<DB>,
     params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
     heights: Heights,
@@ -104,7 +107,6 @@ where
         network_version: NetworkVersion,
         circ_supply_calc: C,
         reward_calc: Arc<dyn RewardCalc>,
-        override_circ_supply: Option<TokenAmount>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
         heights: Heights,
@@ -136,11 +138,7 @@ where
                     chain_finality,
                 ),
             )?;
-        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
-            fvm::executor::DefaultExecutor::new(ForestMachine {
-                machine: fvm,
-                circ_supply: override_circ_supply,
-            });
+        let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
         Ok(VM {
             fvm_executor: exec,
             params: PhantomData,
