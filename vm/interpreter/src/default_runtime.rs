@@ -4,6 +4,7 @@
 use forest_actor_interface::account;
 use forest_ipld_blockstore::BlockStore;
 use fvm::state_tree::StateTree as FvmStateTree;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::{Address, Protocol};
 
 /// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
@@ -14,7 +15,7 @@ pub fn resolve_to_key_addr<BS, S>(
     addr: &Address,
 ) -> Result<Address, anyhow::Error>
 where
-    BS: BlockStore,
+    BS: Blockstore,
     S: BlockStore,
 {
     if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
