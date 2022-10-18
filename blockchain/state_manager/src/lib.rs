@@ -363,7 +363,6 @@ where
                 network_version,
                 self.genesis_info.clone(),
                 self.reward_calc.clone(),
-                None,
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
@@ -499,7 +498,6 @@ where
                 network_version,
                 self.genesis_info.clone(),
                 self.reward_calc.clone(),
-                None,
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
@@ -590,7 +588,6 @@ where
             network_version,
             self.genesis_info.clone(),
             self.reward_calc.clone(),
-            None,
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
                 .get(&NetworkConfig::new(network_version))
