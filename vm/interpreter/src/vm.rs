@@ -61,12 +61,6 @@ pub trait RewardCalc: Send + Sync + 'static {
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
-/// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter {
-    /// Returns the root CID for a given `ChainEpoch`
-    fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
-}
-
 #[derive(Clone, Copy)]
 pub struct Heights {
     pub calico: ChainEpoch,
@@ -101,7 +95,7 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R, C, LB>(
+    pub fn new<R, C>(
         root: Cid,
         store_arc: DB,
         epoch: ChainEpoch,
@@ -111,7 +105,7 @@ where
         circ_supply_calc: C,
         reward_calc: Arc<dyn RewardCalc>,
         override_circ_supply: Option<TokenAmount>,
-        lb_state: &LB,
+        lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
         heights: Heights,
         chain_finality: i64,
@@ -119,7 +113,6 @@ where
     where
         R: Rand + Clone + 'static,
         C: CircSupplyCalc,
-        LB: LookbackStateGetter,
     {
         let state = StateTree::new_from_root(&store_arc, &root)?;
         let circ_supply = circ_supply_calc.get_supply(epoch, &state)?;
@@ -137,7 +130,7 @@ where
                     rand.clone(),
                     epoch,
                     root,
-                    lb_state.chain_epoch_root(),
+                    lb_fn,
                     store_arc,
                     network_version,
                     chain_finality,
