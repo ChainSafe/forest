@@ -38,17 +38,6 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-/// Allows generation of the current circulating supply
-/// given some context.
-pub trait CircSupplyCalc: Clone + 'static {
-    /// Retrieves total circulating supply on the network.
-    fn get_supply<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error>;
-}
-
 /// Allows the generation of a reward message based on gas fees and penalties.
 ///
 /// This should facilitate custom consensus protocols using their own economic incentives.
@@ -98,14 +87,14 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R, C>(
+    pub fn new<R>(
         root: Cid,
         store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: BigInt,
         network_version: NetworkVersion,
-        circ_supply_calc: C,
+        circ_supply_calc: impl FnOnce(ChainEpoch, &StateTree<&DB>) -> Result<TokenAmount, anyhow::Error>,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
@@ -114,10 +103,9 @@ where
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: CircSupplyCalc,
     {
         let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc.get_supply(epoch, &state)?;
+        let circ_supply = circ_supply_calc(epoch, &state)?;
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);

@@ -6,7 +6,6 @@ use forest_actor_interface::{
     market, power, reward, BURNT_FUNDS_ACTOR_ADDR, EPOCHS_IN_DAY, RESERVE_ADDRESS,
 };
 use forest_chain::*;
-use forest_interpreter::CircSupplyCalc;
 use forest_ipld_blockstore::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
@@ -63,6 +62,15 @@ impl GenesisInfo {
             ..GenesisInfo::default()
         }
     }
+
+    // Allows generation of the current circulating supply
+    pub fn get_supply<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, anyhow::Error> {
+        get_circulating_supply(self, height, state_tree)
+    }
 }
 
 /// Vesting schedule info. These states are lazily filled, to avoid doing until needed
@@ -81,16 +89,6 @@ impl GenesisInfoVesting {
             ignition: setup_ignition_vesting_schedule(liftoff_height),
             calico: setup_calico_vesting_schedule(liftoff_height),
         }
-    }
-}
-
-impl CircSupplyCalc for GenesisInfo {
-    fn get_supply<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error> {
-        get_circulating_supply(self, height, state_tree)
     }
 }
 
