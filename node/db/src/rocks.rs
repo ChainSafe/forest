@@ -8,11 +8,14 @@ use crate::rocks_config::{
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-pub use rocksdb::{LogLevel, Options, WriteBatch, DB};
+pub use rocksdb::{
+    BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
+    WriteBatch, DB,
+};
 use std::{path::Path, sync::Arc};
 
 /// `RocksDB` instance this satisfies the [Store] interface.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RocksDb {
     pub db: Arc<DB>,
 }
@@ -27,10 +30,7 @@ pub struct RocksDb {
 /// let mut db = RocksDb::open("test_db", &RocksDbConfig::default()).unwrap();
 /// ```
 impl RocksDb {
-    pub fn open<P>(path: P, config: &RocksDbConfig) -> Result<Self, Error>
-    where
-        P: AsRef<Path>,
-    {
+    fn to_options(config: &RocksDbConfig) -> Options {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(config.create_if_missing);
         db_opts.increase_parallelism(config.parallelism);
@@ -40,19 +40,43 @@ impl RocksDb {
         if let Some(max_background_jobs) = config.max_background_jobs {
             db_opts.set_max_background_jobs(max_background_jobs);
         }
-        if let Some(compaction_style) = &config.compaction_style {
-            db_opts.set_compaction_style(compaction_style_from_str(compaction_style).unwrap());
+        if let Some(compaction_style) = compaction_style_from_str(&config.compaction_style).unwrap()
+        {
+            db_opts.set_compaction_style(compaction_style);
             db_opts.set_disable_auto_compactions(false);
         } else {
             db_opts.set_disable_auto_compactions(true);
         }
-        if let Some(compression_type) = &config.compression_type {
-            db_opts.set_compression_type(compression_type_from_str(compression_type).unwrap());
-        }
+        db_opts.set_compression_type(compression_type_from_str(&config.compression_type).unwrap());
         if config.enable_statistics {
+            db_opts.set_stats_dump_period_sec(config.stats_dump_period_sec);
             db_opts.enable_statistics();
         };
         db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
+        db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
+        // Comes from https://github.com/facebook/rocksdb/blob/main/options/options.cc#L606
+        // Only modified to upgrade format to v5
+        if !config.optimize_for_point_lookup.is_negative() {
+            let cache_size = config.optimize_for_point_lookup as usize;
+            let mut opts = BlockBasedOptions::default();
+            opts.set_format_version(5);
+            opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
+            opts.set_data_block_hash_ratio(0.75);
+            opts.set_bloom_filter(10.0, false);
+            let cache = Cache::new_lru_cache(cache_size * 1024 * 1024).unwrap();
+            opts.set_block_cache(&cache);
+            db_opts.set_block_based_table_factory(&opts);
+            db_opts.set_memtable_prefix_bloom_ratio(0.02);
+            db_opts.set_memtable_whole_key_filtering(true);
+        }
+        db_opts
+    }
+
+    pub fn open<P>(path: P, config: &RocksDbConfig) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+    {
+        let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
