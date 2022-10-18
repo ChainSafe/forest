@@ -16,7 +16,6 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
-use async_std::channel::{bounded, Sender};
 use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -146,7 +145,7 @@ pub struct MessagePool<T> {
     // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
-    pub network_sender: Sender<NetworkMessage>,
+    pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
     pub bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     /// A cache for BLS signature keyed by Cid
@@ -154,7 +153,7 @@ pub struct MessagePool<T> {
     /// A set of republished messages identified by their Cid
     pub republished: Arc<RwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
-    pub repub_trigger: Sender<()>,
+    pub repub_trigger: flume::Sender<()>,
     // TODO look into adding a cap to `local_msgs`
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
@@ -171,7 +170,7 @@ where
     pub async fn with_tasks(
         mut api: T,
         network_name: String,
-        network_sender: Sender<NetworkMessage>,
+        network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
     ) -> Result<
@@ -197,7 +196,7 @@ where
         let republished = Arc::new(RwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
 
-        let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
+        let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -277,6 +276,7 @@ where
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
+        let mut repub_trigger_rx = repub_trigger_rx.into_stream();
         // Reacts to republishing requests
         let republish_task = task::spawn(async move {
             let mut interval = interval(Duration::from_secs(republish_interval));
@@ -308,7 +308,7 @@ where
     pub async fn new(
         api: T,
         network_name: String,
-        network_sender: Sender<NetworkMessage>,
+        network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
     ) -> Result<MessagePool<T>, Error>
@@ -337,7 +337,7 @@ where
         self.add_local(msg).await?;
         if publish {
             self.network_sender
-                .send(NetworkMessage::PubsubMessage {
+                .send_async(NetworkMessage::PubsubMessage {
                     topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg_ser,
                 })
@@ -504,7 +504,7 @@ where
 
         if publish {
             self.network_sender
-                .send(NetworkMessage::PubsubMessage {
+                .send_async(NetworkMessage::PubsubMessage {
                     topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg.marshal_cbor()?,
                 })

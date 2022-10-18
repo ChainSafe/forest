@@ -24,7 +24,7 @@ pub(crate) async fn net_addrs_listen<
         method: NetRPCMethods::NetAddrsListen(tx),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     let (id, addrs) = rx.await?;
 
     Ok(AddrInfo {
@@ -44,7 +44,7 @@ pub(crate) async fn net_peers<
         method: NetRPCMethods::NetPeers(tx),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     let peer_addresses = rx.await?;
 
     let connections = peer_addresses
@@ -74,7 +74,7 @@ pub(crate) async fn net_connect<
         method: NetRPCMethods::NetConnect(tx, peer_id, addrs),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     let success = rx.await?;
 
     if success {
@@ -100,7 +100,7 @@ pub(crate) async fn net_disconnect<
         method: NetRPCMethods::NetDisconnect(tx, peer_id),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     rx.await?;
 
     Ok(())
