@@ -9,7 +9,7 @@ edition = "2021"
 anyhow.workspace           = true
 const_format               = "0.2.26"
 digest                     = "0.10.5"
-isahc.workspace            = true
+isahc                      = { version = "1.7", default-features = false }
 libc                       = "0.2"
 log.workspace              = true
 pbr.workspace              = true
