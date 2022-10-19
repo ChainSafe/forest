@@ -43,7 +43,7 @@ clean:
 lint-all: lint audit udeps spellcheck
 
 audit:
-	cargo audit --ignore RUSTSEC-2021-0115
+	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
 udeps:
 	cargo udeps
