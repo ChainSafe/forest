@@ -38,6 +38,7 @@ pub enum Height {
     Chocolate,
     OhSnap,
     Skyr,
+    Shark,
 }
 
 impl Default for Height {

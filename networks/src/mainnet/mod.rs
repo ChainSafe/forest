@@ -102,6 +102,10 @@ pub const HEIGHT_INFOS: [HeightInfo; 17] = [
         height: Height::Skyr,
         epoch: 1_960_320,
     },
+    HeightInfo {
+        height: Height::Shark,
+        epoch: ChainEpoch::MAX,
+    },
 ];
 
 pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
