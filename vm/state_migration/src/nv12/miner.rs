@@ -19,14 +19,14 @@ use std::sync::Arc;
 
 pub struct MinerMigrator(Cid);
 
-pub fn miner_migrator_v4<BS: Blockstore + Store + Clone + Send + Sync>(
+pub fn miner_migrator_v4<BS: Blockstore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(MinerMigrator(cid))
 }
 
 // each actor's state migration is read from blockstore, changes state tree, and writes back to the blocstore.
-impl<BS: Blockstore + Store + Clone + Send + Sync> ActorMigration<BS> for MinerMigrator {
+impl<BS: Blockstore + Send + Sync> ActorMigration<BS> for MinerMigrator {
     fn migrate_state(
         &self,
         store: Arc<BS>,
