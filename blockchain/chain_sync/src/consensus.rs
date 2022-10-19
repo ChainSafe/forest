@@ -17,7 +17,7 @@ use std::{
 };
 
 use forest_blocks::{Block, GossipBlock, Tipset};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_state_manager::StateManager;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation

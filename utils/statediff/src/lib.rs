@@ -11,7 +11,7 @@ use cid::Cid;
 use colored::*;
 use difference::{Changeset, Difference};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;

@@ -13,7 +13,7 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use forest_state_manager::StateManager;
 use fvm_ipld_encoding::Cbor;

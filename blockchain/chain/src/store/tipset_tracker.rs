@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
-use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
+use forest_utils::db::{BlockStore, BlockstoreExt};
 use fvm_shared::clock::ChainEpoch;
 
 use super::Error;

@@ -17,7 +17,7 @@ use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
     PubsubMessage,

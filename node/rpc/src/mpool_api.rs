@@ -4,7 +4,7 @@
 use super::gas_api::estimate_message_gas;
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_json::cid::{vec::CidJsonVec, CidJson};
 use forest_message::message::json::MessageJson;
 use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};

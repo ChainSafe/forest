@@ -5,7 +5,7 @@ use crate::resolve_to_key_addr;
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm::state_tree::StateTree;

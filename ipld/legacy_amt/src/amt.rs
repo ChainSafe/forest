@@ -9,7 +9,7 @@ use crate::{
 };
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
-use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
+use forest_utils::db::{BlockStore, BlockstoreExt};
 use itertools::sorted;
 use std::error::Error as StdError;
 

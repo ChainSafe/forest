@@ -24,7 +24,7 @@ use tide_websockets::WebSocket;
 
 use forest_beacon::Beacon;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_rpc_api::data_types::RPCState;
 
 use crate::rpc_http_handler::rpc_http_handler;

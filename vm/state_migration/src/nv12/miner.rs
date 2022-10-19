@@ -13,7 +13,7 @@ use cid::multihash::Code::Blake2b256;
 use cid::Cid;
 use forest_actor_interface::actorv3::miner::State as V3State;
 use forest_actor_interface::actorv4::miner::State as V4State;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use std::sync::Arc;
 
 pub struct MinerMigrator(Cid);

@@ -12,7 +12,7 @@ use forest_chain::Weight;
 use forest_chain::{Error as ChainStoreError, Scale};
 use forest_chain_sync::Consensus;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
 use fvm_ipld_encoding::Error as ForestEncodingError;

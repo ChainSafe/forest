@@ -10,7 +10,7 @@ use tide_websockets::{Message, WebSocketConnection};
 
 use forest_beacon::Beacon;
 use forest_chain::headchange_json::SubscriptionHeadChange;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_rpc_api::{
     chain_api::*,
     data_types::{JsonRpcServerState, StreamingData},

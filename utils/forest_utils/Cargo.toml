@@ -21,6 +21,14 @@ tokio-util                 = { version = "0.7.0", features = ["compat", "io-util
 toml                       = "0.5"
 url.workspace              = true
 
+cid                           = { workspace = true, default-features = false, features = ["std"] }
+forest_db.workspace           = true
+forest_encoding.workspace     = true
+forest_ipld                   = { workspace = true, optional = true }
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace   = true
+
+
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }
 serde_derive         = "1.0"

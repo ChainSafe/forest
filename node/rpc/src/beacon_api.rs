@@ -5,7 +5,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use forest_beacon::json::BeaconEntryJson;
 use forest_beacon::Beacon;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_rpc_api::beacon_api::*;
 use forest_rpc_api::data_types::RPCState;
 

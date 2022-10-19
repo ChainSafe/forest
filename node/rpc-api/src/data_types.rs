@@ -12,7 +12,7 @@ use forest_blocks::{
 use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_json::address::json::AddressJson;
 use forest_json::bigint::json;
 use forest_json::cid::CidJson;

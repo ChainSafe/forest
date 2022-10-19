@@ -14,7 +14,7 @@ use std::sync::Arc;
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_key_management::Key;
 use forest_networks::Height;
 use forest_state_manager::StateManager;

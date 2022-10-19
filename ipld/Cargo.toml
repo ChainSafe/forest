@@ -26,7 +26,7 @@ thiserror.workspace         = true
 [dev-dependencies]
 async-std                        = { workspace = true, features = ["attributes"] }
 forest_db.workspace              = true
-forest_ipld_blockstore.workspace = true
+forest_utils.workspace = true
 forest_json.workspace            = true
 multihash                        = { workspace = true, features = ["identity"] }
 quickcheck.workspace             = true

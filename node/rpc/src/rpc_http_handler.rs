@@ -6,7 +6,7 @@ use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 use tide::http::{format_err, Error as HttpError, Method};
 
 use forest_beacon::Beacon;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 

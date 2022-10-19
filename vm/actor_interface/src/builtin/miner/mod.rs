@@ -3,7 +3,7 @@
 
 use cid::Cid;
 use forest_fil_types::deadlines::DeadlineInfo;
-use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
+use forest_utils::db::{BlockStore, BlockstoreExt};
 use forest_json::bigint::json;
 use forest_utils::json::go_vec_visitor;
 use fvm::state_tree::ActorState;

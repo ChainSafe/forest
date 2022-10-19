@@ -5,7 +5,7 @@ use async_std::task::JoinHandle;
 use forest_beacon::DrandBeacon;
 use forest_chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
 use forest_fil_types::verifier::FullVerifier;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use std::sync::Arc;

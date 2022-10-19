@@ -7,7 +7,7 @@ use forest_actor_interface::{
 };
 use forest_chain::*;
 use forest_interpreter::CircSupplyCalc;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;

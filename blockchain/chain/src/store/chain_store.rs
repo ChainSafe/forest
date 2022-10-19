@@ -15,7 +15,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
-use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
+use forest_utils::db::{BlockStore, BlockstoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};

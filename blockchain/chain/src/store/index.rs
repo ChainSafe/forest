@@ -4,7 +4,7 @@
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Arc};

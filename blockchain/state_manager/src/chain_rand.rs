@@ -9,7 +9,7 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_encoding::blake2b_256;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_networks::ChainConfig;
 use fvm::externs::Rand;
 use fvm_shared::clock::ChainEpoch;

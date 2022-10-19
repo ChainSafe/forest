@@ -4,7 +4,7 @@
 use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
 use fvm::call_manager::DefaultCallManager;

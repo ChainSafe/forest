@@ -15,7 +15,7 @@ use forest_chain::Error as ChainStoreError;
 use forest_chain::Scale;
 use forest_chain::Weight;
 use forest_chain_sync::consensus::Consensus;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
 use fvm_ipld_encoding::Error as ForestEncodingError;

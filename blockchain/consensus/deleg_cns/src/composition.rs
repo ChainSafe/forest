@@ -3,7 +3,7 @@
 use crate::DelegatedConsensus;
 use async_std::task::JoinHandle;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};

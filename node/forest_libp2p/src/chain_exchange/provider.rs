@@ -4,7 +4,7 @@
 use cid::Cid;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::{ChainStore, Error as ChainError};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use log::debug;
 use std::collections::HashMap;
 

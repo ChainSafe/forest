@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use forest_beacon::Beacon;
 use forest_crypto::signature::json::SignatureJson;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_json::address::json::AddressJson;
 use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_message::{

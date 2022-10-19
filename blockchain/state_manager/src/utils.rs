@@ -10,7 +10,7 @@ use forest_actor_interface::{
 };
 use forest_blocks::Tipset;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use fvm_ipld_bitfield::BitField;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;

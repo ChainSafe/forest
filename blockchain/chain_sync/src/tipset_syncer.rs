@@ -33,7 +33,7 @@ use forest_blocks::{
 };
 use forest_chain::Error as ChainStoreError;
 use forest_chain::{persist_objects, ChainStore};
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;

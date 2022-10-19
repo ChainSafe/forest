@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
+use forest_utils::db::{BlockStore, BlockstoreExt};
 use forest_json::bigint::json;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;

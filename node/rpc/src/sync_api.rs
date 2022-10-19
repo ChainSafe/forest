@@ -5,7 +5,7 @@ use forest_beacon::Beacon;
 use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
 use forest_chain_sync::SyncState;
-use forest_ipld_blockstore::BlockStore;
+use forest_utils::db::BlockStore;
 use forest_json::cid::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
