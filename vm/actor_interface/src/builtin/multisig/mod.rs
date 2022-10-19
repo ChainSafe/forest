@@ -17,7 +17,7 @@ pub enum State {}
 impl State {
     pub fn load<BS>(_store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: Blockstore + Store + Clone,
+        BS: Blockstore,
     {
         Err(anyhow::anyhow!(
             "Unknown multisig actor code {}",

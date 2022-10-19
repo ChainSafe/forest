@@ -219,7 +219,7 @@ pub enum Deadline {
 
 impl Deadline {
     /// For each partition of the deadline
-    pub fn for_each<BS: Blockstore + Store + Clone>(
+    pub fn for_each<BS: Blockstore>(
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
