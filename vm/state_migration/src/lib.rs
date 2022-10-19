@@ -55,7 +55,7 @@ pub struct StateMigration<BS> {
     deferred_code_ids: HashSet<Cid>,
 }
 
-impl<BS: Blockstore + Store + Clone + Send + Sync> StateMigration<BS> {
+impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
@@ -180,7 +180,7 @@ pub struct MigrationOutput {
     new_head: Cid,
 }
 
-pub trait ActorMigration<BS: Blockstore + Store + Clone + Send + Sync> {
+pub trait ActorMigration<BS: Blockstore + Send + Sync> {
     fn migrate_state(
         &self,
         store: Arc<BS>,
@@ -188,13 +188,13 @@ pub trait ActorMigration<BS: Blockstore + Store + Clone + Send + Sync> {
     ) -> MigrationResult<MigrationOutput>;
 }
 
-struct MigrationJob<BS: Blockstore + Store + Clone> {
+struct MigrationJob<BS: Blockstore> {
     address: Address,
     actor_state: ActorState,
     actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
-impl<BS: Blockstore + Store + Clone + Send + Sync> MigrationJob<BS> {
+impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
     fn run(&self, store: Arc<BS>, prior_epoch: ChainEpoch) -> MigrationResult<MigrationJobOutput> {
         let result = self
             .actor_migration
