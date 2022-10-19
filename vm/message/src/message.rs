@@ -191,12 +191,12 @@ pub mod tests {
                 from: Address::new_id(u64::arbitrary(g)),
                 version: i64::arbitrary(g),
                 sequence: u64::arbitrary(g),
-                value: TokenAmount::from(i64::arbitrary(g)),
+                value: TokenAmount::from_atto(i64::arbitrary(g)),
                 method_num: u64::arbitrary(g),
                 params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
                 gas_limit: i64::arbitrary(g),
-                gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
-                gas_premium: TokenAmount::from(i64::arbitrary(g)),
+                gas_fee_cap: TokenAmount::from_atto(i64::arbitrary(g)),
+                gas_premium: TokenAmount::from_atto(i64::arbitrary(g)),
             };
             MessageWrapper { message: msg }
         }

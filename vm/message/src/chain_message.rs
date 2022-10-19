@@ -118,12 +118,12 @@ impl MessageTrait for ChainMessage {
 }
 
 impl Cbor for ChainMessage {
-    /// Returns the content identifier of the raw block of data
-    /// Default is `Blake2b256` hash
-    fn cid(&self) -> Result<Cid, Error> {
-        match self {
-            Self::Signed(t) => t.cid(),
-            Self::Unsigned(t) => t.cid(),
-        }
-    }
+    // /// Returns the content identifier of the raw block of data
+    // /// Default is `Blake2b256` hash
+    // fn cid(&self) -> Result<Cid, Error> {
+    //     match self {
+    //         Self::Signed(t) => t.cid(),
+    //         Self::Unsigned(t) => t.cid(),
+    //     }
+    // }
 }

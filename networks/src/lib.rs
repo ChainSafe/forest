@@ -183,14 +183,17 @@ impl ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy {
-                valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
-                    RegisteredPoStProof::StackedDRGWindow32GiBV1,
-                    RegisteredPoStProof::StackedDRGWindow64GiBV1,
-                ]),
-                valid_pre_commit_proof_type: HashSet::<RegisteredSealProof>::from([
-                    RegisteredSealProof::StackedDRG32GiBV1P1,
-                    RegisteredSealProof::StackedDRG64GiBV1P1,
-                ]),
+                valid_post_proof_type: HashSet::<fvm_shared_v08::sector::RegisteredPoStProof>::from(
+                    [
+                        fvm_shared_v08::sector::RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                        fvm_shared_v08::sector::RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                    ],
+                ),
+                valid_pre_commit_proof_type:
+                    HashSet::<fvm_shared_v08::sector::RegisteredSealProof>::from([
+                        fvm_shared_v08::sector::RegisteredSealProof::StackedDRG32GiBV1P1,
+                        fvm_shared_v08::sector::RegisteredSealProof::StackedDRG64GiBV1P1,
+                    ]),
                 minimum_consensus_power: StoragePower::from(MINIMUM_CONSENSUS_POWER),
                 ..Policy::default()
             },
@@ -261,14 +264,17 @@ impl Default for ChainConfig {
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy {
-                valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
-                    RegisteredPoStProof::StackedDRGWindow32GiBV1,
-                    RegisteredPoStProof::StackedDRGWindow64GiBV1,
-                ]),
-                valid_pre_commit_proof_type: HashSet::<RegisteredSealProof>::from([
-                    RegisteredSealProof::StackedDRG32GiBV1P1,
-                    RegisteredSealProof::StackedDRG64GiBV1P1,
-                ]),
+                valid_post_proof_type: HashSet::<fvm_shared_v08::sector::RegisteredPoStProof>::from(
+                    [
+                        fvm_shared_v08::sector::RegisteredPoStProof::StackedDRGWindow32GiBV1,
+                        fvm_shared_v08::sector::RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                    ],
+                ),
+                valid_pre_commit_proof_type:
+                    HashSet::<fvm_shared_v08::sector::RegisteredSealProof>::from([
+                        fvm_shared_v08::sector::RegisteredSealProof::StackedDRG32GiBV1P1,
+                        fvm_shared_v08::sector::RegisteredSealProof::StackedDRG64GiBV1P1,
+                    ]),
                 ..Policy::default()
             },
         }
