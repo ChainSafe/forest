@@ -170,12 +170,12 @@ where
         Ok(state.get_actor(addr)?)
     }
 
-    /// Returns the cloned [`Arc`] of the state manager's [`Blockstore`].
+    /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
     pub fn blockstore_cloned(&self) -> DB {
         self.cs.blockstore_cloned()
     }
 
-    /// Returns a reference to the state manager's [`Blockstore`].
+    /// Returns a reference to the state manager's [`BlockStore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
     }
