@@ -21,6 +21,7 @@ fn main() {
             task::block_on(subcommand::process(cmd, cfg));
         }
         Err(e) => {
+            logger::setup_logger(&[]);
             cli_error_and_die(format!("Error parsing config. Error was: {e}"), 1);
         }
     };
