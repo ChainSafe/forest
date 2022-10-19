@@ -182,7 +182,7 @@ async fn load_and_retrieve_header<DB, R>(
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
     R: AsyncRead + Send + Unpin,
 {
     let mut compat = reader.compat();

@@ -15,7 +15,7 @@ pub(crate) async fn auth_new<DB, B>(
     Params(params): Params<AuthNewParams>,
 ) -> Result<AuthNewResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (perms,) = params;
