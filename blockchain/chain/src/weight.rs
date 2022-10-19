@@ -1,7 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use forest_blocks::Tipset;
-use forest_utils::db::BlockStore;
+use forest_db::Store;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::BigInt;
 
 pub type Weight = BigInt;
@@ -14,5 +15,5 @@ pub trait Scale {
     /// Calculate the weight of a tipset.
     fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
     where
-        DB: BlockStore;
+        DB: Blockstore + Store + Clone;
 }

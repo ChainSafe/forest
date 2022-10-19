@@ -19,6 +19,7 @@ itertools                        = "0.10"
 once_cell.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
+fvm_ipld_blockstore.workspace = true
 
 [features]
 go-interop = ["ahash"]

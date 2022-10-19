@@ -27,3 +27,5 @@ log.workspace                    = true
 nonempty                         = "0.8.0"
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
+forest_db.workspace           = true
+fvm_ipld_blockstore.workspace = true

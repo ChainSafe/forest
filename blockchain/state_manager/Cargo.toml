@@ -37,6 +37,7 @@ num-traits.workspace             = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
+fvm_ipld_blockstore.workspace = true
 
 [features]
 default = []

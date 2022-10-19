@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use forest_actor_interface::power;
 use forest_blocks::Tipset;
-use forest_utils::db::BlockStore;
+use forest_db::Store;
 use fvm::state_tree::StateTree;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::{BigInt, Integer};
 use num_traits::Zero;
 
@@ -19,7 +20,7 @@ const BLOCKS_PER_EPOCH: u64 = 5;
 /// and calculate the total weight of the [Tipset].
 pub(crate) fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
-    DB: BlockStore,
+    DB: Blockstore + Store + Clone,
 {
     let state = StateTree::new_from_root(db, ts.parent_state()).map_err(|e| e.to_string())?;
 

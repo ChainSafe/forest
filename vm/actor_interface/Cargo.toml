@@ -21,6 +21,7 @@ cid                              = { workspace = true, default-features = false,
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_utils.workspace = true
+forest_db.workspace = true
 forest_json.workspace            = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true

@@ -6,10 +6,11 @@ use forest_actor_interface::{
     market, power, reward, BURNT_FUNDS_ACTOR_ADDR, EPOCHS_IN_DAY, RESERVE_ADDRESS,
 };
 use forest_chain::*;
+use forest_db::Store;
 use forest_interpreter::CircSupplyCalc;
-use forest_utils::db::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::bigint::Integer;
@@ -85,7 +86,7 @@ impl GenesisInfoVesting {
 }
 
 impl CircSupplyCalc for GenesisInfo {
-    fn get_supply<DB: BlockStore>(
+    fn get_supply<DB: Blockstore + Store + Clone>(
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
@@ -94,7 +95,7 @@ impl CircSupplyCalc for GenesisInfo {
     }
 }
 
-fn get_actor_state<DB: BlockStore>(
+fn get_actor_state<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
@@ -134,7 +135,9 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     return_value
 }
 
-fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_mined<DB: Blockstore + Store + Clone>(
+    state_tree: &StateTree<DB>,
+) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
         .context("Reward actor address could not be resolved")?;
@@ -143,7 +146,7 @@ fn get_fil_mined<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmou
     Ok(state.into_total_storage_power_reward())
 }
 
-fn get_fil_market_locked<DB: BlockStore>(
+fn get_fil_market_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
@@ -154,7 +157,7 @@ fn get_fil_market_locked<DB: BlockStore>(
     Ok(state.total_locked())
 }
 
-fn get_fil_power_locked<DB: BlockStore>(
+fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
@@ -165,7 +168,7 @@ fn get_fil_power_locked<DB: BlockStore>(
     Ok(state.into_total_locked())
 }
 
-fn get_fil_reserve_disbursed<DB: BlockStore>(
+fn get_fil_reserve_disbursed<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
@@ -175,7 +178,7 @@ fn get_fil_reserve_disbursed<DB: BlockStore>(
     Ok(fil_reserved - reserve_actor.balance)
 }
 
-fn get_fil_locked<DB: BlockStore>(
+fn get_fil_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let market_locked = get_fil_market_locked(state_tree)?;
@@ -183,13 +186,15 @@ fn get_fil_locked<DB: BlockStore>(
     Ok(power_locked + market_locked)
 }
 
-fn get_fil_burnt<DB: BlockStore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+fn get_fil_burnt<DB: Blockstore + Store + Clone>(
+    state_tree: &StateTree<DB>,
+) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
 }
 
-fn get_circulating_supply<DB: BlockStore>(
+fn get_circulating_supply<DB: Blockstore + Store + Clone>(
     genesis_info: &GenesisInfo,
     height: ChainEpoch,
     state_tree: &StateTree<DB>,

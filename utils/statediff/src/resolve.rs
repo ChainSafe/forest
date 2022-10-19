@@ -3,7 +3,9 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_utils::db::{BlockStore, BlockstoreExt};
+use forest_db::Store;
+use forest_utils::db::BlockstoreExt;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use libipld_core::ipld::Ipld;
 
@@ -14,7 +16,7 @@ pub fn resolve_cids_recursive<BS>(
     depth: Option<u64>,
 ) -> Result<Ipld, anyhow::Error>
 where
-    BS: BlockStore,
+    BS: Blockstore + Store + Clone,
 {
     let mut ipld = bs
         .get_obj(cid)?
@@ -28,7 +30,7 @@ where
 /// Resolves [`Ipld`] links recursively, building an [`Ipld`] structure with no hash links.
 fn resolve_ipld<BS>(bs: &BS, ipld: &mut Ipld, mut depth: Option<u64>) -> Result<(), anyhow::Error>
 where
-    BS: BlockStore,
+    BS: Blockstore + Store + Clone,
 {
     if let Some(dep) = depth.as_mut() {
         if *dep == 0 {

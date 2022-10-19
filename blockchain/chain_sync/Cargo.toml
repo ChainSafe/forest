@@ -47,6 +47,7 @@ smallvec.workspace               = true
 thiserror.workspace              = true
 time                             = { workspace = true, features = ["serde"] }
 tokio                            = { workspace = true, features = ["sync"] }
+fvm_ipld_blockstore.workspace = true
 
 [dev-dependencies]
 base64.workspace            = true

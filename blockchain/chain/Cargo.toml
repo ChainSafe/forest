@@ -40,6 +40,7 @@ serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
 tokio-util                       = { version = "0.7.0", features = ["compat"] }
+fvm_ipld_blockstore.workspace = true
 
 [dev-dependencies]
 forest_test_utils.workspace = true

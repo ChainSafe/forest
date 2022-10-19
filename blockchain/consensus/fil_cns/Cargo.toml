@@ -32,6 +32,8 @@ nonempty                         = "0.8.0"
 num-traits.workspace             = true
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
+forest_db.workspace           = true
+fvm_ipld_blockstore.workspace = true
 
 [features]
 insecure_post = []

@@ -24,3 +24,5 @@ log.workspace                    = true
 tokio-util                       = { version = "0.7.0", features = ["compat"] }
 tokio.workspace                  = true
 url.workspace                    = true
+forest_db.workspace           = true
+fvm_ipld_blockstore.workspace = true

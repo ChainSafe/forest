@@ -38,6 +38,7 @@ slotmap                          = "1.0"
 statrs                           = "0.16"
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync", "macros"] }
+fvm_ipld_blockstore.workspace = true
 
 [dev-dependencies]
 forest_key_management.workspace = true

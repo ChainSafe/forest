@@ -16,3 +16,5 @@ num_cpus.workspace               = true
 rayon.workspace                  = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
+forest_db.workspace           = true
+fvm_ipld_blockstore.workspace = true

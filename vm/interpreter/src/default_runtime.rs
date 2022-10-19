@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_actor_interface::account;
-use forest_utils::db::BlockStore;
+use forest_db::Store;
 use fvm::state_tree::StateTree as FvmStateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::{Address, Protocol};
@@ -16,7 +16,7 @@ pub fn resolve_to_key_addr<BS, S>(
 ) -> Result<Address, anyhow::Error>
 where
     BS: Blockstore,
-    S: BlockStore,
+    S: Blockstore + Store + Clone,
 {
     if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
         return Ok(*addr);

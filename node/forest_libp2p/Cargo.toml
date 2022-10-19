@@ -48,6 +48,7 @@ smallvec.workspace = true
 flume.workspace = true
 tiny-cid        = "0.2"
 tokio           = { workspace = true, features = ["sync", "time"] }
+fvm_ipld_blockstore.workspace = true
 
 [dev-dependencies]
 async-std      = { workspace = true, features = ["attributes", "unstable"] }

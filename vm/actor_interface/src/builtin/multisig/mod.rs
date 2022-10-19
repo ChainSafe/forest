@@ -1,8 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_utils::db::BlockStore;
+use forest_db::Store;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use serde::Serialize;
 
 /// Multisig actor method.
@@ -16,7 +17,7 @@ pub enum State {}
 impl State {
     pub fn load<BS>(_store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore + Store + Clone,
     {
         Err(anyhow::anyhow!(
             "Unknown multisig actor code {}",

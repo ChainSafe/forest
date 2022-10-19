@@ -7,7 +7,9 @@ use tokio::sync::RwLock;
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
-use forest_utils::db::{BlockStore, BlockstoreExt};
+use forest_db::Store;
+use forest_utils::db::BlockstoreExt;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 
 use super::Error;
@@ -20,7 +22,7 @@ pub(crate) struct TipsetTracker<DB> {
     db: DB,
 }
 
-impl<DB: BlockStore> TipsetTracker<DB> {
+impl<DB: Blockstore + Store + Clone> TipsetTracker<DB> {
     pub fn new(db: DB) -> Self {
         Self {
             entries: Default::default(),

@@ -4,8 +4,8 @@
 use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
+use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
-use forest_utils::db::{BlockStore, BlockstoreExt};
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -15,7 +15,9 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId,
 };
+use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
+use fvm_ipld_blockstore::Blockstore;
 use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -28,7 +30,7 @@ use tokio::time::timeout;
 const RPC_TIMEOUT: u64 = 5;
 
 /// Context used in chain sync to handle network requests.
-/// This contains the peer manager, P2P service interface, and [`BlockStore`] required to make
+/// This contains the peer manager, P2P service interface, and [`Blockstore + Store + Clone`] required to make
 /// network requests.
 pub(crate) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
@@ -51,7 +53,7 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
 
 impl<DB> SyncNetworkContext<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
 {
     pub fn new(
         network_send: flume::Sender<NetworkMessage>,
@@ -114,7 +116,7 @@ where
     }
 
     /// Requests that some content with a particular `Cid` get fetched over `Bitswap` if it doesn't
-    /// exist in the `BlockStore`.
+    /// exist in the `Blockstore + Store + Clone`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
         content: Cid,
