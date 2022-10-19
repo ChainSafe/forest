@@ -10,7 +10,7 @@ use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
-use log::{error, info, warn};
+use log::{error, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use std::net::SocketAddr;
@@ -97,15 +97,16 @@ pub struct CliOpts {
 }
 
 impl CliOpts {
-    pub fn to_config(&self) -> Result<Config, anyhow::Error> {
-        let mut cfg: Config = match &self.config {
-            Some(config_file) => {
+    pub fn to_config(&self) -> Result<(Config, Option<Location>), anyhow::Error> {
+        let loc = find_config_location(&self);
+        let mut cfg: Config = match &loc {
+            Some(loc) => {
                 // Read from config file
-                let toml = read_file_to_string(&PathBuf::from(&config_file))?;
+                let toml = read_file_to_string(loc.to_path_buf())?;
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => find_default_config().unwrap_or_default(),
+            None => Config::default(),
         };
 
         if self.chain == "calibnet" {
@@ -168,55 +169,41 @@ impl CliOpts {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }
 
-        Ok(cfg)
+        Ok((cfg, loc))
     }
 }
 
-fn find_default_config() -> Option<Config> {
-    if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-        info!(
-            "FOREST_CONFIG_PATH detected, using configuration at {}",
-            config_file
-        );
-        let path = PathBuf::from(config_file);
-        if path.exists() {
-            return read_config_or_none(path);
-        }
-    };
+pub enum Location {
+    Cli(PathBuf),
+    Env(PathBuf),
+    Project(PathBuf),
+}
 
+impl Location {
+    pub fn to_path_buf(&self) -> &PathBuf {
+        match self {
+            Location::Cli(path) => path,
+            Location::Env(path) => path,
+            Location::Project(path) => path,
+        }
+    }
+}
+
+fn find_config_location(opts: &CliOpts) -> Option<Location> {
+    if let Some(s) = &opts.config {
+        return Some(Location::Cli(PathBuf::from(s)));
+    }
+    if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
+        return Some(Location::Env(PathBuf::from(s)));
+    }
     if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
-        let mut config_dir = dir.config_dir().to_path_buf();
-        config_dir.push("config.toml");
-        if config_dir.exists() {
-            info!("Found a config file at {}", config_dir.display());
-            return read_config_or_none(config_dir);
+        let mut path = dir.config_dir().to_path_buf();
+        path.push("config.toml");
+        if path.exists() {
+            return Some(Location::Project(path));
         }
     }
-
-    warn!("No configurations found, using defaults.");
-
     None
-}
-
-fn read_config_or_none(path: PathBuf) -> Option<Config> {
-    let toml = match read_file_to_string(&path) {
-        Ok(t) => t,
-        Err(e) => {
-            warn!("An error occured while reading configuration file at {}. Resorting to default configuration. Error was {}", path.display(), e);
-            return None;
-        }
-    };
-
-    match read_toml(&toml) {
-        Ok(cfg) => Some(cfg),
-        Err(e) => {
-            warn!(
-                "Error reading configuration file, opting to defaults. Error was {} ",
-                e
-            );
-            None
-        }
-    }
 }
 
 fn rec_get_keys(value: toml::Value, keys: &mut HashSet<String>) {
