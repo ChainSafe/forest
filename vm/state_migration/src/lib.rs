@@ -244,7 +244,7 @@ fn nil_migrator<BS: Blockstore + Store + Clone + Send + Sync>(
 /// Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
 
-impl<BS: Blockstore + Store + Clone + Send + Sync> ActorMigration<BS> for NilMigrator {
+impl<BS: Blockstore + Store + Send + Sync> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
         _store: Arc<BS>,
