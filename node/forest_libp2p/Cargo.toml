@@ -16,9 +16,9 @@ forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
 forest_encoding.workspace = true
-forest_utils.workspace = true
 forest_message.workspace = true
 forest_networks.workspace = true
+forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
 fvm_ipld_car.workspace = true
@@ -45,10 +45,10 @@ serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 smallvec.workspace = true
 # cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
-flume.workspace = true
-tiny-cid        = "0.2"
-tokio           = { workspace = true, features = ["sync", "time"] }
+flume.workspace               = true
 fvm_ipld_blockstore.workspace = true
+tiny-cid                      = "0.2"
+tokio                         = { workspace = true, features = ["sync", "time"] }
 
 [dev-dependencies]
 async-std      = { workspace = true, features = ["attributes", "unstable"] }
