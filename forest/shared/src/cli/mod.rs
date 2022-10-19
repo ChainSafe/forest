@@ -12,7 +12,6 @@ use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
-use std::io::{self};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -97,7 +96,7 @@ pub struct CliOpts {
 }
 
 impl CliOpts {
-    pub fn to_config(&self) -> Result<Config, io::Error> {
+    pub fn to_config(&self) -> Result<Config, anyhow::Error> {
         let mut cfg: Config = match &self.config {
             Some(config_file) => {
                 // Read from config file
@@ -132,10 +131,7 @@ impl CliOpts {
             cfg.client.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
-            cli_error_and_die(
-                "Can't set import_snapshot and import_chain at the same time!",
-                1,
-            );
+            anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
                 cfg.client.snapshot_path = Some(snapshot_path.to_owned());

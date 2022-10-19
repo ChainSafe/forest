@@ -135,6 +135,8 @@ fn main() {
             }
         }
         Err(e) => {
+            // We need to setup logger before using `cli_error_and_die`
+            logger::setup_logger(&[]);
             cli_error_and_die(format!("Error parsing config. Error was: {e}"), 1);
         }
     };
