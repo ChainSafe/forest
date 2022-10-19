@@ -341,7 +341,7 @@ where
     /// Constructs and returns a full tipset if messages from storage exists - non self version
     pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
     where
-        DB: Blockstore + Store + Clone,
+        DB: Blockstore,
     {
         // Collect all messages before moving tipset.
         let messages: Vec<(Vec<_>, Vec<_>)> = match ts
