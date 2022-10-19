@@ -28,7 +28,7 @@ pub struct ForestExterns<DB> {
     chain_finality: i64,
 }
 
-impl<DB: Blockstore + Store + Clone> ForestExterns<DB> {
+impl<DB: Blockstore + Store> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
@@ -94,7 +94,7 @@ impl<DB: Blockstore + Store + Clone> ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore + Store + Clone> Externs for ForestExterns<DB> {}
+impl<DB: Blockstore + Store> Externs for ForestExterns<DB> {}
 
 impl<DB> Rand for ForestExterns<DB> {
     fn get_chain_randomness(
@@ -116,7 +116,7 @@ impl<DB> Rand for ForestExterns<DB> {
     }
 }
 
-impl<DB: Blockstore + Store + Clone> Consensus for ForestExterns<DB> {
+impl<DB: Blockstore + Store> Consensus for ForestExterns<DB> {
     fn verify_consensus_fault(
         &self,
         h1: &[u8],
