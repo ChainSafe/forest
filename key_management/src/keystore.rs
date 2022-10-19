@@ -1,22 +1,27 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::errors::Error;
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN};
+use fvm_shared::crypto::signature::SignatureType;
 use log::{error, warn};
+use rand::rngs::OsRng;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use sodiumoxide::crypto::pwhash::argon2id13 as pwhash;
-use sodiumoxide::crypto::secretbox;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs::{self, create_dir, File};
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use thiserror::Error;
-
-use super::errors::Error;
-use fvm_shared::crypto::signature::SignatureType;
+use xsalsa20poly1305::aead::{generic_array::GenericArray, Aead};
+use xsalsa20poly1305::{KeyInit, XSalsa20Poly1305, NONCE_SIZE};
 
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
+
+type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
 
 // TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
 // jwt secret
@@ -135,8 +140,8 @@ struct PersistentKeyStore {
 /// CBOR encoding
 #[derive(Clone, PartialEq, Debug, Eq)]
 struct EncryptedKeyStore {
-    salt: pwhash::Salt,
-    encryption_key: Arc<secretbox::Key>,
+    salt: SaltByteArray,
+    encryption_key: Vec<u8>,
 }
 
 #[derive(Debug, Error)]
@@ -245,7 +250,6 @@ impl KeyStore {
                                         Error::Other(error.to_string())
                                     },
                                 )?;
-
                             Ok(Self {
                                 key_info: HashMap::new(),
                                 persistence: Some(PersistentKeyStore { file_path }),
@@ -257,19 +261,18 @@ impl KeyStore {
                         } else {
                             // Existing encrypted keystore
                             // Split off data from prepended salt
-                            let data = buf.split_off(pwhash::SALTBYTES);
-
+                            let data = buf.split_off(RECOMMENDED_SALT_LEN);
+                            let mut prev_salt = [0; RECOMMENDED_SALT_LEN];
+                            prev_salt.copy_from_slice(&buf);
                             let (salt, encryption_key) =
-                                EncryptedKeyStore::derive_key(&passphrase, Some(buf)).map_err(
-                                    |error| {
+                                EncryptedKeyStore::derive_key(&passphrase, Some(prev_salt))
+                                    .map_err(|error| {
                                         error!("Failed to create key from passphrase");
                                         Error::Other(error.to_string())
-                                    },
-                                )?;
+                                    })?;
 
-                            let decrypted_data =
-                                EncryptedKeyStore::decrypt(encryption_key.clone(), &data)
-                                    .map_err(|error| Error::Other(error.to_string()))?;
+                            let decrypted_data = EncryptedKeyStore::decrypt(&encryption_key, &data)
+                                .map_err(|error| Error::Other(error.to_string()))?;
 
                             let key_info = serde_ipld_dagcbor::from_slice(&decrypted_data)
                                 .map_err(|e| {
@@ -311,7 +314,7 @@ impl KeyStore {
         }
     }
 
-    pub fn flush(&self) -> Result<(), Error> {
+    pub fn flush(&self) -> anyhow::Result<()> {
         match &self.persistence {
             Some(persistent_keystore) => {
                 let dir = persistent_keystore
@@ -334,12 +337,9 @@ impl KeyStore {
                             Error::Other(format!("failed to serialize and write key info: {}", e))
                         })?;
 
-                        let encrypted_data = EncryptedKeyStore::encrypt(
-                            encrypted_keystore.encryption_key.clone(),
-                            &data,
-                        );
-
-                        let mut salt_vec = encrypted_keystore.salt.as_ref().to_vec();
+                        let encrypted_data =
+                            EncryptedKeyStore::encrypt(&encrypted_keystore.encryption_key, &data)?;
+                        let mut salt_vec = encrypted_keystore.salt.to_vec();
                         salt_vec.extend(encrypted_data);
                         writer.write_all(&salt_vec)?;
 
@@ -391,14 +391,14 @@ impl KeyStore {
         self.key_info.insert(key, key_info);
 
         if self.persistence.is_some() {
-            self.flush()?;
+            self.flush().map_err(|err| Error::Other(err.to_string()))?;
         }
 
         Ok(())
     }
 
     /// Remove the key and corresponding `KeyInfo` from the `KeyStore`
-    pub fn remove(&mut self, key: String) -> Result<KeyInfo, Error> {
+    pub fn remove(&mut self, key: String) -> anyhow::Result<KeyInfo> {
         let key_out = self.key_info.remove(&key).ok_or(Error::KeyInfo)?;
 
         if self.persistence.is_some() {
@@ -412,52 +412,71 @@ impl KeyStore {
 impl EncryptedKeyStore {
     fn derive_key(
         passphrase: &str,
-        prev_salt: Option<Vec<u8>>,
-    ) -> Result<(pwhash::Salt, Arc<secretbox::Key>), EncryptedKeyStoreError> {
+        prev_salt: Option<SaltByteArray>,
+    ) -> anyhow::Result<(SaltByteArray, Vec<u8>)> {
         let salt = match prev_salt {
-            Some(prev_salt) => match pwhash::Salt::from_slice(&prev_salt) {
-                Some(salt) => salt,
-                None => return Err(EncryptedKeyStoreError::ConfigurationError),
-            },
-            None => pwhash::gen_salt(),
+            Some(prev_salt) => prev_salt,
+            None => {
+                let mut salt = [0; RECOMMENDED_SALT_LEN];
+                OsRng.fill_bytes(&mut salt);
+                salt
+            }
         };
-        let mut key = secretbox::Key([0; secretbox::KEYBYTES]);
 
-        let secretbox::Key(ref mut kb) = key;
-        pwhash::derive_key(
-            kb,
-            passphrase.as_bytes(),
-            &salt,
-            pwhash::OPSLIMIT_INTERACTIVE,
-            pwhash::MEMLIMIT_INTERACTIVE,
-        )
-        .unwrap();
-
-        Ok((salt, Arc::new(key)))
+        let mut param_builder = ParamsBuilder::new();
+        // #define crypto_pwhash_argon2id_MEMLIMIT_INTERACTIVE 67108864U
+        // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L70>
+        param_builder
+            .m_cost(67108864 / 1024)
+            .map_err(map_err_to_anyhow)?;
+        // #define crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE 2U
+        // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L66>
+        param_builder.t_cost(2).map_err(map_err_to_anyhow)?;
+        // https://docs.rs/sodiumoxide/latest/sodiumoxide/crypto/secretbox/xsalsa20poly1305/constant.KEYBYTES.html
+        // KEYBYTES = 0x20
+        // param_builder.output_len(32)?;
+        let hasher = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            param_builder.params().unwrap(),
+        );
+        let salt_string = SaltString::b64_encode(&salt).map_err(map_err_to_anyhow)?;
+        let pw_hash = hasher
+            .hash_password(passphrase.as_bytes(), &salt_string)
+            .map_err(map_err_to_anyhow)?;
+        if let Some(hash) = pw_hash.hash {
+            Ok((salt, hash.as_bytes().to_vec()))
+        } else {
+            anyhow::bail!(EncryptedKeyStoreError::EncryptionError)
+        }
     }
 
-    fn encrypt(encryption_key: Arc<secretbox::Key>, msg: &[u8]) -> Vec<u8> {
-        let nonce = secretbox::gen_nonce();
-
-        let mut ciphertext = secretbox::seal(msg, &nonce, &encryption_key);
-        ciphertext.append(&mut nonce.as_ref().to_vec());
-        ciphertext
+    fn encrypt(encryption_key: &[u8], msg: &[u8]) -> anyhow::Result<Vec<u8>> {
+        let mut nonce = [0; NONCE_SIZE];
+        OsRng.fill_bytes(&mut nonce);
+        let nonce = GenericArray::from_slice(&nonce);
+        let key = GenericArray::from_slice(encryption_key);
+        let cipher = XSalsa20Poly1305::new(key);
+        let mut ciphertext = cipher.encrypt(nonce, msg).map_err(map_err_to_anyhow)?;
+        ciphertext.extend(nonce.iter());
+        Ok(ciphertext)
     }
 
-    fn decrypt(
-        encryption_key: Arc<secretbox::Key>,
-        msg: &[u8],
-    ) -> Result<Vec<u8>, EncryptedKeyStoreError> {
-        let ciphertext = &msg[..msg.len() - 24];
-
-        let nonce = secretbox::Nonce::from_slice(&msg[msg.len() - 24..])
-            .ok_or(EncryptedKeyStoreError::DecryptionError)?;
-
-        let plaintext = secretbox::open(ciphertext, &nonce, &encryption_key)
-            .map_err(|_| EncryptedKeyStoreError::DecryptionError)?;
-
+    fn decrypt(encryption_key: &[u8], msg: &[u8]) -> anyhow::Result<Vec<u8>> {
+        let cyphertext_len = msg.len() - NONCE_SIZE;
+        let ciphertext = &msg[..cyphertext_len];
+        let nonce = GenericArray::from_slice(&msg[cyphertext_len..]);
+        let key = GenericArray::from_slice(encryption_key);
+        let cipher = XSalsa20Poly1305::new(key);
+        let plaintext = cipher
+            .decrypt(nonce, ciphertext)
+            .map_err(map_err_to_anyhow)?;
         Ok(plaintext)
     }
+}
+
+fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
+    anyhow::Error::msg(e.to_string())
 }
 
 #[cfg(test)]
@@ -465,6 +484,7 @@ mod test {
     use super::*;
     use crate::json::{KeyInfoJson, KeyInfoJsonRef};
     use crate::wallet;
+    use anyhow::*;
     use quickcheck_macros::quickcheck;
 
     const PASSPHRASE: &str = "foobarbaz";
@@ -473,7 +493,7 @@ mod test {
     fn test_generate_key() {
         let (salt, encryption_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let (second_salt, second_key) =
-            EncryptedKeyStore::derive_key(PASSPHRASE, Some(salt.as_ref().to_vec())).unwrap();
+            EncryptedKeyStore::derive_key(PASSPHRASE, Some(salt)).unwrap();
 
         assert_eq!(
             encryption_key, second_key,
@@ -483,81 +503,88 @@ mod test {
     }
 
     #[test]
-    fn test_encrypt_message() {
-        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
+    fn test_encrypt_message() -> Result<()> {
+        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None)?;
         let message = "foo is coming";
-        let ciphertext = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
-        let second_pass = EncryptedKeyStore::encrypt(private_key, message.as_bytes());
-
-        assert_ne!(
-            ciphertext, second_pass,
+        let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
+        let second_pass = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
+        ensure!(
+            ciphertext != second_pass,
             "Ciphertexts use secure initialization vectors"
         );
+        Ok(())
     }
 
     #[test]
-    fn test_decrypt_message() {
-        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
+    fn test_decrypt_message() -> Result<()> {
+        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None)?;
         let message = "foo is coming";
-        let ciphertext = EncryptedKeyStore::encrypt(private_key.clone(), message.as_bytes());
-        let plaintext = EncryptedKeyStore::decrypt(private_key, &ciphertext).unwrap();
-
-        assert_eq!(plaintext, message.as_bytes());
+        let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
+        let plaintext = EncryptedKeyStore::decrypt(&private_key, &ciphertext)?;
+        ensure!(plaintext == message.as_bytes());
+        Ok(())
     }
 
     #[test]
-    #[ignore = "fragile test, requires encrypted keystore to exist"]
-    fn test_read_encrypted_keystore() {
-        // todo: change this to read config.toml
-        // this test requires an encrypted keystore
-        // current way to run this test:
-        // add encrypt_keystore = true to config.toml
-        // change keystore_location to your location
-        let keystore_location = PathBuf::from("/tmp/forest-db");
+    fn test_read_old_encrypted_keystore() -> Result<()> {
+        let dir: PathBuf = "tests/keystore_encrypted_old".into();
+        ensure!(dir.exists());
+        let ks = KeyStore::new(KeyStoreConfig::Encrypted(dir, PASSPHRASE.to_string()))?;
+        ensure!(ks.persistence.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_write_encrypted_keystore() -> Result<()> {
+        let keystore_location = tempfile::tempdir()?.into_path();
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(
+            keystore_location.clone(),
+            PASSPHRASE.to_string(),
+        ))?;
+        ks.flush()?;
+
+        let ks_read = KeyStore::new(KeyStoreConfig::Encrypted(
             keystore_location,
             PASSPHRASE.to_string(),
-        ))
-        .unwrap();
-        ks.flush().unwrap();
+        ))?;
+
+        ensure!(ks == ks_read);
+
+        Ok(())
     }
 
     #[test]
-    #[ignore = "fragile test, requires keystore.json to exist"]
-    fn test_encode_read_write() {
-        let keystore_location = PathBuf::from("/tmp/forest-db");
-        let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
+    fn test_read_write_keystore() -> Result<()> {
+        let keystore_location = tempfile::tempdir()?.into_path();
+        let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone()))?;
 
-        let key = wallet::generate_key(SignatureType::BLS).unwrap();
+        let key = wallet::generate_key(SignatureType::BLS)?;
 
         let addr = format!("wallet-{}", key.address);
-        ks.put(addr.clone(), key.key_info).unwrap();
+        ks.put(addr.clone(), key.key_info)?;
         ks.flush().unwrap();
 
         let default = ks.get(&addr).unwrap();
 
-        let mut keystore_file = keystore_location;
-        keystore_file.push("keystore.json");
-
-        let reader = BufReader::new(File::open(keystore_file).unwrap());
+        // Manually parse keystore.json
+        let keystore_file = keystore_location.join(KEYSTORE_NAME);
+        let reader = BufReader::new(File::open(keystore_file)?);
         let persisted_keystore: HashMap<String, PersistentKeyInfo> =
-            serde_json::from_reader(reader).unwrap();
+            serde_json::from_reader(reader)?;
 
         let default_key_info = persisted_keystore.get(&addr).unwrap();
-        let actual = base64::decode(default_key_info.private_key.clone()).unwrap();
+        let actual = base64::decode(default_key_info.private_key.clone())?;
 
         assert_eq!(
             default.private_key, actual,
             "persisted key matches key from key store"
         );
-    }
 
-    #[test]
-    #[ignore = "fragile test, requires keystore.json"]
-    fn test_read_unencrypted_keystore() {
-        let keystore_location = PathBuf::from("/tmp/forest-db");
-        let ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
-        ks.flush().unwrap();
+        // Read existing keystore.json
+        let ks_read = KeyStore::new(KeyStoreConfig::Persistent(keystore_location))?;
+        ensure!(ks == ks_read);
+
+        Ok(())
     }
 
     impl quickcheck::Arbitrary for KeyInfo {
