@@ -12,6 +12,7 @@ use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -214,6 +215,43 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
                 e
             );
             None
+        }
+    }
+}
+
+fn rec_get_keys(value: toml::Value, keys: &mut HashSet<String>) {
+    match value {
+        toml::Value::Table(map) => {
+            for (k, v) in map.into_iter() {
+                keys.insert(k);
+                rec_get_keys(v, keys);
+            }
+        }
+        toml::Value::Array(vec) => {
+            for v in vec.into_iter() {
+                rec_get_keys(v, keys);
+            }
+        }
+        _ => (),
+    }
+}
+
+pub fn warn_for_unknown_keys(path: Option<String>, config: &Config) {
+    if let Some(path) = path {
+        let file = read_file_to_string(&PathBuf::from(&path)).unwrap();
+        let value = file.parse::<toml::Value>().unwrap();
+        let mut keys = HashSet::new();
+        rec_get_keys(value, &mut keys);
+
+        let config_file = toml::to_string(config).unwrap();
+        let config_value = config_file.parse::<toml::Value>().unwrap();
+        let mut config_keys = HashSet::new();
+        rec_get_keys(config_value, &mut config_keys);
+
+        for k in keys.iter() {
+            if !config_keys.contains(k) {
+                warn!("Unknown key \"{k}\" in {path}, ignoring");
+            }
         }
     }
 }

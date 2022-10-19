@@ -9,7 +9,7 @@ use cli::Cli;
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{cli_error_and_die, DaemonConfig},
+    cli::{cli_error_and_die, warn_for_unknown_keys, DaemonConfig},
     logger,
 };
 use lazy_static::lazy_static;
@@ -100,6 +100,7 @@ fn main() {
     match opts.to_config() {
         Ok(cfg) => {
             logger::setup_logger(&cfg.log);
+            warn_for_unknown_keys(opts.config, &cfg);
             match cmd {
                 Some(_) => {
                     warn!("All subcommands have been moved to forest-cli tool");
