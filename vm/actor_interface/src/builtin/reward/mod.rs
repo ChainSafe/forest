@@ -4,7 +4,7 @@
 use crate::FilterEstimate;
 use cid::Cid;
 use forest_ipld_blockstore::BlockStore;
-use forest_ipld_blockstore::BlockStoreExt;
+use forest_ipld_blockstore::BlockstoreExt;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;

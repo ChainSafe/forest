@@ -8,7 +8,7 @@ use forest_blocks::BlockHeader;
 use forest_blocks::Tipset;
 use forest_blocks::TipsetKeys;
 use forest_chain::HeadChange;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
 use forest_message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
 use forest_state_manager::StateManager;

@@ -9,7 +9,7 @@ use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
 use forest_json::cid::CidJson;
 use forest_message::message;
 use forest_networks::Height;

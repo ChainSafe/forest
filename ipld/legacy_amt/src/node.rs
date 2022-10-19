@@ -5,7 +5,7 @@ use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_encoding::cs_serde_bytes;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
 use fvm_ipld_encoding::BytesSer;
 use once_cell::unsync::OnceCell;
 use serde::{

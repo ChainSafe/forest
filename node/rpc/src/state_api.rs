@@ -24,7 +24,7 @@ use forest_blocks::{
 };
 use forest_fil_types::verifier::{FullVerifier, ProofVerifier};
 use forest_ipld::json::IpldJson;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;

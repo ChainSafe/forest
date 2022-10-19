@@ -5,7 +5,7 @@ use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_ipld_blockstore::{BlockStore, BlockstoreExt};
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
