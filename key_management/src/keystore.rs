@@ -21,6 +21,8 @@ use xsalsa20poly1305::{KeyInit, XSalsa20Poly1305, NONCE_SIZE};
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
+type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
+
 // TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
 // jwt secret
 /// `KeyInfo` structure, this contains the type of key (stored as a string) and the private key.
@@ -138,7 +140,7 @@ struct PersistentKeyStore {
 /// CBOR encoding
 #[derive(Clone, PartialEq, Debug, Eq)]
 struct EncryptedKeyStore {
-    salt: [u8; RECOMMENDED_SALT_LEN],
+    salt: SaltByteArray,
     encryption_key: Vec<u8>,
 }
 
@@ -410,8 +412,8 @@ impl KeyStore {
 impl EncryptedKeyStore {
     fn derive_key(
         passphrase: &str,
-        prev_salt: Option<[u8; RECOMMENDED_SALT_LEN]>,
-    ) -> anyhow::Result<([u8; RECOMMENDED_SALT_LEN], Vec<u8>)> {
+        prev_salt: Option<SaltByteArray>,
+    ) -> anyhow::Result<(SaltByteArray, Vec<u8>)> {
         let salt = match prev_salt {
             Some(prev_salt) => prev_salt,
             None => {
@@ -423,10 +425,12 @@ impl EncryptedKeyStore {
 
         let mut param_builder = ParamsBuilder::new();
         // #define crypto_pwhash_argon2id_MEMLIMIT_INTERACTIVE 67108864U
+        // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L70>
         param_builder
             .m_cost(67108864 / 1024)
             .map_err(map_err_to_anyhow)?;
         // #define crypto_pwhash_argon2id_OPSLIMIT_INTERACTIVE 2U
+        // see <https://github.com/jedisct1/libsodium/blob/089f850608737f9d969157092988cb274fe7f8d4/src/libsodium/include/sodium/crypto_pwhash_argon2id.h#L66>
         param_builder.t_cost(2).map_err(map_err_to_anyhow)?;
         // https://docs.rs/sodiumoxide/latest/sodiumoxide/crypto/secretbox/xsalsa20poly1305/constant.KEYBYTES.html
         // KEYBYTES = 0x20
