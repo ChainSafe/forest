@@ -8,6 +8,7 @@ use cli::Cli;
 
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
+use fdlimit::raise_fd_limit;
 use forest_cli_shared::{
     cli::{cli_error_and_die, DaemonConfig},
     logger,
@@ -92,6 +93,13 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     Ok(daemon)
 }
 
+// Protect user from low FD for its own good
+fn protect_from_low_fd() {
+    if let Some(curr) = raise_fd_limit() {
+        info!("Open-file limit raised to {curr}");
+    }
+}
+
 fn main() {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
@@ -105,6 +113,7 @@ fn main() {
                     warn!("All subcommands have been moved to forest-cli tool");
                 }
                 None => {
+                    protect_from_low_fd();
                     if opts.detach {
                         create_ipc_lock();
                         info!(
