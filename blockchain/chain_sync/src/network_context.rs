@@ -30,7 +30,7 @@ use tokio::time::timeout;
 const RPC_TIMEOUT: u64 = 5;
 
 /// Context used in chain sync to handle network requests.
-/// This contains the peer manager, P2P service interface, and [`Blockstore + Store + Clone`] required to make
+/// This contains the peer manager, P2P service interface, and [`Blockstore`] required to make
 /// network requests.
 pub(crate) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
@@ -116,7 +116,7 @@ where
     }
 
     /// Requests that some content with a particular `Cid` get fetched over `Bitswap` if it doesn't
-    /// exist in the `Blockstore + Store + Clone`.
+    /// exist in the `Blockstore`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
         content: Cid,

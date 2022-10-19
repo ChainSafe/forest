@@ -1052,7 +1052,7 @@ async fn fetch_batch<DB: Blockstore + Store + Clone + Send + Sync + 'static, C: 
     Ok(())
 }
 
-/// Going forward along the tipsets, try to load the messages in them from the `Blockstore + Store + Clone`,
+/// Going forward along the tipsets, try to load the messages in them from the `Blockstore`,
 /// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<

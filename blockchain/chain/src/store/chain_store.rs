@@ -755,7 +755,7 @@ where
     }
 }
 
-/// Sets the genesis key in the `Blockstore + Store + Clone`. Be careful if using this outside of
+/// Sets the genesis key in the `Blockstore`. Be careful if using this outside of
 /// the `ChainStore` as it will not update what the `ChainStore` thinks is the genesis
 /// after the `ChainStore` has been created.
 pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>

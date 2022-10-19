@@ -35,7 +35,7 @@ pub(crate) struct ChainIndex<BS> {
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
 
-    /// `Blockstore + Store + Clone` pointer needed to load tipsets from cold storage.
+    /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: BS,
 }
 
