@@ -305,13 +305,13 @@ pub struct SectorOnChainInfo {
     #[serde(with = "json")]
     pub verified_deal_weight: BigInt,
     /// Pledge collected to commit this sector
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub initial_pledge: TokenAmount,
     /// Expected one day projection of reward for sector computed at activation time
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub expected_day_reward: TokenAmount,
     /// Expected twenty day projection of reward for sector computed at activation time
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub expected_storage_pledge: TokenAmount,
 }
 
@@ -326,9 +326,9 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: TokenAmount::from_atto(info.initial_pledge),
+            expected_day_reward: TokenAmount::from_atto(info.expected_day_reward),
+            expected_storage_pledge: TokenAmount::from_atto(info.expected_storage_pledge),
         }
     }
 }
@@ -337,7 +337,7 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitOnChainInfo {
     pub info: SectorPreCommitInfo,
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
     /// Integral of active deals over sector lifetime, 0 if `CommittedCapacity` sector

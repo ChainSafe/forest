@@ -90,12 +90,12 @@ pub mod json {
         from: AddressJson,
         #[serde(rename = "Nonce")]
         sequence: u64,
-        #[serde(with = "bigint::json")]
+        #[serde(with = "forest_json::token_amount::json")]
         value: TokenAmount,
         gas_limit: i64,
-        #[serde(with = "bigint::json")]
+        #[serde(with = "forest_json::token_amount::json")]
         gas_fee_cap: TokenAmount,
-        #[serde(with = "bigint::json")]
+        #[serde(with = "forest_json::token_amount::json")]
         gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,

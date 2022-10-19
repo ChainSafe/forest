@@ -18,10 +18,15 @@ pub struct SignedMessage {
     pub signature: Signature,
 }
 
+// pub fn to_signing_bytes(&self) -> Vec<u8> {
+//     // Safe to unwrap here, unsigned message cannot fail to serialize.
+//     self.cid().unwrap().to_bytes()
+// }
+
 impl SignedMessage {
     /// Generate new signed message from an unsigned message and a signer.
     pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
-        let bz = message.to_signing_bytes();
+        let bz = message.cid().unwrap().to_bytes();
 
         let signature = signer
             .sign_bytes(&bz, &message.from)
@@ -32,7 +37,7 @@ impl SignedMessage {
 
     /// Generate a new signed message from fields.
     pub fn new_from_parts(message: Message, signature: Signature) -> Result<SignedMessage, String> {
-        signature.verify(&message.to_signing_bytes(), &message.from)?;
+        signature.verify(&message.cid().unwrap().to_bytes(), &message.from)?;
         Ok(SignedMessage { message, signature })
     }
 
@@ -64,7 +69,7 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.to_signing_bytes(), self.from())
+            .verify(&self.message.cid().unwrap().to_bytes(), self.from())
     }
 }
 

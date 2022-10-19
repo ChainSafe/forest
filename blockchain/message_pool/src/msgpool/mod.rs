@@ -356,7 +356,7 @@ pub mod tests {
             gas_premium: gas_price.into(),
             ..Message::default()
         };
-        let msg_signing_bytes = umsg.to_signing_bytes();
+        let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
