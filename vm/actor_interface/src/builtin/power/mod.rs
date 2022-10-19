@@ -56,7 +56,7 @@ macro_rules! convert_filter_estimate {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: Blockstore + Store + Clone,
+        BS: Blockstore,
     {
         if is_v8_power_cid(&actor.code) {
             return store
