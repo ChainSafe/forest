@@ -29,6 +29,8 @@ jobs:
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}

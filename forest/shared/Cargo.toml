@@ -58,7 +58,7 @@ serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2                             = "0.10.5"
 structopt                        = "0.3"
-tempfile                         = "3.3"
+tempfile.workspace               = true
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"

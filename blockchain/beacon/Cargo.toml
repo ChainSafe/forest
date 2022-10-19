@@ -21,7 +21,7 @@ fvm_shared                = { workspace = true, default-features = false }
 hex.workspace             = true
 serde                     = { workspace = true, features = ["derive"] }
 sha2                      = { version = "0.10", default-features = false }
-surf                      = { version = "2.3", default-features = false, features = ["h1-client"] }
+surf                      = { version = "2.3", default-features = false, features = ["curl-client"] }
 tokio                     = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
