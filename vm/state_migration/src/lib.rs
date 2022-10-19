@@ -5,7 +5,6 @@
 //! Each network upgrade / state migration code lives in their own module.
 
 use cid::Cid;
-use forest_db::Store;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
@@ -235,7 +234,7 @@ struct MigrationJobOutput {
 }
 
 #[allow(dead_code)]
-fn nil_migrator<BS: Blockstore + Store + Clone + Send + Sync>(
+fn nil_migrator<BS: Blockstore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(NilMigrator(cid))
@@ -244,7 +243,7 @@ fn nil_migrator<BS: Blockstore + Store + Clone + Send + Sync>(
 /// Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
 
-impl<BS: Blockstore + Store + Send + Sync> ActorMigration<BS> for NilMigrator {
+impl<BS: Blockstore + Send + Sync> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
         _store: Arc<BS>,

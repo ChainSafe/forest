@@ -16,7 +16,7 @@ pub fn resolve_to_key_addr<BS, S>(
 ) -> Result<Address, anyhow::Error>
 where
     BS: Blockstore,
-    S: Blockstore + Store + Clone,
+    S: Blockstore,
 {
     if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
         return Ok(*addr);
