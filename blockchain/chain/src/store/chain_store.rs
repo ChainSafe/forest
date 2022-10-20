@@ -671,7 +671,7 @@ pub(crate) async fn tipset_from_keys<BS>(
     tsk: &TipsetKeys,
 ) -> Result<Arc<Tipset>, Error>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Send + Sync + 'static,
 {
     if let Some(ts) = cache.write().await.get(tsk) {
         return Ok(ts.clone());
@@ -950,7 +950,7 @@ pub struct PersistedBlockMessages {
 /// Partition the messages into SECP and BLS variants, store them individually in the IPLD store,
 /// and the corresponding `TxMeta` as well, returning its CID so that it can be put in a block header.
 /// Also return the aggregated BLS signature of all BLS messages.
-pub fn persist_block_messages<DB: Blockstore + Store + Clone>(
+pub fn persist_block_messages<DB: Blockstore>(
     db: &DB,
     messages: Vec<&SignedMessage>,
 ) -> anyhow::Result<PersistedBlockMessages> {

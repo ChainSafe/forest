@@ -4,7 +4,6 @@
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
-use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
@@ -41,7 +40,7 @@ pub(crate) struct ChainIndex<BS> {
 
 impl<BS> ChainIndex<BS>
 where
-    BS: Blockstore + Store + Clone + Send + Sync + 'static,
+    BS: Blockstore + Send + Sync + 'static,
 {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {

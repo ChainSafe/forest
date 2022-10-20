@@ -4,7 +4,6 @@
 use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{multihash::Code::Blake2b256, Cid};
-use forest_db::Store;
 use forest_encoding::cs_serde_bytes;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -188,7 +187,7 @@ where
     }
 
     /// Flushes cache for node, replacing any cached values with a Cid variant
-    pub(super) fn flush<DB: Blockstore + Store>(&mut self, bs: &DB) -> Result<(), Error> {
+    pub(super) fn flush<DB: Blockstore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Node::Link { links } = self {
             for link in links.iter_mut().flatten() {
                 // links should only be flushed if the bitmap is set.
@@ -487,7 +486,7 @@ where
     ) -> Result<(bool, bool), Box<dyn StdError>>
     where
         F: FnMut(usize, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
-        S: Blockstore + Store,
+        S: Blockstore,
     {
         let mut did_mutate = false;
 

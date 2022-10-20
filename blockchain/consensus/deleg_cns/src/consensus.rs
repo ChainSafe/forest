@@ -124,7 +124,7 @@ impl DelegatedConsensus {
 impl Scale for DelegatedConsensus {
     fn weight<DB>(_: &DB, ts: &Tipset) -> anyhow::Result<Weight>
     where
-        DB: Blockstore + Store + Clone,
+        DB: Blockstore,
     {
         let header = ts.blocks().first().expect("Tipset is never empty.");
         // We don't have a height, only epoch, which is not exactly the same as there can be "null" epochs
