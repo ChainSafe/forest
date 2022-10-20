@@ -728,7 +728,7 @@ where
 
 impl<DB, C> Future for TipsetRangeSyncer<DB, C>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetRangeSyncerError<C>>;
