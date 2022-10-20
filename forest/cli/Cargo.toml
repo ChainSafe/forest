@@ -23,7 +23,6 @@ forest_chain.workspace           = true
 forest_chain_sync.workspace      = true
 forest_cli_shared.workspace      = true
 forest_crypto.workspace          = true
-forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_interpreter.workspace     = true
@@ -66,7 +65,7 @@ serde_json.workspace             = true
 sha2                             = "0.10.5"
 strfmt                           = "0.2.2"
 structopt                        = "0.3"
-tempfile                         = "3.3"
+tempfile.workspace               = true
 ticker                           = "0.1"
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }

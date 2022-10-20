@@ -117,7 +117,7 @@ impl Wallet {
     }
 
     /// Set a default `KeyInfo` to the wallet
-    pub fn set_default(&mut self, addr: Address) -> Result<(), Error> {
+    pub fn set_default(&mut self, addr: Address) -> anyhow::Result<()> {
         let addr_string = format!("wallet-{}", addr);
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
@@ -128,7 +128,7 @@ impl Wallet {
     }
 
     /// Generate a new address that fits the requirement of the given `SignatureType`
-    pub fn generate_addr(&mut self, typ: SignatureType) -> Result<Address, Error> {
+    pub fn generate_addr(&mut self, typ: SignatureType) -> anyhow::Result<Address> {
         let key = generate_key(typ)?;
         let addr = format!("wallet-{}", key.address);
         self.keystore.put(addr, key.key_info.clone())?;
@@ -214,7 +214,7 @@ pub fn generate_key(typ: SignatureType) -> Result<Key, Error> {
 }
 
 /// Import `KeyInfo` into `KeyStore`
-pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> Result<Address, Error> {
+pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Address> {
     let k = Key::try_from(key_info)?;
     let addr = format!("wallet-{}", k.address);
     keystore.put(addr, k.key_info)?;
@@ -225,6 +225,7 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> Result<Address, Err
 mod tests {
     use super::*;
     use crate::{generate, KeyStoreConfig};
+    use anyhow::ensure;
     use forest_encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
 
@@ -304,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn import_export() {
+    fn import_export() -> anyhow::Result<()> {
         let key_vec = construct_priv_keys();
         let key = key_vec[0].clone();
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -328,7 +329,8 @@ mod tests {
 
         let duplicate_error = wallet.import(test_key_info).unwrap_err();
         // make sure that error is thrown when attempted to re-import a duplicate key_info
-        assert_eq!(duplicate_error, Error::KeyExists);
+        ensure!(duplicate_error == Error::KeyExists);
+        Ok(())
     }
 
     #[test]

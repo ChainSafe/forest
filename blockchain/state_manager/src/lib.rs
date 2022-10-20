@@ -363,7 +363,7 @@ where
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
-                self.genesis_info.clone(),
+                |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -498,7 +498,7 @@ where
                 rand,
                 0.into(),
                 network_version,
-                self.genesis_info.clone(),
+                |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -588,7 +588,7 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
-            self.genesis_info.clone(),
+            |height, state| self.genesis_info.get_circulating_supply(height, state),
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
@@ -1386,7 +1386,7 @@ where
         height: ChainEpoch,
         state_tree: &StateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info.get_supply(height, state_tree)
+        self.genesis_info.get_circulating_supply(height, state_tree)
     }
 
     /// Return the state of Market Actor.

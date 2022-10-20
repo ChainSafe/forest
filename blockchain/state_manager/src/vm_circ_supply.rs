@@ -64,6 +64,29 @@ impl GenesisInfo {
             ..GenesisInfo::default()
         }
     }
+
+    // Allows generation of the current circulating supply
+    pub fn get_circulating_supply<DB: BlockStore>(
+        &self,
+        height: ChainEpoch,
+        state_tree: &StateTree<DB>,
+    ) -> Result<TokenAmount, anyhow::Error> {
+        let fil_vested = get_fil_vested(self, height);
+        let fil_mined = get_fil_mined(state_tree)?;
+        let fil_burnt = get_fil_burnt(state_tree)?;
+        let fil_locked = get_fil_locked(state_tree)?;
+        let fil_reserve_distributed = if height > self.actors_v2_height {
+            get_fil_reserve_disbursed(state_tree)?
+        } else {
+            TokenAmount::default()
+        };
+        let fil_circulating = BigInt::max(
+            &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
+            TokenAmount::default(),
+        );
+
+        Ok(fil_circulating)
+    }
 }
 
 /// Vesting schedule info. These states are lazily filled, to avoid doing until needed
@@ -85,17 +108,7 @@ impl GenesisInfoVesting {
     }
 }
 
-impl CircSupplyCalc for GenesisInfo {
-    fn get_supply<DB: Blockstore + Store + Clone>(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error> {
-        get_circulating_supply(self, height, state_tree)
-    }
-}
-
-fn get_actor_state<DB: Blockstore + Store + Clone>(
+fn get_actor_state<DB: BlockStore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
@@ -192,28 +205,6 @@ fn get_fil_burnt<DB: Blockstore + Store + Clone>(
     let burnt_actor = get_actor_state(state_tree, BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
-}
-
-fn get_circulating_supply<DB: Blockstore + Store + Clone>(
-    genesis_info: &GenesisInfo,
-    height: ChainEpoch,
-    state_tree: &StateTree<DB>,
-) -> Result<TokenAmount, anyhow::Error> {
-    let fil_vested = get_fil_vested(genesis_info, height);
-    let fil_mined = get_fil_mined(state_tree)?;
-    let fil_burnt = get_fil_burnt(state_tree)?;
-    let fil_locked = get_fil_locked(state_tree)?;
-    let fil_reserve_distributed = if height > genesis_info.actors_v2_height {
-        get_fil_reserve_disbursed(state_tree)?
-    } else {
-        TokenAmount::default()
-    };
-    let fil_circulating = BigInt::max(
-        &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
-        TokenAmount::default(),
-    );
-
-    Ok(fil_circulating)
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {

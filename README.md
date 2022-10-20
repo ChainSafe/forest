@@ -136,7 +136,7 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 ### Testing
 ```bash
 # To run base tests
-cargo test # use `make test-release` for longer compilation but faster execution
+cargo nextest run # use `make test-release` for longer compilation but faster execution
 
 # To pull serialization vectors submodule and run serialization tests
 make test-vectors
@@ -167,6 +167,9 @@ cargo install cargo-udeps --locked
 
 # Spellcheck
 cargo install cargo-spellcheck
+
+# Test runner
+cargo install cargo-nextest --locked
 ```
 After everything is installed, you can run `make lint-all`.
 
