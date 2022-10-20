@@ -23,7 +23,6 @@ forest_chain.workspace           = true
 forest_chain_sync.workspace      = true
 forest_cli_shared.workspace      = true
 forest_crypto.workspace          = true
-forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_interpreter.workspace     = true
