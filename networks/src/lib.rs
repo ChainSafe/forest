@@ -67,7 +67,7 @@ impl From<Height> for NetworkVersion {
             Height::Chocolate => NetworkVersion::V14,
             Height::OhSnap => NetworkVersion::V15,
             Height::Skyr => NetworkVersion::V16,
-            Height::Shark => NetworkVersion::V16, // FIXME
+            Height::Shark => NetworkVersion::V16, // Fix this when `fvm_shared` has been updated.
         }
     }
 }
