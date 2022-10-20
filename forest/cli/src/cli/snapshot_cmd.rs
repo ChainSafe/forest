@@ -203,7 +203,10 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
     fs::read_dir(snapshot_dir)?
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| p.extension().unwrap_or_default() == "car")
+        .filter(|p| {
+            let ext = p.extension().unwrap_or_default();
+            ext == "car" || ext == "tmp"
+        })
         .for_each(|p| println!("{}", p.display()));
 
     Ok(())
@@ -216,7 +219,8 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
     let snapshot_path = snapshot_dir.join(filename);
     if snapshot_path.exists()
         && snapshot_path.is_file()
-        && snapshot_path.extension() == Some(OsStr::new("car"))
+        && (snapshot_path.extension() == Some(OsStr::new("car"))
+            || snapshot_path.extension() == Some(OsStr::new("tmp")))
     {
         println!("Deleting {}", snapshot_path.display());
         if !force && !prompt_confirm() {
@@ -273,6 +277,8 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
 
                             snapshots_with_valid_name.push(path);
                         }
+                    } else if path.extension().unwrap_or_default() == "tmp" {
+                        snapshots_with_valid_name.push(path);
                     }
                 }
             }
@@ -316,13 +322,20 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     let snapshots_to_delete: Vec<_> = fs::read_dir(snapshot_dir)?
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| p.extension().unwrap_or_default() == "car")
+        .filter(|p| {
+            let ext = p.extension().unwrap_or_default();
+            ext == "car" || ext == "tmp"
+        })
         .collect();
 
     if snapshots_to_delete.is_empty() {
         println!("No files to delete");
         return Ok(());
     }
+    println!("Files to delete:");
+    snapshots_to_delete
+        .iter()
+        .for_each(|f| println!("{}", f.display()));
 
     if !force && !prompt_confirm() {
         println!("Aborted.");
