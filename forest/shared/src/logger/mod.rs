@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::{cli_error_and_die, LogValue};
+use crate::cli::LogValue;
 use log::LevelFilter;
 use std::str::FromStr;
 
@@ -13,7 +13,10 @@ pub fn setup_logger(log_config: &[LogValue]) {
 
     for item in log_config {
         let level = LevelFilter::from_str(item.level.as_str())
-            .unwrap_or_else(|_| cli_error_and_die("could not parse LevelFilter enum value", 1));
+            .unwrap_or_else(|_| {
+                eprintln!("Could not parse LevelFilter {}", item.level);
+                std::process::exit(1)
+            });
         logger_builder.filter(Some(item.module.as_str()), level);
     }
 
