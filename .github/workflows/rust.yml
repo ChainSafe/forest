@@ -25,19 +25,20 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
+        with:
+          # reuse build cache from calibnet sync check which is built with release profile
+          cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: false
       - name: Install Dependencies
         run: sudo make install-deps
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
-      - name: Cargo Check
-        run: cargo check
-      - name: Make Test-All
-        run: make test-all
+      - run: make test-all
+        env:
+          CC: "/tmp/sccache/sccache clang"
+          CXX: "/tmp/sccache/sccache clang++"
 
   lint:
     name: Lint
@@ -47,13 +48,19 @@ jobs:
         uses: actions/checkout@v3
       - name: Apt Dependencies
         run: sudo make install-deps
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         with:
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
+          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: false
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-lint-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
+        continue-on-error: true
       - name: Run Linters
         run: make lint
 
@@ -65,9 +72,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        with:
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
@@ -79,15 +85,24 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         with:
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
+          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: false
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-udeps-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install udeps
         run: cargo install cargo-udeps --locked
+        continue-on-error: true
       - name: Run udeps
         run: make udeps
+        env:
+          CC: "/tmp/sccache/sccache clang"
+          CXX: "/tmp/sccache/sccache clang++"
 
   spellcheck:
     name: Spellcheck
@@ -97,9 +112,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        with:
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
@@ -114,32 +128,34 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - uses: visvirial/sccache-action@v1
+      - name: Setup sccache Linux
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         if: startsWith(matrix.os, 'Ubuntu')
         with:
           arch: x86_64-unknown-linux-musl
-      - uses: visvirial/sccache-action@v1
+          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+      - name: Setup sccache MACOS
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         if: startsWith(matrix.os, 'macOS')
         with:
           arch: x86_64-apple-darwin
+          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install Linux Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
           lscpu # the job may run on different CPUs, list cpu here for analysing build time
           sudo make install-deps
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          # Additional non workspace directories, separated by newlines
-          cache-directories: |
-            ~/.cache/sccache/
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
-      - name: Cargo Build
-        run: cargo build --profile dev
+      - name: Cargo Check
+        run: cargo check --timings
         env:
           CC: "/tmp/sccache/sccache clang"
           CXX: "/tmp/sccache/sccache clang++"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-timings
+          path: |
+            target/cargo-timings/*
+          if-no-files-found: error
 
   calibnet-check:
     name: Calibnet sync check
@@ -152,23 +168,25 @@ jobs:
           submodules: true
       - name: Install Dependencies
         run: sudo make install-deps
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         with:
-          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-          continue-on-error: true
+          cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
       - name: build and install binaries
         run: make install
+        env:
+          CC: "/tmp/sccache/sccache clang"
+          CXX: "/tmp/sccache/sccache clang++"
       - name: download snapshot
         run: forest-cli --chain calibnet chain fetch -s /tmp/snapshots/
       - name: import snapshot and run Forest
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
-      - name: wait for sync and check health
-        run: |
-          forest-cli sync wait
-          bash scripts/health_check.sh localhost
+      # - name: wait for sync and check health
+      #   run: |
+      #     forest-cli sync wait
+      #     bash scripts/health_check.sh localhost
       - name: kill Forest process, print forest logs
         run: |
           pkill forest

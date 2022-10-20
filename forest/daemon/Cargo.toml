@@ -81,7 +81,6 @@ time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"
 
-
 [dependencies.jsonrpc-v2]
 default-features = false
 features         = ["easy-errors", "macros", "bytes-v05"]

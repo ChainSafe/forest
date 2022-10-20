@@ -73,7 +73,6 @@ tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"
 uuid                             = { version = "1.1", features = ["v4"] }
 
-
 [dependencies.jsonrpc-v2]
 default-features = false
 features         = ["easy-errors", "macros", "bytes-v05"]

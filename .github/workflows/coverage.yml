@@ -10,22 +10,24 @@ jobs:
     name: Cover
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
-    steps:      
+    steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
       - name: Install Dependencies
         run: sudo make install-deps
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         with:
-          timeout-minutes: 5
-          continue-on-error: true
+          cache-key: ${{ runner.os }}-sccache-codecov-${{ hashFiles('rust-toolchain.toml') }}
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        env:
+          CC: "/tmp/sccache/sccache clang"
+          CXX: "/tmp/sccache/sccache clang++"
       - name: Upload CodeCov
         uses: codecov/codecov-action@v3
         with:

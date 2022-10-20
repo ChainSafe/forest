@@ -16,7 +16,7 @@ jobs:
   check-publish-docs:
     name: Publish
     runs-on: ubuntu-latest
-    steps:      
+    steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
@@ -27,13 +27,19 @@ jobs:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
         with:
-          timeout-minutes: 5
-          continue-on-error: true
+          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: false
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
+        continue-on-error: true
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
