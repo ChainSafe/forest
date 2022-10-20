@@ -18,10 +18,7 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRA
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_fil_types::verifier::ProofVerifier;
-use forest_interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, LookbackStateGetter, RewardCalc,
-    VM,
-};
+use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
@@ -42,7 +39,6 @@ use fvm_shared::sector::{SectorInfo, SectorSize};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
 use num_traits::identities::Zero;
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -350,10 +346,6 @@ where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let db = self.blockstore_cloned();
-        let lb_wrapper = SMLookbackWrapper {
-            sm: Arc::clone(self),
-            tipset: Arc::clone(tipset),
-        };
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
@@ -367,10 +359,9 @@ where
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
-                self.genesis_info.clone(),
+                |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
-                None,
-                &lb_wrapper,
+                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
@@ -492,11 +483,6 @@ where
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
 
-            let lb_wrapper = SMLookbackWrapper {
-                sm: Arc::clone(self),
-                tipset: Arc::clone(tipset),
-            };
-
             let store_arc = self.blockstore_cloned();
 
             let heights = Heights::new(&self.chain_config);
@@ -508,10 +494,9 @@ where
                 rand,
                 0.into(),
                 network_version,
-                self.genesis_info.clone(),
+                |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
-                None,
-                &lb_wrapper,
+                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
@@ -588,10 +573,6 @@ where
 
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
-        let lb_wrapper = SMLookbackWrapper {
-            sm: Arc::clone(self),
-            tipset: Arc::clone(&ts),
-        };
         let store_arc = self.blockstore_cloned();
         let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
@@ -603,10 +584,9 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
-            self.genesis_info.clone(),
+            |height, state| self.genesis_info.get_circulating_supply(height, state),
             self.reward_calc.clone(),
-            None,
-            &lb_wrapper,
+            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
                 .get(&NetworkConfig::new(network_version))
                 .unwrap(),
@@ -639,25 +619,24 @@ where
         ts: &Arc<Tipset>,
         mcid: Cid,
     ) -> Result<(Message, ApplyRet), Error> {
+        const ERROR_MSG: &str = "replay_halt";
+
         // This isn't ideal to have, since the execution is syncronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
-        let outm: OnceCell<Message> = Default::default();
-        let outr: OnceCell<ApplyRet> = Default::default();
-        let m_clone = outm.clone();
-        let r_clone = outr.clone();
+        let (m_tx, m_rx) = std::sync::mpsc::channel();
+        let (r_tx, r_rx) = std::sync::mpsc::channel();
         let callback = move |cid: &Cid, unsigned: &ChainMessage, apply_ret: &ApplyRet| {
             if *cid == mcid {
-                let _ = m_clone.set(unsigned.message().clone());
-                let _ = r_clone.set(apply_ret.clone());
-                anyhow::bail!("halt");
+                m_tx.send(unsigned.message().clone())?;
+                r_tx.send(apply_ret.clone())?;
+                anyhow::bail!(ERROR_MSG);
             }
-
             Ok(())
         };
         let result = self.compute_tipset_state(ts, Some(callback)).await;
 
         if let Err(error_message) = result {
-            if error_message.to_string() != "halt" {
+            if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {:}",
                     error_message
@@ -665,12 +644,13 @@ where
             }
         }
 
-        let out_mes = outm
-            .into_inner()
-            .ok_or_else(|| Error::Other("given message not found in tipset".to_string()))?;
-        let out_ret = outr
-            .into_inner()
-            .ok_or_else(|| Error::Other("message did not have a return".to_string()))?;
+        // Use try_recv here assuming callback execution is syncronous
+        let out_mes = m_rx
+            .try_recv()
+            .map_err(|err| Error::Other(format!("given message not found in tipset: {err}")))?;
+        let out_ret = r_rx
+            .try_recv()
+            .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
         Ok((out_mes, out_ret))
     }
 
@@ -1402,7 +1382,7 @@ where
         height: ChainEpoch,
         state_tree: &StateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info.get_supply(height, state_tree)
+        self.genesis_info.get_circulating_supply(height, state_tree)
     }
 
     /// Return the state of Market Actor.
@@ -1441,27 +1421,21 @@ pub struct MiningBaseInfo {
     pub eligible_for_mining: bool,
 }
 
-struct SMLookbackWrapper<DB> {
+fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-}
-
-impl<DB> LookbackStateGetter for SMLookbackWrapper<DB>
+) -> Box<dyn Fn(ChainEpoch) -> Cid>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: BlockStore + Send + Sync + 'static,
 {
-    fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid> {
-        let sm = Arc::clone(&self.sm);
-        let tipset = Arc::clone(&self.tipset);
-        Box::new(move |round| {
-            // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
-            //      refactoring the lookback code completely.
-            let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
-                .unwrap_or_else(|err| {
-                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-                });
-            st
-        })
-    }
+    Box::new(move |round| {
+        // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
+        //      refactoring the lookback code completely.
+        let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+            .unwrap_or_else(|err| {
+                panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+            });
+        st
+    })
 }

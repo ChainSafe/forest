@@ -13,6 +13,7 @@ bls-signatures                   = { version = "0.11", default-features = false,
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 crossbeam                        = "0.8"
 fil_actor_miner_v8.workspace     = true
+flume.workspace                  = true
 forest_actor_interface.workspace = true
 forest_auth.workspace            = true
 forest_beacon.workspace          = true

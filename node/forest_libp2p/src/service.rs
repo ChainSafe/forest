@@ -9,7 +9,6 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::{stream, task};
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::GossipBlock;
@@ -123,10 +122,10 @@ pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
 
-    network_receiver_in: Receiver<NetworkMessage>,
-    network_sender_in: Sender<NetworkMessage>,
-    network_receiver_out: Receiver<NetworkEvent>,
-    network_sender_out: Sender<NetworkEvent>,
+    network_receiver_in: flume::Receiver<NetworkMessage>,
+    network_sender_in: flume::Sender<NetworkMessage>,
+    network_receiver_out: flume::Receiver<NetworkEvent>,
+    network_sender_out: flume::Sender<NetworkEvent>,
     network_name: String,
     bitswap_response_channels: HashMap<Cid, Vec<OneShotSender<()>>>,
 }
@@ -175,8 +174,8 @@ where
             warn!("Failed to bootstrap with Kademlia: {}", e);
         }
 
-        let (network_sender_in, network_receiver_in) = unbounded();
-        let (network_sender_out, network_receiver_out) = unbounded();
+        let (network_sender_in, network_receiver_in) = flume::unbounded();
+        let (network_sender_out, network_receiver_out) = flume::unbounded();
 
         Libp2pService {
             swarm,
@@ -193,7 +192,7 @@ where
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
-        let mut network_stream = self.network_receiver_in.fuse();
+        let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval = stream::interval(Duration::from_secs(15)).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
@@ -386,18 +385,18 @@ where
     }
 
     /// Returns a sender which allows sending messages to the libp2p service.
-    pub fn network_sender(&self) -> Sender<NetworkMessage> {
+    pub fn network_sender(&self) -> flume::Sender<NetworkMessage> {
         self.network_sender_in.clone()
     }
 
     /// Returns a receiver to listen to network events emitted from the service.
-    pub fn network_receiver(&self) -> Receiver<NetworkEvent> {
+    pub fn network_receiver(&self) -> flume::Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
     }
 }
 
-async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
-    if sender.send(event).await.is_err() {
+async fn emit_event(sender: &flume::Sender<NetworkEvent>, event: NetworkEvent) {
+    if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
 }

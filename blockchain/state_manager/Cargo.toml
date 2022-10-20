@@ -12,7 +12,7 @@ blake2b_simd.workspace           = true
 byteorder.workspace              = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 fil_actors_runtime.workspace     = true
-filecoin-proofs-api              = { version = "11.0.0", default_features = false }
+filecoin-proofs-api              = { version = "11.0.0", default-features = false }
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true
@@ -34,7 +34,6 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 log.workspace                    = true
 num-traits.workspace             = true
-once_cell.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }

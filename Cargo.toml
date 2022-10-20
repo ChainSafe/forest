@@ -29,7 +29,7 @@ members = [
   "key_management",
   "tests/serialization_tests",
   "types",
-  "types/networks",
+  "networks",
   "utils/auth",
   "utils/genesis",
   "utils/statediff",
@@ -66,6 +66,7 @@ fil_actor_reward_v8   = { package = "fil_actor_reward", version = "=8.0.0" }
 fil_actor_system_v8   = { package = "fil_actor_system", version = "=8.0.0" }
 fil_actors_runtime    = "=8.0.0"
 fil_actors_runtime_v8 = { package = "fil_actors_runtime", version = "=8.0.0" }
+flume                 = "0.10"
 futures               = "0.3"
 futures-util          = "0.3"
 fvm                   = "1.1"
@@ -77,7 +78,6 @@ fvm_ipld_encoding     = "0.2"
 fvm_ipld_hamt         = "0.5"
 fvm_shared            = "0.8"
 hex                   = "0.4"
-isahc                 = "1.7"
 lazy_static           = "1.4"
 libipld               = "0.14"
 libipld-core          = "0.14"
@@ -109,6 +109,7 @@ serde                 = "1.0"
 serde_ipld_dagcbor    = "0.1"
 serde_json            = "1.0"
 smallvec              = "1.9"
+tempfile              = "3.3"
 thiserror             = "1.0"
 time                  = "0.3"
 tokio                 = "1.21"
@@ -138,7 +139,7 @@ forest_libp2p          = { path = "./node/forest_libp2p" }
 forest_message         = { path = "./vm/message" }
 forest_message_pool    = { path = "./blockchain/message_pool" }
 forest_metrics         = { path = "./utils/metrics" }
-forest_networks        = { path = "./types/networks" }
+forest_networks        = { path = "./networks" }
 forest_paramfetch      = { path = "./utils/paramfetch" }
 forest_rpc             = { path = "./node/rpc" }
 forest_rpc-api         = { path = "./node/rpc-api" }
