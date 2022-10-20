@@ -14,7 +14,7 @@ forest_encoding.workspace     = true
 forest_ipld                   = { workspace = true, optional = true }
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace   = true
-isahc.workspace               = true
+isahc                         = { version = "1.7", default-features = false }
 libc                          = "0.2"
 log.workspace                 = true
 pbr.workspace                 = true
