@@ -88,7 +88,7 @@ pub struct CliOpts {
     #[structopt(long)]
     pub detach: bool,
     #[structopt(long, default_value = "auto", possible_values = &["always", "auto", "never"])]
-    pub no_color: String,
+    pub color: String,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
