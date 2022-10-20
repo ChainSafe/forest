@@ -59,7 +59,7 @@ pub(crate) async fn wallet_default_address<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<WalletDefaultAddressResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
@@ -74,7 +74,7 @@ pub(crate) async fn wallet_export<DB, B>(
     Params(params): Params<WalletExportParams>,
 ) -> Result<WalletExportResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (addr_str,) = params;
@@ -92,7 +92,7 @@ pub(crate) async fn wallet_has<DB, B>(
     Params(params): Params<WalletHasParams>,
 ) -> Result<WalletHasResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (addr_str,) = params;
@@ -110,7 +110,7 @@ pub(crate) async fn wallet_import<DB, B>(
     Params(params): Params<WalletImportParams>,
 ) -> Result<WalletBalanceResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let key_info: forest_key_management::KeyInfo = match params.first().cloned() {
@@ -142,7 +142,7 @@ pub(crate) async fn wallet_list<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<WalletListResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let keystore = data.keystore.read().await;
@@ -158,7 +158,7 @@ pub(crate) async fn wallet_new<DB, B>(
     Params(params): Params<WalletNewParams>,
 ) -> Result<WalletNewResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (sig_raw,) = params;
@@ -181,7 +181,7 @@ pub(crate) async fn wallet_set_default<DB, B>(
     Params(params): Params<WalletSetDefaultParams>,
 ) -> Result<WalletSetDefaultResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (address,) = params;
@@ -239,7 +239,7 @@ pub(crate) async fn wallet_sign_message<DB, B>(
     Params(params): Params<WalletSignMessageParams>,
 ) -> Result<WalletSignMessageResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (addr_str, MessageJson(msg)) = params;
@@ -267,7 +267,7 @@ pub(crate) async fn wallet_verify<DB, B>(
     Params(params): Params<WalletVerifyParams>,
 ) -> Result<WalletVerifyResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (addr_str, msg_str, SignatureJson(sig)) = params;
