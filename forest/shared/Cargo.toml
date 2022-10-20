@@ -56,7 +56,7 @@ rayon.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
-sha2                             = "0.10.5"
+sha2.workspace                   = true
 structopt                        = "0.3"
 tempfile.workspace               = true
 time.workspace                   = true

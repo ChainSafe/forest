@@ -20,7 +20,7 @@ forest_utils.workspace    = true
 fvm_shared                = { workspace = true, default-features = false }
 hex.workspace             = true
 serde                     = { workspace = true, features = ["derive"] }
-sha2                      = { version = "0.10", default-features = false }
+sha2                      = { workspace = true, default-features = false }
 surf                      = { version = "2.3", default-features = false, features = ["h1-client"] }
 tokio                     = { workspace = true, features = ["sync"] }
 

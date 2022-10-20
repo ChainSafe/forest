@@ -63,7 +63,7 @@ rug                              = "1.17"
 rust-s3                          = "0.32.3"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
-sha2                             = "0.10.5"
+sha2.workspace                   = true
 strfmt                           = "0.2.2"
 structopt                        = "0.3"
 tempfile.workspace               = true
