@@ -1,15 +1,5 @@
 SER_TESTS = "tests/serialization_tests"
 
-ifndef RUST_TEST_THREADS
-	RUST_TEST_THREADS := 1
-	OS := $(shell uname)
-	ifeq ($(OS),Linux)
-		RUST_TEST_THREADS := $(shell nproc)
-	else ifeq ($(OS),Darwin)
-		RUST_TEST_THREADS := $(shell sysctl -n hw.ncpu)
-	endif # $(OS)
-endif
-
 install-cli:
 	cargo install --locked --path forest/cli --force
 
@@ -87,7 +77,7 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-serialization-vectors:
-	cargo test --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests" -- --test-threads=$(RUST_TEST_THREADS)
+	cargo nextest run --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
 
 run-vectors: run-serialization-vectors
 
@@ -95,14 +85,14 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo test --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo nextest run --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
+	cargo nextest run -p forest_crypto --features blst --no-default-features
+	cargo nextest run -p forest_message --features blst --no-default-features
 
 test-release:
-	cargo test --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test --release -p forest_crypto --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
-	cargo test --release -p forest_message --features blst --no-default-features -- --test-threads=$(RUST_TEST_THREADS)
+	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
+	cargo nextest run --release -p forest_crypto --features blst --no-default-features
+	cargo nextest run --release -p forest_message --features blst --no-default-features
 
 smoke-test:
 	./scripts/smoke_test.sh

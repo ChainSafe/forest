@@ -43,6 +43,7 @@ use log::error;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
+use std::borrow::Cow;
 use std::io::{self, Write};
 use std::process;
 use structopt::StructOpt;
@@ -110,20 +111,16 @@ pub enum Subcommand {
 
 /// Pretty-print a JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
-    match e {
-        JsonRpcError::Full {
-            code,
-            message,
-            data: _,
-        } => {
-            error!("JSON RPC Error: Code: {} Message: {}", code, message);
-            process::exit(code as i32);
-        }
-        JsonRpcError::Provided { code, message } => {
-            error!("JSON RPC Error: Code: {} Message: {}", code, message);
-            process::exit(code as i32);
-        }
-    }
+    let (code, message) = match e {
+        JsonRpcError::Full { code, message, .. } => (code, Cow::from(message)),
+        JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
+    };
+
+    error!("JSON RPC Error: Code: {code} Message: {message}");
+
+    // fail-safe in case the `code` from `JsonRpcError` is zero. We still want to quit the process
+    // with an error because, well, an error occurred if we are here.
+    process::exit(code.max(1) as i32);
 }
 
 /// Format a vector to a prettified string

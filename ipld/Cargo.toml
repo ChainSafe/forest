@@ -29,4 +29,6 @@ forest_db.workspace              = true
 forest_ipld_blockstore.workspace = true
 forest_json.workspace            = true
 multihash                        = { workspace = true, features = ["identity"] }
+quickcheck.workspace             = true
+quickcheck_macros.workspace      = true
 serde_json.workspace             = true
