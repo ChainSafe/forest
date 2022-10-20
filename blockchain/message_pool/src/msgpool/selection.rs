@@ -684,7 +684,6 @@ mod test_selection {
     use crate::head_change;
     use crate::msgpool::test_provider::{mock_block, TestApi};
     use crate::msgpool::tests::create_smsg;
-    use async_std::channel::bounded;
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
@@ -696,7 +695,7 @@ mod test_selection {
 
     async fn make_test_mpool() -> MessagePool<TestApi> {
         let tma = TestApi::default();
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
         MessagePool::new(
             tma,
             "mptest".to_string(),

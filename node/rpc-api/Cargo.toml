@@ -25,6 +25,7 @@ forest_state_manager.workspace   = true
 anyhow.workspace     = true
 async-std            = { workspace = true, features = ["attributes"] }
 cid                  = { workspace = true, default-features = false, features = ["std"] }
+flume.workspace      = true
 fvm.workspace        = true
 fvm_ipld_bitfield    = { workspace = true, features = ["json"] }
 fvm_shared           = { workspace = true, default-features = false }
