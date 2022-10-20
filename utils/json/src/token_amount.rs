@@ -21,7 +21,9 @@ pub mod json {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(TokenAmount::from_atto(BigInt::from_str(&s).map_err(serde::de::Error::custom)?))
+        Ok(TokenAmount::from_atto(
+            BigInt::from_str(&s).map_err(serde::de::Error::custom)?,
+        ))
     }
 
     pub mod option {
@@ -32,7 +34,9 @@ pub mod json {
         where
             S: Serializer,
         {
-            v.as_ref().map(|s| s.atto().to_string()).serialize(serializer)
+            v.as_ref()
+                .map(|s| s.atto().to_string())
+                .serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<TokenAmount>, D::Error>
@@ -41,9 +45,9 @@ pub mod json {
         {
             let s: Option<String> = Deserialize::deserialize(deserializer)?;
             if let Some(v) = s {
-                return Ok(Some(
-                    TokenAmount::from_atto(BigInt::from_str(&v).map_err(serde::de::Error::custom)?),
-                ));
+                return Ok(Some(TokenAmount::from_atto(
+                    BigInt::from_str(&v).map_err(serde::de::Error::custom)?,
+                )));
             }
             Ok(None)
         }
@@ -57,9 +61,10 @@ mod tests {
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]
-    fn bigint_roundtrip(token_amount: TokenAmount) {
+    fn bigint_roundtrip(n: u64) {
+        let token_amount = TokenAmount::from_atto(n);
         let serialized: String = forest_test_utils::to_string_with!(&token_amount, json::serialize);
         let parsed = forest_test_utils::from_str_with!(&serialized, json::deserialize);
-        assert_eq!(bigint, parsed);
+        assert_eq!(token_amount, parsed);
     }
 }

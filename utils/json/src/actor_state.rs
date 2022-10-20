@@ -102,7 +102,7 @@ mod tests {
                 code: cid,
                 state: cid,
                 sequence: u64::arbitrary(g),
-                balance: TokenAmount::from(i64::arbitrary(g)),
+                balance: TokenAmount::from_atto(u64::arbitrary(g)),
             };
             ActorStateWrapper { actorstate }
         }

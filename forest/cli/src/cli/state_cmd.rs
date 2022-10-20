@@ -35,7 +35,6 @@ struct VestingSchedule {
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingScheduleEntry {
     epoch: ChainEpoch,
-    #[serde(with = "bigint_ser")]
     amount: TokenAmount,
 }
 
@@ -243,11 +242,7 @@ impl StateCommands {
 
                 println!("Vesting Schedule for Miner {}:", address);
                 for entry in schedule.entries {
-                    println!(
-                        "Epoch: {}     FIL: {:.3}",
-                        entry.epoch,
-                        &entry.amount / (BigInt::from_f64(1e18).unwrap())
-                    );
+                    println!("Epoch: {}     FIL: {:.3}", entry.epoch, &entry.amount);
                 }
             }
         }

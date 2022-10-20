@@ -35,7 +35,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
-use fvm_shared::sector::{SectorInfo, SectorSize};
+use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
 use num_traits::identities::Zero;
@@ -67,10 +67,8 @@ type StateCallResult = Result<InvocResult, Error>;
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
-    #[serde(with = "bigint_ser")]
-    escrow: BigInt,
-    #[serde(with = "bigint_ser")]
-    locked: BigInt,
+    escrow: TokenAmount,
+    locked: TokenAmount,
 }
 
 /// State manager handles all interactions with the internal Filecoin actors state.
@@ -337,7 +335,7 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         rand: &R,
-        base_fee: BigInt,
+        base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
@@ -492,7 +490,7 @@ where
                 store_arc,
                 bheight,
                 rand,
-                0.into(),
+                TokenAmount::zero(),
                 network_version,
                 |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
@@ -1230,7 +1228,7 @@ where
     }
 
     /// Return the heaviest tipset's balance from self.db for a given address
-    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
+    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
         let ts = self
             .cs
             .heaviest_tipset()
@@ -1241,7 +1239,7 @@ where
     }
 
     /// Return the balance of a given address and `state_cid`
-    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<BigInt, Error> {
+    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
         Ok(actor.balance)
@@ -1411,8 +1409,8 @@ where
 // * There is not a great reason this is a separate type from the one on the RPC.
 // * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
-    pub miner_power: Option<TokenAmount>,
-    pub network_power: Option<TokenAmount>,
+    pub miner_power: Option<StoragePower>,
+    pub network_power: Option<StoragePower>,
     pub sectors: Vec<SectorInfo>,
     pub worker_key: Address,
     pub sector_size: SectorSize,

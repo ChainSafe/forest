@@ -32,8 +32,10 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::{BigInt, Integer};
 use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
+use num_traits::Zero;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -52,7 +54,7 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000))
 pub struct MsgSet {
     pub(crate) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
-    required_funds: BigInt,
+    required_funds: TokenAmount,
 }
 
 impl MsgSet {
@@ -61,7 +63,7 @@ impl MsgSet {
         MsgSet {
             msgs: HashMap::new(),
             next_sequence: sequence,
-            required_funds: Default::default(),
+            required_funds: TokenAmount::zero(),
         }
     }
 
@@ -75,7 +77,9 @@ impl MsgSet {
             if m.cid()? != exms.cid()? {
                 let premium = exms.message().gas_premium.clone();
                 let rbf_denom = BigInt::from(RBF_DENOM);
-                let min_price = premium.clone() + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
+                let min_price = premium.clone()
+                    + ((premium * RBF_NUM).div_floor(RBF_DENOM))
+                    + TokenAmount::from_atto(1u8);
                 if m.message().gas_premium <= min_price {
                     return Err(Error::GasPriceTooLow);
                 }
@@ -118,7 +122,7 @@ impl MsgSet {
         }
     }
 
-    fn get_required_funds(&self, sequence: u64) -> BigInt {
+    fn get_required_funds(&self, sequence: u64) -> TokenAmount {
         let required_funds = self.required_funds.clone();
         match self.msgs.get(&sequence) {
             Some(m) => required_funds - m.required_funds(),
@@ -465,7 +469,7 @@ where
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error.
-    async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
+    async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
         let actor = self.api.read().await.get_actor_after(addr, ts)?;
         Ok(actor.balance)
     }
