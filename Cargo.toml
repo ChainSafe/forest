@@ -66,6 +66,7 @@ fil_actor_reward_v8   = { package = "fil_actor_reward", version = "=8.0.0" }
 fil_actor_system_v8   = { package = "fil_actor_system", version = "=8.0.0" }
 fil_actors_runtime    = "=8.0.0"
 fil_actors_runtime_v8 = { package = "fil_actors_runtime", version = "=8.0.0" }
+flume                 = "0.10"
 futures               = "0.3"
 futures-util          = "0.3"
 fvm                   = "1.1"
@@ -77,7 +78,6 @@ fvm_ipld_encoding     = "0.2"
 fvm_ipld_hamt         = "0.5"
 fvm_shared            = "0.8"
 hex                   = "0.4"
-isahc                 = "1.7"
 lazy_static           = "1.4"
 libipld               = "0.14"
 libipld-core          = "0.14"
@@ -115,7 +115,6 @@ time                  = "0.3"
 tokio                 = "1.21"
 url                   = "2.3"
 
-flume                  = "0.10"
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }
 forest_beacon          = { path = "./blockchain/beacon" }

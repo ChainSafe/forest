@@ -11,7 +11,6 @@ use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use surf::Client;
 use tokio::fs::{self, File};
 use tokio::io::{copy, BufWriter};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
@@ -154,7 +153,7 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::E
 
     let url = format!("{}{}", gw, info.cid);
 
-    let client = Client::new();
+    let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
 
     let req = client.get(url.as_str());
 
