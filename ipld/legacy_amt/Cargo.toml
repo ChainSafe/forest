@@ -11,7 +11,6 @@ repository  = "https://github.com/ChainSafe/forest"
 ahash                            = { workspace = true, optional = true }
 anyhow.workspace                 = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
-forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace      = true
@@ -19,6 +18,9 @@ itertools                        = "0.10"
 once_cell.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
+
+[dev-dependencies]
+forest_db.workspace = true
 
 [features]
 go-interop = ["ahash"]
