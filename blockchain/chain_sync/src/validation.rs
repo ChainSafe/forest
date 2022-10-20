@@ -118,7 +118,7 @@ impl<'a> TipsetValidator<'a> {
         }
     }
 
-    pub fn compute_msg_root<DB: Blockstore> (
+    pub fn compute_msg_root<DB: Blockstore>(
         blockstore: &DB,
         bls_msgs: &[Message],
         secp_msgs: &[SignedMessage],

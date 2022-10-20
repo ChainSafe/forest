@@ -102,10 +102,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: Blockstore>(
-        &self,
-        _s: &BS,
-    ) -> anyhow::Result<Vec<Address>> {
+    pub fn list_all_miners<BS: Blockstore>(&self, _s: &BS) -> anyhow::Result<Vec<Address>> {
         unimplemented!()
     }
 

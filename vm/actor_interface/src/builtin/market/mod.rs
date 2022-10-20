@@ -135,7 +135,7 @@ impl<BS> DealProposals<'_, BS> {
         _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), anyhow::Error>,
     ) -> anyhow::Result<()>
     where
-        BS: Blockstore
+        BS: Blockstore,
     {
         unimplemented!()
     }

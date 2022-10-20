@@ -19,9 +19,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_interpreter::{
-    resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM,
-};
+use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_networks::{ChainConfig, Height};

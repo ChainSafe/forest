@@ -230,10 +230,7 @@ impl Deadline {
         }
     }
 
-    pub fn disputable_proof_count<BS: Blockstore>(
-        &self,
-        store: &BS,
-    ) -> anyhow::Result<usize> {
+    pub fn disputable_proof_count<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
             Deadline::V8(dl) => dl
                 .optimistic_proofs_snapshot_amt(&store)?
