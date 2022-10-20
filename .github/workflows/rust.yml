@@ -26,7 +26,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
+        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
         with:
           # reuse build cache from calibnet sync check which is built with release profile
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
@@ -49,7 +49,7 @@ jobs:
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
+        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
         with:
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
           cache-save: false
@@ -63,6 +63,9 @@ jobs:
         continue-on-error: true
       - name: Run Linters
         run: make lint
+        env:
+          CC: "/tmp/sccache/sccache clang"
+          CXX: "/tmp/sccache/sccache clang++"
 
   audit:
     name: Audit
@@ -70,12 +73,14 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-audit-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install Audit
         run: cargo install cargo-audit
+        continue-on-error: true
       - name: Run Audit
         run: make audit
 
@@ -86,7 +91,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
+        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
         with:
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
           cache-save: false
@@ -110,12 +115,14 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-spellcheck-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
+        continue-on-error: true
       - name: Run Spellcheck
         run: make spellcheck
 
@@ -124,22 +131,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-12]
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Setup sccache Linux
-        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
-        if: startsWith(matrix.os, 'Ubuntu')
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
         with:
-          arch: x86_64-unknown-linux-musl
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
-      - name: Setup sccache MACOS
-        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
-        if: startsWith(matrix.os, 'macOS')
-        with:
-          arch: x86_64-apple-darwin
-          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: Install Linux Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
@@ -169,9 +169,10 @@ jobs:
       - name: Install Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@9a6eaffba482beb3b919ce68d12f2559b4db12b3
+        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
         with:
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
         run: make install
         env:

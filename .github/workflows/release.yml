@@ -14,7 +14,7 @@ jobs:
         include:
           - os: ubuntu-latest
             file: forest-${{ github.ref_name }}-linux-amd64.zip
-          - os: macos-latest
+          - os: macos-12
             file: forest-${{ github.ref_name }}-macos-amd64.zip
     steps:
       - name: Checkout Sources
