@@ -16,9 +16,6 @@ zlib   = ["rocksdb/zlib"]
 bzip2  = ["rocksdb/bzip2"]
 # not included by default to reduce build time
 zstd = ["rocksdb/zstd"]
-# might be helpful for tweaking performance
-io-uring = ["rocksdb/io-uring"]
-
 
 [dependencies]
 anyhow.workspace              = true
