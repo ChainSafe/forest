@@ -47,34 +47,55 @@ impl PartialEq for Tipset {
     }
 }
 
-#[cfg(test)]
-#[derive(Clone)]
-struct ArbitraryCid(Cid);
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for ArbitraryCid {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        ArbitraryCid(Cid::new_v1(
-            u64::arbitrary(g),
-            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-        ))
-    }
-}
-
-#[cfg(test)]
-impl quickcheck::Arbitrary for TipsetKeys {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
-        let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
-        Self { cids }
-    }
-}
-
 impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // XXX: Support random generation of tipsets with multiple blocks.
         let first_header = BlockHeader::arbitrary(g);
         Tipset::new(vec![first_header]).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod property_tests {
+    use super::tipset_json::{TipsetJson, TipsetJsonRef};
+    use super::tipset_keys_json::TipsetKeysJson;
+    use super::{Tipset, TipsetKeys};
+    use cid::Cid;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[derive(Clone)]
+    struct ArbitraryCid(Cid);
+
+    impl quickcheck::Arbitrary for ArbitraryCid {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            ArbitraryCid(Cid::new_v1(
+                u64::arbitrary(g),
+                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
+            ))
+        }
+    }
+
+    impl quickcheck::Arbitrary for TipsetKeys {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
+            let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
+            Self { cids }
+        }
+    }
+
+    #[quickcheck]
+    fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
+        let serialized = serde_json::to_string(&TipsetKeysJson(tipset_keys.clone())).unwrap();
+        let parsed: TipsetKeysJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tipset_keys, parsed.0);
+    }
+
+    #[quickcheck]
+    fn tipset_roundtrip(tipset: Tipset) {
+        let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
+        let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(&tipset, parsed.0.as_ref());
     }
 }
 
@@ -564,28 +585,5 @@ mod test {
     #[test]
     fn ensure_there_are_blocks() {
         assert_eq!(Tipset::new(vec![]).unwrap_err(), Error::NoBlocks);
-    }
-}
-
-#[cfg(test)]
-mod property_tests {
-    use super::tipset_json::{TipsetJson, TipsetJsonRef};
-    use super::tipset_keys_json::TipsetKeysJson;
-    use super::{Tipset, TipsetKeys};
-    use quickcheck_macros::quickcheck;
-    use serde_json;
-
-    #[quickcheck]
-    fn tipset_keys_roundtrip(tipset_keys: TipsetKeys) {
-        let serialized = serde_json::to_string(&TipsetKeysJson(tipset_keys.clone())).unwrap();
-        let parsed: TipsetKeysJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(tipset_keys, parsed.0);
-    }
-
-    #[quickcheck]
-    fn tipset_roundtrip(tipset: Tipset) {
-        let serialized = serde_json::to_string(&TipsetJsonRef(&tipset)).unwrap();
-        let parsed: TipsetJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(&tipset, parsed.0.as_ref());
     }
 }
