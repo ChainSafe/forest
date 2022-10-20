@@ -10,19 +10,18 @@ jobs:
     name: Cover
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
-    steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+    steps:      
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
+      - name: Install Dependencies
+        run: sudo make install-deps
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: 5
-        continue-on-error: true
+        with:
+          timeout-minutes: 5
+          continue-on-error: true
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage

@@ -8,6 +8,10 @@ install-daemon:
 
 install: install-cli install-daemon
 
+install-deps:
+	apt-get update -y
+	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake
+
 clean-all:
 	cargo clean
 
@@ -115,4 +119,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --all-features --no-deps
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps docs run-serialization-vectors rustdoc

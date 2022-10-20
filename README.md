@@ -63,6 +63,8 @@ rustup install nightly
 
 ```shell
 # Ubuntu
+sudo make install-deps
+# Or
 sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
 
 # Archlinux

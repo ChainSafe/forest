@@ -16,13 +16,11 @@ jobs:
   check-publish-docs:
     name: Publish
     runs-on: ubuntu-latest
-    steps:
-      - name: Apt Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+    steps:      
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Apt Dependencies
+        run: sudo make install-deps
       - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
@@ -31,8 +29,9 @@ jobs:
           fail: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: 5
-        continue-on-error: true
+        with:
+          timeout-minutes: 5
+          continue-on-error: true
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
       - name: Execute MDBook

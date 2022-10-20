@@ -23,18 +23,17 @@ jobs:
     env:
       RUSTFLAGS: "-D warnings"
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Install Dependencies
+        run: sudo make install-deps
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: Cargo Check
         run: cargo check
       - name: Make Test-All
@@ -44,16 +43,15 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Apt Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Apt Dependencies
+        run: sudo make install-deps
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
       - name: Run Linters
@@ -67,8 +65,9 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: Install Audit
         run: cargo install cargo-audit
       - name: Run Audit
@@ -82,8 +81,9 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: Install udeps
         run: cargo install cargo-udeps --locked
       - name: Run udeps
@@ -97,8 +97,9 @@ jobs:
         uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: Install spellcheck
         run: cargo install cargo-spellcheck
       - name: Run Spellcheck
@@ -110,40 +111,52 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        #rv: [1.58.1, stable, beta, nightly]
-        rv: [nightly]
     steps:
-      - name: Install Dependencies
-        if: startsWith(matrix.os, 'Ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - uses: visvirial/sccache-action@v1
+        if: startsWith(matrix.os, 'Ubuntu')
+        with:
+          arch: x86_64-unknown-linux-musl
+      - uses: visvirial/sccache-action@v1
+        if: startsWith(matrix.os, 'macOS')
+        with:
+          arch: x86_64-apple-darwin
+      - name: Install Linux Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
+        run: |
+          lscpu # the job may run on different CPUs, list cpu here for analysing build time
+          sudo make install-deps
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          # Additional non workspace directories, separated by newlines
+          cache-directories: |
+            ~/.cache/sccache/
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: Cargo Build
         run: cargo build --profile dev
+        env:
+          CC: "/tmp/sccache/sccache clang"
+          CXX: "/tmp/sccache/sccache clang++"
 
   calibnet-check:
     name: Calibnet sync check
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
+      - name: Install Dependencies
+        run: sudo make install-deps
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+        with:
+          timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+          continue-on-error: true
       - name: build and install binaries
         run: make install
       - name: download snapshot
