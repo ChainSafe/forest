@@ -199,7 +199,7 @@ where
     pub fn migrate_state(
         &self,
         epoch: ChainEpoch,
-        _store: Arc<impl Blockstore + Store + Clone + Send + Sync>,
+        _store: Arc<impl Blockstore + Send + Sync>,
     ) -> Result<Option<Cid>, anyhow::Error> {
         match epoch {
             x if x == self.heights.turbo => {
