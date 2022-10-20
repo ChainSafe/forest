@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::BlockHeader;
+use crate::{ArbitraryCid, BlockHeader};
 use cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
@@ -16,14 +16,12 @@ pub struct GossipBlock {
 
 impl quickcheck::Arbitrary for GossipBlock {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let cid = Cid::new_v1(
-            u64::arbitrary(g),
-            cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-        );
+        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
+        let cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
         Self {
             header: BlockHeader::arbitrary(g),
-            bls_messages: vec![cid],
-            secpk_messages: vec![cid],
+            bls_messages: cids.clone(),
+            secpk_messages: cids,
         }
     }
 }
