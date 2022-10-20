@@ -51,7 +51,7 @@ impl<'a, V: PartialEq, BS: Blockstore + Store + Clone> PartialEq for Amt<'a, V, 
 impl<'db, V, BS> Amt<'db, V, BS>
 where
     V: DeserializeOwned + Serialize,
-    BS: Blockstore + Store + Clone,
+    BS: Blockstore + Store,
 {
     /// Constructor for Root AMT node
     pub fn new(block_store: &'db BS) -> Self {

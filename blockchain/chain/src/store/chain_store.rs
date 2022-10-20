@@ -709,7 +709,7 @@ pub fn block_messages<DB>(
     bh: &BlockHeader,
 ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Store,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
@@ -738,7 +738,7 @@ where
 // TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Store,
 {
     if let Some(roots) = db
         .get_obj::<TxMeta>(msg_cid)
@@ -783,7 +783,7 @@ where
 /// Returns a vector of CIDs from provided root CID
 fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Store,
 {
     let amt = Amt::<Cid, _>::load(root, db)?;
 
@@ -800,7 +800,7 @@ where
 /// Returns the genesis block from storage.
 pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Store,
 {
     Ok(db
         .read(GENESIS_KEY)?
@@ -880,7 +880,7 @@ where
 /// Returns messages from key-value store based on a slice of [`Cid`]s.
 pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
     T: DeserializeOwned,
 {
     keys.iter()

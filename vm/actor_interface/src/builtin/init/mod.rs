@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_db::Store;
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
@@ -52,7 +51,7 @@ impl State {
 
     /// Allocates a new ID address and stores a mapping of the argument address to it.
     /// Returns the newly-allocated address.
-    pub fn map_address_to_new_id<BS: Blockstore + Store + Clone>(
+    pub fn map_address_to_new_id<BS: Blockstore>(
         &mut self,
         store: &BS,
         addr: &Address,
@@ -72,7 +71,7 @@ impl State {
     /// Returns an undefined address and `false` if the address was not an ID-address and not found
     /// in the mapping.
     /// Returns an error only if state was inconsistent.
-    pub fn resolve_address<BS: Blockstore + Store + Clone>(
+    pub fn resolve_address<BS: Blockstore>(
         &self,
         store: &BS,
         addr: &Address,
