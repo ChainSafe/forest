@@ -59,6 +59,21 @@ pub(crate) fn compaction_style_from_str(s: &str) -> anyhow::Result<Option<DBComp
 
 /// Converts string to a compression type `RocksDB` variant.
 pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompressionType> {
+    let valid_options = [
+        #[cfg(feature = "bzip2")]
+        "bz2",
+        #[cfg(feature = "lz4")]
+        "lz4",
+        #[cfg(feature = "lz4")]
+        "lz4hc",
+        #[cfg(feature = "snappy")]
+        "snappy",
+        #[cfg(feature = "zlib")]
+        "zlib",
+        #[cfg(feature = "zstd")]
+        "zstd",
+        "none",
+    ];
     match s.to_lowercase().as_str() {
         #[cfg(feature = "bzip2")]
         "bz2" => Ok(DBCompressionType::Bz2),
@@ -73,7 +88,10 @@ pub(crate) fn compression_type_from_str(s: &str) -> anyhow::Result<DBCompression
         #[cfg(feature = "zstd")]
         "zstd" => Ok(DBCompressionType::Zstd),
         "none" => Ok(DBCompressionType::None),
-        _ => Err(anyhow!("invalid compression option")),
+        opt => Err(anyhow!(
+            "invalid compression option: {opt}, valid options: {}",
+            valid_options.join(",")
+        )),
     }
 }
 
