@@ -12,11 +12,10 @@ pub fn setup_logger(log_config: &[LogValue]) {
     logger_builder.filter(None, LevelFilter::Info);
 
     for item in log_config {
-        let level = LevelFilter::from_str(item.level.as_str())
-            .unwrap_or_else(|_| {
-                eprintln!("Could not parse LevelFilter {}", item.level);
-                std::process::exit(1)
-            });
+        let level = LevelFilter::from_str(item.level.as_str()).unwrap_or_else(|_| {
+            eprintln!("Could not parse LevelFilter {}", item.level);
+            std::process::exit(1)
+        });
         logger_builder.filter(Some(item.module.as_str()), level);
     }
 
