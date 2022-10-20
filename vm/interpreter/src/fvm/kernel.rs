@@ -68,11 +68,11 @@ impl<DB: BlockStore> fvm::kernel::ActorOps for ForestKernel<DB> {
         self.0.create_actor(code_id, actor_id)
     }
 
-    fn get_builtin_actor_type(&self, code_cid: &Cid) -> Option<fvm_shared::actor::builtin::Type> {
+    fn get_builtin_actor_type(&self, code_cid: &Cid) -> u32 {
         self.0.get_builtin_actor_type(code_cid)
     }
 
-    fn get_code_cid_for_type(&self, typ: fvm_shared::actor::builtin::Type) -> Result<Cid> {
+    fn get_code_cid_for_type(&self, typ: u32) -> Result<Cid> {
         self.0.get_code_cid_for_type(typ)
     }
 }

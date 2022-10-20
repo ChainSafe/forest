@@ -128,7 +128,7 @@ impl State {
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => TokenAmount::from_atto(st.total_pledge_collateral.clone()),
+            State::V8(st) => st.total_pledge_collateral.clone(),
         }
     }
 }

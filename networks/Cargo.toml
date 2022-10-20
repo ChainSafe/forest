@@ -10,7 +10,6 @@ fil_actors_runtime.workspace = true
 forest_beacon.workspace      = true
 forest_json.workspace        = true
 fvm_shared                   = { workspace = true, default-features = false }
-fvm_shared_v08               = { package = "fvm_shared", version = "0.8" }
 serde                        = { workspace = true, features = ["derive"] }
 serde_json.workspace         = true
 

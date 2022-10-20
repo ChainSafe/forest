@@ -191,7 +191,7 @@ impl Serialize for BlockHeader {
             &self.timestamp,
             &self.signature,
             &self.fork_signal,
-            BigIntSer(&self.parent_base_fee),
+            &self.parent_base_fee,
         )
             .serialize(serializer)
     }
@@ -218,7 +218,7 @@ impl<'de> Deserialize<'de> for BlockHeader {
             timestamp,
             signature,
             fork_signal,
-            BigIntDe(parent_base_fee),
+            parent_base_fee,
         ) = Deserialize::deserialize(deserializer)?;
 
         let header = BlockHeader {
@@ -306,7 +306,7 @@ impl BlockHeader {
             .get_or_init(|| Cid::new_v1(DAG_CBOR, Blake2b256.digest(self.cached_bytes())))
     }
     /// Get `BlockHeader.parent_base_fee`
-    pub fn parent_base_fee(&self) -> &BigInt {
+    pub fn parent_base_fee(&self) -> &TokenAmount {
         &self.parent_base_fee
     }
     /// Get `BlockHeader.fork_signal`
@@ -345,7 +345,7 @@ impl BlockHeader {
             .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
         signature
-            .verify(&self.cid().unwrap().to_bytes(), addr)
+            .verify(&self.cid().to_bytes(), addr)
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
 
         // Set validated cache to true
