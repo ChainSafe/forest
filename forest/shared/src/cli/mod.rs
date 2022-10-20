@@ -97,12 +97,12 @@ pub struct CliOpts {
 }
 
 impl CliOpts {
-    pub fn to_config(&self) -> Result<(Config, Option<Location>), anyhow::Error> {
-        let loc = find_config_location(&self);
-        let mut cfg: Config = match &loc {
-            Some(loc) => {
+    pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
+        let path = find_config_path(self);
+        let mut cfg: Config = match &path {
+            Some(path) => {
                 // Read from config file
-                let toml = read_file_to_string(loc.to_path_buf())?;
+                let toml = read_file_to_string(path.to_path_buf())?;
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
@@ -169,54 +169,54 @@ impl CliOpts {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }
 
-        Ok((cfg, loc))
+        Ok((cfg, path))
     }
 }
 
-pub enum Location {
+pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),
     Project(PathBuf),
 }
 
-impl Location {
-    pub fn to_path_buf(&self) -> &PathBuf {
+impl ConfigPath {
+    fn to_path_buf(&self) -> &PathBuf {
         match self {
-            Location::Cli(path) => path,
-            Location::Env(path) => path,
-            Location::Project(path) => path,
+            ConfigPath::Cli(path) => path,
+            ConfigPath::Env(path) => path,
+            ConfigPath::Project(path) => path,
         }
     }
 }
 
-fn find_config_location(opts: &CliOpts) -> Option<Location> {
+fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
     if let Some(s) = &opts.config {
-        return Some(Location::Cli(PathBuf::from(s)));
+        return Some(ConfigPath::Cli(PathBuf::from(s)));
     }
     if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
-        return Some(Location::Env(PathBuf::from(s)));
+        return Some(ConfigPath::Env(PathBuf::from(s)));
     }
     if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
         let mut path = dir.config_dir().to_path_buf();
         path.push("config.toml");
         if path.exists() {
-            return Some(Location::Project(path));
+            return Some(ConfigPath::Project(path));
         }
     }
     None
 }
 
-fn rec_get_keys(value: toml::Value, keys: &mut HashSet<String>) {
+fn get_keys_flatten(value: toml::Value, keys: &mut HashSet<String>) {
     match value {
         toml::Value::Table(map) => {
             for (k, v) in map.into_iter() {
                 keys.insert(k);
-                rec_get_keys(v, keys);
+                get_keys_flatten(v, keys);
             }
         }
         toml::Value::Array(vec) => {
             for v in vec.into_iter() {
-                rec_get_keys(v, keys);
+                get_keys_flatten(v, keys);
             }
         }
         _ => (),
@@ -228,12 +228,12 @@ pub fn warn_for_unknown_keys(path: Option<String>, config: &Config) {
         let file = read_file_to_string(&PathBuf::from(&path)).unwrap();
         let value = file.parse::<toml::Value>().unwrap();
         let mut keys = HashSet::new();
-        rec_get_keys(value, &mut keys);
+        get_keys_flatten(value, &mut keys);
 
         let config_file = toml::to_string(config).unwrap();
         let config_value = config_file.parse::<toml::Value>().unwrap();
         let mut config_keys = HashSet::new();
-        rec_get_keys(config_value, &mut config_keys);
+        get_keys_flatten(config_value, &mut config_keys);
 
         for k in keys.iter() {
             if !config_keys.contains(k) {

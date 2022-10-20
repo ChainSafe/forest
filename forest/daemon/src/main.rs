@@ -9,7 +9,7 @@ use cli::Cli;
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{cli_error_and_die, warn_for_unknown_keys, DaemonConfig, Location},
+    cli::{cli_error_and_die, warn_for_unknown_keys, ConfigPath, DaemonConfig},
     logger,
 };
 use lazy_static::lazy_static;
@@ -98,15 +98,15 @@ fn main() {
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
-        Ok((cfg, loc)) => {
+        Ok((cfg, path)) => {
             logger::setup_logger(&cfg.log);
-            match loc {
-                Some(loc) => match loc {
-                    Location::Env(path) => {
-                        info!("FOREST_CONFIG_PATH is set, loading {}", path.display())
+            match path {
+                Some(path) => match path {
+                    ConfigPath::Env(path) => {
+                        info!("FOREST_CONFIG_PATH loaded: {}", path.display())
                     }
-                    Location::Project(path) => {
-                        info!("Found project config, loading {}", path.display())
+                    ConfigPath::Project(path) => {
+                        info!("Project config loaded: {}", path.display())
                     }
                     _ => (),
                 },
