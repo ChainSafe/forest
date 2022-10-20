@@ -17,7 +17,6 @@ forest_chain.workspace           = true
 forest_chain_sync.workspace      = true
 forest_crypto                    = { workspace = true, features = ["blst"] }
 forest_db.workspace              = true
-forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_interpreter.workspace     = true
 forest_key_management.workspace  = true

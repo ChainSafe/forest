@@ -3106,7 +3106,6 @@ dependencies = [
  "forest_chain_sync",
  "forest_crypto",
  "forest_db",
- "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
  "forest_key_management",
@@ -3613,8 +3612,6 @@ version = "0.2.0"
 dependencies = [
  "cid",
  "crossbeam-channel",
- "forest_db",
- "forest_encoding",
  "fvm",
  "fvm_ipld_blockstore",
  "fvm_shared",
