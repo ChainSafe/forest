@@ -8,11 +8,11 @@ use cli::Cli;
 
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
-use fdlimit::raise_fd_limit;
 use forest_cli_shared::{
-    cli::{cli_error_and_die, DaemonConfig},
+    cli::{cli_error_and_die, Config, DaemonConfig},
     logger,
 };
+use forest_utils::os::fd_limit;
 use lazy_static::lazy_static;
 use log::{info, warn};
 use raw_sync::events::{Event, EventInit};
@@ -94,10 +94,18 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 }
 
 // Protect user from low FD for its own good
-fn protect_from_low_fd() {
-    if let Some(curr) = raise_fd_limit() {
-        info!("Open-file limit raised to {curr}");
+fn protect_from_low_fd(config: &Config) -> Result<(), anyhow::Error> {
+    const ADDITIONAL_FDS: u64 = 16;
+    // Try to find an estimate of how many FD we will need, and raise the process limit if necessary
+    let estimated = config.rocks_db.max_open_files as u64
+        + config.network.target_peer_count as u64
+        + ADDITIONAL_FDS;
+    let curr = fd_limit(None)?;
+    if curr < estimated {
+        let new_curr = fd_limit(Some(estimated))?;
+        warn!("Open-file limit was low. Raised it to {new_curr}");
     }
+    Ok(())
 }
 
 fn main() {
@@ -113,7 +121,9 @@ fn main() {
                     warn!("All subcommands have been moved to forest-cli tool");
                 }
                 None => {
-                    protect_from_low_fd();
+                    if let Err(e) = protect_from_low_fd(&cfg) {
+                        cli_error_and_die(format!("Error was: {e}"), 1);
+                    }
                     if opts.detach {
                         create_ipc_lock();
                         info!(

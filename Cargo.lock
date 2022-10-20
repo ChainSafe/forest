@@ -2709,7 +2709,6 @@ dependencies = [
  "ctrlc",
  "daemonize-me",
  "directories",
- "fdlimit",
  "fil_actor_miner",
  "flume 0.10.14",
  "forest_actor_interface",

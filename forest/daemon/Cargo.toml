@@ -19,7 +19,6 @@ cid                              = { workspace = true, default-features = false,
 ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
 directories.workspace            = true
-fdlimit                          = "0.2"
 fil_actor_miner_v8.workspace     = true
 flume.workspace                  = true
 forest_actor_interface.workspace = true
