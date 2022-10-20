@@ -709,7 +709,7 @@ pub fn block_messages<DB>(
     bh: &BlockHeader,
 ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
@@ -726,7 +726,7 @@ pub fn block_messages_from_cids<DB>(
     secp_cids: &[Cid],
 ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
 {
     let bls_msgs: Vec<Message> = messages_from_cids(db, bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
@@ -738,7 +738,7 @@ where
 // TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore,
 {
     if let Some(roots) = db
         .get_obj::<TxMeta>(msg_cid)
@@ -760,7 +760,7 @@ where
 /// after the `ChainStore` has been created.
 pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Store,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
     db.put_obj(&header, Blake2b256)
@@ -770,7 +770,7 @@ where
 /// Persists slice of `serializable` objects to `blockstore`.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
     C: Serialize,
 {
     for chunk in headers.chunks(256) {
@@ -783,7 +783,7 @@ where
 /// Returns a vector of CIDs from provided root CID
 fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore,
 {
     let amt = Amt::<Cid, _>::load(root, db)?;
 
@@ -812,7 +812,7 @@ where
 /// [`ChainMessage`].
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
 {
     db.get_obj(key)
         .map_err(|e| Error::Other(e.to_string()))?
@@ -822,7 +822,7 @@ where
 /// Given a tipset this function will return all unique messages in that tipset.
 pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, BigInt> = HashMap::new();
@@ -899,7 +899,7 @@ pub fn get_parent_reciept<DB>(
     i: usize,
 ) -> Result<Option<MessageReceipt>, Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
     let receipts = amt.get(i)?;

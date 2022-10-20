@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::Tipset;
-use forest_db::Store;
 use forest_message::Message;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -73,7 +72,7 @@ pub fn compute_base_fee<DB>(
     smoke_height: ChainEpoch,
 ) -> Result<BigInt, crate::Error>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore,
 {
     let mut total_limit = 0;
     let mut seen = HashSet::new();
