@@ -14,6 +14,7 @@ cid = { workspace = true, default-features = false, features = ["std"] }
 fnv = "1.0"
 forest_blocks.workspace = true
 forest_chain.workspace = true
+forest_db.workspace = true
 forest_encoding.workspace = true
 forest_message.workspace = true
 forest_networks.workspace = true

@@ -7,7 +7,6 @@ use forest_actor_interface::{
 };
 use forest_chain::*;
 use forest_db::Store;
-use forest_interpreter::CircSupplyCalc;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
@@ -66,7 +65,7 @@ impl GenesisInfo {
     }
 
     // Allows generation of the current circulating supply
-    pub fn get_circulating_supply<DB: BlockStore>(
+    pub fn get_circulating_supply<DB: Blockstore + Store + Clone>(
         &self,
         height: ChainEpoch,
         state_tree: &StateTree<DB>,
@@ -108,7 +107,7 @@ impl GenesisInfoVesting {
     }
 }
 
-fn get_actor_state<DB: BlockStore>(
+fn get_actor_state<DB: Blockstore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
