@@ -38,17 +38,6 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-/// Allows generation of the current circulating supply
-/// given some context.
-pub trait CircSupplyCalc: Clone + 'static {
-    /// Retrieves total circulating supply on the network.
-    fn get_supply<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error>;
-}
-
 /// Allows the generation of a reward message based on gas fees and penalties.
 ///
 /// This should facilitate custom consensus protocols using their own economic incentives.
@@ -114,10 +103,10 @@ where
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: CircSupplyCalc,
+        C: FnOnce(ChainEpoch, &StateTree<&DB>) -> Result<TokenAmount, anyhow::Error>,
     {
         let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc.get_supply(epoch, &state)?;
+        let circ_supply = circ_supply_calc(epoch, &state)?;
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
