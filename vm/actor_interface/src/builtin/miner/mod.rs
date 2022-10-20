@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_db::Store;
 use forest_fil_types::deadlines::DeadlineInfo;
 use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
@@ -231,7 +230,7 @@ impl Deadline {
         }
     }
 
-    pub fn disputable_proof_count<BS: Blockstore + Store + Clone>(
+    pub fn disputable_proof_count<BS: Blockstore>(
         &self,
         store: &BS,
     ) -> anyhow::Result<usize> {

@@ -4,7 +4,6 @@
 use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
-use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_libp2p::{
     chain_exchange::{
@@ -53,7 +52,7 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
 
 impl<DB> SyncNetworkContext<DB>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
 {
     pub fn new(
         network_send: flume::Sender<NetworkMessage>,

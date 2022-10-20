@@ -4,7 +4,6 @@
 use crate::FilterEstimate;
 use cid::Cid;
 use fil_actors_runtime_v8::runtime::Policy;
-use forest_db::Store;
 use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
@@ -92,7 +91,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn miner_power<BS: Blockstore + Store + Clone>(
+    pub fn miner_power<BS: Blockstore>(
         &self,
         s: &BS,
         miner: &Address,
@@ -103,7 +102,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: Blockstore + Store + Clone>(
+    pub fn list_all_miners<BS: Blockstore>(
         &self,
         _s: &BS,
     ) -> anyhow::Result<Vec<Address>> {
@@ -111,7 +110,7 @@ impl State {
     }
 
     /// Checks power actor state for if miner meets minimum consensus power.
-    pub fn miner_nominal_power_meets_consensus_minimum<BS: Blockstore + Store + Clone>(
+    pub fn miner_nominal_power_meets_consensus_minimum<BS: Blockstore>(
         &self,
         policy: &Policy,
         s: &BS,

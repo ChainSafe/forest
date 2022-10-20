@@ -10,7 +10,6 @@ mod resolve;
 use cid::Cid;
 use colored::*;
 use difference::{Changeset, Difference};
-use forest_db::Store;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
@@ -297,7 +296,7 @@ struct ActorStateResolved {
 }
 
 fn actor_to_resolved(
-    bs: &(impl Blockstore + Store + Clone),
+    bs: &impl Blockstore,
     actor: &ActorState,
     depth: Option<u64>,
 ) -> ActorStateResolved {
@@ -311,7 +310,7 @@ fn actor_to_resolved(
     }
 }
 
-fn root_to_state_map<BS: Blockstore + Store + Clone>(
+fn root_to_state_map<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
 ) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
@@ -329,7 +328,7 @@ fn root_to_state_map<BS: Blockstore + Store + Clone>(
 /// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
 /// This function will only print the actors that are added, removed, or changed so it
 /// can be used on large state trees.
-fn try_print_actor_states<BS: Blockstore + Store + Clone>(
+fn try_print_actor_states<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
     expected_root: &Cid,
@@ -375,7 +374,7 @@ fn try_print_actor_states<BS: Blockstore + Store + Clone>(
 }
 
 fn pp_actor_state(
-    bs: &(impl Blockstore + Store + Clone),
+    bs: &impl Blockstore,
     state: &ActorState,
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
@@ -438,7 +437,7 @@ fn print_diffs(handle: &mut impl Write, diffs: &[Difference]) -> std::io::Result
     Ok(())
 }
 
-pub fn print_actor_diff<BS: Blockstore + Store + Clone>(
+pub fn print_actor_diff<BS: Blockstore>(
     bs: &BS,
     expected: &ActorState,
     actual: &ActorState,
@@ -463,7 +462,7 @@ pub fn print_state_diff<BS>(
     depth: Option<u64>,
 ) -> Result<(), anyhow::Error>
 where
-    BS: Blockstore + Store + Clone,
+    BS: Blockstore,
 {
     eprintln!(
         "StateDiff:\n  Expected: {}\n  Root: {}",
