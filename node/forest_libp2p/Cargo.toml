@@ -14,7 +14,6 @@ cid = { workspace = true, default-features = false, features = ["std"] }
 fnv = "1.0"
 forest_blocks.workspace = true
 forest_chain.workspace = true
-forest_db.workspace = true
 forest_encoding.workspace = true
 forest_ipld_blockstore.workspace = true
 forest_message.workspace = true
@@ -51,7 +50,8 @@ tiny-cid        = "0.2"
 tokio           = { workspace = true, features = ["sync", "time"] }
 
 [dev-dependencies]
-async-std      = { workspace = true, features = ["attributes", "unstable"] }
-forest_crypto  = { workspace = true, features = ["blst"] }
-forest_genesis = { workspace = true, features = ["testing"] }
-tokio-util     = { version = "0.7.0", features = ["compat"] }
+async-std           = { workspace = true, features = ["attributes", "unstable"] }
+forest_crypto       = { workspace = true, features = ["blst"] }
+forest_db.workspace = true
+forest_genesis      = { workspace = true, features = ["testing"] }
+tokio-util          = { version = "0.7.0", features = ["compat"] }
