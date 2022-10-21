@@ -27,8 +27,10 @@ pub type Method = fil_actor_miner_v8::Method;
 
 pub fn is_v8_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacedmllri5tg4jqllwkhzng3xf3w2sre6nbwwfzf5mj4qsdizl4ad5s").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
         // devnet
