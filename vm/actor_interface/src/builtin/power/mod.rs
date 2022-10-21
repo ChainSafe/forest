@@ -25,8 +25,10 @@ pub type Method = fil_actor_power_v8::Method;
 
 pub fn is_v8_power_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacecl26ak5vas4ilrnbjvghpikilyviwobmbspbarqcivq72j7g6wee").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
         // devnet

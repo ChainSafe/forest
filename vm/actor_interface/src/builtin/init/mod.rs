@@ -17,8 +17,10 @@ pub type Method = fil_actor_init_v8::Method;
 
 pub fn is_v8_init_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacecs2ohkgluvxxxzmbqq5oynudtzqoypmhckylct2i5b2uw6nyu2wa").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap(),
         // devnet
