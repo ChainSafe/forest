@@ -197,8 +197,7 @@ fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
         return Some(ConfigPath::Env(PathBuf::from(s)));
     }
     if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
-        let mut path = dir.config_dir().to_path_buf();
-        path.push("config.toml");
+        let path = dir.config_dir().join("config.toml");
         if path.exists() {
             return Some(ConfigPath::Project(path));
         }
