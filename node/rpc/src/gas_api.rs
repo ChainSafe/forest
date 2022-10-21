@@ -8,13 +8,14 @@ use rand_distr::{Distribution, Normal};
 use forest_beacon::Beacon;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_json::address::json::AddressJson;
 use forest_message::{message::json::MessageJson, ChainMessage};
 use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::message::Message;
 use fvm_shared::BLOCK_GAS_LIMIT;
@@ -27,7 +28,7 @@ pub(crate) async fn gas_estimate_fee_cap<DB, B>(
     Params(params): Params<GasEstimateFeeCapParams>,
 ) -> Result<GasEstimateFeeCapResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
@@ -44,7 +45,7 @@ async fn estimate_fee_cap<DB, B>(
     _tsk: TipsetKeys,
 ) -> Result<BigInt, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let ts = data
@@ -72,7 +73,7 @@ pub(crate) async fn gas_estimate_gas_premium<DB, B>(
     Params(params): Params<GasEstimateGasPremiumParams>,
 ) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
@@ -86,7 +87,7 @@ async fn estimate_gas_premium<DB, B>(
     mut nblocksincl: u64,
 ) -> Result<BigInt, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     if nblocksincl == 0 {
@@ -180,7 +181,7 @@ pub(crate) async fn gas_estimate_gas_limit<DB, B>(
     Params(params): Params<GasEstimateGasLimitParams>,
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
@@ -193,7 +194,7 @@ async fn estimate_gas_limit<DB, B>(
     _: TipsetKeys,
 ) -> Result<i64, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let mut msg = msg;
@@ -244,7 +245,7 @@ pub(crate) async fn gas_estimate_message_gas<DB, B>(
     Params(params): Params<GasEstimateMessageGasParams>,
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
@@ -260,7 +261,7 @@ pub(crate) async fn estimate_message_gas<DB, B>(
     tsk: TipsetKeys,
 ) -> Result<Message, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let mut msg = msg;

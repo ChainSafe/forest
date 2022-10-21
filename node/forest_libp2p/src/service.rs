@@ -13,12 +13,14 @@ use async_std::{stream, task};
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_db::Store;
 use forest_message::SignedMessage;
+use forest_utils::db::BlockstoreExt;
 use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
@@ -132,7 +134,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
 {
     pub async fn new(
         config: Libp2pConfig,
