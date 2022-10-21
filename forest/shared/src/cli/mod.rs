@@ -14,7 +14,7 @@ use log::{error, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use structopt::StructOpt;
 
@@ -222,7 +222,7 @@ fn get_keys_flatten(value: toml::Value, keys: &mut HashSet<String>) {
     }
 }
 
-pub fn warn_for_unknown_keys(path: &PathBuf, config: &Config) {
+pub fn warn_for_unknown_keys(path: &Path, config: &Config) {
     // `config` has been loaded successfully from toml file in `path` so we can always serialize
     // it back to a valid TOML value or get the TOML value from `path`
     let file = read_file_to_string(path).unwrap();
