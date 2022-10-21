@@ -93,16 +93,15 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     Ok(daemon)
 }
 
-// Protect user from low FD for its own good
 fn protect_from_low_fd(config: &Config) -> Result<(), anyhow::Error> {
+    // Estimate of how many FD we will need and raise the process limit if necessary
     const ADDITIONAL_FDS: u64 = 16;
-    // Try to find an estimate of how many FD we will need, and raise the process limit if necessary
-    let estimated = config.rocks_db.max_open_files as u64
+    let estimate = config.rocks_db.max_open_files as u64
         + config.network.target_peer_count as u64
         + ADDITIONAL_FDS;
     let curr = fd_limit(None)?;
-    if curr < estimated {
-        let new_curr = fd_limit(Some(estimated))?;
+    if curr < estimate {
+        let new_curr = fd_limit(Some(estimate))?;
         warn!("Open-file limit was low. Raised it to {new_curr}");
     }
     Ok(())
@@ -122,7 +121,7 @@ fn main() {
                 }
                 None => {
                     if let Err(e) = protect_from_low_fd(&cfg) {
-                        cli_error_and_die(format!("Error was: {e}"), 1);
+                        cli_error_and_die(format!("Error protecting from low fd: {e}"), 1);
                     }
                     if opts.detach {
                         create_ipc_lock();

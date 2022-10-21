@@ -12,26 +12,22 @@ fn check_err<T: Ord + Default>(code: T) -> Result<T, anyhow::Error> {
     Ok(code)
 }
 
-fn getrlimit(resource: libc::c_int, rlim: &mut libc::rlimit) -> Result<libc::c_int, anyhow::Error> {
-    unsafe { check_err(libc::getrlimit(resource, rlim)) }
-}
-
-fn setrlimit(resource: libc::c_int, rlim: &libc::rlimit) -> Result<libc::c_int, anyhow::Error> {
-    unsafe { check_err(libc::setrlimit(resource, rlim)) }
-}
-
 /// Fetch the current resource limits or raise it to a new value if `raise_limit` is not `None`
 pub fn fd_limit(raise_limit: Option<u64>) -> Result<u64, anyhow::Error> {
     let mut rlim = libc::rlimit {
         rlim_cur: 0,
         rlim_max: 0,
     };
-    getrlimit(libc::RLIMIT_NOFILE, &mut rlim)?;
+    unsafe {
+        check_err(libc::getrlimit(libc::RLIMIT_NOFILE, &mut rlim))?;
+    }
     match raise_limit {
         None => Ok(rlim.rlim_cur),
         Some(limit) => {
             rlim.rlim_cur = limit;
-            setrlimit(libc::RLIMIT_NOFILE, &rlim)?;
+            unsafe {
+                check_err(libc::setrlimit(libc::RLIMIT_NOFILE, &rlim))?;
+            }
             Ok(limit)
         }
     }
