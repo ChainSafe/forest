@@ -55,7 +55,7 @@ sha2                             = { workspace = true, default-features = false 
 tide                             = "0.16"
 tide-websockets                  = "0.4"
 tokio                            = { workspace = true, features = ["sync"] }
-tokio-util                       = { version = "0.7.0", features = ["compat"] }
+tokio-util                       = { workspace = true, features = ["compat"] }
 
 [dependencies.jsonrpc-v2]
 default-features = false

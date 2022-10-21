@@ -17,7 +17,7 @@ pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }
 thiserror.workspace        = true
 tokio                      = { workspace = true, features = ["fs"] }
-tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
+tokio-util                 = { workspace = true, features = ["compat", "io-util"] }
 toml                       = "0.5"
 url.workspace              = true
 
