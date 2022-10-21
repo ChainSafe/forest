@@ -3,9 +3,9 @@
 
 use crate::FilterEstimate;
 use cid::Cid;
-use forest_ipld_blockstore::BlockStore;
-use forest_ipld_blockstore::BlockStoreExt;
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::StoragePower;
@@ -43,7 +43,7 @@ pub enum State {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_reward_cid(&actor.code) {
             return store

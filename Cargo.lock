@@ -663,9 +663,9 @@ checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "base64"
-version = "0.13.0"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64ct"
@@ -1364,7 +1364,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03a5d7b21829bc7b4bf4754a978a241ae54ea55a40f92bb20216e54096f4b951"
 dependencies = [
  "aes-gcm 0.8.0",
- "base64 0.13.0",
+ "base64 0.13.1",
  "hkdf",
  "hmac 0.10.1",
  "percent-encoding",
@@ -2489,7 +2489,7 @@ version = "9.0.0"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.13.1",
  "blake2b_simd 1.0.0",
  "byteorder",
  "cid",
@@ -2653,7 +2653,7 @@ dependencies = [
  "assert_cmd",
  "async-log",
  "async-std",
- "base64 0.13.0",
+ "base64 0.13.1",
  "byte-unit",
  "chrono",
  "cid",
@@ -2670,7 +2670,6 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
@@ -2731,7 +2730,7 @@ dependencies = [
  "assert_cmd",
  "async-log",
  "async-std",
- "base64 0.13.0",
+ "base64 0.13.1",
  "chrono",
  "cid",
  "ctrlc",
@@ -2754,7 +2753,6 @@ dependencies = [
  "forest_fil_types",
  "forest_genesis",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
@@ -2820,9 +2818,9 @@ dependencies = [
  "fil_actor_reward_state_v8",
  "fil_actor_system_state_v8",
  "fil_actors_runtime_common",
+ "forest_db",
  "forest_encoding",
  "forest_fil_types",
- "forest_ipld_blockstore",
  "forest_json",
  "forest_utils",
  "fvm",
@@ -2858,7 +2856,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "async-trait",
- "base64 0.13.0",
+ "base64 0.13.1",
  "bls-signatures",
  "byteorder",
  "forest_encoding",
@@ -2877,7 +2875,7 @@ name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
  "async-std",
- "base64 0.13.0",
+ "base64 0.13.1",
  "byteorder",
  "cid",
  "derive_builder",
@@ -2924,7 +2922,6 @@ dependencies = [
  "forest_fil_types",
  "forest_interpreter",
  "forest_ipld",
- "forest_ipld_blockstore",
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
@@ -2932,6 +2929,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -2954,7 +2952,7 @@ dependencies = [
  "anyhow",
  "async-std",
  "async-trait",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cid",
  "flume",
  "forest_actor_interface",
@@ -2968,7 +2966,6 @@ dependencies = [
  "forest_genesis",
  "forest_interpreter",
  "forest_ipld",
- "forest_ipld_blockstore",
  "forest_legacy_ipld_amt",
  "forest_libp2p",
  "forest_message",
@@ -2981,6 +2978,7 @@ dependencies = [
  "futures",
  "futures-util",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -3013,7 +3011,7 @@ dependencies = [
  "assert_cmd",
  "async-log",
  "async-std",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cid",
  "directories",
  "fil_actor_miner_state_v8",
@@ -3028,7 +3026,6 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
@@ -3077,7 +3074,7 @@ name = "forest_crypto"
 version = "0.6.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.13.1",
  "bls-signatures",
  "forest_encoding",
  "fvm_ipld_encoding 0.2.2",
@@ -3120,14 +3117,16 @@ dependencies = [
  "forest_blocks",
  "forest_chain",
  "forest_chain_sync",
+ "forest_db",
  "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_key_management",
  "forest_networks",
  "forest_state_manager",
+ "forest_utils",
  "futures",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
@@ -3163,15 +3162,16 @@ dependencies = [
  "forest_chain",
  "forest_chain_sync",
  "forest_crypto",
- "forest_encoding",
+ "forest_db",
  "forest_fil_types",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_key_management",
  "forest_networks",
  "forest_state_manager",
+ "forest_utils",
  "futures",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
@@ -3186,7 +3186,7 @@ name = "forest_fil_types"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cid",
  "filecoin-proofs-api",
  "forest_json",
@@ -3213,13 +3213,14 @@ dependencies = [
  "cid",
  "forest_blocks",
  "forest_chain",
+ "forest_db",
  "forest_encoding",
  "forest_fil_types",
- "forest_ipld_blockstore",
  "forest_networks",
  "forest_state_manager",
  "forest_utils",
  "futures",
+ "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "log",
  "tokio",
@@ -3250,11 +3251,12 @@ dependencies = [
  "forest_actor_interface",
  "forest_blocks",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_fil_types",
- "forest_ipld_blockstore",
  "forest_message",
  "forest_networks",
+ "forest_utils",
  "fvm",
  "fvm_ipld_amt",
  "fvm_ipld_blockstore",
@@ -3280,8 +3282,8 @@ dependencies = [
  "cid",
  "forest_db",
  "forest_encoding",
- "forest_ipld_blockstore",
  "forest_json",
+ "forest_utils",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "indexmap",
@@ -3298,24 +3300,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "forest_ipld_blockstore"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "cid",
- "forest_db",
- "forest_encoding",
- "forest_ipld",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
-]
-
-[[package]]
 name = "forest_json"
 version = "0.2.0"
 dependencies = [
  "arbitrary",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cid",
  "cs_serde_bytes",
  "data-encoding",
@@ -3339,7 +3328,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "argon2",
- "base64 0.13.0",
+ "base64 0.13.1",
  "bls-signatures",
  "forest_crypto",
  "forest_encoding",
@@ -3368,7 +3357,8 @@ dependencies = [
  "cid",
  "forest_db",
  "forest_encoding",
- "forest_ipld_blockstore",
+ "forest_utils",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "itertools 0.10.5",
  "once_cell",
@@ -3394,12 +3384,12 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_genesis",
- "forest_ipld_blockstore",
  "forest_message",
  "forest_networks",
  "forest_utils",
  "futures",
  "futures-util",
+ "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -3420,7 +3410,7 @@ name = "forest_message"
 version = "0.8.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cid",
  "forest_crypto",
  "forest_encoding",
@@ -3453,7 +3443,6 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_key_management",
  "forest_libp2p",
  "forest_message",
@@ -3462,6 +3451,7 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "libsecp256k1",
@@ -3527,7 +3517,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
- "base64 0.13.0",
+ "base64 0.13.1",
  "bls-signatures",
  "cid",
  "crossbeam",
@@ -3545,7 +3535,6 @@ dependencies = [
  "forest_fil_types",
  "forest_interpreter",
  "forest_ipld",
- "forest_ipld_blockstore",
  "forest_json",
  "forest_key_management",
  "forest_legacy_ipld_amt",
@@ -3560,6 +3549,7 @@ dependencies = [
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
@@ -3594,17 +3584,19 @@ dependencies = [
  "forest_chain",
  "forest_chain_sync",
  "forest_crypto",
+ "forest_db",
  "forest_fil_types",
  "forest_ipld",
- "forest_ipld_blockstore",
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
  "forest_message",
  "forest_message_pool",
  "forest_state_manager",
+ "forest_utils",
  "fvm",
  "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
  "fvm_shared",
  "jsonrpc-v2",
  "libp2p",
@@ -3656,14 +3648,15 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
- "forest_ipld_blockstore",
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
  "forest_statediff",
+ "forest_utils",
  "futures",
  "fvm",
  "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "log",
@@ -3679,9 +3672,8 @@ version = "0.2.0"
 dependencies = [
  "cid",
  "crossbeam-channel",
- "forest_encoding",
- "forest_ipld_blockstore",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_shared",
  "log",
  "num_cpus",
@@ -3702,10 +3694,11 @@ dependencies = [
  "directories",
  "forest_db",
  "forest_ipld",
- "forest_ipld_blockstore",
  "forest_json",
+ "forest_utils",
  "fvm",
  "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "libipld-core 0.14.0",
@@ -3719,7 +3712,7 @@ name = "forest_test_utils"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cid",
  "forest_blocks",
  "forest_chain",
@@ -3736,8 +3729,13 @@ name = "forest_utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cid",
  "const_format",
  "digest 0.10.5",
+ "forest_encoding",
+ "forest_ipld",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
  "isahc",
  "libc",
  "log",
@@ -4449,7 +4447,7 @@ dependencies = [
  "anyhow",
  "async-channel",
  "async-std",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cookie",
  "futures-lite",
  "infer",
@@ -4778,7 +4776,7 @@ version = "8.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa4b4af834c6cfd35d8763d359661b90f2e45d8f750a0849156c7f4671af09c"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.13.1",
  "pem",
  "ring",
  "serde",
@@ -5123,7 +5121,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74b4b888cfbeb1f5551acd3aa1366e01bf88ede26cc3c4645d0d2d004d5ca7b0"
 dependencies = [
  "asynchronous-codec",
- "base64 0.13.0",
+ "base64 0.13.1",
  "byteorder",
  "bytes 1.2.1",
  "fnv",
@@ -5511,7 +5509,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95b09eff1b35ed3b33b877ced3a691fc7a481919c7e29c53c906226fcf55e2a1"
 dependencies = [
  "arrayref",
- "base64 0.13.0",
+ "base64 0.13.1",
  "digest 0.9.0",
  "hmac-drbg",
  "libsecp256k1-core",
@@ -6447,7 +6445,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03c64931a1a212348ec4f3b4362585eca7159d0d09cbdf4a7f74f02173596fd4"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.13.1",
 ]
 
 [[package]]
@@ -7178,7 +7176,7 @@ version = "0.11.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "431949c384f4e2ae07605ccaa56d1d9d2ecdb5cadd4f9577ccfab29f2e5149fc"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.13.1",
  "bytes 1.2.1",
  "encoding_rs",
  "futures-core",
@@ -7347,7 +7345,7 @@ dependencies = [
  "async-trait",
  "aws-creds",
  "aws-region",
- "base64 0.13.0",
+ "base64 0.13.1",
  "cfg-if 1.0.0",
  "hex",
  "hmac 0.12.1",
@@ -7713,7 +7711,7 @@ dependencies = [
 name = "serialization_tests"
 version = "0.1.0"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.13.1",
  "bls-signatures",
  "cid",
  "forest_blocks",
@@ -7999,7 +7997,7 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41d1c5305e39e09653383c2c7244f2f78b3bcae37cf50c64cb4789c9f5096ec2"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.13.1",
  "bytes 1.2.1",
  "flate2",
  "futures",
@@ -8499,7 +8497,7 @@ dependencies = [
  "async-dup",
  "async-std",
  "async-tungstenite",
- "base64 0.13.0",
+ "base64 0.13.1",
  "futures-util",
  "pin-project",
  "serde",
@@ -8821,7 +8819,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fe8dada8c1a3aeca77d6b51a4f1314e0f4b8e438b7b1b71e3ddaca8080e4093"
 dependencies = [
- "base64 0.13.0",
+ "base64 0.13.1",
  "byteorder",
  "bytes 1.2.1",
  "http",

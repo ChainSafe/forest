@@ -22,9 +22,9 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
     Tipset,
 };
+use forest_db::Store;
 use forest_fil_types::verifier::{FullVerifier, ProofVerifier};
 use forest_ipld::json::IpldJson;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
@@ -37,7 +37,9 @@ use forest_rpc_api::{
     state_api::*,
 };
 use forest_state_manager::{InvocResult, StateManager};
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::StateTree;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::PoStProof;
 use fvm_shared::{address::Address, bigint::BigInt};
@@ -49,7 +51,7 @@ use libipld_core::ipld::Ipld;
 /// If the `filterOut` boolean is set to true, any sectors in the filter are excluded.
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sectors<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -71,7 +73,7 @@ pub(crate) async fn state_miner_sectors<
 
 /// runs the given message and returns its result without any persisted changes.
 pub(crate) async fn state_call<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -90,7 +92,7 @@ pub(crate) async fn state_call<
 
 /// returns all the proving deadlines for the given miner
 pub(crate) async fn state_miner_deadlines<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -124,7 +126,7 @@ pub(crate) async fn state_miner_deadlines<
 
 /// returns the `PreCommit` info for the specified miner's sector
 pub(crate) async fn state_sector_precommit_info<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -145,7 +147,7 @@ pub(crate) async fn state_sector_precommit_info<
 
 /// `StateMinerInfo` returns info about the indicated miner
 pub async fn state_miner_info<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -173,7 +175,7 @@ pub async fn state_miner_info<
 
 /// returns the on-chain info for the specified miner's sector
 pub async fn state_sector_info<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -196,7 +198,7 @@ pub async fn state_sector_info<
 /// calculates the deadline at some epoch for a proving period
 /// and returns the deadline-related calculations.
 pub(crate) async fn state_miner_proving_deadline<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -221,7 +223,7 @@ pub(crate) async fn state_miner_proving_deadline<
 
 /// returns a single non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_miner_faults<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -243,7 +245,7 @@ pub(crate) async fn state_miner_faults<
 
 /// returns all non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_all_miner_faults<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     _data: Data<RPCState<DB, B>>,
@@ -279,7 +281,7 @@ pub(crate) async fn state_all_miner_faults<
 
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -301,7 +303,7 @@ pub(crate) async fn state_miner_recoveries<
 
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_partitions<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -334,7 +336,7 @@ pub(crate) async fn state_miner_partitions<
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
 pub(crate) async fn state_replay<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -359,7 +361,7 @@ pub(crate) async fn state_replay<
 
 /// gets network name from state manager
 pub(crate) async fn state_network_name<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -377,7 +379,7 @@ pub(crate) async fn state_network_name<
 }
 
 pub(crate) async fn state_get_network_version<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -390,7 +392,7 @@ pub(crate) async fn state_get_network_version<
 
 /// returns the indicated actor's nonce and balance.
 pub(crate) async fn state_get_actor<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -410,7 +412,7 @@ pub(crate) async fn state_get_actor<
 
 /// returns addresses of all actors on the network by tipset
 pub(crate) async fn state_list_actors<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -436,7 +438,7 @@ pub(crate) async fn state_list_actors<
 
 /// returns the public key address of the given ID address
 pub(crate) async fn state_account_key<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -457,7 +459,7 @@ pub(crate) async fn state_account_key<
 }
 /// retrieves the ID address of the given address
 pub(crate) async fn state_lookup_id<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -482,7 +484,7 @@ pub(crate) async fn state_lookup_id<
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
 pub(crate) async fn state_market_balance<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -501,7 +503,7 @@ pub(crate) async fn state_market_balance<
 }
 
 pub(crate) async fn state_market_deals<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -539,7 +541,7 @@ pub(crate) async fn state_market_deals<
 
 /// returns the message receipt for the given message
 pub(crate) async fn state_get_receipt<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -562,7 +564,7 @@ pub(crate) async fn state_get_receipt<
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
 pub(crate) async fn state_wait_msg<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -589,7 +591,7 @@ pub(crate) async fn state_wait_msg<
 }
 
 pub(crate) async fn miner_create_block<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     S: Scale,
 >(
@@ -663,7 +665,7 @@ pub(crate) async fn miner_create_block<
 }
 
 pub(crate) async fn state_miner_sector_allocated<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -725,7 +727,7 @@ pub(crate) async fn state_miner_sector_allocated<
 }
 
 pub(crate) async fn state_miner_power<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -763,7 +765,7 @@ pub(crate) async fn state_miner_power<
 }
 
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -806,7 +808,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
 }
 
 pub(crate) async fn state_miner_initial_pledge_collateral<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -856,7 +858,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 
 /// returns the indicated actor's nonce and balance.
 pub(crate) async fn miner_get_base_info<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
 >(
@@ -879,7 +881,7 @@ async fn state_for_ts<DB>(
     ts: Arc<Tipset>,
 ) -> Result<StateTree<&DB>, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let block_store = state_manager.blockstore();
     let (st, _) = state_manager.tipset_state(&ts).await?;

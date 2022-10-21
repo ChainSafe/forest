@@ -6,9 +6,11 @@ use crate::bad_block_cache::BadBlockCache;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_chain::ChainStore;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_db::Store;
 use forest_legacy_ipld_amt::{Amt, Error as IpldAmtError};
 use forest_message::SignedMessage;
+use forest_utils::db::BlockstoreExt;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
 use fvm_shared::message::Message;
 
@@ -54,7 +56,7 @@ impl From<IpldAmtError> for Box<TipsetValidationError> {
 pub struct TipsetValidator<'a>(pub &'a FullTipset);
 
 impl<'a> TipsetValidator<'a> {
-    pub async fn validate<DB: BlockStore + Send + Sync + 'static>(
+    pub async fn validate<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
         &self,
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
@@ -103,7 +105,7 @@ impl<'a> TipsetValidator<'a> {
         }
     }
 
-    pub fn validate_msg_root<DB: BlockStore>(
+    pub fn validate_msg_root<DB: Blockstore>(
         &self,
         blockstore: &DB,
         block: &Block,
@@ -116,7 +118,7 @@ impl<'a> TipsetValidator<'a> {
         }
     }
 
-    pub fn compute_msg_root<DB: BlockStore>(
+    pub fn compute_msg_root<DB: Blockstore>(
         blockstore: &DB,
         bls_msgs: &[Message],
         secp_msgs: &[SignedMessage],

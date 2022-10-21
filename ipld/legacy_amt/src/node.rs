@@ -5,7 +5,8 @@ use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_encoding::cs_serde_bytes;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_utils::db::BlockstoreExt;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesSer;
 use once_cell::unsync::OnceCell;
 use serde::{
@@ -186,7 +187,7 @@ where
     }
 
     /// Flushes cache for node, replacing any cached values with a Cid variant
-    pub(super) fn flush<DB: BlockStore>(&mut self, bs: &DB) -> Result<(), Error> {
+    pub(super) fn flush<DB: Blockstore>(&mut self, bs: &DB) -> Result<(), Error> {
         if let Node::Link { links } = self {
             for link in links.iter_mut().flatten() {
                 // links should only be flushed if the bitmap is set.
@@ -235,7 +236,7 @@ where
     }
 
     /// Gets value at given index of Amt given height
-    pub(super) fn get<DB: BlockStore>(
+    pub(super) fn get<DB: Blockstore>(
         &self,
         bs: &DB,
         height: usize,
@@ -274,7 +275,7 @@ where
     }
 
     /// Set value in node
-    pub(super) fn set<DB: BlockStore>(
+    pub(super) fn set<DB: Blockstore>(
         &mut self,
         bs: &DB,
         height: usize,
@@ -344,7 +345,7 @@ where
     }
 
     /// Delete value in Amt by index
-    pub(super) fn delete<DB: BlockStore>(
+    pub(super) fn delete<DB: Blockstore>(
         &mut self,
         bs: &DB,
         height: usize,
@@ -426,7 +427,7 @@ where
     ) -> Result<bool, Box<dyn StdError>>
     where
         F: FnMut(usize, &V) -> Result<bool, Box<dyn StdError>>,
-        S: BlockStore,
+        S: Blockstore,
     {
         match self {
             Node::Leaf { vals } => {
@@ -485,7 +486,7 @@ where
     ) -> Result<(bool, bool), Box<dyn StdError>>
     where
         F: FnMut(usize, &mut ValueMut<'_, V>) -> Result<bool, Box<dyn StdError>>,
-        S: BlockStore,
+        S: Blockstore,
     {
         let mut did_mutate = false;
 

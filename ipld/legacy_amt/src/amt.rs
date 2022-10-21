@@ -8,8 +8,10 @@ use crate::{
     nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
 };
 use cid::{multihash::Code::Blake2b256, Cid};
+use forest_db::Store;
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_utils::db::BlockstoreExt;
+use fvm_ipld_blockstore::Blockstore;
 use itertools::sorted;
 use std::error::Error as StdError;
 
@@ -40,7 +42,7 @@ pub struct Amt<'db, V, BS> {
     block_store: &'db BS,
 }
 
-impl<'a, V: PartialEq, BS: BlockStore> PartialEq for Amt<'a, V, BS> {
+impl<'a, V: PartialEq, BS: Blockstore + Store + Clone> PartialEq for Amt<'a, V, BS> {
     fn eq(&self, other: &Self) -> bool {
         self.root == other.root
     }
@@ -49,7 +51,7 @@ impl<'a, V: PartialEq, BS: BlockStore> PartialEq for Amt<'a, V, BS> {
 impl<'db, V, BS> Amt<'db, V, BS>
 where
     V: DeserializeOwned + Serialize,
-    BS: BlockStore,
+    BS: Blockstore,
 {
     /// Constructor for Root AMT node
     pub fn new(block_store: &'db BS) -> Self {

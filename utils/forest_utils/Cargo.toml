@@ -6,20 +6,25 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow.workspace           = true
-const_format               = "0.2.26"
-digest                     = "0.10.5"
-isahc                      = { version = "1.7", default-features = false }
-libc                       = "0.2"
-log.workspace              = true
-pbr.workspace              = true
-pin-project-lite.workspace = true
-serde                      = { workspace = true, features = ["derive"] }
-thiserror.workspace        = true
-tokio                      = { workspace = true, features = ["fs"] }
-tokio-util                 = { version = "0.7.0", features = ["compat", "io-util"] }
-toml                       = "0.5"
-url.workspace              = true
+anyhow.workspace              = true
+cid                           = { workspace = true, default-features = false, features = ["std"] }
+const_format                  = "0.2.26"
+digest                        = "0.10.5"
+forest_encoding.workspace     = true
+forest_ipld                   = { workspace = true, optional = true }
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace   = true
+isahc                         = { version = "1.7", default-features = false }
+libc                          = "0.2"
+log.workspace                 = true
+pbr.workspace                 = true
+pin-project-lite.workspace    = true
+serde                         = { workspace = true, features = ["derive"] }
+thiserror.workspace           = true
+tokio                         = { workspace = true, features = ["fs"] }
+tokio-util                    = { version = "0.7.0", features = ["compat", "io-util"] }
+toml                          = "0.5"
+url.workspace                 = true
 
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }

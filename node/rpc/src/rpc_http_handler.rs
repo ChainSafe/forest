@@ -6,13 +6,13 @@ use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 use tide::http::{format_err, Error as HttpError, Method};
 
 use forest_beacon::Beacon;
-use forest_ipld_blockstore::BlockStore;
+use fvm_ipld_blockstore::Blockstore;
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_streaming_method};
 
 pub async fn rpc_http_handler<DB, B>(request: tide::Request<JsonRpcServerState>) -> tide::Result
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (auth_header, mut request) = get_auth_header(request);
