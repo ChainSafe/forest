@@ -39,7 +39,7 @@ jobs:
         uses: hanabi1224/sccache-action@v1.1.0
         with:
           cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
-          cache-suffix: ${{ github.event_name != 'pull_request' }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc

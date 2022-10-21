@@ -29,7 +29,7 @@ jobs:
         uses: hanabi1224/sccache-action@v1.1.0
         with:
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
-          cache-suffix: ${{ github.event_name != 'pull_request' }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: install nextest
@@ -58,7 +58,7 @@ jobs:
         uses: hanabi1224/sccache-action@v1.1.0
         with:
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
-          cache-suffix: ${{ github.event_name != 'pull_request' }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
         env:
           CC: "sccache clang"
@@ -79,7 +79,7 @@ jobs:
           # hard code release-name for macos, it always get rate limited when calling github api
           release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
-          cache-suffix: ${{ github.event_name != 'pull_request' }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: Install Apt Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
@@ -113,7 +113,7 @@ jobs:
         uses: hanabi1224/sccache-action@v1.1.0
         with:
           cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
-          cache-suffix: ${{ github.event_name != 'pull_request' }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
         run: make install
         env:
