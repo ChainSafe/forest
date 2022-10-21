@@ -67,6 +67,7 @@ fil_actor_reward_v8   = { package = "fil_actor_reward", version = "=8.0.0" }
 fil_actor_system_v8   = { package = "fil_actor_system", version = "=8.0.0" }
 fil_actors_runtime    = "=8.0.0"
 fil_actors_runtime_v8 = { package = "fil_actors_runtime", version = "=8.0.0" }
+filecoin-proofs-api   = "11.0"
 flume                 = "0.10"
 futures               = "0.3"
 futures-util          = "0.3"
