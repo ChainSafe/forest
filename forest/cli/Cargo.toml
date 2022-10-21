@@ -42,7 +42,7 @@ fvm.workspace                    = true
 fvm_ipld_car.workspace           = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
-git-version                      = "0.3"
+git-version.workspace            = true
 hex.workspace                    = true
 http                             = "0.2.8"
 lazy_static.workspace            = true
