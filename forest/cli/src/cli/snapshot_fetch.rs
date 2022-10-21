@@ -179,7 +179,7 @@ async fn download_snapshot_and_validate_checksum(
 
     progress_bar.finish_println("Finished downloading the snapshot.");
 
-    fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize().to_vec()).await?;
+    fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
     std::fs::rename(snapshot_path_tmp, snapshot_path)?;
 
     Ok(())
