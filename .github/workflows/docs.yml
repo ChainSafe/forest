@@ -44,6 +44,9 @@ jobs:
         run: make mdbook-build
       - name: Build rustdoc
         run: make rustdoc
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
       - name: Link Checker (Docs)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
