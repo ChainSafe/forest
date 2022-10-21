@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::channel::Sender;
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::BeaconEntry;
@@ -13,7 +12,6 @@ use forest_blocks::{
 use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
-use forest_ipld_blockstore::BlockStore;
 use forest_json::address::json::AddressJson;
 use forest_json::bigint::json;
 use forest_json::cid::CidJson;
@@ -29,6 +27,7 @@ use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -51,7 +50,7 @@ pub struct StreamingData<'a> {
 /// This is where you store persistent data, or at least access to stateful data.
 pub struct RPCState<DB, B>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     pub keystore: Arc<RwLock<KeyStore>>,
@@ -60,9 +59,9 @@ where
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
-    pub network_send: Sender<NetworkMessage>,
+    pub network_send: flume::Sender<NetworkMessage>,
     pub network_name: String,
-    pub new_mined_block_tx: Sender<Arc<Tipset>>,
+    pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 

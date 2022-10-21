@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use serde::Serialize;
 
@@ -17,8 +18,10 @@ pub type Method = fil_actor_init_v8::Method;
 
 pub fn is_v8_init_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacecs2ohkgluvxxxzmbqq5oynudtzqoypmhckylct2i5b2uw6nyu2wa").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap(),
         // devnet
@@ -37,7 +40,7 @@ pub enum State {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_init_cid(&actor.code) {
             return store
@@ -50,7 +53,7 @@ impl State {
 
     /// Allocates a new ID address and stores a mapping of the argument address to it.
     /// Returns the newly-allocated address.
-    pub fn map_address_to_new_id<BS: BlockStore>(
+    pub fn map_address_to_new_id<BS: Blockstore>(
         &mut self,
         store: &BS,
         addr: &Address,
@@ -70,7 +73,7 @@ impl State {
     /// Returns an undefined address and `false` if the address was not an ID-address and not found
     /// in the mapping.
     /// Returns an error only if state was inconsistent.
-    pub fn resolve_address<BS: BlockStore>(
+    pub fn resolve_address<BS: Blockstore>(
         &self,
         store: &BS,
         addr: &Address,

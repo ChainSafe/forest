@@ -155,13 +155,16 @@ where
 
     debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
+    let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
     let mut http_res = match api_info.token.to_owned() {
-        Some(jwt) => surf::post(api_url)
+        Some(jwt) => client
+            .post(api_url)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_req)?)
             .header("Authorization", jwt),
-        None => surf::post(api_url)
+        None => client
+            .post(api_url)
             .content_type("application/json-rpc")
             .body(surf::Body::from_json(&rpc_req)?),
     }

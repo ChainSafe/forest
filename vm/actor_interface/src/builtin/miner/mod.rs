@@ -3,11 +3,12 @@
 
 use cid::Cid;
 use forest_fil_types::deadlines::DeadlineInfo;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
+use forest_utils::db::BlockstoreExt;
 use forest_utils::json::go_vec_visitor;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -26,8 +27,10 @@ pub type Method = fil_actor_miner_v8::Method;
 
 pub fn is_v8_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacedmllri5tg4jqllwkhzng3xf3w2sre6nbwwfzf5mj4qsdizl4ad5s").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
         // devnet
@@ -47,7 +50,7 @@ pub enum State {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_miner_cid(&actor.code) {
             return store
@@ -58,7 +61,7 @@ impl State {
         Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
     }
 
-    pub fn info<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
+    pub fn info<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V8(st) => {
                 let info = st.get_info(store)?;
@@ -87,7 +90,7 @@ impl State {
     }
 
     /// Loads deadlines for a miner's state
-    pub fn for_each_deadline<BS: BlockStore>(
+    pub fn for_each_deadline<BS: Blockstore>(
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
@@ -103,7 +106,7 @@ impl State {
     }
 
     /// Loads deadline at index for a miner's state
-    pub fn load_deadline<BS: BlockStore>(
+    pub fn load_deadline<BS: Blockstore>(
         &self,
         _store: &BS,
         _idx: u64,
@@ -112,7 +115,7 @@ impl State {
     }
 
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
-    pub fn load_sectors<BS: BlockStore>(
+    pub fn load_sectors<BS: Blockstore>(
         &self,
         store: &BS,
         sectors: Option<&BitField>,
@@ -139,7 +142,7 @@ impl State {
     }
 
     /// Gets pre-committed on chain info
-    pub fn get_precommitted_sector<BS: BlockStore>(
+    pub fn get_precommitted_sector<BS: Blockstore>(
         &self,
         _store: &BS,
         _sector_num: SectorNumber,
@@ -148,7 +151,7 @@ impl State {
     }
 
     /// Loads a specific sector number
-    pub fn get_sector<BS: BlockStore>(
+    pub fn get_sector<BS: Blockstore>(
         &self,
         _store: &BS,
         _sector_num: u64,
@@ -217,7 +220,7 @@ pub enum Deadline {
 
 impl Deadline {
     /// For each partition of the deadline
-    pub fn for_each<BS: BlockStore>(
+    pub fn for_each<BS: Blockstore>(
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
@@ -229,7 +232,7 @@ impl Deadline {
         }
     }
 
-    pub fn disputable_proof_count<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<usize> {
+    pub fn disputable_proof_count<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
             Deadline::V8(dl) => dl
                 .optimistic_proofs_snapshot_amt(&store)?

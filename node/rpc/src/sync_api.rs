@@ -5,12 +5,13 @@ use forest_beacon::Beacon;
 use forest_blocks::gossip_block::json::GossipBlockJson;
 use forest_blocks::Tipset;
 use forest_chain_sync::SyncState;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_json::cid::CidJson;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
 use forest_rpc_api::data_types::{RPCState, RPCSyncState};
 use forest_rpc_api::sync_api::*;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::message::Message;
 
@@ -24,7 +25,7 @@ pub(crate) async fn sync_check_bad<DB, B>(
     Params(params): Params<SyncCheckBadParams>,
 ) -> Result<SyncCheckBadResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -37,7 +38,7 @@ pub(crate) async fn sync_mark_bad<DB, B>(
     Params(params): Params<SyncMarkBadParams>,
 ) -> Result<SyncMarkBadResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJson(cid),) = params;
@@ -58,7 +59,7 @@ pub(crate) async fn sync_state<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<SyncStateResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
@@ -71,7 +72,7 @@ pub(crate) async fn sync_submit_block<DB, B>(
     Params((GossipBlockJson(blk),)): Params<SyncSubmitBlockParams>,
 ) -> Result<SyncSubmitBlockResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let bls_msgs: Vec<Message> =
@@ -96,10 +97,10 @@ where
     forest_chain::persist_objects(data.state_manager.blockstore(), &secp_msgs)?;
 
     let ts = Arc::new(Tipset::new(vec![blk.header.clone()])?);
-    data.new_mined_block_tx.send(ts).await?;
+    data.new_mined_block_tx.send_async(ts).await?;
     // TODO validate by constructing full block and validate (cids of messages could be invalid)
     data.network_send
-        .send(NetworkMessage::PubsubMessage {
+        .send_async(NetworkMessage::PubsubMessage {
             topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, data.network_name)),
             message: blk.marshal_cbor().map_err(|e| e.to_string())?,
         })
@@ -110,7 +111,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::channel::{bounded, Receiver};
     use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_chain::ChainStore;
@@ -130,14 +130,14 @@ mod tests {
 
     async fn state_setup() -> (
         Arc<RPCState<MemoryDB, MockBeacon>>,
-        Receiver<NetworkMessage>,
+        flume::Receiver<NetworkMessage>,
     ) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
             beacon: Arc::new(MockBeacon::new(Duration::from_secs(1))),
         }]));
 
-        let (network_send, network_rx) = bounded(5);
+        let (network_send, network_rx) = flume::bounded(5);
         let db = MemoryDB::default();
         let cs_arc = Arc::new(ChainStore::new(db.clone()).await);
         let genesis_header = BlockHeader::builder()
@@ -184,7 +184,7 @@ mod tests {
             .await
             .unwrap()
         };
-        let (new_mined_block_tx, _) = bounded(5);
+        let (new_mined_block_tx, _) = flume::bounded(5);
         let state = Arc::new(RPCState {
             state_manager,
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),

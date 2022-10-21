@@ -1,16 +1,19 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::fvm::{ForestExterns, ForestKernel, ForestMachine};
+use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
-use fvm::executor::ApplyRet;
+use fvm::call_manager::DefaultCallManager;
+use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
-use fvm::machine::{Engine, Machine, NetworkConfig};
+use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
 use fvm::state_tree::StateTree;
+use fvm::DefaultKernel;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
@@ -24,8 +27,9 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-// const GAS_OVERUSE_NUM: i64 = 11;
-// const GAS_OVERUSE_DENOM: i64 = 10;
+type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
+type ForestKernel<DB> = DefaultKernel<DefaultCallManager<ForestMachine<DB>>>;
+type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
 
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
@@ -33,17 +37,6 @@ pub struct BlockMessages {
     pub miner: Address,
     pub messages: Vec<ChainMessage>,
     pub win_count: i64,
-}
-
-/// Allows generation of the current circulating supply
-/// given some context.
-pub trait CircSupplyCalc: Clone + 'static {
-    /// Retrieves total circulating supply on the network.
-    fn get_supply<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error>;
 }
 
 /// Allows the generation of a reward message based on gas fees and penalties.
@@ -59,12 +52,6 @@ pub trait RewardCalc: Send + Sync + 'static {
         penalty: BigInt,
         gas_reward: BigInt,
     ) -> Result<Option<Message>, anyhow::Error>;
-}
-
-/// Trait to allow VM to retrieve state at an old epoch.
-pub trait LookbackStateGetter {
-    /// Returns the root CID for a given `ChainEpoch`
-    fn chain_epoch_root(&self) -> Box<dyn Fn(ChainEpoch) -> Cid>;
 }
 
 #[derive(Clone, Copy)]
@@ -88,8 +75,8 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
-    fvm_executor: fvm::executor::DefaultExecutor<ForestKernel<DB>>,
+pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams> {
+    fvm_executor: ForestExecutor<DB>,
     params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
     heights: Heights,
@@ -97,11 +84,11 @@ pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
 
 impl<DB, P> VM<DB, P>
 where
-    DB: BlockStore,
+    DB: Blockstore + Store + Clone,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R, C, LB>(
+    pub fn new<R, C>(
         root: Cid,
         store_arc: DB,
         epoch: ChainEpoch,
@@ -110,19 +97,17 @@ where
         network_version: NetworkVersion,
         circ_supply_calc: C,
         reward_calc: Arc<dyn RewardCalc>,
-        override_circ_supply: Option<TokenAmount>,
-        lb_state: &LB,
+        lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
         heights: Heights,
         chain_finality: i64,
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: CircSupplyCalc,
-        LB: LookbackStateGetter,
+        C: FnOnce(ChainEpoch, &StateTree<&DB>) -> Result<TokenAmount, anyhow::Error>,
     {
         let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc.get_supply(epoch, &state)?;
+        let circ_supply = circ_supply_calc(epoch, &state)?;
 
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
@@ -137,17 +122,13 @@ where
                     rand.clone(),
                     epoch,
                     root,
-                    lb_state.chain_epoch_root(),
+                    lb_fn,
                     store_arc,
                     network_version,
                     chain_finality,
                 ),
             )?;
-        let exec: fvm::executor::DefaultExecutor<ForestKernel<DB>> =
-            fvm::executor::DefaultExecutor::new(ForestMachine {
-                machine: fvm,
-                circ_supply: override_circ_supply,
-            });
+        let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
         Ok(VM {
             fvm_executor: exec,
             params: PhantomData,
@@ -207,7 +188,7 @@ where
     pub fn migrate_state(
         &self,
         epoch: ChainEpoch,
-        _store: Arc<impl BlockStore + Send + Sync>,
+        _store: Arc<impl Blockstore + Send + Sync>,
     ) -> Result<Option<Cid>, anyhow::Error> {
         match epoch {
             x if x == self.heights.turbo => {
