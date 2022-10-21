@@ -3,9 +3,9 @@
 
 use crate::FilterEstimate;
 use cid::Cid;
-use forest_ipld_blockstore::BlockStore;
-use forest_ipld_blockstore::BlockStoreExt;
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::StoragePower;
@@ -21,8 +21,10 @@ pub type Method = fil_actor_reward_v8::Method;
 
 pub fn is_v8_reward_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacedhw7p6ognchfairevqikx4odnoojo3a3oicvla4tiacy7sq2n4ds").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecwzzxlgjiavnc3545cqqil3cmq4hgpvfp2crguxy2pl5ybusfsbe").unwrap(),
         // devnet
@@ -41,7 +43,7 @@ pub enum State {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_reward_cid(&actor.code) {
             return store

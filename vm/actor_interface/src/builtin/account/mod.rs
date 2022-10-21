@@ -8,7 +8,7 @@ use fvm_shared::address::Address;
 use serde::Serialize;
 
 use anyhow::Context;
-use forest_ipld_blockstore::BlockStoreExt;
+use forest_utils::db::BlockstoreExt;
 
 /// Account actor method.
 pub type Method = fil_actor_account_v8::Method;
@@ -22,8 +22,10 @@ pub enum State {
 
 pub fn is_v8_account_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacedsgsmahbc6wiaigtfb3uoj436rvxptsq3gl6koadig57bwmdulic").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacedudbf7fc5va57t3tmo63snmt3en4iaidv4vo3qlyacbxaa6hlx6y").unwrap(),
         // devnet

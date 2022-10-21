@@ -5,11 +5,12 @@ use crate::resolve_to_key_addr;
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::tracking::{BSStats, TrackingBlockstore};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
@@ -27,7 +28,7 @@ pub struct ForestExterns<DB> {
     chain_finality: i64,
 }
 
-impl<DB: BlockStore> ForestExterns<DB> {
+impl<DB: Blockstore + Store> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
@@ -93,7 +94,7 @@ impl<DB: BlockStore> ForestExterns<DB> {
     }
 }
 
-impl<DB: BlockStore> Externs for ForestExterns<DB> {}
+impl<DB: Blockstore + Store> Externs for ForestExterns<DB> {}
 
 impl<DB> Rand for ForestExterns<DB> {
     fn get_chain_randomness(
@@ -115,7 +116,7 @@ impl<DB> Rand for ForestExterns<DB> {
     }
 }
 
-impl<DB: BlockStore> Consensus for ForestExterns<DB> {
+impl<DB: Blockstore + Store> Consensus for ForestExterns<DB> {
     fn verify_consensus_fault(
         &self,
         h1: &[u8],

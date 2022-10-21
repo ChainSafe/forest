@@ -5,16 +5,12 @@ use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use forest_db::Store;
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 
-pub trait BlockStore: Blockstore + Store + Clone {}
-impl<T: Blockstore + Store + Clone> BlockStore for T {}
-
 /// Extension methods for inserting and retrieving IPLD data with CIDs
-pub trait BlockStoreExt: Blockstore {
+pub trait BlockstoreExt: Blockstore {
     /// Get typed object from block store by CID
     fn get_obj<T>(&self, cid: &Cid) -> anyhow::Result<Option<T>>
     where
@@ -73,4 +69,4 @@ pub trait BlockStoreExt: Blockstore {
     }
 }
 
-impl<T: fvm_ipld_blockstore::Blockstore> BlockStoreExt for T {}
+impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}

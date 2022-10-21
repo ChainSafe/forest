@@ -21,11 +21,11 @@ forest_blocks.workspace          = true
 forest_chain.workspace           = true
 forest_chain_sync.workspace      = true
 forest_crypto                    = { workspace = true, features = ["blst"] }
+forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_interpreter.workspace     = true
 forest_ipld.workspace            = true
-forest_ipld_blockstore.workspace = true
 forest_json.workspace            = true
 forest_key_management.workspace  = true
 forest_legacy_ipld_amt.workspace = true
@@ -39,6 +39,7 @@ forest_utils.workspace           = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_bitfield.workspace      = true
+fvm_ipld_blockstore.workspace    = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 hex.workspace                    = true
