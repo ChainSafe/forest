@@ -2324,7 +2324,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "fil_actors_runtime_common",
  "fvm_ipld_blockstore",
@@ -2338,7 +2338,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "fil_actors_runtime_common",
  "fvm_ipld_blockstore",
@@ -2353,7 +2353,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "cid",
@@ -2371,7 +2371,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "cid",
@@ -2391,7 +2391,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2414,7 +2414,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "cid",
@@ -2433,7 +2433,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "cid",
@@ -2454,7 +2454,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "fil_actors_runtime_common",
  "fvm_ipld_blockstore",
@@ -2470,7 +2470,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state_v8"
 version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "cid",
@@ -2486,7 +2486,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_common"
 version = "9.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#3494ac9b8b39576ecccecd983740f39865c3e19a"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
 dependencies = [
  "anyhow",
  "base64 0.13.0",
@@ -2498,7 +2498,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
- "fvm_sdk",
  "fvm_shared",
  "getrandom 0.2.8",
  "indexmap",
@@ -4082,21 +4081,6 @@ dependencies = [
  "once_cell",
  "serde",
  "sha2 0.10.6",
- "thiserror",
-]
-
-[[package]]
-name = "fvm_sdk"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19d6b29114b9cbdee7ccf7540bdda6657af7fa91666e2489c4d415a7f0706748"
-dependencies = [
- "cid",
- "fvm_ipld_encoding 0.2.2",
- "fvm_shared",
- "lazy_static",
- "log",
- "num-traits",
  "thiserror",
 ]
 
