@@ -28,9 +28,9 @@ jobs:
           # Fail action on broken links
           fail: true
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
+        uses: hanabi1224/sccache-action@ebcfdde2cc3ec0d4789293ad44a2dd5d2303bac5
         with:
-          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+          cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
           cache-save: false
       - uses: actions/cache@v3
         with:

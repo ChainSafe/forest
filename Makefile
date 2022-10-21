@@ -12,6 +12,9 @@ install-deps:
 	apt-get update -y
 	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake
 
+install-lint-tools:
+	cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
+
 clean-all:
 	cargo clean
 
@@ -44,7 +47,7 @@ clean:
 	@echo "Done cleaning."
 
 # Lints with everything we have in our CI arsenal
-lint-all: lint audit udeps spellcheck
+lint-all: lint audit spellcheck udeps
 
 audit:
 	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
@@ -119,4 +122,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --no-deps
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc

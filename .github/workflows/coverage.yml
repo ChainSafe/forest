@@ -15,10 +15,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install Dependencies
+      - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@c8f2d0445e3da4a8ba8e21463922fc66c099ce7f
+        uses: hanabi1224/sccache-action@ebcfdde2cc3ec0d4789293ad44a2dd5d2303bac5
         with:
           cache-key: ${{ runner.os }}-sccache-codecov-${{ hashFiles('rust-toolchain.toml') }}
           cache-save: ${{ github.event_name != 'pull_request' }}
@@ -27,8 +27,8 @@ jobs:
       - name: Generate code coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
         env:
-          CC: "/tmp/sccache/sccache clang"
-          CXX: "/tmp/sccache/sccache clang++"
+          CC: "sccache clang"
+          CXX: "sccache clang++"
       - name: Upload CodeCov
         uses: codecov/codecov-action@v3
         with:
