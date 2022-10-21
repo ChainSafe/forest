@@ -4,8 +4,8 @@
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-// use cid::Cid;
-use fvm_ipld_encoding::{Cbor, RawBytes};
+use cid::Cid;
+use fvm_ipld_encoding::{Cbor, Error, RawBytes};
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
 use fvm_shared::{address::Address, econ::TokenAmount};
@@ -120,7 +120,7 @@ impl MessageTrait for ChainMessage {
 impl Cbor for ChainMessage {
     /// Returns the content identifier of the raw block of data
     /// Default is `Blake2b256` hash
-    fn cid(&self) -> Result<cid::Cid, fvm_ipld_encoding::Error> {
+    fn cid(&self) -> Result<Cid, Error> {
         match self {
             Self::Signed(t) => t.cid(),
             Self::Unsigned(t) => t.cid(),
