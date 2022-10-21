@@ -32,6 +32,8 @@ pub struct Client {
     pub metrics_address: SocketAddr,
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
+    /// enable or disable colored logging output
+    pub color: bool,
 }
 
 impl Default for Client {
@@ -51,6 +53,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
+            color: true,
         }
     }
 }
