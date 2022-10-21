@@ -5,7 +5,7 @@ use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_cli_shared::cli::snapshot_fetch;
+use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch};
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
 use std::{collections::HashMap, ffi::OsStr, fs, path::PathBuf};
@@ -348,14 +348,6 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     }
 
     Ok(())
-}
-
-fn default_snapshot_dir(config: &Config) -> PathBuf {
-    config
-        .client
-        .data_dir
-        .join("snapshots")
-        .join(config.chain.name.clone())
 }
 
 fn delete_snapshot(snapshot_path: &PathBuf) {

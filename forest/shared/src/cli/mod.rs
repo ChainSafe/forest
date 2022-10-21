@@ -229,7 +229,7 @@ fn read_config_or_none(path: PathBuf) -> Option<Config> {
     }
 }
 
-pub fn get_default_snapshot_path(config: &Config) -> PathBuf {
+pub fn default_snapshot_dir(config: &Config) -> PathBuf {
     config
         .client
         .data_dir
