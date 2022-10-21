@@ -15,9 +15,10 @@ use forest_chain::Error as ChainStoreError;
 use forest_chain::Scale;
 use forest_chain::Weight;
 use forest_chain_sync::consensus::Consensus;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
@@ -100,7 +101,7 @@ impl DelegatedConsensus {
         state_manager: &Arc<StateManager<DB>>,
     ) -> anyhow::Result<Option<DelegatedProposer>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         let genesis = state_manager.chain_store().genesis()?;
         let genesis = genesis.ok_or_else(|| anyhow!("Genesis not set!"))?;
@@ -123,7 +124,7 @@ impl DelegatedConsensus {
 impl Scale for DelegatedConsensus {
     fn weight<DB>(_: &DB, ts: &Tipset) -> anyhow::Result<Weight>
     where
-        DB: BlockStore,
+        DB: Blockstore,
     {
         let header = ts.blocks().first().expect("Tipset is never empty.");
         // We don't have a height, only epoch, which is not exactly the same as there can be "null" epochs
@@ -144,7 +145,7 @@ impl Consensus for DelegatedConsensus {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         crate::validation::validate_block(&self.chosen_one, state_manager, block)
             .await

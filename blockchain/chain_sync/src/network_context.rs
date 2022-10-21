@@ -5,7 +5,6 @@ use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -15,7 +14,9 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId,
 };
+use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
+use fvm_ipld_blockstore::Blockstore;
 use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -51,7 +52,7 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
 
 impl<DB> SyncNetworkContext<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
 {
     pub fn new(
         network_send: flume::Sender<NetworkMessage>,

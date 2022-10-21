@@ -10,11 +10,11 @@ use tide_websockets::{Message, WebSocketConnection};
 
 use forest_beacon::Beacon;
 use forest_chain::headchange_json::SubscriptionHeadChange;
-use forest_ipld_blockstore::BlockStore;
 use forest_rpc_api::{
     chain_api::*,
     data_types::{JsonRpcServerState, StreamingData},
 };
+use fvm_ipld_blockstore::Blockstore;
 
 use crate::rpc_util::{call_rpc, call_rpc_str, check_permissions, get_auth_header, get_error_str};
 
@@ -26,7 +26,7 @@ async fn rpc_ws_task<DB, B>(
     ws_sender: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let call_method = rpc_call.method_ref();
@@ -114,7 +114,7 @@ pub async fn rpc_ws_handler<DB, B>(
     mut ws_stream: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (authorization_header, request) = get_auth_header(request);

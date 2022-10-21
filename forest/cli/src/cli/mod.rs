@@ -38,6 +38,7 @@ pub(crate) use forest_cli_shared::cli::{
 use byte_unit::Byte;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::FILECOIN_PRECISION;
+use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use rug::float::ParseFloatError;
@@ -116,7 +117,16 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
         JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
     };
 
-    error!("JSON RPC Error: Code: {code} Message: {message}");
+    match StatusCode::from_u16(
+        u16::try_from(code).expect("Normalized HTTP status codes are always under u16::MAX"),
+    ) {
+        Ok(reason) => {
+            error!("JSON RPC Error: Code: {reason} Message: {message}")
+        }
+        Err(_) => {
+            error!("JSON RPC Error: Code: {code} Message: {message}")
+        }
+    };
 
     // fail-safe in case the `code` from `JsonRpcError` is zero. We still want to quit the process
     // with an error because, well, an error occurred if we are here.

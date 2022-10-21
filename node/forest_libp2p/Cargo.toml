@@ -15,13 +15,14 @@ flume.workspace = true
 fnv = "1.0"
 forest_blocks.workspace = true
 forest_chain.workspace = true
+forest_db.workspace = true
 forest_encoding.workspace = true
-forest_ipld_blockstore.workspace = true
 forest_message.workspace = true
 forest_networks.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
+fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }

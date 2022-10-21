@@ -3,9 +3,10 @@
 use crate::DelegatedConsensus;
 use async_std::task::JoinHandle;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};
 use log::info;
 use std::sync::Arc;
@@ -31,7 +32,7 @@ pub async fn consensus<DB, MP>(
     submitter: SyncGossipSubmitter,
 ) -> anyhow::Result<(FullConsensus, Vec<MiningTask>)>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     MP: MessagePoolApi + Send + Sync + 'static,
 {
     let consensus = DelegatedConsensus::default();

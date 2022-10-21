@@ -25,7 +25,6 @@ members = [
   "encoding",
   "ipld/legacy_amt",
   "ipld",
-  "ipld/blockstore",
   "key_management",
   "tests/serialization_tests",
   "types",
@@ -131,7 +130,6 @@ forest_fil_types       = { path = "./types" }
 forest_genesis         = { path = "./utils/genesis" }
 forest_interpreter     = { path = "./vm/interpreter" }
 forest_ipld            = { path = "./ipld" }
-forest_ipld_blockstore = { path = "./ipld/blockstore" }
 forest_json            = { path = "./utils/json" }
 forest_key_management  = { path = "./key_management" }
 forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
