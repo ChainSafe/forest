@@ -2687,6 +2687,7 @@ dependencies = [
  "fvm_shared",
  "git-version",
  "hex",
+ "http",
  "jsonrpc-v2",
  "lazy_static",
  "libp2p",

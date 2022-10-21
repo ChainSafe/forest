@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
+use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
@@ -313,7 +314,19 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
-    let snapshots_to_delete: Vec<_> = fs::read_dir(snapshot_dir)?
+
+    let read_dir = match fs::read_dir(snapshot_dir) {
+        Ok(read_dir) => read_dir,
+        // basically have the same behaviour as in `rm -f` which doesn't fail if the target
+        // directory doesn't exist.
+        Err(_) if force => {
+            println!("Target directory not accessible. Skipping.");
+            return Ok(());
+        }
+        Err(e) => bail!(e),
+    };
+
+    let snapshots_to_delete: Vec<_> = read_dir
         .flatten()
         .map(|entry| entry.path())
         .filter(|p| p.extension().unwrap_or_default() == "car")

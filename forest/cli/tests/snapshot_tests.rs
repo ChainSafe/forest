@@ -242,6 +242,28 @@ fn test_snapshot_subcommand_clean_empty() -> Result<()> {
 }
 
 #[test]
+fn test_snapshot_subcommand_clean_snapshot_dir_not_accessible() -> Result<()> {
+    let cmd = cli()?
+        .arg("--chain")
+        .arg("calibnet")
+        .arg("snapshot")
+        .arg("clean")
+        .arg("--force")
+        .arg("--snapshot-dir")
+        .arg("/turbo-cthulhu")
+        .assert()
+        .success();
+
+    let output = std::str::from_utf8(&cmd.get_output().stdout)?.to_owned();
+    ensure!(
+        output.contains("Target directory not accessible. Skipping."),
+        output
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_snapshot_subcommand_clean_one() -> Result<()> {
     let tmp_dir = TempDir::new().unwrap();
     let filenames = ["forest_snapshot_calibnet_2022-10-10_height_1376736.car"];
