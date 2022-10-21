@@ -18,9 +18,7 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRA
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_fil_types::verifier::ProofVerifier;
-use forest_interpreter::{
-    resolve_to_key_addr, BlockMessages, CircSupplyCalc, Heights, RewardCalc, VM,
-};
+use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
 use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
@@ -361,7 +359,7 @@ where
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
-                self.genesis_info.clone(),
+                |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -496,7 +494,7 @@ where
                 rand,
                 0.into(),
                 network_version,
-                self.genesis_info.clone(),
+                |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -586,7 +584,7 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
-            self.genesis_info.clone(),
+            |height, state| self.genesis_info.get_circulating_supply(height, state),
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
@@ -1384,7 +1382,7 @@ where
         height: ChainEpoch,
         state_tree: &StateTree<&DB>,
     ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info.get_supply(height, state_tree)
+        self.genesis_info.get_circulating_supply(height, state_tree)
     }
 
     /// Return the state of Market Actor.
