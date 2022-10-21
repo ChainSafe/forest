@@ -9,7 +9,7 @@ use cli::Cli;
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{cli_error_and_die, warn_for_unknown_keys, ConfigPath, DaemonConfig},
+    cli::{cli_error_and_die, warn_for_unknown_keys, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
 use lazy_static::lazy_static;
@@ -148,9 +148,8 @@ fn main() {
             }
         }
         Err(e) => {
-            // We need to setup logger before using `cli_error_and_die`
-            logger::setup_logger(&[]);
-            cli_error_and_die(format!("Error parsing config. Error was: {e}"), 1);
+            logger::setup_logger(&LogConfig::default());
+            cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
 }

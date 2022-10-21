@@ -1,22 +1,17 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::LogValue;
+use crate::cli::LogConfig;
 use log::LevelFilter;
-use std::str::FromStr;
 
-pub fn setup_logger(log_config: &[LogValue]) {
+pub fn setup_logger(log_config: &LogConfig) {
     let mut logger_builder = pretty_env_logger::formatted_timed_builder();
 
     // Assign default log level settings
     logger_builder.filter(None, LevelFilter::Info);
 
-    for item in log_config {
-        let level = LevelFilter::from_str(item.level.as_str()).unwrap_or_else(|_| {
-            eprintln!("Could not parse LevelFilter {}", item.level);
-            std::process::exit(1)
-        });
-        logger_builder.filter(Some(item.module.as_str()), level);
+    for item in log_config.filters.iter() {
+        logger_builder.filter(Some(item.module.as_str()), item.level);
     }
 
     // Override log level based on filters if set

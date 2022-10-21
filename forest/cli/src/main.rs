@@ -7,7 +7,7 @@ mod subcommand;
 use cli::{cli_error_and_die, Cli};
 
 use async_std::task;
-use forest_cli_shared::logger;
+use forest_cli_shared::{cli::LogConfig, logger};
 use structopt::StructOpt;
 
 fn main() {
@@ -21,8 +21,8 @@ fn main() {
             task::block_on(subcommand::process(cmd, cfg));
         }
         Err(e) => {
-            logger::setup_logger(&[]);
-            cli_error_and_die(format!("Error parsing config. Error was: {e}"), 1);
+            logger::setup_logger(&LogConfig::default());
+            cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
 }
