@@ -4,12 +4,13 @@
 use super::gas_api::estimate_message_gas;
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_json::cid::{vec::CidJsonVec, CidJson};
 use forest_message::message::json::MessageJson;
 use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};
 use forest_rpc_api::data_types::RPCState;
 use forest_rpc_api::mpool_api::*;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
 
@@ -23,7 +24,7 @@ pub(crate) async fn estimate_gas_premium<DB, B>(
     Params(params): Params<MpoolEstimateGasPriceParams>,
 ) -> Result<MpoolEstimateGasPriceResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (nblocks, sender_str, gas_limit, tsk) = params;
@@ -40,7 +41,7 @@ pub(crate) async fn mpool_get_sequence<DB, B>(
     Params(params): Params<MpoolGetNonceParams>,
 ) -> Result<MpoolGetNonceResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (addr_str,) = params;
@@ -55,7 +56,7 @@ pub(crate) async fn mpool_pending<DB, B>(
     Params(params): Params<MpoolPendingParams>,
 ) -> Result<MpoolPendingResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (CidJsonVec(cid_vec),) = params;
@@ -120,7 +121,7 @@ pub(crate) async fn mpool_push<DB, B>(
     Params(params): Params<MpoolPushParams>,
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (SignedMessageJson(smsg),) = params;
@@ -136,7 +137,7 @@ pub(crate) async fn mpool_push_message<DB, B>(
     Params(params): Params<MpoolPushMessageParams>,
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (MessageJson(umsg), spec) = params;
@@ -192,7 +193,7 @@ pub(crate) async fn mpool_select<DB, B>(
     Params(params): Params<MpoolSelectParams>,
 ) -> Result<MpoolSelectResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (tsk, q) = params;

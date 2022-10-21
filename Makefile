@@ -28,7 +28,6 @@ clean:
 	@cargo clean -p forest_legacy_ipld_amt
 	@cargo clean -p forest_json
 	@cargo clean -p forest_fil_types
-	@cargo clean -p forest_ipld_blockstore
 	@cargo clean -p forest_rpc
 	@cargo clean -p forest_key_management
 	@cargo clean -p forest_utils

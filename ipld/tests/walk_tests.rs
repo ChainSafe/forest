@@ -6,7 +6,7 @@ use cid::{multihash::Code::Blake2b256, Cid};
 use forest_db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
-use forest_ipld_blockstore::BlockStoreExt;
+use forest_utils::db::BlockstoreExt;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
 use serde::Deserialize;

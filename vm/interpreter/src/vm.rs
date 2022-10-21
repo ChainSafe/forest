@@ -4,7 +4,7 @@
 use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_message::{ChainMessage, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
 use fvm::call_manager::DefaultCallManager;
@@ -13,6 +13,7 @@ use fvm::externs::Rand;
 use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
 use fvm::state_tree::StateTree;
 use fvm::DefaultKernel;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
@@ -74,7 +75,7 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
+pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams> {
     fvm_executor: ForestExecutor<DB>,
     params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
@@ -83,7 +84,7 @@ pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
 
 impl<DB, P> VM<DB, P>
 where
-    DB: BlockStore,
+    DB: Blockstore + Store + Clone,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
@@ -187,7 +188,7 @@ where
     pub fn migrate_state(
         &self,
         epoch: ChainEpoch,
-        _store: Arc<impl BlockStore + Send + Sync>,
+        _store: Arc<impl Blockstore + Send + Sync>,
     ) -> Result<Option<Cid>, anyhow::Error> {
         match epoch {
             x if x == self.heights.turbo => {

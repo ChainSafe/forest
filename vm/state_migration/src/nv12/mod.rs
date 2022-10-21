@@ -8,9 +8,10 @@ pub use miner::miner_migrator_v4;
 use crate::nil_migrator;
 use crate::StateMigration;
 use forest_actor_interface::{actorv3, actorv4};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
+use fvm_ipld_blockstore::Blockstore;
 
-impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
+impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
     // Initializes the migrations map with Nil migrators for network version 12 upgrade
     pub fn set_nil_migrations(&mut self) {
         self.migrations.insert(
