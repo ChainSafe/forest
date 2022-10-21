@@ -87,7 +87,7 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
-    /// Enable or disable colored logging in stdout
+    /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto", possible_values = &["always", "auto", "never"])]
     pub color: String,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
