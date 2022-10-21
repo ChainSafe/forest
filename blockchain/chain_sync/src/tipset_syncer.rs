@@ -33,7 +33,7 @@ use forest_blocks::{
 };
 use forest_chain::Error as ChainStoreError;
 use forest_chain::{persist_objects, ChainStore};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::message::valid_for_block_inclusion;
 use forest_message::Message as MessageTrait;
@@ -42,6 +42,7 @@ use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
@@ -254,7 +255,7 @@ pub(crate) struct TipsetProcessor<DB, C: Consensus> {
 
 impl<DB, C> TipsetProcessor<DB, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
@@ -342,7 +343,7 @@ enum TipsetProcessorState<DB, C: Consensus> {
 
 impl<DB, C> Future for TipsetProcessor<DB, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetProcessorError<C>>;
@@ -624,7 +625,7 @@ pub(crate) struct TipsetRangeSyncer<DB, C: Consensus> {
 
 impl<DB, C> TipsetRangeSyncer<DB, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
     C: Consensus,
 {
     #[allow(clippy::too_many_arguments)]
@@ -727,7 +728,7 @@ where
 
 impl<DB, C> Future for TipsetRangeSyncer<DB, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
     C: Consensus,
 {
     type Output = Result<(), TipsetRangeSyncerError<C>>;
@@ -748,7 +749,7 @@ where
 /// Once headers are available, download messages going forward on the chain and validate each extension.
 /// Finally set the proposed head as the heaviest tipset.
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
+fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
     tracker: crate::chain_muxer::WorkerState,
@@ -836,7 +837,10 @@ fn sync_tipset_range<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
 /// Download headers between the proposed head and the current one available locally.
 /// If they turn out to be on different forks, download more headers up to a certain limit
 /// to try to find a common ancestor.
-async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
+async fn sync_headers_in_reverse<
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    C: Consensus,
+>(
     tracker: crate::chain_muxer::WorkerState,
     tipset_range_length: u64,
     proposed_head: Arc<Tipset>,
@@ -956,7 +960,7 @@ async fn sync_headers_in_reverse<DB: BlockStore + Sync + Send + 'static, C: Cons
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
+fn sync_tipset<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -1004,7 +1008,7 @@ fn sync_tipset<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
     })
 }
 
-async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
+async fn fetch_batch<DB: Blockstore + Store + Clone + Send + Sync + 'static, C: Consensus>(
     batch: &[Arc<Tipset>],
     network: &SyncNetworkContext<DB>,
     chainstore: &ChainStore<DB>,
@@ -1051,7 +1055,10 @@ async fn fetch_batch<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
 /// Going forward along the tipsets, try to load the messages in them from the `BlockStore`,
 /// or download them from the network, then validate the full tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
-async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
+async fn sync_messages_check_state<
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    C: Consensus,
+>(
     tracker: crate::chain_muxer::WorkerState,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -1122,7 +1129,7 @@ async fn sync_messages_check_state<DB: BlockStore + Send + Sync + 'static, C: Co
 /// Validates full blocks in the tipset in parallel (since the messages are not executed),
 /// adding the successful ones to the tipset tracker, and the failed ones to the bad block cache,
 /// depending on strategy. Any bad block fails validation.
-async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
+async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     chainstore: &ChainStore<DB>,
@@ -1199,7 +1206,7 @@ async fn validate_tipset<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
 /// Consensus specific validation should include:
 /// * Checking that the messages in the block correspond to the agreed upon total ordering
 /// * That the block is a deterministic derivative of the underlying consensus
-async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
+async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
@@ -1398,7 +1405,10 @@ async fn validate_block<DB: BlockStore + Sync + Send + 'static, C: Consensus>(
 /// * the message root in the header
 ///
 /// NB: This loads/computes the state resulting from the execution of the parent tipset.
-async fn check_block_messages<DB: BlockStore + Send + Sync + 'static, C: Consensus>(
+async fn check_block_messages<
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    C: Consensus,
+>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
     base_tipset: Arc<Tipset>,

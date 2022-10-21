@@ -17,17 +17,19 @@ use forest_actor_interface::*;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
+use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
+use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
 use fvm_shared::bigint::{bigint_ser, BigInt};
@@ -94,7 +96,7 @@ pub struct StateManager<DB> {
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
@@ -166,12 +168,12 @@ where
         Ok(state.get_actor(addr)?)
     }
 
-    /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
+    /// Returns the cloned [`Arc`] of the state manager's [`Blockstore`].
     pub fn blockstore_cloned(&self) -> DB {
         self.cs.blockstore_cloned()
     }
 
-    /// Returns a reference to the state manager's [`BlockStore`].
+    /// Returns a reference to the state manager's [`Blockstore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
     }
@@ -1073,7 +1075,7 @@ where
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
     where
-        DB: BlockStore + Send + Sync + 'static,
+        DB: Blockstore + Store + Clone + Send + Sync + 'static,
     {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -1427,7 +1429,7 @@ fn chain_epoch_root<DB>(
 ) -> Box<dyn Fn(ChainEpoch) -> Cid>
 where
     // Yes, both are needed, because the VM should only use the buffered store
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
         // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by

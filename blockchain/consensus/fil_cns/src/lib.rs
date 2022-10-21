@@ -11,10 +11,11 @@ use forest_blocks::{Block, Tipset};
 use forest_chain::Weight;
 use forest_chain::{Error as ChainStoreError, Scale};
 use forest_chain_sync::Consensus;
+use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
 
@@ -98,7 +99,7 @@ impl<B, V> Debug for FilecoinConsensus<B, V> {
 impl<B, V> Scale for FilecoinConsensus<B, V> {
     fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
     where
-        DB: BlockStore,
+        DB: Blockstore,
     {
         weight::weight(db, ts).map_err(|s| anyhow!(s))
     }
@@ -118,7 +119,7 @@ where
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         validation::validate_block::<_, _, V>(state_manager, self.beacon.clone(), block).await
     }

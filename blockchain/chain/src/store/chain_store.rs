@@ -12,15 +12,17 @@ use digest::Digest;
 use forest_actor_interface::{miner, EPOCHS_IN_DAY};
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
+use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::address::Address;
@@ -93,7 +95,7 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     pub async fn new(db: DB) -> Self {
         let (publisher, _) = broadcast::channel(SINK_CAP);
@@ -339,7 +341,7 @@ where
     /// Constructs and returns a full tipset if messages from storage exists - non self version
     pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
     where
-        DB: BlockStore,
+        DB: Blockstore,
     {
         // Collect all messages before moving tipset.
         let messages: Vec<(Vec<_>, Vec<_>)> = match ts
@@ -669,7 +671,7 @@ pub(crate) async fn tipset_from_keys<BS>(
     tsk: &TipsetKeys,
 ) -> Result<Arc<Tipset>, Error>
 where
-    BS: BlockStore + Send + Sync + 'static,
+    BS: Blockstore + Send + Sync + 'static,
 {
     if let Some(ts) = cache.write().await.get(tsk) {
         return Ok(ts.clone());
@@ -707,7 +709,7 @@ pub fn block_messages<DB>(
     bh: &BlockHeader,
 ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
 
@@ -724,7 +726,7 @@ pub fn block_messages_from_cids<DB>(
     secp_cids: &[Cid],
 ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     let bls_msgs: Vec<Message> = messages_from_cids(db, bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, secp_cids)?;
@@ -736,7 +738,7 @@ where
 // TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     if let Some(roots) = db
         .get_obj::<TxMeta>(msg_cid)
@@ -753,12 +755,12 @@ where
     }
 }
 
-/// Sets the genesis key in the `BlockStore`. Be careful if using this outside of
+/// Sets the genesis key in the `Blockstore`. Be careful if using this outside of
 /// the `ChainStore` as it will not update what the `ChainStore` thinks is the genesis
 /// after the `ChainStore` has been created.
 pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore + Store,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
     db.put_obj(&header, Blake2b256)
@@ -768,7 +770,7 @@ where
 /// Persists slice of `serializable` objects to `blockstore`.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
     C: Serialize,
 {
     for chunk in headers.chunks(256) {
@@ -781,7 +783,7 @@ where
 /// Returns a vector of CIDs from provided root CID
 fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     let amt = Amt::<Cid, _>::load(root, db)?;
 
@@ -798,7 +800,7 @@ where
 /// Returns the genesis block from storage.
 pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore + Store,
 {
     Ok(db
         .read(GENESIS_KEY)?
@@ -810,7 +812,7 @@ where
 /// [`ChainMessage`].
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     db.get_obj(key)
         .map_err(|e| Error::Other(e.to_string()))?
@@ -820,7 +822,7 @@ where
 /// Given a tipset this function will return all unique messages in that tipset.
 pub fn messages_for_tipset<DB>(db: &DB, ts: &Tipset) -> Result<Vec<ChainMessage>, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
     let mut balances: HashMap<Address, BigInt> = HashMap::new();
@@ -878,7 +880,7 @@ where
 /// Returns messages from key-value store based on a slice of [`Cid`]s.
 pub fn messages_from_cids<DB, T>(db: &DB, keys: &[Cid]) -> Result<Vec<T>, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
     T: DeserializeOwned,
 {
     keys.iter()
@@ -897,7 +899,7 @@ pub fn get_parent_reciept<DB>(
     i: usize,
 ) -> Result<Option<MessageReceipt>, Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
 {
     let amt = Amt::load(block_header.message_receipts(), db)?;
     let receipts = amt.get(i)?;
@@ -948,7 +950,7 @@ pub struct PersistedBlockMessages {
 /// Partition the messages into SECP and BLS variants, store them individually in the IPLD store,
 /// and the corresponding `TxMeta` as well, returning its CID so that it can be put in a block header.
 /// Also return the aggregated BLS signature of all BLS messages.
-pub fn persist_block_messages<DB: BlockStore>(
+pub fn persist_block_messages<DB: Blockstore>(
     db: &DB,
     messages: Vec<&SignedMessage>,
 ) -> anyhow::Result<PersistedBlockMessages> {

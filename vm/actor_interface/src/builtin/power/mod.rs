@@ -4,10 +4,10 @@
 use crate::FilterEstimate;
 use cid::Cid;
 use fil_actors_runtime_v8::runtime::Policy;
-use forest_ipld_blockstore::BlockStore;
-use forest_ipld_blockstore::BlockStoreExt;
 use forest_json::bigint::json;
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::StoragePower;
@@ -57,7 +57,7 @@ macro_rules! convert_filter_estimate {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_power_cid(&actor.code) {
             return store
@@ -93,7 +93,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn miner_power<BS: BlockStore>(
+    pub fn miner_power<BS: Blockstore>(
         &self,
         s: &BS,
         miner: &Address,
@@ -104,12 +104,12 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: BlockStore>(&self, _s: &BS) -> anyhow::Result<Vec<Address>> {
+    pub fn list_all_miners<BS: Blockstore>(&self, _s: &BS) -> anyhow::Result<Vec<Address>> {
         unimplemented!()
     }
 
     /// Checks power actor state for if miner meets minimum consensus power.
-    pub fn miner_nominal_power_meets_consensus_minimum<BS: BlockStore>(
+    pub fn miner_nominal_power_meets_consensus_minimum<BS: Blockstore>(
         &self,
         policy: &Policy,
         s: &BS,

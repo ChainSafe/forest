@@ -8,7 +8,7 @@ use fvm_shared::address::Address;
 use serde::Serialize;
 
 use anyhow::Context;
-use forest_ipld_blockstore::BlockStoreExt;
+use forest_utils::db::BlockstoreExt;
 
 /// Account actor method.
 pub type Method = fil_actor_account_v8::Method;

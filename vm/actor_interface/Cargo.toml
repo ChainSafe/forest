@@ -16,19 +16,19 @@ fil_actor_reward_v8.workspace   = true
 fil_actor_system_v8.workspace   = true
 fil_actors_runtime_v8.workspace = true
 
-anyhow.workspace                 = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
-forest_encoding.workspace        = true
-forest_fil_types.workspace       = true
-forest_ipld_blockstore.workspace = true
-forest_json.workspace            = true
-forest_utils.workspace           = true
-fvm.workspace                    = true
-fvm_ipld_bitfield.workspace      = true
-fvm_ipld_blockstore.workspace    = true
-fvm_ipld_encoding.workspace      = true
-fvm_ipld_hamt.workspace          = true
-fvm_shared                       = { workspace = true, default-features = false }
+anyhow.workspace              = true
+cid                           = { workspace = true, default-features = false, features = ["std"] }
+forest_db.workspace           = true
+forest_encoding.workspace     = true
+forest_fil_types.workspace    = true
+forest_json.workspace         = true
+forest_utils.workspace        = true
+fvm.workspace                 = true
+fvm_ipld_bitfield.workspace   = true
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace   = true
+fvm_ipld_hamt.workspace       = true
+fvm_shared                    = { workspace = true, default-features = false }
 # cannot update due to version conflict
 libp2p = { workspace = true, default-features = false }
 serde  = { workspace = true, features = ["derive"] }

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
@@ -45,7 +46,7 @@ pub enum State {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_market_cid(&actor.code) {
             return store
@@ -59,7 +60,7 @@ impl State {
     /// Loads escrow table
     pub fn escrow_table<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         unimplemented!()
     }
@@ -67,7 +68,7 @@ impl State {
     /// Loads locked funds table
     pub fn locked_table<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<BalanceTable<'bs, BS>>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         unimplemented!()
     }
@@ -75,7 +76,7 @@ impl State {
     /// Deal proposals
     pub fn proposals<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<DealProposals<'bs, BS>>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         unimplemented!()
     }
@@ -83,7 +84,7 @@ impl State {
     /// Deal proposal meta data.
     pub fn states<'bs, BS>(&self, _store: &'bs BS) -> anyhow::Result<DealStates<'bs, BS>>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         unimplemented!()
     }
@@ -106,7 +107,7 @@ impl State {
         curr_epoch: ChainEpoch,
     ) -> anyhow::Result<(BigInt, BigInt)>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         match self {
             State::V8(st) => fil_actor_market_v8::validate_deals_for_activation(
@@ -136,7 +137,7 @@ impl<BS> DealProposals<'_, BS> {
         _f: impl FnMut(u64, DealProposal) -> anyhow::Result<(), anyhow::Error>,
     ) -> anyhow::Result<()>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         unimplemented!()
     }
@@ -171,7 +172,7 @@ pub enum DealStates<'a, BS> {
 
 impl<BS> DealStates<'_, BS>
 where
-    BS: BlockStore,
+    BS: Blockstore,
 {
     pub fn get(&self, _key: u64) -> anyhow::Result<Option<DealState>> {
         unimplemented!()
@@ -188,7 +189,7 @@ pub struct DealState {
 
 impl<BS> BalanceTable<'_, BS>
 where
-    BS: BlockStore,
+    BS: Blockstore,
 {
     pub fn get(&self, _key: &Address) -> anyhow::Result<TokenAmount> {
         unimplemented!()

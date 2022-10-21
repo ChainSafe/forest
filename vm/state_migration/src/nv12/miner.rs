@@ -13,19 +13,20 @@ use cid::multihash::Code::Blake2b256;
 use cid::Cid;
 use forest_actor_interface::actorv3::miner::State as V3State;
 use forest_actor_interface::actorv4::miner::State as V4State;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
+use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 
 pub struct MinerMigrator(Cid);
 
-pub fn miner_migrator_v4<BS: BlockStore + Send + Sync>(
+pub fn miner_migrator_v4<BS: Blockstore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(MinerMigrator(cid))
 }
 
 // each actor's state migration is read from blockstore, changes state tree, and writes back to the blocstore.
-impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for MinerMigrator {
+impl<BS: Blockstore + Send + Sync> ActorMigration<BS> for MinerMigrator {
     fn migrate_state(
         &self,
         store: Arc<BS>,

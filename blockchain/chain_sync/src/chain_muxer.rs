@@ -17,7 +17,7 @@ use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
     PubsubMessage,
@@ -27,6 +27,7 @@ use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
 use futures::{future::try_join_all, future::Future, try_join};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
 use serde::{Deserialize, Serialize};
@@ -159,7 +160,7 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
 
 impl<DB, M, C> ChainMuxer<DB, M, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
@@ -806,7 +807,7 @@ enum ChainMuxerState<C: Consensus> {
 
 impl<DB, M, C> Future for ChainMuxer<DB, M, C>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
     M: Provider + Sync + Send + 'static,
     C: Consensus,
 {
