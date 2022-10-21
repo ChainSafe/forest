@@ -1,0 +1,25 @@
+ 2022-10-21T16:26:35.867Z [0m[32mINFO [0m [0m[1mforest[0m > Process detached
+ 2022-10-21T16:26:35.868Z [0m[32mINFO [0m [0m[1mforest::daemon[0m > Starting Forest daemon, version 0.4.1+git.97e562fa
+ 2022-10-21T16:26:35.869Z [0m[32mINFO [0m [0m[1mforest_libp2p::service[0m > Recovered libp2p keypair from "/Users/connor/Library/Application Support/com.ChainSafe.Forest/libp2p/keypair"
+ 2022-10-21T16:26:35.869Z [0m[32mINFO [0m [0m[1mforest::daemon        [0m > PeerId: 12D3KooWEv3qo6FZRFYv8uY7mxutw1ENDbT8KJ2qHnnk9K2r5iWw
+ 2022-10-21T16:26:35.869Z [0m[33mWARN [0m [0m[1mforest::daemon        [0m > Warning: Keystore encryption disabled!
+ 2022-10-21T16:26:35.869Z [0m[32mINFO [0m [0m[1mforest::daemon        [0m > Prometheus server started at 127.0.0.1:6116
+ 2022-10-21T16:26:35.869Z [0m[32mINFO [0m [0m[1mforest::daemon        [0m > Admin token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXX0.8BJ8ICVCrnqSl5_94fm7FDVo1s8qQy813zQm2deA_Rc
+ 2022-10-21T16:26:35.887Z [0m[32mINFO [0m [0m[1mforest_genesis        [0m > Initialized genesis: BlockHeader: Cid(bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4)
+ 2022-10-21T16:26:35.887Z [0m[32mINFO [0m [0m[1mforest::daemon        [0m > Using network :: calibrationnet
+ 2022-10-21T16:26:35.888Z [0m[32mINFO [0m [0m[1mforest_chain_sync::chain_muxer[0m > Evaluating network head...
+ 2022-10-21T16:26:35.888Z [0m[32mINFO [0m [0m[1mforest::daemon                [0m > JSON-RPC endpoint started at 127.0.0.1:1234
+ 2022-10-21T16:26:35.888Z [0m[32mINFO [0m [0m[1mforest_rpc                    [0m > Ready for RPC connections
+ 2022-10-21T16:26:36.654Z [0m[32mINFO [0m [0m[1mforest_chain_sync::chain_muxer[0m > Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = 1407741 -> NETWORK_HEAD = 1410293
+ 2022-10-21T16:26:45.425Z [0m[32mINFO [0m [0m[1mforest_chain_sync::tipset_syncer[0m > Fork detected, searching for a common ancestor between the local chain and the network chain
+ 2022-10-21T16:26:46.035Z [0m[32mINFO [0m [0m[1mforest_chain_sync::tipset_syncer[0m > Validating tipset: EPOCH = 1407374
+ 2022-10-21T16:26:46.035Z [0m[32mINFO [0m [0m[1mforest_chain_sync::tipset_syncer[0m > Validating tipset: EPOCH = 1407375
+ 2022-10-21T16:26:46.035Z [0m[32mINFO [0m [0m[1mforest_chain_sync::tipset_syncer[0m > Validating tipset: EPOCH = 1407376
+StateDiff:
+  Expected: bafy2bzacea7rndbjqtqhzkbg752gof67gp7takjyvfmmi6rqcnanxqikqxmom
+  Root: bafy2bzacedfe23c74quj35uhuo3vqervzxtv5vniavejwfkq4q6nwovyg5sl4
+Failed to print state-diff: Cid does not exist in blockstore
+ 2022-10-21T16:26:51.861Z [0m[33mWARN [0m [0m[1mforest_chain_sync::tipset_syncer[0m > Validating block [CID = bafy2bzaceclvphbrg7nua5psv5mdfm4as2efgqwuypgf463qg2tjljll7erwo] in EPOCH = 1407376 failed: Validation error: Validation error: Parent state root did not match computed state: bafy2bzacea7rndbjqtqhzkbg752gof67gp7takjyvfmmi6rqcnanxqikqxmom (header), bafy2bzacedfe23c74quj35uhuo3vqervzxtv5vniavejwfkq4q6nwovyg5sl4 (computed)
+ 2022-10-21T16:26:51.861Z [0m[31mERROR[0m [0m[1mforest_chain_sync::tipset_syncer[0m > Sync messages check state failed for tipset range
+ 2022-10-21T16:26:51.861Z [0m[31mERROR[0m [0m[1mforest_chain_sync::chain_muxer  [0m > Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = TipsetRangeSyncer(Validation("Validation error: Parent state root did not match computed state: bafy2bzacea7rndbjqtqhzkbg752gof67gp7takjyvfmmi6rqcnanxqikqxmom (header), bafy2bzacedfe23c74quj35uhuo3vqervzxtv5vniavejwfkq4q6nwovyg5sl4 (computed)"))
+ 2022-10-21T16:26:51.861Z [0m[32mINFO [0m [0m[1mforest_chain_sync::chain_muxer  [0m > Evaluating network head...

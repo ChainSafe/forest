@@ -10,7 +10,6 @@ use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
-use isatty::stdout_isatty;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
 use std::io::{self};
@@ -173,14 +172,6 @@ impl CliOpts {
         }
         if let Some(encrypt_keystore) = self.encrypt_keystore {
             cfg.client.encrypt_keystore = encrypt_keystore;
-        }
-
-        // determine colored log output
-        match self.color.as_str() {
-            "auto" => cfg.client.color = stdout_isatty(),
-            "always" => cfg.client.color = true,
-            "never" => cfg.client.color = false,
-            _ => {}
         }
 
         Ok(cfg)

@@ -12,7 +12,6 @@ async-std                        = { workspace = true, features = ["attributes",
 base64.workspace                 = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 directories.workspace            = true
-env_logger                       = "0.9.1"
 fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
