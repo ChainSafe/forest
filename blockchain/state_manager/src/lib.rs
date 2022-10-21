@@ -30,7 +30,7 @@ use fvm::machine::NetworkConfig;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
-use fvm_shared::bigint::{bigint_ser, BigInt};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;

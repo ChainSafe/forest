@@ -17,7 +17,6 @@ use forest_blocks::Tipset;
 use forest_message::Message;
 use forest_message::SignedMessage;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
@@ -689,7 +688,6 @@ mod test_selection {
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
-    use fvm_shared::NetworkParams;
     use std::sync::Arc;
 
     const TEST_GAS_LIMIT: i64 = 6955002;

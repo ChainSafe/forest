@@ -4,8 +4,8 @@
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-use cid::Cid;
-use fvm_ipld_encoding::{Cbor, Error, RawBytes};
+// use cid::Cid;
+use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
 use fvm_shared::{address::Address, econ::TokenAmount};

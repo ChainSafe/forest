@@ -5,7 +5,7 @@ use forest_blocks::Tipset;
 use forest_ipld_blockstore::BlockStore;
 use forest_message::Message;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::BLOCK_GAS_LIMIT;

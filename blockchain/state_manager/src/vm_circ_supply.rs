@@ -10,8 +10,6 @@ use forest_ipld_blockstore::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::bigint::Integer;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use num_traits::Zero;

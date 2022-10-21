@@ -30,7 +30,7 @@ use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
-use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use log::warn;
@@ -76,7 +76,6 @@ impl MsgSet {
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let premium = exms.message().gas_premium.clone();
-                let rbf_denom = BigInt::from(RBF_DENOM);
                 let min_price = premium.clone()
                     + ((premium * RBF_NUM).div_floor(RBF_DENOM))
                     + TokenAmount::from_atto(1u8);

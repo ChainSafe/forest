@@ -14,7 +14,6 @@ pub mod system;
 use cid::Cid;
 
 use fil_actors_runtime_v8::builtin::network;
-use fil_actors_runtime_v8::builtin::singletons;
 pub use fil_actors_runtime_v8::builtin::singletons::{BURNT_FUNDS_ACTOR_ADDR, CHAOS_ACTOR_ADDR};
 
 pub use fil_actor_reward_v8::AwardBlockRewardParams;

@@ -10,7 +10,6 @@ use forest_networks::ChainConfig;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use log::warn;
 use num_traits::Zero;

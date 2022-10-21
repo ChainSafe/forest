@@ -15,7 +15,7 @@ use fvm::state_tree::StateTree;
 use fvm::DefaultKernel;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::{BigInt, Zero};
+use fvm_shared::bigint::Zero;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;

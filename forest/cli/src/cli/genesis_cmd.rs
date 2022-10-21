@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::bigint::BigInt;
 use log::{info, warn};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};

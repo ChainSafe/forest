@@ -14,7 +14,6 @@ use forest_networks::Height;
 use forest_state_manager::StateManager;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use std::sync::Arc;

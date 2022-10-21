@@ -29,7 +29,6 @@ use forest_state_manager::{MiningBaseInfo, StateManager};
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
