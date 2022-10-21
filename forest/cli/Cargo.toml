@@ -45,6 +45,7 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 git-version                      = "0.3"
 hex.workspace                    = true
+http                             = "0.2.8"
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
 log.workspace                    = true
@@ -72,7 +73,6 @@ time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml                             = "0.5"
 uuid                             = { version = "1.1", features = ["v4"] }
-
 
 [dependencies.jsonrpc-v2]
 default-features = false
