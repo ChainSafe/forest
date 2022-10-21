@@ -13,8 +13,8 @@ pub mod system;
 
 use cid::Cid;
 
-use fil_actors_runtime_v8::builtin::network;
-pub use fil_actors_runtime_v8::builtin::singletons::{BURNT_FUNDS_ACTOR_ADDR, CHAOS_ACTOR_ADDR};
+use fil_actors_runtime::builtin::network;
+pub use fil_actors_runtime::builtin::singletons::{BURNT_FUNDS_ACTOR_ADDR, CHAOS_ACTOR_ADDR};
 
 pub use fil_actor_reward_v8::AwardBlockRewardParams;
 
