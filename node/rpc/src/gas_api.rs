@@ -167,9 +167,8 @@ where
         .unwrap()
         .sample(&mut rand::thread_rng());
 
-    premium = premium
-        * BigInt::from_f64(noise * (1i64 << precision) as f64)
-            .ok_or("failed to converrt gas premium f64 to bigint")?;
+    premium *= BigInt::from_f64(noise * (1i64 << precision) as f64)
+        .ok_or("failed to converrt gas premium f64 to bigint")?;
     premium = premium.div_floor(1i64 << precision);
 
     Ok(premium)
