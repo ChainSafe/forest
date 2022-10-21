@@ -226,18 +226,6 @@ pub(super) async fn start(config: Config, detached: bool) {
         config
     };
 
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => prompt_and_fetch_snapshot(&mut config).await,
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                prompt_and_fetch_snapshot(&mut config).await
-            }
-        }
-    }
-
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
@@ -335,6 +323,18 @@ pub(super) async fn start(config: Config, detached: bool) {
     };
     if detached {
         unblock_parent_process();
+    }
+
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    match chain_store.heaviest_tipset().await {
+        None => prompt_and_fetch_snapshot(&mut config).await,
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                prompt_and_fetch_snapshot(&mut config).await
+            }
+        }
     }
 
     select! {
