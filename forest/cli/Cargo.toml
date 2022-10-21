@@ -80,7 +80,7 @@ features         = ["easy-errors", "macros", "bytes-v05"]
 version          = "0.11"
 
 [dev-dependencies]
-assert_cmd        = "2"
-quickcheck        = "1"
-quickcheck_macros = "1"
-rand.workspace    = true
+assert_cmd                  = "2"
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+rand.workspace              = true
