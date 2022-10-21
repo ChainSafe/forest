@@ -100,20 +100,19 @@ fn main() {
     match opts.to_config() {
         Ok((cfg, path)) => {
             logger::setup_logger(&cfg.log);
-            match &path {
-                Some(path) => {
-                    match path {
-                        ConfigPath::Env(path) => {
-                            info!("FOREST_CONFIG_PATH loaded: {}", path.display())
-                        }
-                        ConfigPath::Project(path) => {
-                            info!("Project config loaded: {}", path.display())
-                        }
-                        _ => (),
+            if let Some(path) = &path {
+                match path {
+                    ConfigPath::Env(path) => {
+                        info!("FOREST_CONFIG_PATH loaded: {}", path.display())
                     }
-                    warn_for_unknown_keys(path.to_path_buf(), &cfg);
+                    ConfigPath::Project(path) => {
+                        info!("Project config loaded: {}", path.display())
+                    }
+                    _ => (),
                 }
-                None => info!("Using default {} config", cfg.chain.name),
+                warn_for_unknown_keys(path.to_path_buf(), &cfg);
+            } else {
+                info!("Using default {} config", cfg.chain.name);
             }
             match cmd {
                 Some(_) => {
