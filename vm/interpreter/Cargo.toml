@@ -14,7 +14,6 @@ fil_actors_runtime.workspace     = true
 forest_actor_interface.workspace = true
 forest_blocks.workspace          = true
 forest_crypto                    = { workspace = true, default-features = false, features = ["blst"] }
-forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_ipld_blockstore.workspace = true

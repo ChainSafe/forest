@@ -23,8 +23,10 @@ pub type Method = fil_actor_market_v8::Method;
 
 pub fn is_v8_market_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacedsurnftfw3sbfebpkdisqqaubk43gdjjeegc3kymfmhvlhatte3e").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap(),
         // devnet
