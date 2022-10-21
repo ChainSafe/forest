@@ -27,11 +27,6 @@ jobs:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
-      - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.0.0
-        with:
-          cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: false
       - uses: actions/cache@v3
         with:
           path: |
@@ -40,6 +35,11 @@ jobs:
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck
         continue-on-error: true
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.0.0
+        with:
+          cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
+          cache-save: ${{ github.event_name != 'pull_request' }}
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
