@@ -26,7 +26,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@ebcfdde2cc3ec0d4789293ad44a2dd5d2303bac5
+        uses: hanabi1224/sccache-action@v1.0.0
         with:
           # reuse build cache from calibnet sync check which is built with release profile
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
@@ -56,7 +56,7 @@ jobs:
       - run: make install-lint-tools
         continue-on-error: true
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@ebcfdde2cc3ec0d4789293ad44a2dd5d2303bac5
+        uses: hanabi1224/sccache-action@v1.0.0
         with:
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
           cache-save: ${{ github.event_name != 'pull_request' }}
@@ -75,7 +75,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@ebcfdde2cc3ec0d4789293ad44a2dd5d2303bac5
+        uses: hanabi1224/sccache-action@v1.0.0
         with:
           # hard code release-name for macos, it always get rate limited when calling github api
           release-name: v0.3.0
@@ -110,7 +110,7 @@ jobs:
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@ebcfdde2cc3ec0d4789293ad44a2dd5d2303bac5
+        uses: hanabi1224/sccache-action@v1.0.0
         with:
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
           cache-save: ${{ github.event_name != 'pull_request' }}
