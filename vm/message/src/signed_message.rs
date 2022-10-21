@@ -18,11 +18,6 @@ pub struct SignedMessage {
     pub signature: Signature,
 }
 
-// pub fn to_signing_bytes(&self) -> Vec<u8> {
-//     // Safe to unwrap here, unsigned message cannot fail to serialize.
-//     self.cid().unwrap().to_bytes()
-// }
-
 impl SignedMessage {
     /// Generate new signed message from an unsigned message and a signer.
     pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
