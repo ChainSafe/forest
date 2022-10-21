@@ -246,3 +246,35 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     error!("{}", msg.as_ref());
     std::process::exit(code);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_keys_flatten_must_work() {
+        let value = toml::from_str(
+            r#"
+            folklore = true
+            [myth]
+            author = 'H. P. Lovecraft'
+            entities = [
+                { name = 'Cthulhu' },
+                { name = 'Azathoth' },
+                { name = 'Dagon' },
+            ]
+        "#,
+        )
+        .unwrap();
+
+        let mut keys = HashSet::new();
+        get_keys_flatten(value, &mut keys);
+
+        let expected = HashSet::from_iter(
+            ["folklore", "myth", "author", "entities", "name"]
+                .iter()
+                .map(|&s| s.into()),
+        );
+        assert_eq!(keys, expected);
+    }
+}
