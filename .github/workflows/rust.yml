@@ -26,11 +26,10 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.0.0
+        uses: hanabi1224/sccache-action@v1.1.0
         with:
-          # reuse build cache from calibnet sync check which is built with release profile
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: false
+          cache-suffix: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: install nextest
@@ -56,10 +55,10 @@ jobs:
       - run: make install-lint-tools
         continue-on-error: true
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.0.0
+        uses: hanabi1224/sccache-action@v1.1.0
         with:
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-suffix: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
         env:
           CC: "sccache clang"
@@ -75,12 +74,12 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.0.0
+        uses: hanabi1224/sccache-action@v1.1.0
         with:
           # hard code release-name for macos, it always get rate limited when calling github api
           release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-suffix: ${{ github.event_name != 'pull_request' }}
       - name: Install Apt Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
@@ -100,6 +99,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
+    if: ${{ false }}
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
@@ -110,10 +110,10 @@ jobs:
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.0.0
+        uses: hanabi1224/sccache-action@v1.1.0
         with:
-          cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
+          cache-suffix: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
         run: make install
         env:
@@ -125,10 +125,10 @@ jobs:
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
-      # - name: wait for sync and check health
-      #   run: |
-      #     forest-cli sync wait
-      #     bash scripts/health_check.sh localhost
+      - name: wait for sync and check health
+        run: |
+          forest-cli sync wait
+          bash scripts/health_check.sh localhost
       - name: kill Forest process, print forest logs
         run: |
           pkill forest
