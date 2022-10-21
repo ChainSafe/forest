@@ -180,7 +180,7 @@ pub enum ConfigPath {
 }
 
 impl ConfigPath {
-    fn to_path_buf(&self) -> &PathBuf {
+    pub fn to_path_buf(&self) -> &PathBuf {
         match self {
             ConfigPath::Cli(path) => path,
             ConfigPath::Env(path) => path,
@@ -222,23 +222,21 @@ fn get_keys_flatten(value: toml::Value, keys: &mut HashSet<String>) {
     }
 }
 
-pub fn warn_for_unknown_keys(path: Option<String>, config: &Config) {
-    if let Some(path) = path {
-        let file = read_file_to_string(&PathBuf::from(&path)).unwrap();
-        let value = file.parse::<toml::Value>().unwrap();
-        let mut keys = HashSet::new();
-        get_keys_flatten(value, &mut keys);
+pub fn warn_for_unknown_keys(path: &PathBuf, config: &Config) {
+    // `config` has been loaded successfully from toml file in `path` so we can always serialize
+    // it back to a valid TOML value or get the TOML value from `path`
+    let file = read_file_to_string(path).unwrap();
+    let value = file.parse::<toml::Value>().unwrap();
+    let mut keys = HashSet::new();
+    get_keys_flatten(value, &mut keys);
 
-        let config_file = toml::to_string(config).unwrap();
-        let config_value = config_file.parse::<toml::Value>().unwrap();
-        let mut config_keys = HashSet::new();
-        get_keys_flatten(config_value, &mut config_keys);
+    let config_file = toml::to_string(config).unwrap();
+    let config_value = config_file.parse::<toml::Value>().unwrap();
+    let mut config_keys = HashSet::new();
+    get_keys_flatten(config_value, &mut config_keys);
 
-        for k in keys.iter() {
-            if !config_keys.contains(k) {
-                warn!("Unknown key \"{k}\" in {path}, ignoring");
-            }
-        }
+    for k in keys.difference(&config_keys) {
+        warn!("Unknown key \"{k}\" in {}, ignoring", path.display());
     }
 }
 

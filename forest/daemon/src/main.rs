@@ -100,19 +100,21 @@ fn main() {
     match opts.to_config() {
         Ok((cfg, path)) => {
             logger::setup_logger(&cfg.log);
-            match path {
-                Some(path) => match path {
-                    ConfigPath::Env(path) => {
-                        info!("FOREST_CONFIG_PATH loaded: {}", path.display())
+            match &path {
+                Some(path) => {
+                    match path {
+                        ConfigPath::Env(path) => {
+                            info!("FOREST_CONFIG_PATH loaded: {}", path.display())
+                        }
+                        ConfigPath::Project(path) => {
+                            info!("Project config loaded: {}", path.display())
+                        }
+                        _ => (),
                     }
-                    ConfigPath::Project(path) => {
-                        info!("Project config loaded: {}", path.display())
-                    }
-                    _ => (),
-                },
+                    warn_for_unknown_keys(path.to_path_buf(), &cfg);
+                }
                 None => info!("Using default {} config", cfg.chain.name),
             }
-            warn_for_unknown_keys(opts.config, &cfg);
             match cmd {
                 Some(_) => {
                     warn!("All subcommands have been moved to forest-cli tool");
