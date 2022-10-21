@@ -82,7 +82,7 @@ impl DelegatedProposer {
         let sig = forest_key_management::sign(
             *self.key.key_info.key_type(),
             self.key.key_info.private_key(),
-            &header.cid().to_bytes(),
+            &header.to_signing_bytes(),
         )?;
 
         header.signature = Some(sig);
