@@ -77,7 +77,7 @@ where
         beacon_entries: &m.beacon_entries,
         signature: &m.signature,
         fork_signal: &m.fork_signal,
-        parent_base_fee: m.parent_base_fee.to_string(),
+        parent_base_fee: m.parent_base_fee.atto().to_string(),
     }
     .serialize(serializer)
 }
