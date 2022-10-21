@@ -18,10 +18,10 @@ jobs:
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.1.0
+        uses: hanabi1224/sccache-action@v1.2.0
         with:
           cache-key: ${{ runner.os }}-sccache-codecov-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage

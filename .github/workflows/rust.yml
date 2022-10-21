@@ -26,10 +26,10 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.1.0
+        uses: hanabi1224/sccache-action@v1.2.0
         with:
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: install nextest
@@ -55,10 +55,10 @@ jobs:
       - run: make install-lint-tools
         continue-on-error: true
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.1.0
+        uses: hanabi1224/sccache-action@v1.2.0
         with:
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
         env:
           CC: "sccache clang"
@@ -74,12 +74,12 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.1.0
+        uses: hanabi1224/sccache-action@v1.2.0
         with:
           # hard code release-name for macos, it always get rate limited when calling github api
           release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Install Apt Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
@@ -110,10 +110,10 @@ jobs:
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
-        uses: hanabi1224/sccache-action@v1.1.0
+        uses: hanabi1224/sccache-action@v1.2.0
         with:
           cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
-          cache-save: ${{ github.event_name != 'pull_request' }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
         run: make install
         env:
