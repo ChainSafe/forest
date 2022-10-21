@@ -345,7 +345,7 @@ impl BlockHeader {
             .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
         signature
-            .verify(&self.cid().to_bytes(), addr)
+            .verify(&self.to_signing_bytes(), addr)
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
 
         // Set validated cache to true
