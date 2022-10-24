@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_crypto::Signer;
-use forest_message::message;
-use forest_message::message::json::{MessageJson, MessageJsonRef};
+use forest_json::message;
+use forest_json::message::json::{MessageJson, MessageJsonRef};
 use forest_message::signed_message::{
     self,
     json::{SignedMessageJson, SignedMessageJsonRef},
