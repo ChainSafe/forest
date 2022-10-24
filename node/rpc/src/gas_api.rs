@@ -17,6 +17,7 @@ use forest_rpc_api::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::BLOCK_GAS_LIMIT;
 
@@ -35,7 +36,7 @@ where
 
     estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
         .await
-        .map(|n| BigInt::to_string(&n))
+        .map(|n| TokenAmount::to_string(&n))
 }
 
 async fn estimate_fee_cap<DB, B>(
@@ -43,7 +44,7 @@ async fn estimate_fee_cap<DB, B>(
     msg: Message,
     max_queue_blks: i64,
     _tsk: TipsetKeys,
-) -> Result<BigInt, JsonRpcError>
+) -> Result<TokenAmount, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -62,7 +63,7 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let mut out = fee_in_future / (1 << 8);
+    let mut out = fee_in_future.div_floor(1 << 8);
     out += msg.gas_premium;
     Ok(out)
 }
@@ -79,13 +80,13 @@ where
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
     estimate_gas_premium::<DB, B>(&data, nblocksincl)
         .await
-        .map(|n| BigInt::to_string(&n))
+        .map(|n| TokenAmount::to_string(&n))
 }
 
 async fn estimate_gas_premium<DB, B>(
     data: &Data<RPCState<DB, B>>,
     mut nblocksincl: u64,
-) -> Result<BigInt, JsonRpcError>
+) -> Result<TokenAmount, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
@@ -95,7 +96,7 @@ where
     }
 
     struct GasMeta {
-        pub price: BigInt,
+        pub price: TokenAmount,
         pub limit: i64,
     }
 
@@ -136,8 +137,8 @@ where
     prices.sort_by(|a, b| b.price.cmp(&a.price));
     // TODO: From lotus, account for how full blocks are
     let mut at = BLOCK_GAS_TARGET * blocks as i64 / 2;
-    let mut prev = BigInt::zero();
-    let mut premium = BigInt::zero();
+    let mut prev = TokenAmount::zero();
+    let mut premium = TokenAmount::zero();
 
     for price in prices {
         at -= price.limit;
@@ -145,20 +146,19 @@ where
             prev = price.price;
             continue;
         }
-        if prev == 0.into() {
-            let ret: BigInt = price.price + 1;
+        if prev == TokenAmount::zero() {
+            let ret: TokenAmount = price.price + TokenAmount::from_atto(1);
             return Ok(ret);
         }
-        premium = (&price.price + &prev) / 2 + 1
+        premium = (&price.price + &prev).div_floor(2) + TokenAmount::from_atto(1)
     }
 
-    if premium == 0.into() {
-        premium = BigInt::from_f64(match nblocksincl {
-            1 => MIN_GAS_PREMIUM * 2.0,
-            2 => MIN_GAS_PREMIUM * 1.5,
-            _ => MIN_GAS_PREMIUM,
-        })
-        .ok_or("failed to convert gas premium f64 to bigint")?;
+    if premium == TokenAmount::zero() {
+        premium = TokenAmount::from_atto(match nblocksincl {
+            1 => (MIN_GAS_PREMIUM * 2.0) as u64,
+            2 => (MIN_GAS_PREMIUM * 1.5) as u64,
+            _ => MIN_GAS_PREMIUM as u64,
+        });
     }
 
     let precision = 32;
@@ -170,7 +170,7 @@ where
 
     premium *= BigInt::from_f64(noise * (1i64 << precision) as f64)
         .ok_or("failed to converrt gas premium f64 to bigint")?;
-    premium /= 1i64 << precision;
+    premium = premium.div_floor(1i64 << precision);
 
     Ok(premium)
 }
@@ -199,8 +199,8 @@ where
 {
     let mut msg = msg;
     msg.gas_limit = BLOCK_GAS_LIMIT;
-    msg.gas_fee_cap = MINIMUM_BASE_FEE.clone() + 1;
-    msg.gas_premium = 1.into();
+    msg.gas_fee_cap = MINIMUM_BASE_FEE.clone() + TokenAmount::from_atto(1);
+    msg.gas_premium = TokenAmount::from_atto(1);
 
     let curr_ts = data
         .state_manager

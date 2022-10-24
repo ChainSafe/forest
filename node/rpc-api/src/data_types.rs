@@ -13,9 +13,9 @@ use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
-use forest_json::bigint::json;
 use forest_json::cid::CidJson;
 use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
+use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
@@ -29,11 +29,10 @@ use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
-use fvm_shared::sector::SectorSize;
+use fvm_shared::sector::{SectorSize, StoragePower};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -124,7 +123,7 @@ pub struct ActorStateJson {
     head: Cid,
     nonce: u64,
     #[serde(with = "json")]
-    balance: BigInt,
+    balance: TokenAmount,
 }
 
 impl ActorStateJson {
@@ -190,10 +189,10 @@ pub struct BlockTemplate {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
-    #[serde(with = "json::option")]
-    pub miner_power: Option<TokenAmount>,
-    #[serde(with = "json::option")]
-    pub network_power: Option<TokenAmount>,
+    #[serde(with = "forest_json::bigint::json::option")]
+    pub miner_power: Option<StoragePower>,
+    #[serde(with = "forest_json::bigint::json::option")]
+    pub network_power: Option<StoragePower>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,

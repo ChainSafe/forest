@@ -11,11 +11,9 @@ use forest_networks::{ChainConfig, Height};
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::bigint::Integer;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use fvm_shared::FILECOIN_PRECISION;
+use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
 const PRE_CALICO_VESTING: [(ChainEpoch, usize); 5] = [
@@ -79,7 +77,7 @@ impl GenesisInfo {
         } else {
             TokenAmount::default()
         };
-        let fil_circulating = BigInt::max(
+        let fil_circulating = TokenAmount::max(
             &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
             TokenAmount::default(),
         );
@@ -183,7 +181,7 @@ fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
 fn get_fil_reserve_disbursed<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let fil_reserved: BigInt = BigInt::from(300_000_000) * FILECOIN_PRECISION;
+    let fil_reserved: TokenAmount = TokenAmount::from_whole(300_000_000);
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
@@ -201,7 +199,7 @@ fn get_fil_locked<DB: Blockstore + Store + Clone>(
 fn get_fil_burnt<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let burnt_actor = get_actor_state(state_tree, BURNT_FUNDS_ACTOR_ADDR)?;
+    let burnt_actor = get_actor_state(state_tree, &BURNT_FUNDS_ACTOR_ADDR)?;
 
     Ok(burnt_actor.balance)
 }
@@ -210,7 +208,7 @@ fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
     PRE_CALICO_VESTING
         .into_iter()
         .map(|(unlock_duration, initial_balance)| {
-            (unlock_duration, TokenAmount::from(initial_balance))
+            (unlock_duration, TokenAmount::from_atto(initial_balance))
         })
         .collect()
 }
@@ -224,7 +222,7 @@ fn setup_ignition_vesting_schedule(
             (
                 liftoff_height,
                 unlock_duration,
-                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
+                TokenAmount::from_whole(initial_balance),
             )
         })
         .collect()
@@ -238,7 +236,7 @@ fn setup_calico_vesting_schedule(
             (
                 liftoff_height,
                 unlock_duration,
-                TokenAmount::from(initial_balance) * FILECOIN_PRECISION,
+                TokenAmount::from_whole(initial_balance),
             )
         })
         .collect()
@@ -252,12 +250,12 @@ fn v0_amount_locked(
     elapsed_epoch: ChainEpoch,
 ) -> TokenAmount {
     if elapsed_epoch >= unlock_duration {
-        return TokenAmount::from(0);
+        return TokenAmount::zero();
     }
     if elapsed_epoch < 0 {
         return initial_balance.clone();
     }
     // Division truncation is broken here: https://github.com/filecoin-project/specs-actors/issues/1131
-    let unit_locked: TokenAmount = initial_balance.div_floor(&TokenAmount::from(unlock_duration));
+    let unit_locked: TokenAmount = initial_balance.div_floor(unlock_duration);
     unit_locked * (unlock_duration - elapsed_epoch)
 }

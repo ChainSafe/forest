@@ -16,11 +16,8 @@ use forest_rpc_client::{
 use fvm::state_tree::ActorState;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::bigint_ser;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use num_traits::cast::FromPrimitive;
 use structopt::StructOpt;
 
 use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
@@ -35,7 +32,6 @@ struct VestingSchedule {
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingScheduleEntry {
     epoch: ChainEpoch,
-    #[serde(with = "bigint_ser")]
     amount: TokenAmount,
 }
 
@@ -243,11 +239,7 @@ impl StateCommands {
 
                 println!("Vesting Schedule for Miner {}:", address);
                 for entry in schedule.entries {
-                    println!(
-                        "Epoch: {}     FIL: {:.3}",
-                        entry.epoch,
-                        &entry.amount / (BigInt::from_f64(1e18).unwrap())
-                    );
+                    println!("Epoch: {}     FIL: {:.3}", entry.epoch, &entry.amount);
                 }
             }
         }
