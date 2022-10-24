@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
@@ -158,11 +157,8 @@ pub struct DealProposal {
     pub label: String,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
-    #[serde(with = "json")]
     pub storage_price_per_epoch: TokenAmount,
-    #[serde(with = "json")]
     pub provider_collateral: TokenAmount,
-    #[serde(with = "json")]
     pub client_collateral: TokenAmount,
 }
 

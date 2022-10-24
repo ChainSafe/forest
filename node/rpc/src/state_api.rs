@@ -40,6 +40,7 @@ use forest_state_manager::{InvocResult, StateManager};
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::PoStProof;
 use fvm_shared::{address::Address, bigint::BigInt};
 use libipld_core::ipld::Ipld;
@@ -652,7 +653,7 @@ pub(crate) async fn miner_create_block<
     let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        &next.to_signing_bytes(),
+        &next.cid().to_bytes(),
     )?;
     next.signature = Some(sig);
 
@@ -802,7 +803,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     let deposit = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
         .pre_commit_deposit_for_power(power_smoothed, &sector_weight);
 
-    let ret: BigInt = (deposit * 110) / 100;
+    let ret: TokenAmount = (deposit * 110).div_floor(100);
     Ok(ret.to_string())
 }
 
@@ -851,7 +852,7 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let initial_pledge = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
         .initial_pledge_for_power(&sector_weight, &total_locked, power_smoothed, &circ_supply);
 
-    let ret: BigInt = (initial_pledge * 110) / 100;
+    let ret: BigInt = (initial_pledge.atto() * 110) / 100;
     Ok(ret.to_string())
 }
 

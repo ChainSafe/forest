@@ -12,7 +12,7 @@ blake2b_simd.workspace           = true
 byteorder.workspace              = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 fil_actors_runtime.workspace     = true
-filecoin-proofs-api              = { version = "11.0.0", default-features = false }
+filecoin-proofs-api              = { version = "12.0.0", default-features = false }
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true
