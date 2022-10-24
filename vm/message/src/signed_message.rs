@@ -21,7 +21,7 @@ pub struct SignedMessage {
 impl SignedMessage {
     /// Generate new signed message from an unsigned message and a signer.
     pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
-        let bz = message.cid().unwrap().to_bytes();
+        let bz = message.cid()?.to_bytes();
 
         let signature = signer
             .sign_bytes(&bz, &message.from)
