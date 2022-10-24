@@ -120,7 +120,7 @@ pub mod json {
 
 #[cfg(test)]
 pub mod tests {
-    use super::json::{MessageJson, MessageJsonRef, MessageWrapper};
+    use super::json::{MessageJson, MessageJsonRef};
     use fvm_shared::address::Address;
     use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;

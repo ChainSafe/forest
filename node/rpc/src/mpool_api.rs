@@ -6,7 +6,7 @@ use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
 use forest_db::Store;
 use forest_json::cid::{vec::CidJsonVec, CidJson};
-use forest_message::message::json::MessageJson;
+use forest_json::message::json::MessageJson;
 use forest_message::{signed_message::json::SignedMessageJson, SignedMessage};
 use forest_rpc_api::data_types::RPCState;
 use forest_rpc_api::mpool_api::*;
