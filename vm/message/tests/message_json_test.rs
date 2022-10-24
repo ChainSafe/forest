@@ -12,6 +12,7 @@ use forest_message::signed_message::{
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};
@@ -47,12 +48,12 @@ fn message_json_annotations() {
         from: Address::new_id(34),
         to: Address::new_id(12),
         sequence: 5,
-        value: 6.into(),
+        value: TokenAmount::from_atto(6),
         method_num: 7,
         params: RawBytes::default(),
         gas_limit: 8,
-        gas_fee_cap: 10.into(),
-        gas_premium: 9.into(),
+        gas_fee_cap: TokenAmount::from_atto(10),
+        gas_premium: TokenAmount::from_atto(9),
     };
 
     struct DummySigner;

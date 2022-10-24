@@ -6,10 +6,10 @@ use serde::de::DeserializeOwned;
 use tide::http::headers::HeaderValues;
 
 use forest_beacon::Beacon;
-use forest_ipld_blockstore::BlockStore;
 use forest_rpc_api::{
     auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
 };
+use fvm_ipld_blockstore::Blockstore;
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
     debug!(
@@ -50,7 +50,7 @@ pub async fn check_permissions<DB, B>(
     authorization_header: Option<HeaderValues>,
 ) -> Result<(), tide::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let claims = match authorization_header

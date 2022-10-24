@@ -17,25 +17,27 @@ use forest_actor_interface::*;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
+use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
+use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
 use fvm::machine::NetworkConfig;
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
-use fvm_shared::bigint::{bigint_ser, BigInt};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
-use fvm_shared::sector::{SectorInfo, SectorSize};
+use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
 use num_traits::identities::Zero;
@@ -67,10 +69,8 @@ type StateCallResult = Result<InvocResult, Error>;
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
-    #[serde(with = "bigint_ser")]
-    escrow: BigInt,
-    #[serde(with = "bigint_ser")]
-    locked: BigInt,
+    escrow: TokenAmount,
+    locked: TokenAmount,
 }
 
 /// State manager handles all interactions with the internal Filecoin actors state.
@@ -94,7 +94,7 @@ pub struct StateManager<DB> {
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     pub async fn new(
         cs: Arc<ChainStore<DB>>,
@@ -166,12 +166,12 @@ where
         Ok(state.get_actor(addr)?)
     }
 
-    /// Returns the cloned [`Arc`] of the state manager's [`BlockStore`].
+    /// Returns the cloned [`Arc`] of the state manager's [`Blockstore`].
     pub fn blockstore_cloned(&self) -> DB {
         self.cs.blockstore_cloned()
     }
 
-    /// Returns a reference to the state manager's [`BlockStore`].
+    /// Returns a reference to the state manager's [`Blockstore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
     }
@@ -337,7 +337,7 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         rand: &R,
-        base_fee: BigInt,
+        base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
@@ -492,7 +492,7 @@ where
                 store_arc,
                 bheight,
                 rand,
-                0.into(),
+                TokenAmount::zero(),
                 network_version,
                 |height, state| self.genesis_info.get_circulating_supply(height, state),
                 self.reward_calc.clone(),
@@ -1073,7 +1073,7 @@ where
         confidence: i64,
     ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
     where
-        DB: BlockStore + Send + Sync + 'static,
+        DB: Blockstore + Store + Clone + Send + Sync + 'static,
     {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -1230,7 +1230,7 @@ where
     }
 
     /// Return the heaviest tipset's balance from self.db for a given address
-    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
+    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
         let ts = self
             .cs
             .heaviest_tipset()
@@ -1241,7 +1241,7 @@ where
     }
 
     /// Return the balance of a given address and `state_cid`
-    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<BigInt, Error> {
+    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
         Ok(actor.balance)
@@ -1411,8 +1411,8 @@ where
 // * There is not a great reason this is a separate type from the one on the RPC.
 // * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
-    pub miner_power: Option<TokenAmount>,
-    pub network_power: Option<TokenAmount>,
+    pub miner_power: Option<StoragePower>,
+    pub network_power: Option<StoragePower>,
     pub sectors: Vec<SectorInfo>,
     pub worker_key: Address,
     pub sector_size: SectorSize,
@@ -1427,7 +1427,7 @@ fn chain_epoch_root<DB>(
 ) -> Box<dyn Fn(ChainEpoch) -> Cid>
 where
     // Yes, both are needed, because the VM should only use the buffered store
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
         // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by

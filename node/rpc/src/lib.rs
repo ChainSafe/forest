@@ -23,9 +23,10 @@ use std::sync::Arc;
 use tide_websockets::WebSocket;
 
 use forest_beacon::Beacon;
+use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
 use forest_rpc_api::data_types::RPCState;
+use fvm_ipld_blockstore::Blockstore;
 
 use crate::rpc_http_handler::rpc_http_handler;
 use crate::rpc_ws_handler::rpc_ws_handler;
@@ -42,7 +43,7 @@ pub async fn start_rpc<DB, B, V, S>(
     forest_version: &'static str,
 ) -> Result<(), JSONRPCError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
     V: ProofVerifier + Send + Sync + 'static,
     S: Scale + 'static,

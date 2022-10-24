@@ -14,11 +14,12 @@ fil_actors_runtime.workspace     = true
 forest_actor_interface.workspace = true
 forest_blocks.workspace          = true
 forest_crypto                    = { workspace = true, default-features = false, features = ["blst"] }
+forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
-forest_ipld_blockstore.workspace = true
-forest_message                   = { workspace = true, default-features = false, features = ["blst"] }
+forest_message                   = { workspace = true, default_features = false, features = ["blst"] }
 forest_networks.workspace        = true
+forest_utils.workspace           = true
 fvm.workspace                    = true
 fvm_ipld_amt.workspace           = true
 fvm_ipld_blockstore.workspace    = true

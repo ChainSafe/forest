@@ -8,13 +8,15 @@ use forest_blocks::BlockHeader;
 use forest_blocks::Tipset;
 use forest_blocks::TipsetKeys;
 use forest_chain::HeadChange;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_db::Store;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
 use forest_state_manager::StateManager;
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -44,7 +46,7 @@ pub trait Provider {
     /// Return a tipset given the tipset keys from the `ChainStore`
     async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
-    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
 }
 
 /// This is the default Provider implementation that will be used for the `mpool` RPC.
@@ -55,11 +57,11 @@ pub struct MpoolRpcProvider<DB> {
 
 impl<DB> MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send,
+    DB: Blockstore + Store + Clone + Sync + Send,
 {
     pub fn new(subscriber: Publisher<HeadChange>, sm: Arc<StateManager<DB>>) -> Self
     where
-        DB: BlockStore,
+        DB: Blockstore + Store + Clone,
     {
         MpoolRpcProvider { subscriber, sm }
     }
@@ -68,7 +70,7 @@ where
 #[async_trait]
 impl<DB> Provider for MpoolRpcProvider<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
 {
     async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()
@@ -111,7 +113,7 @@ where
         let ts = self.sm.chain_store().tipset_from_keys(tsk).await?;
         Ok(ts)
     }
-    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         forest_chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())

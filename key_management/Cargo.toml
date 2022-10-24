@@ -11,7 +11,7 @@ features = ["json"]
 anyhow.workspace             = true
 argon2                       = "0.4"
 base64.workspace             = true
-bls-signatures               = { version = "0.11", default-features = false, features = ["blst"] }
+bls-signatures               = { version = "0.12", default-features = false, features = ["blst"] }
 forest_crypto                = { workspace = true, features = ["blst"] }
 forest_encoding.workspace    = true
 forest_utils.workspace       = true
