@@ -7,7 +7,12 @@ use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
-use std::{collections::HashMap, ffi::OsStr, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use time::{format_description::well_known::Iso8601, Date, OffsetDateTime};
@@ -204,7 +209,7 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
     fs::read_dir(snapshot_dir)?
         .flatten()
         .map(|entry| entry.path())
-        .filter(is_car_or_tmp)
+        .filter(|p| is_car_or_tmp(p))
         .for_each(|p| println!("{}", p.display()));
 
     Ok(())
@@ -332,7 +337,7 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     let snapshots_to_delete: Vec<_> = read_dir
         .flatten()
         .map(|entry| entry.path())
-        .filter(is_car_or_tmp)
+        .filter(|p| is_car_or_tmp(p))
         .collect();
 
     if snapshots_to_delete.is_empty() {
@@ -385,7 +390,7 @@ fn prompt_confirm() -> bool {
     line == "y" || line == "yes"
 }
 
-fn is_car_or_tmp(path: &PathBuf) -> bool {
+fn is_car_or_tmp(path: &Path) -> bool {
     let ext = path.extension().unwrap_or_default();
     ext == "car" || ext == "tmp"
 }
