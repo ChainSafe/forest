@@ -5,11 +5,9 @@ use forest_blocks::Tipset;
 use forest_message::Message;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::BLOCK_GAS_LIMIT;
-use lazy_static::lazy_static;
 use std::collections::HashSet;
 
 /// Used in calculating the base fee change.
@@ -22,15 +20,7 @@ pub const BASE_FEE_MAX_CHANGE_DENOM: i64 = 8;
 pub const INITIAL_BASE_FEE: i64 = 100000000;
 pub const PACKING_EFFICIENCY_DENOM: i64 = 5;
 pub const PACKING_EFFICIENCY_NUM: i64 = 4;
-
-lazy_static! {
-    /// Minimum base fee amount allowed for the given [Tipset].
-    pub static ref MINIMUM_BASE_FEE: TokenAmount = TokenAmount::from_atto(100);
-
-    /// These statics are just to avoid allocations for division.
-    static ref BLOCK_GAS_TARGET_BIG: BigInt = BigInt::from(BLOCK_GAS_TARGET);
-    static ref BASE_FEE_MAX_CHANGE_DENOM_BIG: BigInt = BigInt::from(BASE_FEE_MAX_CHANGE_DENOM);
-}
+pub const MINIMUM_BASE_FEE: i64 = 100;
 
 fn compute_next_base_fee(
     base_fee: &TokenAmount,
@@ -58,11 +48,11 @@ fn compute_next_base_fee(
 
     // cap change at 12.5% (BaseFeeMaxChangeDenom) by capping delta
     let change: TokenAmount = (base_fee * delta)
-        .div_floor((*BLOCK_GAS_TARGET_BIG).clone())
-        .div_floor((*BASE_FEE_MAX_CHANGE_DENOM_BIG).clone());
+        .div_floor(BLOCK_GAS_TARGET)
+        .div_floor(BASE_FEE_MAX_CHANGE_DENOM);
     let mut next_base_fee = base_fee + change;
-    if next_base_fee < *MINIMUM_BASE_FEE {
-        next_base_fee = MINIMUM_BASE_FEE.clone();
+    if next_base_fee.atto() < &MINIMUM_BASE_FEE.into() {
+        next_base_fee = TokenAmount::from_atto(MINIMUM_BASE_FEE);
     }
     next_base_fee
 }

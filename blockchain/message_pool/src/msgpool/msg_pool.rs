@@ -359,7 +359,7 @@ where
         if msg.value() > &fvm_shared::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
-        if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {
+        if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
             return Err(Error::GasFeeCapTooLow);
         }
         self.verify_msg_sig(msg).await
