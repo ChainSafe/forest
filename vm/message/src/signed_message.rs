@@ -127,7 +127,7 @@ impl Cbor for SignedMessage {
 
 pub mod json {
     use super::*;
-    use crate::message;
+    use forest_json::message;
 
     use cid::Cid;
     use forest_crypto::signature;
@@ -237,7 +237,7 @@ mod tests {
             }
 
             SignedMessage::new(
-                crate::message::tests::MessageWrapper::arbitrary(g).message,
+                forest_json::message::tests::MessageWrapper::arbitrary(g).message,
                 &DummySigner,
             )
             .unwrap()
