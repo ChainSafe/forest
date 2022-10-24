@@ -78,7 +78,7 @@ structopt.workspace              = true
 tempfile.workspace               = true
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
-toml                             = "0.5"
+toml.workspace                   = true
 
 
 [dependencies.jsonrpc-v2]

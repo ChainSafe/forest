@@ -23,7 +23,7 @@ serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
 tokio                         = { workspace = true, features = ["fs"] }
 tokio-util                    = { workspace = true, features = ["compat", "io-util"] }
-toml                          = "0.5"
+toml.workspace                = true
 url.workspace                 = true
 
 [dev-dependencies]

@@ -119,6 +119,7 @@ thiserror             = "1.0"
 time                  = "0.3"
 tokio                 = "1.21"
 tokio-util            = "0.7.0"
+toml                  = "0.5"
 url                   = "2.3"
 
 forest_actor_interface = { path = "./vm/actor_interface" }
