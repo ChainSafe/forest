@@ -11,7 +11,6 @@ use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
 use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
-use fvm::state_tree::StateTree;
 use fvm::DefaultKernel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
@@ -102,11 +101,9 @@ where
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: FnOnce(ChainEpoch, &StateTree<&DB>) -> Result<TokenAmount, anyhow::Error>,
+        C: FnOnce(ChainEpoch, &DB) -> Result<TokenAmount, anyhow::Error>,
     {
-        let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc(epoch, &state)?;
-
+        let circ_supply = circ_supply_calc(epoch, &store_arc)?;
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);

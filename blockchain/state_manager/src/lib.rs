@@ -358,7 +358,10 @@ where
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
-                |height, state| self.genesis_info.get_circulating_supply(height, state),
+                |height, db| {
+                    let state = StateTree::new_from_root(db, &state_root)?;
+                    self.genesis_info.get_circulating_supply(height, &state)
+                },
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -489,7 +492,10 @@ where
                 rand,
                 TokenAmount::zero(),
                 network_version,
-                |height, state| self.genesis_info.get_circulating_supply(height, state),
+                |height, db| {
+                    let state = StateTree::new_from_root(db, bstate)?;
+                    self.genesis_info.get_circulating_supply(height, &state)
+                },
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -577,7 +583,10 @@ where
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
-            |height, state| self.genesis_info.get_circulating_supply(height, state),
+            |height, db| {
+                let state = StateTree::new_from_root(db, &st)?;
+                self.genesis_info.get_circulating_supply(height, &state)
+            },
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
