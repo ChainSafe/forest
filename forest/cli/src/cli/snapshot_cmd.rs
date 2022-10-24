@@ -9,7 +9,6 @@ use forest_rpc_client::chain_ops::*;
 use regex::Regex;
 use std::{
     collections::HashMap,
-    ffi::OsStr,
     fs,
     path::{Path, PathBuf},
 };
@@ -220,11 +219,7 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     let snapshot_path = snapshot_dir.join(filename);
-    if snapshot_path.exists()
-        && snapshot_path.is_file()
-        && (snapshot_path.extension() == Some(OsStr::new("car"))
-            || snapshot_path.extension() == Some(OsStr::new("tmp")))
-    {
+    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_tmp(&snapshot_path) {
         println!("Deleting {}", snapshot_path.display());
         if !force && !prompt_confirm() {
             println!("Aborted.");
