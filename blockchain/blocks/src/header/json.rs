@@ -77,7 +77,7 @@ where
         beacon_entries: &m.beacon_entries,
         signature: &m.signature,
         fork_signal: &m.fork_signal,
-        parent_base_fee: m.parent_base_fee.to_string(),
+        parent_base_fee: m.parent_base_fee.atto().to_string(),
     }
     .serialize(serializer)
 }
@@ -137,7 +137,12 @@ where
         .signature(v.signature)
         .bls_aggregate(v.bls_aggregate)
         .election_proof(v.election_proof)
-        .parent_base_fee(v.parent_base_fee.parse().map_err(de::Error::custom)?)
+        .parent_base_fee(
+            v.parent_base_fee
+                .parse::<BigInt>()
+                .map(TokenAmount::from_atto)
+                .map_err(de::Error::custom)?,
+        )
         .build()
         .map_err(de::Error::custom)
 }

@@ -9,7 +9,7 @@ edition = "2021"
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["attributes"] }
 base64.workspace                 = true
-bls-signatures                   = { version = "0.11", default-features = false, features = ["blst"] }
+bls-signatures                   = { version = "0.12", default-features = false, features = ["blst"] }
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 crossbeam                        = "0.8"
 fil_actor_miner_v8.workspace     = true

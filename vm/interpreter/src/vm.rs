@@ -16,7 +16,7 @@ use fvm::DefaultKernel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::bigint::Zero;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
@@ -49,8 +49,8 @@ pub trait RewardCalc: Send + Sync + 'static {
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
-        penalty: BigInt,
-        gas_reward: BigInt,
+        penalty: TokenAmount,
+        gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
@@ -93,7 +93,7 @@ where
         store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
-        base_fee: BigInt,
+        base_fee: TokenAmount,
         network_version: NetworkVersion,
         circ_supply_calc: C,
         reward_calc: Arc<dyn RewardCalc>,
@@ -213,8 +213,8 @@ where
         let mut processed = HashSet::<Cid>::default();
 
         for block in messages.iter() {
-            let mut penalty = Default::default();
-            let mut gas_reward = Default::default();
+            let mut penalty = TokenAmount::zero();
+            let mut gas_reward = TokenAmount::zero();
 
             let mut process_msg = |msg: &ChainMessage| -> Result<(), anyhow::Error> {
                 let cid = msg.cid()?;
@@ -345,8 +345,8 @@ impl RewardCalc for RewardActorMessageCalc {
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
-        penalty: BigInt,
-        gas_reward: BigInt,
+        penalty: TokenAmount,
+        gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
             miner,
@@ -382,8 +382,8 @@ impl RewardCalc for NoRewardCalc {
         _epoch: ChainEpoch,
         _miner: Address,
         _win_count: i64,
-        _penalty: BigInt,
-        _gas_reward: BigInt,
+        _penalty: TokenAmount,
+        _gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         Ok(None)
     }
@@ -392,7 +392,7 @@ impl RewardCalc for NoRewardCalc {
 /// Giving a fixed amount of coins for each block produced directly to the miner,
 /// on top of the gas spent, so the circulating supply isn't burned. Ignores penalties.
 pub struct FixedRewardCalc {
-    pub reward: BigInt,
+    pub reward: TokenAmount,
 }
 
 impl RewardCalc for FixedRewardCalc {
@@ -401,8 +401,8 @@ impl RewardCalc for FixedRewardCalc {
         epoch: ChainEpoch,
         miner: Address,
         _win_count: i64,
-        _penalty: BigInt,
-        gas_reward: BigInt,
+        _penalty: TokenAmount,
+        gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message {
             from: reward::ADDRESS,

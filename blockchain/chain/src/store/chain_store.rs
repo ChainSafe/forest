@@ -26,9 +26,9 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
@@ -825,7 +825,7 @@ where
     DB: Blockstore,
 {
     let mut applied: HashMap<Address, u64> = HashMap::new();
-    let mut balances: HashMap<Address, BigInt> = HashMap::new();
+    let mut balances: HashMap<Address, TokenAmount> = HashMap::new();
     let state =
         StateTree::new_from_root(db, ts.parent_state()).map_err(|e| Error::Other(e.to_string()))?;
 
