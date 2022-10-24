@@ -2933,7 +2933,6 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
- "lazy_static",
  "log",
  "lru 0.8.1",
  "multihash",
