@@ -7,7 +7,7 @@ pub mod json {
     use serde::{Deserialize, Serialize};
     use std::str::FromStr;
 
-    /// Serializes `BigInt` as String
+    /// Serializes `TokenAmount` as String
     pub fn serialize<S>(token_amount: &TokenAmount, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -15,7 +15,7 @@ pub mod json {
         String::serialize(&token_amount.atto().to_string(), serializer)
     }
 
-    /// De-serializes String into `BigInt`.
+    /// De-serializes String into `TokenAmount`.
     pub fn deserialize<'de, D>(deserializer: D) -> Result<TokenAmount, D::Error>
     where
         D: serde::Deserializer<'de>,
