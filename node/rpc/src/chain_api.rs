@@ -78,7 +78,8 @@ where
         ))?;
     }
 
-    let file = File::create(&out).await.map_err(JsonRpcError::from)?;
+    let out_tmp = out.with_extension("car.tmp");
+    let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
     let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
@@ -91,18 +92,19 @@ where
         .await
     {
         Ok(checksum) => {
+            std::fs::rename(&out_tmp, &out)?;
             if !skip_checksum {
                 save_checksum(&out, checksum).await?;
             }
         }
         Err(e) => {
-            if let Err(e) = std::fs::remove_file(&out) {
+            if let Err(e) = std::fs::remove_file(&out_tmp) {
                 error!(
                     "failed to remove incomplete export file at {}: {e}",
-                    out.display()
+                    out_tmp.display()
                 );
             } else {
-                debug!("incomplete export file at {} removed", out.display());
+                debug!("incomplete export file at {} removed", out_tmp.display());
             }
 
             return Err(JsonRpcError::from(e));
