@@ -204,10 +204,7 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
     fs::read_dir(snapshot_dir)?
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| {
-            let ext = p.extension().unwrap_or_default();
-            ext == "car" || ext == "tmp"
-        })
+        .filter(is_car_or_tmp)
         .for_each(|p| println!("{}", p.display()));
 
     Ok(())
@@ -335,10 +332,7 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     let snapshots_to_delete: Vec<_> = read_dir
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| {
-            let ext = p.extension().unwrap_or_default();
-            ext == "car" || ext == "tmp"
-        })
+        .filter(is_car_or_tmp)
         .collect();
 
     if snapshots_to_delete.is_empty() {
@@ -389,4 +383,9 @@ fn prompt_confirm() -> bool {
     std::io::stdin().read_line(&mut line).unwrap();
     let line = line.trim().to_lowercase();
     line == "y" || line == "yes"
+}
+
+fn is_car_or_tmp(path: &PathBuf) -> bool {
+    let ext = path.extension().unwrap_or_default();
+    ext == "car" || ext == "tmp"
 }

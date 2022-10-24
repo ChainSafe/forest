@@ -3,6 +3,7 @@
 use super::{Config, SnapshotFetchConfig};
 use anyhow::bail;
 use chrono::DateTime;
+use forest_utils::io::TempFile;
 use hex::{FromHex, ToHex};
 use log::info;
 use pbr::ProgressBar;
@@ -156,8 +157,8 @@ async fn download_snapshot_and_validate_checksum(
     progress_bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
     progress_bar.set_units(pbr::Units::Bytes);
 
-    let snapshot_path_tmp = snapshot_path.with_extension("car.tmp");
-    let file = File::create(&snapshot_path_tmp).await?;
+    let snapshot_file_tmp = TempFile::new(snapshot_path.with_extension("car.tmp"));
+    let file = File::create(snapshot_file_tmp.path()).await?;
     let mut writer = BufWriter::new(file);
     let mut downloaded: u64 = 0;
     let mut stream = snapshot_response.bytes_stream();
@@ -172,7 +173,7 @@ async fn download_snapshot_and_validate_checksum(
     }
     writer.flush().await?;
 
-    let file_size = std::fs::metadata(&snapshot_path_tmp)?.len();
+    let file_size = std::fs::metadata(snapshot_file_tmp.path())?.len();
     if file_size != total_size {
         bail!("Didn't manage to download the entire file. {file_size}/{total_size} [B]");
     }
@@ -180,7 +181,7 @@ async fn download_snapshot_and_validate_checksum(
     progress_bar.finish_println("Finished downloading the snapshot.");
 
     fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
-    std::fs::rename(snapshot_path_tmp, snapshot_path)?;
+    std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
 
     Ok(())
 }
