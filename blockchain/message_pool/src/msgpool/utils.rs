@@ -15,10 +15,11 @@ use num_traits::ToPrimitive;
 
 pub(crate) fn get_base_fee_lower_bound(base_fee: &TokenAmount, factor: i64) -> TokenAmount {
     let base_fee_lower_bound = base_fee.div_floor(factor);
-    if base_fee_lower_bound < *MINIMUM_BASE_FEE {
-        return MINIMUM_BASE_FEE.clone();
+    if base_fee_lower_bound.atto() < &MINIMUM_BASE_FEE.into() {
+        TokenAmount::from_atto(MINIMUM_BASE_FEE)
+    } else {
+        base_fee_lower_bound
     }
-    base_fee_lower_bound
 }
 
 /// Gets the gas reward for the given message.
