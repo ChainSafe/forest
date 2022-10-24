@@ -22,6 +22,7 @@ forest_db.workspace              = true
 forest_encoding.workspace        = true
 forest_fil_types.workspace       = true
 forest_interpreter.workspace     = true
+forest_json.workspace            = true
 forest_legacy_ipld_amt.workspace = true
 forest_message                   = { workspace = true, features = ["blst"] }
 forest_networks.workspace        = true

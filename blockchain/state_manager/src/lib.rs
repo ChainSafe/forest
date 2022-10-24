@@ -20,8 +20,9 @@ use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
+use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
-use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
+use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
@@ -37,6 +38,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
+use fvm_shared::receipt::Receipt;
 use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
@@ -58,7 +60,7 @@ pub struct InvocResult {
     #[serde(with = "forest_message::message::json")]
     pub msg: Message,
     #[serde(with = "message_receipt::json::opt")]
-    pub msg_rct: Option<MessageReceipt>,
+    pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
 
@@ -922,7 +924,7 @@ where
         tipset: &Tipset,
         msg_cid: Cid,
         (message_from_address, message_sequence): (&Address, &u64),
-    ) -> Result<Option<MessageReceipt>, Error> {
+    ) -> Result<Option<Receipt>, Error> {
         if tipset.epoch() == 0 {
             return Ok(None);
         }
@@ -979,7 +981,7 @@ where
         &self,
         current: &Tipset,
         (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
-    ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Result<Arc<Tipset>, Error>> {
+    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Result<Arc<Tipset>, Error>> {
         if current.epoch() == 0 {
             return Ok(None);
         }
@@ -1025,7 +1027,7 @@ where
         &self,
         current: &Tipset,
         params: (&Address, &Cid, &u64),
-    ) -> Result<Option<(Arc<Tipset>, MessageReceipt)>, Error> {
+    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let mut ts: Arc<Tipset> = match self.check_search(current, params).await {
             Ok(res) => return Ok(res),
             Err(e) => e?,
@@ -1040,7 +1042,7 @@ where
         }
     }
     /// Returns a message receipt from a given tipset and message CID.
-    pub async fn get_receipt(&self, tipset: &Tipset, msg: Cid) -> Result<MessageReceipt, Error> {
+    pub async fn get_receipt(&self, tipset: &Tipset, msg: Cid) -> Result<Receipt, Error> {
         let m = forest_chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (m.from(), &m.sequence());
@@ -1071,7 +1073,7 @@ where
         self: &Arc<Self>,
         msg_cid: Cid,
         confidence: i64,
-    ) -> Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>
+    ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>
     where
         DB: Blockstore + Store + Clone + Send + Sync + 'static,
     {
@@ -1090,7 +1092,7 @@ where
         }
 
         let mut candidate_tipset: Option<Arc<Tipset>> = None;
-        let mut candidate_receipt: Option<MessageReceipt> = None;
+        let mut candidate_receipt: Option<Receipt> = None;
 
         let sm_cloned = Arc::clone(self);
         let cid = message
@@ -1119,61 +1121,59 @@ where
         let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
-        let mut subscriber_poll = task::spawn::<
-            _,
-            Result<(Option<Arc<Tipset>>, Option<MessageReceipt>), Error>,
-        >(async move {
-            loop {
-                match subscriber.recv().await {
-                    Ok(subscriber) => match subscriber {
-                        HeadChange::Revert(_tipset) => {
-                            if candidate_tipset.is_some() {
-                                candidate_tipset = None;
-                                candidate_receipt = None;
-                            }
-                        }
-                        HeadChange::Apply(tipset) => {
-                            if candidate_tipset
-                                .as_ref()
-                                .map(|s| tipset.epoch() >= s.epoch() + confidence)
-                                .unwrap_or_default()
-                            {
-                                return Ok((candidate_tipset, candidate_receipt));
-                            }
-                            let poll_receiver = receiver.try_recv();
-                            if let Ok(Some(_)) = poll_receiver {
-                                block_revert
-                                    .write()
-                                    .await
-                                    .insert(tipset.key().to_owned(), true);
-                            }
-
-                            let message_var = (message.from(), &message.sequence());
-                            let maybe_receipt = sm_cloned
-                                .tipset_executed_message(&tipset, msg_cid, message_var)
-                                .await?;
-                            if let Some(receipt) = maybe_receipt {
-                                if confidence == 0 {
-                                    return Ok((Some(tipset), Some(receipt)));
+        let mut subscriber_poll =
+            task::spawn::<_, Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>>(async move {
+                loop {
+                    match subscriber.recv().await {
+                        Ok(subscriber) => match subscriber {
+                            HeadChange::Revert(_tipset) => {
+                                if candidate_tipset.is_some() {
+                                    candidate_tipset = None;
+                                    candidate_receipt = None;
                                 }
-                                candidate_tipset = Some(tipset);
-                                candidate_receipt = Some(receipt)
                             }
+                            HeadChange::Apply(tipset) => {
+                                if candidate_tipset
+                                    .as_ref()
+                                    .map(|s| tipset.epoch() >= s.epoch() + confidence)
+                                    .unwrap_or_default()
+                                {
+                                    return Ok((candidate_tipset, candidate_receipt));
+                                }
+                                let poll_receiver = receiver.try_recv();
+                                if let Ok(Some(_)) = poll_receiver {
+                                    block_revert
+                                        .write()
+                                        .await
+                                        .insert(tipset.key().to_owned(), true);
+                                }
+
+                                let message_var = (message.from(), &message.sequence());
+                                let maybe_receipt = sm_cloned
+                                    .tipset_executed_message(&tipset, msg_cid, message_var)
+                                    .await?;
+                                if let Some(receipt) = maybe_receipt {
+                                    if confidence == 0 {
+                                        return Ok((Some(tipset), Some(receipt)));
+                                    }
+                                    candidate_tipset = Some(tipset);
+                                    candidate_receipt = Some(receipt)
+                                }
+                            }
+                            _ => (),
+                        },
+                        Err(RecvError::Lagged(i)) => {
+                            warn!(
+                                "wait for message head change subscriber lagged, skipped {} events",
+                                i
+                            );
                         }
-                        _ => (),
-                    },
-                    Err(RecvError::Lagged(i)) => {
-                        warn!(
-                            "wait for message head change subscriber lagged, skipped {} events",
-                            i
-                        );
+                        Err(RecvError::Closed) => break,
                     }
-                    Err(RecvError::Closed) => break,
                 }
-            }
-            Ok((None, None))
-        })
-        .fuse();
+                Ok((None, None))
+            })
+            .fuse();
 
         // Search backwards for message.
         let mut search_back_poll = task::spawn::<_, Result<_, Error>>(async move {

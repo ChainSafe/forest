@@ -14,15 +14,13 @@ use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
+use forest_json::message_receipt::json::ReceiptJson;
 use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
 use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
-use forest_message::{
-    message_receipt::json::MessageReceiptJson, signed_message,
-    signed_message::json::SignedMessageJson, SignedMessage,
-};
+use forest_message::{signed_message, signed_message::json::SignedMessageJson, SignedMessage};
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
 use fvm::state_tree::ActorState;
@@ -164,7 +162,7 @@ pub struct MarketDeal {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
-    pub receipt: MessageReceiptJson,
+    pub receipt: ReceiptJson,
     #[serde(rename = "TipSet")]
     pub tipset: TipsetKeysJson,
     pub height: i64,

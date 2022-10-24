@@ -4,5 +4,6 @@ pub mod actor_state;
 pub mod address;
 pub mod bigint;
 pub mod cid;
+pub mod message_receipt;
 pub mod sector;
 pub mod token_amount;

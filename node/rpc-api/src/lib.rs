@@ -373,7 +373,8 @@ pub mod state_api {
     use forest_fil_types::deadlines::DeadlineInfo;
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
-    use forest_message::{message::json::MessageJson, message_receipt::json::MessageReceiptJson};
+    use forest_json::message_receipt::json::ReceiptJson;
+    use forest_message::message::json::MessageJson;
     use forest_state_manager::{InvocResult, MarketBalance};
     use fvm_ipld_bitfield::json::BitFieldJson;
     use fvm_shared::clock::ChainEpoch;
@@ -462,7 +463,7 @@ pub mod state_api {
 
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub type StateGetReceiptParams = (CidJson, TipsetKeysJson);
-    pub type StateGetReceiptResult = MessageReceiptJson;
+    pub type StateGetReceiptResult = ReceiptJson;
 
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub type StateWaitMsgParams = (CidJson, i64);

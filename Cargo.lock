@@ -3647,6 +3647,7 @@ dependencies = [
  "forest_encoding",
  "forest_fil_types",
  "forest_interpreter",
+ "forest_json",
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
