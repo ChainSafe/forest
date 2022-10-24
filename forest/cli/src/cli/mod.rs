@@ -33,7 +33,6 @@ pub(super) use self::wallet_cmd::WalletCommands;
 pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 
 use forest_cli_shared::cli::{to_size_string, CliOpts};
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
