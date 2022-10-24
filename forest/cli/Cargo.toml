@@ -65,7 +65,7 @@ serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true
 strfmt                           = "0.2.2"
-structopt                        = "0.3"
+structopt.workspace              = true
 tempfile.workspace               = true
 ticker                           = "0.1"
 time.workspace                   = true

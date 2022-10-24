@@ -74,7 +74,7 @@ serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true
 shared_memory                    = "0.12"
-structopt                        = "0.3"
+structopt.workspace              = true
 tempfile                         = "3.3"
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }

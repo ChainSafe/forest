@@ -56,7 +56,7 @@ reqwest                          = { workspace = true, features = ["stream"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true
-structopt                        = "0.3"
+structopt.workspace              = true
 tempfile.workspace               = true
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
