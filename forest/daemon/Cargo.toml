@@ -69,7 +69,7 @@ prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
 rayon.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
-rpassword                        = "7.0"
+rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true

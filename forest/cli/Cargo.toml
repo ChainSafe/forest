@@ -58,7 +58,7 @@ prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
 regex.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
-rpassword                        = "7.0"
+rpassword.workspace              = true
 rug                              = "1.17"
 rust-s3                          = "0.32.3"
 serde                            = { workspace = true, features = ["derive"] }
