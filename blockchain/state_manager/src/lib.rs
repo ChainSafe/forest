@@ -19,7 +19,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
+use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
@@ -350,7 +350,6 @@ where
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
-            let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
@@ -365,7 +364,6 @@ where
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
-                heights,
                 self.chain_config.policy.chain_finality,
             )
         };
@@ -482,10 +480,7 @@ where
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
-
             let store_arc = self.blockstore_cloned();
-
-            let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
@@ -500,7 +495,6 @@ where
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
-                heights,
                 self.chain_config.policy.chain_finality,
             )?;
 
@@ -574,7 +568,6 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let store_arc = self.blockstore_cloned();
-        let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
         let mut vm = VM::<_>::new(
@@ -590,7 +583,6 @@ where
             self.engine
                 .get(&NetworkConfig::new(network_version))
                 .unwrap(),
-            heights,
             self.chain_config.policy.chain_finality,
         )?;
 

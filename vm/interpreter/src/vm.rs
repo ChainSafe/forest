@@ -79,7 +79,6 @@ pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams
     fvm_executor: ForestExecutor<DB>,
     params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
-    heights: Heights,
 }
 
 impl<DB, P> VM<DB, P>
@@ -99,7 +98,6 @@ where
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
-        heights: Heights,
         chain_finality: i64,
     ) -> Result<Self, anyhow::Error>
     where
@@ -133,7 +131,6 @@ where
             fvm_executor: exec,
             params: PhantomData,
             reward_calc,
-            heights,
         })
     }
 
@@ -181,22 +178,6 @@ where
             callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
-    }
-
-    /// Flushes the `StateTree` and perform a state migration if there is a migration at this epoch.
-    /// If there is no migration this function will return `Ok(None)`.
-    pub fn migrate_state(
-        &self,
-        epoch: ChainEpoch,
-        _store: Arc<impl Blockstore + Send + Sync>,
-    ) -> Result<Option<Cid>, anyhow::Error> {
-        match epoch {
-            x if x == self.heights.turbo => {
-                // FIXME: Support state migrations.
-                panic!("Cannot migrate state when using FVM. See https://github.com/ChainSafe/forest/issues/1454 for updates.");
-            }
-            _ => Ok(None),
-        }
     }
 
     /// Apply block messages from a Tipset.
