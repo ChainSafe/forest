@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 
 pub enum Map<BS, V> {
-    V8(fil_actors_runtime_v8::fvm_ipld_hamt::Hamt<BS, V, BytesKey>),
+    V8(fvm_ipld_hamt::Hamt<BS, V, BytesKey>),
 }
 
 impl<BS, V> Map<BS, V>
@@ -22,12 +22,10 @@ where
 {
     pub fn new(store: &BS, version: ActorVersion) -> Self {
         match version {
-            ActorVersion::V8 => Map::V8(
-                fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::new_with_bit_width(
-                    store.clone(),
-                    HAMT_BIT_WIDTH,
-                ),
-            ),
+            ActorVersion::V8 => Map::V8(fvm_ipld_hamt::Hamt::new_with_bit_width(
+                store.clone(),
+                HAMT_BIT_WIDTH,
+            )),
             _ => panic!("unsupported actor version: {}", version),
         }
     }
@@ -35,13 +33,11 @@ where
     /// Load map with root
     pub fn load(cid: &Cid, store: &BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
-            ActorVersion::V8 => Ok(Map::V8(
-                fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::load_with_bit_width(
-                    cid,
-                    store.clone(),
-                    HAMT_BIT_WIDTH,
-                )?,
-            )),
+            ActorVersion::V8 => Ok(Map::V8(fvm_ipld_hamt::Hamt::load_with_bit_width(
+                cid,
+                store.clone(),
+                HAMT_BIT_WIDTH,
+            )?)),
             _ => panic!("unsupported actor version: {}", version),
         }
     }

@@ -3,7 +3,9 @@
 
 use forest_message::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use fvm_shared::{
+    address::Address, bigint::BigInt, econ::TokenAmount, message::Message, METHOD_SEND,
+};
 use std::str::FromStr;
 use structopt::StructOpt;
 
@@ -16,16 +18,16 @@ pub struct SendCommand {
     from: Option<Address>,
     target_address: Address,
     /// token amount in attoFIL
-    amount: TokenAmount,
+    amount: BigInt,
     /// specify gas fee cap to use in attoFIL
     #[structopt(long)]
-    gas_feecap: Option<TokenAmount>,
+    gas_feecap: Option<BigInt>,
     /// specify gas limit in attoFIL
     #[structopt(long)]
     gas_limit: Option<i64>,
     /// specify gas price to use in attoFIL
     #[structopt(long)]
-    gas_premium: Option<TokenAmount>,
+    gas_premium: Option<BigInt>,
 }
 
 impl SendCommand {
@@ -39,11 +41,11 @@ impl SendCommand {
         let message = Message {
             from,
             to: self.target_address,
-            value: self.amount.clone(),
+            value: TokenAmount::from_atto(self.amount.clone()),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit.unwrap_or_default(),
-            gas_fee_cap: self.gas_feecap.clone().unwrap_or_default(),
-            gas_premium: self.gas_premium.clone().unwrap_or_default(),
+            gas_fee_cap: TokenAmount::from_atto(self.gas_feecap.clone().unwrap_or_default()),
+            gas_premium: TokenAmount::from_atto(self.gas_premium.clone().unwrap_or_default()),
             ..Default::default()
         };
 

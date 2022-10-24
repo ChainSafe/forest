@@ -5,3 +5,4 @@ pub mod address;
 pub mod bigint;
 pub mod cid;
 pub mod sector;
+pub mod token_amount;
