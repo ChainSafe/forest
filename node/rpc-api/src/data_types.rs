@@ -16,11 +16,12 @@ use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_json::message_receipt::json::ReceiptJson;
 use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
+use forest_json::signed_message::json::SignedMessageJson;
 use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
-use forest_message::{signed_message, signed_message::json::SignedMessageJson, SignedMessage};
+use forest_message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
 use fvm::state_tree::ActorState;
@@ -75,7 +76,10 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "forest_json::message::json::vec")]
     pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
+    #[serde(
+        rename = "SecpkMessages",
+        with = "forest_json::signed_message::json::vec"
+    )]
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "forest_json::cid::vec")]
     pub cids: Vec<Cid>,

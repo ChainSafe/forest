@@ -3302,12 +3302,15 @@ dependencies = [
 name = "forest_json"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "arbitrary",
  "base64 0.13.1",
  "cid",
  "cs_serde_bytes",
  "data-encoding",
  "data-encoding-macro",
+ "forest_crypto",
+ "forest_message",
  "forest_test_utils",
  "forest_utils",
  "fvm",
@@ -3413,7 +3416,6 @@ dependencies = [
  "cid",
  "forest_crypto",
  "forest_encoding",
- "forest_json",
  "forest_utils",
  "fvm",
  "fvm_ipld_encoding 0.2.2",

@@ -246,8 +246,8 @@ pub mod chain_api {
 pub mod mpool_api {
     use crate::data_types::MessageSendSpec;
     use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
+    use forest_json::signed_message::json::SignedMessageJson;
     use forest_json::{cid::CidJson, message::json::MessageJson};
-    use forest_message::signed_message::json::SignedMessageJson;
 
     pub const MPOOL_ESTIMATE_GAS_PRICE: &str = "Filecoin.MpoolEstimateGasPrice";
     pub type MpoolEstimateGasPriceParams = (u64, String, u64, TipsetKeys);
@@ -307,9 +307,9 @@ pub mod sync_api {
 /// Wallet API
 pub mod wallet_api {
     use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+    use forest_json::signed_message::json::SignedMessageJson;
     use forest_json::{address::json::AddressJson, message::json::MessageJson};
     use forest_key_management::json::KeyInfoJson;
-    use forest_message::signed_message::json::SignedMessageJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
     pub type WalletBalanceParams = (String,);
