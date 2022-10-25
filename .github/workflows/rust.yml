@@ -70,7 +70,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Install Audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --locked
       - name: Run Audit
         run: make audit
 
@@ -100,7 +100,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Install spellcheck
-        run: cargo install cargo-spellcheck
+        run: cargo install cargo-spellcheck --locked
       - name: Run Spellcheck
         run: make spellcheck
 

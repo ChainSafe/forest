@@ -34,7 +34,7 @@ jobs:
         timeout-minutes: 5
         continue-on-error: true
       - name: Install MDBook
-        run: cargo install mdbook mdbook-linkcheck
+        run: cargo install mdbook mdbook-linkcheck --locked
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
