@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Context;
+use cid::Cid;
 use forest_actor_interface::{
     market, power, reward, BURNT_FUNDS_ACTOR_ADDR, EPOCHS_IN_DAY, RESERVE_ADDRESS,
 };
@@ -66,14 +67,16 @@ impl GenesisInfo {
     pub fn get_circulating_supply<DB: Blockstore + Store + Clone>(
         &self,
         height: ChainEpoch,
-        state_tree: &StateTree<DB>,
+        db: &DB,
+        root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
+        let state_tree = StateTree::new_from_root(db, root)?;
         let fil_vested = get_fil_vested(self, height);
-        let fil_mined = get_fil_mined(state_tree)?;
-        let fil_burnt = get_fil_burnt(state_tree)?;
-        let fil_locked = get_fil_locked(state_tree)?;
+        let fil_mined = get_fil_mined(&state_tree)?;
+        let fil_burnt = get_fil_burnt(&state_tree)?;
+        let fil_locked = get_fil_locked(&state_tree)?;
         let fil_reserve_distributed = if height > self.actors_v2_height {
-            get_fil_reserve_disbursed(state_tree)?
+            get_fil_reserve_disbursed(&state_tree)?
         } else {
             TokenAmount::default()
         };

@@ -11,7 +11,6 @@ use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
 use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
-use fvm::state_tree::StateTree;
 use fvm::DefaultKernel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
@@ -79,7 +78,6 @@ pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams
     fvm_executor: ForestExecutor<DB>,
     params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
-    heights: Heights,
 }
 
 impl<DB, P> VM<DB, P>
@@ -88,27 +86,22 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R, C>(
+    pub fn new<R>(
         root: Cid,
         store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: TokenAmount,
         network_version: NetworkVersion,
-        circ_supply_calc: C,
+        circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
-        heights: Heights,
         chain_finality: i64,
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: FnOnce(ChainEpoch, &StateTree<&DB>) -> Result<TokenAmount, anyhow::Error>,
     {
-        let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc(epoch, &state)?;
-
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
@@ -133,7 +126,6 @@ where
             fvm_executor: exec,
             params: PhantomData,
             reward_calc,
-            heights,
         })
     }
 
@@ -181,22 +173,6 @@ where
             callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
-    }
-
-    /// Flushes the `StateTree` and perform a state migration if there is a migration at this epoch.
-    /// If there is no migration this function will return `Ok(None)`.
-    pub fn migrate_state(
-        &self,
-        epoch: ChainEpoch,
-        _store: Arc<impl Blockstore + Send + Sync>,
-    ) -> Result<Option<Cid>, anyhow::Error> {
-        match epoch {
-            x if x == self.heights.turbo => {
-                // FIXME: Support state migrations.
-                panic!("Cannot migrate state when using FVM. See https://github.com/ChainSafe/forest/issues/1454 for updates.");
-            }
-            _ => Ok(None),
-        }
     }
 
     /// Apply block messages from a Tipset.

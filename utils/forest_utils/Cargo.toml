@@ -9,7 +9,7 @@ edition = "2021"
 anyhow.workspace              = true
 cid                           = { workspace = true, default-features = false, features = ["std"] }
 const_format                  = "0.2.26"
-digest                        = "0.10.5"
+digest.workspace              = true
 forest_encoding.workspace     = true
 forest_ipld                   = { workspace = true, optional = true }
 fvm_ipld_blockstore.workspace = true
@@ -22,13 +22,13 @@ pin-project-lite.workspace    = true
 serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
 tokio                         = { workspace = true, features = ["fs"] }
-tokio-util                    = { version = "0.7.0", features = ["compat", "io-util"] }
-toml                          = "0.5"
+tokio-util                    = { workspace = true, features = ["compat", "io-util"] }
+toml.workspace                = true
 url.workspace                 = true
 
 [dev-dependencies]
 serde                = { workspace = true, features = ["derive"] }
 serde_derive         = "1.0"
 serde_json.workspace = true
-sha2                 = { version = "0.10", default-features = false }
+sha2                 = { workspace = true, default-features = false }
 tokio                = { workspace = true, features = ["macros", "rt", "fs"] }
