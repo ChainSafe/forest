@@ -36,12 +36,12 @@ fvm_shared                       = { workspace = true, default-features = false 
 lazy_static.workspace            = true
 log.workspace                    = true
 lru.workspace                    = true
-nonempty                         = "0.8.0"
+nonempty.workspace               = true
 num-bigint.workspace             = true
 num-traits.workspace             = true
 pbr.workspace                    = true
 prometheus                       = { workspace = true, features = ["process"] }
-quickcheck                       = { version = "1" }
+quickcheck.workspace             = true
 rand.workspace                   = true
 serde                            = { workspace = true, features = ["derive", "rc"] }
 smallvec.workspace               = true
@@ -57,5 +57,5 @@ forest_test_utils.workspace = true
 fvm_ipld_car.workspace      = true
 hex.workspace               = true
 pretty_env_logger.workspace = true
-quickcheck_macros           = "1"
+quickcheck_macros.workspace = true
 serde_json.workspace        = true

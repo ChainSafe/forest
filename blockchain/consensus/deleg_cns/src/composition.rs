@@ -7,7 +7,7 @@ use forest_db::Store;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{bigint::BigInt, FILECOIN_PRECISION};
+use fvm_shared::econ::TokenAmount;
 use log::info;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -21,7 +21,7 @@ pub const FETCH_PARAMS: bool = false;
 // Reward 1FIL on top of the gas, which is what Eudico does.
 pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
     Arc::new(forest_interpreter::FixedRewardCalc {
-        reward: BigInt::from(1) * FILECOIN_PRECISION,
+        reward: TokenAmount::from_whole(1),
     })
 }
 

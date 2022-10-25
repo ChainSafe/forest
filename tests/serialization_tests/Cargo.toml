@@ -10,7 +10,7 @@ submodule_tests = []
 [dev-dependencies]
 base64.workspace = true
 # cannot update due to `blst` version conflict
-bls-signatures              = { version = "0.11", default-features = false, features = ["blst"] }
+bls-signatures              = { version = "0.12", default-features = false, features = ["blst"] }
 cid                         = { workspace = true, default-features = false, features = ["std"] }
 forest_blocks.workspace     = true
 forest_crypto               = { workspace = true, features = ["blst"] }

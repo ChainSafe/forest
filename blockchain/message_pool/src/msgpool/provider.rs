@@ -16,7 +16,7 @@ use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -46,7 +46,7 @@ pub trait Provider {
     /// Return a tipset given the tipset keys from the `ChainStore`
     async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
-    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error>;
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
 }
 
 /// This is the default Provider implementation that will be used for the `mpool` RPC.
@@ -113,7 +113,7 @@ where
         let ts = self.sm.chain_store().tipset_from_keys(tsk).await?;
         Ok(ts)
     }
-    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<BigInt, Error> {
+    fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         forest_chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())

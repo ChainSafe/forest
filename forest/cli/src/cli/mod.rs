@@ -37,7 +37,7 @@ pub(crate) use forest_cli_shared::cli::{
 
 use byte_unit::Byte;
 use fvm_shared::bigint::BigInt;
-use fvm_shared::FILECOIN_PRECISION;
+use fvm_shared::econ::TokenAmount;
 use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
@@ -220,11 +220,11 @@ pub(super) fn print_stdout(out: String) {
 }
 
 /// Convert an `attoFIL` balance to `FIL`
-pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> {
+pub(super) fn balance_to_fil(balance: TokenAmount) -> Result<Float, ParseFloatError> {
     let raw = Float::parse_radix(balance.to_string(), 10)?;
     let b = Float::with_val(128, raw);
 
-    let raw = Float::parse_radix(FILECOIN_PRECISION.to_string().as_bytes(), 10)?;
+    let raw = Float::parse_radix(TokenAmount::PRECISION.to_string().as_bytes(), 10)?;
     let p = Float::with_val(64, raw);
 
     Ok(Float::with_val(128, b / p))

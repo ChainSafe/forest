@@ -39,7 +39,7 @@ fvm.workspace                    = true
 fvm_ipld_car.workspace           = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
-git-version                      = "0.3"
+git-version.workspace            = true
 hex.workspace                    = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
@@ -55,12 +55,12 @@ rayon.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
-sha2                             = "0.10.5"
-structopt                        = "0.3"
+sha2.workspace                   = true
+structopt.workspace              = true
 tempfile.workspace               = true
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
-toml                             = "0.5"
+toml.workspace                   = true
 
 
 [dependencies.jsonrpc-v2]
@@ -69,7 +69,7 @@ features         = ["easy-errors", "macros", "bytes-v05"]
 version          = "0.11"
 
 [dev-dependencies]
-assert_cmd        = "2"
-quickcheck        = "1"
-quickcheck_macros = "1"
-rand.workspace    = true
+assert_cmd.workspace        = true
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+rand.workspace              = true
