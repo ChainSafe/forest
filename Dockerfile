@@ -17,30 +17,29 @@
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ## 
-FROM ubuntu:20.04 AS build-env
+FROM buildpack-deps:buster AS build-env
 
 # Install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake ca-certificates curl
+RUN update-ca-certificates
+
+# Install rustup
+# https://rustup.rs/
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /usr/src/forest
 COPY . .
 
-# Install rustup
-# https://rustup.rs/
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
 # Install Forest
 RUN make install
-
-# strip symbols to make executable smaller
-RUN strip /usr/local/cargo/bin/forest /usr/local/cargo/bin/forest-cli
 
 ##
 # Prod image for forest binary
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
-FROM ubuntu:20.04
+FROM debian:10
 
 # Link package to the repository
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
@@ -50,7 +49,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env
-COPY --from=build-env /usr/local/cargo/bin/forest /usr/local/bin/forest
-COPY --from=build-env /usr/local/cargo/bin/forest-cli /usr/local/bin/forest-cli
+COPY --from=build-env /root/.cargo/bin/forest /usr/local/bin/forest
+COPY --from=build-env /root/.cargo/bin/forest-cli /usr/local/bin/forest-cli
 
 ENTRYPOINT ["/usr/local/bin/forest"]
