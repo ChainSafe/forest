@@ -86,14 +86,14 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R, C>(
+    pub fn new<R>(
         root: Cid,
         store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
         base_fee: TokenAmount,
         network_version: NetworkVersion,
-        circ_supply_calc: C,
+        circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
@@ -101,9 +101,7 @@ where
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: FnOnce(ChainEpoch, &DB) -> Result<TokenAmount, anyhow::Error>,
     {
-        let circ_supply = circ_supply_calc(epoch, &store_arc)?;
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);

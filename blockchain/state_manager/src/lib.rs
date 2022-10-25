@@ -358,10 +358,8 @@ where
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
-                |height, db| {
-                    let state = StateTree::new_from_root(db, &state_root)?;
-                    self.genesis_info.get_circulating_supply(height, &state)
-                },
+                self.genesis_info
+                    .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -487,15 +485,13 @@ where
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
-                store_arc,
+                store_arc.clone(),
                 bheight,
                 rand,
                 TokenAmount::zero(),
                 network_version,
-                |height, db| {
-                    let state = StateTree::new_from_root(db, bstate)?;
-                    self.genesis_info.get_circulating_supply(height, &state)
-                },
+                self.genesis_info
+                    .get_circulating_supply(bheight, &store_arc, bstate)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
@@ -576,17 +572,16 @@ where
         let store_arc = self.blockstore_cloned();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
+        let epoch = ts.epoch() + 1;
         let mut vm = VM::<_>::new(
             st,
-            store_arc,
-            ts.epoch() + 1,
+            store_arc.clone(),
+            epoch,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
-            |height, db| {
-                let state = StateTree::new_from_root(db, &st)?;
-                self.genesis_info.get_circulating_supply(height, &state)
-            },
+            self.genesis_info
+                .get_circulating_supply(epoch, &store_arc, &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
@@ -1381,9 +1376,10 @@ where
     pub fn get_circulating_supply(
         self: &Arc<Self>,
         height: ChainEpoch,
-        state_tree: &StateTree<&DB>,
+        db: &DB,
+        root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info.get_circulating_supply(height, state_tree)
+        self.genesis_info.get_circulating_supply(height, db, root)
     }
 
     /// Return the state of Market Actor.
