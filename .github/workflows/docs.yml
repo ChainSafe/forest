@@ -33,7 +33,7 @@ jobs:
             ~/.cargo/bin/
           key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install MDBook
-        run: cargo install mdbook mdbook-linkcheck
+        run: cargo install mdbook mdbook-linkcheck --locked
         continue-on-error: true
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
