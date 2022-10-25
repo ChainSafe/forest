@@ -39,6 +39,11 @@ jobs:
         uses: hanabi1224/sccache-action@v1.2.0
         with:
           cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
+          # true: always save cache
+          # false: only save when cache is not found
+          # this option is only available in the forked action
+          # the original action has no activities for years so we
+          # just keep using the fork
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Execute MDBook
         run: make mdbook-build
