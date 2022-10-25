@@ -841,9 +841,9 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
     let power_smoothed = power_state.total_power_smoothed();
     let total_locked = power_state.total_locked();
 
-    let circ_supply = data
-        .state_manager
-        .get_circulating_supply(ts.epoch(), &state)?;
+    let circ_supply =
+        data.state_manager
+            .get_circulating_supply(ts.epoch(), &data.chain_store.db, &root_cid)?;
 
     let reward_actor = state
         .get_actor(&reward::ADDRESS)?
