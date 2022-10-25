@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::signature::verify_bls_sig;
 use forest_encoding::{blake2b_256, serde_byte_array};
 use fvm_shared::address::Address;
+use fvm_shared::crypto::signature::ops::verify_bls_sig;
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
