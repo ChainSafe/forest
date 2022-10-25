@@ -4,7 +4,7 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
-use forest_message::message;
+use forest_json::message;
 use fvm_ipld_encoding::to_vec;
 use fvm_shared::message::Message;
 use hex::encode;
