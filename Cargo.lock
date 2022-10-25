@@ -7719,6 +7719,7 @@ dependencies = [
  "forest_crypto",
  "forest_encoding",
  "forest_json",
+ "forest_message",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "hex",
