@@ -42,7 +42,7 @@ fvm.workspace                    = true
 fvm_ipld_car.workspace           = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
-git-version                      = "0.3"
+git-version.workspace            = true
 hex.workspace                    = true
 http                             = "0.2.8"
 lazy_static.workspace            = true
@@ -58,19 +58,19 @@ prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
 regex.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
-rpassword                        = "7.0"
+rpassword.workspace              = true
 rug                              = "1.17"
 rust-s3                          = "0.32.3"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
-sha2                             = "0.10.5"
+sha2.workspace                   = true
 strfmt                           = "0.2.2"
-structopt                        = "0.3"
+structopt.workspace              = true
 tempfile.workspace               = true
 ticker                           = "0.1"
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
-toml                             = "0.5"
+toml.workspace                   = true
 uuid                             = { version = "1.1", features = ["v4"] }
 
 [dependencies.jsonrpc-v2]
@@ -79,7 +79,7 @@ features         = ["easy-errors", "macros", "bytes-v05"]
 version          = "0.11"
 
 [dev-dependencies]
-assert_cmd        = "2"
-quickcheck        = "1"
-quickcheck_macros = "1"
-rand.workspace    = true
+assert_cmd.workspace        = true
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+rand.workspace              = true

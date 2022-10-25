@@ -26,6 +26,6 @@ fvm_ipld_blockstore.workspace    = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 log.workspace                    = true
-nonempty                         = "0.8.0"
+nonempty.workspace               = true
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
