@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_crypto::Signer;
 use forest_message::message;
 use forest_message::message::json::{MessageJson, MessageJsonRef};
 use forest_message::signed_message::{
@@ -9,9 +8,9 @@ use forest_message::signed_message::{
     json::{SignedMessageJson, SignedMessageJsonRef},
     SignedMessage,
 };
+use forest_test_utils::*;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
@@ -56,13 +55,7 @@ fn message_json_annotations() {
         gas_premium: TokenAmount::from_atto(9),
     };
 
-    struct DummySigner;
-    impl Signer for DummySigner {
-        fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-            Ok(Signature::new_bls(vec![0u8, 1u8]))
-        }
-    }
-    let signed = SignedMessage::new(message.clone(), &DummySigner).unwrap();
+    let signed = DummySigner::sign_message(message.clone()).unwrap();
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestStruct {

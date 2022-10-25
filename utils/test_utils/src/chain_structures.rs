@@ -1,16 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::Result;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
-use forest_crypto::{Signer, VRFProof};
+use forest_crypto::VRFProof;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
 use fvm_ipld_encoding::to_vec;
+use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
@@ -126,12 +128,19 @@ pub fn construct_full_tipset() -> FullTipset {
     FullTipset::new(blocks).unwrap()
 }
 
-const DUMMY_SIG: [u8; 1] = [0u8];
+pub const DUMMY_SIG: [u8; 1] = [0u8];
 
-struct DummySigner;
-impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
+pub struct DummySigner;
+
+impl DummySigner {
+    pub fn sign_bytes(_: &[u8], _: &Address) -> Result<Signature> {
         Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
+    }
+
+    pub fn sign_message(message: Message) -> Result<SignedMessage> {
+        let bz = message.cid()?.to_bytes();
+        let signature = Self::sign_bytes(&bz, &message.from)?;
+        Ok(SignedMessage::new_unchecked(message, signature))
     }
 }
 
@@ -143,7 +152,7 @@ pub fn construct_messages() -> (Message, SignedMessage) {
         ..Message::default()
     };
 
-    let secp_messages = SignedMessage::new(bls_messages.clone(), &DummySigner).unwrap();
+    let secp_messages = DummySigner::sign_message(bls_messages.clone()).unwrap();
     (bls_messages, secp_messages)
 }
 

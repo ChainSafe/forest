@@ -1,21 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_message::SignedMessage;
+use forest_test_utils::*;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
-
-const DUMMY_SIG: [u8; 1] = [0u8];
-
-use forest_crypto::Signer;
-
-struct DummySigner;
-impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-    }
-}
 
 #[test]
 fn generate_signed_message() {
@@ -25,7 +14,7 @@ fn generate_signed_message() {
         ..Message::default()
     };
 
-    let signed_msg = SignedMessage::new(msg.clone(), &DummySigner).unwrap();
+    let signed_msg = DummySigner::sign_message(msg.clone()).unwrap();
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &msg);
