@@ -199,7 +199,7 @@ where
 {
     let mut msg = msg;
     msg.gas_limit = BLOCK_GAS_LIMIT;
-    msg.gas_fee_cap = MINIMUM_BASE_FEE.clone() + TokenAmount::from_atto(1);
+    msg.gas_fee_cap = TokenAmount::from_atto(MINIMUM_BASE_FEE + 1);
     msg.gas_premium = TokenAmount::from_atto(1);
 
     let curr_ts = data
