@@ -1117,59 +1117,58 @@ where
         let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
-        let mut subscriber_poll =
-            task::spawn::<_, Result<(Option<Arc<Tipset>>, Option<Receipt>), Error>>(async move {
-                loop {
-                    match subscriber.recv().await {
-                        Ok(subscriber) => match subscriber {
-                            HeadChange::Revert(_tipset) => {
-                                if candidate_tipset.is_some() {
-                                    candidate_tipset = None;
-                                    candidate_receipt = None;
-                                }
+        let mut subscriber_poll = task::spawn(async move {
+            loop {
+                match subscriber.recv().await {
+                    Ok(subscriber) => match subscriber {
+                        HeadChange::Revert(_tipset) => {
+                            if candidate_tipset.is_some() {
+                                candidate_tipset = None;
+                                candidate_receipt = None;
                             }
-                            HeadChange::Apply(tipset) => {
-                                if candidate_tipset
-                                    .as_ref()
-                                    .map(|s| tipset.epoch() >= s.epoch() + confidence)
-                                    .unwrap_or_default()
-                                {
-                                    return Ok((candidate_tipset, candidate_receipt));
-                                }
-                                let poll_receiver = receiver.try_recv();
-                                if let Ok(Some(_)) = poll_receiver {
-                                    block_revert
-                                        .write()
-                                        .await
-                                        .insert(tipset.key().to_owned(), true);
-                                }
-
-                                let message_var = (message.from(), &message.sequence());
-                                let maybe_receipt = sm_cloned
-                                    .tipset_executed_message(&tipset, msg_cid, message_var)
-                                    .await?;
-                                if let Some(receipt) = maybe_receipt {
-                                    if confidence == 0 {
-                                        return Ok((Some(tipset), Some(receipt)));
-                                    }
-                                    candidate_tipset = Some(tipset);
-                                    candidate_receipt = Some(receipt)
-                                }
-                            }
-                            _ => (),
-                        },
-                        Err(RecvError::Lagged(i)) => {
-                            warn!(
-                                "wait for message head change subscriber lagged, skipped {} events",
-                                i
-                            );
                         }
-                        Err(RecvError::Closed) => break,
+                        HeadChange::Apply(tipset) => {
+                            if candidate_tipset
+                                .as_ref()
+                                .map(|s| tipset.epoch() >= s.epoch() + confidence)
+                                .unwrap_or_default()
+                            {
+                                return Ok((candidate_tipset, candidate_receipt));
+                            }
+                            let poll_receiver = receiver.try_recv();
+                            if let Ok(Some(_)) = poll_receiver {
+                                block_revert
+                                    .write()
+                                    .await
+                                    .insert(tipset.key().to_owned(), true);
+                            }
+
+                            let message_var = (message.from(), &message.sequence());
+                            let maybe_receipt = sm_cloned
+                                .tipset_executed_message(&tipset, msg_cid, message_var)
+                                .await?;
+                            if let Some(receipt) = maybe_receipt {
+                                if confidence == 0 {
+                                    return Ok((Some(tipset), Some(receipt)));
+                                }
+                                candidate_tipset = Some(tipset);
+                                candidate_receipt = Some(receipt)
+                            }
+                        }
+                        _ => (),
+                    },
+                    Err(RecvError::Lagged(i)) => {
+                        warn!(
+                            "wait for message head change subscriber lagged, skipped {} events",
+                            i
+                        );
                     }
+                    Err(RecvError::Closed) => break,
                 }
-                Ok((None, None))
-            })
-            .fuse();
+            }
+            Ok((None, None))
+        })
+        .fuse();
 
         // Search backwards for message.
         let mut search_back_poll = task::spawn::<_, Result<_, Error>>(async move {
