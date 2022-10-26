@@ -166,13 +166,25 @@ impl ElectionProof {
     }
 }
 
+#[cfg(test)]
+impl quickcheck::Arbitrary for ElectionProof {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let fmt_str = format!("===={}=====", u64::arbitrary(g));
+        let vrfproof = VRFProof::new(fmt_str.into_bytes());
+        Self {
+            win_count: i64::arbitrary(g),
+            vrfproof,
+        }
+    }
+}
+
 pub mod json {
     use super::*;
     use forest_crypto::vrf;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `ElectionProof` from JSON.
-    #[derive(Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize, Debug)]
     #[serde(transparent)]
     pub struct ElectionProofJson(#[serde(with = "self")] pub ElectionProof);
 
@@ -238,5 +250,19 @@ pub mod json {
             let s: Option<ElectionProofJson> = Deserialize::deserialize(deserializer)?;
             Ok(s.map(|v| v.0))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json::{ElectionProofJson, ElectionProofJsonRef};
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn election_proof_roundtrip(proof: ElectionProof) {
+        let serialized = serde_json::to_string(&ElectionProofJsonRef(&proof)).unwrap();
+        let parsed: ElectionProofJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(proof, parsed.0);
     }
 }

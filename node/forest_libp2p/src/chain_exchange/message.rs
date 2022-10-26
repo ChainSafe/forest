@@ -39,7 +39,7 @@ impl ChainExchangeRequest {
 }
 
 /// Status codes of a `chain_exchange` response.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub enum ChainExchangeResponseStatus {
     /// All is well.
     Success,
@@ -56,6 +56,22 @@ pub enum ChainExchangeResponseStatus {
     BadRequest,
     /// Other undefined response code.
     Other(i32),
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for ChainExchangeResponseStatus {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        *g.choose(&[
+            ChainExchangeResponseStatus::Success,
+            ChainExchangeResponseStatus::PartialResponse,
+            ChainExchangeResponseStatus::BlockNotFound,
+            ChainExchangeResponseStatus::GoAway,
+            ChainExchangeResponseStatus::InternalError,
+            ChainExchangeResponseStatus::BadRequest,
+            ChainExchangeResponseStatus::Other(1),
+        ])
+        .unwrap()
+    }
 }
 
 impl Serialize for ChainExchangeResponseStatus {
@@ -244,4 +260,18 @@ fn fts_from_bundle_parts(
         .collect::<Result<_, _>>()?;
 
     FullTipset::new(blocks).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+    use serde_json;
+
+    #[quickcheck]
+    fn chain_exchange_response_status_roundtrip(status: ChainExchangeResponseStatus) {
+        let serialized = serde_json::to_string(&status).unwrap();
+        let parsed = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(status, parsed);
+    }
 }
