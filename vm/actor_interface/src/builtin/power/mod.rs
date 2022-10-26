@@ -3,14 +3,14 @@
 
 use crate::FilterEstimate;
 use cid::Cid;
-use fil_actors_runtime_v8::runtime::Policy;
-use forest_fil_types::StoragePower;
-use forest_ipld_blockstore::BlockStore;
-use forest_ipld_blockstore::BlockStoreExt;
+use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
+use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
+use fvm_shared::sector::StoragePower;
 use serde::{Deserialize, Serialize};
 
 use anyhow::Context;
@@ -25,8 +25,10 @@ pub type Method = fil_actor_power_v8::Method;
 
 pub fn is_v8_power_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacecl26ak5vas4ilrnbjvghpikilyviwobmbspbarqcivq72j7g6wee").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacebjvqva6ppvysn5xpmiqcdfelwbbcxmghx5ww6hr37cgred6dyrpm").unwrap(),
         // devnet
@@ -55,7 +57,7 @@ macro_rules! convert_filter_estimate {
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
-        BS: BlockStore,
+        BS: Blockstore,
     {
         if is_v8_power_cid(&actor.code) {
             return store
@@ -91,7 +93,7 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn miner_power<BS: BlockStore>(
+    pub fn miner_power<BS: Blockstore>(
         &self,
         s: &BS,
         miner: &Address,
@@ -102,12 +104,12 @@ impl State {
     }
 
     /// Loads power for a given miner, if exists.
-    pub fn list_all_miners<BS: BlockStore>(&self, _s: &BS) -> anyhow::Result<Vec<Address>> {
+    pub fn list_all_miners<BS: Blockstore>(&self, _s: &BS) -> anyhow::Result<Vec<Address>> {
         unimplemented!()
     }
 
     /// Checks power actor state for if miner meets minimum consensus power.
-    pub fn miner_nominal_power_meets_consensus_minimum<BS: BlockStore>(
+    pub fn miner_nominal_power_meets_consensus_minimum<BS: Blockstore>(
         &self,
         policy: &Policy,
         s: &BS,

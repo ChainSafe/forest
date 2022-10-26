@@ -9,17 +9,19 @@ use forest_actor_interface::{
     power,
 };
 use forest_blocks::Tipset;
-use forest_fil_types::{verifier::ProofVerifier, RegisteredSealProof, SectorInfo, SectorNumber};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
+use forest_fil_types::verifier::ProofVerifier;
 use fvm_ipld_bitfield::BitField;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
+use fvm_shared::sector::{RegisteredSealProof, SectorInfo, SectorNumber};
 use fvm_shared::version::NetworkVersion;
 use serde::Serialize;
 
 impl<DB> StateManager<DB>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt` verification.
     pub fn get_sectors_for_winning_post<V>(

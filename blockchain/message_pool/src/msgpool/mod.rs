@@ -12,7 +12,6 @@ use crate::msg_chain::{create_message_chains, Chains};
 use crate::msg_pool::MsgSet;
 use crate::msg_pool::{add_helper, remove};
 use crate::provider::Provider;
-use async_std::channel::Sender;
 use cid::Cid;
 use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
@@ -58,7 +57,7 @@ where
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
     api: &RwLock<T>,
-    network_sender: &Sender<NetworkMessage>,
+    network_sender: &flume::Sender<NetworkMessage>,
     network_name: &str,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Arc<Tipset>>,
@@ -97,7 +96,7 @@ where
     for m in msgs.iter() {
         let mb = m.marshal_cbor()?;
         network_sender
-            .send(NetworkMessage::PubsubMessage {
+            .send_async(NetworkMessage::PubsubMessage {
                 topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
                 message: mb,
             })
@@ -214,7 +213,7 @@ where
 pub async fn head_change<T>(
     api: &RwLock<T>,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
-    repub_trigger: Arc<Sender<()>>,
+    repub_trigger: Arc<flume::Sender<()>>,
     republished: &RwLock<HashSet<Cid>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &RwLock<Arc<Tipset>>,
@@ -269,7 +268,7 @@ where
     }
     if repub {
         repub_trigger
-            .send(())
+            .send_async(())
             .await
             .map_err(|_| Error::Other("Republish receiver dropped".to_string()))?;
     }
@@ -325,15 +324,15 @@ pub mod tests {
     use super::*;
     use crate::msg_chain::{create_message_chains, Chains};
     use crate::msg_pool::MessagePool;
-    use async_std::channel::bounded;
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
-    use fvm_shared::bigint::BigInt;
     use fvm_shared::crypto::signature::SignatureType;
+    use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
+    use num_traits::Zero;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;
@@ -352,11 +351,11 @@ pub mod tests {
             from: *from,
             sequence,
             gas_limit,
-            gas_fee_cap: (gas_price + 100).into(),
-            gas_premium: gas_price.into(),
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100),
+            gas_premium: TokenAmount::from_atto(gas_price),
             ..Message::default()
         };
-        let msg_signing_bytes = umsg.to_signing_bytes();
+        let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
@@ -370,7 +369,7 @@ pub mod tests {
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
         let mpool = MessagePool::new(
             tma,
             "mptest".to_string(),
@@ -437,7 +436,7 @@ pub mod tests {
             let msg = create_smsg(&target, &sender, wallet.borrow_mut(), i, 1000000, 1);
             smsg_vec.push(msg);
         }
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
 
         let mpool = MessagePool::new(
             tma,
@@ -535,7 +534,7 @@ pub mod tests {
 
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
 
         let mpool = MessagePool::new(
             tma,
@@ -609,7 +608,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i64),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -647,7 +646,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i64),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -691,7 +690,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i64),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -739,7 +738,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -789,7 +788,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -813,7 +812,7 @@ pub mod tests {
         let mut smsg_vec = Vec::new();
         tma.write()
             .await
-            .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000_u64));
+            .set_state_balance_raw(&a1, TokenAmount::from_atto(1_000_000_000_000_000_000_u64));
         for i in 0..10 {
             let msg = if i != 5 {
                 create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
@@ -828,7 +827,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -870,7 +869,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -892,7 +891,7 @@ pub mod tests {
         // Test 7: insufficient balance for all messages
         tma.write()
             .await
-            .set_state_balance_raw(&a1, (300 * gas_limit + 1).into());
+            .set_state_balance_raw(&a1, TokenAmount::from_atto(300 * gas_limit + 1));
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -905,7 +904,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,

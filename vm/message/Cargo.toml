@@ -22,9 +22,9 @@ num-traits.workspace        = true
 serde                       = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-quickcheck           = { version = "1" }
-quickcheck_macros    = "1"
-serde_json.workspace = true
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
 
 [features]
 default = ["blst"]

@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use async_std::stream::StreamExt;
 use async_std::task::{self, JoinHandle};
-use async_std::{channel::Sender, stream::StreamExt};
 use async_trait::async_trait;
 use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
@@ -17,8 +17,9 @@ use std::{
 };
 
 use forest_blocks::{Block, GossipBlock, Tipset};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_state_manager::StateManager;
+use fvm_ipld_blockstore::Blockstore;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation
 /// and block creation. Behind the scenes they can farm out the total ordering
@@ -44,7 +45,7 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
         block: Arc<Block>,
     ) -> Result<(), NonEmpty<Self::Error>>
     where
-        DB: BlockStore + Sync + Send + 'static;
+        DB: Blockstore + Store + Clone + Sync + Send + 'static;
 }
 
 /// Helper function to collect errors from async validations.
@@ -111,7 +112,7 @@ pub trait Proposer {
         submitter: SyncGossipSubmitter,
     ) -> anyhow::Result<Vec<JoinHandle<()>>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;
 }
 
@@ -138,7 +139,7 @@ pub trait MessagePoolApi {
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: BlockStore + Sync + Send + 'static;
+        DB: Blockstore + Store + Clone + Sync + Send + 'static;
 }
 
 #[async_trait]
@@ -152,7 +153,7 @@ where
         base: &Tipset,
     ) -> anyhow::Result<Vec<Cow<SignedMessage>>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         self.select_messages_for_block(base)
             .await
@@ -166,15 +167,15 @@ where
 /// Similar to `sync_api::sync_submit_block` but assumes that the block is correct and already persisted.
 pub struct SyncGossipSubmitter {
     network_name: String,
-    network_tx: Sender<NetworkMessage>,
-    tipset_tx: Sender<Arc<Tipset>>,
+    network_tx: flume::Sender<NetworkMessage>,
+    tipset_tx: flume::Sender<Arc<Tipset>>,
 }
 
 impl SyncGossipSubmitter {
     pub fn new(
         network_name: String,
-        network_tx: Sender<NetworkMessage>,
-        tipset_tx: Sender<Arc<Tipset>>,
+        network_tx: flume::Sender<NetworkMessage>,
+        tipset_tx: flume::Sender<Arc<Tipset>>,
     ) -> Self {
         Self {
             network_name,
@@ -190,8 +191,8 @@ impl SyncGossipSubmitter {
             topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name)),
             message: data,
         };
-        self.tipset_tx.send(ts).await?;
-        self.network_tx.send(msg).await?;
+        self.tipset_tx.send_async(ts).await?;
+        self.network_tx.send_async(msg).await?;
         Ok(())
     }
 }

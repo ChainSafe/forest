@@ -4,7 +4,7 @@
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
-use forest_ipld_blockstore::BlockStore;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Arc};
@@ -34,13 +34,13 @@ pub(crate) struct ChainIndex<BS> {
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
 
-    /// `BlockStore` pointer needed to load tipsets from cold storage.
+    /// `Blockstore` pointer needed to load tipsets from cold storage.
     db: BS,
 }
 
 impl<BS> ChainIndex<BS>
 where
-    BS: BlockStore + Send + Sync + 'static,
+    BS: Blockstore + Send + Sync + 'static,
 {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {

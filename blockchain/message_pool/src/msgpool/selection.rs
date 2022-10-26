@@ -17,7 +17,7 @@ use forest_blocks::Tipset;
 use forest_message::Message;
 use forest_message::SignedMessage;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
@@ -490,7 +490,7 @@ where
     async fn select_priority_messages(
         &self,
         pending: &mut Pending,
-        base_fee: &BigInt,
+        base_fee: &TokenAmount,
         ts: &Tipset,
     ) -> Result<(Vec<SignedMessage>, i64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
@@ -535,7 +535,7 @@ where
 fn merge_and_trim(
     chains: &mut Chains,
     mut result: Vec<SignedMessage>,
-    base_fee: &BigInt,
+    base_fee: &TokenAmount,
     gas_limit: i64,
     min_gas: i64,
 ) -> (Vec<SignedMessage>, i64) {
@@ -684,19 +684,17 @@ mod test_selection {
     use crate::head_change;
     use crate::msgpool::test_provider::{mock_block, TestApi};
     use crate::msgpool::tests::create_smsg;
-    use async_std::channel::bounded;
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
-    use fvm_shared::NetworkParams;
     use std::sync::Arc;
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
     async fn make_test_mpool() -> MessagePool<TestApi> {
         let tma = TestApi::default();
-        let (tx, _rx) = bounded(50);
+        let (tx, _rx) = flume::bounded(50);
         MessagePool::new(
             tma,
             "mptest".to_string(),
@@ -745,10 +743,10 @@ mod test_selection {
         // let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         // we create 10 messages from each actor to another, with the first actor paying higher
         // gas prices than the second; we expect message selection to order his messages first
@@ -915,10 +913,10 @@ mod test_selection {
         // let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         let nmsgs = (fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
 
@@ -999,10 +997,10 @@ mod test_selection {
         // let gas_limit = 6955002;
         api.write()
             .await
-            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.write()
             .await
-            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         let nmsgs = 10;
 
@@ -1095,11 +1093,11 @@ mod test_selection {
 
         api.write()
             .await
-            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
 
         api.write()
             .await
-            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1));
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
@@ -1177,11 +1175,11 @@ mod test_selection {
 
         api.write()
             .await
-            .set_state_balance_raw(&a1, fvm_shared::DefaultNetworkParams::from_fil(1)); // in FIL
+            .set_state_balance_raw(&a1, TokenAmount::from_whole(1)); // in FIL
 
         api.write()
             .await
-            .set_state_balance_raw(&a2, fvm_shared::DefaultNetworkParams::from_fil(1)); // in FIL
+            .set_state_balance_raw(&a2, TokenAmount::from_whole(1)); // in FIL
 
         let n_msgs = 5 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         for i in 0..n_msgs as usize {
@@ -1300,7 +1298,7 @@ mod test_selection {
         for a in &mut actors {
             api.write()
                 .await
-                .set_state_balance_raw(a, fvm_shared::DefaultNetworkParams::from_fil(1));
+                .set_state_balance_raw(a, TokenAmount::from_whole(1));
             // in FIL
         }
 

@@ -11,25 +11,19 @@ pub mod power;
 pub mod reward;
 pub mod system;
 
-use crate::ActorVersion;
-
 use cid::Cid;
 
-use fil_actors_runtime_v8::builtin::network;
-use fil_actors_runtime_v8::builtin::singletons;
+use fil_actors_runtime::builtin::network;
+pub use fil_actors_runtime::builtin::singletons::{BURNT_FUNDS_ACTOR_ADDR, CHAOS_ACTOR_ADDR};
 
 pub use fil_actor_reward_v8::AwardBlockRewardParams;
 
+use fvm_shared::address::Address;
 pub use fvm_shared::clock::EPOCH_DURATION_SECONDS;
 pub use fvm_shared::smooth::FilterEstimate;
 pub const EPOCHS_IN_DAY: fvm_shared::clock::ChainEpoch = network::EPOCHS_IN_DAY;
 
-// Aliases for common addresses
-pub static CHAOS_ACTOR_ADDR: &singletons::CHAOS_ACTOR_ADDR = &singletons::CHAOS_ACTOR_ADDR;
-pub static BURNT_FUNDS_ACTOR_ADDR: &singletons::BURNT_FUNDS_ACTOR_ADDR =
-    &singletons::BURNT_FUNDS_ACTOR_ADDR;
-
-pub static RESERVE_ADDRESS: fvm_shared::address::Address = fvm_shared::address::Address::new_id(90);
+pub const RESERVE_ADDRESS: Address = Address::new_id(90);
 
 #[macro_export]
 macro_rules! load_actor_state {
@@ -76,27 +70,12 @@ macro_rules! load_actor_state {
     };
 }
 
-/// Returns true if the code belongs to a builtin actor.
-pub fn is_builtin_actor(_code: &Cid) -> bool {
-    unimplemented!()
-}
-
 /// Returns true if the code belongs to an account actor.
 pub fn is_account_actor(code: &Cid) -> bool {
     account::is_v8_account_cid(code)
 }
 
-/// Returns true if the code belongs to a singleton actor.
-pub fn is_singleton_actor(_code: &Cid) -> bool {
-    unimplemented!()
-}
-
 /// Returns true if the code belongs to a miner actor.
 pub fn is_miner_actor(_code: &Cid) -> bool {
     unimplemented!()
-}
-
-/// Returns an actor's version or None if it was not a builtin
-pub fn actor_version(_code: &Cid) -> Option<ActorVersion> {
-    None
 }

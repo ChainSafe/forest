@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::channel::Sender;
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::BeaconEntry;
@@ -12,13 +11,11 @@ use forest_blocks::{
 };
 use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use forest_chain_sync::{BadBlockCache, SyncState};
-use forest_fil_types::SectorSize;
-use forest_fil_types::{json::SectorInfoJson, sector::post::json::PoStProofJson};
 use forest_ipld::json::IpldJson;
-use forest_ipld_blockstore::BlockStore;
 use forest_json::address::json::AddressJson;
-use forest_json::bigint::json;
 use forest_json::cid::CidJson;
+use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
+use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
@@ -30,11 +27,12 @@ use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::sector::{SectorSize, StoragePower};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -51,7 +49,7 @@ pub struct StreamingData<'a> {
 /// This is where you store persistent data, or at least access to stateful data.
 pub struct RPCState<DB, B>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     pub keystore: Arc<RwLock<KeyStore>>,
@@ -60,9 +58,9 @@ where
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
     pub sync_state: Arc<RwLock<SyncState>>,
-    pub network_send: Sender<NetworkMessage>,
+    pub network_send: flume::Sender<NetworkMessage>,
     pub network_name: String,
-    pub new_mined_block_tx: Sender<Arc<Tipset>>,
+    pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
     pub beacon: Arc<BeaconSchedule<B>>,
 }
 
@@ -125,7 +123,7 @@ pub struct ActorStateJson {
     head: Cid,
     nonce: u64,
     #[serde(with = "json")]
-    balance: BigInt,
+    balance: TokenAmount,
 }
 
 impl ActorStateJson {
@@ -191,10 +189,10 @@ pub struct BlockTemplate {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
-    #[serde(with = "json::option")]
-    pub miner_power: Option<TokenAmount>,
-    #[serde(with = "json::option")]
-    pub network_power: Option<TokenAmount>,
+    #[serde(with = "forest_json::bigint::json::option")]
+    pub miner_power: Option<StoragePower>,
+    #[serde(with = "forest_json::bigint::json::option")]
+    pub network_power: Option<StoragePower>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,
@@ -240,4 +238,24 @@ pub struct AddrInfo {
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {
     pub multihash: Multihash,
+}
+
+/// Represents the current version of the API.
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct APIVersion {
+    pub version: String,
+    pub api_version: Version,
+    pub block_delay: u64,
+}
+
+/// Integer based value on version information. Highest order bits for Major, Mid order for Minor
+/// and lowest for Patch.
+#[derive(Serialize)]
+pub struct Version(u32);
+
+impl Version {
+    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
+        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
+    }
 }

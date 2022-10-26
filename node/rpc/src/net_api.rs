@@ -6,15 +6,16 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::error;
 
 use forest_beacon::Beacon;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use forest_rpc_api::{
     data_types::{AddrInfo, RPCState},
     net_api::*,
 };
+use fvm_ipld_blockstore::Blockstore;
 
 pub(crate) async fn net_addrs_listen<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -24,7 +25,7 @@ pub(crate) async fn net_addrs_listen<
         method: NetRPCMethods::NetAddrsListen(tx),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     let (id, addrs) = rx.await?;
 
     Ok(AddrInfo {
@@ -34,7 +35,7 @@ pub(crate) async fn net_addrs_listen<
 }
 
 pub(crate) async fn net_peers<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -44,7 +45,7 @@ pub(crate) async fn net_peers<
         method: NetRPCMethods::NetPeers(tx),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     let peer_addresses = rx.await?;
 
     let connections = peer_addresses
@@ -59,7 +60,7 @@ pub(crate) async fn net_peers<
 }
 
 pub(crate) async fn net_connect<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -74,7 +75,7 @@ pub(crate) async fn net_connect<
         method: NetRPCMethods::NetConnect(tx, peer_id, addrs),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     let success = rx.await?;
 
     if success {
@@ -86,7 +87,7 @@ pub(crate) async fn net_connect<
 }
 
 pub(crate) async fn net_disconnect<
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB, B>>,
@@ -100,7 +101,7 @@ pub(crate) async fn net_disconnect<
         method: NetRPCMethods::NetDisconnect(tx, peer_id),
     };
 
-    data.network_send.send(req).await?;
+    data.network_send.send_async(req).await?;
     rx.await?;
 
     Ok(())

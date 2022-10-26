@@ -16,7 +16,6 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
-use async_std::channel::{bounded, Sender};
 use async_std::task;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -31,10 +30,12 @@ use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Protocol};
-use fvm_shared::bigint::{BigInt, Integer};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
+use num_traits::Zero;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -53,7 +54,7 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000))
 pub struct MsgSet {
     pub(crate) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
-    required_funds: BigInt,
+    required_funds: TokenAmount,
 }
 
 impl MsgSet {
@@ -62,7 +63,7 @@ impl MsgSet {
         MsgSet {
             msgs: HashMap::new(),
             next_sequence: sequence,
-            required_funds: Default::default(),
+            required_funds: TokenAmount::zero(),
         }
     }
 
@@ -75,8 +76,9 @@ impl MsgSet {
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
                 let premium = exms.message().gas_premium.clone();
-                let rbf_denom = BigInt::from(RBF_DENOM);
-                let min_price = premium.clone() + ((premium * RBF_NUM).div_floor(&rbf_denom)) + 1u8;
+                let min_price = premium.clone()
+                    + ((premium * RBF_NUM).div_floor(RBF_DENOM))
+                    + TokenAmount::from_atto(1u8);
                 if m.message().gas_premium <= min_price {
                     return Err(Error::GasPriceTooLow);
                 }
@@ -119,7 +121,7 @@ impl MsgSet {
         }
     }
 
-    fn get_required_funds(&self, sequence: u64) -> BigInt {
+    fn get_required_funds(&self, sequence: u64) -> TokenAmount {
         let required_funds = self.required_funds.clone();
         match self.msgs.get(&sequence) {
             Some(m) => required_funds - m.required_funds(),
@@ -146,7 +148,7 @@ pub struct MessagePool<T> {
     // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
-    pub network_sender: Sender<NetworkMessage>,
+    pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
     pub bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
     /// A cache for BLS signature keyed by Cid
@@ -154,7 +156,7 @@ pub struct MessagePool<T> {
     /// A set of republished messages identified by their Cid
     pub republished: Arc<RwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
-    pub repub_trigger: Sender<()>,
+    pub repub_trigger: flume::Sender<()>,
     // TODO look into adding a cap to `local_msgs`
     local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
@@ -171,7 +173,7 @@ where
     pub async fn with_tasks(
         mut api: T,
         network_name: String,
-        network_sender: Sender<NetworkMessage>,
+        network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
     ) -> Result<
@@ -197,7 +199,7 @@ where
         let republished = Arc::new(RwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
 
-        let (repub_trigger, mut repub_trigger_rx) = bounded::<()>(4);
+        let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
         let mut mp = MessagePool {
             local_addrs,
             pending,
@@ -277,6 +279,7 @@ where
         let network_sender = Arc::new(mp.network_sender.clone());
         let network_name = mp.network_name.clone();
         let republish_interval = 10 * block_delay + PROPAGATION_DELAY_SECS;
+        let mut repub_trigger_rx = repub_trigger_rx.into_stream();
         // Reacts to republishing requests
         let republish_task = task::spawn(async move {
             let mut interval = interval(Duration::from_secs(republish_interval));
@@ -308,7 +311,7 @@ where
     pub async fn new(
         api: T,
         network_name: String,
-        network_sender: Sender<NetworkMessage>,
+        network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
     ) -> Result<MessagePool<T>, Error>
@@ -337,7 +340,7 @@ where
         self.add_local(msg).await?;
         if publish {
             self.network_sender
-                .send(NetworkMessage::PubsubMessage {
+                .send_async(NetworkMessage::PubsubMessage {
                     topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg_ser,
                 })
@@ -356,7 +359,7 @@ where
         if msg.value() > &fvm_shared::TOTAL_FILECOIN {
             return Err(Error::MessageValueTooHigh);
         }
-        if msg.gas_fee_cap() < &MINIMUM_BASE_FEE {
+        if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
             return Err(Error::GasFeeCapTooLow);
         }
         self.verify_msg_sig(msg).await
@@ -465,7 +468,7 @@ where
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error.
-    async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<BigInt, Error> {
+    async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
         let actor = self.api.read().await.get_actor_after(addr, ts)?;
         Ok(actor.balance)
     }
@@ -504,7 +507,7 @@ where
 
         if publish {
             self.network_sender
-                .send(NetworkMessage::PubsubMessage {
+                .send_async(NetworkMessage::PubsubMessage {
                     topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
                     message: msg.marshal_cbor()?,
                 })

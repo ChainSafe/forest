@@ -40,13 +40,13 @@ fn signing_test() {
         let test = base64::decode(test_vec.private_key).unwrap();
         // TODO set up a private key based on sig type
         let priv_key = PrivateKey::from_bytes(&test).unwrap();
-        let msg_sign_bz = test_vec.unsigned.to_signing_bytes();
+        let msg_sign_bz = test_vec.unsigned.cid().unwrap().to_bytes();
         let bls_sig = priv_key.sign(&msg_sign_bz);
         let sig = Signature::new_bls(bls_sig.as_bytes());
         assert_eq!(sig, test_vec.signature);
 
         let smsg = SignedMessage::new_from_parts(test_vec.unsigned, sig).unwrap();
-        let cid = Cid::from(smsg.cid().unwrap());
+        let cid = smsg.cid().unwrap();
 
         let cid_test = Cid::from_str(&test_vec.cid).unwrap();
 

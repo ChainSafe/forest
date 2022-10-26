@@ -13,26 +13,31 @@ on:
 env:
   CI: 1
   CARGO_INCREMENTAL: 1
+  CACHE_TIMEOUT_MINUTES: 5
+  RUSTFLAGS: -Ctarget-feature=+avx2,+fma
 
 jobs:
   test:
     name: Test
-    runs-on: buildjet-16vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2004
+    timeout-minutes: 30
     env:
-      RUSTFLAGS: "-D warnings"
+      RUSTFLAGS: "-Ctarget-feature=+avx2,+fma -D warnings"
     steps:
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+      - name: install nextest
+        uses: taiki-e/install-action@nextest
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Cargo Check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: cargo check
       - name: Make Test-All
         run: make test-all
 
@@ -45,9 +50,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install taplo (TOML linter)
         run: cargo install taplo-cli --locked
       - name: Run Linters
@@ -58,11 +65,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install Audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --locked
       - name: Run Audit
         run: make audit
 
@@ -71,9 +80,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install udeps
         run: cargo install cargo-udeps --locked
       - name: Run udeps
@@ -84,11 +95,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Install spellcheck
-        run: cargo install cargo-spellcheck
+        run: cargo install cargo-spellcheck --locked
       - name: Run Spellcheck
         run: make spellcheck
 
@@ -107,29 +120,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: Cargo Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --profile dev
+        run: cargo build --profile dev
 
   calibnet-check:
     name: Calibnet sync check
-    runs-on: buildjet-16vcpu-ubuntu-2004
+    if: ${{ false }}
+    runs-on: buildjet-8vcpu-ubuntu-2004
+    timeout-minutes: 30
     steps:
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v1.3.0
+        uses: Swatinem/rust-cache@v2
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
       - name: build and install binaries
         run: make install
       - name: download snapshot

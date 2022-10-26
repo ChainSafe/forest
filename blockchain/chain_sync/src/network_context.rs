@@ -5,7 +5,6 @@ use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -15,13 +14,13 @@ use forest_libp2p::{
     rpc::RequestResponseError,
     NetworkMessage, PeerId,
 };
+use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
+use fvm_ipld_blockstore::Blockstore;
 use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-
-use async_std::channel::Sender;
 use tokio::time::timeout;
 
 /// Timeout for response from an RPC request
@@ -34,7 +33,7 @@ const RPC_TIMEOUT: u64 = 5;
 /// network requests.
 pub(crate) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
-    network_send: Sender<NetworkMessage>,
+    network_send: flume::Sender<NetworkMessage>,
 
     /// Manages peers to send requests to and updates request stats for the respective peers.
     pub peer_manager: Arc<PeerManager>,
@@ -53,10 +52,10 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
 
 impl<DB> SyncNetworkContext<DB>
 where
-    DB: BlockStore + Sync + Send + 'static,
+    DB: Blockstore + Sync + Send + 'static,
 {
     pub fn new(
-        network_send: Sender<NetworkMessage>,
+        network_send: flume::Sender<NetworkMessage>,
         peer_manager: Arc<PeerManager>,
         db: DB,
     ) -> Self {
@@ -128,7 +127,7 @@ where
         }
         let (tx, rx) = oneshot_channel();
         self.network_send
-            .send(NetworkMessage::BitswapRequest {
+            .send_async(NetworkMessage::BitswapRequest {
                 cid: content,
                 response_channel: tx,
             })
@@ -229,7 +228,7 @@ where
         let (tx, rx) = oneshot_channel();
         if self
             .network_send
-            .send(NetworkMessage::ChainExchangeRequest {
+            .send_async(NetworkMessage::ChainExchangeRequest {
                 peer_id,
                 request,
                 response_channel: tx,
@@ -297,7 +296,7 @@ where
 
         // Send request into libp2p service
         self.network_send
-            .send(NetworkMessage::HelloRequest {
+            .send_async(NetworkMessage::HelloRequest {
                 peer_id,
                 request,
                 response_channel: tx,

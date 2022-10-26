@@ -8,12 +8,12 @@ edition = "2021"
 anyhow.workspace           = true
 async-std                  = { workspace = true, features = ["unstable", "attributes"] }
 blake2b_simd.workspace     = true
-forest_fil_types.workspace = true
+fvm_shared.workspace       = true
 log.workspace              = true
 pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }
 serde_json.workspace       = true
-surf                       = { version = "2.3", default-features = false, features = ["curl-client"] }
-tokio-util                 = { version = "0.7.0", features = ["compat"] }
+surf                       = { version = "2.3", default-features = false, features = ["h1-client"] }
+tokio-util                 = { workspace = true, features = ["compat"] }
 tokio.workspace            = true
 url.workspace              = true

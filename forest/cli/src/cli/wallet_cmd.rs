@@ -9,6 +9,7 @@ use forest_utils::io::read_file_to_string;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::econ::TokenAmount;
 use rpassword::read_password;
 use std::{
     path::PathBuf,
@@ -193,10 +194,10 @@ impl WalletCommands {
                     };
 
                     let balance_int = match balance_string.parse::<BigInt>() {
-                        Ok(balance) => balance,
+                        Ok(balance) => TokenAmount::from_atto(balance),
                         Err(err) => {
                             println!(
-                                "Couldn't convert balance {} to BigInt: {}",
+                                "Couldn't convert balance {} to TokenAmount: {}",
                                 balance_string, err
                             );
                             continue;

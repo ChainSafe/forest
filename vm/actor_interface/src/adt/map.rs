@@ -4,43 +4,40 @@
 use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
 use cid::Cid;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::{BytesKey, Hash};
 use fvm_shared::HAMT_BIT_WIDTH;
 use serde::{de::DeserializeOwned, Serialize};
 use std::borrow::Borrow;
 
 pub enum Map<BS, V> {
-    V8(fil_actors_runtime_v8::fvm_ipld_hamt::Hamt<BS, V, BytesKey>),
+    V8(fvm_ipld_hamt::Hamt<BS, V, BytesKey>),
 }
 
-impl<'a, BS, V> Map<BS, V>
+impl<BS, V> Map<BS, V>
 where
     V: Serialize + DeserializeOwned + PartialEq,
-    BS: BlockStore,
+    BS: Blockstore + Store + Clone,
 {
     pub fn new(store: &BS, version: ActorVersion) -> Self {
         match version {
-            ActorVersion::V8 => Map::V8(
-                fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::new_with_bit_width(
-                    store.clone(),
-                    HAMT_BIT_WIDTH,
-                ),
-            ),
+            ActorVersion::V8 => Map::V8(fvm_ipld_hamt::Hamt::new_with_bit_width(
+                store.clone(),
+                HAMT_BIT_WIDTH,
+            )),
             _ => panic!("unsupported actor version: {}", version),
         }
     }
 
     /// Load map with root
-    pub fn load(cid: &Cid, store: &'a BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
+    pub fn load(cid: &Cid, store: &BS, version: ActorVersion) -> Result<Self, anyhow::Error> {
         match version {
-            ActorVersion::V8 => Ok(Map::V8(
-                fil_actors_runtime_v8::fvm_ipld_hamt::Hamt::load_with_bit_width(
-                    cid,
-                    store.clone(),
-                    HAMT_BIT_WIDTH,
-                )?,
-            )),
+            ActorVersion::V8 => Ok(Map::V8(fvm_ipld_hamt::Hamt::load_with_bit_width(
+                cid,
+                store.clone(),
+                HAMT_BIT_WIDTH,
+            )?)),
             _ => panic!("unsupported actor version: {}", version),
         }
     }

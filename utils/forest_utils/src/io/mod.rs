@@ -1,8 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod tempfile;
 mod writer_checksum;
 
+pub use tempfile::*;
 pub use writer_checksum::*;
 
 use std::fs::{create_dir_all, File};
