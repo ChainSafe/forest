@@ -55,7 +55,7 @@ fn message_json_annotations() {
         gas_premium: TokenAmount::from_atto(9),
     };
 
-    let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_secp256k1(vec![0]));
+    let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestStruct {
