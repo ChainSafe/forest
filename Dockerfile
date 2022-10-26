@@ -27,6 +27,7 @@ RUN update-ca-certificates
 # https://rustup.rs/
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
+ENV RUSTFLAGS="-Ctarget-feature=+avx2,+fma"
 
 WORKDIR /usr/src/forest
 COPY . .

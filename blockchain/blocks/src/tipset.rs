@@ -57,24 +57,14 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
+    use crate::ArbitraryCid;
+
     use super::tipset_json::{TipsetJson, TipsetJsonRef};
     use super::tipset_keys_json::TipsetKeysJson;
     use super::{Tipset, TipsetKeys};
     use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
-
-    #[derive(Clone)]
-    struct ArbitraryCid(Cid);
-
-    impl quickcheck::Arbitrary for ArbitraryCid {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            ArbitraryCid(Cid::new_v1(
-                u64::arbitrary(g),
-                cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),
-            ))
-        }
-    }
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
