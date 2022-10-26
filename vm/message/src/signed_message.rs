@@ -127,7 +127,7 @@ pub mod json {
     use crate::message;
 
     use cid::Cid;
-    use forest_crypto::signature;
+    use forest_json::signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.

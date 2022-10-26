@@ -306,8 +306,8 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
-    use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use forest_json::address::json::AddressJson;
+    use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
     use forest_key_management::json::KeyInfoJson;
     use forest_message::{message::json::MessageJson, signed_message::json::SignedMessageJson};
 

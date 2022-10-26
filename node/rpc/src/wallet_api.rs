@@ -6,9 +6,9 @@ use std::convert::TryFrom;
 use std::str::FromStr;
 
 use forest_beacon::Beacon;
-use forest_crypto::signature::json::SignatureJson;
 use forest_db::Store;
 use forest_json::address::json::AddressJson;
+use forest_json::signature::json::SignatureJson;
 use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_message::{
     message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
