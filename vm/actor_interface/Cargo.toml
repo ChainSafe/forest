@@ -14,7 +14,7 @@ fil_actor_multisig_v8.workspace = true
 fil_actor_power_v8.workspace    = true
 fil_actor_reward_v8.workspace   = true
 fil_actor_system_v8.workspace   = true
-fil_actors_runtime_v8.workspace = true
+fil_actors_runtime.workspace    = true
 
 anyhow.workspace              = true
 cid                           = { workspace = true, default-features = false, features = ["std"] }

@@ -14,6 +14,7 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 1
   CACHE_TIMEOUT_MINUTES: 5
+  RUSTFLAGS: -Ctarget-feature=+avx2,+fma
 
 jobs:
   test:
@@ -21,7 +22,7 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     env:
-      RUSTFLAGS: "-D warnings"
+      RUSTFLAGS: "-Ctarget-feature=+avx2,+fma -D warnings"
     steps:
       - name: Install Dependencies
         run: |
@@ -70,7 +71,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Install Audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --locked
       - name: Run Audit
         run: make audit
 
@@ -100,7 +101,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Install spellcheck
-        run: cargo install cargo-spellcheck
+        run: cargo install cargo-spellcheck --locked
       - name: Run Spellcheck
         run: make spellcheck
 

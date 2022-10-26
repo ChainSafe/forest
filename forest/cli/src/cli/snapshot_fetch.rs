@@ -3,6 +3,7 @@
 use super::{Config, SnapshotFetchConfig};
 use anyhow::bail;
 use chrono::DateTime;
+use forest_utils::io::TempFile;
 use hex::{FromHex, ToHex};
 use log::info;
 use pbr::ProgressBar;
@@ -82,10 +83,14 @@ async fn snapshot_fetch_calibnet(
 
     let snapshot_response = client.get(url.clone()).send().await?;
     let total_size = last_modified.size;
-    let snapshot_checksum =
-        download_snapshot_to_file(&snapshot_path, snapshot_response, total_size).await?;
-
-    fetch_checksum_and_validate(client, url, &snapshot_checksum).await?;
+    download_snapshot_and_validate_checksum(
+        client,
+        url,
+        &snapshot_path,
+        snapshot_response,
+        total_size,
+    )
+    .await?;
 
     Ok(snapshot_path)
 }
@@ -121,20 +126,26 @@ async fn snapshot_fetch_mainnet(
     create_dir_all(snapshot_out_dir).await?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
 
-    let snapshot_checksum =
-        download_snapshot_to_file(&snapshot_path, snapshot_response, total_size).await?;
-
-    fetch_checksum_and_validate(client, snapshot_url, &snapshot_checksum).await?;
+    download_snapshot_and_validate_checksum(
+        client,
+        snapshot_url,
+        &snapshot_path,
+        snapshot_response,
+        total_size,
+    )
+    .await?;
 
     Ok(snapshot_path)
 }
 
 /// Downloads snapshot to a file with a progress bar. Returns the digest of the downloaded file.
-async fn download_snapshot_to_file(
+async fn download_snapshot_and_validate_checksum(
+    client: Client,
+    url: Url,
     snapshot_path: &Path,
     snapshot_response: Response,
     total_size: u64,
-) -> anyhow::Result<Vec<u8>> {
+) -> anyhow::Result<()> {
     info!(
         "Snapshot will be downloaded to {} ({})",
         snapshot_path.display(),
@@ -146,7 +157,8 @@ async fn download_snapshot_to_file(
     progress_bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
     progress_bar.set_units(pbr::Units::Bytes);
 
-    let file = File::create(&snapshot_path).await?;
+    let snapshot_file_tmp = TempFile::new(snapshot_path.with_extension("car.tmp"));
+    let file = File::create(snapshot_file_tmp.path()).await?;
     let mut writer = BufWriter::new(file);
     let mut downloaded: u64 = 0;
     let mut stream = snapshot_response.bytes_stream();
@@ -161,13 +173,17 @@ async fn download_snapshot_to_file(
     }
     writer.flush().await?;
 
-    let file_size = std::fs::metadata(snapshot_path)?.len();
+    let file_size = std::fs::metadata(snapshot_file_tmp.path())?.len();
     if file_size != total_size {
         bail!("Didn't manage to download the entire file. {file_size}/{total_size} [B]");
     }
 
     progress_bar.finish_println("Finished downloading the snapshot.");
-    Ok(snapshot_hasher.finalize().to_vec())
+
+    fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
+    std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
+
+    Ok(())
 }
 
 /// Tries to extract resource filename from a given URL.

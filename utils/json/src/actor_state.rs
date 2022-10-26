@@ -5,6 +5,7 @@ pub mod json {
     use cid::Cid;
     use fvm::state_tree::ActorState;
     use fvm_shared::econ::TokenAmount;
+    use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::str::FromStr;
 
@@ -43,7 +44,7 @@ pub mod json {
             code: &m.code,
             state: &m.state,
             sequence: m.sequence,
-            balance: m.balance.to_str_radix(10),
+            balance: m.balance.atto().to_str_radix(10),
         }
         .serialize(serializer)
     }
@@ -73,7 +74,7 @@ pub mod json {
             code,
             state,
             sequence,
-            balance: TokenAmount::from_str(&balance).map_err(de::Error::custom)?,
+            balance: TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?),
         })
     }
 }
@@ -101,7 +102,7 @@ mod tests {
                 code: cid,
                 state: cid,
                 sequence: u64::arbitrary(g),
-                balance: TokenAmount::from(i64::arbitrary(g)),
+                balance: TokenAmount::from_atto(u64::arbitrary(g)),
             };
             ActorStateWrapper { actorstate }
         }

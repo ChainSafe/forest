@@ -178,7 +178,7 @@ where
     let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        umsg.to_signing_bytes().as_slice(),
+        umsg.cid().unwrap().to_bytes().as_slice(),
     )?;
 
     let smsg = SignedMessage::new_from_parts(umsg, sig)?;

@@ -19,7 +19,7 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_interpreter::{resolve_to_key_addr, BlockMessages, Heights, RewardCalc, VM};
+use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{message_receipt, ChainMessage, Message as MessageTrait, MessageReceipt};
 use forest_networks::{ChainConfig, Height};
@@ -32,12 +32,12 @@ use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
-use fvm_shared::bigint::{bigint_ser, BigInt};
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::randomness::Randomness;
-use fvm_shared::sector::{SectorInfo, SectorSize};
+use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
 use num_traits::identities::Zero;
@@ -69,10 +69,8 @@ type StateCallResult = Result<InvocResult, Error>;
 #[derive(Default, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
-    #[serde(with = "bigint_ser")]
-    escrow: BigInt,
-    #[serde(with = "bigint_ser")]
-    locked: BigInt,
+    escrow: TokenAmount,
+    locked: TokenAmount,
 }
 
 /// State manager handles all interactions with the internal Filecoin actors state.
@@ -339,7 +337,7 @@ where
         messages: &[BlockMessages],
         epoch: ChainEpoch,
         rand: &R,
-        base_fee: BigInt,
+        base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
@@ -352,7 +350,6 @@ where
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
-            let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
@@ -361,13 +358,13 @@ where
                 &rand_clone,
                 base_fee.clone(),
                 network_version,
-                |height, state| self.genesis_info.get_circulating_supply(height, state),
+                self.genesis_info
+                    .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
-                heights,
                 self.chain_config.policy.chain_finality,
             )
         };
@@ -484,25 +481,22 @@ where
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
-
             let store_arc = self.blockstore_cloned();
-
-            let heights = Heights::new(&self.chain_config);
             let network_version = self.get_network_version(bheight);
             let mut vm = VM::<_>::new(
                 *bstate,
-                store_arc,
+                store_arc.clone(),
                 bheight,
                 rand,
-                0.into(),
+                TokenAmount::zero(),
                 network_version,
-                |height, state| self.genesis_info.get_circulating_supply(height, state),
+                self.genesis_info
+                    .get_circulating_supply(bheight, &store_arc, bstate)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 self.engine
                     .get(&NetworkConfig::new(network_version))
                     .unwrap(),
-                heights,
                 self.chain_config.policy.chain_finality,
             )?;
 
@@ -576,23 +570,23 @@ where
         // TODO investigate: this doesn't use a buffered store in any way, and can lead to
         // state bloat potentially?
         let store_arc = self.blockstore_cloned();
-        let heights = Heights::new(&self.chain_config);
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let network_version = self.get_network_version(ts.epoch() + 1);
+        let epoch = ts.epoch() + 1;
         let mut vm = VM::<_>::new(
             st,
-            store_arc,
-            ts.epoch() + 1,
+            store_arc.clone(),
+            epoch,
             &chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
-            |height, state| self.genesis_info.get_circulating_supply(height, state),
+            self.genesis_info
+                .get_circulating_supply(epoch, &store_arc, &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             self.engine
                 .get(&NetworkConfig::new(network_version))
                 .unwrap(),
-            heights,
             self.chain_config.policy.chain_finality,
         )?;
 
@@ -1232,7 +1226,7 @@ where
     }
 
     /// Return the heaviest tipset's balance from self.db for a given address
-    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<BigInt, Error> {
+    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
         let ts = self
             .cs
             .heaviest_tipset()
@@ -1243,7 +1237,7 @@ where
     }
 
     /// Return the balance of a given address and `state_cid`
-    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<BigInt, Error> {
+    pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
         Ok(actor.balance)
@@ -1382,9 +1376,10 @@ where
     pub fn get_circulating_supply(
         self: &Arc<Self>,
         height: ChainEpoch,
-        state_tree: &StateTree<&DB>,
+        db: &DB,
+        root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info.get_circulating_supply(height, state_tree)
+        self.genesis_info.get_circulating_supply(height, db, root)
     }
 
     /// Return the state of Market Actor.
@@ -1413,8 +1408,8 @@ where
 // * There is not a great reason this is a separate type from the one on the RPC.
 // * This should probably be removed in the future, but is a convenience to keep for now.
 pub struct MiningBaseInfo {
-    pub miner_power: Option<TokenAmount>,
-    pub network_power: Option<TokenAmount>,
+    pub miner_power: Option<StoragePower>,
+    pub network_power: Option<StoragePower>,
     pub sectors: Vec<SectorInfo>,
     pub worker_key: Address,
     pub sector_size: SectorSize,

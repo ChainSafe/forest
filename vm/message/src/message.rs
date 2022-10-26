@@ -12,7 +12,6 @@ pub fn valid_for_block_inclusion(
 ) -> Result<(), anyhow::Error> {
     use fvm_shared::version::NetworkVersion;
     use fvm_shared::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
-    use num_traits::Signed;
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }
@@ -52,7 +51,6 @@ pub fn valid_for_block_inclusion(
 pub mod json {
     use cid::Cid;
     use forest_json::address::json::AddressJson;
-    use forest_json::bigint;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding::RawBytes;
     use fvm_shared::econ::TokenAmount;
@@ -90,12 +88,12 @@ pub mod json {
         from: AddressJson,
         #[serde(rename = "Nonce")]
         sequence: u64,
-        #[serde(with = "bigint::json")]
+        #[serde(with = "forest_json::token_amount::json")]
         value: TokenAmount,
         gas_limit: i64,
-        #[serde(with = "bigint::json")]
+        #[serde(with = "forest_json::token_amount::json")]
         gas_fee_cap: TokenAmount,
-        #[serde(with = "bigint::json")]
+        #[serde(with = "forest_json::token_amount::json")]
         gas_premium: TokenAmount,
         #[serde(rename = "Method")]
         method_num: u64,
@@ -191,12 +189,12 @@ pub mod tests {
                 from: Address::new_id(u64::arbitrary(g)),
                 version: i64::arbitrary(g),
                 sequence: u64::arbitrary(g),
-                value: TokenAmount::from(i64::arbitrary(g)),
+                value: TokenAmount::from_atto(u64::arbitrary(g)),
                 method_num: u64::arbitrary(g),
                 params: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
                 gas_limit: i64::arbitrary(g),
-                gas_fee_cap: TokenAmount::from(i64::arbitrary(g)),
-                gas_premium: TokenAmount::from(i64::arbitrary(g)),
+                gas_fee_cap: TokenAmount::from_atto(u64::arbitrary(g)),
+                gas_premium: TokenAmount::from_atto(u64::arbitrary(g)),
             };
             MessageWrapper { message: msg }
         }

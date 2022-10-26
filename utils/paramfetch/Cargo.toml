@@ -14,6 +14,6 @@ pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }
 serde_json.workspace       = true
 surf                       = { version = "2.3", default-features = false, features = ["h1-client"] }
-tokio-util                 = { version = "0.7.0", features = ["compat"] }
+tokio-util                 = { workspace = true, features = ["compat"] }
 tokio.workspace            = true
 url.workspace              = true

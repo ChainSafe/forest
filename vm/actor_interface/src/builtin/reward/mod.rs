@@ -55,7 +55,7 @@ impl State {
     }
 
     /// Consume state to return just storage power reward
-    pub fn into_total_storage_power_reward(self) -> StoragePower {
+    pub fn into_total_storage_power_reward(self) -> TokenAmount {
         match self {
             State::V8(st) => st.into_total_storage_power_reward(),
         }
