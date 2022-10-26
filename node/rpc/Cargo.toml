@@ -9,7 +9,7 @@ edition = "2021"
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["attributes"] }
 base64.workspace                 = true
-bls-signatures                   = { version = "0.12", default-features = false, features = ["blst"] }
+bls-signatures.workspace         = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 crossbeam                        = "0.8"
 fil_actor_miner_v8.workspace     = true
@@ -43,6 +43,7 @@ fvm_ipld_blockstore.workspace    = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 hex.workspace                    = true
+jsonrpc-v2.workspace             = true
 libipld-core.workspace           = true
 log.workspace                    = true
 multibase.workspace              = true
@@ -57,11 +58,6 @@ tide-websockets                  = "0.4"
 tide.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 tokio-util                       = { workspace = true, features = ["compat"] }
-
-[dependencies.jsonrpc-v2]
-default-features = false
-features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.11"
 
 [dev-dependencies]
 forest_db.workspace         = true
