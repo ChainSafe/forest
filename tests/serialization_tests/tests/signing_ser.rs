@@ -6,7 +6,7 @@
 
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
-use forest_crypto::signature;
+use forest_json::signature;
 use forest_message::message;
 use forest_message::SignedMessage;
 use fvm_ipld_encoding::Cbor;
