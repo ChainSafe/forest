@@ -26,8 +26,6 @@ COPY . .
 # Grab the correct toolchain
 RUN rustup toolchain install nightly
 
-ENV RUSTFLAGS="-Ctarget-feature=+avx2,+fma"
-
 # Install Forest
 RUN make install
 

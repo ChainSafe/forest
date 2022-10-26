@@ -14,15 +14,12 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 1
   CACHE_TIMEOUT_MINUTES: 5
-  RUSTFLAGS: -Ctarget-feature=+avx2,+fma
 
 jobs:
   test:
     name: Test
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
-    env:
-      RUSTFLAGS: "-Ctarget-feature=+avx2,+fma -D warnings"
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
