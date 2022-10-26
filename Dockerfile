@@ -18,7 +18,7 @@
 FROM rust:1-buster AS build-env
 
 # Install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang cmake
 
 WORKDIR /usr/src/forest
 COPY . .
@@ -43,7 +43,7 @@ FROM debian:10-slim
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates libcurl4
+RUN apt-get update && apt-get install --no-install-recommends -y libssl1.1 ca-certificates libcurl4
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env

@@ -63,7 +63,7 @@ rustup install nightly
 
 ```shell
 # Ubuntu
-sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
+sudo apt install build-essential clang libssl-dev
 
 # Archlinux
 sudo pacman -S base-devel clang ocl-icd openssl
