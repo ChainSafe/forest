@@ -2702,7 +2702,6 @@ dependencies = [
  "pretty_env_logger",
  "prometheus",
  "quickcheck",
- "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
  "regex",
@@ -2728,7 +2727,6 @@ name = "forest-daemon"
 version = "0.4.1"
 dependencies = [
  "anyhow",
- "assert_cmd",
  "async-log",
  "async-std",
  "base64 0.13.1",
@@ -2786,7 +2784,6 @@ dependencies = [
  "pretty_env_logger",
  "prometheus",
  "quickcheck",
- "quickcheck_macros",
  "rand 0.8.5",
  "raw_sync",
  "rayon",
@@ -2928,7 +2925,6 @@ dependencies = [
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
- "forest_test_utils",
  "forest_utils",
  "futures",
  "fvm",
@@ -2965,7 +2961,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_fil_types",
- "forest_genesis",
  "forest_interpreter",
  "forest_ipld",
  "forest_legacy_ipld_amt",
@@ -2992,7 +2987,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "pbr",
- "pretty_env_logger",
  "prometheus",
  "quickcheck",
  "quickcheck_macros",
@@ -3010,7 +3004,6 @@ name = "forest_cli_shared"
 version = "0.4.1"
 dependencies = [
  "anyhow",
- "assert_cmd",
  "async-log",
  "async-std",
  "base64 0.13.1",
@@ -3192,14 +3185,12 @@ dependencies = [
  "cid",
  "filecoin-proofs-api",
  "forest_json",
- "forest_test_utils",
  "forest_utils",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
  "num-traits",
  "quickcheck",
- "quickcheck_macros",
  "rayon",
  "serde",
  "serde_json",
@@ -3334,7 +3325,6 @@ dependencies = [
  "bls-signatures",
  "forest_crypto",
  "forest_encoding",
- "forest_test_utils",
  "forest_utils",
  "fvm_shared",
  "libsecp256k1",
@@ -3549,7 +3539,6 @@ dependencies = [
  "forest_networks",
  "forest_rpc-api",
  "forest_state_manager",
- "forest_test_utils",
  "forest_utils",
  "futures",
  "fvm",
@@ -5504,7 +5493,6 @@ dependencies = [
  "glob",
  "libc",
  "libz-sys",
- "zstd-sys",
 ]
 
 [[package]]
@@ -9684,14 +9672,4 @@ dependencies = [
  "quote 1.0.21",
  "syn 1.0.103",
  "synstructure",
-]
-
-[[package]]
-name = "zstd-sys"
-version = "2.0.1+zstd.1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fd07cbbc53846d9145dbffdf6dd09a7a0aa52be46741825f5c97bdd4f73f12b"
-dependencies = [
- "cc",
- "libc",
 ]

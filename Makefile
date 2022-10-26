@@ -45,7 +45,7 @@ audit:
 	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
 udeps:
-	cargo udeps
+	cargo udeps --all-targets --features submodule_tests
 
 spellcheck:
 	cargo spellcheck --code 1
@@ -76,7 +76,7 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-serialization-vectors:
-	cargo nextest run --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
+	cargo nextest run --release --manifest-path=$(SER_TESTS)/Cargo.toml --features submodule_tests
 
 run-vectors: run-serialization-vectors
 
