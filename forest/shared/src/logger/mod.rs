@@ -27,9 +27,9 @@ impl FromStr for LoggingColor {
     }
 }
 
-impl Into<WriteStyle> for LoggingColor {
-    fn into(self) -> WriteStyle {
-        match self {
+impl From<LoggingColor> for WriteStyle {
+    fn from(color: LoggingColor) -> WriteStyle {
+        match color {
             LoggingColor::Always => WriteStyle::Always,
             LoggingColor::Auto => {
                 if stdout_isatty() {
