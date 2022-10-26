@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::Result;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
@@ -12,7 +11,6 @@ use forest_libp2p::chain_exchange::{
 };
 use forest_message::SignedMessage;
 use fvm_ipld_encoding::to_vec;
-use fvm_ipld_encoding::Cbor;
 use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
@@ -128,22 +126,6 @@ pub fn construct_full_tipset() -> FullTipset {
     FullTipset::new(blocks).unwrap()
 }
 
-pub const DUMMY_SIG: [u8; 1] = [0u8];
-
-pub struct DummySigner;
-
-impl DummySigner {
-    pub fn sign_bytes(_: &[u8], _: &Address) -> Result<Signature> {
-        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-    }
-
-    pub fn sign_message(message: Message) -> Result<SignedMessage> {
-        let bz = message.cid()?.to_bytes();
-        let signature = Self::sign_bytes(&bz, &message.from)?;
-        Ok(SignedMessage::new_unchecked(message, signature))
-    }
-}
-
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (Message, SignedMessage) {
     let bls_messages = Message {
@@ -152,7 +134,8 @@ pub fn construct_messages() -> (Message, SignedMessage) {
         ..Message::default()
     };
 
-    let secp_messages = DummySigner::sign_message(bls_messages.clone()).unwrap();
+    let secp_messages =
+        SignedMessage::new_unchecked(bls_messages.clone(), Signature::new_secp256k1(vec![0]));
     (bls_messages, secp_messages)
 }
 

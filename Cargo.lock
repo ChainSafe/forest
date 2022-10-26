@@ -3428,6 +3428,7 @@ dependencies = [
  "num-traits",
  "quickcheck",
  "quickcheck_macros",
+ "rand 0.8.5",
  "serde",
  "serde_json",
 ]

@@ -24,6 +24,7 @@ serde                       = { workspace = true, features = ["derive"] }
 forest_test_utils.workspace = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
+rand.workspace              = true
 serde_json.workspace        = true
 
 [features]

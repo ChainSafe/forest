@@ -22,7 +22,7 @@ impl SignedMessage {
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
         signature
-            .verify(&message.cid().unwrap().to_bytes(), &message.from)
+            .verify(&message.cid()?.to_bytes(), &message.from)
             .map_err(anyhow::Error::msg)?;
         Ok(SignedMessage { message, signature })
     }
@@ -218,15 +218,13 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use super::{json::*, *};
-    use forest_test_utils::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
 
     impl quickcheck::Arbitrary for SignedMessage {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let message = crate::message::tests::MessageWrapper::arbitrary(g).message;
-            let bz = message.cid().unwrap().to_bytes();
-            let signature = DummySigner::sign_bytes(&bz, &message.from).unwrap();
+            let signature = Signature::new_secp256k1(vec![0]);
             SignedMessage::new_unchecked(message, signature)
         }
     }

@@ -1,10 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_test_utils::*;
+use forest_message::SignedMessage;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
+use rand::rngs::OsRng;
+use rand::RngCore;
 
 #[test]
 fn generate_signed_message() {
@@ -14,12 +16,12 @@ fn generate_signed_message() {
         ..Message::default()
     };
 
-    let signed_msg = DummySigner::sign_message(msg.clone()).unwrap();
+    let mut dummy_sig = vec![0];
+    OsRng.fill_bytes(&mut dummy_sig);
+    let signed_msg =
+        SignedMessage::new_unchecked(msg.clone(), Signature::new_secp256k1(dummy_sig.clone()));
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &msg);
-    assert_eq!(
-        signed_msg.signature(),
-        &Signature::new_secp256k1(DUMMY_SIG.to_vec())
-    );
+    assert_eq!(signed_msg.signature(), &Signature::new_secp256k1(dummy_sig));
 }

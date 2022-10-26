@@ -8,9 +8,9 @@ use forest_message::signed_message::{
     json::{SignedMessageJson, SignedMessageJsonRef},
     SignedMessage,
 };
-use forest_test_utils::*;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,7 @@ fn message_json_annotations() {
         gas_premium: TokenAmount::from_atto(9),
     };
 
-    let signed = DummySigner::sign_message(message.clone()).unwrap();
+    let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_secp256k1(vec![0]));
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestStruct {

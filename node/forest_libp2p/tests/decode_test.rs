@@ -5,8 +5,9 @@ use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
-use forest_test_utils::*;
+use forest_message::SignedMessage;
 use fvm_shared::address::Address;
+use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
 
@@ -73,10 +74,10 @@ fn tipset_bundle_to_full_tipset() {
         from: Address::new_id(3),
         ..Message::default()
     };
-    let sa = DummySigner::sign_message(ua.clone()).unwrap();
-    let sb = DummySigner::sign_message(ub.clone()).unwrap();
-    let sc = DummySigner::sign_message(uc.clone()).unwrap();
-    let sd = DummySigner::sign_message(ud.clone()).unwrap();
+    let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
+    let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
+    let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));
+    let sd = SignedMessage::new_unchecked(ud.clone(), Signature::new_secp256k1(vec![0]));
 
     let b0 = Block {
         header: h0.clone(),
