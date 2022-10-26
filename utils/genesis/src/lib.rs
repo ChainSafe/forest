@@ -4,10 +4,12 @@
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
+use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_state_manager::StateManager;
+use forest_utils::db::BlockstoreExt;
 use forest_utils::net::FetchProgress;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
 use std::io::Stdout;
@@ -30,7 +32,7 @@ pub async fn read_genesis_header<DB>(
     cs: &ChainStore<DB>,
 ) -> Result<Tipset, anyhow::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -56,7 +58,7 @@ pub async fn get_network_name_from_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
-    BS: BlockStore + Send + Sync + 'static,
+    BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     // the genesis tipset has just one block, so fetch it
     let genesis_header = genesis_ts.min_ticket_block();
@@ -73,7 +75,7 @@ pub async fn initialize_genesis<BS>(
     state_manager: &StateManager<BS>,
 ) -> Result<(Tipset, String), anyhow::Error>
 where
-    BS: BlockStore + Send + Sync + 'static,
+    BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
@@ -87,7 +89,7 @@ async fn process_car<R, BS>(
 ) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: BlockStore + Send + Sync + 'static,
+    BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader.compat()).await?;
@@ -129,7 +131,7 @@ pub async fn import_chain<V: ProofVerifier, DB>(
     skip_load: bool,
 ) -> Result<(), anyhow::Error>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
 
@@ -180,7 +182,7 @@ async fn load_and_retrieve_header<DB, R>(
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where
-    DB: BlockStore,
+    DB: Blockstore,
     R: AsyncRead + Send + Unpin,
 {
     let mut compat = reader.compat();

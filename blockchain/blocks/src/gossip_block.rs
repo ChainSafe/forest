@@ -1,17 +1,33 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::BlockHeader;
+use crate::{ArbitraryCid, BlockHeader};
 use cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
-#[derive(Clone, Debug, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct GossipBlock {
     pub header: BlockHeader,
     pub bls_messages: Vec<Cid>,
     pub secpk_messages: Vec<Cid>,
+}
+
+impl quickcheck::Arbitrary for GossipBlock {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
+        let bls_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
+
+        let arbitrary_cids: Vec<ArbitraryCid> = Vec::arbitrary(g);
+        let secp_cids: Vec<Cid> = arbitrary_cids.iter().map(|cid| cid.0).collect();
+
+        Self {
+            header: BlockHeader::arbitrary(g),
+            bls_messages: bls_cids,
+            secpk_messages: secp_cids,
+        }
+    }
 }
 
 impl Cbor for GossipBlock {}
@@ -77,5 +93,19 @@ pub mod json {
             bls_messages,
             secpk_messages,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json::{GossipBlockJson, GossipBlockJsonRef};
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn gossip_block_roundtrip(block: GossipBlock) {
+        let serialized = serde_json::to_string(&GossipBlockJsonRef(&block)).unwrap();
+        let parsed: GossipBlockJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(block, parsed.0);
     }
 }

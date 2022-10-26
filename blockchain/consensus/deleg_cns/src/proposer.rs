@@ -14,10 +14,11 @@ use std::sync::Arc;
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_key_management::Key;
 use forest_networks::Height;
 use forest_state_manager::StateManager;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 
 use crate::DelegatedConsensus;
@@ -52,7 +53,7 @@ impl DelegatedProposer {
         base: &Arc<Tipset>,
     ) -> anyhow::Result<GossipBlock>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         let block_delay = state_manager.chain_config().block_delay_secs;
         let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
@@ -104,7 +105,7 @@ impl Proposer for DelegatedProposer {
         submitter: SyncGossipSubmitter,
     ) -> anyhow::Result<Vec<JoinHandle<()>>>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         let running = task::spawn(async move {
@@ -124,7 +125,7 @@ impl DelegatedProposer {
         submitter: &SyncGossipSubmitter,
     ) -> anyhow::Result<()>
     where
-        DB: BlockStore + Sync + Send + 'static,
+        DB: Blockstore + Store + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         // TODO: Ideally these should not be coming through the `StateManager`.

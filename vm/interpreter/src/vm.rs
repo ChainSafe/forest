@@ -4,22 +4,23 @@
 use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
-use forest_ipld_blockstore::BlockStore;
-use forest_message::{ChainMessage, MessageReceipt};
+use forest_db::Store;
+use forest_message::ChainMessage;
 use forest_networks::{ChainConfig, Height};
 use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
 use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
-use fvm::state_tree::StateTree;
 use fvm::DefaultKernel;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::bigint::Zero;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
+use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
 use std::collections::HashSet;
@@ -38,17 +39,6 @@ pub struct BlockMessages {
     pub win_count: i64,
 }
 
-/// Allows generation of the current circulating supply
-/// given some context.
-pub trait CircSupplyCalc: Clone + 'static {
-    /// Retrieves total circulating supply on the network.
-    fn get_supply<DB: BlockStore>(
-        &self,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> Result<TokenAmount, anyhow::Error>;
-}
-
 /// Allows the generation of a reward message based on gas fees and penalties.
 ///
 /// This should facilitate custom consensus protocols using their own economic incentives.
@@ -59,8 +49,8 @@ pub trait RewardCalc: Send + Sync + 'static {
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
-        penalty: BigInt,
-        gas_reward: BigInt,
+        penalty: TokenAmount,
+        gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
@@ -85,40 +75,34 @@ impl Heights {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: BlockStore + 'static, P = DefaultNetworkParams> {
+pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams> {
     fvm_executor: ForestExecutor<DB>,
     params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
-    heights: Heights,
 }
 
 impl<DB, P> VM<DB, P>
 where
-    DB: BlockStore,
+    DB: Blockstore + Store + Clone,
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R, C>(
+    pub fn new<R>(
         root: Cid,
         store_arc: DB,
         epoch: ChainEpoch,
         rand: &R,
-        base_fee: BigInt,
+        base_fee: TokenAmount,
         network_version: NetworkVersion,
-        circ_supply_calc: C,
+        circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         engine: Engine,
-        heights: Heights,
         chain_finality: i64,
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
-        C: CircSupplyCalc,
     {
-        let state = StateTree::new_from_root(&store_arc, &root)?;
-        let circ_supply = circ_supply_calc.get_supply(epoch, &state)?;
-
         let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
@@ -143,7 +127,6 @@ where
             fvm_executor: exec,
             params: PhantomData,
             reward_calc,
-            heights,
         })
     }
 
@@ -193,22 +176,6 @@ where
         Ok(())
     }
 
-    /// Flushes the `StateTree` and perform a state migration if there is a migration at this epoch.
-    /// If there is no migration this function will return `Ok(None)`.
-    pub fn migrate_state(
-        &self,
-        epoch: ChainEpoch,
-        _store: Arc<impl BlockStore + Send + Sync>,
-    ) -> Result<Option<Cid>, anyhow::Error> {
-        match epoch {
-            x if x == self.heights.turbo => {
-                // FIXME: Support state migrations.
-                panic!("Cannot migrate state when using FVM. See https://github.com/ChainSafe/forest/issues/1454 for updates.");
-            }
-            _ => Ok(None),
-        }
-    }
-
     /// Apply block messages from a Tipset.
     /// Returns the receipts from the transactions.
     pub fn apply_block_messages(
@@ -218,13 +185,13 @@ where
         mut callback: Option<
             impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
-    ) -> Result<Vec<MessageReceipt>, anyhow::Error> {
+    ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
         for block in messages.iter() {
-            let mut penalty = Default::default();
-            let mut gas_reward = Default::default();
+            let mut penalty = TokenAmount::zero();
+            let mut gas_reward = TokenAmount::zero();
 
             let mut process_msg = |msg: &ChainMessage| -> Result<(), anyhow::Error> {
                 let cid = msg.cid()?;
@@ -355,8 +322,8 @@ impl RewardCalc for RewardActorMessageCalc {
         epoch: ChainEpoch,
         miner: Address,
         win_count: i64,
-        penalty: BigInt,
-        gas_reward: BigInt,
+        penalty: TokenAmount,
+        gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
             miner,
@@ -392,8 +359,8 @@ impl RewardCalc for NoRewardCalc {
         _epoch: ChainEpoch,
         _miner: Address,
         _win_count: i64,
-        _penalty: BigInt,
-        _gas_reward: BigInt,
+        _penalty: TokenAmount,
+        _gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         Ok(None)
     }
@@ -402,7 +369,7 @@ impl RewardCalc for NoRewardCalc {
 /// Giving a fixed amount of coins for each block produced directly to the miner,
 /// on top of the gas spent, so the circulating supply isn't burned. Ignores penalties.
 pub struct FixedRewardCalc {
-    pub reward: BigInt,
+    pub reward: TokenAmount,
 }
 
 impl RewardCalc for FixedRewardCalc {
@@ -411,8 +378,8 @@ impl RewardCalc for FixedRewardCalc {
         epoch: ChainEpoch,
         miner: Address,
         _win_count: i64,
-        _penalty: BigInt,
-        gas_reward: BigInt,
+        _penalty: TokenAmount,
+        gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message {
             from: reward::ADDRESS,

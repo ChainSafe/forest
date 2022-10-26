@@ -7,6 +7,7 @@ version = "0.2.0"
 [dependencies]
 # Public
 async-std            = { workspace = true, features = ["attributes"] }
+jsonrpc-v2.workspace = true
 log.workspace        = true
 once_cell.workspace  = true
 serde.workspace      = true
@@ -21,8 +22,3 @@ forest_key_management.workspace = true
 forest_libp2p.workspace         = true
 forest_message.workspace        = true
 forest_rpc-api.workspace        = true
-
-[dependencies.jsonrpc-v2]
-default-features = false
-features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.11"

@@ -329,9 +329,10 @@ pub mod tests {
     use forest_message::SignedMessage;
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
-    use fvm_shared::bigint::BigInt;
     use fvm_shared::crypto::signature::SignatureType;
+    use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
+    use num_traits::Zero;
     use std::borrow::BorrowMut;
     use std::thread::sleep;
     use std::time::Duration;
@@ -350,11 +351,11 @@ pub mod tests {
             from: *from,
             sequence,
             gas_limit,
-            gas_fee_cap: (gas_price + 100).into(),
-            gas_premium: gas_price.into(),
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100),
+            gas_premium: TokenAmount::from_atto(gas_price),
             ..Message::default()
         };
-        let msg_signing_bytes = umsg.to_signing_bytes();
+        let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
@@ -607,7 +608,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i64),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -645,7 +646,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i64),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -689,7 +690,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i64),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -737,7 +738,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -787,7 +788,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -811,7 +812,7 @@ pub mod tests {
         let mut smsg_vec = Vec::new();
         tma.write()
             .await
-            .set_state_balance_raw(&a1, BigInt::from(1_000_000_000_000_000_000_u64));
+            .set_state_balance_raw(&a1, TokenAmount::from_atto(1_000_000_000_000_000_000_u64));
         for i in 0..10 {
             let msg = if i != 5 {
                 create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
@@ -826,7 +827,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -868,7 +869,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,
@@ -890,7 +891,7 @@ pub mod tests {
         // Test 7: insufficient balance for all messages
         tma.write()
             .await
-            .set_state_balance_raw(&a1, (300 * gas_limit + 1).into());
+            .set_state_balance_raw(&a1, TokenAmount::from_atto(300 * gas_limit + 1));
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -903,7 +904,7 @@ pub mod tests {
             &tma,
             &a1,
             &mset,
-            &BigInt::from(0i32),
+            &TokenAmount::zero(),
             &ts,
             &mut chains,
             &chain_config,

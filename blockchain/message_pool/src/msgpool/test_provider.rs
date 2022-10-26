@@ -18,6 +18,7 @@ use forest_message::SignedMessage;
 use fvm::state_tree::ActorState;
 use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -28,7 +29,7 @@ use tokio::sync::broadcast;
 pub struct TestApi {
     bmsgs: HashMap<Cid, Vec<SignedMessage>>,
     state_sequence: HashMap<Address, u64>,
-    balances: HashMap<Address, BigInt>,
+    balances: HashMap<Address, TokenAmount>,
     tipsets: Vec<Tipset>,
     publisher: Publisher<HeadChange>,
 }
@@ -54,7 +55,7 @@ impl TestApi {
     }
 
     /// Set the state balance for an Address for `TestApi`
-    pub fn set_state_balance_raw(&mut self, addr: &Address, bal: BigInt) {
+    pub fn set_state_balance_raw(&mut self, addr: &Address, bal: TokenAmount) {
         self.balances.insert(*addr, bal);
     }
 
@@ -108,7 +109,7 @@ impl Provider for TestApi {
         }
         let balance = match self.balances.get(addr) {
             Some(b) => b.clone(),
-            None => (10_000_000_000_u64).into(),
+            None => TokenAmount::from_atto(10_000_000_000_u64),
         };
 
         msgs.sort_by_key(|m| m.sequence());
@@ -168,8 +169,8 @@ impl Provider for TestApi {
         Err(Error::InvalidToAddr)
     }
 
-    fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<BigInt, Error> {
-        Ok(100.into())
+    fn chain_compute_base_fee(&self, _ts: &Tipset) -> Result<TokenAmount, Error> {
+        Ok(TokenAmount::from_atto(100))
     }
 }
 

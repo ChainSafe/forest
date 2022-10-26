@@ -21,7 +21,7 @@ pub struct SignedMessage {
 impl SignedMessage {
     /// Generate new signed message from an unsigned message and a signer.
     pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
-        let bz = message.to_signing_bytes();
+        let bz = message.cid()?.to_bytes();
 
         let signature = signer
             .sign_bytes(&bz, &message.from)
@@ -32,7 +32,7 @@ impl SignedMessage {
 
     /// Generate a new signed message from fields.
     pub fn new_from_parts(message: Message, signature: Signature) -> Result<SignedMessage, String> {
-        signature.verify(&message.to_signing_bytes(), &message.from)?;
+        signature.verify(&message.cid().unwrap().to_bytes(), &message.from)?;
         Ok(SignedMessage { message, signature })
     }
 
@@ -64,7 +64,7 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.to_signing_bytes(), self.from())
+            .verify(&self.message.cid().unwrap().to_bytes(), self.from())
     }
 }
 
@@ -122,132 +122,5 @@ impl Cbor for SignedMessage {
         } else {
             Ok(to_vec(&self)?)
         }
-    }
-}
-
-pub mod json {
-    use super::*;
-    use crate::message;
-
-    use cid::Cid;
-    use forest_crypto::signature;
-    use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
-
-    /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
-    #[derive(Deserialize, Serialize)]
-    #[serde(transparent)]
-    pub struct SignedMessageJson(#[serde(with = "self")] pub SignedMessage);
-
-    /// Wrapper for serializing a `SignedMessage` reference to JSON.
-    #[derive(Serialize)]
-    #[serde(transparent)]
-    pub struct SignedMessageJsonRef<'a>(#[serde(with = "self")] pub &'a SignedMessage);
-
-    impl From<SignedMessageJson> for SignedMessage {
-        fn from(wrapper: SignedMessageJson) -> Self {
-            wrapper.0
-        }
-    }
-
-    impl From<SignedMessage> for SignedMessageJson {
-        fn from(msg: SignedMessage) -> Self {
-            SignedMessageJson(msg)
-        }
-    }
-
-    pub fn serialize<S>(m: &SignedMessage, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        #[derive(Serialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct SignedMessageSer<'a> {
-            #[serde(with = "message::json")]
-            message: &'a Message,
-            #[serde(with = "signature::json")]
-            signature: &'a Signature,
-            #[serde(default, rename = "CID", with = "forest_json::cid::opt")]
-            cid: Option<Cid>,
-        }
-        SignedMessageSer {
-            message: &m.message,
-            signature: &m.signature,
-            cid: Some(m.cid().map_err(ser::Error::custom)?),
-        }
-        .serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<SignedMessage, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Serialize, Deserialize)]
-        #[serde(rename_all = "PascalCase")]
-        struct SignedMessageDe {
-            #[serde(with = "message::json")]
-            message: Message,
-            #[serde(with = "signature::json")]
-            signature: Signature,
-        }
-        let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
-        Ok(SignedMessage { message, signature })
-    }
-
-    pub mod vec {
-        use super::*;
-        use forest_utils::json::GoVecVisitor;
-        use serde::ser::SerializeSeq;
-
-        pub fn serialize<S>(m: &[SignedMessage], serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            let mut seq = serializer.serialize_seq(Some(m.len()))?;
-            for e in m {
-                seq.serialize_element(&SignedMessageJsonRef(e))?;
-            }
-            seq.end()
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<SignedMessage>, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            deserializer.deserialize_any(GoVecVisitor::<SignedMessage, SignedMessageJson>::new())
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::json::{SignedMessageJson, SignedMessageJsonRef};
-    use super::*;
-    use quickcheck_macros::quickcheck;
-    use serde_json;
-
-    impl quickcheck::Arbitrary for SignedMessage {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            const DUMMY_SIG: [u8; 1] = [0u8];
-
-            struct DummySigner;
-            impl Signer for DummySigner {
-                fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-                    Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-                }
-            }
-
-            SignedMessage::new(
-                crate::message::tests::MessageWrapper::arbitrary(g).message,
-                &DummySigner,
-            )
-            .unwrap()
-        }
-    }
-
-    #[quickcheck]
-    fn signed_message_roundtrip(message: SignedMessage) {
-        let serialized = serde_json::to_string(&SignedMessageJsonRef(&message)).unwrap();
-        let parsed: SignedMessageJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(message, parsed.0);
     }
 }

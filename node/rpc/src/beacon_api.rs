@@ -5,9 +5,10 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use forest_beacon::json::BeaconEntryJson;
 use forest_beacon::Beacon;
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_rpc_api::beacon_api::*;
 use forest_rpc_api::data_types::RPCState;
+use fvm_ipld_blockstore::Blockstore;
 
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
@@ -17,7 +18,7 @@ pub(crate) async fn beacon_get_entry<DB, B>(
     Params(params): Params<BeaconGetEntryParams>,
 ) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon + Send + Sync + 'static,
 {
     let (first,) = params;

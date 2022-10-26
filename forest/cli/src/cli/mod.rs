@@ -37,12 +37,14 @@ pub(crate) use forest_cli_shared::cli::{
 
 use byte_unit::Byte;
 use fvm_shared::bigint::BigInt;
-use fvm_shared::FILECOIN_PRECISION;
+use fvm_shared::econ::TokenAmount;
+use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use rug::float::ParseFloatError;
 use rug::Float;
 use serde::Serialize;
+use std::borrow::Cow;
 use std::io::{self, Write};
 use std::process;
 use structopt::StructOpt;
@@ -110,20 +112,25 @@ pub enum Subcommand {
 
 /// Pretty-print a JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
-    match e {
-        JsonRpcError::Full {
-            code,
-            message,
-            data: _,
-        } => {
-            error!("JSON RPC Error: Code: {} Message: {}", code, message);
-            process::exit(code as i32);
+    let (code, message) = match e {
+        JsonRpcError::Full { code, message, .. } => (code, Cow::from(message)),
+        JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
+    };
+
+    match StatusCode::from_u16(
+        u16::try_from(code).expect("Normalized HTTP status codes are always under u16::MAX"),
+    ) {
+        Ok(reason) => {
+            error!("JSON RPC Error: Code: {reason} Message: {message}")
         }
-        JsonRpcError::Provided { code, message } => {
-            error!("JSON RPC Error: Code: {} Message: {}", code, message);
-            process::exit(code as i32);
+        Err(_) => {
+            error!("JSON RPC Error: Code: {code} Message: {message}")
         }
-    }
+    };
+
+    // fail-safe in case the `code` from `JsonRpcError` is zero. We still want to quit the process
+    // with an error because, well, an error occurred if we are here.
+    process::exit(code.max(1) as i32);
 }
 
 /// Format a vector to a prettified string
@@ -213,11 +220,11 @@ pub(super) fn print_stdout(out: String) {
 }
 
 /// Convert an `attoFIL` balance to `FIL`
-pub(super) fn balance_to_fil(balance: BigInt) -> Result<Float, ParseFloatError> {
+pub(super) fn balance_to_fil(balance: TokenAmount) -> Result<Float, ParseFloatError> {
     let raw = Float::parse_radix(balance.to_string(), 10)?;
     let b = Float::with_val(128, raw);
 
-    let raw = Float::parse_radix(FILECOIN_PRECISION.to_string().as_bytes(), 10)?;
+    let raw = Float::parse_radix(TokenAmount::PRECISION.to_string().as_bytes(), 10)?;
     let p = Float::with_val(64, raw);
 
     Ok(Float::with_val(128, b / p))

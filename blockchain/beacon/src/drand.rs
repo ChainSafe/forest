@@ -204,7 +204,9 @@ impl DrandBeacon {
         let chain_info = &config.chain_info;
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let remote_chain_info: ChainInfo = surf::get(&format!("{}/info", &config.server))
+            let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
+            let remote_chain_info: ChainInfo = client
+                .get(&format!("{}/info", &config.server))
                 .recv_json()
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -264,7 +266,9 @@ impl Beacon for DrandBeacon {
             Some(cached_entry) => Ok(cached_entry),
             None => {
                 let url = format!("{}/public/{}", self.url, round);
-                let resp: BeaconEntryJson = surf::get(&url)
+                let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
+                let resp: BeaconEntryJson = client
+                    .get(&url)
                     .recv_json()
                     .await
                     .map_err(|e| anyhow::anyhow!("{}", e))?;

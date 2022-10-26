@@ -80,6 +80,14 @@ cd forest
 
 # Install binary to $HOME/.cargo/bin and run node
 make install
+
+# Simd is supported by many crypto / hashing crates
+# Install with avx2 cpu features
+RUSTFLAGS="-Ctarget-feature=+avx2,+fma" make install
+
+# Or install with local cpu features
+RUSTFLAGS="-Ctarget-cpu=native" make install
+
 forest
 ```
 
@@ -136,7 +144,7 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 ### Testing
 ```bash
 # To run base tests
-cargo test # use `make test-release` for longer compilation but faster execution
+cargo nextest run # use `make test-release` for longer compilation but faster execution
 
 # To pull serialization vectors submodule and run serialization tests
 make test-vectors
@@ -167,6 +175,9 @@ cargo install cargo-udeps --locked
 
 # Spellcheck
 cargo install cargo-spellcheck
+
+# Test runner
+cargo install cargo-nextest --locked
 ```
 After everything is installed, you can run `make lint-all`.
 

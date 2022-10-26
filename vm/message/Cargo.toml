@@ -13,8 +13,6 @@ base64.workspace            = true
 cid                         = { workspace = true, default-features = false, features = ["std"] }
 forest_crypto               = { workspace = true, default-features = false }
 forest_encoding.workspace   = true
-forest_json.workspace       = true
-forest_utils.workspace      = true
 fvm.workspace               = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false, features = ["testing"] }
@@ -22,9 +20,9 @@ num-traits.workspace        = true
 serde                       = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-quickcheck           = { version = "1" }
-quickcheck_macros    = "1"
-serde_json.workspace = true
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
 
 [features]
 default = ["blst"]

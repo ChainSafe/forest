@@ -3,10 +3,15 @@
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
+use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
-use std::{collections::HashMap, ffi::OsStr, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use time::{format_description::well_known::Iso8601, Date, OffsetDateTime};
@@ -209,7 +214,7 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
     fs::read_dir(snapshot_dir)?
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| p.extension().unwrap_or_default() == "car")
+        .filter(|p| is_car_or_tmp(p))
         .for_each(|p| println!("{}", p.display()));
 
     Ok(())
@@ -220,10 +225,7 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     let snapshot_path = snapshot_dir.join(filename);
-    if snapshot_path.exists()
-        && snapshot_path.is_file()
-        && snapshot_path.extension() == Some(OsStr::new("car"))
-    {
+    if snapshot_path.exists() && snapshot_path.is_file() && is_car_or_tmp(&snapshot_path) {
         println!("Deleting {}", snapshot_path.display());
         if !force && !prompt_confirm() {
             println!("Aborted.");
@@ -279,6 +281,8 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
 
                             snapshots_with_valid_name.push(path);
                         }
+                    } else if path.extension().unwrap_or_default() == "tmp" {
+                        snapshots_with_valid_name.push(path);
                     }
                 }
             }
@@ -319,16 +323,32 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
-    let snapshots_to_delete: Vec<_> = fs::read_dir(snapshot_dir)?
+
+    let read_dir = match fs::read_dir(snapshot_dir) {
+        Ok(read_dir) => read_dir,
+        // basically have the same behaviour as in `rm -f` which doesn't fail if the target
+        // directory doesn't exist.
+        Err(_) if force => {
+            println!("Target directory not accessible. Skipping.");
+            return Ok(());
+        }
+        Err(e) => bail!(e),
+    };
+
+    let snapshots_to_delete: Vec<_> = read_dir
         .flatten()
         .map(|entry| entry.path())
-        .filter(|p| p.extension().unwrap_or_default() == "car")
+        .filter(|p| is_car_or_tmp(p))
         .collect();
 
     if snapshots_to_delete.is_empty() {
         println!("No files to delete");
         return Ok(());
     }
+    println!("Files to delete:");
+    snapshots_to_delete
+        .iter()
+        .for_each(|f| println!("{}", f.display()));
 
     if !force && !prompt_confirm() {
         println!("Aborted.");
@@ -369,4 +389,9 @@ fn prompt_confirm() -> bool {
     std::io::stdin().read_line(&mut line).unwrap();
     let line = line.trim().to_lowercase();
     line == "y" || line == "yes"
+}
+
+fn is_car_or_tmp(path: &Path) -> bool {
+    let ext = path.extension().unwrap_or_default();
+    ext == "car" || ext == "tmp"
 }

@@ -3,8 +3,8 @@
 
 use cid::Cid;
 use forest_fil_types::deadlines::DeadlineInfo;
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
 use forest_json::bigint::json;
+use forest_utils::db::BlockstoreExt;
 use forest_utils::json::go_vec_visitor;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
@@ -27,8 +27,10 @@ pub type Method = fil_actor_miner_v8::Method;
 
 pub fn is_v8_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet
+        // calibnet v8
         Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
+        // calibnet v9
+        Cid::try_from("bafk2bzacedmllri5tg4jqllwkhzng3xf3w2sre6nbwwfzf5mj4qsdizl4ad5s").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
         // devnet
@@ -218,7 +220,7 @@ pub enum Deadline {
 
 impl Deadline {
     /// For each partition of the deadline
-    pub fn for_each<BS: BlockStore>(
+    pub fn for_each<BS: Blockstore>(
         &self,
         store: &BS,
         mut f: impl FnMut(u64, Partition) -> Result<(), anyhow::Error>,
@@ -230,7 +232,7 @@ impl Deadline {
         }
     }
 
-    pub fn disputable_proof_count<BS: BlockStore>(&self, store: &BS) -> anyhow::Result<usize> {
+    pub fn disputable_proof_count<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
             Deadline::V8(dl) => dl
                 .optimistic_proofs_snapshot_amt(&store)?
@@ -306,13 +308,13 @@ pub struct SectorOnChainInfo {
     #[serde(with = "json")]
     pub verified_deal_weight: BigInt,
     /// Pledge collected to commit this sector
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub initial_pledge: TokenAmount,
     /// Expected one day projection of reward for sector computed at activation time
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub expected_day_reward: TokenAmount,
     /// Expected twenty day projection of reward for sector computed at activation time
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub expected_storage_pledge: TokenAmount,
 }
 
@@ -338,7 +340,7 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitOnChainInfo {
     pub info: SectorPreCommitInfo,
-    #[serde(with = "json")]
+    #[serde(with = "forest_json::token_amount::json")]
     pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
     /// Integral of active deals over sector lifetime, 0 if `CommittedCapacity` sector

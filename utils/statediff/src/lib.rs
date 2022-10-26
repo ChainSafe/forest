@@ -11,9 +11,9 @@ use cid::Cid;
 use colored::*;
 use difference::{Changeset, Difference};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_ipld_blockstore::BlockStore;
 use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
@@ -66,14 +66,12 @@ struct PowerState {
     pub total_quality_adj_power: StoragePower,
     #[serde(with = "bigint_ser")]
     pub total_qa_bytes_committed: StoragePower,
-    #[serde(with = "bigint_ser")]
     pub total_pledge_collateral: TokenAmount,
 
     #[serde(with = "bigint_ser")]
     pub this_epoch_raw_byte_power: StoragePower,
     #[serde(with = "bigint_ser")]
     pub this_epoch_quality_adj_power: StoragePower,
-    #[serde(with = "bigint_ser")]
     pub this_epoch_pledge_collateral: TokenAmount,
     pub this_epoch_qa_power_smoothed: FilterEstimate,
 
@@ -100,22 +98,18 @@ struct MinerState {
     pub info: Cid,
 
     /// Total funds locked as `pre_commit_deposit`
-    #[serde(with = "bigint_ser")]
     pub pre_commit_deposits: TokenAmount,
 
     /// Total rewards and added funds locked in vesting table
-    #[serde(with = "bigint_ser")]
     pub locked_funds: TokenAmount,
 
     /// `VestingFunds` (Vesting Funds schedule for the miner).
     pub vesting_funds: Cid,
 
     /// Absolute value of debt this miner owes from unpaid fees.
-    #[serde(with = "bigint_ser")]
     pub fee_debt: TokenAmount,
 
     /// Sum of initial pledge requirements of all active sectors.
-    #[serde(with = "bigint_ser")]
     pub initial_pledge: TokenAmount,
 
     /// Sectors that have been pre-committed but not yet proven.
@@ -193,13 +187,10 @@ struct MarketState {
     pub last_cron: ChainEpoch,
 
     /// Total Client Collateral that is locked. Unlocked when deal is terminated
-    #[serde(with = "bigint_ser")]
     pub total_client_locked_collateral: TokenAmount,
     /// Total Provider Collateral that is locked. Unlocked when deal is terminated
-    #[serde(with = "bigint_ser")]
     pub total_provider_locked_collateral: TokenAmount,
     /// Total storage fee that is locked in escrow. Unlocked when payments are made
-    #[serde(with = "bigint_ser")]
     pub total_client_storage_fee: TokenAmount,
 }
 
@@ -214,7 +205,6 @@ struct MultiSigState {
     pub next_tx_id: TxnID,
 
     // Linear unlock
-    #[serde(with = "bigint_ser")]
     pub initial_balance: TokenAmount,
     pub start_epoch: ChainEpoch,
     pub unlock_duration: ChainEpoch,
@@ -253,7 +243,6 @@ struct RewardState {
     /// The reward to be paid in per `WinCount` to block producers.
     /// The actual reward total paid out depends on the number of winners in any round.
     /// This value is recomputed every non-null epoch and used in the next non-null epoch.
-    #[serde(with = "bigint_ser")]
     pub this_epoch_reward: TokenAmount,
     /// Smoothed `this_epoch_reward`.
     pub this_epoch_reward_smoothed: FilterEstimate,
@@ -266,7 +255,6 @@ struct RewardState {
     pub epoch: ChainEpoch,
 
     // TotalStoragePowerReward tracks the total FIL awarded to block miners
-    #[serde(with = "bigint_ser")]
     pub total_storage_power_reward: TokenAmount,
 
     // Simple and Baseline totals are constants used for computing rewards.
@@ -274,9 +262,7 @@ struct RewardState {
     // in a way that depended on the history leading immediately up to the
     // migration fixing the value.  These values can be moved from state back
     // into a code constant in a subsequent upgrade.
-    #[serde(with = "bigint_ser")]
     pub simple_total: TokenAmount,
-    #[serde(with = "bigint_ser")]
     pub baseline_total: TokenAmount,
 }
 
@@ -296,7 +282,7 @@ struct ActorStateResolved {
 }
 
 fn actor_to_resolved(
-    bs: &impl BlockStore,
+    bs: &impl Blockstore,
     actor: &ActorState,
     depth: Option<u64>,
 ) -> ActorStateResolved {
@@ -310,7 +296,7 @@ fn actor_to_resolved(
     }
 }
 
-fn root_to_state_map<BS: BlockStore>(
+fn root_to_state_map<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
 ) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
@@ -328,7 +314,7 @@ fn root_to_state_map<BS: BlockStore>(
 /// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
 /// This function will only print the actors that are added, removed, or changed so it
 /// can be used on large state trees.
-fn try_print_actor_states<BS: BlockStore>(
+fn try_print_actor_states<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
     expected_root: &Cid,
@@ -374,7 +360,7 @@ fn try_print_actor_states<BS: BlockStore>(
 }
 
 fn pp_actor_state(
-    bs: &impl BlockStore,
+    bs: &impl Blockstore,
     state: &ActorState,
     depth: Option<u64>,
 ) -> Result<String, anyhow::Error> {
@@ -437,7 +423,7 @@ fn print_diffs(handle: &mut impl Write, diffs: &[Difference]) -> std::io::Result
     Ok(())
 }
 
-pub fn print_actor_diff<BS: BlockStore>(
+pub fn print_actor_diff<BS: Blockstore>(
     bs: &BS,
     expected: &ActorState,
     actual: &ActorState,
@@ -462,7 +448,7 @@ pub fn print_state_diff<BS>(
     depth: Option<u64>,
 ) -> Result<(), anyhow::Error>
 where
-    BS: BlockStore,
+    BS: Blockstore,
 {
     eprintln!(
         "StateDiff:\n  Expected: {}\n  Root: {}",
