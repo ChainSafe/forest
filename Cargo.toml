@@ -83,7 +83,7 @@ git-version           = "0.3"
 hex                   = "0.4"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
-libipld               = "0.14"
+libipld               = { version = "0.14", default-features = false }
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
 libp2p                = "0.46"
