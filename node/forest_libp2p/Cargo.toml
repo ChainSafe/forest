@@ -57,7 +57,6 @@ async-std                   = { workspace = true, features = ["attributes", "uns
 forest_crypto               = { workspace = true, features = ["blst"] }
 forest_db.workspace         = true
 forest_genesis              = { workspace = true, features = ["testing"] }
-forest_test_utils.workspace = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 tokio-util                  = { workspace = true, features = ["compat"] }

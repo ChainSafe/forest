@@ -3388,7 +3388,6 @@ dependencies = [
  "forest_genesis",
  "forest_message",
  "forest_networks",
- "forest_test_utils",
  "forest_utils",
  "futures",
  "futures-util",
