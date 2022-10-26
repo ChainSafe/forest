@@ -5,7 +5,7 @@ use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_db::Store;
-use forest_message::{ChainMessage, MessageReceipt};
+use forest_message::ChainMessage;
 use forest_networks::{ChainConfig, Height};
 use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
@@ -20,6 +20,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
+use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
 use std::collections::HashSet;
@@ -184,7 +185,7 @@ where
         mut callback: Option<
             impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
-    ) -> Result<Vec<MessageReceipt>, anyhow::Error> {
+    ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
 
