@@ -13,7 +13,7 @@ anyhow.workspace          = true
 async-std.workspace       = true
 async-trait.workspace     = true
 base64.workspace          = true
-bls-signatures            = { version = "0.12", default-features = false, features = ["blst"] }
+bls-signatures.workspace  = true
 byteorder.workspace       = true
 forest_encoding.workspace = true
 forest_utils.workspace    = true
