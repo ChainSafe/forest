@@ -2838,7 +2838,6 @@ dependencies = [
 name = "forest_auth"
 version = "0.2.0"
 dependencies = [
- "forest_crypto",
  "forest_key_management",
  "fvm_shared",
  "jsonrpc-v2",
@@ -3311,7 +3310,6 @@ dependencies = [
  "cs_serde_bytes",
  "data-encoding",
  "data-encoding-macro",
- "forest_crypto",
  "forest_encoding",
  "forest_test_utils",
  "forest_utils",
@@ -3334,7 +3332,6 @@ dependencies = [
  "argon2",
  "base64 0.13.1",
  "bls-signatures",
- "forest_crypto",
  "forest_encoding",
  "forest_json",
  "forest_test_utils",
@@ -3421,7 +3418,6 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "cid",
- "forest_crypto",
  "forest_encoding",
  "forest_json",
  "forest_test_utils",
