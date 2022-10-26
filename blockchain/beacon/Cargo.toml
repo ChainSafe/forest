@@ -25,5 +25,7 @@ surf                      = { version = "2.3", default-features = false, feature
 tokio                     = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-async-std            = { workspace = true, features = ["attributes"] }
-serde_json.workspace = true
+async-std                   = { workspace = true, features = ["attributes"] }
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
