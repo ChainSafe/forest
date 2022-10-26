@@ -41,6 +41,7 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 git-version.workspace            = true
 hex.workspace                    = true
+jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
 log.workspace                    = true
@@ -61,12 +62,6 @@ tempfile.workspace               = true
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
-
-
-[dependencies.jsonrpc-v2]
-default-features = false
-features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.11"
 
 [dev-dependencies]
 assert_cmd.workspace        = true

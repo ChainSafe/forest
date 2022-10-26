@@ -6,17 +6,13 @@ edition = "2021"
 
 [dependencies]
 # Public
-fvm_shared          = { workspace = true, default-features = false }
-jsonwebtoken        = "8.1"
-once_cell.workspace = true
-rand.workspace      = true
-serde               = { workspace = true, default-features = false, features = ["derive"] }
-thiserror.workspace = true
+fvm_shared           = { workspace = true, default-features = false }
+jsonrpc-v2.workspace = true
+jsonwebtoken         = "8.1"
+once_cell.workspace  = true
+rand.workspace       = true
+serde                = { workspace = true, default-features = false, features = ["derive"] }
+thiserror.workspace  = true
 # Internal
 forest_crypto                   = { workspace = true, features = ["blst"] }
 forest_key_management.workspace = true
-
-[dependencies.jsonrpc-v2]
-default-features = false
-features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.11"
