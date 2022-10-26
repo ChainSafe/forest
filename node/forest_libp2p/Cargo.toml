@@ -11,6 +11,7 @@ async-trait.workspace = true
 asynchronous-codec = "0.6"
 bytes = "1.2"
 cid = { workspace = true, default-features = false, features = ["std"] }
+flume.workspace = true
 fnv = "1.0"
 forest_blocks.workspace = true
 forest_chain.workspace = true
@@ -21,6 +22,7 @@ forest_networks.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
+fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
@@ -41,18 +43,20 @@ libp2p = { workspace = true, default-features = false, features = [
 libp2p-bitswap.workspace = true
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
+serde_json.workspace = true
 smallvec.workspace = true
 # cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
-flume.workspace               = true
-fvm_ipld_blockstore.workspace = true
-tiny-cid                      = "0.2"
-tokio                         = { workspace = true, features = ["sync", "time"] }
+tiny-cid = "0.2"
+tokio    = { workspace = true, features = ["sync", "time"] }
 
 [dev-dependencies]
-async-std           = { workspace = true, features = ["attributes", "unstable"] }
-forest_crypto       = { workspace = true, features = ["blst"] }
-forest_db.workspace = true
-forest_genesis      = { workspace = true, features = ["testing"] }
-tokio-util          = { workspace = true, features = ["compat"] }
+async-std                   = { workspace = true, features = ["attributes", "unstable"] }
+forest_crypto               = { workspace = true, features = ["blst"] }
+forest_db.workspace         = true
+forest_genesis              = { workspace = true, features = ["testing"] }
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+tokio-util                  = { workspace = true, features = ["compat"] }

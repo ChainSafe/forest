@@ -80,6 +80,14 @@ cd forest
 
 # Install binary to $HOME/.cargo/bin and run node
 make install
+
+# Simd is supported by many crypto / hashing crates
+# Install with avx2 cpu features
+RUSTFLAGS="-Ctarget-feature=+avx2,+fma" make install
+
+# Or install with local cpu features
+RUSTFLAGS="-Ctarget-cpu=native" make install
+
 forest
 ```
 

@@ -9,7 +9,7 @@ anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1"] }
 async-stream                     = "0.3.3"
 blake2b_simd.workspace           = true
-bls-signatures                   = { version = "0.12", default-features = false, features = ["blst"] }
+bls-signatures.workspace         = true
 byteorder.workspace              = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 digest.workspace                 = true

@@ -352,11 +352,12 @@ dependencies = [
 
 [[package]]
 name = "async-lock"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e97a171d191782fba31bb902b14ad94e24a68145032b7eedf871ab0bc0d077b6"
+checksum = "c8101efe8695a6c17e02911402145357e718ac92d3ff88ae8419e84b1707b685"
 dependencies = [
  "event-listener",
+ "futures-lite",
 ]
 
 [[package]]
@@ -2863,6 +2864,8 @@ dependencies = [
  "forest_utils",
  "fvm_shared",
  "hex",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
  "serde_json",
  "sha2 0.10.6",
@@ -3399,8 +3402,11 @@ dependencies = [
  "libp2p-bitswap",
  "log",
  "multihash",
+ "quickcheck",
+ "quickcheck_macros",
  "serde",
  "serde_ipld_dagcbor 0.1.2",
+ "serde_json",
  "smallvec",
  "tiny-cid",
  "tokio",
