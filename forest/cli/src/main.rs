@@ -17,7 +17,7 @@ fn main() {
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
         Ok(cfg) => {
-            logger::setup_logger(&cfg.log, logger::write_style_from_str(&opts.color));
+            logger::setup_logger(&cfg.log, logger::write_style_from_color(opts.color));
             task::block_on(subcommand::process(cmd, cfg));
         }
         Err(e) => {

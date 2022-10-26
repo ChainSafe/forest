@@ -7,21 +7,46 @@ use log::LevelFilter;
 use pretty_env_logger::env_logger::WriteStyle;
 use std::str::FromStr;
 
-pub fn write_style_from_str(color: &str) -> WriteStyle {
-    match color {
-        "always" => WriteStyle::Always,
-        // resolve auto if stdout is available
-        "auto" => {
-            if stdout_isatty() {
-                WriteStyle::Always
-            } else {
-                WriteStyle::Never
-            }
+#[derive(Debug)]
+pub enum LoggingColor {
+    Always,
+    Auto,
+    Never,
+}
+
+impl FromStr for LoggingColor {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "auto" => Ok(LoggingColor::Auto),
+            "always" => Ok(LoggingColor::Always),
+            "never" => Ok(LoggingColor::Never),
+            _ => Ok(LoggingColor::Auto),
         }
-        "never" => WriteStyle::Never,
-        // this should never happen
-        // structopt would error before this catchall happens
-        _ => WriteStyle::Always,
+    }
+}
+
+impl Into<WriteStyle> for LoggingColor {
+    fn into(self) -> WriteStyle {
+        match self {
+            LoggingColor::Always => WriteStyle::Always,
+            LoggingColor::Auto => {
+                if stdout_isatty() {
+                    WriteStyle::Always
+                } else {
+                    WriteStyle::Never
+                }
+            }
+            LoggingColor::Never => WriteStyle::Never,
+        }
+    }
+}
+
+pub fn write_style_from_color(color: Option<LoggingColor>) -> WriteStyle {
+    match color {
+        Some(color) => color.into(),
+        None => LoggingColor::Auto.into(),
     }
 }
 
