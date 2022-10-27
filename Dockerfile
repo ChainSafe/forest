@@ -40,16 +40,21 @@ RUN make install
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
-FROM debian:10
+FROM ubuntu:20.04
 
 # Link package to the repository
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 
+ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates libcurl4
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env /root/.cargo/bin/forest /root/.cargo/bin/forest-cli /usr/local/bin/
+
+# Verify all deps are installed
+RUN forest-cli -V
+RUN forest -V
 
 ENTRYPOINT ["/usr/local/bin/forest"]

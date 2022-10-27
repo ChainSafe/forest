@@ -42,3 +42,6 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+
+      - name: List docker images
+        run: docker image ls
