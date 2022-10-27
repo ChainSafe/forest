@@ -53,8 +53,4 @@ RUN update-ca-certificates
 # Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env /root/.cargo/bin/forest /root/.cargo/bin/forest-cli /usr/local/bin/
 
-# Verify all deps are installed
-RUN forest-cli -V
-RUN forest -V
-
-ENTRYPOINT ["/usr/local/bin/forest"]
+ENTRYPOINT ["forest"]
