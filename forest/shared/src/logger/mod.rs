@@ -22,7 +22,9 @@ impl FromStr for LoggingColor {
             "auto" => Ok(LoggingColor::Auto),
             "always" => Ok(LoggingColor::Always),
             "never" => Ok(LoggingColor::Never),
-            _ => Ok(LoggingColor::Auto),
+            _ => Err(Self::Err::msg(
+                "Invalid logging color output. Must be one of Auto, Always, Never",
+            )),
         }
     }
 }
@@ -40,13 +42,6 @@ impl From<LoggingColor> for WriteStyle {
             }
             LoggingColor::Never => WriteStyle::Never,
         }
-    }
-}
-
-pub fn write_style_from_color(color: Option<LoggingColor>) -> WriteStyle {
-    match color {
-        Some(color) => color.into(),
-        None => LoggingColor::Auto.into(),
     }
 }
 
