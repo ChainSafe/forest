@@ -25,9 +25,8 @@ serde_json.workspace        = true
 thiserror.workspace         = true
 
 [dev-dependencies]
-quickcheck.workspace        = true
-quickcheck_macros.workspace = true
-serde_json.workspace        = true
+quickcheck.workspace = true
+serde_json.workspace = true
 
 [features]
 default = ["blst"]

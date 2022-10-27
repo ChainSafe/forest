@@ -1,8 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_crypto::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use forest_json::address::json::AddressJson;
+use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
 use forest_utils::io::read_file_to_string;

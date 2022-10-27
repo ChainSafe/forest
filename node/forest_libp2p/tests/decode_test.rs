@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_blocks::{Block, BlockHeader, FullTipset};
-use forest_crypto::Signer;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
@@ -11,16 +10,6 @@ use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::{bigint::BigInt, message::Message};
 use std::convert::TryFrom;
-
-const DUMMY_SIG: [u8; 1] = [0u8];
-
-/// Test struct to generate one byte signature for testing
-struct DummySigner;
-impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-    }
-}
 
 #[test]
 fn convert_single_tipset_bundle() {
@@ -85,10 +74,10 @@ fn tipset_bundle_to_full_tipset() {
         from: Address::new_id(3),
         ..Message::default()
     };
-    let sa = SignedMessage::new(ua.clone(), &DummySigner).unwrap();
-    let sb = SignedMessage::new(ub.clone(), &DummySigner).unwrap();
-    let sc = SignedMessage::new(uc.clone(), &DummySigner).unwrap();
-    let sd = SignedMessage::new(ud.clone(), &DummySigner).unwrap();
+    let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
+    let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
+    let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));
+    let sd = SignedMessage::new_unchecked(ud.clone(), Signature::new_secp256k1(vec![0]));
 
     let b0 = Block {
         header: h0.clone(),
