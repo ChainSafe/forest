@@ -3,13 +3,11 @@
 
 pub mod chain_message;
 pub mod message;
-pub mod message_receipt;
 pub mod signed_message;
 
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::econ::TokenAmount;
-pub use message_receipt::MessageReceipt;
 pub use signed_message::SignedMessage;
 
 use fvm_shared::address::Address;

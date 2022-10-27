@@ -14,7 +14,7 @@ cid                         = { workspace = true, default-features = false, feat
 forest_blocks.workspace     = true
 forest_encoding.workspace   = true
 forest_json.workspace       = true
-forest_message              = { workspace = true, features = ["blst"] }
+forest_message.workspace    = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
 hex.workspace               = true
