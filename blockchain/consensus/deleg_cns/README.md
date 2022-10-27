@@ -360,8 +360,8 @@ Let's see what happens if we create a new wallet. We don't need to do this, becu
 
 ```console
 $ forest-cli --token $JWT_TOKEN wallet new bls
- 2022-08-02T19:27:15.950Z WARN  forest::cli > No configurations found, using defaults.
-f3qljpcw4zxavl6dka2b6j6l36cy75g5pyt44oiwixm2f2jkttti7apdi4mhrof5qnmxhzun6kpuqqvrq75zqa
+ 2022-10-27T07:45:44.172Z DEBUG forest_rpc_client > Using JSON-RPC v2 HTTP URL: http://127.0.0.1:1234/rpc/v0
+f3vvonqncmg2kmemaq2pnyq4q662ovnq3br3jjgqagahj7azcentb2s6zetkmpuylg2yc4zqnszd2xb2p5yzsa
 ```
 
 we can also pass the token another way,
