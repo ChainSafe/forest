@@ -10,7 +10,8 @@ use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use forest_db::Store;
 use forest_json::address::json::AddressJson;
-use forest_message::{message::json::MessageJson, ChainMessage};
+use forest_json::message::json::MessageJson;
+use forest_message::ChainMessage;
 use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
