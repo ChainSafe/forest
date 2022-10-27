@@ -10,7 +10,7 @@ cid = { workspace = true, default-features = false, features = ["std"] }
 cs_serde_bytes.workspace = true
 data-encoding = "2.3"
 data-encoding-macro = "0.1"
-forest_crypto.workspace = true
+forest_encoding.workspace = true
 forest_message.workspace = true
 forest_utils.workspace = true
 fvm.workspace = true

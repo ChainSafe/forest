@@ -19,6 +19,7 @@ use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
+use fvm_shared::crypto::signature::ops::verify_bls_sig;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
@@ -323,7 +324,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), FilecoinConsensusError> {
-    forest_crypto::verify_vrf(worker, rand, evrf).map_err(FilecoinConsensusError::VrfValidation)
+    verify_bls_sig(rand, evrf, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
 fn verify_winning_post_proof<
