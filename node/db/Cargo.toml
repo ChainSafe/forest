@@ -15,7 +15,8 @@ lz4    = ["rocksdb/lz4"]
 zlib   = ["rocksdb/zlib"]
 bzip2  = ["rocksdb/bzip2"]
 # not included by default to reduce build time
-zstd = ["rocksdb/zstd"]
+# uncomment when it needs to be used by other crates
+# zstd = ["rocksdb/zstd"]
 
 [dependencies]
 anyhow.workspace              = true

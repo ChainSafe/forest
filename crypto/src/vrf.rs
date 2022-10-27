@@ -1,9 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::signature::verify_bls_sig;
 use forest_encoding::{blake2b_256, serde_byte_array};
-use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
@@ -26,11 +24,6 @@ impl VRFProof {
     pub fn digest(&self) -> [u8; 32] {
         blake2b_256(&self.0)
     }
-}
-
-/// Verifies raw VRF proof. This VRF proof is a BLS signature.
-pub fn verify_vrf(worker: &Address, vrf_base: &[u8], vrf_proof: &[u8]) -> Result<(), String> {
-    verify_bls_sig(vrf_proof, vrf_base, worker).map_err(|e| format!("VRF was invalid: {}", e))
 }
 
 pub mod json {

@@ -14,5 +14,4 @@ rand.workspace       = true
 serde                = { workspace = true, default-features = false, features = ["derive"] }
 thiserror.workspace  = true
 # Internal
-forest_crypto                   = { workspace = true, features = ["blst"] }
 forest_key_management.workspace = true
