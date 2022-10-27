@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ::forest_message::message::json::MessageJson;
 use anyhow::Result;
 use cid::Cid;
 use forest_beacon::Beacon;
@@ -11,7 +10,8 @@ use forest_blocks::{
 };
 use forest_db::Store;
 use forest_json::cid::CidJson;
-use forest_message::message;
+use forest_json::message;
+use forest_json::message::json::MessageJson;
 use forest_networks::Height;
 use forest_rpc_api::{
     chain_api::*,
