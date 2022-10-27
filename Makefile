@@ -13,7 +13,7 @@ install-deps:
 	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake
 
 install-lint-tools:
-	cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
+	RUSTFLAGS="-Cstrip=symbols" cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
 
 clean-all:
 	cargo clean

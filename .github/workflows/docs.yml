@@ -34,6 +34,8 @@ jobs:
           key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck --locked
+        env:
+          RUSTFLAGS: "-Cstrip=symbols"
         continue-on-error: true
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
