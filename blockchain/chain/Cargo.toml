@@ -42,5 +42,4 @@ tokio                            = { workspace = true, features = ["sync"] }
 tokio-util                       = { workspace = true, features = ["compat"] }
 
 [dev-dependencies]
-forest_test_utils.workspace = true
-multihash                   = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }
+multihash = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }
