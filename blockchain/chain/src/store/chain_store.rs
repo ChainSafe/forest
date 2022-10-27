@@ -18,7 +18,7 @@ use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
-use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
+use forest_message::{ChainMessage, SignedMessage};
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
@@ -30,6 +30,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::receipt::Receipt;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use serde::Serialize;
@@ -897,7 +898,7 @@ pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
     i: usize,
-) -> Result<Option<MessageReceipt>, Error>
+) -> Result<Option<Receipt>, Error>
 where
     DB: Blockstore,
 {
