@@ -47,7 +47,7 @@ LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates libcurl4
+RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env
