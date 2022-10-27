@@ -28,7 +28,7 @@ async-std                   = { workspace = true, features = ["attributes"] }
 forest_db.workspace         = true
 forest_json.workspace       = true
 forest_utils.workspace      = true
-multihash                   = { workspace = true, features = ["identity"] }
+multihash                   = { workspace = true, default-features = false, features = ["identity"] }
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true

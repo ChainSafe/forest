@@ -22,10 +22,6 @@ pub trait BlockstoreExt: Blockstore {
         }
     }
 
-    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
-        Ok(self.get(cid)?.is_some())
-    }
-
     /// Put an object in the block store and return the Cid identifier.
     fn put_obj<S>(&self, obj: &S, code: Code) -> anyhow::Result<Cid>
     where

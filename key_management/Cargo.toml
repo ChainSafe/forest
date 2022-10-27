@@ -26,7 +26,6 @@ thiserror.workspace          = true
 xsalsa20poly1305             = "0.9"
 
 [dev-dependencies]
-forest_test_utils.workspace = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true
