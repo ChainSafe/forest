@@ -39,7 +39,6 @@ jobs:
           mkdir -p forest-${{ github.ref_name }}
           cp -v target/release/forest target/release/forest-cli forest-${{ github.ref_name }}
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
-          strip forest-${{ github.ref_name }}/forest forest-${{ github.ref_name }}/forest-cli
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
           sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
           zip -r ${{ matrix.file }} forest-${{ github.ref_name }}

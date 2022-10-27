@@ -50,7 +50,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env
-COPY --from=build-env /root/.cargo/bin/forest /usr/local/bin/forest
-COPY --from=build-env /root/.cargo/bin/forest-cli /usr/local/bin/forest-cli
+COPY --from=build-env /root/.cargo/bin/forest /root/.cargo/bin/forest-cli /usr/local/bin/
 
 ENTRYPOINT ["/usr/local/bin/forest"]
