@@ -37,7 +37,10 @@ Have questions? Feel free to post them in [Forest Q&A](https://github.com/ChainS
 
 No need to install Rust toolchain or other dependencies, you will need only Docker.
 ```
-❯ docker run --init -it ghcr.io/chainsafe/forest:latest --help
+# daemon
+❯ docker run --init -it --rm ghcr.io/chainsafe/forest:latest --help
+# cli
+❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
 Follow other instructions for proper `forest` usage. You may need to mount a volume to import a snapshot, e.g.
