@@ -167,3 +167,7 @@ debug = 0
 inherits  = "release"
 opt-level = 1
 lto       = "off"
+
+[profile.release]
+# https://doc.rust-lang.org/cargo/reference/profiles.html#strip
+strip = true

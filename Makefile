@@ -119,6 +119,6 @@ mdbook-build:
 	mdbook build ./documentation
 
 rustdoc:
-	cargo doc --workspace --no-deps
+	cargo doc --workspace --all-features --no-deps
 
 .PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
