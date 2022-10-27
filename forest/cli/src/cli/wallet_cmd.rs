@@ -17,7 +17,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use super::{balance_to_fil, cli_error_and_die, handle_rpc_err};
+use super::{cli_error_and_die, handle_rpc_err};
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
@@ -204,15 +204,7 @@ impl WalletCommands {
                         }
                     };
 
-                    let balance_fil = match balance_to_fil(balance_int.clone()) {
-                        Ok(balance) => balance,
-                        Err(err) => {
-                            println!("Couldn't convert balance {} to FIL: {}", balance_int, err);
-                            continue;
-                        }
-                    };
-
-                    println!("{addr:41}  {default_address_mark:7}  {balance_fil:.6} FIL");
+                    println!("{addr:41}  {default_address_mark:7}  {balance_int:.6} FIL");
                 }
             }
             Self::SetDefault { key } => {
