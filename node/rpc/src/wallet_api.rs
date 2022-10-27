@@ -1,12 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_json::signature::json::SignatureJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
 use std::str::FromStr;
 
 use forest_beacon::Beacon;
-use forest_crypto::signature::json::SignatureJson;
 use forest_db::Store;
 use forest_json::address::json::AddressJson;
 use forest_json::message::json::MessageJson;

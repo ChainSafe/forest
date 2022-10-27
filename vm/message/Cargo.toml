@@ -11,7 +11,6 @@ repository  = "https://github.com/ChainSafe/forest"
 anyhow.workspace            = true
 base64.workspace            = true
 cid                         = { workspace = true, default-features = false, features = ["std"] }
-forest_crypto               = { workspace = true, default-features = false }
 forest_encoding.workspace   = true
 fvm.workspace               = true
 fvm_ipld_encoding.workspace = true
@@ -21,8 +20,9 @@ serde                       = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 quickcheck.workspace = true
+rand.workspace       = true
 serde_json.workspace = true
 
 [features]
 default = ["blst"]
-blst    = ["forest_crypto/blst", "fvm_shared/blst"]
+blst    = ["fvm_shared/blst"]

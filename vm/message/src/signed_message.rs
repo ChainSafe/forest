@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Message as MessageTrait;
-use forest_crypto::Signer;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
 use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Error as CryptoError, Signature, SignatureType};
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
@@ -19,21 +18,19 @@ pub struct SignedMessage {
 }
 
 impl SignedMessage {
-    /// Generate new signed message from an unsigned message and a signer.
-    pub fn new<S: Signer>(message: Message, signer: &S) -> Result<Self, CryptoError> {
-        let bz = message.cid()?.to_bytes();
-
-        let signature = signer
-            .sign_bytes(&bz, &message.from)
-            .map_err(|e| CryptoError::SigningError(e.to_string()))?;
-
+    /// Generate a new signed message from fields.
+    /// The signature will be verified.
+    pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
+        signature
+            .verify(&message.cid()?.to_bytes(), &message.from)
+            .map_err(anyhow::Error::msg)?;
         Ok(SignedMessage { message, signature })
     }
 
     /// Generate a new signed message from fields.
-    pub fn new_from_parts(message: Message, signature: Signature) -> Result<SignedMessage, String> {
-        signature.verify(&message.cid().unwrap().to_bytes(), &message.from)?;
-        Ok(SignedMessage { message, signature })
+    /// The signature will not be verified.
+    pub fn new_unchecked(message: Message, signature: Signature) -> SignedMessage {
+        SignedMessage { message, signature }
     }
 
     /// Returns reference to the unsigned message.

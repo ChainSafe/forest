@@ -1,9 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod json {
-    use crate::message;
+    use crate::{message, signature};
     use cid::Cid;
-    use forest_crypto::signature;
     use forest_message::SignedMessage;
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::crypto::signature::Signature;
@@ -100,7 +99,6 @@ mod tests {
     use super::json::{SignedMessageJson, SignedMessageJsonRef};
     use crate::message;
     use crate::message::json::{MessageJson, MessageJsonRef};
-    use forest_crypto::Signer;
     use forest_message::{self, SignedMessage};
     use fvm_ipld_encoding::RawBytes;
     use fvm_shared::address::Address;
@@ -117,22 +115,10 @@ mod tests {
 
     impl quickcheck::Arbitrary for SignedMessageWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            const DUMMY_SIG: [u8; 1] = [0u8];
-
-            struct DummySigner;
-            impl Signer for DummySigner {
-                fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-                    Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-                }
-            }
-
-            SignedMessageWrapper(
-                SignedMessage::new(
-                    crate::message::tests::MessageWrapper::arbitrary(g).message,
-                    &DummySigner,
-                )
-                .unwrap(),
-            )
+            SignedMessageWrapper(SignedMessage::new_unchecked(
+                crate::message::tests::MessageWrapper::arbitrary(g).message,
+                Signature::new_secp256k1(vec![0]),
+            ))
         }
     }
 
@@ -182,13 +168,7 @@ mod tests {
             gas_premium: TokenAmount::from_atto(9),
         };
 
-        struct DummySigner;
-        impl Signer for DummySigner {
-            fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-                Ok(Signature::new_bls(vec![0u8, 1u8]))
-            }
-        }
-        let signed = SignedMessage::new(message.clone(), &DummySigner).unwrap();
+        let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct TestStruct {
