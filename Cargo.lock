@@ -70,9 +70,9 @@ dependencies = [
 
 [[package]]
 name = "aes"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfe0133578c0986e1fe3dfcd4af1cc5b2dd6c3dbf534d69916ce16a2701d40ba"
+checksum = "433cfd6710c9986c576a25ca913c39d66a6474107b406f34f91d4a8923395241"
 dependencies = [
  "cfg-if 1.0.0",
  "cipher 0.4.3",
@@ -1710,9 +1710,9 @@ dependencies = [
 
 [[package]]
 name = "curl-sys"
-version = "0.4.56+curl-7.83.1"
+version = "0.4.58+curl-7.86.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6093e169dd4de29e468fa649fbae11cdcd5551c81fe5bf1b0677adad7ef3d26f"
+checksum = "430e2ecf0c5f4445334472cf8f9611a6eea404b4135ca5500f38a97a128c913e"
 dependencies = [
  "cc",
  "libc",
@@ -1806,9 +1806,9 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4529658bdda7fd6769b8614be250cdcfc3aeb0ee72fe66f9e41e5e5eb73eac02"
+checksum = "b0dd3cd20dc6b5a876612a6e5accfe7f3dd883db6d07acfbf14c128f61550dfa"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -1816,9 +1816,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "649c91bc01e8b1eac09fb91e8dbc7d517684ca6be8ebc75bb9cafc894f9fdb6f"
+checksum = "a784d2ccaf7c98501746bf0be29b2022ba41fd62a2e622af997a03e9f972859f"
 dependencies = [
  "fnv",
  "ident_case",
@@ -1830,9 +1830,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddfc69c5bfcbd2fc09a0f38451d2daf0e372e367986a83906d1b0dbc88134fb5"
+checksum = "7618812407e9402654622dd402b0a89dff9ba93badd6540781526117b92aab7e"
 dependencies = [
  "darling_core",
  "quote 1.0.21",
@@ -2702,7 +2702,6 @@ dependencies = [
  "pretty_env_logger",
  "prometheus",
  "quickcheck",
- "quickcheck_macros",
  "rand 0.8.5",
  "rayon",
  "regex",
@@ -2728,7 +2727,6 @@ name = "forest-daemon"
 version = "0.4.1"
 dependencies = [
  "anyhow",
- "assert_cmd",
  "async-log",
  "async-std",
  "base64 0.13.1",
@@ -2786,7 +2784,6 @@ dependencies = [
  "pretty_env_logger",
  "prometheus",
  "quickcheck",
- "quickcheck_macros",
  "rand 0.8.5",
  "raw_sync",
  "rayon",
@@ -2928,7 +2925,6 @@ dependencies = [
  "forest_legacy_ipld_amt",
  "forest_message",
  "forest_networks",
- "forest_test_utils",
  "forest_utils",
  "futures",
  "fvm",
@@ -2965,7 +2961,6 @@ dependencies = [
  "forest_db",
  "forest_encoding",
  "forest_fil_types",
- "forest_genesis",
  "forest_interpreter",
  "forest_ipld",
  "forest_legacy_ipld_amt",
@@ -2992,7 +2987,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "pbr",
- "pretty_env_logger",
  "prometheus",
  "quickcheck",
  "quickcheck_macros",
@@ -3010,7 +3004,6 @@ name = "forest_cli_shared"
 version = "0.4.1"
 dependencies = [
  "anyhow",
- "assert_cmd",
  "async-log",
  "async-std",
  "base64 0.13.1",
@@ -3192,14 +3185,12 @@ dependencies = [
  "cid",
  "filecoin-proofs-api",
  "forest_json",
- "forest_test_utils",
  "forest_utils",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
  "num-traits",
  "quickcheck",
- "quickcheck_macros",
  "rayon",
  "serde",
  "serde_json",
@@ -3337,7 +3328,6 @@ dependencies = [
  "bls-signatures",
  "forest_crypto",
  "forest_encoding",
- "forest_test_utils",
  "forest_utils",
  "fvm_shared",
  "libsecp256k1",
@@ -3427,7 +3417,6 @@ dependencies = [
  "fvm_shared",
  "num-traits",
  "quickcheck",
- "quickcheck_macros",
  "serde",
  "serde_json",
 ]
@@ -3550,7 +3539,6 @@ dependencies = [
  "forest_networks",
  "forest_rpc-api",
  "forest_state_manager",
- "forest_test_utils",
  "forest_utils",
  "futures",
  "fvm",
@@ -4833,9 +4821,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.136"
+version = "0.2.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55edcf6c0bb319052dea84732cf99db461780fd5e8d3eb46ab6ff312ab31f197"
+checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 
 [[package]]
 name = "libipld"
@@ -5506,7 +5494,6 @@ dependencies = [
  "glob",
  "libc",
  "libz-sys",
- "zstd-sys",
 ]
 
 [[package]]
@@ -6521,9 +6508,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkg-config"
-version = "0.3.25"
+version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
+checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "polling"
@@ -8119,7 +8106,7 @@ version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e041abad726ba8ee539de94a3b721dc91bae121a77566e817d55ef37d0a86d2c"
 dependencies = [
- "aes 0.8.1",
+ "aes 0.8.2",
  "anyhow",
  "bellperson",
  "blake2b_simd 1.0.0",
@@ -9687,14 +9674,4 @@ dependencies = [
  "quote 1.0.21",
  "syn 1.0.103",
  "synstructure",
-]
-
-[[package]]
-name = "zstd-sys"
-version = "2.0.1+zstd.1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fd07cbbc53846d9145dbffdf6dd09a7a0aa52be46741825f5c97bdd4f73f12b"
-dependencies = [
- "cc",
- "libc",
 ]
