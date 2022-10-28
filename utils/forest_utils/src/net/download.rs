@@ -3,7 +3,7 @@
 
 use futures::stream::{IntoAsyncRead, MapErr};
 use futures::TryStreamExt;
-use hyper_tls::HttpsConnector;
+use hyper_rustls::HttpsConnectorBuilder;
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
 use std::io::{Stdout, Write};
@@ -59,7 +59,11 @@ type DownloadStream =
 
 impl FetchProgress<DownloadStream, Stdout> {
     pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream, Stdout>> {
-        let https = HttpsConnector::new();
+        let https = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
         let client = hyper::Client::builder().build::<_, hyper::Body>(https);
         let total_size = {
             let resp = client

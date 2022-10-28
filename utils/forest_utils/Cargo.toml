@@ -16,7 +16,7 @@ futures.workspace             = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace   = true
 hyper                         = { workspace = true, features = ["client", "stream", "http1"] }
-hyper-tls.workspace           = true
+hyper-rustls.workspace        = true
 libc                          = "0.2"
 log.workspace                 = true
 pbr.workspace                 = true
