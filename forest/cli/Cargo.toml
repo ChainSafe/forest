@@ -61,7 +61,6 @@ prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
 regex.workspace                  = true
 rpassword.workspace              = true
-rug                              = "1.17"
 rust-s3                          = { version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
