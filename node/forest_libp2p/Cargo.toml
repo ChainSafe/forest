@@ -9,7 +9,7 @@ anyhow.workspace = true
 async-std.workspace = true
 async-trait.workspace = true
 asynchronous-codec = "0.6"
-bytes = "1.2"
+bytes.workspace = true
 cid = { workspace = true, default-features = false, features = ["std"] }
 flume.workspace = true
 fnv = "1.0"
