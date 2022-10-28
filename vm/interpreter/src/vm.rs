@@ -10,7 +10,7 @@ use forest_networks::{ChainConfig, Height};
 use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
-use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
+use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
 use fvm::DefaultKernel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
@@ -21,7 +21,6 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
-use fvm_shared::version::NetworkVersion;
 use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -93,34 +92,27 @@ where
         epoch: ChainEpoch,
         rand: R,
         base_fee: TokenAmount,
-        network_version: NetworkVersion,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
-        engine: Engine,
-        chain_finality: i64,
+        multi_engine: &MultiEngine,
+        chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error>
     where
         R: Rand + Clone + 'static,
     {
-        let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
+        let network_version = chain_config.network_version(epoch);
+        let config = NetworkConfig::new(network_version);
+        let engine = multi_engine.get(&config)?;
+        let mut context = config.for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
-        context.enable_tracing();
         let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
                 store.clone(),
-                ForestExterns::new(
-                    rand,
-                    epoch,
-                    root,
-                    lb_fn,
-                    store,
-                    network_version,
-                    chain_finality,
-                ),
+                ForestExterns::new(rand, epoch, root, lb_fn, store, chain_config),
             )?;
         let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
         Ok(VM {

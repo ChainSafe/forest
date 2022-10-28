@@ -6,6 +6,7 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_db::Store;
+use forest_networks::ChainConfig;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm::state_tree::StateTree;
@@ -17,6 +18,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
 use fvm_shared::version::NetworkVersion;
 use std::cell::Ref;
+use std::sync::Arc;
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
@@ -24,8 +26,7 @@ pub struct ForestExterns<DB> {
     root: Cid,
     lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
     db: DB,
-    network_version: NetworkVersion,
-    chain_finality: i64,
+    chain_config: Arc<ChainConfig>,
 }
 
 impl<DB: Blockstore + Store> ForestExterns<DB> {
@@ -35,8 +36,7 @@ impl<DB: Blockstore + Store> ForestExterns<DB> {
         root: Cid,
         lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
         db: DB,
-        network_version: NetworkVersion,
-        chain_finality: i64,
+        chain_config: Arc<ChainConfig>,
     ) -> Self {
         ForestExterns {
             rand: Box::new(rand),
@@ -44,8 +44,7 @@ impl<DB: Blockstore + Store> ForestExterns<DB> {
             root,
             lookback,
             db,
-            network_version,
-            chain_finality,
+            chain_config,
         }
     }
 
@@ -54,7 +53,7 @@ impl<DB: Blockstore + Store> ForestExterns<DB> {
         miner_addr: &Address,
         height: ChainEpoch,
     ) -> anyhow::Result<(Address, i64)> {
-        if height < self.epoch - self.chain_finality {
+        if height < self.epoch - self.chain_config.policy.chain_finality {
             bail!(
                 "cannot get worker key (current epoch: {}, height: {})",
                 self.epoch,
@@ -79,7 +78,8 @@ impl<DB: Blockstore + Store> ForestExterns<DB> {
 
         let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
 
-        let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), self.network_version)?;
+        let network_version = self.chain_config.network_version(self.epoch);
+        let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;
 
         Ok((addr, gas_used.round_up()))
     }
