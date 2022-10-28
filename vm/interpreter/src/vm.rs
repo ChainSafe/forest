@@ -6,7 +6,7 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_db::Store;
 use forest_message::ChainMessage;
-use forest_networks::{ChainConfig, Height};
+use forest_networks::ChainConfig;
 use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
@@ -51,25 +51,6 @@ pub trait RewardCalc: Send + Sync + 'static {
         penalty: TokenAmount,
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error>;
-}
-
-#[derive(Clone, Copy)]
-pub struct Heights {
-    pub calico: ChainEpoch,
-    pub turbo: ChainEpoch,
-    pub hyperdrive: ChainEpoch,
-    pub chocolate: ChainEpoch,
-}
-
-impl Heights {
-    pub fn new(chain_config: &ChainConfig) -> Self {
-        Heights {
-            calico: chain_config.epoch(Height::Calico),
-            turbo: chain_config.epoch(Height::Turbo),
-            hyperdrive: chain_config.epoch(Height::Hyperdrive),
-            chocolate: chain_config.epoch(Height::Chocolate),
-        }
-    }
 }
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
