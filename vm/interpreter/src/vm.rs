@@ -67,21 +67,18 @@ where
     P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R>(
+    pub fn new(
         root: Cid,
         store: DB,
         epoch: ChainEpoch,
-        rand: R,
+        rand: impl Rand + 'static,
         base_fee: TokenAmount,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
-    ) -> Result<Self, anyhow::Error>
-    where
-        R: Rand + Clone + 'static,
-    {
+    ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         let config = NetworkConfig::new(network_version);
         let engine = multi_engine.get(&config)?;
