@@ -12,9 +12,11 @@ const_format                  = "0.2.26"
 digest.workspace              = true
 forest_encoding.workspace     = true
 forest_ipld                   = { workspace = true, optional = true }
+futures.workspace             = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace   = true
-isahc                         = { version = "1.7", default-features = false }
+hyper                         = { workspace = true, features = ["client", "stream", "http1"] }
+hyper-rustls.workspace        = true
 libc                          = "0.2"
 log.workspace                 = true
 pbr.workspace                 = true
