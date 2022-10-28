@@ -21,7 +21,7 @@ jobs:
         if: startsWith(matrix.os, 'Ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+          sudo apt-get install -y build-essential clang
       - name: Homebrew Utils
         if: startsWith(matrix.os, 'macOS')
         run: |
