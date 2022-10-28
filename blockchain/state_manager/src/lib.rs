@@ -636,17 +636,13 @@ where
         tipset: Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error> {
-        let mut lbr: ChainEpoch = ChainEpoch::from(0);
         let version = self.get_network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
             self.chain_config.policy.chain_finality
         };
-
-        if round > lb {
-            lbr = round - lb
-        }
+        let lbr: ChainEpoch = (round - lb).max(0);
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
