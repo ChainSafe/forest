@@ -52,6 +52,7 @@ base64                = "0.13"
 blake2b_simd          = "1.0"
 bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }
 byteorder             = "1.4.3"
+bytes                 = "1.2"
 chrono                = "0.4"
 cid                   = "0.8"
 cs_serde_bytes        = "0.12.2"

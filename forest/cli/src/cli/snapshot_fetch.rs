@@ -161,6 +161,7 @@ async fn download_snapshot_and_validate_checksum<C>(
 where
     C: Connect + Clone + Send + Sync + 'static,
 {
+    info!("Snapshot url: {url}");
     info!(
         "Snapshot will be downloaded to {} ({})",
         snapshot_path.display(),
