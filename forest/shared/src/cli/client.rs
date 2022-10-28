@@ -10,6 +10,8 @@ use std::{
     str::FromStr,
 };
 
+use super::ProgressBarVisibility;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct Client {
@@ -34,6 +36,9 @@ pub struct Client {
     pub rpc_address: SocketAddr,
     /// Download a chain specific snapshot to sync with the Filecoin network
     pub download_snapshot: bool,
+    /// Choose to show progress bars or not. One of always, auto, or never.
+    /// Auto will choose to not show progress bars if `stdout` is not available
+    pub show_progress_bars: ProgressBarVisibility,
 }
 
 impl Default for Client {
@@ -54,6 +59,7 @@ impl Default for Client {
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             download_snapshot: false,
+            show_progress_bars: Default::default(),
         }
     }
 }

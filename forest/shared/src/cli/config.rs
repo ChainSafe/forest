@@ -7,6 +7,7 @@ use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use url::Url;
 
@@ -133,6 +134,48 @@ pub struct Config {
     pub snapshot_fetch: SnapshotFetchConfig,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ProgressBarVisibility {
+    Always,
+    Auto,
+    Never,
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for ProgressBarVisibility {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let visibility = g
+            .choose(&[
+                ProgressBarVisibility::Always,
+                ProgressBarVisibility::Auto,
+                ProgressBarVisibility::Never,
+            ])
+            .unwrap();
+        visibility.clone()
+    }
+}
+
+impl Default for ProgressBarVisibility {
+    fn default() -> Self {
+        ProgressBarVisibility::Auto
+    }
+}
+
+impl FromStr for ProgressBarVisibility {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "auto" => Ok(ProgressBarVisibility::Auto),
+            "always" => Ok(ProgressBarVisibility::Always),
+            "never" => Ok(ProgressBarVisibility::Never),
+            _ => Err(Self::Err::msg(
+                "Invalid progress bar visibility option. Must be one of Auto, Always, Never",
+            )),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -187,6 +230,7 @@ mod test {
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
                     download_snapshot: bool::arbitrary(g),
+                    show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),

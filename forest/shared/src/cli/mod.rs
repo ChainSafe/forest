@@ -97,6 +97,9 @@ pub struct CliOpts {
     /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto")]
     pub color: LoggingColor,
+    /// Enable or disable progress bars during tasks. Always will always show progress bars
+    #[structopt(long, default_value = "auto")]
+    pub show_progress_bars: ProgressBarVisibility,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
@@ -160,6 +163,8 @@ impl CliOpts {
 
         cfg.client.halt_after_import = self.halt_after_import;
         cfg.client.download_snapshot = self.download_snapshot;
+
+        cfg.client.show_progress_bars = self.show_progress_bars;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
