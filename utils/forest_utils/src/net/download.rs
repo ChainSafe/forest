@@ -1,7 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use isahc::{AsyncBody, HttpClient};
+use futures::stream::{IntoAsyncRead, MapErr};
+use futures::TryStreamExt;
+use hyper_rustls::HttpsConnectorBuilder;
 use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
 use std::io::{Stdout, Write};
@@ -52,13 +54,21 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
     }
 }
 
-impl FetchProgress<AsyncBody, Stdout> {
-    pub async fn fetch_from_url(
-        url: Url,
-    ) -> anyhow::Result<FetchProgress<Compat<AsyncBody>, Stdout>> {
-        let client = HttpClient::new()?;
+type DownloadStream =
+    Compat<IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futures::io::Error>>>;
+
+impl FetchProgress<DownloadStream, Stdout> {
+    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream, Stdout>> {
+        let https = HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
+        let client = hyper::Client::builder().build::<_, hyper::Body>(https);
         let total_size = {
-            let resp = client.head(url.as_str())?;
+            let resp = client
+                .request(hyper::Request::head(url.as_str()).body("".into())?)
+                .await?;
             if resp.status().is_success() {
                 resp.headers()
                     .get("content-length")
@@ -70,16 +80,24 @@ impl FetchProgress<AsyncBody, Stdout> {
             }
         };
 
-        let request = client.get_async(url.as_str()).await?;
+        let response = client.get(url.as_str().try_into()?).await?;
 
         let mut pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
         pb.set_units(Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
+        let map_err: fn(hyper::Error) -> futures::io::Error =
+            |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
+        let stream = response
+            .into_body()
+            .map_err(map_err)
+            .into_async_read()
+            .compat();
+
         Ok(FetchProgress {
             progress_bar: pb,
-            inner: request.into_body().compat(),
+            inner: stream,
         })
     }
 }

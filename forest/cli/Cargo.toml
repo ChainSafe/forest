@@ -43,6 +43,7 @@ fvm_shared                       = { workspace = true, default-features = false 
 git-version.workspace            = true
 hex.workspace                    = true
 http                             = "0.2.8"
+jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
 log.workspace                    = true
@@ -57,7 +58,7 @@ rayon.workspace                  = true
 regex.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
 rpassword.workspace              = true
-rug                              = "1.17"
+rust-s3                          = "0.32.3"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true
@@ -70,13 +71,7 @@ tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
 uuid                             = { version = "1.1", features = ["v4"] }
 
-[dependencies.jsonrpc-v2]
-default-features = false
-features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.11"
-
 [dev-dependencies]
-assert_cmd.workspace        = true
-quickcheck.workspace        = true
-quickcheck_macros.workspace = true
-rand.workspace              = true
+assert_cmd.workspace = true
+quickcheck.workspace = true
+rand.workspace       = true

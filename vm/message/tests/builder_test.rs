@@ -5,17 +5,8 @@ use forest_message::SignedMessage;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
-
-const DUMMY_SIG: [u8; 1] = [0u8];
-
-use forest_crypto::Signer;
-
-struct DummySigner;
-impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-    }
-}
+use rand::rngs::OsRng;
+use rand::RngCore;
 
 #[test]
 fn generate_signed_message() {
@@ -25,12 +16,12 @@ fn generate_signed_message() {
         ..Message::default()
     };
 
-    let signed_msg = SignedMessage::new(msg.clone(), &DummySigner).unwrap();
+    let mut dummy_sig = vec![0];
+    OsRng.fill_bytes(&mut dummy_sig);
+    let signed_msg =
+        SignedMessage::new_unchecked(msg.clone(), Signature::new_secp256k1(dummy_sig.clone()));
 
     // Assert message and signature are expected
     assert_eq!(signed_msg.message(), &msg);
-    assert_eq!(
-        signed_msg.signature(),
-        &Signature::new_secp256k1(DUMMY_SIG.to_vec())
-    );
+    assert_eq!(signed_msg.signature(), &Signature::new_secp256k1(dummy_sig));
 }

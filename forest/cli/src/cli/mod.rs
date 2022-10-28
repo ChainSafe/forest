@@ -32,22 +32,18 @@ pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
 pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 
+use crate::cli::config_cmd::ConfigCommands;
+use cid::Cid;
+use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::cli::{to_size_string, CliOpts};
-use fvm_shared::econ::TokenAmount;
 use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
-use rug::float::ParseFloatError;
-use rug::Float;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::io::{self, Write};
 use std::process;
 use structopt::StructOpt;
-
-use crate::cli::config_cmd::ConfigCommands;
-use cid::Cid;
-use forest_blocks::tipset_json::TipsetJson;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -204,13 +200,40 @@ pub(super) fn print_stdout(out: String) {
         .unwrap();
 }
 
-/// Convert an `attoFIL` balance to `FIL`
-pub(super) fn balance_to_fil(balance: TokenAmount) -> Result<Float, ParseFloatError> {
-    let raw = Float::parse_radix(balance.to_string(), 10)?;
-    let b = Float::with_val(128, raw);
+#[cfg(test)]
+mod test {
+    use super::*;
+    use fvm_shared::bigint::{BigInt, Zero};
 
-    let raw = Float::parse_radix(TokenAmount::PRECISION.to_string().as_bytes(), 10)?;
-    let p = Float::with_val(64, raw);
+    #[test]
+    fn to_size_string_valid_input() {
+        let cases = [
+            (BigInt::zero(), "0 B"),
+            (BigInt::from(1 << 10), "1024 B"),
+            (BigInt::from((1 << 10) + 1), "1.00 KiB"),
+            (BigInt::from((1 << 10) + 512), "1.50 KiB"),
+            (BigInt::from(1 << 20), "1024.00 KiB"),
+            (BigInt::from((1 << 20) + 1), "1.00 MiB"),
+            (BigInt::from(1 << 29), "512.00 MiB"),
+            (BigInt::from((1 << 30) + 1), "1.00 GiB"),
+            (BigInt::from((1u64 << 40) + 1), "1.00 TiB"),
+            (BigInt::from((1u64 << 50) + 1), "1.00 PiB"),
+            // ZiB is 2^70, 288230376151711744 is 2^58
+            (BigInt::from(u128::MAX), "288230376151711744.00 ZiB"),
+        ];
 
-    Ok(Float::with_val(128, b / p))
+        for (input, expected) in cases {
+            assert_eq!(to_size_string(&input).unwrap(), expected.to_string());
+        }
+    }
+
+    #[test]
+    fn to_size_string_negative_input_should_fail() {
+        assert!(to_size_string(&BigInt::from(-1i8)).is_err());
+    }
+
+    #[test]
+    fn to_size_string_too_large_input_should_fail() {
+        assert!(to_size_string(&(BigInt::from(u128::MAX) + 1)).is_err());
+    }
 }

@@ -50,7 +50,9 @@ async-std             = "1.12"
 async-trait           = "0.1"
 base64                = "0.13"
 blake2b_simd          = "1.0"
+bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }
 byteorder             = "1.4.3"
+bytes                 = "1.2"
 chrono                = "0.4"
 cid                   = "0.8"
 cs_serde_bytes        = "0.12.2"
@@ -80,6 +82,9 @@ fvm_ipld_hamt         = "0.5"
 fvm_shared            = "2.0"
 git-version           = "0.3"
 hex                   = "0.4"
+hyper                 = "0.14"
+hyper-rustls          = "0.23"
+jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
 libipld               = "0.14"
 libipld-core          = "0.14"
@@ -165,3 +170,7 @@ debug = 0
 inherits  = "release"
 opt-level = 1
 lto       = "off"
+
+[profile.release]
+# https://doc.rust-lang.org/cargo/reference/profiles.html#strip
+strip = true

@@ -1,18 +1,18 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_json::signature::json::SignatureJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
 use std::str::FromStr;
 
 use forest_beacon::Beacon;
-use forest_crypto::signature::json::SignatureJson;
 use forest_db::Store;
 use forest_json::address::json::AddressJson;
+use forest_json::message::json::MessageJson;
+use forest_json::signed_message::json::SignedMessageJson;
 use forest_key_management::{json::KeyInfoJson, Error, Key};
-use forest_message::{
-    message::json::MessageJson, signed_message::json::SignedMessageJson, SignedMessage,
-};
+use forest_message::signed_message::SignedMessage;
 use forest_rpc_api::{data_types::RPCState, wallet_api::*};
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
