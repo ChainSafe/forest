@@ -350,7 +350,7 @@ where
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let create_vm = |state_root, epoch| {
-            VM::<_>::new(
+            VM::new(
                 state_root,
                 db.clone(),
                 epoch,
@@ -471,7 +471,7 @@ where
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
             let store_arc = self.blockstore_cloned();
-            let mut vm = VM::<_>::new(
+            let mut vm = VM::new(
                 *bstate,
                 store_arc.clone(),
                 bheight,
@@ -556,7 +556,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         // let chain_config = self.chain_config();
         let epoch = ts.epoch() + 1;
-        let mut vm = VM::<_>::new(
+        let mut vm = VM::new(
             st,
             store_arc,
             epoch,

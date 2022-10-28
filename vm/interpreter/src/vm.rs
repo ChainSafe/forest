@@ -21,9 +21,8 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
-use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
+use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
@@ -55,16 +54,14 @@ pub trait RewardCalc: Send + Sync + 'static {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams> {
+pub struct VM<DB: Blockstore + Store + Clone + 'static> {
     fvm_executor: ForestExecutor<DB>,
-    params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
-impl<DB, P> VM<DB, P>
+impl<DB> VM<DB>
 where
     DB: Blockstore + Store + Clone,
-    P: NetworkParams,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -95,7 +92,6 @@ where
         let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
         Ok(VM {
             fvm_executor: exec,
-            params: PhantomData,
             reward_calc,
         })
     }
