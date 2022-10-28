@@ -20,7 +20,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use structopt::StructOpt;
 
-use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
+use crate::cli::{cli_error_and_die, to_size_string};
 
 use super::handle_rpc_err;
 
@@ -145,10 +145,7 @@ impl StateCommands {
                     let a: ActorState = state.into();
 
                     println!("Address:\t{}", address);
-                    println!(
-                        "Balance:\t{:.23} FIL",
-                        balance_to_fil(a.balance).expect("Couldn't convert balance to fil")
-                    );
+                    println!("Balance:\t{:.23} FIL", a.balance);
                     println!("Nonce:  \t{}", a.sequence);
                     println!("Code:   \t{}", a.code);
                 } else {

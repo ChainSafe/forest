@@ -324,7 +324,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), FilecoinConsensusError> {
-    verify_bls_sig(rand, evrf, worker).map_err(FilecoinConsensusError::VrfValidation)
+    verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
 fn verify_winning_post_proof<
