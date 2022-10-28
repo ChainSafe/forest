@@ -53,7 +53,7 @@ pub trait RewardCalc: Send + Sync + 'static {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: Blockstore + Clone + 'static> {
+pub struct VM<DB: Blockstore + 'static> {
     fvm_executor: ForestExecutor<DB>,
     reward_calc: Arc<dyn RewardCalc>,
 }
