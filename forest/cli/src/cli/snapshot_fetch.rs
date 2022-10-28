@@ -146,6 +146,7 @@ async fn download_snapshot_and_validate_checksum(
     snapshot_response: Response,
     total_size: u64,
 ) -> anyhow::Result<()> {
+    info!("Snapshot url: {url}");
     info!(
         "Snapshot will be downloaded to {} ({})",
         snapshot_path.display(),
