@@ -350,14 +350,13 @@ where
         let db = self.blockstore_cloned();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
-        let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
             let network_version = self.get_network_version(epoch);
             VM::<_>::new(
                 state_root,
                 db.clone(),
                 epoch,
-                &rand_clone,
+                rand.clone(),
                 base_fee.clone(),
                 network_version,
                 self.genesis_info
@@ -470,7 +469,7 @@ where
     fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
-        rand: &ChainRand<DB>,
+        rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult {
         span!("state_call_raw", {
@@ -537,7 +536,7 @@ where
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let chain_rand = self.chain_rand(ts.key().to_owned());
-        self.call_raw(message, &chain_rand, &ts)
+        self.call_raw(message, chain_rand, &ts)
     }
 
     /// Computes message on the given [Tipset] state, after applying other messages and returns
@@ -572,7 +571,7 @@ where
             st,
             store_arc.clone(),
             epoch,
-            &chain_rand,
+            chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
             network_version,
             self.genesis_info

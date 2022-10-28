@@ -89,9 +89,9 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<R>(
         root: Cid,
-        store_arc: DB,
+        store: DB,
         epoch: ChainEpoch,
-        rand: &R,
+        rand: R,
         base_fee: TokenAmount,
         network_version: NetworkVersion,
         circ_supply: TokenAmount,
@@ -111,13 +111,13 @@ where
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                store_arc.clone(),
+                store.clone(),
                 ForestExterns::new(
-                    rand.clone(),
+                    rand,
                     epoch,
                     root,
                     lb_fn,
-                    store_arc,
+                    store,
                     network_version,
                     chain_finality,
                 ),
