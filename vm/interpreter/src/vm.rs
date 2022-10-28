@@ -4,7 +4,6 @@
 use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
-use forest_db::Store;
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
 use fvm::call_manager::DefaultCallManager;
@@ -54,14 +53,14 @@ pub trait RewardCalc: Send + Sync + 'static {
 
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: Blockstore + Store + Clone + 'static> {
+pub struct VM<DB: Blockstore + Clone + 'static> {
     fvm_executor: ForestExecutor<DB>,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
 impl<DB> VM<DB>
 where
-    DB: Blockstore + Store + Clone,
+    DB: Blockstore + Clone,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
