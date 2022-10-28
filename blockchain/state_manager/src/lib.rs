@@ -163,13 +163,8 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.blockstore_cloned(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
         Ok(state.get_actor(addr)?)
-    }
-
-    /// Returns the cloned [`Arc`] of the state manager's [`Blockstore`].
-    pub fn blockstore_cloned(&self) -> DB {
-        self.cs.blockstore_cloned()
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -346,13 +341,13 @@ where
         R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
-        let db = self.blockstore_cloned();
+        let db = self.blockstore().clone();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let create_vm = |state_root, epoch| {
             VM::new(
                 state_root,
-                db.clone(),
+                self.blockstore().clone(),
                 epoch,
                 rand.clone(),
                 base_fee.clone(),
@@ -470,15 +465,15 @@ where
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
-            let store_arc = self.blockstore_cloned();
+            let store = self.blockstore().clone();
             let mut vm = VM::new(
                 *bstate,
-                store_arc.clone(),
+                store,
                 bheight,
                 rand,
                 TokenAmount::zero(),
                 self.genesis_info
-                    .get_circulating_supply(bheight, &store_arc, bstate)?,
+                    .get_circulating_supply(bheight, self.blockstore(), bstate)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 &self.engine,
@@ -552,12 +547,12 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = self.chain_rand(ts.key().to_owned());
 
-        let store_arc = self.blockstore_cloned();
+        let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let epoch = ts.epoch() + 1;
         let mut vm = VM::new(
             st,
-            store_arc,
+            store,
             epoch,
             chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),

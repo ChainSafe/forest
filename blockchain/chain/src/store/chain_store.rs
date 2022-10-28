@@ -199,14 +199,6 @@ where
         &self.db
     }
 
-    /// Clones `blockstore` `Arc`.
-    pub fn blockstore_cloned(&self) -> DB
-    where
-        DB: Clone,
-    {
-        self.db.clone()
-    }
-
     /// Returns Tipset from key-value store from provided CIDs
     pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
