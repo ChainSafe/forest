@@ -18,9 +18,6 @@
 FROM rust:1-buster AS build-env
 
 # Install dependencies
-<<<<<<< Updated upstream
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake
-=======
 RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ca-certificates curl
 RUN update-ca-certificates
 
@@ -29,7 +26,6 @@ RUN update-ca-certificates
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV RUSTFLAGS="-Ctarget-feature=+avx2,+fma"
->>>>>>> Stashed changes
 
 WORKDIR /usr/src/forest
 COPY . .
