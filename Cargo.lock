@@ -630,12 +630,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "az"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
-
-[[package]]
 name = "backtrace"
 version = "0.3.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2671,7 +2665,6 @@ dependencies = [
  "regex",
  "reqwest",
  "rpassword",
- "rug",
  "rust-s3",
  "serde",
  "serde_json",
@@ -4196,16 +4189,6 @@ dependencies = [
  "futures-core",
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "gmp-mpfr-sys"
-version = "1.4.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea3f42dadb6c75f122e9aa87e757ef11d4282f664c9f2e6476a9c2c8970f9d19"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -7247,17 +7230,6 @@ dependencies = [
  "netlink-proto",
  "nix 0.24.2",
  "thiserror",
-]
-
-[[package]]
-name = "rug"
-version = "1.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "203180f444c95eac53586ed04793ecf6454c5d28f9eca8eead815fc19e136c47"
-dependencies = [
- "az",
- "gmp-mpfr-sys",
- "libc",
 ]
 
 [[package]]

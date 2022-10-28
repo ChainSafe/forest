@@ -60,7 +60,6 @@ rayon.workspace                  = true
 regex.workspace                  = true
 reqwest                          = { workspace = true, features = ["stream"] }
 rpassword.workspace              = true
-rug                              = "1.17"
 rust-s3                          = "0.32.3"
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
