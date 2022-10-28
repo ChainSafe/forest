@@ -51,11 +51,9 @@ tokio                            = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 base64.workspace            = true
-forest_genesis              = { workspace = true, features = ["testing"] }
 forest_ipld.workspace       = true
 forest_test_utils.workspace = true
 fvm_ipld_car.workspace      = true
 hex.workspace               = true
-pretty_env_logger.workspace = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true

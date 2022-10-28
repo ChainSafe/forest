@@ -41,6 +41,7 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 git-version.workspace            = true
 hex.workspace                    = true
+isatty                           = "0.1.9"
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
@@ -64,7 +65,6 @@ tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
 
 [dev-dependencies]
-assert_cmd.workspace        = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 rand.workspace              = true
