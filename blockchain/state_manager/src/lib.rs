@@ -554,7 +554,6 @@ where
 
         let store_arc = self.blockstore_cloned();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
-        // let chain_config = self.chain_config();
         let epoch = ts.epoch() + 1;
         let mut vm = VM::new(
             st,
