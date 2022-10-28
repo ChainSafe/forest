@@ -96,9 +96,12 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Store,
 {
-    pub async fn new(db: DB) -> Self {
+    pub async fn new(db: DB) -> Self
+    where
+        DB: Clone,
+    {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
@@ -197,7 +200,10 @@ where
     }
 
     /// Clones `blockstore` `Arc`.
-    pub fn blockstore_cloned(&self) -> DB {
+    pub fn blockstore_cloned(&self) -> DB
+    where
+        DB: Clone,
+    {
         self.db.clone()
     }
 
@@ -672,7 +678,7 @@ pub(crate) async fn tipset_from_keys<BS>(
     tsk: &TipsetKeys,
 ) -> Result<Arc<Tipset>, Error>
 where
-    BS: Blockstore + Send + Sync + 'static,
+    BS: Blockstore,
 {
     if let Some(ts) = cache.write().await.get(tsk) {
         return Ok(ts.clone());
