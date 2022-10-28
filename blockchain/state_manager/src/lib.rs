@@ -400,13 +400,6 @@ where
         // Flush changes to blockstore
         let state_root = vm.flush()?;
 
-        // FIXME: Buffering disabled while debugging. Investigate if the buffer improves performance.
-        //        See issue: https://github.com/ChainSafe/forest/issues/1451
-        // Persist changes connected to root
-        // buf_store
-        //     .flush(&state_root)
-        //     .expect("buffered blockstore flush failed");
-
         Ok((state_root, receipt_root))
     }
 
