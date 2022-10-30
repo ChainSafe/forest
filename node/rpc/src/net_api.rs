@@ -16,7 +16,7 @@ use fvm_ipld_blockstore::Blockstore;
 
 pub(crate) async fn net_addrs_listen<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
 ) -> Result<NetAddrsListenResult, JsonRpcError> {
@@ -34,10 +34,7 @@ pub(crate) async fn net_addrs_listen<
     })
 }
 
-pub(crate) async fn net_peers<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
->(
+pub(crate) async fn net_peers<DB: Blockstore + Store + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<NetPeersResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -61,7 +58,7 @@ pub(crate) async fn net_peers<
 
 pub(crate) async fn net_connect<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetConnectParams>,
@@ -88,7 +85,7 @@ pub(crate) async fn net_connect<
 
 pub(crate) async fn net_disconnect<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<NetDisconnectParams>,

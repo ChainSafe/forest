@@ -40,8 +40,8 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Elections and Proof-of-SpaceTime, Beacon values
 pub(crate) async fn validate_block<
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
-    B: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
+    B: Beacon,
+    V: ProofVerifier,
 >(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,

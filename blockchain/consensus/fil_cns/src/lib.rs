@@ -108,8 +108,8 @@ impl<B, V> Scale for FilecoinConsensus<B, V> {
 #[async_trait]
 impl<B, V> Consensus for FilecoinConsensus<B, V>
 where
-    B: Beacon + Unpin + Send + Sync + 'static,
-    V: ProofVerifier + Unpin + Send + Sync + 'static,
+    B: Beacon + Unpin,
+    V: ProofVerifier + Unpin,
 {
     type Error = FilecoinConsensusError;
 
