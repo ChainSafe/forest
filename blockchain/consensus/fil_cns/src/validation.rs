@@ -40,8 +40,8 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Elections and Proof-of-SpaceTime, Beacon values
 pub(crate) async fn validate_block<
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
-    B: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
+    B: Beacon,
+    V: ProofVerifier,
 >(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,
@@ -149,7 +149,7 @@ pub(crate) async fn validate_block<
             v_base_tipset.as_ref(),
             v_prev_beacon.as_ref(),
             &work_addr,
-            v_state_manager.as_ref(),
+            v_state_manager.chain_config(),
         )
     }));
 
@@ -279,15 +279,15 @@ fn validate_winner_election<DB: Blockstore + Store + Clone + Sync + Send + 'stat
     Ok(())
 }
 
-fn validate_ticket_election<DB: Blockstore + Store + Clone + Sync + Send + 'static>(
+fn validate_ticket_election(
     header: &BlockHeader,
     base_tipset: &Tipset,
     prev_beacon: &BeaconEntry,
     work_addr: &Address,
-    state_manager: &StateManager<DB>,
+    chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
     let mut miner_address_buf = header.miner_address().marshal_cbor()?;
-    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
+    let smoke_height = chain_config.epoch(Height::Smoke);
 
     if header.epoch() > smoke_height {
         let vrf_proof = base_tipset

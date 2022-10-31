@@ -5,7 +5,6 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use forest_auth::*;
 use forest_beacon::Beacon;
-use forest_db::Store;
 use forest_rpc_api::{auth_api::*, data_types::RPCState};
 use fvm_ipld_blockstore::Blockstore;
 
@@ -15,8 +14,8 @@ pub(crate) async fn auth_new<DB, B>(
     Params(params): Params<AuthNewParams>,
 ) -> Result<AuthNewResult, JsonRpcError>
 where
-    DB: Blockstore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     let (perms,) = params;
     let ks = data.keystore.read().await;
@@ -31,8 +30,8 @@ pub(crate) async fn auth_verify<DB, B>(
     Params(params): Params<AuthVerifyParams>,
 ) -> Result<AuthVerifyResult, JsonRpcError>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     let ks = data.keystore.read().await;
     let (header_raw,) = params;
