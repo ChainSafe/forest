@@ -636,7 +636,7 @@ where
         } else {
             self.chain_config.policy.chain_finality
         };
-        let lbr: ChainEpoch = (round - lb).max(0);
+        let lbr = (round - lb).max(0);
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
