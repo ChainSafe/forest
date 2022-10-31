@@ -89,8 +89,8 @@ lazy_static           = "1.4"
 libipld               = "0.14"
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
-libp2p                = "0.46"
-libp2p-bitswap        = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "5c79b37feceb3ba76d5a488b1713cfaaf861baa3" }
+libp2p                = { version = "0.46", default-features = false }
+libp2p-bitswap        = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "47a5722767043ec1495bce2bffe02d4b1f5d87e0" }
 libsecp256k1          = "0.7"
 log                   = "0.4"
 lru                   = "0.8"
