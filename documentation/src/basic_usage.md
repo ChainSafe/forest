@@ -18,10 +18,10 @@ rustup target add wasm32-unknown-unknown
 
 ```shell
 # Ubuntu
-sudo apt install build-essential clang
+sudo apt install build-essential clang ocl-icd-opencl-dev
 
 # Archlinux
-sudo pacman -S base-devel clang
+sudo pacman -S base-devel clang ocl-icd
 ```
 
 ### Commands
