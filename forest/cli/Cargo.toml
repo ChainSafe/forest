@@ -45,6 +45,8 @@ fvm_shared                       = { workspace = true, default-features = false 
 git-version.workspace            = true
 hex.workspace                    = true
 http                             = "0.2.8"
+hyper                            = { workspace = true, features = ["client", "stream", "http1"] }
+hyper-rustls.workspace           = true
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
@@ -58,9 +60,8 @@ pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
 regex.workspace                  = true
-reqwest                          = { workspace = true, features = ["stream"] }
 rpassword.workspace              = true
-rust-s3                          = "0.32.3"
+rust-s3                          = { version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true
@@ -71,6 +72,7 @@ ticker                           = "0.1"
 time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
+url.workspace                    = true
 uuid                             = { version = "1.1", features = ["v4"] }
 
 [dev-dependencies]

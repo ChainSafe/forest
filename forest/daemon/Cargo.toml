@@ -69,7 +69,6 @@ pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
 rayon.workspace                  = true
-reqwest                          = { workspace = true, features = ["stream"] }
 rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
