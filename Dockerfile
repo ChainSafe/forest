@@ -20,14 +20,13 @@
 FROM buildpack-deps:buster AS build-env
 
 # Install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake ca-certificates curl
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake ca-certificates curl
 RUN update-ca-certificates
 
 # Install rustup
 # https://rustup.rs/
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-ENV RUSTFLAGS="-Ctarget-feature=+avx2,+fma"
 
 WORKDIR /usr/src/forest
 COPY . .
@@ -47,7 +46,7 @@ LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev libssl1.1 ca-certificates
+RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev ca-certificates
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env

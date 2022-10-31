@@ -5,9 +5,14 @@ use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::io::TempFile;
 use hex::{FromHex, ToHex};
+use http::Response;
+use hyper::{
+    client::{connect::Connect, HttpConnector},
+    Body,
+};
+use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use log::info;
 use pbr::ProgressBar;
-use reqwest::{Client, Response, Url};
 use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
@@ -18,6 +23,7 @@ use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufWriter},
 };
+use url::Url;
 
 use crate::cli::to_size_string;
 
@@ -49,12 +55,10 @@ async fn snapshot_fetch_calibnet(
     let bucket = Bucket::new_public(name, region.parse()?)?;
 
     // Grab contents of the bucket
-    let bucket_contents = bucket
-        .list(
-            snapshot_fetch_config.calibnet.path.clone(),
-            Some("/".to_string()),
-        )
-        .await?;
+    let bucket_contents = bucket.list(
+        snapshot_fetch_config.calibnet.path.clone(),
+        Some("/".to_string()),
+    )?;
 
     // Find the the last modified file that is not a directory or empty file
     let last_modified = bucket_contents
@@ -76,12 +80,12 @@ async fn snapshot_fetch_calibnet(
     // It'd be better to use the bucket directly with `get_object_stream`, but at the time
     // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
     // https://github.com/durch/rust-s3/issues/275
-    let client = Client::new();
+    let client = https_client();
     let snapshot_spaces_url = &snapshot_fetch_config.calibnet.snapshot_spaces_url;
     let calibnet_path = &snapshot_fetch_config.calibnet.path;
     let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
 
-    let snapshot_response = client.get(url.clone()).send().await?;
+    let snapshot_response = client.get(url.as_str().try_into()?).await?;
     let total_size = last_modified.size;
     download_snapshot_and_validate_checksum(
         client,
@@ -102,22 +106,30 @@ async fn snapshot_fetch_mainnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
 ) -> anyhow::Result<PathBuf> {
-    let client = Client::new();
+    let client = https_client();
 
-    let snapshot_url = snapshot_fetch_config.mainnet.snapshot_url.clone();
-    let snapshot_response = client.get(snapshot_url.clone()).send().await?;
+    let snapshot_url = {
+        let url = snapshot_fetch_config.mainnet.snapshot_url.clone();
+        let head_response = client
+            .request(hyper::Request::head(url.as_str()).body("".into())?)
+            .await?;
 
-    // Use the redirect if available.
-    let snapshot_url = match snapshot_response
-        .headers()
-        .get("x-amz-website-redirect-location")
-    {
-        Some(url) => url.to_str()?.try_into()?,
-        None => snapshot_url,
+        // Use the redirect if available.
+        match head_response
+            .headers()
+            .get("x-amz-website-redirect-location")
+        {
+            Some(url) => url.to_str()?.try_into()?,
+            None => url,
+        }
     };
 
+    let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
     let total_size = snapshot_response
-        .content_length()
+        .headers()
+        .get("content-length")
+        .and_then(|ct_len| ct_len.to_str().ok())
+        .and_then(|ct_len| ct_len.parse::<u64>().ok())
         .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
 
     // Grab the snapshot file name
@@ -139,13 +151,16 @@ async fn snapshot_fetch_mainnet(
 }
 
 /// Downloads snapshot to a file with a progress bar. Returns the digest of the downloaded file.
-async fn download_snapshot_and_validate_checksum(
-    client: Client,
+async fn download_snapshot_and_validate_checksum<C>(
+    client: hyper::Client<C>,
     url: Url,
     snapshot_path: &Path,
-    snapshot_response: Response,
+    snapshot_response: Response<Body>,
     total_size: u64,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    C: Connect + Clone + Send + Sync + 'static,
+{
     info!("Snapshot url: {url}");
     info!(
         "Snapshot will be downloaded to {} ({})",
@@ -162,7 +177,7 @@ async fn download_snapshot_and_validate_checksum(
     let file = File::create(snapshot_file_tmp.path()).await?;
     let mut writer = BufWriter::new(file);
     let mut downloaded: u64 = 0;
-    let mut stream = snapshot_response.bytes_stream();
+    let mut stream = snapshot_response.into_body();
 
     let mut snapshot_hasher = Sha256::new();
     while let Some(item) = futures::StreamExt::next(&mut stream).await {
@@ -230,24 +245,25 @@ fn replace_extension_url(mut url: Url, extension: &str) -> anyhow::Result<Url> {
 /// Fetches the relevant checksum for the snapshot, compares it with the result one. Fails if they
 /// don't match. The checksum is expected to be located in the same location as the snapshot but
 /// with a `.sha256sum` extension.
-async fn fetch_checksum_and_validate(
-    client: Client,
+async fn fetch_checksum_and_validate<C>(
+    client: hyper::Client<C>,
     url: Url,
     snapshot_checksum: &[u8],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    C: Connect + Clone + Send + Sync + 'static,
+{
     info!("Validating checksum...");
     let checksum_url = replace_extension_url(url, "sha256sum")?;
-    let checksum_expected_file = client.get(checksum_url).send().await?;
+    let checksum_expected_file = client.get(checksum_url.as_str().try_into()?).await?;
     if !checksum_expected_file.status().is_success() {
         bail!("Unable to get the checksum file. Snapshot downloaded but not verified.");
     }
 
+    let checksum_bytes = hyper::body::to_bytes(checksum_expected_file.into_body()).await?;
     // checksum file is hex-encoded with optionally trailing `- ` at the end. Take only what's needed, i.e.
     // encoded digest, for SHA256 it's 32 bytes.
-    let checksum_expected = checksum_from_file(
-        &checksum_expected_file.bytes().await?,
-        Sha256::output_size(),
-    )?;
+    let checksum_expected = checksum_from_file(&checksum_bytes, Sha256::output_size())?;
 
     validate_checksum(&checksum_expected, snapshot_checksum)?;
     info!(
@@ -291,6 +307,16 @@ fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow
     }
 
     Ok(())
+}
+
+fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
+    hyper::Client::builder().build::<_, Body>(
+        HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .build(),
+    )
 }
 
 #[cfg(test)]

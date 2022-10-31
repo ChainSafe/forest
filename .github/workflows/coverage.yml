@@ -11,22 +11,25 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: 5
-        continue-on-error: true
+      - name: Apt Dependencies
+        run: sudo make install-deps
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.2.0
+        with:
+          release-name: v0.3.0
+          cache-key: ${{ runner.os }}-sccache-codecov-${{ hashFiles('rust-toolchain.toml') }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
       - name: Upload CodeCov
         uses: codecov/codecov-action@v3
         with:

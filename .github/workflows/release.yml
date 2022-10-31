@@ -17,17 +17,15 @@ jobs:
           - os: macos-latest
             file: forest-${{ github.ref_name }}-macos-amd64.zip
     steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
       - name: Apt Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
+        run: sudo make install-deps
       - name: Homebrew Utils
         if: startsWith(matrix.os, 'macOS')
         run: |
           brew install --verbose coreutils
-      - name: Checkout Sources
-        uses: actions/checkout@v3
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
