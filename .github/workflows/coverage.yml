@@ -20,6 +20,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
+          release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-codecov-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Run cargo-llvm-cov

@@ -27,6 +27,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
+          release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
@@ -56,6 +57,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
+          release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
@@ -111,6 +113,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
+          release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries

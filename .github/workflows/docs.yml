@@ -40,6 +40,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
+          release-name: v0.3.0
           cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
           # true: always save cache
           # false: only save when cache is not found
