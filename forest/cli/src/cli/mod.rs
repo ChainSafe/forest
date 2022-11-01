@@ -35,23 +35,19 @@ pub(crate) use forest_cli_shared::cli::{
     CliOpts, Config, SnapshotFetchConfig, FOREST_VERSION_STRING,
 };
 
+use crate::cli::config_cmd::ConfigCommands;
 use byte_unit::Byte;
+use cid::Cid;
+use forest_blocks::tipset_json::TipsetJson;
 use fvm_shared::bigint::BigInt;
-use fvm_shared::econ::TokenAmount;
 use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
-use rug::float::ParseFloatError;
-use rug::Float;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::io::{self, Write};
 use std::process;
 use structopt::StructOpt;
-
-use crate::cli::config_cmd::ConfigCommands;
-use cid::Cid;
-use forest_blocks::tipset_json::TipsetJson;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -217,17 +213,6 @@ pub(super) fn print_stdout(out: String) {
         .write("\n".as_bytes())
         .map_err(|e| handle_rpc_err(e.into()))
         .unwrap();
-}
-
-/// Convert an `attoFIL` balance to `FIL`
-pub(super) fn balance_to_fil(balance: TokenAmount) -> Result<Float, ParseFloatError> {
-    let raw = Float::parse_radix(balance.to_string(), 10)?;
-    let b = Float::with_val(128, raw);
-
-    let raw = Float::parse_radix(TokenAmount::PRECISION.to_string().as_bytes(), 10)?;
-    let p = Float::with_val(64, raw);
-
-    Ok(Float::with_val(128, b / p))
 }
 
 #[cfg(test)]

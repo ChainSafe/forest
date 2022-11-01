@@ -4,13 +4,12 @@
 use crate::fvm::ForestExterns;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
-use forest_db::Store;
 use forest_message::ChainMessage;
-use forest_networks::{ChainConfig, Height};
+use forest_networks::ChainConfig;
 use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
-use fvm::machine::{DefaultMachine, Engine, Machine, NetworkConfig};
+use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
 use fvm::DefaultKernel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
@@ -21,10 +20,8 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
-use fvm_shared::version::NetworkVersion;
-use fvm_shared::{DefaultNetworkParams, NetworkParams, BLOCK_GAS_LIMIT, METHOD_SEND};
+use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
 use std::collections::HashSet;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
@@ -54,78 +51,46 @@ pub trait RewardCalc: Send + Sync + 'static {
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
-#[derive(Clone, Copy)]
-pub struct Heights {
-    pub calico: ChainEpoch,
-    pub turbo: ChainEpoch,
-    pub hyperdrive: ChainEpoch,
-    pub chocolate: ChainEpoch,
-}
-
-impl Heights {
-    pub fn new(chain_config: &ChainConfig) -> Self {
-        Heights {
-            calico: chain_config.epoch(Height::Calico),
-            turbo: chain_config.epoch(Height::Turbo),
-            hyperdrive: chain_config.epoch(Height::Hyperdrive),
-            chocolate: chain_config.epoch(Height::Chocolate),
-        }
-    }
-}
-
 /// Interpreter which handles execution of state transitioning messages and returns receipts
 /// from the VM execution.
-pub struct VM<DB: Blockstore + Store + Clone + 'static, P = DefaultNetworkParams> {
+pub struct VM<DB: Blockstore + 'static> {
     fvm_executor: ForestExecutor<DB>,
-    params: PhantomData<P>,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
-impl<DB, P> VM<DB, P>
+impl<DB> VM<DB>
 where
-    DB: Blockstore + Store + Clone,
-    P: NetworkParams,
+    DB: Blockstore + Clone,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new<R>(
+    pub fn new(
         root: Cid,
-        store_arc: DB,
+        store: DB,
         epoch: ChainEpoch,
-        rand: &R,
+        rand: impl Rand + 'static,
         base_fee: TokenAmount,
-        network_version: NetworkVersion,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
         lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
-        engine: Engine,
-        chain_finality: i64,
-    ) -> Result<Self, anyhow::Error>
-    where
-        R: Rand + Clone + 'static,
-    {
-        let mut context = NetworkConfig::new(network_version).for_epoch(epoch, root);
+        multi_engine: &MultiEngine,
+        chain_config: Arc<ChainConfig>,
+    ) -> Result<Self, anyhow::Error> {
+        let network_version = chain_config.network_version(epoch);
+        let config = NetworkConfig::new(network_version);
+        let engine = multi_engine.get(&config)?;
+        let mut context = config.for_epoch(epoch, root);
         context.set_base_fee(base_fee);
         context.set_circulating_supply(circ_supply);
-        context.enable_tracing();
         let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
                 &context,
-                store_arc.clone(),
-                ForestExterns::new(
-                    rand.clone(),
-                    epoch,
-                    root,
-                    lb_fn,
-                    store_arc,
-                    network_version,
-                    chain_finality,
-                ),
+                store.clone(),
+                ForestExterns::new(rand, epoch, root, lb_fn, store, chain_config),
             )?;
         let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
         Ok(VM {
             fvm_executor: exec,
-            params: PhantomData,
             reward_calc,
         })
     }

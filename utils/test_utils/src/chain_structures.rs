@@ -5,7 +5,7 @@ use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use forest_blocks::{Block, BlockHeader, FullTipset, Ticket, Tipset, TipsetKeys, TxMeta};
-use forest_crypto::{Signer, VRFProof};
+use forest_crypto::VRFProof;
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
@@ -126,15 +126,6 @@ pub fn construct_full_tipset() -> FullTipset {
     FullTipset::new(blocks).unwrap()
 }
 
-const DUMMY_SIG: [u8; 1] = [0u8];
-
-struct DummySigner;
-impl Signer for DummySigner {
-    fn sign_bytes(&self, _: &[u8], _: &Address) -> Result<Signature, anyhow::Error> {
-        Ok(Signature::new_secp256k1(DUMMY_SIG.to_vec()))
-    }
-}
-
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (Message, SignedMessage) {
     let bls_messages = Message {
@@ -143,7 +134,8 @@ pub fn construct_messages() -> (Message, SignedMessage) {
         ..Message::default()
     };
 
-    let secp_messages = SignedMessage::new(bls_messages.clone(), &DummySigner).unwrap();
+    let secp_messages =
+        SignedMessage::new_unchecked(bls_messages.clone(), Signature::new_secp256k1(vec![0]));
     (bls_messages, secp_messages)
 }
 

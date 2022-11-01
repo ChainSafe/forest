@@ -73,8 +73,8 @@ impl From<OutboundFailure> for RequestResponseError {
 impl<P, RQ, RS> RequestResponseCodec for CborRequestResponse<P, RQ, RS>
 where
     P: ProtocolName + Clone + Send + Sync,
-    RQ: Serialize + DeserializeOwned + Clone + Send + Sync + 'static,
-    RS: Serialize + DeserializeOwned + Clone + Send + Sync + 'static,
+    RQ: Serialize + DeserializeOwned + Send + Sync,
+    RS: Serialize + DeserializeOwned + Send + Sync,
 {
     type Protocol = P;
     type Request = RQ;

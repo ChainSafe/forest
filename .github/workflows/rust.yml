@@ -1,6 +1,7 @@
 name: Rust
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -14,96 +15,55 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 1
   CACHE_TIMEOUT_MINUTES: 5
-  RUSTFLAGS: -Ctarget-feature=+avx2,+fma
 
 jobs:
   test:
     name: Test
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
-    env:
-      RUSTFLAGS: "-Ctarget-feature=+avx2,+fma -D warnings"
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.2.0
+        with:
+          release-name: v0.3.0
+          cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
+      - name: Apt Dependencies
+        run: sudo make install-deps
       - name: install nextest
         uses: taiki-e/install-action@nextest
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - name: Cargo Check
-        run: cargo check
-      - name: Make Test-All
-        run: make test-all
+      - run: make test-all
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
 
-  lint:
-    name: Lint
+  lint-all:
+    name: All lint checks (lint audit spellcheck udeps)
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
       - name: Apt Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        run: sudo make install-deps
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-lints-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
+      - run: make install-lint-tools
         continue-on-error: true
-      - name: Install taplo (TOML linter)
-        run: cargo install taplo-cli --locked
-      - name: Run Linters
-        run: make lint
-
-  audit:
-    name: Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - name: Install Audit
-        run: cargo install cargo-audit --locked
-      - name: Run Audit
-        run: make audit
-
-  unused_dependencies:
-    name: Unused dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - name: Install udeps
-        run: cargo install cargo-udeps --locked
-      - name: Run udeps
-        run: make udeps
-
-  spellcheck:
-    name: Spellcheck
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - name: Install spellcheck
-        run: cargo install cargo-spellcheck --locked
-      - name: Run Spellcheck
-        run: make spellcheck
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.2.0
+        with:
+          release-name: v0.3.0
+          cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
+      - run: make lint-all
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
 
   build:
     name: Build
@@ -111,22 +71,32 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        #rv: [1.58.1, stable, beta, nightly]
-        rv: [nightly]
     steps:
-      - name: Install Dependencies
-        if: startsWith(matrix.os, 'Ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
-      - name: Cargo Build
-        run: cargo build --profile dev
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.2.0
+        with:
+          # hard code release-name for macos, it always get rate limited when calling github api
+          release-name: v0.3.0
+          cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
+      - name: Install Apt Dependencies
+        if: startsWith(matrix.os, 'Ubuntu')
+        run: |
+          lscpu # the job may run on different CPUs, list cpu here for analysing build time
+          sudo make install-deps
+      - name: Cargo Check
+        run: cargo check --timings
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-timings
+          path: |
+            target/cargo-timings/*
+          if-no-files-found: error
 
   calibnet-check:
     name: Calibnet sync check
@@ -134,20 +104,23 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
-        continue-on-error: true
+      - name: Apt Dependencies
+        run: sudo make install-deps
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.2.0
+        with:
+          release-name: v0.3.0
+          cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
         run: make install
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
       - name: download snapshot
         run: forest-cli --chain calibnet chain fetch -s /tmp/snapshots/
       - name: import snapshot and run Forest

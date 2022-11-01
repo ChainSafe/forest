@@ -4,7 +4,6 @@
 use crate::ActorVersion;
 use anyhow::Error as AnyhowError;
 use cid::Cid;
-use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_hamt::{BytesKey, Hash};
 use fvm_shared::HAMT_BIT_WIDTH;
@@ -18,7 +17,7 @@ pub enum Map<BS, V> {
 impl<BS, V> Map<BS, V>
 where
     V: Serialize + DeserializeOwned + PartialEq,
-    BS: Blockstore + Store + Clone,
+    BS: Blockstore + Clone,
 {
     pub fn new(store: &BS, version: ActorVersion) -> Self {
         match version {

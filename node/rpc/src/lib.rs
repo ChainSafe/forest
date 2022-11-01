@@ -44,8 +44,8 @@ pub async fn start_rpc<DB, B, V, S>(
 ) -> Result<(), JSONRPCError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
+    B: Beacon,
+    V: ProofVerifier,
     S: Scale + 'static,
 {
     use auth_api::*;

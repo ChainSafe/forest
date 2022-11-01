@@ -69,7 +69,6 @@ pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
 rayon.workspace                  = true
-reqwest                          = { workspace = true, features = ["stream"] }
 rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
@@ -82,10 +81,8 @@ tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
 
 [dev-dependencies]
-assert_cmd.workspace        = true
-quickcheck.workspace        = true
-quickcheck_macros.workspace = true
-rand.workspace              = true
+quickcheck.workspace = true
+rand.workspace       = true
 
 [features]
 default          = ["forest_fil_cns"]

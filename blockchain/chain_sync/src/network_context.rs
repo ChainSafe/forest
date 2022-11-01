@@ -52,7 +52,7 @@ impl<DB: Clone> Clone for SyncNetworkContext<DB> {
 
 impl<DB> SyncNetworkContext<DB>
 where
-    DB: Blockstore + Sync + Send + 'static,
+    DB: Blockstore,
 {
     pub fn new(
         network_send: flume::Sender<NetworkMessage>,

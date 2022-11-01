@@ -38,10 +38,7 @@ pub(crate) struct ChainIndex<BS> {
     db: BS,
 }
 
-impl<BS> ChainIndex<BS>
-where
-    BS: Blockstore + Send + Sync + 'static,
-{
+impl<BS: Blockstore> ChainIndex<BS> {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
             skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),

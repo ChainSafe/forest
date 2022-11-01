@@ -13,7 +13,7 @@ use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, is_strea
 pub async fn rpc_http_handler<DB, B>(request: tide::Request<JsonRpcServerState>) -> tide::Result
 where
     DB: Blockstore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (auth_header, mut request) = get_auth_header(request);
     let rpc_call: JsonRpcRequestObject = request.body_json().await?;

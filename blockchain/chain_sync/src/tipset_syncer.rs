@@ -1275,7 +1275,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     // Base fee check
     let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
     let v_base_tipset = Arc::clone(&base_tipset);
-    let v_block_store = state_manager.blockstore_cloned();
+    let v_block_store = state_manager.blockstore().clone();
     let v_block = Arc::clone(&block);
     validations.push(task::spawn_blocking(move || {
         let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
@@ -1296,7 +1296,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     }));
 
     // Parent weight calculation check
-    let v_block_store = state_manager.blockstore_cloned();
+    let v_block_store = state_manager.blockstore().clone();
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(task::spawn_blocking(move || {

@@ -52,7 +52,7 @@ use libipld_core::ipld::Ipld;
 /// If false, only those sectors in the filter are included.
 pub(crate) async fn state_miner_sectors<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerSectorsParams>,
@@ -74,7 +74,7 @@ pub(crate) async fn state_miner_sectors<
 /// runs the given message and returns its result without any persisted changes.
 pub(crate) async fn state_call<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateCallParams>,
@@ -93,7 +93,7 @@ pub(crate) async fn state_call<
 /// returns all the proving deadlines for the given miner
 pub(crate) async fn state_miner_deadlines<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerDeadlinesParams>,
@@ -127,7 +127,7 @@ pub(crate) async fn state_miner_deadlines<
 /// returns the `PreCommit` info for the specified miner's sector
 pub(crate) async fn state_sector_precommit_info<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateSectorPrecommitInfoParams>,
@@ -146,10 +146,7 @@ pub(crate) async fn state_sector_precommit_info<
 }
 
 /// `StateMinerInfo` returns info about the indicated miner
-pub async fn state_miner_info<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
->(
+pub async fn state_miner_info<DB: Blockstore + Store + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerInfoParams>,
 ) -> Result<StateMinerInfoResult, JsonRpcError> {
@@ -176,7 +173,7 @@ pub async fn state_miner_info<
 /// returns the on-chain info for the specified miner's sector
 pub async fn state_sector_info<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateSectorGetInfoParams>,
@@ -199,7 +196,7 @@ pub async fn state_sector_info<
 /// and returns the deadline-related calculations.
 pub(crate) async fn state_miner_proving_deadline<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerProvingDeadlineParams>,
@@ -224,7 +221,7 @@ pub(crate) async fn state_miner_proving_deadline<
 /// returns a single non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_miner_faults<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerFaultsParams>,
@@ -246,7 +243,7 @@ pub(crate) async fn state_miner_faults<
 /// returns all non-expired Faults that occur within look-back epochs of the given tipset
 pub(crate) async fn state_all_miner_faults<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     _data: Data<RPCState<DB, B>>,
     Params(_params): Params<StateAllMinerFaultsParams>,
@@ -282,7 +279,7 @@ pub(crate) async fn state_all_miner_faults<
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerRecoveriesParams>,
@@ -304,7 +301,7 @@ pub(crate) async fn state_miner_recoveries<
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_partitions<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPartitionsParams>,
@@ -337,7 +334,7 @@ pub(crate) async fn state_miner_partitions<
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
 pub(crate) async fn state_replay<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateReplayParams>,
@@ -362,7 +359,7 @@ pub(crate) async fn state_replay<
 /// gets network name from state manager
 pub(crate) async fn state_network_name<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
 ) -> Result<StateNetworkNameResult, JsonRpcError> {
@@ -380,7 +377,7 @@ pub(crate) async fn state_network_name<
 
 pub(crate) async fn state_get_network_version<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateNetworkVersionParams>,
@@ -393,7 +390,7 @@ pub(crate) async fn state_get_network_version<
 /// returns the indicated actor's nonce and balance.
 pub(crate) async fn state_get_actor<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateGetActorParams>,
@@ -413,7 +410,7 @@ pub(crate) async fn state_get_actor<
 /// returns addresses of all actors on the network by tipset
 pub(crate) async fn state_list_actors<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateListActorsParams>,
@@ -439,7 +436,7 @@ pub(crate) async fn state_list_actors<
 /// returns the public key address of the given ID address
 pub(crate) async fn state_account_key<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateAccountKeyParams>,
@@ -460,7 +457,7 @@ pub(crate) async fn state_account_key<
 /// retrieves the ID address of the given address
 pub(crate) async fn state_lookup_id<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateLookupIdParams>,
@@ -485,7 +482,7 @@ pub(crate) async fn state_lookup_id<
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
 pub(crate) async fn state_market_balance<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMarketBalanceParams>,
@@ -504,7 +501,7 @@ pub(crate) async fn state_market_balance<
 
 pub(crate) async fn state_market_deals<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMarketDealsParams>,
@@ -542,7 +539,7 @@ pub(crate) async fn state_market_deals<
 /// returns the message receipt for the given message
 pub(crate) async fn state_get_receipt<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateGetReceiptParams>,
@@ -565,7 +562,7 @@ pub(crate) async fn state_get_receipt<
 /// message arrives on chain, and gets to the indicated confidence depth.
 pub(crate) async fn state_wait_msg<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateWaitMsgParams>,
@@ -592,7 +589,7 @@ pub(crate) async fn state_wait_msg<
 
 pub(crate) async fn miner_create_block<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
     S: Scale,
 >(
     data: Data<RPCState<DB, B>>,
@@ -666,7 +663,7 @@ pub(crate) async fn miner_create_block<
 
 pub(crate) async fn state_miner_sector_allocated<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerSectorAllocatedParams>,
@@ -728,7 +725,7 @@ pub(crate) async fn state_miner_sector_allocated<
 
 pub(crate) async fn state_miner_power<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPowerParams>,
@@ -766,7 +763,7 @@ pub(crate) async fn state_miner_power<
 
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerPreCommitDepositForPowerParams>,
@@ -809,7 +806,7 @@ pub(crate) async fn state_miner_pre_commit_deposit_for_power<
 
 pub(crate) async fn state_miner_initial_pledge_collateral<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<StateMinerInitialPledgeCollateralParams>,
@@ -859,8 +856,8 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 /// returns the indicated actor's nonce and balance.
 pub(crate) async fn miner_get_base_info<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
-    V: ProofVerifier + Send + Sync + 'static,
+    B: Beacon,
+    V: ProofVerifier,
 >(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<MinerGetBaseInfoParams>,

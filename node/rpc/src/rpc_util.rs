@@ -50,8 +50,8 @@ pub async fn check_permissions<DB, B>(
     authorization_header: Option<HeaderValues>,
 ) -> Result<(), tide::Error>
 where
-    DB: Blockstore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     let claims = match authorization_header
         .and_then(|header_values| header_values.get(0).cloned())
