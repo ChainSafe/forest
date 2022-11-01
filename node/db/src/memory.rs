@@ -5,6 +5,7 @@ use super::{Error, Store};
 use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use libp2p_bitswap::BitswapStore;
 use parking_lot::RwLock;
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
@@ -69,5 +70,36 @@ impl Blockstore for MemoryDB {
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> Result<()> {
         self.write(k.to_bytes(), block).map_err(|e| e.into())
+    }
+}
+
+impl BitswapStore for MemoryDB {
+    type Params = libipld::DefaultParams;
+
+    fn contains(&mut self, cid: &Cid) -> Result<bool> {
+        Ok(self.exists(cid.to_bytes())?)
+    }
+
+    fn get(&mut self, cid: &Cid) -> Result<Option<Vec<u8>>> {
+        Blockstore::get(self, cid)
+    }
+
+    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> Result<()> {
+        self.put_keyed(block.cid(), block.data())
+    }
+
+    fn missing_blocks(&mut self, cid: &Cid) -> Result<Vec<Cid>> {
+        let mut stack = vec![*cid];
+        let mut missing = vec![];
+        while let Some(cid) = stack.pop() {
+            if let Some(data) = self.get(&cid)? {
+                // TODO: Are we using ipld codec?
+                let block = libipld::Block::<Self::Params>::new_unchecked(cid, data);
+                block.references(&mut stack)?;
+            } else {
+                missing.push(cid);
+            }
+        }
+        Ok(missing)
     }
 }

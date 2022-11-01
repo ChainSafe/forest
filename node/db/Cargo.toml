@@ -23,6 +23,8 @@ anyhow.workspace              = true
 cid                           = { workspace = true, default-features = false, features = ["std"] }
 forest_encoding.workspace     = true
 fvm_ipld_blockstore.workspace = true
+libipld.workspace             = true
+libp2p-bitswap.workspace      = true
 num_cpus.workspace            = true
 parking_lot                   = "0.12"
 rocksdb                       = { version = "0.19", default-features = false }

@@ -8,6 +8,7 @@ use crate::rocks_config::{
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use libp2p_bitswap::BitswapStore;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
@@ -149,5 +150,36 @@ impl Blockstore for RocksDb {
             .map(|(k, v)| (k.to_bytes(), v))
             .collect::<Vec<_>>();
         self.bulk_write(&values).map_err(|e| e.into())
+    }
+}
+
+impl BitswapStore for RocksDb {
+    type Params = libipld::DefaultParams;
+
+    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+        Ok(self.exists(cid.to_bytes())?)
+    }
+
+    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Blockstore::get(self, cid)
+    }
+
+    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        self.put_keyed(block.cid(), block.data())
+    }
+
+    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
+        let mut stack = vec![*cid];
+        let mut missing = vec![];
+        while let Some(cid) = stack.pop() {
+            if let Some(data) = self.get(&cid)? {
+                // TODO: Are we using ipld codec?
+                let block = libipld::Block::<Self::Params>::new_unchecked(cid, data);
+                block.references(&mut stack)?;
+            } else {
+                missing.push(cid);
+            }
+        }
+        Ok(missing)
     }
 }
