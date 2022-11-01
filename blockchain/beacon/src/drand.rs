@@ -130,7 +130,7 @@ pub struct BeaconPoint<T> {
 /// Trait used as the interface to be able to retrieve bytes from a randomness beacon.
 pub trait Beacon
 where
-    Self: Sized,
+    Self: Sized + Send + Sync + 'static,
 {
     /// Verify a new beacon entry against the most recent one before it.
     async fn verify_entry(

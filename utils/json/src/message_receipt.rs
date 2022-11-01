@@ -3,9 +3,6 @@
 
 use fvm_shared::receipt::Receipt;
 
-/// Result of a state transition from a message
-pub type MessageReceipt = Receipt;
-
 pub mod json {
     use super::*;
     use fvm_ipld_encoding::RawBytes;
@@ -15,22 +12,22 @@ pub mod json {
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
-    pub struct MessageReceiptJson(#[serde(with = "self")] pub MessageReceipt);
+    pub struct ReceiptJson(#[serde(with = "self")] pub Receipt);
 
     /// Wrapper for serializing a `SignedMessage` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct MessageReceiptJsonRef<'a>(#[serde(with = "self")] pub &'a MessageReceipt);
+    pub struct ReceiptJsonRef<'a>(#[serde(with = "self")] pub &'a Receipt);
 
-    impl From<MessageReceiptJson> for MessageReceipt {
-        fn from(wrapper: MessageReceiptJson) -> Self {
+    impl From<ReceiptJson> for Receipt {
+        fn from(wrapper: ReceiptJson) -> Self {
             wrapper.0
         }
     }
 
-    impl From<MessageReceipt> for MessageReceiptJson {
-        fn from(wrapper: MessageReceipt) -> Self {
-            MessageReceiptJson(wrapper)
+    impl From<Receipt> for ReceiptJson {
+        fn from(wrapper: Receipt) -> Self {
+            ReceiptJson(wrapper)
         }
     }
 
@@ -43,7 +40,7 @@ pub mod json {
         gas_used: i64,
     }
 
-    pub fn serialize<S>(m: &MessageReceipt, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &Receipt, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -55,7 +52,7 @@ pub mod json {
         .serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<MessageReceipt, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Receipt, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -64,7 +61,7 @@ pub mod json {
             return_data,
             gas_used,
         } = Deserialize::deserialize(deserializer)?;
-        Ok(MessageReceipt {
+        Ok(Receipt {
             exit_code: ExitCode::new(exit_code as u32),
             return_data: RawBytes::new(base64::decode(&return_data).map_err(de::Error::custom)?),
             gas_used,
@@ -75,40 +72,40 @@ pub mod json {
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
-        pub fn serialize<S>(m: &[MessageReceipt], serializer: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(m: &[Receipt], serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
             let mut seq = serializer.serialize_seq(Some(m.len()))?;
             for e in m {
-                seq.serialize_element(&MessageReceiptJsonRef(e))?;
+                seq.serialize_element(&ReceiptJsonRef(e))?;
             }
             seq.end()
         }
 
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<MessageReceipt>, D::Error>
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Receipt>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            deserializer.deserialize_any(GoVecVisitor::<MessageReceipt, MessageReceiptJson>::new())
+            deserializer.deserialize_any(GoVecVisitor::<Receipt, ReceiptJson>::new())
         }
     }
 
     pub mod opt {
         use super::*;
 
-        pub fn serialize<S>(v: &Option<MessageReceipt>, serializer: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(v: &Option<Receipt>, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
-            v.as_ref().map(MessageReceiptJsonRef).serialize(serializer)
+            v.as_ref().map(ReceiptJsonRef).serialize(serializer)
         }
 
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<MessageReceipt>, D::Error>
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Receipt>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            let s: Option<MessageReceipt> = Deserialize::deserialize(deserializer)?;
+            let s: Option<Receipt> = Deserialize::deserialize(deserializer)?;
             Ok(s)
         }
     }
@@ -117,13 +114,13 @@ pub mod json {
 #[cfg(test)]
 #[derive(Clone, Debug)]
 struct MessageReceiptWrapper {
-    message_receipt: MessageReceipt,
+    message_receipt: Receipt,
 }
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for MessageReceiptWrapper {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        let message_receipt = MessageReceipt {
+        let message_receipt = Receipt {
             exit_code: fvm_shared::error::ExitCode::new(u32::arbitrary(g)),
             return_data: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
             gas_used: i64::arbitrary(g),
@@ -134,7 +131,7 @@ impl quickcheck::Arbitrary for MessageReceiptWrapper {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{MessageReceiptJson, MessageReceiptJsonRef};
+    use super::json::{ReceiptJson, ReceiptJsonRef};
     use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
@@ -142,9 +139,8 @@ mod tests {
     #[quickcheck]
     fn message_receipt_roundtrip(message_receipt: MessageReceiptWrapper) {
         let serialized =
-            serde_json::to_string(&MessageReceiptJsonRef(&message_receipt.message_receipt))
-                .unwrap();
-        let parsed: MessageReceiptJson = serde_json::from_str(&serialized).unwrap();
+            serde_json::to_string(&ReceiptJsonRef(&message_receipt.message_receipt)).unwrap();
+        let parsed: ReceiptJson = serde_json::from_str(&serialized).unwrap();
         assert_eq!(message_receipt.message_receipt, parsed.0);
     }
 }

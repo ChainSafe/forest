@@ -28,7 +28,5 @@ serde_json.workspace        = true
 time                        = { workspace = true, features = ["serde", "serde-well-known"] }
 
 [dev-dependencies]
-forest_test_utils.workspace = true
-quickcheck.workspace        = true
-quickcheck_macros.workspace = true
-serde_json.workspace        = true
+quickcheck.workspace = true
+serde_json.workspace = true

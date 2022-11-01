@@ -8,6 +8,13 @@ install-daemon:
 
 install: install-cli install-daemon
 
+install-deps:
+	apt-get update -y
+	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake
+
+install-lint-tools:
+	RUSTFLAGS="-Cstrip=symbols" cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
+
 clean-all:
 	cargo clean
 
@@ -39,13 +46,13 @@ clean:
 	@echo "Done cleaning."
 
 # Lints with everything we have in our CI arsenal
-lint-all: lint audit udeps spellcheck
+lint-all: lint audit spellcheck udeps
 
 audit:
 	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
 
 udeps:
-	cargo udeps
+	cargo udeps --all-targets --features submodule_tests
 
 spellcheck:
 	cargo spellcheck --code 1
@@ -76,7 +83,7 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-serialization-vectors:
-	cargo nextest run --release --manifest-path=$(SER_TESTS)/Cargo.toml --features "submodule_tests"
+	cargo nextest run --release --manifest-path=$(SER_TESTS)/Cargo.toml --features submodule_tests
 
 run-vectors: run-serialization-vectors
 
@@ -114,4 +121,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --all-features --no-deps
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc

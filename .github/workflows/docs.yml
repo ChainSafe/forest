@@ -17,28 +17,44 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Apt Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang ocl-icd-opencl-dev
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Apt Dependencies
+        run: sudo make install-deps
       - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.5.1
         with:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        timeout-minutes: 5
-        continue-on-error: true
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+          key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install MDBook
         run: cargo install mdbook mdbook-linkcheck --locked
+        env:
+          RUSTFLAGS: "-Cstrip=symbols"
+        continue-on-error: true
+      - name: Setup sccache
+        uses: hanabi1224/sccache-action@v1.2.0
+        with:
+          release-name: v0.3.0
+          cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}
+          # true: always save cache
+          # false: only save when cache is not found
+          # this option is only available in the forked action
+          # the original action has no activities for years so we
+          # just keep using the fork
+          cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Execute MDBook
         run: make mdbook-build
       - name: Build rustdoc
         run: make rustdoc
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
       - name: Link Checker (Docs)
         uses: lycheeverse/lychee-action@v1.5.1
         with:

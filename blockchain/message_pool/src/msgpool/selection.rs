@@ -34,7 +34,7 @@ const MAX_BLOCKS: usize = 15;
 
 impl<T> MessagePool<T>
 where
-    T: Provider + Send + Sync + 'static,
+    T: Provider,
 {
     /// Forest employs a sophisticated algorithm for selecting messages
     /// for inclusion from the pool, given the ticket quality of a miner.
@@ -631,7 +631,7 @@ pub(crate) async fn run_head_change<T>(
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error>
 where
-    T: Provider + 'static,
+    T: Provider,
 {
     // TODO: This logic should probably be implemented in the ChainStore. It handles reorgs.
     let mut left = Arc::new(from);

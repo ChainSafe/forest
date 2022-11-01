@@ -19,7 +19,7 @@ pub(crate) async fn beacon_get_entry<DB, B>(
 ) -> Result<BeaconGetEntryResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (first,) = params;
     let (_, beacon) = data.beacon.beacon_for_epoch(first)?;

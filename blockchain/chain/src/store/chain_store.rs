@@ -18,7 +18,7 @@ use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
-use forest_message::{ChainMessage, MessageReceipt, SignedMessage};
+use forest_message::{ChainMessage, SignedMessage};
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
@@ -30,6 +30,7 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use fvm_shared::receipt::Receipt;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use serde::Serialize;
@@ -95,9 +96,12 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    DB: Blockstore + Store,
 {
-    pub async fn new(db: DB) -> Self {
+    pub async fn new(db: DB) -> Self
+    where
+        DB: Clone,
+    {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
@@ -193,11 +197,6 @@ where
     /// Returns key-value store instance.
     pub fn blockstore(&self) -> &DB {
         &self.db
-    }
-
-    /// Clones `blockstore` `Arc`.
-    pub fn blockstore_cloned(&self) -> DB {
-        self.db.clone()
     }
 
     /// Returns Tipset from key-value store from provided CIDs
@@ -671,7 +670,7 @@ pub(crate) async fn tipset_from_keys<BS>(
     tsk: &TipsetKeys,
 ) -> Result<Arc<Tipset>, Error>
 where
-    BS: Blockstore + Send + Sync + 'static,
+    BS: Blockstore,
 {
     if let Some(ts) = cache.write().await.get(tsk) {
         return Ok(ts.clone());
@@ -897,7 +896,7 @@ pub fn get_parent_reciept<DB>(
     db: &DB,
     block_header: &BlockHeader,
     i: usize,
-) -> Result<Option<MessageReceipt>, Error>
+) -> Result<Option<Receipt>, Error>
 where
     DB: Blockstore,
 {

@@ -21,9 +21,11 @@ fvm_shared                = { workspace = true, default-features = false }
 hex.workspace             = true
 serde                     = { workspace = true, features = ["derive"] }
 sha2                      = { workspace = true, default-features = false }
-surf                      = { version = "2.3", default-features = false, features = ["h1-client"] }
+surf                      = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
 tokio                     = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-async-std            = { workspace = true, features = ["attributes"] }
-serde_json.workspace = true
+async-std                   = { workspace = true, features = ["attributes"] }
+quickcheck.workspace        = true
+quickcheck_macros.workspace = true
+serde_json.workspace        = true
