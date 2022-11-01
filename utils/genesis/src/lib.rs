@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
@@ -70,6 +71,15 @@ where
     Ok(network_name)
 }
 
+pub async fn get_network_name_from_genesis_cid(cid: &str) -> Result<String, anyhow::Error> {
+    let network_name = match cid {
+        "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2" => "mainnet".to_owned(),
+        "bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4" => "calibnet".to_owned(),
+        _ => bail!("Cannot guess network name using cid: {}", cid),
+    };
+    Ok(network_name)
+}
+
 pub async fn initialize_genesis<BS>(
     genesis_fp: Option<&String>,
     state_manager: &StateManager<BS>,
@@ -134,7 +144,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
-
+    let selected_network_name = &sm.chain_config().name;
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
@@ -161,6 +171,11 @@ where
             .tipset_by_height(0, ts.clone(), true)
             .await?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
+        let snapshot_genesis_network_name =
+            get_network_name_from_genesis_cid(&gb.blocks()[0].cid().to_string()).await?;
+        if snapshot_genesis_network_name != *selected_network_name {
+            bail!("Snapshot Incompatible with {}.", selected_network_name);
+        }
     }
 
     // Update head with snapshot header tipset
