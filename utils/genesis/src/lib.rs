@@ -135,6 +135,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
+
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
@@ -163,7 +164,7 @@ where
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
         if let Some(expected_genesis_cid) = &sm.chain_config().genesis_cid {
             if expected_genesis_cid != &gb.blocks()[0].cid().to_string() {
-                bail!("Snapshot Incompatible with {}.", sm.chain_config().name);
+                bail!("Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or use a custom config file to set expected genesis CID for selected network", sm.chain_config().name);
             }
         }
     }
