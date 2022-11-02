@@ -10,8 +10,9 @@ use forest_networks::ChainConfig;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use log::warn;
+use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -167,7 +168,7 @@ impl Chains {
     }
 
     /// Removes messages from the given index and resets effective `perfs`
-    pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: i64, base_fee: &BigInt) {
+    pub(crate) fn trim_msgs_at(&mut self, idx: usize, gas_limit: i64, base_fee: &TokenAmount) {
         let prev = match idx {
             0 => None,
             _ => self
@@ -256,7 +257,7 @@ impl IndexMut<usize> for Chains {
 #[derive(Clone, Debug)]
 pub struct MsgChainNode {
     pub msgs: Vec<SignedMessage>,
-    pub gas_reward: BigInt,
+    pub gas_reward: TokenAmount,
     pub gas_limit: i64,
     pub gas_perf: f64,
     pub eff_perf: f64,
@@ -325,7 +326,7 @@ impl std::default::Default for MsgChainNode {
     fn default() -> Self {
         Self {
             msgs: vec![],
-            gas_reward: BigInt::default(),
+            gas_reward: TokenAmount::zero(),
             gas_limit: 0,
             gas_perf: 0.0,
             eff_perf: 0.0,
@@ -343,7 +344,7 @@ pub(crate) async fn create_message_chains<T>(
     api: &RwLock<T>,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,
-    base_fee: &BigInt,
+    base_fee: &TokenAmount,
     ts: &Tipset,
     chains: &mut Chains,
     chain_config: &ChainConfig,

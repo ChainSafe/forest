@@ -8,14 +8,17 @@ use rand_distr::{Distribution, Normal};
 use forest_beacon::Beacon;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
-use forest_ipld_blockstore::BlockStore;
+use forest_db::Store;
 use forest_json::address::json::AddressJson;
-use forest_message::{message::json::MessageJson, ChainMessage};
+use forest_json::message::json::MessageJson;
+use forest_message::ChainMessage;
 use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::BigInt;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::BLOCK_GAS_LIMIT;
 
@@ -27,14 +30,14 @@ pub(crate) async fn gas_estimate_fee_cap<DB, B>(
     Params(params): Params<GasEstimateFeeCapParams>,
 ) -> Result<GasEstimateFeeCapResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
     estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
         .await
-        .map(|n| BigInt::to_string(&n))
+        .map(|n| TokenAmount::to_string(&n))
 }
 
 async fn estimate_fee_cap<DB, B>(
@@ -42,10 +45,10 @@ async fn estimate_fee_cap<DB, B>(
     msg: Message,
     max_queue_blks: i64,
     _tsk: TipsetKeys,
-) -> Result<BigInt, JsonRpcError>
+) -> Result<TokenAmount, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let ts = data
         .state_manager
@@ -61,7 +64,7 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let mut out = fee_in_future / (1 << 8);
+    let mut out = fee_in_future.div_floor(1 << 8);
     out += msg.gas_premium;
     Ok(out)
 }
@@ -72,29 +75,29 @@ pub(crate) async fn gas_estimate_gas_premium<DB, B>(
     Params(params): Params<GasEstimateGasPremiumParams>,
 ) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
     estimate_gas_premium::<DB, B>(&data, nblocksincl)
         .await
-        .map(|n| BigInt::to_string(&n))
+        .map(|n| TokenAmount::to_string(&n))
 }
 
 async fn estimate_gas_premium<DB, B>(
     data: &Data<RPCState<DB, B>>,
     mut nblocksincl: u64,
-) -> Result<BigInt, JsonRpcError>
+) -> Result<TokenAmount, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     if nblocksincl == 0 {
         nblocksincl = 1;
     }
 
     struct GasMeta {
-        pub price: BigInt,
+        pub price: TokenAmount,
         pub limit: i64,
     }
 
@@ -135,8 +138,8 @@ where
     prices.sort_by(|a, b| b.price.cmp(&a.price));
     // TODO: From lotus, account for how full blocks are
     let mut at = BLOCK_GAS_TARGET * blocks as i64 / 2;
-    let mut prev = BigInt::zero();
-    let mut premium = BigInt::zero();
+    let mut prev = TokenAmount::zero();
+    let mut premium = TokenAmount::zero();
 
     for price in prices {
         at -= price.limit;
@@ -144,20 +147,19 @@ where
             prev = price.price;
             continue;
         }
-        if prev == 0.into() {
-            let ret: BigInt = price.price + 1;
+        if prev == TokenAmount::zero() {
+            let ret: TokenAmount = price.price + TokenAmount::from_atto(1);
             return Ok(ret);
         }
-        premium = (&price.price + &prev) / 2 + 1
+        premium = (&price.price + &prev).div_floor(2) + TokenAmount::from_atto(1)
     }
 
-    if premium == 0.into() {
-        premium = BigInt::from_f64(match nblocksincl {
-            1 => MIN_GAS_PREMIUM * 2.0,
-            2 => MIN_GAS_PREMIUM * 1.5,
-            _ => MIN_GAS_PREMIUM,
-        })
-        .ok_or("failed to convert gas premium f64 to bigint")?;
+    if premium == TokenAmount::zero() {
+        premium = TokenAmount::from_atto(match nblocksincl {
+            1 => (MIN_GAS_PREMIUM * 2.0) as u64,
+            2 => (MIN_GAS_PREMIUM * 1.5) as u64,
+            _ => MIN_GAS_PREMIUM as u64,
+        });
     }
 
     let precision = 32;
@@ -169,7 +171,7 @@ where
 
     premium *= BigInt::from_f64(noise * (1i64 << precision) as f64)
         .ok_or("failed to converrt gas premium f64 to bigint")?;
-    premium /= 1i64 << precision;
+    premium = premium.div_floor(1i64 << precision);
 
     Ok(premium)
 }
@@ -180,8 +182,8 @@ pub(crate) async fn gas_estimate_gas_limit<DB, B>(
     Params(params): Params<GasEstimateGasLimitParams>,
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
     estimate_gas_limit::<DB, B>(&data, msg, tsk).await
@@ -193,13 +195,13 @@ async fn estimate_gas_limit<DB, B>(
     _: TipsetKeys,
 ) -> Result<i64, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let mut msg = msg;
     msg.gas_limit = BLOCK_GAS_LIMIT;
-    msg.gas_fee_cap = MINIMUM_BASE_FEE.clone() + 1;
-    msg.gas_premium = 1.into();
+    msg.gas_fee_cap = TokenAmount::from_atto(MINIMUM_BASE_FEE + 1);
+    msg.gas_premium = TokenAmount::from_atto(1);
 
     let curr_ts = data
         .state_manager
@@ -244,8 +246,8 @@ pub(crate) async fn gas_estimate_message_gas<DB, B>(
     Params(params): Params<GasEstimateMessageGasParams>,
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
     estimate_message_gas::<DB, B>(&data, msg, spec, tsk)
@@ -260,8 +262,8 @@ pub(crate) async fn estimate_message_gas<DB, B>(
     tsk: TipsetKeys,
 ) -> Result<Message, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {

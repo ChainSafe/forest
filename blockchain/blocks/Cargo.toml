@@ -21,9 +21,9 @@ lazy_static.workspace       = true
 log.workspace               = true
 num-bigint.workspace        = true
 once_cell.workspace         = true
-quickcheck                  = { version = "1" }
+quickcheck.workspace        = true
 serde                       = { workspace = true, features = ["derive"] }
-sha2                        = { version = "0.10", default-features = false }
+sha2                        = { workspace = true, default-features = false }
 thiserror.workspace         = true
 
 [dev-dependencies]

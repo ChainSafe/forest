@@ -9,6 +9,7 @@ config*.toml
 *.orig
 criterion
 genesis.json
-/.cargo
+/.cargo/*
+!/.cargo/*.toml
 node/rpc-api/static/ast.ron
 documentation/book/**/*

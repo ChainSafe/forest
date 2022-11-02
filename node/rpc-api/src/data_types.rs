@@ -12,28 +12,26 @@ use forest_blocks::{
 use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
-use forest_ipld_blockstore::BlockStore;
 use forest_json::address::json::AddressJson;
-use forest_json::bigint::json;
 use forest_json::cid::CidJson;
+use forest_json::message_receipt::json::ReceiptJson;
 use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
+use forest_json::signed_message::json::SignedMessageJson;
+use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
-use forest_message::{
-    message_receipt::json::MessageReceiptJson, signed_message,
-    signed_message::json::SignedMessageJson, SignedMessage,
-};
+use forest_message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::{MiningBaseInfo, StateManager};
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
-use fvm_shared::sector::SectorSize;
+use fvm_shared::sector::{SectorSize, StoragePower};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -50,8 +48,8 @@ pub struct StreamingData<'a> {
 /// This is where you store persistent data, or at least access to stateful data.
 pub struct RPCState<DB, B>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub chain_store: Arc<ChainStore<DB>>,
@@ -76,9 +74,12 @@ pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 // Chain API
 #[derive(Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "forest_message::message::json::vec")]
+    #[serde(rename = "BlsMessages", with = "forest_json::message::json::vec")]
     pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "signed_message::json::vec")]
+    #[serde(
+        rename = "SecpkMessages",
+        with = "forest_json::signed_message::json::vec"
+    )]
     pub secp_msg: Vec<SignedMessage>,
     #[serde(rename = "Cids", with = "forest_json::cid::vec")]
     pub cids: Vec<Cid>,
@@ -124,7 +125,7 @@ pub struct ActorStateJson {
     head: Cid,
     nonce: u64,
     #[serde(with = "json")]
-    balance: BigInt,
+    balance: TokenAmount,
 }
 
 impl ActorStateJson {
@@ -165,7 +166,7 @@ pub struct MarketDeal {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
-    pub receipt: MessageReceiptJson,
+    pub receipt: ReceiptJson,
     #[serde(rename = "TipSet")]
     pub tipset: TipsetKeysJson,
     pub height: i64,
@@ -190,10 +191,10 @@ pub struct BlockTemplate {
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfoJson {
-    #[serde(with = "json::option")]
-    pub miner_power: Option<TokenAmount>,
-    #[serde(with = "json::option")]
-    pub network_power: Option<TokenAmount>,
+    #[serde(with = "forest_json::bigint::json::option")]
+    pub miner_power: Option<StoragePower>,
+    #[serde(with = "forest_json::bigint::json::option")]
+    pub network_power: Option<StoragePower>,
     pub sectors: Vec<SectorInfoJson>,
     #[serde(with = "forest_json::address::json")]
     pub worker_key: Address,

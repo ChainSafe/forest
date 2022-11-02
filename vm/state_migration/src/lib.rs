@@ -5,8 +5,8 @@
 //! Each network upgrade / state migration code lives in their own module.
 
 use cid::Cid;
-use forest_ipld_blockstore::BlockStore;
 use fvm::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 
@@ -54,7 +54,7 @@ pub struct StateMigration<BS> {
     deferred_code_ids: HashSet<Cid>,
 }
 
-impl<BS: BlockStore + Send + Sync> StateMigration<BS> {
+impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
@@ -179,7 +179,7 @@ pub struct MigrationOutput {
     new_head: Cid,
 }
 
-pub trait ActorMigration<BS: BlockStore + Send + Sync> {
+pub trait ActorMigration<BS: Blockstore + Send + Sync> {
     fn migrate_state(
         &self,
         store: Arc<BS>,
@@ -187,13 +187,13 @@ pub trait ActorMigration<BS: BlockStore + Send + Sync> {
     ) -> MigrationResult<MigrationOutput>;
 }
 
-struct MigrationJob<BS: BlockStore> {
+struct MigrationJob<BS: Blockstore> {
     address: Address,
     actor_state: ActorState,
     actor_migration: Arc<dyn ActorMigration<BS>>,
 }
 
-impl<BS: BlockStore + Send + Sync> MigrationJob<BS> {
+impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
     fn run(&self, store: Arc<BS>, prior_epoch: ChainEpoch) -> MigrationResult<MigrationJobOutput> {
         let result = self
             .actor_migration
@@ -234,7 +234,7 @@ struct MigrationJobOutput {
 }
 
 #[allow(dead_code)]
-fn nil_migrator<BS: BlockStore + Send + Sync>(
+fn nil_migrator<BS: Blockstore + Send + Sync>(
     cid: Cid,
 ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {
     Arc::new(NilMigrator(cid))
@@ -243,7 +243,7 @@ fn nil_migrator<BS: BlockStore + Send + Sync>(
 /// Migrator which preserves the head CID and provides a fixed result code CID.
 pub(crate) struct NilMigrator(Cid);
 
-impl<BS: BlockStore + Send + Sync> ActorMigration<BS> for NilMigrator {
+impl<BS: Blockstore + Send + Sync> ActorMigration<BS> for NilMigrator {
     fn migrate_state(
         &self,
         _store: Arc<BS>,

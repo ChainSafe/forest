@@ -11,9 +11,9 @@ features = ["json"]
 anyhow.workspace             = true
 argon2                       = "0.4"
 base64.workspace             = true
-bls-signatures               = { version = "0.11", default-features = false, features = ["blst"] }
-forest_crypto                = { workspace = true, features = ["blst"] }
+bls-signatures.workspace     = true
 forest_encoding.workspace    = true
+forest_json.workspace        = true
 forest_utils.workspace       = true
 fvm_shared                   = { workspace = true, default-features = false }
 libsecp256k1.workspace       = true
@@ -26,7 +26,6 @@ thiserror.workspace          = true
 xsalsa20poly1305             = "0.9"
 
 [dev-dependencies]
-forest_test_utils.workspace = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true

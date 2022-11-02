@@ -28,6 +28,16 @@ impl BeaconEntry {
     }
 }
 
+#[cfg(test)]
+impl quickcheck::Arbitrary for BeaconEntry {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        BeaconEntry {
+            round: u64::arbitrary(g),
+            data: Vec::arbitrary(g),
+        }
+    }
+}
+
 pub mod json {
     use super::*;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -100,5 +110,19 @@ pub mod json {
         {
             deserializer.deserialize_any(GoVecVisitor::<BeaconEntry, BeaconEntryJson>::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::json::{BeaconEntryJson, BeaconEntryJsonRef};
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn beacon_entry_roundtrip(entry: BeaconEntry) {
+        let serialized = serde_json::to_string(&BeaconEntryJsonRef(&entry)).unwrap();
+        let parsed: BeaconEntryJson = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(entry, parsed.into());
     }
 }

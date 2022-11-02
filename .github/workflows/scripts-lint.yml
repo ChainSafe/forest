@@ -18,3 +18,16 @@ jobs:
       uses: ludeeus/action-shellcheck@1.1.0
       env:
         SHELLCHECK_OPTS: --external-sources
+  rubocop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+      - name: Run rubocop
+        run: |
+          gem install rubocop --no-document
+          rubocop scripts/
+
