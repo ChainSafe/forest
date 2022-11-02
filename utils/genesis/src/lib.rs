@@ -24,12 +24,6 @@ use url::Url;
 
 #[cfg(feature = "testing")]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
-/// Mainnet Genesis CID
-pub const MAINNET_GENESIS_CID: &str =
-    "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
-/// Calibnet Genesis CID
-pub const CALIBNET_GENESIS_CID: &str =
-    "bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4";
 
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.
@@ -74,15 +68,6 @@ where
     let network_name = state_manager
         .get_network_name(genesis_header.state_root())
         .map_err(|e| anyhow::anyhow!("Failed to retrieve network name from genesis: {}", e))?;
-    Ok(network_name)
-}
-
-pub async fn get_network_name_from_genesis_cid(cid: &str) -> Result<String, anyhow::Error> {
-    let network_name = match cid {
-        MAINNET_GENESIS_CID => "mainnet".to_owned(),
-        CALIBNET_GENESIS_CID => "calibnet".to_owned(),
-        _ => bail!("Cannot guess network name using cid: {}", cid),
-    };
     Ok(network_name)
 }
 
@@ -150,7 +135,6 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let is_remote_file: bool = path.starts_with("http://") || path.starts_with("https://");
-    let selected_network_name = &sm.chain_config().name;
     info!("Importing chain from snapshot at: {path}");
     // start import
     let stopwatch = time::Instant::now();
@@ -177,10 +161,10 @@ where
             .tipset_by_height(0, ts.clone(), true)
             .await?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
-        let snapshot_genesis_network_name =
-            get_network_name_from_genesis_cid(&gb.blocks()[0].cid().to_string()).await?;
-        if snapshot_genesis_network_name != *selected_network_name {
-            bail!("Snapshot Incompatible with {}.", selected_network_name);
+        if let Some(expected_genesis_cid) = &sm.chain_config().genesis_cid {
+            if expected_genesis_cid != &gb.blocks()[0].cid().to_string() {
+                bail!("Snapshot Incompatible with {}.", sm.chain_config().name);
+            }
         }
     }
 

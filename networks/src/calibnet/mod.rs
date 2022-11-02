@@ -5,6 +5,8 @@ use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
+/// Genesis CID
+pub const GENESIS_CID: &str = "bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4";
 
 pub const MINIMUM_CONSENSUS_POWER: i64 = 32 << 30;
 
