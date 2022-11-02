@@ -24,6 +24,12 @@ use url::Url;
 
 #[cfg(feature = "testing")]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
+/// Mainnet Genesis CID
+pub const MAINNET_GENESIS_CID: &str =
+    "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
+/// Calibnet Genesis CID
+pub const CALIBNET_GENESIS_CID: &str =
+    "bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4";
 
 /// Uses an optional file path or the default genesis to parse the genesis and determine if
 /// chain store has existing data for the given genesis.
@@ -73,8 +79,8 @@ where
 
 pub async fn get_network_name_from_genesis_cid(cid: &str) -> Result<String, anyhow::Error> {
     let network_name = match cid {
-        "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2" => "mainnet".to_owned(),
-        "bafy2bzacecz3trtejxtzix4f4eebs7dekm6snfsmvffiqz2rfx7iwgsgtieq4" => "calibnet".to_owned(),
+        MAINNET_GENESIS_CID => "mainnet".to_owned(),
+        CALIBNET_GENESIS_CID => "calibnet".to_owned(),
         _ => bail!("Cannot guess network name using cid: {}", cid),
     };
     Ok(network_name)
