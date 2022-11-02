@@ -22,6 +22,7 @@ use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
+use libipld::store::StoreParams;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::multiaddr::Protocol;
@@ -38,6 +39,7 @@ use libp2p::{
     yamux, PeerId, Swarm, Transport,
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
+use libp2p_bitswap::BitswapStore;
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::path::Path;
@@ -120,10 +122,9 @@ pub enum NetRPCMethods {
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
-pub struct Libp2pService<DB> {
-    swarm: Swarm<ForestBehaviour>,
+pub struct Libp2pService<DB, P: StoreParams> {
+    swarm: Swarm<ForestBehaviour<P>>,
     cs: Arc<ChainStore<DB>>,
-
     network_receiver_in: flume::Receiver<NetworkMessage>,
     network_sender_in: flume::Sender<NetworkMessage>,
     network_receiver_out: flume::Receiver<NetworkEvent>,
@@ -132,9 +133,9 @@ pub struct Libp2pService<DB> {
     bitswap_response_channels: HashMap<Cid, Vec<OneShotSender<()>>>,
 }
 
-impl<DB> Libp2pService<DB>
+impl<DB, P: StoreParams> Libp2pService<DB, P>
 where
-    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
 {
     pub async fn new(
         config: Libp2pConfig,
@@ -155,7 +156,7 @@ where
 
         let mut swarm = SwarmBuilder::new(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name).await,
+            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()).await,
             peer_id,
         )
         .connection_limits(limits)
@@ -285,7 +286,7 @@ where
                                 }
                             }
                         },
-                        SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get_obj(&cid) {
+                        SwarmEvent::Behaviour(ForestBehaviourEvent::Bitswap(event)) => match self.cs.blockstore().get_obj(&cid) {
                             Ok(Some(data)) => {
                                 match swarm_stream.get_mut().behaviour_mut().send_block(&peer_id, cid, data) {
                                     Ok(_) => {
@@ -324,7 +325,7 @@ where
                             swarm_stream.get_mut().behaviour_mut().send_chain_exchange_request(&peer_id, request, response_channel);
                         }
                         NetworkMessage::BitswapRequest { cid, response_channel } => {
-                            if let Err(e) = swarm_stream.get_mut().behaviour_mut().want_block(cid, 1000) {
+                            if let Err(e) = swarm_stream.get_mut().behaviour_mut().want_block(cid) {
                                 warn!("Failed to send a bitswap want_block: {}", e.to_string());
                             } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
                                     chans.push(response_channel);

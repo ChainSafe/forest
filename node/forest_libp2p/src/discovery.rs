@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use libp2p::core::transport::ListenerId;
+use libp2p::kad::record::store::MemoryStore;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
 use libp2p::swarm::{ConnectionHandler, DialError, IntoConnectionHandler};
 use libp2p::{
@@ -10,7 +11,6 @@ use libp2p::{
     multiaddr::Protocol,
     swarm::{behaviour::toggle::Toggle, NetworkBehaviour, NetworkBehaviourAction, PollParameters},
 };
-use libp2p::{kad::record::store::MemoryStore, mdns::Mdns};
 use log::{debug, error, trace, warn};
 use std::collections::HashMap;
 use std::{
@@ -134,11 +134,11 @@ impl<'a> DiscoveryConfig<'a> {
             None
         };
 
-        let mdns_opt = if enable_mdns {
+        let mdns_event_opt = if enable_mdns {
             Some(
-                Mdns::new(Default::default())
-                    .await
-                    .expect("Could not start mDNS"),
+                MdnsEvent::Discovered(Default::default()), //  ::new(Default::default())
+                                                           //     .await
+                                                           //     .expect("Could not start mDNS"),
             )
         } else {
             None
@@ -151,7 +151,7 @@ impl<'a> DiscoveryConfig<'a> {
             duration_to_next_kad: Duration::from_secs(1),
             pending_events: VecDeque::new(),
             num_connections: 0,
-            mdns: mdns_opt.into(),
+            mdns: mdns_event_opt.into(),
             peers,
             peer_addresses,
             discovery_max,
@@ -167,7 +167,7 @@ pub struct DiscoveryBehaviour {
     /// Kademlia discovery.
     kademlia: Toggle<Kademlia<MemoryStore>>,
     /// Discovers nodes on the local network.
-    mdns: Toggle<Mdns>,
+    mdns: Toggle<MdnsEvent>,
     /// Stream that fires when we need to perform the next random Kademlia query.
     next_kad_random_query: Interval,
     /// After `next_kad_random_query` triggers, the next one triggers after this duration.
