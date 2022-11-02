@@ -135,3 +135,17 @@ jobs:
         run: |
           pkill forest
           cat forest.out forest.err
+  
+  dependencies-duplicate-check:
+    name: Check cargo files for duplicates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+      - name: Run duplicate find check
+        run: |
+          gem install toml-rb --no-document
+          ruby scripts/find_duplicate_deps.rb
