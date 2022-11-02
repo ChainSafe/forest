@@ -136,7 +136,7 @@ impl<'a> DiscoveryConfig<'a> {
             None
         };
 
-        let mdns_event_opt = if enable_mdns {
+        let mdns_opt = if enable_mdns {
             Some(Mdns::new(Default::default()).expect("Could not start mDNS"))
         } else {
             None
@@ -149,7 +149,7 @@ impl<'a> DiscoveryConfig<'a> {
             duration_to_next_kad: Duration::from_secs(1),
             pending_events: VecDeque::new(),
             num_connections: 0,
-            mdns: mdns_event_opt.into(),
+            mdns: mdns_opt.into(),
             peers,
             peer_addresses,
             discovery_max,

@@ -17,6 +17,8 @@ jobs:
           - os: macos-latest
             file: forest-${{ github.ref_name }}-macos-amd64.zip
     steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies

@@ -154,6 +154,8 @@ impl Blockstore for RocksDb {
 }
 
 impl BitswapStore for RocksDb {
+    /// fvm_ipld_encoding::DAG_CBOR(0x71) is covered by [libipld::DefaultParams]
+    /// under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
     fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
@@ -173,7 +175,6 @@ impl BitswapStore for RocksDb {
         let mut missing = vec![];
         while let Some(cid) = stack.pop() {
             if let Some(data) = self.get(&cid)? {
-                // TODO: Are we using ipld codec?
                 let block = libipld::Block::<Self::Params>::new_unchecked(cid, data);
                 block.references(&mut stack)?;
             } else {

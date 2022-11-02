@@ -93,7 +93,6 @@ impl BitswapStore for MemoryDB {
         let mut missing = vec![];
         while let Some(cid) = stack.pop() {
             if let Some(data) = self.get(&cid)? {
-                // TODO: Are we using ipld codec?
                 let block = libipld::Block::<Self::Params>::new_unchecked(cid, data);
                 block.references(&mut stack)?;
             } else {

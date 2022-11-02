@@ -23,6 +23,9 @@ FROM buildpack-deps:buster AS build-env
 RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake ca-certificates curl
 RUN update-ca-certificates
 
+# Install protoc
+RUN PROTOC_VERSION=$(curl -s "https://api.github.com/repos/protocolbuffers/protobuf/releases/latest" | grep -Po '"tag_name": "v\K[0-9.]+') && curl -Lo /tmp/protoc.zip "https://github.com/protocolbuffers/protobuf/releases/latest/download/protoc-${PROTOC_VERSION}-linux-x86_64.zip" && unzip -q /tmp/protoc.zip bin/protoc -d /usr/local
+
 # Install rustup
 # https://rustup.rs/
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

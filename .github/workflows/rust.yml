@@ -22,6 +22,8 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
@@ -43,6 +45,8 @@ jobs:
     name: All lint checks (lint audit spellcheck udeps)
     runs-on: ubuntu-latest
     steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
@@ -72,6 +76,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
+      - name: Install Protoc (Linux)
+        uses: arduino/setup-protoc@v1
+        if: startsWith(matrix.os, 'Ubuntu')
+        # MacOS runners always get rate limited when calling gh api
+      - name: Install Protoc (MacOS)
+        if: startsWith(matrix.os, 'macOS')
+        env:
+          PROTOC_VERSION: 21.9
+        run: |
+          # brew install --verbose grep
+          # PROTOC_VERSION=$(curl -s "https://api.github.com/repos/protocolbuffers/protobuf/releases/latest" | ggrep -Po '"tag_name": "v\K[0-9.]+')
+          curl -Lo /tmp/protoc.zip "https://github.com/protocolbuffers/protobuf/releases/latest/download/protoc-${PROTOC_VERSION}-osx-x86_64.zip"
+          unzip -q /tmp/protoc.zip bin/protoc -d /usr/local
+          protoc --version
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
@@ -104,6 +122,8 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
@@ -135,7 +155,7 @@ jobs:
         run: |
           pkill forest
           cat forest.out forest.err
-  
+
   dependencies-duplicate-check:
     name: Check cargo files for duplicates
     runs-on: ubuntu-latest
@@ -144,7 +164,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.0'
+          ruby-version: "3.0"
       - name: Run duplicate find check
         run: |
           gem install toml-rb --no-document
