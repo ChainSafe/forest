@@ -440,11 +440,11 @@ fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(&config.chain.name)
 }
 
-fn get_actual_network_name(internal_network_name: &str) -> String {
+fn get_actual_network_name(internal_network_name: &str) -> &str {
     match internal_network_name {
-        "testnetnet" => "mainnet".to_owned(),
-        "calibrationnet" => "calibnet".to_owned(),
-        _ => internal_network_name.to_owned(),
+        "testnetnet" => "mainnet",
+        "calibrationnet" => "calibnet",
+        _ => internal_network_name,
     }
 }
 
