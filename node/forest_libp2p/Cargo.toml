@@ -32,7 +32,7 @@ libp2p = { workspace = true, default-features = false, features = [
   "kad",
   "identify",
   "ping",
-  "mdns",
+  "mdns-async-io",
   "noise",
   "yamux",
   "tcp-async-io",

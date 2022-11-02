@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use libp2p::core::transport::ListenerId;
 use libp2p::kad::record::store::MemoryStore;
+use libp2p::mdns::Mdns;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
 use libp2p::swarm::{ConnectionHandler, DialError, IntoConnectionHandler};
 use libp2p::{
@@ -12,6 +13,7 @@ use libp2p::{
     swarm::{behaviour::toggle::Toggle, NetworkBehaviour, NetworkBehaviourAction, PollParameters},
 };
 use log::{debug, error, trace, warn};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::{
     cmp,
@@ -103,7 +105,7 @@ impl<'a> DiscoveryConfig<'a> {
         let store = MemoryStore::new(local_peer_id.to_owned());
         let mut kad_config = KademliaConfig::default();
         let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
-        kad_config.set_protocol_name(network.as_bytes().to_vec());
+        kad_config.set_protocol_names(vec![Cow::Owned(network.as_bytes().to_vec())]);
 
         // TODO this parsing should probably be done when parsing config, not initializing node
         let user_defined: Vec<(PeerId, Multiaddr)> = user_defined
@@ -135,11 +137,7 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let mdns_event_opt = if enable_mdns {
-            Some(
-                MdnsEvent::Discovered(Default::default()), //  ::new(Default::default())
-                                                           //     .await
-                                                           //     .expect("Could not start mDNS"),
-            )
+            Some(Mdns::new(Default::default()).expect("Could not start mDNS"))
         } else {
             None
         };
@@ -167,7 +165,7 @@ pub struct DiscoveryBehaviour {
     /// Kademlia discovery.
     kademlia: Toggle<Kademlia<MemoryStore>>,
     /// Discovers nodes on the local network.
-    mdns: Toggle<MdnsEvent>,
+    mdns: Toggle<Mdns>,
     /// Stream that fires when we need to perform the next random Kademlia query.
     next_kad_random_query: Interval,
     /// After `next_kad_random_query` triggers, the next one triggers after this duration.

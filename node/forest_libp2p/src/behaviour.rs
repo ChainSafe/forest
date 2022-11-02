@@ -19,7 +19,6 @@ use forest_encoding::blake2b_256;
 use futures::channel::oneshot::{self, Sender as OneShotSender};
 use futures::{prelude::*, stream::FuturesUnordered};
 use libipld::store::StoreParams;
-use libp2p::ping::{Ping, PingEvent};
 use libp2p::request_response::{
     ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
     RequestResponseMessage, ResponseChannel,
@@ -36,11 +35,8 @@ use libp2p::{
     },
     Multiaddr,
 };
-use libp2p::{
-    identify::{Identify, IdentifyConfig, IdentifyEvent},
-    ping::{PingFailure, PingSuccess},
-};
-use libp2p_bitswap::{Bitswap, BitswapEvent, BitswapStore};
+use libp2p::{identify, ping};
+use libp2p_bitswap::{Bitswap, BitswapStore};
 use log::{debug, trace, warn};
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -53,14 +49,12 @@ use tiny_cid::Cid as Cid2;
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
-#[behaviour(
-    // out_event = "ForestBehaviourEvent"
-)]
+// #[behaviour(out_event = "ForestBehaviourEvent")]
 pub(crate) struct ForestBehaviour<P: StoreParams> {
     gossipsub: Gossipsub,
     discovery: DiscoveryBehaviour,
-    ping: Ping,
-    identify: Identify,
+    ping: ping::Behaviour,
+    identify: identify::Behaviour,
     // TODO would be nice to have this handled together and generic, to avoid duplicated polling
     // but is fine for now, since the protocols are handled slightly differently.
     hello: RequestResponse<HelloCodec>,
@@ -473,15 +467,14 @@ impl<P: StoreParams> ForestBehaviour<P> {
         ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish().await,
-            ping: Ping::default(),
-            identify: Identify::new(IdentifyConfig::new("ipfs/0.1.0".into(), local_key.public())),
+            ping: Default::default(),
+            identify: identify::Behaviour::new(identify::Config::new(
+                "ipfs/0.1.0".into(),
+                local_key.public(),
+            )),
             bitswap,
             hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
-            // cx_pending_responses: Default::default(),
-            // cx_request_table: Default::default(),
-            // hello_request_table: Default::default(),
-            // events: vec![],
         }
     }
 
@@ -504,27 +497,27 @@ impl<P: StoreParams> ForestBehaviour<P> {
         self.gossipsub.subscribe(topic)
     }
 
-    /// Send a hello request or response to some peer.
-    pub fn send_hello_request(
-        &mut self,
-        peer_id: &PeerId,
-        request: HelloRequest,
-        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
-    ) {
-        let req_id = self.hello.send_request(peer_id, request);
-        self.hello_request_table.insert(req_id, response_channel);
-    }
+    // /// Send a hello request or response to some peer.
+    // pub fn send_hello_request(
+    //     &mut self,
+    //     peer_id: &PeerId,
+    //     request: HelloRequest,
+    //     response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
+    // ) {
+    //     let req_id = self.hello.send_request(peer_id, request);
+    //     self.hello_request_table.insert(req_id, response_channel);
+    // }
 
-    /// Send a chain exchange request or response to some peer.
-    pub fn send_chain_exchange_request(
-        &mut self,
-        peer_id: &PeerId,
-        request: ChainExchangeRequest,
-        response_channel: OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>,
-    ) {
-        let req_id = self.chain_exchange.send_request(peer_id, request);
-        self.cx_request_table.insert(req_id, response_channel);
-    }
+    // /// Send a chain exchange request or response to some peer.
+    // pub fn send_chain_exchange_request(
+    //     &mut self,
+    //     peer_id: &PeerId,
+    //     request: ChainExchangeRequest,
+    //     response_channel: OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>,
+    // ) {
+    //     let req_id = self.chain_exchange.send_request(peer_id, request);
+    //     self.cx_request_table.insert(req_id, response_channel);
+    // }
 
     /// Returns a set of peer ids
     pub fn peers(&mut self) -> &HashSet<PeerId> {
@@ -534,20 +527,6 @@ impl<P: StoreParams> ForestBehaviour<P> {
     /// Returns a map of peer ids and their multi-addresses
     pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         self.discovery.peer_addresses()
-    }
-
-    /// Send a block to a peer over bit-swap
-    pub fn send_block(
-        &mut self,
-        peer_id: &PeerId,
-        cid: Cid,
-        data: Box<[u8]>,
-    ) -> Result<(), anyhow::Error> {
-        debug!("send {}", cid.to_string());
-        let cid = cid.to_bytes();
-        let cid = Cid2::try_from(cid)?;
-        self.bitswap.send_block(peer_id, cid, data);
-        Ok(())
     }
 
     /// Send a request for data over bit-swap
