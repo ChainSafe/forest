@@ -58,7 +58,7 @@ pub(crate) struct ForestBehaviour<P: StoreParams> {
     // TODO would be nice to have this handled together and generic, to avoid duplicated polling
     // but is fine for now, since the protocols are handled slightly differently.
     pub(super) hello: RequestResponse<HelloCodec>,
-    chain_exchange: RequestResponse<ChainExchangeCodec>,
+    pub(super) chain_exchange: RequestResponse<ChainExchangeCodec>,
     pub(super) bitswap: Bitswap<P>,
     // #[behaviour(ignore)]
     // events: Vec<ForestBehaviourEvent<P>>,

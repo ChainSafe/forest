@@ -210,6 +210,10 @@ where
             RequestId,
             futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
         > = HashMap::new();
+        let mut cx_request_table: HashMap<
+            RequestId,
+            futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
+        > = HashMap::new();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -271,6 +275,7 @@ where
                                 warn!("Getting gossip messages from unknown topic: {}", topic);
                             }
                         },
+                        ForestBehaviourEvent::Gossipsub(_) => {},
                         ForestBehaviourEvent::Hello(rr_event) => match rr_event {
                             RequestResponseEvent::Message { peer, message } => match message {
                                 RequestResponseMessage::Request {
@@ -300,7 +305,7 @@ where
                                         .hello
                                         .send_response(channel, HelloResponse { arrival, sent })
                                     {
-                                        debug!("Failed to send HelloResponse: {:?}", e)
+                                        warn!("Failed to send HelloResponse: {e:?}");
                                     };
                                     emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
                                         request,
@@ -397,7 +402,67 @@ where
                             identify::Event::Pushed { .. } => (),
                             identify::Event::Error { .. } => (),
                         },
-                        _ => {
+                        ForestBehaviourEvent::ChainExchange(ce_event) => match ce_event {
+                            RequestResponseEvent::Message { peer, message } => match message {
+                                RequestResponseMessage::Request {
+                                    request,
+                                    channel,
+                                    request_id: _,
+                                } => {
+                                    debug!("Received chain_exchange request (peer_id: {:?})", peer);
+                                    let db = self.cs.clone();
+                                    let bh_mut = swarm_stream.get_mut().behaviour_mut();
+                                    // TODO: Make make_chain_exchange_response async
+                                    if let Err(e) =  bh_mut.chain_exchange.send_response(channel, make_chain_exchange_response(db.as_ref(), &request).await) {
+                                        warn!("Failed to send ChainExchangeResponse: {e:?}");
+                                    }
+                                }
+                                RequestResponseMessage::Response {
+                                    request_id,
+                                    response,
+                                } => {
+                                    let tx = cx_request_table.remove(&request_id);
+
+                                    // Send the sucessful response through channel out.
+                                    if let Some(tx) = tx {
+                                        if tx.send(Ok(response)).is_err() {
+                                            debug!("RPCResponse receive timed out")
+                                        }
+                                    } else {
+                                        debug!("RPCResponse receive failed: channel not found");
+                                    };
+                                }
+                            },
+                            RequestResponseEvent::OutboundFailure {
+                                peer,
+                                request_id,
+                                error,
+                            } => {
+                                debug!(
+                                    "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
+                                    peer, request_id, error
+                                );
+
+                                let tx = cx_request_table.remove(&request_id);
+
+                                // Send error through channel out.
+                                if let Some(tx) = tx {
+                                    if tx.send(Err(error.into())).is_err() {
+                                        debug!("RPCResponse receive failed")
+                                    }
+                                }
+                            }
+                            RequestResponseEvent::InboundFailure {
+                                peer,
+                                error,
+                                request_id: _,
+                            } => {
+                                debug!(
+                                    "ChainExchange inbound error (peer: {:?}): {:?}",
+                                    peer, error
+                                );
+                            }
+                            _ => {}
                         },
                     },
                     None => { break; },
