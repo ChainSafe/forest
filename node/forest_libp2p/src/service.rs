@@ -10,8 +10,9 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::stream;
+use async_std::{stream, task};
 use cid::Cid;
+use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
@@ -211,6 +212,8 @@ where
             RequestId,
             futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
         > = HashMap::new();
+        let (cx_response_tx, cx_response_rx) = flume::unbounded();
+        let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -223,6 +226,7 @@ where
                             &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
+                            cx_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
                     },
@@ -243,7 +247,15 @@ where
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
                     debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
-                }
+                },
+                pair_opt = cx_response_rx_stream.next() => {
+                    if let Some((channel, cx_response)) = pair_opt {
+                        let bh_mut = swarm_stream.get_mut().behaviour_mut();
+                        if let Err(e) = bh_mut.chain_exchange.send_response(channel, cx_response) {
+                            warn!("Error sending chain exchange response: {e:?}");
+                        }
+                    }
+                },
             };
         }
     }
@@ -363,6 +375,10 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
         RequestId,
         futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
     >,
+    cx_response_tx: Sender<(
+        ResponseChannel<ChainExchangeResponse>,
+        ChainExchangeResponse,
+    )>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
@@ -517,7 +533,6 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
             RequestResponseEvent::ResponseSent { .. } => (),
         },
         ForestBehaviourEvent::Bitswap(bs_event) => match bs_event {
-            // match self.cs.blockstore().get_obj(&cid) {
             BitswapEvent::Progress(query_id, num_missing) => {
                 trace!("Bitswap query {query_id} in progress, {num_missing} blocks pending");
             }
@@ -579,13 +594,14 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 } => {
                     debug!("Received chain_exchange request (peer_id: {:?})", peer);
                     let db = db.clone();
-                    // TODO: Make make_chain_exchange_response async
-                    if let Err(e) = bh_mut.chain_exchange.send_response(
-                        channel,
-                        make_chain_exchange_response(db.as_ref(), &request).await,
-                    ) {
-                        warn!("Failed to send ChainExchangeResponse: {e:?}");
-                    }
+                    task::spawn(async move {
+                        if let Err(e) = cx_response_tx.send((
+                            channel,
+                            make_chain_exchange_response(db.as_ref(), &request).await,
+                        )) {
+                            warn!("Failed to send ChainExchangeResponse: {e:?}");
+                        }
+                    });
                 }
                 RequestResponseMessage::Response {
                     request_id,
@@ -632,7 +648,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                     peer, error
                 );
             }
-            _ => {}
+            RequestResponseEvent::ResponseSent { .. } => (),
         },
     }
 }
