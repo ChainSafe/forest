@@ -83,13 +83,8 @@ jobs:
         # MacOS runners always get rate limited when calling gh api
       - name: Install Protoc (MacOS)
         if: startsWith(matrix.os, 'macOS')
-        env:
-          PROTOC_VERSION: 3.20.3
         run: |
-          # brew install --verbose grep
-          # PROTOC_VERSION=$(curl -s "https://api.github.com/repos/protocolbuffers/protobuf/releases/latest" | ggrep -Po '"tag_name": "v\K[0-9.]+')
-          curl -Lo /tmp/protoc.zip "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-osx-x86_64.zip"
-          unzip -o /tmp/protoc.zip -d /usr/local
+          brew install protobuf
           protoc --version
       - name: Checkout Sources
         uses: actions/checkout@v3

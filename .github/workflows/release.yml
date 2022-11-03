@@ -17,8 +17,15 @@ jobs:
           - os: macos-latest
             file: forest-${{ github.ref_name }}-macos-amd64.zip
     steps:
-      - name: Install Protoc
+      - name: Install Protoc (Linux)
         uses: arduino/setup-protoc@v1
+        if: startsWith(matrix.os, 'Ubuntu')
+        # MacOS runners always get rate limited when calling gh api
+      - name: Install Protoc (MacOS)
+        if: startsWith(matrix.os, 'macOS')
+        run: |
+          brew install protobuf
+          protoc --version
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
