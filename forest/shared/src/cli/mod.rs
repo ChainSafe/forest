@@ -205,20 +205,27 @@ fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
     None
 }
 
-fn get_keys_flatten(value: toml::Value, keys: &mut HashSet<String>) {
-    match value {
-        toml::Value::Table(map) => {
-            for (k, v) in map.into_iter() {
-                keys.insert(k);
-                get_keys_flatten(v, keys);
+fn find_unknown_keys<'a>(table: Option<&'a str>, x: &'a toml::Value, y: &'a toml::Value, result: &mut Vec<(Option<&'a str>, &'a str)>) {
+    if let toml::Value::Table(x_map) = x {
+        if let toml::Value::Table(y_map) = y {
+            let x_set: HashSet<_> = x_map.keys().collect();
+            let y_set: HashSet<_> = y_map.keys().collect();
+            for k in x_set.difference(&y_set) {
+                result.push((table, k));
+            }
+            for (x_key, x_value) in x_map.iter() {
+                if let Some(y_value) = y_map.get(x_key) {
+                    find_unknown_keys(Some(x_key), x_value, y_value, result);
+                }
             }
         }
-        toml::Value::Array(vec) => {
-            for v in vec.into_iter() {
-                get_keys_flatten(v, keys);
+    }
+    if let toml::Value::Array(x_vec) = x {
+        if let toml::Value::Array(y_vec) = y {
+            for (x_value, y_value) in x_vec.iter().zip(y_vec.iter()) {
+                find_unknown_keys(table, x_value, y_value, result);
             }
         }
-        _ => (),
     }
 }
 
@@ -227,16 +234,18 @@ pub fn warn_for_unknown_keys(path: &Path, config: &Config) {
     // it back to a valid TOML value or get the TOML value from `path`
     let file = read_file_to_string(path).unwrap();
     let value = file.parse::<toml::Value>().unwrap();
-    let mut keys = HashSet::new();
-    get_keys_flatten(value, &mut keys);
 
     let config_file = toml::to_string(config).unwrap();
     let config_value = config_file.parse::<toml::Value>().unwrap();
-    let mut config_keys = HashSet::new();
-    get_keys_flatten(config_value, &mut config_keys);
 
-    for k in keys.difference(&config_keys) {
-        warn!("Unknown key \"{k}\" in {}, ignoring", path.display());
+    let mut result = vec!();
+    find_unknown_keys(None, &value, &config_value, &mut result);
+    for (table, k) in result.iter() {
+        if let Some(table) = table {
+            warn!("{}: Unknown key `{k}` in [{table}], ignoring", path.display());
+        } else {
+            warn!("{}: Unknown key `{k}` in top-level table, ignoring", path.display());
+        }
     }
 }
 
@@ -252,8 +261,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn get_keys_flatten_must_work() {
-        let value = toml::from_str(
+    fn find_unknown_keys_must_work() {
+        let x: toml::Value = toml::from_str(
+            r#"
+            folklore = true
+            foo = "foo"
+            [myth]
+            author = 'H. P. Lovecraft'
+            entities = [
+                { name = 'Cthulhu' },
+                { name = 'Azathoth' },
+                { baz = 'Dagon' },
+            ]
+            bar = "bar"
+        "#,
+        )
+        .unwrap();
+
+        let y: toml::Value = toml::from_str(
             r#"
             folklore = true
             [myth]
@@ -267,14 +292,18 @@ mod tests {
         )
         .unwrap();
 
-        let mut keys = HashSet::new();
-        get_keys_flatten(value, &mut keys);
+        // No differences
+        let mut result = vec!();
+        find_unknown_keys(None, &y, &y, &mut result);
+        assert!(result.is_empty());
 
-        let expected = HashSet::from_iter(
-            ["folklore", "myth", "author", "entities", "name"]
-                .iter()
-                .map(|&s| s.into()),
-        );
-        assert_eq!(keys, expected);
+        // 3 unknown keys
+        let mut result = vec!();
+        find_unknown_keys(None, &x, &y, &mut result);
+        assert_eq!(result, vec![
+            (None, "foo"),
+            (Some("myth"), "bar"),
+            (Some("entities"), "baz"),
+        ]);
     }
 }
