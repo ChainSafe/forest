@@ -162,10 +162,9 @@ where
             .tipset_by_height(0, ts.clone(), true)
             .await?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
-        if let Some(expected_genesis_cid) = &sm.chain_config().genesis_cid {
-            if expected_genesis_cid != &gb.blocks()[0].cid().to_string() {
-                bail!("Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or use a custom config file to set expected genesis CID for selected network", sm.chain_config().name);
-            }
+        if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
+        {
+            bail!("Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or use a custom config file to set expected genesis CID for selected network", sm.chain_config().name);
         }
     }
 
