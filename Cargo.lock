@@ -1132,11 +1132,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6ed9c8b2d17acb8110c46f1da5bf4a696d745e1474a16db0cd2b49cd0249bf2"
 dependencies = [
  "core2",
- "multibase 0.9.1",
+ "multibase",
  "multihash",
  "serde",
  "serde_bytes",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -2432,7 +2432,7 @@ dependencies = [
  "serde_repr",
  "sha2 0.10.6",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -2592,7 +2592,7 @@ dependencies = [
  "lazy_static",
  "libp2p",
  "log",
- "multibase 0.9.1",
+ "multibase",
  "num-rational",
  "num-traits",
  "once_cell",
@@ -2673,7 +2673,7 @@ dependencies = [
  "lazy_static",
  "libp2p",
  "log",
- "multibase 0.9.1",
+ "multibase",
  "num-rational",
  "num-traits",
  "once_cell",
@@ -2937,7 +2937,7 @@ dependencies = [
  "lazy_static",
  "libp2p",
  "log",
- "multibase 0.9.1",
+ "multibase",
  "num-rational",
  "num-traits",
  "once_cell",
@@ -3178,7 +3178,7 @@ dependencies = [
  "libipld",
  "libipld-core 0.14.0",
  "libipld-macro",
- "multibase 0.9.1",
+ "multibase",
  "multihash",
  "quickcheck",
  "quickcheck_macros",
@@ -3294,7 +3294,6 @@ dependencies = [
  "serde_ipld_dagcbor 0.1.2",
  "serde_json",
  "smallvec",
- "tiny-cid",
  "tokio",
  "tokio-util",
 ]
@@ -3446,7 +3445,7 @@ dependencies = [
  "jsonrpc-v2",
  "libipld-core 0.14.0",
  "log",
- "multibase 0.9.1",
+ "multibase",
  "num-traits",
  "rand 0.8.5",
  "rand_distr",
@@ -3890,7 +3889,7 @@ dependencies = [
  "fvm_ipld_encoding 0.3.0",
  "serde",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -4005,7 +4004,7 @@ dependencies = [
  "serde_repr",
  "serde_tuple",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -4520,9 +4519,9 @@ dependencies = [
 
 [[package]]
 name = "io-lifetimes"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e481ccbe3dea62107216d0d1138bb8ad8e5e5c43009a098bd1990272c497b0"
+checksum = "59ce5ef949d49ee85593fc4d3f3f95ad61657076395cbbce23e2121fc5542074"
 
 [[package]]
 name = "ipconfig"
@@ -4709,7 +4708,7 @@ version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69ec2f49393a1347a2d95ebcb248ff75d0d47235919b678036c010a8cd927375"
 dependencies = [
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate",
  "proc-macro2 1.0.47",
  "quote 1.0.21",
  "syn 1.0.103",
@@ -4725,7 +4724,7 @@ dependencies = [
  "anyhow",
  "cid",
  "core2",
- "multibase 0.9.1",
+ "multibase",
  "multihash",
  "serde",
  "thiserror",
@@ -4740,7 +4739,7 @@ dependencies = [
  "anyhow",
  "cid",
  "core2",
- "multibase 0.9.1",
+ "multibase",
  "multihash",
  "serde",
  "thiserror",
@@ -4846,7 +4845,7 @@ dependencies = [
  "prost-build 0.9.0",
  "thiserror",
  "tracing",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -4877,7 +4876,7 @@ dependencies = [
  "sha2 0.10.6",
  "smallvec",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "void",
  "zeroize",
 ]
@@ -4921,7 +4920,7 @@ dependencies = [
  "regex",
  "sha2 0.10.6",
  "smallvec",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "wasm-timer",
 ]
 
@@ -4970,7 +4969,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "uint",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "void",
 ]
 
@@ -5024,7 +5023,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "smallvec",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -5080,7 +5079,7 @@ dependencies = [
  "log",
  "rand 0.8.5",
  "smallvec",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -5470,19 +5469,8 @@ dependencies = [
  "percent-encoding",
  "serde",
  "static_assertions",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
  "url",
-]
-
-[[package]]
-name = "multibase"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78c60039650ff12e140ae867ef5299a58e19dded4d334c849dc7177083667e2"
-dependencies = [
- "base-x",
- "data-encoding",
- "data-encoding-macro",
 ]
 
 [[package]]
@@ -5513,7 +5501,7 @@ dependencies = [
  "serde-big-array",
  "sha2 0.10.6",
  "sha3",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -5522,7 +5510,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc076939022111618a5026d3be019fd8b366e76314538ff9a1b59ffbcbf98bcd"
 dependencies = [
- "proc-macro-crate 1.2.1",
+ "proc-macro-crate",
  "proc-macro-error",
  "proc-macro2 1.0.47",
  "quote 1.0.21",
@@ -5547,7 +5535,7 @@ dependencies = [
  "log",
  "pin-project",
  "smallvec",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -6228,15 +6216,6 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-crate"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
-dependencies = [
- "toml",
-]
-
-[[package]]
-name = "proc-macro-crate"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eda0fc3b0fb7c975631757e14d9049da17374063edb6ebbcbc54d880d4fe94e9"
@@ -6449,7 +6428,7 @@ dependencies = [
  "bytes 1.2.1",
  "prost 0.11.0",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
@@ -6986,16 +6965,16 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.35.12"
+version = "0.35.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "985947f9b6423159c4726323f373be0a21bdb514c5af06a849cb3d2dce2d01e8"
+checksum = "727a1a6d65f786ec22df8a81ca3121107f235970dc1705ed681d3e6e8b9cd5f9"
 dependencies = [
  "bitflags",
  "errno",
  "io-lifetimes",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.36.1",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
@@ -8181,42 +8160,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tiny-cid"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8db0f10795d9047653976779741a9f5b763a87aadc7bf0c80be5a2361ecc7a9"
-dependencies = [
- "multibase 0.8.0",
- "tiny-multihash",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
-name = "tiny-multihash"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "632824c586db700f0fab27c2cca5b6bd7bf8e49b1f8ddce77f736c9fbe9401f2"
-dependencies = [
- "generic-array 0.14.6",
- "tiny-multihash-derive",
- "unsigned-varint 0.5.1",
-]
-
-[[package]]
-name = "tiny-multihash-derive"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfcc7989e2269ece9a93256298139f1f28b5d2cc483cd033b60c0c76f36d9377"
-dependencies = [
- "proc-macro-crate 0.1.5",
- "proc-macro-error",
- "proc-macro2 1.0.47",
- "quote 1.0.21",
- "syn 1.0.103",
- "synstructure",
-]
-
-[[package]]
 name = "tinyvec"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8492,12 +8435,6 @@ dependencies = [
  "crypto-common",
  "subtle",
 ]
-
-[[package]]
-name = "unsigned-varint"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7fdeedbf205afadfe39ae559b75c3240f24e257d0ca27e85f85cb82aa19ac35"
 
 [[package]]
 name = "unsigned-varint"
