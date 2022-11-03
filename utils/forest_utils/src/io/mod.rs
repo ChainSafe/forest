@@ -18,7 +18,7 @@ pub fn set_user_perm(file: &File) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
     let mut perm = file.metadata()?.permissions();
-    perm.set_mode((libc::S_IWUSR | libc::S_IRUSR) as u32);
+    perm.set_mode(libc::S_IWUSR | libc::S_IRUSR);
     file.set_permissions(perm)?;
 
     info!("Permissions set to 0600 on {:?}", file);

@@ -89,7 +89,7 @@ impl StateCommands {
                         }
                     }
                     None => cli_error_and_die(
-                        &format!("cannot find miner at address {}", miner_address),
+                        format!("cannot find miner at address {}", miner_address),
                         1,
                     ),
                 };
@@ -215,7 +215,7 @@ impl StateCommands {
                 let miner_state: MinerState = chain_read_obj((CidJson(actor_state.state),))
                     .await
                     .map_err(handle_rpc_err)
-                    .map(|obj| hex::decode(&obj).expect("hex decode fiasco"))
+                    .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
                     .map(RawBytes::from)
                     .map(|obj| {
                         RawBytes::deserialize(&obj).expect("Couldn't deserialize to MinerState")
@@ -226,7 +226,7 @@ impl StateCommands {
                     chain_read_obj((CidJson(miner_state.vesting_funds),))
                         .await
                         .map_err(handle_rpc_err)
-                        .map(|obj| hex::decode(&obj).expect("hex decode fiasco"))
+                        .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
                         .map(RawBytes::from)
                         .map(|obj| {
                             RawBytes::deserialize(&obj)
