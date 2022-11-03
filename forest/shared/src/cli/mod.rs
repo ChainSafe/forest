@@ -4,6 +4,8 @@
 mod client;
 mod config;
 
+use crate::logger::LoggingColor;
+
 pub use self::{client::*, config::*};
 
 use directories::ProjectDirs;
@@ -87,6 +89,9 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
+    /// Enable or disable colored logging in `stdout`
+    #[structopt(long, default_value = "auto")]
+    pub color: LoggingColor,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52

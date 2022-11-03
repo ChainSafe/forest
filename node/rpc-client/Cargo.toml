@@ -7,11 +7,12 @@ version = "0.2.0"
 [dependencies]
 # Public
 async-std            = { workspace = true, features = ["attributes"] }
+jsonrpc-v2.workspace = true
 log.workspace        = true
 once_cell.workspace  = true
 serde.workspace      = true
 serde_json.workspace = true
-surf                 = { version = "2.3", default-features = false, features = ["h1-client"] }
+surf.workspace       = true
 tokio                = { workspace = true, features = ["sync"] }
 
 # Internal
@@ -21,8 +22,3 @@ forest_key_management.workspace = true
 forest_libp2p.workspace         = true
 forest_message.workspace        = true
 forest_rpc-api.workspace        = true
-
-[dependencies.jsonrpc-v2]
-default-features = false
-features         = ["easy-errors", "macros", "bytes-v05"]
-version          = "0.11"

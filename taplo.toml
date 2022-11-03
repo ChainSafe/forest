@@ -1,7 +1,8 @@
 [formatting]
-align_entries     = true
-column_width      = 120
-array_auto_expand = true
+align_entries       = true
+column_width        = 120
+array_auto_expand   = true
+allowed_blank_lines = 1
 
 [[rule]]
 keys = ["dependencies", "dev-dependencies", "toolchain", "workspace.dependencies"]

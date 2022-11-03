@@ -99,7 +99,7 @@ fn main() {
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
         Ok((cfg, path)) => {
-            logger::setup_logger(&cfg.log);
+            logger::setup_logger(&cfg.log, opts.color.into());
             if let Some(path) = &path {
                 match path {
                     ConfigPath::Env(path) => {

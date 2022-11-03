@@ -16,14 +16,11 @@ use forest_rpc_client::{
 use fvm::state_tree::ActorState;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::bigint_ser;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use num_traits::cast::FromPrimitive;
 use structopt::StructOpt;
 
-use crate::cli::{balance_to_fil, cli_error_and_die, to_size_string};
+use crate::cli::{cli_error_and_die, to_size_string};
 
 use super::handle_rpc_err;
 
@@ -35,7 +32,6 @@ struct VestingSchedule {
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingScheduleEntry {
     epoch: ChainEpoch,
-    #[serde(with = "bigint_ser")]
     amount: TokenAmount,
 }
 
@@ -149,10 +145,7 @@ impl StateCommands {
                     let a: ActorState = state.into();
 
                     println!("Address:\t{}", address);
-                    println!(
-                        "Balance:\t{:.23} FIL",
-                        balance_to_fil(a.balance).expect("Couldn't convert balance to fil")
-                    );
+                    println!("Balance:\t{:.23} FIL", a.balance);
                     println!("Nonce:  \t{}", a.sequence);
                     println!("Code:   \t{}", a.code);
                 } else {
@@ -243,11 +236,7 @@ impl StateCommands {
 
                 println!("Vesting Schedule for Miner {}:", address);
                 for entry in schedule.entries {
-                    println!(
-                        "Epoch: {}     FIL: {:.3}",
-                        entry.epoch,
-                        &entry.amount / (BigInt::from_f64(1e18).unwrap())
-                    );
+                    println!("Epoch: {}     FIL: {:.3}", entry.epoch, &entry.amount);
                 }
             }
         }

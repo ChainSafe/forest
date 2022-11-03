@@ -12,12 +12,14 @@ use forest_actor_interface::power;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
+use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
-use forest_ipld_blockstore::BlockStore;
 use forest_networks::{ChainConfig, Height};
 use forest_state_manager::StateManager;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
+use fvm_shared::crypto::signature::ops::verify_bls_sig;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
@@ -37,9 +39,9 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 /// * Timestamps
 /// * Elections and Proof-of-SpaceTime, Beacon values
 pub(crate) async fn validate_block<
-    DB: BlockStore + Sync + Send + 'static,
-    B: Beacon + Sync + Send + 'static,
-    V: ProofVerifier + Sync + Send + 'static,
+    DB: Blockstore + Store + Clone + Sync + Send + 'static,
+    B: Beacon,
+    V: ProofVerifier,
 >(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,
@@ -147,7 +149,7 @@ pub(crate) async fn validate_block<
             v_base_tipset.as_ref(),
             v_prev_beacon.as_ref(),
             &work_addr,
-            v_state_manager.as_ref(),
+            v_state_manager.chain_config(),
         )
     }));
 
@@ -204,7 +206,7 @@ fn block_timestamp_checks(
 
 // Check that the miner power can be loaded.
 // Doesn't check that the miner actually has any power.
-fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
+fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     miner_addr: &Address,
     tipset_state: &Cid,
@@ -223,7 +225,7 @@ fn validate_miner<DB: BlockStore + Send + Sync + 'static>(
     Ok(())
 }
 
-fn validate_winner_election<DB: BlockStore + Sync + Send + 'static>(
+fn validate_winner_election<DB: Blockstore + Store + Clone + Sync + Send + 'static>(
     header: &BlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
@@ -277,15 +279,15 @@ fn validate_winner_election<DB: BlockStore + Sync + Send + 'static>(
     Ok(())
 }
 
-fn validate_ticket_election<DB: BlockStore + Sync + Send + 'static>(
+fn validate_ticket_election(
     header: &BlockHeader,
     base_tipset: &Tipset,
     prev_beacon: &BeaconEntry,
     work_addr: &Address,
-    state_manager: &StateManager<DB>,
+    chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
     let mut miner_address_buf = header.miner_address().marshal_cbor()?;
-    let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
+    let smoke_height = chain_config.epoch(Height::Smoke);
 
     if header.epoch() > smoke_height {
         let vrf_proof = base_tipset
@@ -322,10 +324,13 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), FilecoinConsensusError> {
-    forest_crypto::verify_vrf(worker, rand, evrf).map_err(FilecoinConsensusError::VrfValidation)
+    verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<DB: BlockStore + Send + Sync + 'static, V: ProofVerifier>(
+fn verify_winning_post_proof<
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    V: ProofVerifier,
+>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,

@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::bigint::BigInt;
 use log::{info, warn};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
@@ -12,7 +11,7 @@ use uuid::Uuid;
 
 use forest_fil_types::genesis::{Actor, ActorType, Miner, Template as GenesisTemplate};
 use fvm_shared::address::Address;
-use fvm_shared::FILECOIN_PRECISION;
+use fvm_shared::econ::TokenAmount;
 
 const ACCOUNT_START: u64 = 1000;
 #[derive(Debug, StructOpt)]
@@ -107,7 +106,7 @@ fn add_miner(genesis_path: String, preseal_path: String) -> Result<(), anyhow::E
         info!("Giving {} some intial balance", miner_owner);
         template.accounts.push(Actor {
             actor_type: ActorType::Account,
-            balance: BigInt::from(50_000_000) * FILECOIN_PRECISION,
+            balance: TokenAmount::from_whole(50_000_000),
             owner: miner_owner,
         })
     }

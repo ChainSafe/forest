@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ::forest_message::message::json::MessageJson;
 use anyhow::Result;
 use cid::Cid;
 use forest_beacon::Beacon;
@@ -9,15 +8,18 @@ use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
     BlockHeader, Tipset,
 };
-use forest_ipld_blockstore::{BlockStore, BlockStoreExt};
+use forest_db::Store;
 use forest_json::cid::CidJson;
-use forest_message::message;
+use forest_json::message;
+use forest_json::message::json::MessageJson;
 use forest_networks::Height;
 use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use forest_utils::db::BlockstoreExt;
 use forest_utils::io::AsyncWriterWithChecksum;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message as FVMMessage;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
@@ -45,8 +47,8 @@ pub(crate) async fn chain_get_message<DB, B>(
     Params(params): Params<ChainGetMessageParams>,
 ) -> Result<ChainGetMessageResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (CidJson(msg_cid),) = params;
     let ret: FVMMessage = data
@@ -62,8 +64,8 @@ pub(crate) async fn chain_export<DB, B>(
     Params(params): Params<ChainExportParams>,
 ) -> Result<ChainExportResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk), skip_checksum) = params;
     let skip_old_msgs = !include_olds_msgs;
@@ -76,7 +78,8 @@ where
         ))?;
     }
 
-    let file = File::create(&out).await.map_err(JsonRpcError::from)?;
+    let out_tmp = out.with_extension("car.tmp");
+    let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
     let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
     let head = data.chain_store.tipset_from_keys(&tsk).await?;
@@ -89,18 +92,19 @@ where
         .await
     {
         Ok(checksum) => {
+            std::fs::rename(&out_tmp, &out)?;
             if !skip_checksum {
                 save_checksum(&out, checksum).await?;
             }
         }
         Err(e) => {
-            if let Err(e) = std::fs::remove_file(&out) {
+            if let Err(e) = std::fs::remove_file(&out_tmp) {
                 error!(
                     "failed to remove incomplete export file at {}: {e}",
-                    out.display()
+                    out_tmp.display()
                 );
             } else {
-                debug!("incomplete export file at {} removed", out.display());
+                debug!("incomplete export file at {} removed", out_tmp.display());
             }
 
             return Err(JsonRpcError::from(e));
@@ -134,8 +138,8 @@ pub(crate) async fn chain_read_obj<DB, B>(
     Params(params): Params<ChainReadObjParams>,
 ) -> Result<ChainReadObjResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (CidJson(obj_cid),) = params;
     let ret = data
@@ -151,8 +155,8 @@ pub(crate) async fn chain_has_obj<DB, B>(
     Params(params): Params<ChainHasObjParams>,
 ) -> Result<ChainHasObjResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (CidJson(obj_cid),) = params;
     Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
@@ -163,8 +167,8 @@ pub(crate) async fn chain_get_block_messages<DB, B>(
     Params(params): Params<ChainGetBlockMessagesParams>,
 ) -> Result<ChainGetBlockMessagesResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (CidJson(blk_cid),) = params;
     let blk: BlockHeader = data
@@ -198,8 +202,8 @@ pub(crate) async fn chain_get_tipset_by_height<DB, B>(
     Params(params): Params<ChainGetTipsetByHeightParams>,
 ) -> Result<ChainGetTipsetByHeightResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (height, tsk) = params;
     let ts = data
@@ -219,8 +223,8 @@ pub(crate) async fn chain_get_genesis<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainGetGenesisResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let genesis = forest_chain::genesis(data.state_manager.blockstore())?
         .ok_or("can't find genesis tipset")?;
@@ -232,8 +236,8 @@ pub(crate) async fn chain_head<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainHeadResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let heaviest = data
         .state_manager
@@ -249,7 +253,7 @@ where
 //     data: Data<RPCState<DB, B>>,
 // ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
 // where
-//     DB: BlockStore + Send + Sync + 'static,
+//     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 //     B: Beacon + Send + Sync + 'static,
 // {
 //     let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
@@ -262,7 +266,7 @@ where
 //     id: Id,
 // ) -> Result<ChainNotifyResult, JsonRpcError>
 // where
-//     DB: BlockStore + Send + Sync + 'static,
+//     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 //     B: Beacon + Send + Sync + 'static,
 // {
 //     if let Id::Num(id) = id {
@@ -288,8 +292,8 @@ pub(crate) async fn chain_tipset_weight<DB, B>(
     Params(params): Params<ChainTipSetWeightParams>,
 ) -> Result<ChainTipSetWeightResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (tsk,) = params;
     let ts = data
@@ -305,8 +309,8 @@ pub(crate) async fn chain_get_block<DB, B>(
     Params(params): Params<ChainGetBlockParams>,
 ) -> Result<ChainGetBlockResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (CidJson(blk_cid),) = params;
     let blk: BlockHeader = data
@@ -322,8 +326,8 @@ pub(crate) async fn chain_get_tipset<DB, B>(
     Params(params): Params<ChainGetTipSetParams>,
 ) -> Result<ChainGetTipSetResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (TipsetKeysJson(tsk),) = params;
     let ts = data
@@ -339,8 +343,8 @@ pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(
     Params(params): Params<ChainGetRandomnessFromTicketsParams>,
 ) -> Result<ChainGetRandomnessFromTicketsResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     let entropy = entropy.unwrap_or_default();
@@ -362,8 +366,8 @@ pub(crate) async fn chain_get_randomness_from_beacon<DB, B>(
     Params(params): Params<ChainGetRandomnessFromBeaconParams>,
 ) -> Result<ChainGetRandomnessFromBeaconResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
     let entropy = entropy.unwrap_or_default();
@@ -378,8 +382,8 @@ pub(crate) async fn chain_get_name<DB, B>(
     data: Data<RPCState<DB, B>>,
 ) -> Result<ChainGetNameResult, JsonRpcError>
 where
-    DB: BlockStore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
 {
     let name: String = data.state_manager.chain_config().name.clone();
     Ok(name)

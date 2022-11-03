@@ -165,8 +165,8 @@ impl PartialEq for ChainConfig {
                 && self.policy.valid_post_proof_type == other.policy.valid_post_proof_type
                 && self.policy.valid_pre_commit_proof_type
                     == other.policy.valid_pre_commit_proof_type
-                && self.policy.minimum_verified_deal_size
-                    == other.policy.minimum_verified_deal_size
+                && self.policy.minimum_verified_allocation_size
+                    == other.policy.minimum_verified_allocation_size
                 && self.policy.deal_updates_interval == other.policy.deal_updates_interval
                 && self.policy.prov_collateral_percent_supply_num
                     == other.policy.prov_collateral_percent_supply_num
@@ -327,12 +327,17 @@ mod serde_policy {
         valid_post_proof_type: HashSet<RegisteredPoStProof>,
         valid_pre_commit_proof_type: HashSet<RegisteredSealProof>,
         #[serde(with = "bigint_json")]
-        minimum_verified_deal_size: StoragePower,
+        minimum_verified_allocation_size: StoragePower,
         deal_updates_interval: i64,
         prov_collateral_percent_supply_num: i64,
         prov_collateral_percent_supply_denom: i64,
         #[serde(with = "bigint_json")]
         minimum_consensus_power: StoragePower,
+        end_of_life_claim_drop_period: ChainEpoch,
+        market_default_allocation_term_buffer: i64,
+        maximum_verified_allocation_expiration: i64,
+        maximum_verified_allocation_term: i64,
+        minimum_verified_allocation_term: i64,
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Policy, D::Error>
@@ -379,11 +384,17 @@ mod serde_policy {
             chain_finality: policy.chain_finality,
             valid_post_proof_type: policy.valid_post_proof_type.clone(),
             valid_pre_commit_proof_type: policy.valid_pre_commit_proof_type.clone(),
-            minimum_verified_deal_size: policy.minimum_verified_deal_size.clone(),
+            minimum_verified_allocation_size: policy.minimum_verified_allocation_size.clone(),
             deal_updates_interval: policy.deal_updates_interval,
             prov_collateral_percent_supply_num: policy.prov_collateral_percent_supply_num,
             prov_collateral_percent_supply_denom: policy.prov_collateral_percent_supply_denom,
             minimum_consensus_power: policy.minimum_consensus_power,
+
+            end_of_life_claim_drop_period: policy.end_of_life_claim_drop_period,
+            market_default_allocation_term_buffer: policy.market_default_allocation_term_buffer,
+            maximum_verified_allocation_expiration: policy.maximum_verified_allocation_expiration,
+            maximum_verified_allocation_term: policy.maximum_verified_allocation_term,
+            minimum_verified_allocation_term: policy.minimum_verified_allocation_term,
         })
     }
 
@@ -430,11 +441,16 @@ mod serde_policy {
             chain_finality: policy.chain_finality,
             valid_post_proof_type: policy.valid_post_proof_type.clone(),
             valid_pre_commit_proof_type: policy.valid_pre_commit_proof_type.clone(),
-            minimum_verified_deal_size: policy.minimum_verified_deal_size.clone(),
+            minimum_verified_allocation_size: policy.minimum_verified_allocation_size.clone(),
             deal_updates_interval: policy.deal_updates_interval,
             prov_collateral_percent_supply_num: policy.prov_collateral_percent_supply_num,
             prov_collateral_percent_supply_denom: policy.prov_collateral_percent_supply_denom,
             minimum_consensus_power: policy.minimum_consensus_power.clone(),
+            end_of_life_claim_drop_period: policy.end_of_life_claim_drop_period,
+            market_default_allocation_term_buffer: policy.market_default_allocation_term_buffer,
+            maximum_verified_allocation_expiration: policy.maximum_verified_allocation_expiration,
+            maximum_verified_allocation_term: policy.maximum_verified_allocation_term,
+            minimum_verified_allocation_term: policy.minimum_verified_allocation_term,
         }
         .serialize(serializer)
     }
