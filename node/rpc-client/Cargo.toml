@@ -12,7 +12,7 @@ log.workspace        = true
 once_cell.workspace  = true
 serde.workspace      = true
 serde_json.workspace = true
-surf                 = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
+surf.workspace       = true
 tokio                = { workspace = true, features = ["sync"] }
 
 # Internal
