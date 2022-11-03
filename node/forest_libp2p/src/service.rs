@@ -10,13 +10,12 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::{stream, task};
-use cid::{multihash::Code::Blake2b256, Cid};
+use async_std::stream;
+use cid::Cid;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
 use forest_message::SignedMessage;
-use forest_utils::db::BlockstoreExt;
 use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
@@ -30,11 +29,11 @@ pub use libp2p::gossipsub::Topic;
 use libp2p::identify;
 use libp2p::multiaddr::Protocol;
 use libp2p::multihash::Multihash;
-use libp2p::ping::{self, PingSuccess};
+use libp2p::ping::{self};
 use libp2p::request_response::{
     RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
@@ -136,7 +135,6 @@ pub struct Libp2pService<DB, P: StoreParams> {
     network_receiver_out: flume::Receiver<NetworkEvent>,
     network_sender_out: flume::Sender<NetworkEvent>,
     network_name: String,
-    bitswap_response_channels: HashMap<Cid, Vec<OneShotSender<()>>>,
 }
 
 impl<DB, P: StoreParams> Libp2pService<DB, P>
@@ -194,12 +192,11 @@ where
             network_receiver_out,
             network_sender_out,
             network_name: network_name.to_owned(),
-            bitswap_response_channels: Default::default(),
         }
     }
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
-    pub async fn run(mut self) {
+    pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval = stream::interval(Duration::from_secs(15)).fuse();
@@ -218,324 +215,28 @@ where
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
                     // outbound events
-                    Some(SwarmEvent::Behaviour(event)) => match event {
-                        ForestBehaviourEvent::Discovery(discovery_out) => {
-                            match discovery_out{
-                                DiscoveryOut::Connected(peer_id, addresses)=>{
-                                    debug!("Peer connected, {:?}", peer_id);
-                                    let bh_mut = swarm_stream.get_mut().behaviour_mut();
-                                    for addr in addresses {
-                                        bh_mut.bitswap.add_address(&peer_id, addr);
-                                    }
-                                    emit_event(&self.network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
-                                }
-                                DiscoveryOut::Disconnected(peer_id, addresses)=>{
-                                    debug!("Peer disconnected, {:?}", peer_id);
-                                    let bh_mut = swarm_stream.get_mut().behaviour_mut();
-                                    for addr in addresses {
-                                        bh_mut.bitswap.remove_address(&peer_id, &addr);
-                                    }
-                                    emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
-                                }
-                            }
-                        },
-                        ForestBehaviourEvent::Gossipsub(GossipsubEvent::Message{
-                            propagation_source:source,
-                            message,
-                            message_id: _,
-                        }) => {
-                            let topic = message.topic.as_str();
-                            let message = message.data;
-                            trace!("Got a Gossip Message from {:?}", source);
-                            if topic == pubsub_block_str {
-                                match from_slice::<GossipBlock>(&message) {
-                                    Ok(b) => {
-                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
-                                            source,
-                                            message: PubsubMessage::Block(b),
-                                        }).await;
-                                    }
-                                    Err(e) => {
-                                        warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e);
-                                    }
-                                }
-                            } else if topic == pubsub_msg_str {
-                                match from_slice::<SignedMessage>(&message) {
-                                    Ok(m) => {
-                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
-                                            source,
-                                            message: PubsubMessage::Message(m),
-                                        }).await;
-                                    }
-                                    Err(e) => {
-                                        warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e);
-                                    }
-                                }
-                            } else {
-                                warn!("Getting gossip messages from unknown topic: {}", topic);
-                            }
-                        },
-                        ForestBehaviourEvent::Gossipsub(_) => {},
-                        ForestBehaviourEvent::Hello(rr_event) => match rr_event {
-                            RequestResponseEvent::Message { peer, message } => match message {
-                                RequestResponseMessage::Request {
-                                    request,
-                                    channel,
-                                    request_id: _,
-                                } => {
-                                    let arrival = SystemTime::now()
-                                        .duration_since(UNIX_EPOCH)
-                                        .expect("System time before unix epoch")
-                                        .as_nanos()
-                                        .try_into()
-                                        .expect("System time since unix epoch should not exceed u64");
-
-                                    debug!("Received hello request: {:?}", request);
-                                    let sent = SystemTime::now()
-                                        .duration_since(UNIX_EPOCH)
-                                        .expect("System time before unix epoch")
-                                        .as_nanos()
-                                        .try_into()
-                                        .expect("System time since unix epoch should not exceed u64");
-
-                                    // Send hello response immediately, no need to have the overhead of emitting
-                                    // channel and polling future here.
-                                    let bh_mut = swarm_stream.get_mut().behaviour_mut();
-                                    if let Err(e) = bh_mut
-                                        .hello
-                                        .send_response(channel, HelloResponse { arrival, sent })
-                                    {
-                                        warn!("Failed to send HelloResponse: {e:?}");
-                                    };
-                                    emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
-                                        request,
-                                        source: peer,
-                                    }).await;
-                                }
-                                RequestResponseMessage::Response {
-                                    request_id,
-                                    response,
-                                } => {
-                                    // Send the sucessful response through channel out.
-                                    if let Some(tx) = hello_request_table.remove(&request_id) {
-                                        if tx.send(Ok(response)).is_err() {
-                                            debug!("RPCResponse receive timed out");
-                                        }
-                                    } else {
-                                        debug!("RPCResponse receive failed: channel not found");
-                                    };
-                                }
-                            },
-                            RequestResponseEvent::OutboundFailure {
-                                peer,
-                                request_id,
-                                error,
-                            } => {
-                                debug!(
-                                    "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
-                                    peer, request_id, error
-                                );
-
-                                // Send error through channel out.
-                                let tx = hello_request_table.remove(&request_id);
-                                if let Some(tx) = tx {
-                                    if tx.send(Err(error.into())).is_err() {
-                                        debug!("RPCResponse receive failed");
-                                    }
-                                }
-                            },
-                            RequestResponseEvent::InboundFailure {
-                                peer,
-                                error,
-                                request_id: _,
-                            } => {
-                                debug!("Hello inbound error (peer: {:?}): {:?}", peer, error);
-                            },
-                            RequestResponseEvent::ResponseSent { .. } => (),
-                        },
-                        ForestBehaviourEvent::Bitswap(bs_event) => match bs_event { // match self.cs.blockstore().get_obj(&cid) {
-                            BitswapEvent::Progress(query_id, num_missing) => {
-                                trace!("Bitswap query {query_id} in progress, {num_missing} blocks pending");
-                            }
-                            BitswapEvent::Complete(query_id, result) => match result {
-                                Ok(()) => {
-                                    trace!("Bitswap query {query_id} completed successfully");
-                                    // TODO: Convert query_id to cid?
-                                    // emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{query_id}).await;
-                                }
-                                Err(err) => {
-                                    warn!("Bitswap query {query_id} completed with error: {err}");
-                                }
-                            }
-                        },
-                        ForestBehaviourEvent::Ping(ping_event) => match ping_event.result {
-                            Ok(ping::Success::Ping { rtt }) => {
-                                trace!(
-                                    "PingSuccess::Ping rtt to {} is {} ms",
-                                    ping_event.peer.to_base58(),
-                                    rtt.as_millis()
-                                );
-                            }
-                            Ok(ping::Success::Pong) => {
-                                trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
-                            }
-                            Err(ping::Failure::Timeout) => {
-                                debug!("PingFailure::Timeout {}", ping_event.peer.to_base58());
-                            }
-                            Err(ping::Failure::Other { error }) => {
-                                debug!("PingFailure::Other {}: {}", ping_event.peer.to_base58(), error);
-                            }
-                            Err(ping::Failure::Unsupported) => {
-                                debug!("PingFailure::Unsupported {}", ping_event.peer.to_base58());
-                            }
-                        },
-                        ForestBehaviourEvent::Identify(id_event) => match id_event {
-                            identify::Event::Received { peer_id, info } => {
-                                trace!("Identified Peer {}", peer_id);
-                                trace!("protocol_version {}", info.protocol_version);
-                                trace!("agent_version {}", info.agent_version);
-                                trace!("listening_ addresses {:?}", info.listen_addrs);
-                                trace!("observed_address {}", info.observed_addr);
-                                trace!("protocols {:?}", info.protocols);
-                            }
-                            identify::Event::Sent { .. } => (),
-                            identify::Event::Pushed { .. } => (),
-                            identify::Event::Error { .. } => (),
-                        },
-                        ForestBehaviourEvent::ChainExchange(ce_event) => match ce_event {
-                            RequestResponseEvent::Message { peer, message } => match message {
-                                RequestResponseMessage::Request {
-                                    request,
-                                    channel,
-                                    request_id: _,
-                                } => {
-                                    debug!("Received chain_exchange request (peer_id: {:?})", peer);
-                                    let db = self.cs.clone();
-                                    let bh_mut = swarm_stream.get_mut().behaviour_mut();
-                                    // TODO: Make make_chain_exchange_response async
-                                    if let Err(e) =  bh_mut.chain_exchange.send_response(channel, make_chain_exchange_response(db.as_ref(), &request).await) {
-                                        warn!("Failed to send ChainExchangeResponse: {e:?}");
-                                    }
-                                }
-                                RequestResponseMessage::Response {
-                                    request_id,
-                                    response,
-                                } => {
-                                    let tx = cx_request_table.remove(&request_id);
-
-                                    // Send the sucessful response through channel out.
-                                    if let Some(tx) = tx {
-                                        if tx.send(Ok(response)).is_err() {
-                                            debug!("RPCResponse receive timed out")
-                                        }
-                                    } else {
-                                        debug!("RPCResponse receive failed: channel not found");
-                                    };
-                                }
-                            },
-                            RequestResponseEvent::OutboundFailure {
-                                peer,
-                                request_id,
-                                error,
-                            } => {
-                                debug!(
-                                    "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
-                                    peer, request_id, error
-                                );
-
-                                let tx = cx_request_table.remove(&request_id);
-
-                                // Send error through channel out.
-                                if let Some(tx) = tx {
-                                    if tx.send(Err(error.into())).is_err() {
-                                        debug!("RPCResponse receive failed")
-                                    }
-                                }
-                            }
-                            RequestResponseEvent::InboundFailure {
-                                peer,
-                                error,
-                                request_id: _,
-                            } => {
-                                debug!(
-                                    "ChainExchange inbound error (peer: {:?}): {:?}",
-                                    peer, error
-                                );
-                            }
-                            _ => {}
-                        },
+                    Some(SwarmEvent::Behaviour(event)) => {
+                        handle_forest_behaviour_event(
+                            swarm_stream.get_mut().behaviour_mut(),
+                            event,
+                            &self.cs,
+                            &self.network_sender_out,
+                            &mut hello_request_table,
+                            &mut cx_request_table,
+                            &pubsub_block_str,
+                            &pubsub_msg_str,).await;
                     },
                     None => { break; },
                     _ => { },
                 },
                 rpc_message = network_stream.next() => match rpc_message {
                     // Inbound messages
-                    Some(message) =>  match message {
-                        NetworkMessage::PubsubMessage { topic, message } => {
-                            if let Err(e) = swarm_stream.get_mut().behaviour_mut().publish(topic, message) {
-                                warn!("Failed to send gossipsub message: {:?}", e);
-                            }
-                        }
-                        NetworkMessage::HelloRequest { peer_id, request, response_channel } => {
-                            let mut bh_mut = swarm_stream.get_mut().behaviour_mut();
-                            let request_id = bh_mut.hello.send_request(&peer_id, request);
-                            hello_request_table.insert(request_id, response_channel);
-                        }
-                        NetworkMessage::ChainExchangeRequest { peer_id, request, response_channel } => {
-                            // swarm_stream.get_mut().behaviour_mut().send_chain_exchange_request(&peer_id, request, response_channel);
-                        }
-                        NetworkMessage::BitswapRequest { cid, response_channel } => {
-                            // if let Err(e) = swarm_stream.get_mut().behaviour_mut().want_block(cid) {
-                            //     warn!("Failed to send a bitswap want_block: {}", e.to_string());
-                            // } else if let Some(chans) = self.bitswap_response_channels.get_mut(&cid) {
-                            //         chans.push(response_channel);
-                            // } else {
-                            //     self.bitswap_response_channels.insert(cid, vec![response_channel]);
-                            // }
-                        }
-                        NetworkMessage::JSONRPCRequest { method } => {
-                            match method {
-                                NetRPCMethods::NetAddrsListen(response_channel) => {
-                                    let listeners: Vec<_> = Swarm::listeners( swarm_stream.get_mut()).cloned().collect();
-                                    let peer_id = Swarm::local_peer_id(swarm_stream.get_mut());
-
-                                    if response_channel.send((*peer_id, listeners)).is_err() {
-                                        warn!("Failed to get Libp2p listeners");
-                                    }
-                                }
-                                NetRPCMethods::NetPeers(response_channel) => {
-                                    let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> = swarm_stream.get_mut().behaviour_mut().peer_addresses();
-
-                                    if response_channel.send(peer_addresses.to_owned()).is_err() {
-                                        warn!("Failed to get Libp2p peers");
-                                    }
-                                }
-                                NetRPCMethods::NetConnect(response_channel, peer_id, addresses) => {
-                                    let mut addresses = addresses.clone();
-                                    let mut success = false;
-
-                                    for multiaddr in addresses.iter_mut() {
-                                        multiaddr.push(Protocol::P2p(Multihash::from_bytes(&peer_id.to_bytes()).unwrap()));
-
-                                        if Swarm::dial(swarm_stream.get_mut(), multiaddr.clone()).is_ok() {
-                                            success = true;
-                                            break;
-                                        };
-                                    }
-
-                                    if response_channel.send(success).is_err() {
-                                        warn!("Failed to connect to a peer");
-                                    }
-                                }
-                                NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
-                                    let _ = Swarm::disconnect_peer_id(swarm_stream.get_mut(), peer_id);
-
-                                    if response_channel.send(()).is_err() {
-                                        warn!("Failed to disconnect from a peer");
-                                    }
-                                }
-                            }
-                        }
+                    Some(message) => {
+                        handle_network_message(
+                            swarm_stream.get_mut(),
+                            message,
+                            &mut hello_request_table,
+                            &mut cx_request_table).await;
                     }
                     None => { break; }
                 },
@@ -555,6 +256,384 @@ where
     /// Returns a receiver to listen to network events emitted from the service.
     pub fn network_receiver(&self) -> flume::Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
+    }
+}
+
+async fn handle_network_message<P: StoreParams>(
+    st_mut: &mut Swarm<ForestBehaviour<P>>,
+    message: NetworkMessage,
+    hello_request_table: &mut HashMap<
+        RequestId,
+        futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
+    >,
+    cx_request_table: &mut HashMap<
+        RequestId,
+        futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
+    >,
+) {
+    match message {
+        NetworkMessage::PubsubMessage { topic, message } => {
+            if let Err(e) = st_mut.behaviour_mut().publish(topic, message) {
+                warn!("Failed to send gossipsub message: {:?}", e);
+            }
+        }
+        NetworkMessage::HelloRequest {
+            peer_id,
+            request,
+            response_channel,
+        } => {
+            let request_id = st_mut.behaviour_mut().hello.send_request(&peer_id, request);
+            hello_request_table.insert(request_id, response_channel);
+        }
+        NetworkMessage::ChainExchangeRequest {
+            peer_id,
+            request,
+            response_channel,
+        } => {
+            let req_id = st_mut
+                .behaviour_mut()
+                .chain_exchange
+                .send_request(&peer_id, request);
+            cx_request_table.insert(req_id, response_channel);
+        }
+        NetworkMessage::BitswapRequest {
+            cid,
+            response_channel: _,
+        } => {
+            if let Err(e) = st_mut.behaviour_mut().want_block(cid) {
+                warn!("Failed to send a bitswap want_block: {}", e.to_string());
+            }
+        }
+        NetworkMessage::JSONRPCRequest { method } => match method {
+            NetRPCMethods::NetAddrsListen(response_channel) => {
+                let listeners: Vec<_> = Swarm::listeners(st_mut).cloned().collect();
+                let peer_id = Swarm::local_peer_id(st_mut);
+
+                if response_channel.send((*peer_id, listeners)).is_err() {
+                    warn!("Failed to get Libp2p listeners");
+                }
+            }
+            NetRPCMethods::NetPeers(response_channel) => {
+                let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> =
+                    st_mut.behaviour_mut().peer_addresses();
+
+                if response_channel.send(peer_addresses.to_owned()).is_err() {
+                    warn!("Failed to get Libp2p peers");
+                }
+            }
+            NetRPCMethods::NetConnect(response_channel, peer_id, mut addresses) => {
+                let mut success = false;
+
+                for multiaddr in addresses.iter_mut() {
+                    multiaddr.push(Protocol::P2p(
+                        Multihash::from_bytes(&peer_id.to_bytes()).unwrap(),
+                    ));
+
+                    if Swarm::dial(st_mut, multiaddr.clone()).is_ok() {
+                        success = true;
+                        break;
+                    };
+                }
+
+                if response_channel.send(success).is_err() {
+                    warn!("Failed to connect to a peer");
+                }
+            }
+            NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
+                let _ = Swarm::disconnect_peer_id(st_mut, peer_id);
+                if response_channel.send(()).is_err() {
+                    warn!("Failed to disconnect from a peer");
+                }
+            }
+        },
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn handle_forest_behaviour_event<DB, P: StoreParams>(
+    bh_mut: &mut ForestBehaviour<P>,
+    event: ForestBehaviourEvent<P>,
+    db: &Arc<ChainStore<DB>>,
+    network_sender_out: &flume::Sender<NetworkEvent>,
+    hello_request_table: &mut HashMap<
+        RequestId,
+        futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
+    >,
+    cx_request_table: &mut HashMap<
+        RequestId,
+        futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
+    >,
+    pubsub_block_str: &str,
+    pubsub_msg_str: &str,
+) where
+    DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
+{
+    match event {
+        ForestBehaviourEvent::Discovery(discovery_out) => match discovery_out {
+            DiscoveryOut::Connected(peer_id, addresses) => {
+                debug!("Peer connected, {:?}", peer_id);
+                for addr in addresses {
+                    bh_mut.bitswap.add_address(&peer_id, addr);
+                }
+                emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
+            }
+            DiscoveryOut::Disconnected(peer_id, addresses) => {
+                debug!("Peer disconnected, {:?}", peer_id);
+                for addr in addresses {
+                    bh_mut.bitswap.remove_address(&peer_id, &addr);
+                }
+                emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
+            }
+        },
+        ForestBehaviourEvent::Gossipsub(GossipsubEvent::Message {
+            propagation_source: source,
+            message,
+            message_id: _,
+        }) => {
+            let topic = message.topic.as_str();
+            let message = message.data;
+            trace!("Got a Gossip Message from {:?}", source);
+            if topic == pubsub_block_str {
+                match from_slice::<GossipBlock>(&message) {
+                    Ok(b) => {
+                        emit_event(
+                            network_sender_out,
+                            NetworkEvent::PubsubMessage {
+                                source,
+                                message: PubsubMessage::Block(b),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Gossip Block from peer {:?} could not be deserialized: {}",
+                            source, e
+                        );
+                    }
+                }
+            } else if topic == pubsub_msg_str {
+                match from_slice::<SignedMessage>(&message) {
+                    Ok(m) => {
+                        emit_event(
+                            network_sender_out,
+                            NetworkEvent::PubsubMessage {
+                                source,
+                                message: PubsubMessage::Message(m),
+                            },
+                        )
+                        .await;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Gossip Message from peer {:?} could not be deserialized: {}",
+                            source, e
+                        );
+                    }
+                }
+            } else {
+                warn!("Getting gossip messages from unknown topic: {}", topic);
+            }
+        }
+        ForestBehaviourEvent::Gossipsub(_) => {}
+        ForestBehaviourEvent::Hello(rr_event) => match rr_event {
+            RequestResponseEvent::Message { peer, message } => match message {
+                RequestResponseMessage::Request {
+                    request,
+                    channel,
+                    request_id: _,
+                } => {
+                    let arrival = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time before unix epoch")
+                        .as_nanos()
+                        .try_into()
+                        .expect("System time since unix epoch should not exceed u64");
+
+                    debug!("Received hello request: {:?}", request);
+                    let sent = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time before unix epoch")
+                        .as_nanos()
+                        .try_into()
+                        .expect("System time since unix epoch should not exceed u64");
+
+                    // Send hello response immediately, no need to have the overhead of emitting
+                    // channel and polling future here.
+                    if let Err(e) = bh_mut
+                        .hello
+                        .send_response(channel, HelloResponse { arrival, sent })
+                    {
+                        warn!("Failed to send HelloResponse: {e:?}");
+                    };
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::HelloRequest {
+                            request,
+                            source: peer,
+                        },
+                    )
+                    .await;
+                }
+                RequestResponseMessage::Response {
+                    request_id,
+                    response,
+                } => {
+                    // Send the sucessful response through channel out.
+                    if let Some(tx) = hello_request_table.remove(&request_id) {
+                        if tx.send(Ok(response)).is_err() {
+                            debug!("RPCResponse receive timed out");
+                        }
+                    } else {
+                        debug!("RPCResponse receive failed: channel not found");
+                    };
+                }
+            },
+            RequestResponseEvent::OutboundFailure {
+                peer,
+                request_id,
+                error,
+            } => {
+                debug!(
+                    "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
+                    peer, request_id, error
+                );
+
+                // Send error through channel out.
+                let tx = hello_request_table.remove(&request_id);
+                if let Some(tx) = tx {
+                    if tx.send(Err(error.into())).is_err() {
+                        debug!("RPCResponse receive failed");
+                    }
+                }
+            }
+            RequestResponseEvent::InboundFailure {
+                peer,
+                error,
+                request_id: _,
+            } => {
+                debug!("Hello inbound error (peer: {:?}): {:?}", peer, error);
+            }
+            RequestResponseEvent::ResponseSent { .. } => (),
+        },
+        ForestBehaviourEvent::Bitswap(bs_event) => match bs_event {
+            // match self.cs.blockstore().get_obj(&cid) {
+            BitswapEvent::Progress(query_id, num_missing) => {
+                trace!("Bitswap query {query_id} in progress, {num_missing} blocks pending");
+            }
+            BitswapEvent::Complete(query_id, result) => match result {
+                Ok(()) => {
+                    trace!("Bitswap query {query_id} completed successfully");
+                    // TODO: Convert query_id to cid?
+                    // emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{query_id}).await;
+                }
+                Err(err) => {
+                    warn!("Bitswap query {query_id} completed with error: {err}");
+                }
+            },
+        },
+        ForestBehaviourEvent::Ping(ping_event) => match ping_event.result {
+            Ok(ping::Success::Ping { rtt }) => {
+                trace!(
+                    "PingSuccess::Ping rtt to {} is {} ms",
+                    ping_event.peer.to_base58(),
+                    rtt.as_millis()
+                );
+            }
+            Ok(ping::Success::Pong) => {
+                trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
+            }
+            Err(ping::Failure::Timeout) => {
+                debug!("PingFailure::Timeout {}", ping_event.peer.to_base58());
+            }
+            Err(ping::Failure::Other { error }) => {
+                debug!(
+                    "PingFailure::Other {}: {}",
+                    ping_event.peer.to_base58(),
+                    error
+                );
+            }
+            Err(ping::Failure::Unsupported) => {
+                debug!("PingFailure::Unsupported {}", ping_event.peer.to_base58());
+            }
+        },
+        ForestBehaviourEvent::Identify(id_event) => match id_event {
+            identify::Event::Received { peer_id, info } => {
+                trace!("Identified Peer {}", peer_id);
+                trace!("protocol_version {}", info.protocol_version);
+                trace!("agent_version {}", info.agent_version);
+                trace!("listening_ addresses {:?}", info.listen_addrs);
+                trace!("observed_address {}", info.observed_addr);
+                trace!("protocols {:?}", info.protocols);
+            }
+            identify::Event::Sent { .. } => (),
+            identify::Event::Pushed { .. } => (),
+            identify::Event::Error { .. } => (),
+        },
+        ForestBehaviourEvent::ChainExchange(ce_event) => match ce_event {
+            RequestResponseEvent::Message { peer, message } => match message {
+                RequestResponseMessage::Request {
+                    request,
+                    channel,
+                    request_id: _,
+                } => {
+                    debug!("Received chain_exchange request (peer_id: {:?})", peer);
+                    let db = db.clone();
+                    // TODO: Make make_chain_exchange_response async
+                    if let Err(e) = bh_mut.chain_exchange.send_response(
+                        channel,
+                        make_chain_exchange_response(db.as_ref(), &request).await,
+                    ) {
+                        warn!("Failed to send ChainExchangeResponse: {e:?}");
+                    }
+                }
+                RequestResponseMessage::Response {
+                    request_id,
+                    response,
+                } => {
+                    let tx = cx_request_table.remove(&request_id);
+
+                    // Send the sucessful response through channel out.
+                    if let Some(tx) = tx {
+                        if tx.send(Ok(response)).is_err() {
+                            debug!("RPCResponse receive timed out")
+                        }
+                    } else {
+                        debug!("RPCResponse receive failed: channel not found");
+                    };
+                }
+            },
+            RequestResponseEvent::OutboundFailure {
+                peer,
+                request_id,
+                error,
+            } => {
+                debug!(
+                    "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
+                    peer, request_id, error
+                );
+
+                let tx = cx_request_table.remove(&request_id);
+
+                // Send error through channel out.
+                if let Some(tx) = tx {
+                    if tx.send(Err(error.into())).is_err() {
+                        debug!("RPCResponse receive failed")
+                    }
+                }
+            }
+            RequestResponseEvent::InboundFailure {
+                peer,
+                error,
+                request_id: _,
+            } => {
+                debug!(
+                    "ChainExchange inbound error (peer: {:?}): {:?}",
+                    peer, error
+                );
+            }
+            _ => {}
+        },
     }
 }
 
