@@ -24,10 +24,12 @@ use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
 use libipld::store::StoreParams;
+use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
 use libp2p::multiaddr::Protocol;
 use libp2p::multihash::Multihash;
+use libp2p::ping::{self, PingSuccess};
 use libp2p::request_response::{
     RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
 };
@@ -232,40 +234,42 @@ where
                                 }
                             }
                         },
-                        ForestBehaviourEvent::Gossipsub(gossipsub_event) => {
-                            // source,
-                            // topic,
-                            // message,
+                        ForestBehaviourEvent::Gossipsub(GossipsubEvent::Message{
+                            propagation_source:source,
+                            message,
+                            message_id: _,
+                        }) => {
+                            let topic = message.topic.as_str();
+                            let message = message.data;
+                            trace!("Got a Gossip Message from {:?}", source);
+                            if topic == pubsub_block_str {
+                                match from_slice::<GossipBlock>(&message) {
+                                    Ok(b) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                            source,
+                                            message: PubsubMessage::Block(b),
+                                        }).await;
+                                    }
+                                    Err(e) => {
+                                        warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e);
+                                    }
+                                }
+                            } else if topic == pubsub_msg_str {
+                                match from_slice::<SignedMessage>(&message) {
+                                    Ok(m) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                            source,
+                                            message: PubsubMessage::Message(m),
+                                        }).await;
+                                    }
+                                    Err(e) => {
+                                        warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e);
+                                    }
+                                }
+                            } else {
+                                warn!("Getting gossip messages from unknown topic: {}", topic);
+                            }
                         },
-                        //     trace!("Got a Gossip Message from {:?}", source);
-                        //     let topic = topic.as_str();
-                        //     if topic == pubsub_block_str {
-                        //         match from_slice::<GossipBlock>(&message) {
-                        //             Ok(b) => {
-                        //                 emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
-                        //                     source,
-                        //                     message: PubsubMessage::Block(b),
-                        //                 }).await;
-                        //             }
-                        //             Err(e) => {
-                        //                 warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e);
-                        //             }
-                        //         }
-                        //     } else if topic == pubsub_msg_str {
-                        //         match from_slice::<SignedMessage>(&message) {
-                        //             Ok(m) => {
-                        //                 emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
-                        //                     source,
-                        //                     message: PubsubMessage::Message(m),
-                        //                 }).await;
-                        //             }
-                        //             Err(e) => {
-                        //                 warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e);
-                        //             }
-                        //         }
-                        //     } else {
-                        //         warn!("Getting gossip messages from unknown topic: {}", topic);
-                        //     }
                         ForestBehaviourEvent::Hello(rr_event) => match rr_event {
                             RequestResponseEvent::Message { peer, message } => match message {
                                 RequestResponseMessage::Request {
@@ -356,6 +360,27 @@ where
                                 Err(err) => {
                                     warn!("Bitswap query {query_id} completed with error: {err}");
                                 }
+                            }
+                        },
+                        ForestBehaviourEvent::Ping(ping_event) => match ping_event.result {
+                            Ok(ping::Success::Ping { rtt }) => {
+                                trace!(
+                                    "PingSuccess::Ping rtt to {} is {} ms",
+                                    ping_event.peer.to_base58(),
+                                    rtt.as_millis()
+                                );
+                            }
+                            Ok(ping::Success::Pong) => {
+                                trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
+                            }
+                            Err(ping::Failure::Timeout) => {
+                                debug!("PingFailure::Timeout {}", ping_event.peer.to_base58());
+                            }
+                            Err(ping::Failure::Other { error }) => {
+                                debug!("PingFailure::Other {}: {}", ping_event.peer.to_base58(), error);
+                            }
+                            Err(ping::Failure::Unsupported) => {
+                                debug!("PingFailure::Unsupported {}", ping_event.peer.to_base58());
                             }
                         },
                         _ => {
