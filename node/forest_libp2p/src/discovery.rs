@@ -28,10 +28,10 @@ use tokio::time::Interval;
 #[derive(Debug)]
 pub enum DiscoveryOut {
     /// Event that notifies that we connected to the node with the given peer id.
-    Connected(PeerId),
+    Connected(PeerId, Vec<Multiaddr>),
 
     /// Event that notifies that we disconnected with the node with the given peer id.
-    Disconnected(PeerId),
+    Disconnected(PeerId, Vec<Multiaddr>),
 }
 
 /// `DiscoveryBehaviour` configuration.
@@ -246,10 +246,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         if other_established == 0 {
             let multiaddr = self.addresses_of_peer(peer_id);
-            self.peer_addresses.insert(*peer_id, multiaddr);
+            self.peer_addresses.insert(*peer_id, multiaddr.clone());
             self.peers.insert(*peer_id);
             self.pending_events
-                .push_back(DiscoveryOut::Connected(*peer_id));
+                .push_back(DiscoveryOut::Connected(*peer_id, multiaddr));
         }
 
         self.kademlia.inject_connection_established(
@@ -273,8 +273,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         if remaining_established == 0 {
             self.peers.remove(peer_id);
+            let addresses = self.peer_addresses.remove(peer_id).unwrap_or_default();
             self.pending_events
-                .push_back(DiscoveryOut::Disconnected(*peer_id));
+                .push_back(DiscoveryOut::Disconnected(*peer_id, addresses));
         }
 
         self.kademlia.inject_connection_closed(
