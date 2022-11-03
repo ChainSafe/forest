@@ -27,6 +27,7 @@ use libipld::store::StoreParams;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
+use libp2p::identify;
 use libp2p::multiaddr::Protocol;
 use libp2p::multihash::Multihash;
 use libp2p::ping::{self, PingSuccess};
@@ -382,6 +383,19 @@ where
                             Err(ping::Failure::Unsupported) => {
                                 debug!("PingFailure::Unsupported {}", ping_event.peer.to_base58());
                             }
+                        },
+                        ForestBehaviourEvent::Identify(id_event) => match id_event {
+                            identify::Event::Received { peer_id, info } => {
+                                trace!("Identified Peer {}", peer_id);
+                                trace!("protocol_version {}", info.protocol_version);
+                                trace!("agent_version {}", info.agent_version);
+                                trace!("listening_ addresses {:?}", info.listen_addrs);
+                                trace!("observed_address {}", info.observed_addr);
+                                trace!("protocols {:?}", info.protocols);
+                            }
+                            identify::Event::Sent { .. } => (),
+                            identify::Event::Pushed { .. } => (),
+                            identify::Event::Error { .. } => (),
                         },
                         _ => {
                         },
