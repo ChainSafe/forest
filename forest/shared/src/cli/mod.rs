@@ -210,7 +210,12 @@ fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
     None
 }
 
-fn find_unknown_keys<'a>(table: Option<&'a str>, x: &'a toml::Value, y: &'a toml::Value, result: &mut Vec<(Option<&'a str>, &'a str)>) {
+fn find_unknown_keys<'a>(
+    table: Option<&'a str>,
+    x: &'a toml::Value,
+    y: &'a toml::Value,
+    result: &mut Vec<(Option<&'a str>, &'a str)>,
+) {
     if let toml::Value::Table(x_map) = x {
         if let toml::Value::Table(y_map) = y {
             let x_set: HashSet<_> = x_map.keys().collect();
@@ -243,13 +248,14 @@ pub fn warn_for_unknown_keys(path: &Path, config: &Config) {
     let config_file = toml::to_string(config).unwrap();
     let config_value = config_file.parse::<toml::Value>().unwrap();
 
-    let mut result = vec!();
+    let mut result = vec![];
     find_unknown_keys(None, &value, &config_value, &mut result);
     for (table, k) in result.iter() {
+        let path = path.display();
         if let Some(table) = table {
-            warn!("{}: Unknown key `{k}` in [{table}], ignoring", path.display());
+            warn!("{path}: Unknown key `{k}` in [{table}], ignoring");
         } else {
-            warn!("{}: Unknown key `{k}` in top-level table, ignoring", path.display());
+            warn!("{path}: Unknown key `{k}` in top-level table, ignoring");
         }
     }
 }
@@ -298,17 +304,20 @@ mod tests {
         .unwrap();
 
         // No differences
-        let mut result = vec!();
+        let mut result = vec![];
         find_unknown_keys(None, &y, &y, &mut result);
         assert!(result.is_empty());
 
         // 3 unknown keys
-        let mut result = vec!();
+        let mut result = vec![];
         find_unknown_keys(None, &x, &y, &mut result);
-        assert_eq!(result, vec![
-            (None, "foo"),
-            (Some("myth"), "bar"),
-            (Some("entities"), "baz"),
-        ]);
+        assert_eq!(
+            result,
+            vec![
+                (None, "foo"),
+                (Some("myth"), "bar"),
+                (Some("entities"), "baz"),
+            ]
+        );
     }
 }
