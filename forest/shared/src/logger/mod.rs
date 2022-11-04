@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::{cli_error_and_die, LogValue, LogConfig};
+use crate::cli::LogConfig;
 use atty::Stream;
 use log::LevelFilter;
 use pretty_env_logger::env_logger::WriteStyle;
@@ -45,7 +45,7 @@ impl From<LoggingColor> for WriteStyle {
     }
 }
 
-pub fn setup_logger(log_config: &[LogValue], write_style: WriteStyle) {
+pub fn setup_logger(log_config: &LogConfig, write_style: WriteStyle) {
     let mut logger_builder = pretty_env_logger::formatted_timed_builder();
 
     // Assign default log level settings

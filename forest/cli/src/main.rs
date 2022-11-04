@@ -21,7 +21,7 @@ fn main() {
             task::block_on(subcommand::process(cmd, cfg));
         }
         Err(e) => {
-            logger::setup_logger(&LogConfig::default());
+            logger::setup_logger(&LogConfig::default(), opts.color.into());
             cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
