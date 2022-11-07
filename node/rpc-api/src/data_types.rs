@@ -48,8 +48,8 @@ pub struct StreamingData<'a> {
 /// This is where you store persistent data, or at least access to stateful data.
 pub struct RPCState<DB, B>
 where
-    DB: Blockstore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     pub keystore: Arc<RwLock<KeyStore>>,
     pub chain_store: Arc<ChainStore<DB>>,

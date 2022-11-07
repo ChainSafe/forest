@@ -179,7 +179,7 @@ where
         let network = SyncNetworkContext::new(
             network_send,
             Default::default(),
-            state_manager.blockstore_cloned(),
+            state_manager.blockstore().clone(),
         );
 
         Ok(Self {

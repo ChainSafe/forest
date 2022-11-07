@@ -26,7 +26,7 @@ pub(crate) async fn estimate_gas_premium<DB, B>(
 ) -> Result<MpoolEstimateGasPriceResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (nblocks, sender_str, gas_limit, tsk) = params;
     let sender = Address::from_str(&sender_str)?;
@@ -43,7 +43,7 @@ pub(crate) async fn mpool_get_sequence<DB, B>(
 ) -> Result<MpoolGetNonceResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
@@ -58,7 +58,7 @@ pub(crate) async fn mpool_pending<DB, B>(
 ) -> Result<MpoolPendingResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
@@ -123,7 +123,7 @@ pub(crate) async fn mpool_push<DB, B>(
 ) -> Result<MpoolPushResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (SignedMessageJson(smsg),) = params;
 
@@ -139,7 +139,7 @@ pub(crate) async fn mpool_push_message<DB, B>(
 ) -> Result<MpoolPushMessageResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(umsg), spec) = params;
 
@@ -195,7 +195,7 @@ pub(crate) async fn mpool_select<DB, B>(
 ) -> Result<MpoolSelectResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (tsk, q) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk.into()).await?;

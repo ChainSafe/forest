@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cli::{cli_error_and_die, LogValue};
-use isatty::stdout_isatty;
+use atty::Stream;
 use log::LevelFilter;
 use pretty_env_logger::env_logger::WriteStyle;
 use std::str::FromStr;
@@ -34,7 +34,7 @@ impl From<LoggingColor> for WriteStyle {
         match color {
             LoggingColor::Always => WriteStyle::Always,
             LoggingColor::Auto => {
-                if stdout_isatty() {
+                if atty::is(Stream::Stdout) {
                     WriteStyle::Always
                 } else {
                     WriteStyle::Never

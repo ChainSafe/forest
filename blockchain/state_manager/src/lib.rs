@@ -28,7 +28,6 @@ use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
-use fvm::machine::NetworkConfig;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -164,13 +163,8 @@ where
 
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
-        let state = StateTree::new_from_root(self.blockstore_cloned(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
         Ok(state.get_actor(addr)?)
-    }
-
-    /// Returns the cloned [`Arc`] of the state manager's [`Blockstore`].
-    pub fn blockstore_cloned(&self) -> DB {
-        self.cs.blockstore_cloned()
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -338,7 +332,7 @@ where
         p_state: &Cid,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        rand: &R,
+        rand: R,
         base_fee: TokenAmount,
         mut callback: Option<CB>,
         tipset: &Arc<Tipset>,
@@ -347,27 +341,22 @@ where
         R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
-        let db = self.blockstore_cloned();
+        let db = self.blockstore().clone();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
-        let rand_clone = rand.clone();
         let create_vm = |state_root, epoch| {
-            let network_version = self.get_network_version(epoch);
-            VM::<_>::new(
+            VM::new(
                 state_root,
-                db.clone(),
+                self.blockstore().clone(),
                 epoch,
-                &rand_clone,
+                rand.clone(),
                 base_fee.clone(),
-                network_version,
                 self.genesis_info
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-                self.engine
-                    .get(&NetworkConfig::new(network_version))
-                    .unwrap(),
-                self.chain_config.policy.chain_finality,
+                &self.engine,
+                Arc::clone(self.chain_config()),
             )
         };
 
@@ -399,13 +388,6 @@ where
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;
-
-        // FIXME: Buffering disabled while debugging. Investigate if the buffer improves performance.
-        //        See issue: https://github.com/ChainSafe/forest/issues/1451
-        // Persist changes connected to root
-        // buf_store
-        //     .flush(&state_root)
-        //     .expect("buffered blockstore flush failed");
 
         Ok((state_root, receipt_root))
     }
@@ -477,29 +459,25 @@ where
     fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
-        rand: &ChainRand<DB>,
+        rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult {
         span!("state_call_raw", {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
-            let store_arc = self.blockstore_cloned();
-            let network_version = self.get_network_version(bheight);
-            let mut vm = VM::<_>::new(
+            let store = self.blockstore().clone();
+            let mut vm = VM::new(
                 *bstate,
-                store_arc.clone(),
+                store,
                 bheight,
                 rand,
                 TokenAmount::zero(),
-                network_version,
                 self.genesis_info
-                    .get_circulating_supply(bheight, &store_arc, bstate)?,
+                    .get_circulating_supply(bheight, self.blockstore(), bstate)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-                self.engine
-                    .get(&NetworkConfig::new(network_version))
-                    .unwrap(),
-                self.chain_config.policy.chain_finality,
+                &self.engine,
+                Arc::clone(self.chain_config()),
             )?;
 
             if msg.gas_limit == 0 {
@@ -544,7 +522,7 @@ where
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let chain_rand = self.chain_rand(ts.key().to_owned());
-        self.call_raw(message, &chain_rand, &ts)
+        self.call_raw(message, chain_rand, &ts)
     }
 
     /// Computes message on the given [Tipset] state, after applying other messages and returns
@@ -569,27 +547,21 @@ where
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
         let chain_rand = self.chain_rand(ts.key().to_owned());
 
-        // TODO investigate: this doesn't use a buffered store in any way, and can lead to
-        // state bloat potentially?
-        let store_arc = self.blockstore_cloned();
+        let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
-        let network_version = self.get_network_version(ts.epoch() + 1);
         let epoch = ts.epoch() + 1;
-        let mut vm = VM::<_>::new(
+        let mut vm = VM::new(
             st,
-            store_arc.clone(),
+            store,
             epoch,
-            &chain_rand,
+            chain_rand,
             ts.blocks()[0].parent_base_fee().clone(),
-            network_version,
             self.genesis_info
-                .get_circulating_supply(epoch, &store_arc, &st)?,
+                .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
-            self.engine
-                .get(&NetworkConfig::new(network_version))
-                .unwrap(),
-            self.chain_config.policy.chain_finality,
+            &self.engine,
+            Arc::clone(self.chain_config()),
         )?;
 
         for msg in prior_messages {
@@ -658,17 +630,13 @@ where
         tipset: Arc<Tipset>,
         round: ChainEpoch,
     ) -> Result<(Arc<Tipset>, Cid), Error> {
-        let mut lbr: ChainEpoch = ChainEpoch::from(0);
         let version = self.get_network_version(round);
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
             self.chain_config.policy.chain_finality
         };
-
-        if round > lb {
-            lbr = round - lb
-        }
+        let lbr = (round - lb).max(0);
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
@@ -903,7 +871,7 @@ where
                     &sr,
                     &blocks,
                     epoch,
-                    &chain_rand,
+                    chain_rand,
                     base_fee,
                     callback,
                     &ts_cloned,

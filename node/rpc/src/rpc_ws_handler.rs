@@ -26,8 +26,8 @@ async fn rpc_ws_task<DB, B>(
     ws_sender: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
-    DB: Blockstore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     let call_method = rpc_call.method_ref();
     let call_id = rpc_call.id_ref();
@@ -114,8 +114,8 @@ pub async fn rpc_ws_handler<DB, B>(
     mut ws_stream: WebSocketConnection,
 ) -> Result<(), tide::Error>
 where
-    DB: Blockstore + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    DB: Blockstore,
+    B: Beacon,
 {
     let (authorization_header, request) = get_auth_header(request);
     let rpc_server = request.state();

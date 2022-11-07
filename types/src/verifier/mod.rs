@@ -26,7 +26,10 @@ impl ProofVerifier for FullVerifier {}
 
 /// Functionality for verification of seal, winning PoSt and window PoSt proofs.
 /// Proof verification will be full validation by default.
-pub trait ProofVerifier {
+pub trait ProofVerifier
+where
+    Self: Sized + Send + Sync + 'static,
+{
     /// Verify seal proof for sectors. This proof verifies that a sector was sealed by the miner.
     fn verify_seal(vi: &SealVerifyInfo) -> Result<(), anyhow::Error> {
         let commr =

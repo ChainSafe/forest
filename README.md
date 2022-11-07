@@ -66,6 +66,8 @@ rustup install nightly
 
 ```shell
 # Ubuntu
+sudo make install-deps
+# Or
 sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
 
 # Archlinux
@@ -82,14 +84,9 @@ git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
 # Install binary to $HOME/.cargo/bin and run node
+# avx2 is enabled by default. To disable it, remove 
+# -Ctarget-feature from RUSTFLAGS in .cargo/config.toml
 make install
-
-# Simd is supported by many crypto / hashing crates
-# Install with avx2 cpu features
-RUSTFLAGS="-Ctarget-feature=+avx2,+fma" make install
-
-# Or install with local cpu features
-RUSTFLAGS="-Ctarget-cpu=native" make install
 
 forest
 ```

@@ -31,7 +31,7 @@ pub(crate) async fn gas_estimate_fee_cap<DB, B>(
 ) -> Result<GasEstimateFeeCapResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
@@ -48,7 +48,7 @@ async fn estimate_fee_cap<DB, B>(
 ) -> Result<TokenAmount, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let ts = data
         .state_manager
@@ -76,7 +76,7 @@ pub(crate) async fn gas_estimate_gas_premium<DB, B>(
 ) -> Result<GasEstimateGasPremiumResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (nblocksincl, AddressJson(_sender), _gas_limit, TipsetKeysJson(_tsk)) = params;
     estimate_gas_premium::<DB, B>(&data, nblocksincl)
@@ -90,7 +90,7 @@ async fn estimate_gas_premium<DB, B>(
 ) -> Result<TokenAmount, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     if nblocksincl == 0 {
         nblocksincl = 1;
@@ -183,7 +183,7 @@ pub(crate) async fn gas_estimate_gas_limit<DB, B>(
 ) -> Result<GasEstimateGasLimitResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(msg), TipsetKeysJson(tsk)) = params;
     estimate_gas_limit::<DB, B>(&data, msg, tsk).await
@@ -196,7 +196,7 @@ async fn estimate_gas_limit<DB, B>(
 ) -> Result<i64, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let mut msg = msg;
     msg.gas_limit = BLOCK_GAS_LIMIT;
@@ -247,7 +247,7 @@ pub(crate) async fn gas_estimate_message_gas<DB, B>(
 ) -> Result<GasEstimateMessageGasResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let (MessageJson(msg), spec, TipsetKeysJson(tsk)) = params;
     estimate_message_gas::<DB, B>(&data, msg, spec, tsk)
@@ -263,7 +263,7 @@ pub(crate) async fn estimate_message_gas<DB, B>(
 ) -> Result<Message, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon + Send + Sync + 'static,
+    B: Beacon,
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {
