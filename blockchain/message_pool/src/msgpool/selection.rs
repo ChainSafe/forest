@@ -1342,7 +1342,7 @@ mod test_selection {
 
         let mut nonces = vec![0; n_actors as usize];
         for m in &msgs {
-            let who = who_is(m.message.from) as usize;
+            let who = who_is(m.message.from);
             if who < 3 {
                 panic!("got message from {}th actor", who);
             }

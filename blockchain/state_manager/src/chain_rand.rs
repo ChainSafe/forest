@@ -256,10 +256,10 @@ pub fn draw_randomness(
     entropy: &[u8],
 ) -> anyhow::Result<[u8; 32]> {
     let mut state = Params::new().hash_length(32).to_state();
-    state.write_i64::<BigEndian>(pers as i64)?;
+    state.write_i64::<BigEndian>(pers)?;
     let vrf_digest = blake2b_256(rbase);
     state.write_all(&vrf_digest)?;
-    state.write_i64::<BigEndian>(round as i64)?;
+    state.write_i64::<BigEndian>(round)?;
     state.write_all(entropy)?;
     let mut ret = [0u8; 32];
     ret.clone_from_slice(state.finalize().as_bytes());

@@ -99,7 +99,7 @@ impl State {
             State::V8(st) => {
                 st.load_deadlines(&store)?
                     .for_each(&Default::default(), &store, |idx, dl| {
-                        f(idx as u64, Deadline::V8(dl))
+                        f(idx, Deadline::V8(dl))
                     })
             }
         }
@@ -227,7 +227,7 @@ impl Deadline {
     ) -> anyhow::Result<()> {
         match self {
             Deadline::V8(dl) => dl.for_each(&store, |idx, part| {
-                f(idx as u64, Partition::V8(Cow::Borrowed(part)))
+                f(idx, Partition::V8(Cow::Borrowed(part)))
             }),
         }
     }

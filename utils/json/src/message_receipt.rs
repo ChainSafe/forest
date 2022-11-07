@@ -63,7 +63,7 @@ pub mod json {
         } = Deserialize::deserialize(deserializer)?;
         Ok(Receipt {
             exit_code: ExitCode::new(exit_code as u32),
-            return_data: RawBytes::new(base64::decode(&return_data).map_err(de::Error::custom)?),
+            return_data: RawBytes::new(base64::decode(return_data).map_err(de::Error::custom)?),
             gas_used,
         })
     }

@@ -18,7 +18,8 @@ pub fn set_user_perm(file: &File) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
     let mut perm = file.metadata()?.permissions();
-    perm.set_mode((libc::S_IWUSR | libc::S_IRUSR) as u32);
+    #[allow(clippy::useless_conversion)] // Otherwise it does not build on macos
+    perm.set_mode((libc::S_IWUSR | libc::S_IRUSR).into());
     file.set_permissions(perm)?;
 
     info!("Permissions set to 0600 on {:?}", file);
