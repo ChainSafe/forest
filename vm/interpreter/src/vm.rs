@@ -349,7 +349,7 @@ impl RewardCalc for FixedRewardCalc {
         let msg = Message {
             from: reward::ADDRESS,
             to: miner,
-            method_num: METHOD_SEND as u64,
+            method_num: METHOD_SEND,
             params: Default::default(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,

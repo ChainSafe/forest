@@ -68,7 +68,7 @@ where
             proving_sectors
         };
 
-        let num_prov_sect = proving_sectors.len() as u64;
+        let num_prov_sect = proving_sectors.len();
 
         if num_prov_sect == 0 {
             return Ok(Vec::new());
