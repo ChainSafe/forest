@@ -21,7 +21,7 @@ impl TempRocksDB {
         let path = dir.path().join("db");
 
         TempRocksDB {
-            db: RocksDb::open(&path, &RocksDbConfig::default()).unwrap(),
+            db: RocksDb::open(path, &RocksDbConfig::default()).unwrap(),
             _dir: dir,
         }
     }

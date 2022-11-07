@@ -130,7 +130,7 @@ impl WalletCommands {
                 let key = match path {
                     Some(path) => match read_file_to_string(&PathBuf::from(path)) {
                         Ok(key) => key,
-                        _ => cli_error_and_die(&format!("{} is not a valid path", path), 1),
+                        _ => cli_error_and_die(format!("{path} is not a valid path"), 1),
                     },
                     _ => {
                         println!("Enter the private key: ");
@@ -154,7 +154,7 @@ impl WalletCommands {
                     serde_json::from_str(key_str);
 
                 if key_result.is_err() {
-                    cli_error_and_die(&format!("{} is not a valid key to import", key), 1);
+                    cli_error_and_die(format!("{key} is not a valid key to import"), 1);
                 }
 
                 let key = key_result.unwrap();
@@ -226,7 +226,7 @@ impl WalletCommands {
                 let address_result = Address::from_str(address);
 
                 if address_result.is_err() {
-                    cli_error_and_die(&format!("{} is not a valid address", address), 1);
+                    cli_error_and_die(format!("{address} is not a valid address"), 1);
                 }
 
                 let address = address_result.unwrap();
