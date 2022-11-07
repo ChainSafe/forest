@@ -142,7 +142,7 @@ impl SnapshotCommands {
                 let output_path = match strfmt(&output_path.display().to_string(), &vars) {
                     Ok(path) => path.into(),
                     Err(e) => {
-                        cli_error_and_die(format!("Unparsable string error: {}", e), 1);
+                        cli_error_and_die(format!("Unparsable string error: {e}"), 1);
                     }
                 };
 
