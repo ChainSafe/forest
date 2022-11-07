@@ -1,5 +1,4 @@
-57
-0x71
+52
 Algorand/M
 API/M
 APIs
@@ -18,10 +17,7 @@ cron
 crypto
 daemon
 daemonize
-DAG_CBOR
-DefaultParams
 Filecoin
-fvm_ipld_encoding
 HAMT
 hasher
 IPFS
@@ -29,7 +25,6 @@ IPLD
 JSON
 JWT
 Kademlia
-libipld
 libp2p
 localhost
 MDNS

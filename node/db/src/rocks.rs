@@ -154,7 +154,7 @@ impl Blockstore for RocksDb {
 }
 
 impl BitswapStore for RocksDb {
-    /// fvm_ipld_encoding::DAG_CBOR(0x71) is covered by [libipld::DefaultParams]
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
     /// under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
