@@ -231,14 +231,14 @@ where
     info!("Snapshot url: {url}");
     info!("Snapshot will be downloaded to {}", snapshot_path.display());
 
-    if let Err(err) = which::which("aria2c") {
-        bail!("Command aria2c is not available. To use --aria2, make sure you have aria2 installed. E.g. sudo apt-get install -y aria2 or brew intall aria2 or follow the instructions on https://aria2.github.io/ \n{err}");
+    if which::which("aria2c").is_err() {
+        bail!("Command aria2c is not in PATH. To install aria, refer to instructions on https://aria2.github.io/");
     }
 
     let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
     let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
     if !checksum_response.status().is_success() {
-        bail!("Unable to get the checksum file. Snapshot downloaded but not verified. Url: {checksum_url}");
+        bail!("Unable to get the checksum file. Url: {checksum_url}");
     }
     let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body())
         .await?
