@@ -12,7 +12,7 @@ use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
-use log::{error, warn};
+use log::error;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use std::net::SocketAddr;
@@ -211,35 +211,33 @@ fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
 }
 
 fn find_unknown_keys<'a>(
-    table: Option<&'a str>,
+    tables: Vec<&'a str>,
     x: &'a toml::Value,
     y: &'a toml::Value,
-    result: &mut Vec<(Option<&'a str>, &'a str)>,
+    result: &mut Vec<(Vec<&'a str>, &'a str)>,
 ) {
-    if let toml::Value::Table(x_map) = x {
-        if let toml::Value::Table(y_map) = y {
-            let x_set: HashSet<_> = x_map.keys().collect();
-            let y_set: HashSet<_> = y_map.keys().collect();
-            for k in x_set.difference(&y_set) {
-                result.push((table, k));
-            }
-            for (x_key, x_value) in x_map.iter() {
-                if let Some(y_value) = y_map.get(x_key) {
-                    find_unknown_keys(Some(x_key), x_value, y_value, result);
-                }
+    if let (toml::Value::Table(x_map), toml::Value::Table(y_map)) = (x, y) {
+        let x_set: HashSet<_> = x_map.keys().collect();
+        let y_set: HashSet<_> = y_map.keys().collect();
+        for k in x_set.difference(&y_set) {
+            result.push((tables.clone(), k));
+        }
+        for (x_key, x_value) in x_map.iter() {
+            if let Some(y_value) = y_map.get(x_key) {
+                let mut copy = tables.clone();
+                copy.push(x_key);
+                find_unknown_keys(copy, x_value, y_value, result);
             }
         }
     }
-    if let toml::Value::Array(x_vec) = x {
-        if let toml::Value::Array(y_vec) = y {
-            for (x_value, y_value) in x_vec.iter().zip(y_vec.iter()) {
-                find_unknown_keys(table, x_value, y_value, result);
-            }
+    if let (toml::Value::Array(x_vec), toml::Value::Array(y_vec)) = (x, y) {
+        for (x_value, y_value) in x_vec.iter().zip(y_vec.iter()) {
+            find_unknown_keys(tables.clone(), x_value, y_value, result);
         }
     }
 }
 
-pub fn warn_for_unknown_keys(path: &Path, config: &Config) {
+pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     // `config` has been loaded successfully from toml file in `path` so we can always serialize
     // it back to a valid TOML value or get the TOML value from `path`
     let file = read_file_to_string(path).unwrap();
@@ -249,14 +247,20 @@ pub fn warn_for_unknown_keys(path: &Path, config: &Config) {
     let config_value = config_file.parse::<toml::Value>().unwrap();
 
     let mut result = vec![];
-    find_unknown_keys(None, &value, &config_value, &mut result);
-    for (table, k) in result.iter() {
-        let path = path.display();
-        if let Some(table) = table {
-            warn!("{path}: Unknown key `{k}` in [{table}], ignoring");
+    find_unknown_keys(vec![], &value, &config_value, &mut result);
+    for (tables, k) in result.iter() {
+        if tables.is_empty() {
+            error!("Unknown key `{k}` in top-level table");
         } else {
-            warn!("{path}: Unknown key `{k}` in top-level table, ignoring");
+            error!("Unknown key `{k}` in [{}]", tables.join("."));
         }
+    }
+    if !result.is_empty() {
+        let path = path.display();
+        cli_error_and_die(
+            format!("Error checking {path}. Verify that all keys are valid"),
+            1,
+        )
     }
 }
 
@@ -305,18 +309,18 @@ mod tests {
 
         // No differences
         let mut result = vec![];
-        find_unknown_keys(None, &y, &y, &mut result);
+        find_unknown_keys(vec![], &y, &y, &mut result);
         assert!(result.is_empty());
 
         // 3 unknown keys
         let mut result = vec![];
-        find_unknown_keys(None, &x, &y, &mut result);
+        find_unknown_keys(vec![], &x, &y, &mut result);
         assert_eq!(
             result,
             vec![
-                (None, "foo"),
-                (Some("myth"), "bar"),
-                (Some("entities"), "baz"),
+                (vec![], "foo"),
+                (vec!["myth"], "bar"),
+                (vec!["myth", "entities"], "baz"),
             ]
         );
     }

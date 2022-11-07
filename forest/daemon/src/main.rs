@@ -9,7 +9,7 @@ use cli::Cli;
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{cli_error_and_die, warn_for_unknown_keys, ConfigPath, DaemonConfig, LogConfig},
+    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
 use lazy_static::lazy_static;
@@ -110,7 +110,7 @@ fn main() {
                     }
                     _ => (),
                 }
-                warn_for_unknown_keys(path.to_path_buf(), &cfg);
+                check_for_unknown_keys(path.to_path_buf(), &cfg);
             } else {
                 info!("Using default {} config", cfg.chain.name);
             }
