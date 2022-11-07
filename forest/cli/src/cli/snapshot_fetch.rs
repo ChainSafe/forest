@@ -494,6 +494,10 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn download_with_aria2_test_wrong_checksum() -> Result<()> {
+        if !is_github_action() && which::which("aria2c").is_err() {
+            return Ok(());
+        }
+
         let (url, shutdown_tx) = serve_forest_logo()?;
         let r = download_with_aria2(
             &url,
@@ -509,6 +513,10 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn download_with_aria2_test_good_checksum() -> Result<()> {
+        if !is_github_action() && which::which("aria2c").is_err() {
+            return Ok(());
+        }
+
         let (url, shutdown_tx) = serve_forest_logo()?;
         download_with_aria2(
             &url,
@@ -537,5 +545,10 @@ mod test {
             });
         tokio::spawn(server);
         Ok((url, shutdown_tx))
+    }
+
+    fn is_github_action() -> bool {
+        // https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables
+        std::env::var("GITHUB_ACTION").is_ok()
     }
 }
