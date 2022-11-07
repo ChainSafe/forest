@@ -5,10 +5,9 @@ use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::io::TempFile;
 use hex::{FromHex, ToHex};
-use http::Response;
 use hyper::{
     client::{connect::Connect, HttpConnector},
-    Body,
+    Body, Response,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use log::info;
