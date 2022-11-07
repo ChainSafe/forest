@@ -897,7 +897,7 @@ pub mod tests {
         for i in 0..10 {
             let msg = create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i);
             smsg_vec.push(msg.clone());
-            mset.insert(i as u64, msg);
+            mset.insert(i, msg);
         }
         let mut chains = Chains::new();
         create_message_chains(
