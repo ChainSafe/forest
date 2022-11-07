@@ -17,6 +17,7 @@ use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
+    process::{Command, Stdio},
     time::Duration,
 };
 use tokio::{
@@ -60,16 +61,27 @@ async fn snapshot_fetch_calibnet(
         Some("/".to_string()),
     )?;
 
-    // Find the the last modified file that is not a directory or empty file
-    let last_modified = bucket_contents
+    let mut cars: Vec<_> = bucket_contents
         .first()
         .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
         .contents
         .iter()
         .filter(|obj| obj.size > 0 && obj.key.rsplit_once('.').unwrap_or_default().1 == "car")
-        .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
-        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
-        .to_owned();
+        .collect();
+    cars.sort_unstable_by_key(|obj| {
+        DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default()
+    });
+    let last_modified = cars[cars.len() - 2].to_owned();
+    // Find the the last modified file that is not a directory or empty file
+    // let last_modified = bucket_contents
+    //     .first()
+    //     .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
+    //     .contents
+    //     .iter()
+    //     .filter(|obj| obj.size > 0 && obj.key.rsplit_once('.').unwrap_or_default().1 == "car")
+    //     .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
+    //     .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
+    //     .to_owned();
 
     // Grab the snapshot name and create requested directory tree.
     let filename = last_modified.key.rsplit_once('/').unwrap().1;
@@ -167,6 +179,24 @@ where
         snapshot_path.display(),
         to_size_string(&total_size.into())?
     );
+
+    // let mut child = Command::new("aria2c")
+    //     .args([
+    //         "--continue=true",
+    //         "--max-connection-per-server=5",
+    //         "--split=5",
+    //         "--max-tries=0",
+    //         &format!(
+    //             "--dir={}",
+    //             snapshot_path
+    //                 .parent()
+    //                 .map(|p| p.to_str().unwrap_or_default())
+    //                 .unwrap_or_default()
+    //         ),
+    //         url.as_str(),
+    //     ])
+    //     .spawn()?;
+    // child.wait()?;
 
     let mut progress_bar = ProgressBar::new(total_size);
     progress_bar.message("Downloading snapshot ");
