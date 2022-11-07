@@ -78,5 +78,8 @@ which.workspace                  = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+axum.workspace       = true
 quickcheck.workspace = true
 rand.workspace       = true
+tokio.workspace      = true
+tower-http           = { workspace = true, features = ["fs"] }

@@ -401,7 +401,11 @@ fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
 mod test {
     use super::*;
     use anyhow::{ensure, Result};
-    use std::env::temp_dir;
+    use axum::{routing::get_service, Router};
+    use http::StatusCode;
+    use rand::{rngs::OsRng, Rng};
+    use std::{env::temp_dir, net::SocketAddr};
+    use tower_http::services::ServeDir;
 
     #[test]
     fn checksum_from_file_test() {
@@ -488,27 +492,50 @@ mod test {
         });
     }
 
-    #[test]
-    fn download_with_aria2_test_wrong_checksum() -> Result<()> {
-        let url = "https://github.com/ChainSafe/forest/raw/07f9b397324f63711fd587fa2cff52a20fcb9c51/.github/forest_logo.png";
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_with_aria2_test_wrong_checksum() -> Result<()> {
+        let (url, shutdown_tx) = serve_forest_logo()?;
         let r = download_with_aria2(
-            url,
+            &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
             "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
         );
         ensure!(r.is_err());
         let err = r.unwrap_err().to_string();
         ensure!(err.contains("Checksum validation failed"));
+        shutdown_tx.send(()).unwrap();
         Ok(())
     }
 
-    #[test]
-    fn download_with_aria2_test_good_checksum() -> Result<()> {
-        let url = "https://github.com/ChainSafe/forest/raw/07f9b397324f63711fd587fa2cff52a20fcb9c51/.github/forest_logo.png";
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_with_aria2_test_good_checksum() -> Result<()> {
+        let (url, shutdown_tx) = serve_forest_logo()?;
         download_with_aria2(
-            url,
+            &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
             "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
-        )
+        )?;
+        shutdown_tx.send(()).unwrap();
+        Ok(())
+    }
+
+    fn serve_forest_logo() -> Result<(String, tokio::sync::oneshot::Sender<()>)> {
+        let port = OsRng.gen_range(20000..40000);
+        let url = format!("http://127.0.0.1:{port}/forest_logo.png");
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let app = {
+            let serve_dir = get_service(ServeDir::new("../../.github")).handle_error(|_| async {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
+            });
+            Router::<axum::body::Body>::new().nest("/", serve_dir)
+        };
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+        let server = axum::Server::bind(&addr)
+            .serve(app.into_make_service())
+            .with_graceful_shutdown(async {
+                shutdown_rx.await.ok();
+            });
+        tokio::spawn(server);
+        Ok((url, shutdown_tx))
     }
 }
