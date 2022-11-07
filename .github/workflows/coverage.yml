@@ -11,12 +11,12 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
+      - name: Install Protoc
+        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache

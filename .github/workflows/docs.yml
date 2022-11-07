@@ -17,10 +17,10 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Install Protoc
+        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Link Checker (Repo)

@@ -22,10 +22,10 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Install Protoc
+        run: ./scripts/install_protoc_linux.sh
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
@@ -45,10 +45,10 @@ jobs:
     name: All lint checks (lint audit spellcheck udeps)
     runs-on: ubuntu-latest
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Install Protoc
+        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - uses: actions/cache@v3
@@ -77,8 +77,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v3
       - name: Install Protoc (Linux)
-        uses: arduino/setup-protoc@v1
+        run: ./scripts/install_protoc_linux.sh
         if: startsWith(matrix.os, 'Ubuntu')
         # MacOS runners always get rate limited when calling gh api
       - name: Install Protoc (MacOS)
@@ -86,8 +88,6 @@ jobs:
         run: |
           brew install protobuf
           protoc --version
-      - name: Checkout Sources
-        uses: actions/checkout@v3
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
@@ -118,12 +118,12 @@ jobs:
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1
       - name: Checkout Sources
         uses: actions/checkout@v3
         with:
           submodules: true
+      - name: Install Protoc
+        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache
