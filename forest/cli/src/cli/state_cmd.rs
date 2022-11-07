@@ -71,7 +71,7 @@ impl StateCommands {
                 let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
 
                 let address = Address::from_str(&miner_address).unwrap_or_else(|_| {
-                    cli_error_and_die(format!("Cannot read address {}", miner_address), 1)
+                    cli_error_and_die(format!("Cannot read address {miner_address}"), 1)
                 });
 
                 match state_get_actor((AddressJson(address), tipset_keys_json.clone()))
@@ -89,7 +89,7 @@ impl StateCommands {
                         }
                     }
                     None => cli_error_and_die(
-                        &format!("cannot find miner at address {}", miner_address),
+                        format!("cannot find miner at address {miner_address}"),
                         1,
                     ),
                 };
@@ -125,7 +125,7 @@ impl StateCommands {
             Self::GetActor { address } => {
                 let address = Address::from_str(&address.clone()).unwrap_or_else(|_| {
                     cli_error_and_die(
-                        format!("Failed to create address from argument {}", address),
+                        format!("Failed to create address from argument {address}"),
                         1,
                     )
                 });
@@ -168,7 +168,7 @@ impl StateCommands {
             }
             Self::Lookup { reverse, address } => {
                 let address = Address::from_str(address).unwrap_or_else(|_| {
-                    cli_error_and_die(format!("Invalid address: {}", address), 1)
+                    cli_error_and_die(format!("Invalid address: {address}"), 1)
                 });
 
                 let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
@@ -215,7 +215,7 @@ impl StateCommands {
                 let miner_state: MinerState = chain_read_obj((CidJson(actor_state.state),))
                     .await
                     .map_err(handle_rpc_err)
-                    .map(|obj| hex::decode(&obj).expect("hex decode fiasco"))
+                    .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
                     .map(RawBytes::from)
                     .map(|obj| {
                         RawBytes::deserialize(&obj).expect("Couldn't deserialize to MinerState")
@@ -226,7 +226,7 @@ impl StateCommands {
                     chain_read_obj((CidJson(miner_state.vesting_funds),))
                         .await
                         .map_err(handle_rpc_err)
-                        .map(|obj| hex::decode(&obj).expect("hex decode fiasco"))
+                        .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
                         .map(RawBytes::from)
                         .map(|obj| {
                             RawBytes::deserialize(&obj)
