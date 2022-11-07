@@ -212,6 +212,11 @@ Forest developers will prepend this variable to CLI commands over using `export`
 FULLNODE_API_INFO="..." forest auth api-info -p admin
 ```
 
+The admin token can also be set using `--token` flag.
+```
+forest-cli --token <ADMIN_TOKEN>
+```
+
 ### Detaching Forest process
 
 You can detach Forest process via the `--detach` flag so that it runs in the background:
