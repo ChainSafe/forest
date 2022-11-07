@@ -128,6 +128,7 @@ tokio                 = "1.21"
 tokio-util            = "0.7.0"
 toml                  = "0.5"
 url                   = "2.3"
+which                 = "4.3"
 
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }

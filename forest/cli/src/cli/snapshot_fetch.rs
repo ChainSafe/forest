@@ -17,7 +17,7 @@ use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
     time::Duration,
 };
 use tokio::{
@@ -33,10 +33,15 @@ use crate::cli::to_size_string;
 pub(crate) async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: Config,
+    use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch).await,
-        "calibnet" => snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch).await,
+        "mainnet" => {
+            snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch, use_aria2).await
+        }
+        "calibnet" => {
+            snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch, use_aria2).await
+        }
         _ => Err(anyhow::anyhow!(
             "Fetch not supported for chain {}",
             config.chain.name,
@@ -50,6 +55,7 @@ pub(crate) async fn snapshot_fetch(
 async fn snapshot_fetch_calibnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
+    use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let name = &snapshot_fetch_config.calibnet.bucket_name;
     let region = &snapshot_fetch_config.calibnet.region;
@@ -61,27 +67,16 @@ async fn snapshot_fetch_calibnet(
         Some("/".to_string()),
     )?;
 
-    let mut cars: Vec<_> = bucket_contents
+    // Find the the last modified file that is not a directory or empty file
+    let last_modified = bucket_contents
         .first()
         .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
         .contents
         .iter()
         .filter(|obj| obj.size > 0 && obj.key.rsplit_once('.').unwrap_or_default().1 == "car")
-        .collect();
-    cars.sort_unstable_by_key(|obj| {
-        DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default()
-    });
-    let last_modified = cars[cars.len() - 2].to_owned();
-    // Find the the last modified file that is not a directory or empty file
-    // let last_modified = bucket_contents
-    //     .first()
-    //     .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
-    //     .contents
-    //     .iter()
-    //     .filter(|obj| obj.size > 0 && obj.key.rsplit_once('.').unwrap_or_default().1 == "car")
-    //     .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
-    //     .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
-    //     .to_owned();
+        .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
+        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
+        .to_owned();
 
     // Grab the snapshot name and create requested directory tree.
     let filename = last_modified.key.rsplit_once('/').unwrap().1;
@@ -98,15 +93,19 @@ async fn snapshot_fetch_calibnet(
     let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
 
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
-    let total_size = last_modified.size;
-    download_snapshot_and_validate_checksum(
-        client,
-        url,
-        &snapshot_path,
-        snapshot_response,
-        total_size,
-    )
-    .await?;
+    if use_aria2 {
+        download_snapshot_and_validate_checksum_with_aria2(client, url, &snapshot_path).await?
+    } else {
+        let total_size = last_modified.size;
+        download_snapshot_and_validate_checksum(
+            client,
+            url,
+            &snapshot_path,
+            snapshot_response,
+            total_size,
+        )
+        .await?;
+    }
 
     Ok(snapshot_path)
 }
@@ -117,6 +116,7 @@ async fn snapshot_fetch_calibnet(
 async fn snapshot_fetch_mainnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
+    use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let client = https_client();
 
@@ -137,12 +137,6 @@ async fn snapshot_fetch_mainnet(
     };
 
     let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
-    let total_size = snapshot_response
-        .headers()
-        .get("content-length")
-        .and_then(|ct_len| ct_len.to_str().ok())
-        .and_then(|ct_len| ct_len.parse::<u64>().ok())
-        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
 
     // Grab the snapshot file name
     let snapshot_name = filename_from_url(&snapshot_url)?;
@@ -150,14 +144,26 @@ async fn snapshot_fetch_mainnet(
     create_dir_all(snapshot_out_dir).await?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
 
-    download_snapshot_and_validate_checksum(
-        client,
-        snapshot_url,
-        &snapshot_path,
-        snapshot_response,
-        total_size,
-    )
-    .await?;
+    if use_aria2 {
+        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
+            .await?
+    } else {
+        let total_size = snapshot_response
+            .headers()
+            .get("content-length")
+            .and_then(|ct_len| ct_len.to_str().ok())
+            .and_then(|ct_len| ct_len.parse::<u64>().ok())
+            .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
+
+        download_snapshot_and_validate_checksum(
+            client,
+            snapshot_url,
+            &snapshot_path,
+            snapshot_response,
+            total_size,
+        )
+        .await?;
+    }
 
     Ok(snapshot_path)
 }
@@ -179,24 +185,6 @@ where
         snapshot_path.display(),
         to_size_string(&total_size.into())?
     );
-
-    // let mut child = Command::new("aria2c")
-    //     .args([
-    //         "--continue=true",
-    //         "--max-connection-per-server=5",
-    //         "--split=5",
-    //         "--max-tries=0",
-    //         &format!(
-    //             "--dir={}",
-    //             snapshot_path
-    //                 .parent()
-    //                 .map(|p| p.to_str().unwrap_or_default())
-    //                 .unwrap_or_default()
-    //         ),
-    //         url.as_str(),
-    //     ])
-    //     .spawn()?;
-    // child.wait()?;
 
     let mut progress_bar = ProgressBar::new(total_size);
     progress_bar.message("Downloading snapshot ");
@@ -230,6 +218,66 @@ where
     std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
 
     Ok(())
+}
+
+async fn download_snapshot_and_validate_checksum_with_aria2<C>(
+    client: hyper::Client<C>,
+    url: Url,
+    snapshot_path: &Path,
+) -> anyhow::Result<()>
+where
+    C: Connect + Clone + Send + Sync + 'static,
+{
+    info!("Snapshot url: {url}");
+    info!("Snapshot will be downloaded to {}", snapshot_path.display());
+
+    if let Err(err) = which::which("aria2c") {
+        bail!("Command aria2c is not available. To use --aria2, make sure you have aria2 installed. E.g. sudo apt-get install -y aria2 or brew intall aria2 or follow the instructions on https://aria2.github.io/ \n{err}");
+    }
+
+    let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
+    let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
+    if !checksum_response.status().is_success() {
+        bail!("Unable to get the checksum file. Snapshot downloaded but not verified. Url: {checksum_url}");
+    }
+    let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body())
+        .await?
+        .to_vec();
+    let checksum_expected = String::from_utf8(checksum_bytes)?.trim().to_owned();
+    info!("Expected sha256 checksum: {checksum_expected}");
+    download_with_aria2(
+        url.as_str(),
+        snapshot_path
+            .parent()
+            .map(|p| p.to_str().unwrap_or_default())
+            .unwrap_or_default(),
+        format!("sha-256={checksum_expected}").as_str(),
+    )
+}
+
+fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<()> {
+    let mut child = Command::new("aria2c")
+        .args([
+            "--continue=true",
+            "--max-connection-per-server=5",
+            "--split=5",
+            "--max-tries=0",
+            &format!("--checksum={checksum}"),
+            &format!("--dir={dir}",),
+            url,
+        ])
+        .spawn()?;
+    let exit_code = child.wait()?;
+    if exit_code.success() {
+        Ok(())
+    } else {
+        // https://aria2.github.io/manual/en/html/aria2c.html#exit-status
+        bail!(match exit_code.code() {
+            Some(32) => "Checksum validation failed".into(),
+            Some(code) =>format!("Failed with exit code {code}, checkout https://aria2.github.io/manual/en/html/aria2c.html#exit-status"),
+            None => "Failed with unknown exit code.".into(),
+        });
+    }
 }
 
 /// Tries to extract resource filename from a given URL.
@@ -352,6 +400,8 @@ fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use anyhow::{ensure, Result};
+    use std::env::temp_dir;
 
     #[test]
     fn checksum_from_file_test() {
@@ -436,5 +486,29 @@ mod test {
         error_cases.iter().for_each(|case| {
             assert!(replace_extension_url(case.0.try_into().unwrap(), case.1).is_err())
         });
+    }
+
+    #[test]
+    fn download_with_aria2_test_wrong_checksum() -> Result<()> {
+        let url = "https://github.com/ChainSafe/forest/raw/07f9b397324f63711fd587fa2cff52a20fcb9c51/.github/forest_logo.png";
+        let r = download_with_aria2(
+            url,
+            temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
+        );
+        ensure!(r.is_err());
+        let err = r.unwrap_err().to_string();
+        ensure!(err.contains("Checksum validation failed"));
+        Ok(())
+    }
+
+    #[test]
+    fn download_with_aria2_test_good_checksum() -> Result<()> {
+        let url = "https://github.com/ChainSafe/forest/raw/07f9b397324f63711fd587fa2cff52a20fcb9c51/.github/forest_logo.png";
+        download_with_aria2(
+            url,
+            temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
+        )
     }
 }
