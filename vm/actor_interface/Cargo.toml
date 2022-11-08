@@ -24,6 +24,7 @@ fil_actor_reward_v9.workspace   = true
 fil_actor_system_v8.workspace   = true
 fil_actor_system_v9.workspace   = true
 fil_actors_runtime.workspace    = true
+fil_actors_runtime_v9.workspace = true
 
 anyhow.workspace              = true
 cid                           = { workspace = true, default-features = false, features = ["std"] }

@@ -2946,6 +2946,7 @@ dependencies = [
  "fil_actor_reward_state_v8",
  "fil_actor_system",
  "fil_actor_system_state_v8",
+ "fil_actors_runtime",
  "fil_actors_runtime_common",
  "forest_encoding",
  "forest_fil_types",

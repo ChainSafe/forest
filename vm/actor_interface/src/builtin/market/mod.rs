@@ -123,17 +123,6 @@ impl State {
         BS: Blockstore,
     {
         unimplemented!()
-        // match self {
-        //     State::V8(st) => fil_actor_market_v8::validate_deals_for_activation(
-        //         st,
-        //         &store,
-        //         deal_ids,
-        //         miner_addr,
-        //         sector_expiry,
-        //         curr_epoch,
-        //     )
-        //     .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
-        // }
     }
 }
 
