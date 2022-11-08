@@ -12,11 +12,11 @@ use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml};
 use git_version::git_version;
-use log::{error, info, warn};
+use log::error;
 use once_cell::sync::Lazy;
-use std::io::{self};
+use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use structopt::StructOpt;
 
@@ -102,15 +102,16 @@ pub struct CliOpts {
 }
 
 impl CliOpts {
-    pub fn to_config(&self) -> Result<Config, io::Error> {
-        let mut cfg: Config = match &self.config {
-            Some(config_file) => {
+    pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
+        let path = find_config_path(self);
+        let mut cfg: Config = match &path {
+            Some(path) => {
                 // Read from config file
-                let toml = read_file_to_string(&PathBuf::from(&config_file))?;
+                let toml = read_file_to_string(path.to_path_buf())?;
                 // Parse and return the configuration file
                 read_toml(&toml)?
             }
-            None => find_default_config().unwrap_or_default(),
+            None => Config::default(),
         };
 
         if self.chain == "calibnet" {
@@ -137,10 +138,7 @@ impl CliOpts {
             cfg.client.metrics_address = metrics_address;
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
-            cli_error_and_die(
-                "Can't set import_snapshot and import_chain at the same time!",
-                1,
-            );
+            anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
                 cfg.client.snapshot_path = Some(snapshot_path.to_owned());
@@ -176,60 +174,154 @@ impl CliOpts {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }
 
-        Ok(cfg)
+        Ok((cfg, path))
     }
 }
 
-fn find_default_config() -> Option<Config> {
-    if let Ok(config_file) = std::env::var("FOREST_CONFIG_PATH") {
-        info!(
-            "FOREST_CONFIG_PATH detected, using configuration at {}",
-            config_file
-        );
-        let path = PathBuf::from(config_file);
-        if path.exists() {
-            return read_config_or_none(path);
-        }
-    };
+pub enum ConfigPath {
+    Cli(PathBuf),
+    Env(PathBuf),
+    Project(PathBuf),
+}
 
-    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
-        let mut config_dir = dir.config_dir().to_path_buf();
-        config_dir.push("config.toml");
-        if config_dir.exists() {
-            info!("Found a config file at {}", config_dir.display());
-            return read_config_or_none(config_dir);
+impl ConfigPath {
+    pub fn to_path_buf(&self) -> &PathBuf {
+        match self {
+            ConfigPath::Cli(path) => path,
+            ConfigPath::Env(path) => path,
+            ConfigPath::Project(path) => path,
         }
     }
+}
 
-    warn!("No configurations found, using defaults.");
-
+fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
+    if let Some(s) = &opts.config {
+        return Some(ConfigPath::Cli(PathBuf::from(s)));
+    }
+    if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
+        return Some(ConfigPath::Env(PathBuf::from(s)));
+    }
+    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+        let path = dir.config_dir().join("config.toml");
+        if path.exists() {
+            return Some(ConfigPath::Project(path));
+        }
+    }
     None
 }
 
-fn read_config_or_none(path: PathBuf) -> Option<Config> {
-    let toml = match read_file_to_string(&path) {
-        Ok(t) => t,
-        Err(e) => {
-            warn!("An error occured while reading configuration file at {}. Resorting to default configuration. Error was {}", path.display(), e);
-            return None;
+fn find_unknown_keys<'a>(
+    tables: Vec<&'a str>,
+    x: &'a toml::Value,
+    y: &'a toml::Value,
+    result: &mut Vec<(Vec<&'a str>, &'a str)>,
+) {
+    if let (toml::Value::Table(x_map), toml::Value::Table(y_map)) = (x, y) {
+        let x_set: HashSet<_> = x_map.keys().collect();
+        let y_set: HashSet<_> = y_map.keys().collect();
+        for k in x_set.difference(&y_set) {
+            result.push((tables.clone(), k));
         }
-    };
+        for (x_key, x_value) in x_map.iter() {
+            if let Some(y_value) = y_map.get(x_key) {
+                let mut copy = tables.clone();
+                copy.push(x_key);
+                find_unknown_keys(copy, x_value, y_value, result);
+            }
+        }
+    }
+    if let (toml::Value::Array(x_vec), toml::Value::Array(y_vec)) = (x, y) {
+        for (x_value, y_value) in x_vec.iter().zip(y_vec.iter()) {
+            find_unknown_keys(tables.clone(), x_value, y_value, result);
+        }
+    }
+}
 
-    match read_toml(&toml) {
-        Ok(cfg) => Some(cfg),
-        Err(e) => {
-            warn!(
-                "Error reading configuration file, opting to defaults. Error was {} ",
-                e
-            );
-            None
+pub fn check_for_unknown_keys(path: &Path, config: &Config) {
+    // `config` has been loaded successfully from toml file in `path` so we can always serialize
+    // it back to a valid TOML value or get the TOML value from `path`
+    let file = read_file_to_string(path).unwrap();
+    let value = file.parse::<toml::Value>().unwrap();
+
+    let config_file = toml::to_string(config).unwrap();
+    let config_value = config_file.parse::<toml::Value>().unwrap();
+
+    let mut result = vec![];
+    find_unknown_keys(vec![], &value, &config_value, &mut result);
+    for (tables, k) in result.iter() {
+        if tables.is_empty() {
+            error!("Unknown key `{k}` in top-level table");
+        } else {
+            error!("Unknown key `{k}` in [{}]", tables.join("."));
         }
+    }
+    if !result.is_empty() {
+        let path = path.display();
+        cli_error_and_die(
+            format!("Error checking {path}. Verify that all keys are valid"),
+            1,
+        )
     }
 }
 
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
-    error!("Error: {}", msg.as_ref());
+    error!("{}", msg.as_ref());
     std::process::exit(code);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn find_unknown_keys_must_work() {
+        let x: toml::Value = toml::from_str(
+            r#"
+            folklore = true
+            foo = "foo"
+            [myth]
+            author = 'H. P. Lovecraft'
+            entities = [
+                { name = 'Cthulhu' },
+                { name = 'Azathoth' },
+                { baz = 'Dagon' },
+            ]
+            bar = "bar"
+        "#,
+        )
+        .unwrap();
+
+        let y: toml::Value = toml::from_str(
+            r#"
+            folklore = true
+            [myth]
+            author = 'H. P. Lovecraft'
+            entities = [
+                { name = 'Cthulhu' },
+                { name = 'Azathoth' },
+                { name = 'Dagon' },
+            ]
+        "#,
+        )
+        .unwrap();
+
+        // No differences
+        let mut result = vec![];
+        find_unknown_keys(vec![], &y, &y, &mut result);
+        assert!(result.is_empty());
+
+        // 3 unknown keys
+        let mut result = vec![];
+        find_unknown_keys(vec![], &x, &y, &mut result);
+        assert_eq!(
+            result,
+            vec![
+                (vec![], "foo"),
+                (vec!["myth"], "bar"),
+                (vec!["myth", "entities"], "baz"),
+            ]
+        );
+    }
 }
