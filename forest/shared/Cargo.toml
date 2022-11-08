@@ -45,7 +45,7 @@ hex.workspace                    = true
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
-log.workspace                    = true
+log                              = { workspace = true, features = ["serde"] }
 multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true

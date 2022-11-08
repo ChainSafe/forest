@@ -9,7 +9,7 @@ use cli::Cli;
 use async_std::task;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{cli_error_and_die, DaemonConfig},
+    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
 use lazy_static::lazy_static;
@@ -98,8 +98,22 @@ fn main() {
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
-        Ok(cfg) => {
+        Ok((cfg, path)) => {
             logger::setup_logger(&cfg.log, opts.color.into());
+            if let Some(path) = &path {
+                match path {
+                    ConfigPath::Env(path) => {
+                        info!("FOREST_CONFIG_PATH loaded: {}", path.display())
+                    }
+                    ConfigPath::Project(path) => {
+                        info!("Project config loaded: {}", path.display())
+                    }
+                    _ => (),
+                }
+                check_for_unknown_keys(path.to_path_buf(), &cfg);
+            } else {
+                info!("Using default {} config", cfg.chain.name);
+            }
             match cmd {
                 Some(_) => {
                     warn!("All subcommands have been moved to forest-cli tool");
@@ -135,7 +149,8 @@ fn main() {
             }
         }
         Err(e) => {
-            cli_error_and_die(format!("Error parsing config. Error was: {e}"), 1);
+            logger::setup_logger(&LogConfig::default(), opts.color.into());
+            cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
 }
