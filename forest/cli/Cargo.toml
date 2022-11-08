@@ -10,8 +10,6 @@ anyhow.workspace                 = true
 async-log.workspace              = true
 async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
-byte-unit                        = "4.0"
-chrono.workspace                 = true
 cid                              = { workspace = true, default-features = false, features = ["std"] }
 directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
@@ -45,8 +43,6 @@ fvm_shared                       = { workspace = true, default-features = false 
 git-version.workspace            = true
 hex.workspace                    = true
 http                             = "0.2.8"
-hyper                            = { workspace = true, features = ["client", "stream", "http1"] }
-hyper-rustls.workspace           = true
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
@@ -61,7 +57,6 @@ prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
 regex.workspace                  = true
 rpassword.workspace              = true
-rust-s3                          = { version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
 sha2.workspace                   = true
