@@ -9,7 +9,7 @@ use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_cli_shared::cli::{
-    cli_error_and_die, default_snapshot_dir, snapshot_fetch, Config, FOREST_VERSION_STRING,
+    cli_error_and_die, default_snapshot_dir, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
 };
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
@@ -55,7 +55,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(mut config: Config, detached: bool) {
+pub(super) async fn start(config: Config, detached: bool) {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -185,16 +185,18 @@ pub(super) async fn start(mut config: Config, detached: bool) {
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
     // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => prompt_and_fetch_snapshot(&mut config).await,
+    let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
+        None => prompt_snapshot_or_die(&config).await,
         Some(tipset) => {
             let epoch = tipset.epoch();
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
-                prompt_and_fetch_snapshot(&mut config).await
+                prompt_snapshot_or_die(&config).await
+            } else {
+                false
             }
         }
-    }
+    };
 
     // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
     // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
@@ -337,6 +339,8 @@ pub(super) async fn start(mut config: Config, detached: bool) {
         unblock_parent_process();
     }
 
+    let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await;
+
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
         _ = ctrlc_oneshot => {
@@ -397,39 +401,47 @@ pub(super) async fn start(mut config: Config, detached: bool) {
     info!("Forest finish shutdown");
 }
 
-async fn prompt_and_fetch_snapshot(config: &mut Config) {
-    if !config.client.download_snapshot && atty::is(atty::Stream::Stdout) {
-        let download_snapshot = match Confirm::with_theme(&ColorfulTheme::default())
+/// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
+async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
+    if should_fetch_snapshot {
+        let snapshot_path = default_snapshot_dir(&config);
+        let path = match snapshot_fetch(&snapshot_path, &config).await {
+            Ok(path) => path,
+            Err(err) => cli_error_and_die(err.to_string(), 1),
+        };
+        Config {
+            client: Client {
+                snapshot_path: Some(path),
+                snapshot: true,
+                ..config.client
+            },
+            ..config
+        }
+    } else {
+        config
+    }
+}
+
+/// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
+/// exits the process.
+async fn prompt_snapshot_or_die(config: &Config) -> bool {
+    let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
+        Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
                     "Forest needs a snapshot to sync with the network. Would you like to download one now?",
                 )
                 .default(false)
                 .interact()
-            {
-                Ok(result) => result,
-                Err(e) => {
-                    info!("An error occured while requesting user input. Assuming false for input. Error was {}", e);
-                    false
-                }
-            };
-
-        if !download_snapshot {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically",
-                1
-            );
-        }
-    }
-
-    let snapshot_path = default_snapshot_dir(config);
-
-    match snapshot_fetch(&snapshot_path, config).await {
-        Ok(snapshot_path) => {
-            config.client.snapshot_path = Some(snapshot_path);
-            config.client.snapshot = true;
-        }
-        Err(e) => cli_error_and_die(e.to_string(), 1),
+                .unwrap_or_default()
+    } else {
+        config.client.download_snapshot
     };
+
+    if should_download {
+        true
+    } else {
+        cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
+    }
 }
 
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
