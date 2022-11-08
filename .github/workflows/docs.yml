@@ -22,7 +22,7 @@ jobs:
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Link Checker (Repo)
-        uses: lycheeverse/lychee-action@v1.5.1
+        uses: lycheeverse/lychee-action@v1.5.2
         with:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
@@ -56,7 +56,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Docs)
-        uses: lycheeverse/lychee-action@v1.5.1
+        uses: lycheeverse/lychee-action@v1.5.2
         with:
           # Check all docs
           args: --verbose --no-progress './target/doc/*/index.html'

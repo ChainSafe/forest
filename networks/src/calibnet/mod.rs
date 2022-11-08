@@ -10,10 +10,10 @@ pub const MINIMUM_CONSENSUS_POWER: i64 = 32 << 30;
 
 /// Bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
-    "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWJkikQQkxS58spo76BYzFt4fotaT5NpV2zngvrqm4u5ow",
-    "/dns4/bootstrap-1.calibration.fildev.network/tcp/1347/p2p/12D3KooWLce5FDHR4EX4CrYavphA5xS3uDsX6aoowXh5tzDUxJav",
-    "/dns4/bootstrap-2.calibration.fildev.network/tcp/1347/p2p/12D3KooWA9hFfQG9GjP6bHeuQQbMD3FDtZLdW1NayxKXUT26PQZu",
-    "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWMHDi3LVTFG8Szqogt7RkNXvonbQYqSazxBx41A5aeuVz",
+    "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy",
+    "/dns4/bootstrap-1.calibration.fildev.network/tcp/1347/p2p/12D3KooWDTayrBojBn9jWNNUih4nNQQBGJD7Zo3gQCKgBkUsS6dp",
+    "/dns4/bootstrap-2.calibration.fildev.network/tcp/1347/p2p/12D3KooWNRxTHUn8bf7jz1KEUPMc2dMgGfa4f8ZJTsquVSn3vHCG",
+    "/dns4/bootstrap-3.calibration.fildev.network/tcp/1347/p2p/12D3KooWFWUqE9jgXvcKHWieYs9nhyp6NF4ftwLGAHm4sCv73jjK",
 ];
 
 /// Height epochs.
@@ -76,19 +76,19 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     },
     HeightInfo {
         height: Height::Chocolate,
-        epoch: 312_746,
+        epoch: 450,
     },
     HeightInfo {
         height: Height::OhSnap,
-        epoch: 682_006,
+        epoch: 480,
     },
     HeightInfo {
         height: Height::Skyr,
-        epoch: 1_044_660,
+        epoch: 510,
     },
     HeightInfo {
         height: Height::Shark,
-        epoch: 1_407_374,
+        epoch: 16_800,
     },
 ];
 
