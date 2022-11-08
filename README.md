@@ -153,6 +153,8 @@ make test-vectors
 make test-all
 ```
 
+Chain synchronization checks are run after every merge to `main`. This code is maintained in a separate repository - [Forest IaC](https://github.com/ChainSafe/forest-iac).
+
 ### Linters
 The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will has them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
 ```bash
