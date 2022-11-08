@@ -718,6 +718,7 @@ pub(crate) async fn state_miner_sector_allocated<
             .get_obj::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
             .ok_or("allocated sectors bitfield not found")?
             .get(sector_num),
+        _ => panic!("state_miner_sector_allocated disabled"),
     };
 
     Ok(allocated_sectors)

@@ -21,7 +21,7 @@ pub fn is_v8_init_cid(cid: &Cid) -> bool {
         // calibnet v8
         Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap(),
         // calibnet v9
-        Cid::try_from("bafk2bzacecs2ohkgluvxxxzmbqq5oynudtzqoypmhckylct2i5b2uw6nyu2wa").unwrap(),
+        Cid::try_from("bafk2bzaceczqxpivlxifdo5ohr2rx5ny4uyvssm6tkf7am357xm47x472yxu2").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap(),
         // devnet
