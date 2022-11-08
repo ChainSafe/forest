@@ -48,6 +48,7 @@ assert_cmd            = "2"
 async-log             = "2.0"
 async-std             = "1.12"
 async-trait           = "0.1"
+atty                  = "0.2"
 base64                = "0.13"
 blake2b_simd          = "1.0"
 bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }

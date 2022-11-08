@@ -3,14 +3,16 @@
 
 mod client;
 mod config;
+mod snapshot_fetch;
 
+pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
 
-pub use self::{client::*, config::*};
-
+use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml};
+use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::error;
 use once_cell::sync::Lazy;
@@ -89,6 +91,9 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
+    /// Download a chain specific snapshot to sync with the Filecoin network
+    #[structopt(long)]
+    pub download_snapshot: bool,
     /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto")]
     pub color: LoggingColor,
@@ -141,11 +146,11 @@ impl CliOpts {
             anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
         } else {
             if let Some(snapshot_path) = &self.import_snapshot {
-                cfg.client.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.client.snapshot_path = Some(snapshot_path.into());
                 cfg.client.snapshot = true;
             }
             if let Some(snapshot_path) = &self.import_chain {
-                cfg.client.snapshot_path = Some(snapshot_path.to_owned());
+                cfg.client.snapshot_path = Some(snapshot_path.into());
                 cfg.client.snapshot = false;
             }
             cfg.client.snapshot_height = self.height;
@@ -154,6 +159,7 @@ impl CliOpts {
         }
 
         cfg.client.halt_after_import = self.halt_after_import;
+        cfg.client.download_snapshot = self.download_snapshot;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
@@ -264,6 +270,14 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     }
 }
 
+pub fn default_snapshot_dir(config: &Config) -> PathBuf {
+    config
+        .client
+        .data_dir
+        .join("snapshots")
+        .join(config.chain.name.clone())
+}
+
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
@@ -271,9 +285,53 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     std::process::exit(code);
 }
 
+/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
+/// Provided number cannot be negative, otherwise the function will panic.
+pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
+    let bytes = u128::try_from(input)
+        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
+
+    Ok(Byte::from_bytes(bytes)
+        .get_appropriate_unit(true)
+        .to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fvm_shared::bigint::Zero;
+
+    #[test]
+    fn to_size_string_valid_input() {
+        let cases = [
+            (BigInt::zero(), "0 B"),
+            (BigInt::from(1 << 10), "1024 B"),
+            (BigInt::from((1 << 10) + 1), "1.00 KiB"),
+            (BigInt::from((1 << 10) + 512), "1.50 KiB"),
+            (BigInt::from(1 << 20), "1024.00 KiB"),
+            (BigInt::from((1 << 20) + 1), "1.00 MiB"),
+            (BigInt::from(1 << 29), "512.00 MiB"),
+            (BigInt::from((1 << 30) + 1), "1.00 GiB"),
+            (BigInt::from((1u64 << 40) + 1), "1.00 TiB"),
+            (BigInt::from((1u64 << 50) + 1), "1.00 PiB"),
+            // ZiB is 2^70, 288230376151711744 is 2^58
+            (BigInt::from(u128::MAX), "288230376151711744.00 ZiB"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(to_size_string(&input).unwrap(), expected.to_string());
+        }
+    }
+
+    #[test]
+    fn to_size_string_negative_input_should_fail() {
+        assert!(to_size_string(&BigInt::from(-1i8)).is_err());
+    }
+
+    #[test]
+    fn to_size_string_too_large_input_should_fail() {
+        assert!(to_size_string(&(BigInt::from(u128::MAX) + 1)).is_err());
+    }
 
     #[test]
     fn find_unknown_keys_must_work() {

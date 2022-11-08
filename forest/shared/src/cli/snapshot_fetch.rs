@@ -5,10 +5,9 @@ use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::io::TempFile;
 use hex::{FromHex, ToHex};
-use http::Response;
 use hyper::{
     client::{connect::Connect, HttpConnector},
-    Body,
+    Body, Response,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use log::info;
@@ -29,10 +28,7 @@ use crate::cli::to_size_string;
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
-pub(crate) async fn snapshot_fetch(
-    snapshot_out_dir: &Path,
-    config: Config,
-) -> anyhow::Result<PathBuf> {
+pub async fn snapshot_fetch(snapshot_out_dir: &Path, config: &Config) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
         "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch).await,
         "calibnet" => snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch).await,
