@@ -4,13 +4,16 @@
 mod cli;
 mod subcommand;
 
+use std::error::Error;
+
 use cli::{cli_error_and_die, Cli};
 
 use async_std::task;
 use forest_cli_shared::{cli::LogConfig, logger};
+use forest_utils::io::PROGRESS_BAR_VISIBILITY;
 use structopt::StructOpt;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
@@ -18,6 +21,7 @@ fn main() {
     match opts.to_config() {
         Ok((cfg, _)) => {
             logger::setup_logger(&cfg.log, opts.color.into());
+            *PROGRESS_BAR_VISIBILITY.write()? = cfg.client.show_progress_bars;
             task::block_on(subcommand::process(cmd, cfg));
         }
         Err(e) => {
@@ -25,4 +29,6 @@ fn main() {
             cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
+
+    Ok(())
 }

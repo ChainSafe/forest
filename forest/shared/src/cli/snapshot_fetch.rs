@@ -3,7 +3,7 @@
 use super::{Config, SnapshotFetchConfig};
 use anyhow::bail;
 use chrono::DateTime;
-use forest_utils::io::TempFile;
+use forest_utils::io::{progress_bar::Units, ProgressBar, TempFile};
 use hex::{FromHex, ToHex};
 use hyper::{
     client::{connect::Connect, HttpConnector},
@@ -11,7 +11,6 @@ use hyper::{
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use log::info;
-use pbr::ProgressBar;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
@@ -164,10 +163,10 @@ where
         to_size_string(&total_size.into())?
     );
 
-    let mut progress_bar = ProgressBar::new(total_size);
+    let progress_bar = ProgressBar::new(total_size);
     progress_bar.message("Downloading snapshot ");
     progress_bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
-    progress_bar.set_units(pbr::Units::Bytes);
+    progress_bar.set_units(Units::Bytes);
 
     let snapshot_file_tmp = TempFile::new(snapshot_path.with_extension("car.tmp"));
     let file = File::create(snapshot_file_tmp.path()).await?;
