@@ -37,15 +37,15 @@ Benchmark_suite = [
   # {
   #   "name" => "baseline-with-jemalloc",
   #   "build_command" => "cargo build --release --features 'rocksdb/jemalloc'",
-  #   "import_command" => "cargo run --release --bin forest -- --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
-  #   "validate_command" => "cargo run --release --bin forest -- --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
+  #   "import_command" => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
+  #   "validate_command" => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
   #   "config" => {},
   # },
   {
     "name" => "aggresive-rocksdb",
     "build_command" => "cargo build --release",
-    "import_command" => "cargo run --release --bin forest -- --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
-    "validate_command" => "cargo run --release --bin forest -- --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
+    "import_command" => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
+    "validate_command" => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
     "config" => {
       "rocks_db" => {
         "write_buffer_size" => 1024 * 1024 * 1024, # 1Gb memtable, will create as large L0 sst files
