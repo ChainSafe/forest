@@ -1,8 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
-
+use super::Config;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_json::address::json::AddressJson;
 use forest_message::Message;
@@ -10,6 +9,7 @@ use forest_message::SignedMessage;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use jsonrpc_v2::Error;
+use std::collections::HashMap;
 use structopt::StructOpt;
 
 use forest_json::cid::vec::CidJsonVec;
@@ -36,10 +36,10 @@ pub enum MpoolCommands {
 }
 
 impl MpoolCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         match self {
             Self::Pending => {
-                let res = mpool_pending((CidJsonVec(vec![]),)).await;
+                let res = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token).await;
                 let messages = res.map_err(handle_rpc_err).unwrap();
                 println!("{:#?}", messages);
             }
@@ -50,7 +50,10 @@ impl MpoolCommands {
                 let base_fee_lookback = *base_fee_lookback;
                 let local = *local;
 
-                let tipset_json = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let tipset_json = chain_head(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
                 let tipset = tipset_json.0;
 
                 let current_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
@@ -59,18 +62,23 @@ impl MpoolCommands {
                 let mut current_tipset = tipset.clone();
 
                 for _ in 1..base_fee_lookback {
-                    current_tipset =
-                        chain_get_tipset((current_tipset.parents().to_owned().into(),))
-                            .await
-                            .map_err(handle_rpc_err)
-                            .unwrap()
-                            .0;
+                    current_tipset = chain_get_tipset(
+                        (current_tipset.parents().to_owned().into(),),
+                        &config.client.rpc_token,
+                    )
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap()
+                    .0;
 
                     if current_tipset.blocks()[0].parent_base_fee() < &min_base_fee {
                         min_base_fee = current_tipset.blocks()[0].parent_base_fee().clone();
                     }
 
-                    let wallet_response = wallet_list().await.map_err(handle_rpc_err).unwrap();
+                    let wallet_response = wallet_list(&config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap();
 
                     let mut addresses = Vec::new();
 
@@ -81,7 +89,7 @@ impl MpoolCommands {
                             .collect();
                     }
 
-                    let messages = mpool_pending((CidJsonVec(vec![]),))
+                    let messages = mpool_pending((CidJsonVec(vec![]),), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)
                         .unwrap();
@@ -127,10 +135,13 @@ impl MpoolCommands {
                     let mut stats: Vec<MpStat> = Vec::new();
 
                     for (address, bucket) in buckets.iter() {
-                        let get_actor_result = state_get_actor((
-                            AddressJson(address.to_owned()),
-                            TipsetKeysJson(tipset.key().to_owned()),
-                        ))
+                        let get_actor_result = state_get_actor(
+                            (
+                                AddressJson(address.to_owned()),
+                                TipsetKeysJson(tipset.key().to_owned()),
+                            ),
+                            &config.client.rpc_token,
+                        )
                         .await;
 
                         let actor_json = match get_actor_result {

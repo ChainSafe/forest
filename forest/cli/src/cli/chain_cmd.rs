@@ -85,7 +85,9 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res_pretty(chain_get_block((CidJson(cid),)).await);
+                print_rpc_res_pretty(
+                    chain_get_block((CidJson(cid),), &config.client.rpc_token).await,
+                );
             }
             Self::Export {
                 tipset,
@@ -105,18 +107,20 @@ impl ChainCommands {
                 cmd.run(config).await
             }
             Self::Genesis => {
-                print_rpc_res_pretty(chain_get_genesis().await);
+                print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await);
             }
             Self::Head => {
-                print_rpc_res_cids(chain_head().await);
+                print_rpc_res_cids(chain_head(&config.client.rpc_token).await);
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res_pretty(chain_get_message((CidJson(cid),)).await);
+                print_rpc_res_pretty(
+                    chain_get_message((CidJson(cid),), &config.client.rpc_token).await,
+                );
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
-                print_rpc_res(chain_read_obj((CidJson(cid),)).await);
+                print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await);
             }
             Self::Fetch { snapshot_dir } => {
                 warn!("Deprecated, use `forest-cli snapshot fetch` instead.");
