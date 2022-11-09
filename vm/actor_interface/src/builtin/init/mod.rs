@@ -20,12 +20,18 @@ pub fn is_v8_init_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v8
         Cid::try_from("bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry").unwrap(),
-        // calibnet v9
-        Cid::try_from("bafk2bzacecs2ohkgluvxxxzmbqq5oynudtzqoypmhckylct2i5b2uw6nyu2wa").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzaceaipvjhoxmtofsnv3aj6gj5ida4afdrxa4ewku2hfipdlxpaektlw").unwrap(),
         // devnet
         Cid::try_from("bafk2bzacedarbnovmucppbjkcwsxopludrj5ttmtm7mzfqsugmxdnqevqso7o").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
+pub fn is_v9_init_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v9
+        Cid::try_from("bafk2bzaceczqxpivlxifdo5ohr2rx5ny4uyvssm6tkf7am357xm47x472yxu2").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -35,6 +41,7 @@ pub fn is_v8_init_cid(cid: &Cid) -> bool {
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_init_v8::State),
+    V9(fil_actor_init_v9::State),
 }
 
 impl State {
@@ -46,6 +53,12 @@ impl State {
             return store
                 .get_obj(&actor.state)?
                 .map(State::V8)
+                .context("Actor state doesn't exist in store");
+        }
+        if is_v9_init_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
@@ -60,6 +73,7 @@ impl State {
     ) -> anyhow::Result<Address> {
         match self {
             State::V8(st) => Ok(Address::new_id(st.map_address_to_new_id(&store, addr)?)),
+            State::V9(st) => Ok(Address::new_id(st.map_address_to_new_id(&store, addr)?)),
         }
     }
 
@@ -80,12 +94,14 @@ impl State {
     ) -> anyhow::Result<Option<Address>> {
         match self {
             State::V8(st) => st.resolve_address(&store, addr),
+            State::V9(st) => Ok(st.resolve_address(&store, addr)?),
         }
     }
 
     pub fn into_network_name(self) -> String {
         match self {
             State::V8(st) => st.network_name,
+            State::V9(st) => st.network_name,
         }
     }
 }

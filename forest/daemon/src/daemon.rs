@@ -184,6 +184,8 @@ pub(super) async fn start(config: Config, detached: bool) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
+    // XXX: This code has to be run before starting the background services.
+    //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
     let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
         None => prompt_snapshot_or_die(&config).await,
@@ -425,6 +427,9 @@ async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Co
 /// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
 /// exits the process.
 async fn prompt_snapshot_or_die(config: &Config) -> bool {
+    if config.client.snapshot_path.is_some() {
+        return false;
+    }
     let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(

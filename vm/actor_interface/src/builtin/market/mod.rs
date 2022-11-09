@@ -25,12 +25,18 @@ pub fn is_v8_market_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v8
         Cid::try_from("bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6").unwrap(),
-        // calibnet v9
-        Cid::try_from("bafk2bzacedsurnftfw3sbfebpkdisqqaubk43gdjjeegc3kymfmhvlhatte3e").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacediohrxkp2fbsl4yj4jlupjdkgsiwqb4zuezvinhdo2j5hrxco62q").unwrap(),
         // devnet
         Cid::try_from("bafk2bzacecw57fpkqesfhi5g3nr4csy4oy7oc42wmwjuis6l7ijniolo4rt2k").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
+pub fn is_v9_market_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v9
+        Cid::try_from("bafk2bzacebkfcnc27d3agm2bhzzbvvtbqahmvy2b2nf5xyj4aoxehow3bules").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -40,6 +46,7 @@ pub fn is_v8_market_cid(cid: &Cid) -> bool {
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_market_v8::State),
+    V9(fil_actor_market_v9::State),
 }
 
 impl State {
@@ -51,6 +58,12 @@ impl State {
             return store
                 .get_obj(&actor.state)?
                 .map(State::V8)
+                .context("Actor state doesn't exist in store");
+        }
+        if is_v9_market_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
@@ -92,6 +105,7 @@ impl State {
     pub fn total_locked(&self) -> TokenAmount {
         match self {
             State::V8(st) => st.total_locked(),
+            State::V9(st) => st.total_locked(),
         }
     }
 
@@ -99,26 +113,16 @@ impl State {
     /// split into regular deal weight and verified deal weight.
     pub fn verify_deals_for_activation<BS>(
         &self,
-        store: &BS,
-        deal_ids: &[u64],
-        miner_addr: &Address,
-        sector_expiry: ChainEpoch,
-        curr_epoch: ChainEpoch,
+        _store: &BS,
+        _deal_ids: &[u64],
+        _miner_addr: &Address,
+        _sector_expiry: ChainEpoch,
+        _curr_epoch: ChainEpoch,
     ) -> anyhow::Result<(BigInt, BigInt)>
     where
         BS: Blockstore,
     {
-        match self {
-            State::V8(st) => fil_actor_market_v8::validate_deals_for_activation(
-                st,
-                &store,
-                deal_ids,
-                miner_addr,
-                sector_expiry,
-                curr_epoch,
-            )
-            .map(|(deal_st, verified_st, _)| (deal_st, verified_st)),
-        }
+        unimplemented!()
     }
 }
 
