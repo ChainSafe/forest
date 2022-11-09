@@ -5,34 +5,51 @@ use crate::call;
 use forest_rpc_api::chain_api::*;
 use jsonrpc_v2::Error;
 
-pub async fn chain_get_block(cid: ChainGetBlockParams) -> Result<ChainGetBlockResult, Error> {
-    call(CHAIN_GET_BLOCK, cid).await
+pub async fn chain_get_block(
+    cid: ChainGetBlockParams,
+    auth_token: &Option<String>,
+) -> Result<ChainGetBlockResult, Error> {
+    call(CHAIN_GET_BLOCK, cid, auth_token).await
 }
 
-pub async fn chain_export(params: ChainExportParams) -> Result<ChainExportResult, Error> {
-    call(CHAIN_EXPORT, params).await
+pub async fn chain_export(
+    params: ChainExportParams,
+    auth_token: &Option<String>,
+) -> Result<ChainExportResult, Error> {
+    call(CHAIN_EXPORT, params, auth_token).await
 }
 
-pub async fn chain_get_genesis() -> Result<ChainGetGenesisResult, Error> {
-    call(CHAIN_GET_GENESIS, ()).await
+pub async fn chain_get_genesis(
+    auth_token: &Option<String>,
+) -> Result<ChainGetGenesisResult, Error> {
+    call(CHAIN_GET_GENESIS, (), auth_token).await
 }
 
-pub async fn chain_head() -> Result<ChainHeadResult, Error> {
-    call(CHAIN_HEAD, ()).await
+pub async fn chain_head(auth_token: &Option<String>) -> Result<ChainHeadResult, Error> {
+    call(CHAIN_HEAD, (), auth_token).await
 }
 
-pub async fn chain_get_message(cid: ChainGetMessageParams) -> Result<ChainGetMessageResult, Error> {
-    call(CHAIN_GET_MESSAGE, cid).await
+pub async fn chain_get_message(
+    cid: ChainGetMessageParams,
+    auth_token: &Option<String>,
+) -> Result<ChainGetMessageResult, Error> {
+    call(CHAIN_GET_MESSAGE, cid, auth_token).await
 }
 
-pub async fn chain_read_obj(cid: ChainReadObjParams) -> Result<ChainReadObjResult, Error> {
-    call(CHAIN_READ_OBJ, cid).await
+pub async fn chain_read_obj(
+    cid: ChainReadObjParams,
+    auth_token: &Option<String>,
+) -> Result<ChainReadObjResult, Error> {
+    call(CHAIN_READ_OBJ, cid, auth_token).await
 }
 
-pub async fn chain_get_tipset(keys: ChainGetTipSetParams) -> Result<ChainGetTipSetResult, Error> {
-    call(CHAIN_GET_TIPSET, keys).await
+pub async fn chain_get_tipset(
+    keys: ChainGetTipSetParams,
+    auth_token: &Option<String>,
+) -> Result<ChainGetTipSetResult, Error> {
+    call(CHAIN_GET_TIPSET, keys, auth_token).await
 }
 
-pub async fn chain_get_name() -> Result<ChainGetNameResult, Error> {
-    call(CHAIN_GET_NAME, ()).await
+pub async fn chain_get_name(auth_token: &Option<String>) -> Result<ChainGetNameResult, Error> {
+    call(CHAIN_GET_NAME, (), auth_token).await
 }

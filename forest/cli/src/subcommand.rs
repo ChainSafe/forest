@@ -20,25 +20,25 @@ pub(super) async fn process(command: Subcommand, config: Config) {
             cmd.run().await;
         }
         Subcommand::Net(cmd) => {
-            cmd.run().await;
+            cmd.run(config).await;
         }
         Subcommand::Wallet(cmd) => {
-            cmd.run().await;
+            cmd.run(config).await;
         }
         Subcommand::Sync(cmd) => {
-            cmd.run().await;
+            cmd.run(config).await;
         }
         Subcommand::Mpool(cmd) => {
-            cmd.run().await;
+            cmd.run(config).await;
         }
         Subcommand::State(cmd) => {
-            cmd.run().await;
+            cmd.run(config).await;
         }
         Subcommand::Config(cmd) => {
             cmd.run(&config, &mut std::io::stdout()).await;
         }
         Subcommand::Send(cmd) => {
-            cmd.run().await.unwrap();
+            cmd.run(config).await.unwrap();
         }
         Subcommand::Snapshot(cmd) => cmd.run(config).await,
     }
