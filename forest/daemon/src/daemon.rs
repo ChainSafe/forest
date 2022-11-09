@@ -184,20 +184,6 @@ pub(super) async fn start(config: Config, detached: bool) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
-        None => prompt_snapshot_or_die(&config).await,
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                prompt_snapshot_or_die(&config).await
-            } else {
-                false
-            }
-        }
-    };
-
     // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
     // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
     let reward_calc = cns::reward_calc();
@@ -338,6 +324,24 @@ pub(super) async fn start(config: Config, detached: bool) {
     if detached {
         unblock_parent_process();
     }
+
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    let should_fetch_snapshot = if config.client.snapshot_path.is_none() {
+        match chain_store.heaviest_tipset().await {
+            None => prompt_snapshot_or_die(&config).await,
+            Some(tipset) => {
+                let epoch = tipset.epoch();
+                let nv = config.chain.network_version(epoch);
+                if nv < NetworkVersion::V16 {
+                    prompt_snapshot_or_die(&config).await
+                } else {
+                    false
+                }
+            }
+        }
+    } else {
+        false
+    };
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await;
 
