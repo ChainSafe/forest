@@ -34,6 +34,8 @@ pub struct Client {
     pub rpc_address: SocketAddr,
     /// Download a chain specific snapshot to sync with the Filecoin network
     pub download_snapshot: bool,
+    // Expiration time for JWT
+    pub token_exp: usize,
 }
 
 impl Default for Client {
@@ -54,6 +56,7 @@ impl Default for Client {
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             download_snapshot: false,
+            token_exp: 5184000, // 60 Days = 5184000 Seconds
         }
     }
 }

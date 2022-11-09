@@ -187,6 +187,7 @@ mod test {
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
                     download_snapshot: bool::arbitrary(g),
+                    token_exp: usize::arbitrary(g),
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),

@@ -2781,6 +2781,7 @@ dependencies = [
 name = "forest_auth"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "forest_key_management",
  "fvm_shared",
  "jsonrpc-v2",

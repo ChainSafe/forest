@@ -17,10 +17,10 @@ where
     DB: Blockstore,
     B: Beacon,
 {
-    let (perms,) = params;
+    let (perms, exp) = params;
     let ks = data.keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
-    let token = create_token(perms, ki.private_key())?;
+    let token = create_token(perms, ki.private_key(), exp)?;
     Ok(token.as_bytes().to_vec())
 }
 

@@ -144,7 +144,7 @@ pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 /// Authorization API
 pub mod auth_api {
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
-    pub type AuthNewParams = (Vec<String>,);
+    pub type AuthNewParams = (Vec<String>, usize);
     pub type AuthNewResult = Vec<u8>;
 
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
