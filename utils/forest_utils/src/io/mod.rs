@@ -5,7 +5,7 @@ pub mod progress_bar;
 mod tempfile;
 mod writer_checksum;
 
-pub use progress_bar::{ProgressBar, ProgressBarVisibility, PROGRESS_BAR_VISIBILITY};
+pub use progress_bar::{ProgressBar, ProgressBarVisibility};
 pub use tempfile::*;
 pub use writer_checksum::*;
 

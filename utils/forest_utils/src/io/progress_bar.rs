@@ -1,6 +1,5 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::RwLock;
@@ -37,10 +36,8 @@ impl FromStr for ProgressBarVisibility {
     }
 }
 
-lazy_static! {
-    pub static ref PROGRESS_BAR_VISIBILITY: RwLock<ProgressBarVisibility> =
-        RwLock::new(ProgressBarVisibility::Auto);
-}
+static PROGRESS_BAR_VISIBILITY: RwLock<ProgressBarVisibility> =
+    RwLock::new(ProgressBarVisibility::Auto);
 
 /// Progress bar wrapper, allows suppressing progress bars.
 pub struct ProgressBar {
@@ -100,6 +97,13 @@ impl ProgressBar {
         if self.display {
             self.inner.borrow_mut().finish_println(s);
         }
+    }
+
+    /// Sets the visibility of progress bars (globally).
+    pub fn set_progress_bars_visibility(visibility: ProgressBarVisibility) {
+        *PROGRESS_BAR_VISIBILITY
+            .write()
+            .expect("write must not fail") = visibility;
     }
 
     /// Checks the global variable if progress bar should be shown.

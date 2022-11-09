@@ -18,7 +18,6 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace   = true
 hyper                         = { workspace = true, features = ["client", "stream", "http1"] }
 hyper-rustls.workspace        = true
-lazy_static.workspace         = true
 libc                          = "0.2"
 log.workspace                 = true
 pbr                           = "1.0"
