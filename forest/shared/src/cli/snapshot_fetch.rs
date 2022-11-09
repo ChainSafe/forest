@@ -5,10 +5,9 @@ use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::io::TempFile;
 use hex::{FromHex, ToHex};
-use http::Response;
 use hyper::{
     client::{connect::Connect, HttpConnector},
-    Body,
+    Body, Response,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use log::info;
@@ -30,9 +29,9 @@ use crate::cli::to_size_string;
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
-pub(crate) async fn snapshot_fetch(
+pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
-    config: Config,
+    config: &Config,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
@@ -47,6 +46,11 @@ pub(crate) async fn snapshot_fetch(
             config.chain.name,
         )),
     }
+}
+
+/// Checks whether `aria2c` is available in PATH
+pub fn is_aria2_installed() -> bool {
+    which::which("aria2c").is_ok()
 }
 
 /// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
@@ -231,7 +235,7 @@ where
     info!("Snapshot url: {url}");
     info!("Snapshot will be downloaded to {}", snapshot_path.display());
 
-    if which::which("aria2c").is_err() {
+    if !is_aria2_installed() {
         bail!("Command aria2c is not in PATH. To install aria, refer to instructions on https://aria2.github.io/");
     }
 
@@ -494,7 +498,7 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn download_with_aria2_test_wrong_checksum() -> Result<()> {
-        if !is_github_action() && which::which("aria2c").is_err() {
+        if !is_github_action() && !is_aria2_installed() {
             return Ok(());
         }
 
@@ -513,7 +517,7 @@ mod test {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn download_with_aria2_test_good_checksum() -> Result<()> {
-        if !is_github_action() && which::which("aria2c").is_err() {
+        if !is_github_action() && !is_aria2_installed() {
             return Ok(());
         }
 
