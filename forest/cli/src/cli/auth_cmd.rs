@@ -36,21 +36,21 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(&self, cfg: Config) {
+    pub async fn run(&self, config: Config) {
         match self {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse().unwrap();
                 let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
-                print_rpc_res_bytes(auth_new((perms,)).await);
+                print_rpc_res_bytes(auth_new((perms,), &config.client.rpc_token).await);
             }
             Self::ApiInfo { perm } => {
                 let perm: String = perm.parse().unwrap();
                 let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
-                match auth_new((perms,)).await {
+                match auth_new((perms,), &config.client.rpc_token).await {
                     Ok(token) => {
                         let mut addr = Multiaddr::empty();
-                        addr.push(cfg.client.rpc_address.ip().into());
-                        addr.push(Protocol::Tcp(cfg.client.rpc_address.port()));
+                        addr.push(config.client.rpc_address.ip().into());
+                        addr.push(Protocol::Tcp(config.client.rpc_address.port()));
                         addr.push(Protocol::Http);
                         println!(
                             "FULLNODE_API_INFO=\"{}:{}\"",

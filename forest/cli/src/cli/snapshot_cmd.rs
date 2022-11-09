@@ -119,7 +119,7 @@ impl SnapshotCommands {
                 include_old_messages,
                 skip_checksum,
             } => {
-                let chain_head = match chain_head().await {
+                let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
@@ -131,7 +131,10 @@ impl SnapshotCommands {
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
                 let day_string = format!("{:02}", now.day());
-                let chain_name = chain_get_name().await.map_err(handle_rpc_err).unwrap();
+                let chain_name = chain_get_name(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let vars = HashMap::from([
                     ("year".to_string(), year.to_string()),
@@ -157,7 +160,10 @@ impl SnapshotCommands {
                 );
 
                 // infallible unwrap
-                let out = chain_export(params).await.map_err(handle_rpc_err).unwrap();
+                let out = chain_export(params, &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 println!("Export completed. Snapshot located at {}", out.display());
             }
