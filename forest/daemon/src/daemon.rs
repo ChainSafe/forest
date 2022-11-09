@@ -184,6 +184,8 @@ pub(super) async fn start(config: Config, detached: bool) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
+    // XXX: This code has to be run before we're starting background services.
+    //      If it isn't several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
     let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
         None => prompt_snapshot_or_die(&config).await,
