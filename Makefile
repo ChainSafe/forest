@@ -98,6 +98,7 @@ test:
 test-slow:
 	cargo nextest run -p forest_message_pool --features slow_tests
 	cargo nextest run -p forest-cli --features slow_tests
+	cargo nextest run -p forest-daemon --features slow_tests
 
 test-release:
 	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
@@ -107,6 +108,7 @@ test-release:
 test-slow-release:
 	cargo nextest run --release -p forest_message_pool --features slow_tests
 	cargo nextest run --release -p forest-cli --features slow_tests
+	cargo nextest run --release -p forest-daemon --features slow_tests
 
 smoke-test:
 	./scripts/smoke_test.sh
