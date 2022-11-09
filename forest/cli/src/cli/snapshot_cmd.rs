@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch};
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
 use std::{
@@ -129,7 +130,7 @@ impl SnapshotCommands {
 
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
-                let day_string = format!("{:02}", now.day() as u8);
+                let day_string = format!("{:02}", now.day());
                 let chain_name = chain_get_name().await.map_err(handle_rpc_err).unwrap();
 
                 let vars = HashMap::from([
@@ -142,7 +143,7 @@ impl SnapshotCommands {
                 let output_path = match strfmt(&output_path.display().to_string(), &vars) {
                     Ok(path) => path.into(),
                     Err(e) => {
-                        cli_error_and_die(format!("Unparsable string error: {}", e), 1);
+                        cli_error_and_die(format!("Unparsable string error: {e}"), 1);
                     }
                 };
 
@@ -164,7 +165,7 @@ impl SnapshotCommands {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(&snapshot_dir, config).await {
+                match snapshot_fetch(&snapshot_dir, &config).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
@@ -354,14 +355,6 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     }
 
     Ok(())
-}
-
-fn default_snapshot_dir(config: &Config) -> PathBuf {
-    config
-        .client
-        .data_dir
-        .join("snapshots")
-        .join(config.chain.name.clone())
 }
 
 fn delete_snapshot(snapshot_path: &PathBuf) {

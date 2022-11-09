@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::{cli_error_and_die, LogValue};
+use crate::cli::LogConfig;
 use atty::Stream;
 use log::LevelFilter;
 use pretty_env_logger::env_logger::WriteStyle;
@@ -45,7 +45,7 @@ impl From<LoggingColor> for WriteStyle {
     }
 }
 
-pub fn setup_logger(log_config: &[LogValue], write_style: WriteStyle) {
+pub fn setup_logger(log_config: &LogConfig, write_style: WriteStyle) {
     let mut logger_builder = pretty_env_logger::formatted_timed_builder();
 
     // Assign default log level settings
@@ -53,10 +53,8 @@ pub fn setup_logger(log_config: &[LogValue], write_style: WriteStyle) {
 
     logger_builder.write_style(write_style);
 
-    for item in log_config {
-        let level = LevelFilter::from_str(item.level.as_str())
-            .unwrap_or_else(|_| cli_error_and_die("could not parse LevelFilter enum value", 1));
-        logger_builder.filter(Some(item.module.as_str()), level);
+    for item in log_config.filters.iter() {
+        logger_builder.filter(Some(item.module.as_str()), item.level);
     }
 
     // Override log level based on filters if set
