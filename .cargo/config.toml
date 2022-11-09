@@ -6,7 +6,6 @@ t = "test"
 r = "run"
 
 [build]
-incremental = true
 # might be helpful but we don't enforce sccache installation atm
 # https://github.com/mozilla/sccache
 # rustc-wrapper = "sccache"
