@@ -428,7 +428,7 @@ async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Co
 /// exits the process.
 async fn prompt_snapshot_or_die(config: &Config) -> bool {
     if config.client.snapshot_path.is_some() {
-        return true;
+        return false;
     }
     let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
         Confirm::with_theme(&ColorfulTheme::default())
