@@ -101,6 +101,7 @@ fn test_block_probability() {
 }
 
 #[test]
+#[cfg(feature = "slow_tests")]
 fn test_winner_probability() {
     use rand::thread_rng;
     use rand::Rng;
