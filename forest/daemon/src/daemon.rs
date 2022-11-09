@@ -217,7 +217,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         .await
         .unwrap();
 
-    info!("Using network :: {}", network_name);
+    info!("Using network :: {}", get_actual_chain_name(&network_name));
 
     let (tipset_sink, tipset_stream) = flume::bounded(20);
 
@@ -480,6 +480,14 @@ fn db_path(config: &Config) -> PathBuf {
 
 fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(&config.chain.name)
+}
+
+fn get_actual_chain_name(internal_network_name: &str) -> &str {
+    match internal_network_name {
+        "testnetnet" => "mainnet",
+        "calibrationnet" => "calibnet",
+        _ => internal_network_name,
+    }
 }
 
 #[cfg(test)]
