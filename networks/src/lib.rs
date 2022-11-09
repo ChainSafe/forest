@@ -103,6 +103,7 @@ struct DrandPoint<'a> {
 #[serde(default)]
 pub struct ChainConfig {
     pub name: String,
+    pub genesis_cid: Option<String>,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
     pub height_infos: Vec<HeightInfo>,
@@ -181,6 +182,7 @@ impl ChainConfig {
         use calibnet::*;
         Self {
             name: "calibnet".to_string(),
+            genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -259,6 +261,7 @@ impl Default for ChainConfig {
         use mainnet::*;
         Self {
             name: "mainnet".to_string(),
+            genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),

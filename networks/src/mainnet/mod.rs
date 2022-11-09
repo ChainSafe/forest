@@ -11,6 +11,8 @@ const SMOKE_HEIGHT: ChainEpoch = 51000;
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
+/// Genesis CID
+pub const GENESIS_CID: &str = "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
 
 /// Bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
