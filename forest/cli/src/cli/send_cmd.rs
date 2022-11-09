@@ -9,7 +9,7 @@ use fvm_shared::{
 use std::str::FromStr;
 use structopt::StructOpt;
 
-use super::handle_rpc_err;
+use super::{handle_rpc_err, Config};
 
 #[derive(Debug, StructOpt)]
 pub struct SendCommand {
@@ -31,11 +31,15 @@ pub struct SendCommand {
 }
 
 impl SendCommand {
-    pub async fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         let from: Address = if let Some(from) = self.from {
             from
         } else {
-            Address::from_str(&wallet_default_address().await.map_err(handle_rpc_err)?)?
+            Address::from_str(
+                &wallet_default_address(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?,
+            )?
         };
 
         let message = Message {
@@ -49,7 +53,7 @@ impl SendCommand {
             ..Default::default()
         };
 
-        mpool_push_message((MessageJson(message), None))
+        mpool_push_message((MessageJson(message), None), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
 

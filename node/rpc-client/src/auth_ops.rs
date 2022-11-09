@@ -7,10 +7,16 @@ use jsonrpc_v2::Error as JsonRpcError;
 use crate::call;
 
 /// Creates a new JWT Token
-pub async fn auth_new(perm: AuthNewParams) -> Result<AuthNewResult, JsonRpcError> {
-    call(AUTH_NEW, perm).await
+pub async fn auth_new(
+    perm: AuthNewParams,
+    auth_token: &Option<String>,
+) -> Result<AuthNewResult, JsonRpcError> {
+    call(AUTH_NEW, perm, auth_token).await
 }
 
-pub async fn auth_verify(token: AuthVerifyParams) -> Result<AuthVerifyResult, JsonRpcError> {
-    call(AUTH_VERIFY, (token,)).await
+pub async fn auth_verify(
+    token: AuthVerifyParams,
+    auth_token: &Option<String>,
+) -> Result<AuthVerifyResult, JsonRpcError> {
+    call(AUTH_VERIFY, (token,), auth_token).await
 }

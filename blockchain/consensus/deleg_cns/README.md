@@ -359,23 +359,20 @@ JWT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiL
 Let's see what happens if we create a new wallet. We don't need to do this, becuase we already have a BLS key we want to put in, but it might help guide us later.
 
 ```console
-$ forest --token $JWT_TOKEN wallet new bls
- 2022-08-02T19:26:10.468Z WARN  forest::cli > No configurations found, using defaults.
- 2022-08-02T19:26:10.470Z WARN  isahc::handler > request completed with error: ConnectFailed: failed to connect to the server
- 2022-08-02T19:26:10.471Z ERROR forest::cli    > JSON RPC Error: Code: 0 Message: ConnectFailed: failed to connect to the server
+$ forest-cli --token $JWT_TOKEN wallet new bls
+ 2022-10-27T07:45:44.172Z DEBUG forest_rpc_client > Using JSON-RPC v2 HTTP URL: http://127.0.0.1:1234/rpc/v0
+f3vvonqncmg2kmemaq2pnyq4q662ovnq3br3jjgqagahj7azcentb2s6zetkmpuylg2yc4zqnszd2xb2p5yzsa
 ```
 
-Hm, we get `Forbidden`. As it turns out, the `--token` option is currently not used, we have to pass the token another way,
+we can also pass the token another way,
 using the `FULLNODE_API_INFO` env var, which is expected to be a concatenation of the JWT token and the API multiaddress.
 
 ```bash
 export FULLNODE_API_INFO=$JWT_TOKEN:/ip4/127.0.0.1/tcp/1234/http
 ```
 
-Check again:
-
 ```console
-$ forest wallet new bls
+$ forest-cli wallet new bls
  2022-08-02T19:27:15.950Z WARN  forest::cli > No configurations found, using defaults.
 f3qljpcw4zxavl6dka2b6j6l36cy75g5pyt44oiwixm2f2jkttti7apdi4mhrof5qnmxhzun6kpuqqvrq75zqa
 
