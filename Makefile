@@ -113,7 +113,7 @@ test-slow-release:
 smoke-test:
 	./scripts/smoke_test.sh
 
-test-all: test-release test-vectors
+test-all: test-release test-vectors test-slow-release
 
 # Checks if all headers are present and adds if not
 license:
