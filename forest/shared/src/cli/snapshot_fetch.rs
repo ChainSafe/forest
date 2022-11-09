@@ -407,8 +407,7 @@ mod test {
     use anyhow::{ensure, Result};
     use axum::{routing::get_service, Router};
     use http::StatusCode;
-    use rand::{rngs::OsRng, Rng};
-    use std::{env::temp_dir, net::SocketAddr};
+    use std::{env::temp_dir, net::TcpListener};
     use tower_http::services::ServeDir;
 
     #[test]
@@ -532,9 +531,9 @@ mod test {
     }
 
     fn serve_forest_logo() -> Result<(String, tokio::sync::oneshot::Sender<()>)> {
-        let port = OsRng.gen_range(20000..40000);
-        let url = format!("http://127.0.0.1:{port}/forest_logo.png");
-        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
+        let url = format!("http://{}:{}/forest_logo.png", addr.ip(), addr.port());
         let app = {
             let serve_dir = get_service(ServeDir::new("../../.github")).handle_error(|_| async {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
@@ -542,7 +541,7 @@ mod test {
             Router::<axum::body::Body>::new().nest("/", serve_dir)
         };
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-        let server = axum::Server::bind(&addr)
+        let server = axum::Server::from_tcp(listener)?
             .serve(app.into_make_service())
             .with_graceful_shutdown(async {
                 shutdown_rx.await.ok();

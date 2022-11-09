@@ -123,6 +123,7 @@ jobs:
       - name: download snapshot
         run: forest-cli --chain calibnet snapshot fetch --aria2 -s /tmp/snapshots/
       - name: import snapshot and run Forest
+        if: ${{ false }}
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
