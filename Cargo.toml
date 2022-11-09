@@ -60,15 +60,25 @@ cs_serde_bytes        = "0.12.2"
 digest                = "0.10.5"
 directories           = "4.0.1"
 fil_actor_account_v8  = { package = "fil_actor_account_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_account_v9  = { package = "fil_actor_account", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_cron_v8     = { package = "fil_actor_cron_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_cron_v9     = { package = "fil_actor_cron", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_init_v8     = { package = "fil_actor_init_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_init_v9     = { package = "fil_actor_init", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_market_v8   = { package = "fil_actor_market_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_market_v9   = { package = "fil_actor_market", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_miner_v8    = { package = "fil_actor_miner_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_miner_v9    = { package = "fil_actor_miner", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_multisig_v8 = { package = "fil_actor_multisig_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_multisig_v9 = { package = "fil_actor_multisig", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_power_v8    = { package = "fil_actor_power_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_power_v9    = { package = "fil_actor_power", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_reward_v8   = { package = "fil_actor_reward_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_reward_v9   = { package = "fil_actor_reward", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_system_v8   = { package = "fil_actor_system_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_system_v9   = { package = "fil_actor_system", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actors_runtime    = { package = "fil_actors_runtime_common", version = "=9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actors_runtime_v9 = { package = "fil_actors_runtime", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 filecoin-proofs-api   = "12.0"
 flume                 = "0.10"
 futures               = "0.3"
