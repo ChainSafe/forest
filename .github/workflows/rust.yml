@@ -100,7 +100,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    if: ${{ false }}
+    #if: ${{ false }}
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
