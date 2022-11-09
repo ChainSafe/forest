@@ -29,12 +29,18 @@ pub fn is_v8_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v8
         Cid::try_from("bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4").unwrap(),
-        // calibnet v9
-        Cid::try_from("bafk2bzacedmllri5tg4jqllwkhzng3xf3w2sre6nbwwfzf5mj4qsdizl4ad5s").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecgnynvd3tene3bvqoknuspit56canij5bpra6wl4mrq2mxxwriyu").unwrap(),
         // devnet
         Cid::try_from("bafk2bzacebze3elvppssc6v5457ukszzy6ndrg6xgaojfsqfbbtg3xfwo4rbs").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
+pub fn is_v9_miner_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v9
+        Cid::try_from("bafk2bzacebz4na3nq4gmumghegtkaofrv4nffiihd7sxntrryfneusqkuqodm").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -45,6 +51,7 @@ pub fn is_v8_miner_cid(cid: &Cid) -> bool {
 pub enum State {
     // V7(fil_actor_miner_v7::State),
     V8(fil_actor_miner_v8::State),
+    V9(fil_actor_miner_v9::State),
 }
 
 impl State {
@@ -58,12 +65,41 @@ impl State {
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
+        if is_v9_miner_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V9)
+                .context("Actor state doesn't exist in store");
+        }
         Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))
     }
 
     pub fn info<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
             State::V8(st) => {
+                let info = st.get_info(store)?;
+
+                // Deserialize into peer id if valid, `None` if not.
+                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+                Ok(MinerInfo {
+                    owner: info.owner,
+                    worker: info.worker,
+                    control_addresses: info.control_addresses,
+                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+                    worker_change_epoch: info
+                        .pending_worker_key
+                        .map(|k| k.effective_at)
+                        .unwrap_or(-1),
+                    peer_id,
+                    multiaddrs: info.multi_address,
+                    window_post_proof_type: info.window_post_proof_type,
+                    sector_size: info.sector_size,
+                    window_post_partition_sectors: info.window_post_partition_sectors,
+                    consensus_fault_elapsed: info.consensus_fault_elapsed,
+                })
+            }
+            State::V9(st) => {
                 let info = st.get_info(store)?;
 
                 // Deserialize into peer id if valid, `None` if not.
@@ -102,6 +138,12 @@ impl State {
                         f(idx, Deadline::V8(dl))
                     })
             }
+            State::V9(st) => {
+                st.load_deadlines(&store)?
+                    .for_each(&Default::default(), &store, |idx, dl| {
+                        f(idx, Deadline::V9(dl))
+                    })
+            }
         }
     }
 
@@ -138,6 +180,23 @@ impl State {
                     Ok(infos)
                 }
             }
+            State::V9(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_v9::Sectors::load(&store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(SectorOnChainInfo::from(info.clone()));
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
         }
     }
 
@@ -163,6 +222,7 @@ impl State {
     pub fn deadline_info(&self, _epoch: ChainEpoch) -> DeadlineInfo {
         match self {
             State::V8(_st) => todo!(),
+            State::V9(_st) => todo!(),
         }
     }
 
@@ -170,6 +230,7 @@ impl State {
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
             State::V8(st) => st.fee_debt.clone(),
+            State::V9(st) => st.fee_debt.clone(),
         }
     }
 }
@@ -216,6 +277,7 @@ pub struct MinerPower {
 /// Deadline holds the state for all sectors due at a specific deadline.
 pub enum Deadline {
     V8(fil_actor_miner_v8::Deadline),
+    V9(fil_actor_miner_v9::Deadline),
 }
 
 impl Deadline {
@@ -229,12 +291,20 @@ impl Deadline {
             Deadline::V8(dl) => dl.for_each(&store, |idx, part| {
                 f(idx, Partition::V8(Cow::Borrowed(part)))
             }),
+            Deadline::V9(dl) => dl.for_each(&store, |idx, part| {
+                f(idx, Partition::V9(Cow::Borrowed(part)))
+            }),
         }
     }
 
     pub fn disputable_proof_count<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<usize> {
         Ok(match self {
             Deadline::V8(dl) => dl
+                .optimistic_proofs_snapshot_amt(&store)?
+                .count()
+                .try_into()
+                .unwrap(),
+            Deadline::V9(dl) => dl
                 .optimistic_proofs_snapshot_amt(&store)?
                 .count()
                 .try_into()
@@ -251,6 +321,7 @@ impl Deadline {
 pub enum Partition<'a> {
     // V7(Cow<'a, fil_actor_miner_v7::Partition>),
     V8(Cow<'a, fil_actor_miner_v8::Partition>),
+    V9(Cow<'a, fil_actor_miner_v9::Partition>),
 }
 
 impl Partition<'_> {
@@ -266,11 +337,13 @@ impl Partition<'_> {
     pub fn live_sectors(&self) -> BitField {
         match self {
             Partition::V8(dl) => dl.live_sectors(),
+            Partition::V9(dl) => dl.live_sectors(),
         }
     }
     pub fn active_sectors(&self) -> BitField {
         match self {
             Partition::V8(dl) => dl.active_sectors(),
+            Partition::V9(dl) => dl.active_sectors(),
         }
     }
 }
@@ -320,6 +393,24 @@ pub struct SectorOnChainInfo {
 
 impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_v8::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof,
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge,
+            expected_day_reward: info.expected_day_reward,
+            expected_storage_pledge: info.expected_storage_pledge,
+        }
+    }
+}
+
+impl From<fil_actor_miner_v9::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_v9::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
             seal_proof: info.seal_proof,

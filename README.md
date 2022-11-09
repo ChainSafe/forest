@@ -153,6 +153,8 @@ make test-vectors
 make test-all
 ```
 
+Chain synchronization checks are run after every merge to `main`. This code is maintained in a separate repository - [Forest IaC](https://github.com/ChainSafe/forest-iac).
+
 ### Linters
 The project uses exhaustively a set of linters to keep the codebase clean and secure in an automated fashion. While the CI will has them installed, if you want to run them yourself before submitting a PR (recommended), you should install a few of them.
 ```bash
@@ -209,7 +211,12 @@ Note that if a token is not present in the FULLNODE_API_INFO env variable, the c
 Forest developers will prepend this variable to CLI commands over using `export` on Linux or its equivalant on Windows. This will look like the following:
 
 ```
-FULLNODE_API_INFO="..." forest auth api-info -p admin
+FULLNODE_API_INFO="..." forest-cli auth api-info -p admin
+```
+
+The admin token can also be set using `--token` flag.
+```
+forest-cli --token <ADMIN_TOKEN>
 ```
 
 ### Detaching Forest process
