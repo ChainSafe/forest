@@ -54,15 +54,14 @@ Use dockerized Forest with host database:
 
 ## Dependencies
 
-* Rust `rustc >= nightly-2022-09-28`
+* Rust (toolchain version is specified in `rust-toolchain.toml`)
 
-```shell
-rustup install nightly
-```
+Install [rustup](https://rustup.rs/)
 
 * OS Base-Devel/Build-Essential
 * Clang compiler
 * OpenCL bindings
+* [Protoc](https://github.com/protocolbuffers/protobuf/releases/)
 
 ```shell
 # Ubuntu
