@@ -133,10 +133,11 @@ impl<P: StoreParams> ForestBehaviour<P> {
     }
 
     /// Send a request for data over bit-swap
-    pub fn want_block(&mut self, cid: Cid) -> Result<(), anyhow::Error> {
+    pub fn want_block(&mut self, cid: Cid) -> Result<libp2p_bitswap::QueryId, anyhow::Error> {
         debug!("want {}", cid.to_string());
-        self.bitswap
+        let query_id = self
+            .bitswap
             .get(cid, self.discovery.peers().iter().cloned());
-        Ok(())
+        Ok(query_id)
     }
 }
