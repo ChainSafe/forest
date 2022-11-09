@@ -124,6 +124,7 @@ fn test_config_env_var() {
 }
 
 #[test]
+#[cfg(feature = "slow_tests")]
 fn test_download_location_of_proof_parameter_files_env() {
     let tmp_dir = TempDir::new().unwrap();
 
@@ -141,6 +142,7 @@ fn test_download_location_of_proof_parameter_files_env() {
 }
 
 #[test]
+#[cfg(feature = "slow_tests")]
 fn test_download_location_of_proof_parameter_files_default() {
     let tmp_dir = TempDir::new().unwrap();
     let tmp_param_dir = tmp_dir.path().join("filecoin-proof-parameters");
