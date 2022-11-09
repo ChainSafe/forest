@@ -3,7 +3,9 @@
 use assert_cmd::Command;
 use forest_cli_shared::cli::{Client, Config};
 use rand::Rng;
+#[allow(unused_imports)]
 use std::{fs::read_dir, io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+#[allow(unused_imports)]
 use tempfile::TempDir;
 
 #[test]
