@@ -17,7 +17,7 @@ fil_actor_system_v8.workspace   = true
 fil_actors_runtime.workspace    = true
 
 anyhow.workspace              = true
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 forest_encoding.workspace     = true
 forest_fil_types.workspace    = true
 forest_json.workspace         = true

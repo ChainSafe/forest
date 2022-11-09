@@ -12,7 +12,7 @@ use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::{self, File};
-use tokio::io::{copy, BufWriter};
+use tokio::io::BufWriter;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
@@ -84,6 +84,7 @@ pub async fn get_params(
             }
             SectorSizeOpt::All => true,
         })
+        .filter(|(_, info)| info.cid == "QmfCeddjFpWtavzfEzZpJfzSajGNwfL4RjFXWAvA9TSnTV")
         .for_each(|(name, info)| {
             let data_dir_clone = data_dir.to_owned();
             tasks.push(task::spawn(async move {
@@ -147,19 +148,32 @@ async fn fetch_verify_params(
 async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     debug!("Fetching {:?} from {}", path, gw);
-
-    let file = File::create(path).await?;
-    let mut writer = BufWriter::new(file);
-
     let url = format!("{}{}", gw, info.cid);
 
+    let mut r = Ok(());
+    for _ in 0..5 {
+        if let Err(err) = fetch_params_inner(&url, path).await {
+            warn!("Error downloading {url}, retrying. {err}");
+            r = Err(err);
+        } else {
+            r = Ok(());
+            break;
+        }
+    }
+    r
+}
+
+async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
     let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
-
-    let req = client.get(url.as_str());
-
-    let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?.compat();
-    copy(&mut source, &mut writer).await?;
-
+    let req = client.get(url);
+    let response = req.await.map_err(|e| anyhow::anyhow!(e))?;
+    let content_len = response.len();
+    let mut source = response.compat();
+    let file = File::create(path).await?;
+    let mut writer = BufWriter::new(file);
+    tokio::io::copy(&mut source, &mut writer).await?;
+    let file_metadata = std::fs::metadata(path)?;
+    anyhow::ensure!(Some(file_metadata.len() as usize) == content_len);
     Ok(())
 }
 

@@ -10,7 +10,7 @@ anyhow.workspace                 = true
 async-log.workspace              = true
 async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                    = true
 directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true

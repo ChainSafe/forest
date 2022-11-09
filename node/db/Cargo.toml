@@ -20,7 +20,7 @@ bzip2  = ["rocksdb/bzip2"]
 
 [dependencies]
 anyhow.workspace              = true
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 forest_encoding.workspace     = true
 fvm_ipld_blockstore.workspace = true
 num_cpus.workspace            = true

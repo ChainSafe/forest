@@ -55,7 +55,7 @@ bls-signatures        = { version = "0.12", default-features = false, features =
 byteorder             = "1.4.3"
 bytes                 = "1.2"
 chrono                = "0.4"
-cid                   = "0.8"
+cid                   = { version = "0.8", default-features = false, features = ["std"] }
 cs_serde_bytes        = "0.12.2"
 digest                = "0.10.5"
 directories           = "4.0.1"

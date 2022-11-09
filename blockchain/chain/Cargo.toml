@@ -11,7 +11,7 @@ async-stream                     = "0.3.3"
 blake2b_simd.workspace           = true
 bls-signatures.workspace         = true
 byteorder.workspace              = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                    = true
 digest.workspace                 = true
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
