@@ -16,6 +16,70 @@ const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
 /// Configuration which sets the length of tipsets to skip in between each cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
 
+// this module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
+pub(super) mod checkpoint_tipsets {
+    use cid::Cid;
+    use forest_blocks::TipsetKeys;
+    use once_cell::sync::Lazy;
+    use std::collections::HashMap;
+    use std::str::FromStr;
+
+    macro_rules! add_calibnet {
+        ($map: ident, $key_hash:expr) => {
+            $map.insert(
+                $key_hash,
+                // calibnet genesis tipset keys
+                TipsetKeys::new(vec![Cid::from_str(
+                    "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4",
+                )
+                .unwrap()]),
+            );
+        };
+    }
+
+    macro_rules! add_mainnet {
+        ($map: ident, $key_hash:expr) => {
+            $map.insert(
+                $key_hash,
+                // mainnet genesis tipset keys
+                TipsetKeys::new(vec![Cid::from_str(
+                    "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2",
+                )
+                .unwrap()]),
+            );
+        };
+    }
+
+    // The hashes for these checkpoints is obtained by passing the tipset keys' cids (tipset.cids())
+    // through a blake2b hasher.
+    type TipsetKeyHash = &'static str;
+    type GenesisTipsetCids = TipsetKeys;
+    // A map of validated checkpoints mapping to their genesis tipkeys
+    type TipsetCheckpointsRegistry = HashMap<TipsetKeyHash, GenesisTipsetCids>;
+    // Represents a static map of validated tipset hashes which helps to remove the need to validate the tipset
+    // back to genesis if it has been validated before, thereby reducing boot times.
+    pub(super) static TIPSET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
+        let mut map = HashMap::new();
+        // The numeric suffix in the variable name is the height of the snapshot.
+        // NB: Add desired tipset checkpoints below this by using RPC command: forest-cli chain tipset-hash <cid keys>
+        const CALIBNET_CHECKPOINT_1405400: TipsetKeyHash = "7930ad8bf32b35314b3bc47b9e25249af8ec6ba7f5544c05e8b5bd3b3ec09f76df8bd2278f9b318badf1a08d0a468abd55130465c6c55f99e67badc0e614ca79";
+        const MAINNET_CHECKPOINT_2325300: TipsetKeyHash = "319f2351ceaf78fbcc8688dc75a19bdf8ee6e895e547ff5cc2f7b18a3a36b65ff94c1860733137d0244352f82ba6fd9672aec14deee358e7cf6e088bf89a28b1";
+        add_calibnet!(map, CALIBNET_CHECKPOINT_1405400);
+        add_mainnet!(map, MAINNET_CHECKPOINT_2325300);
+        map
+    });
+
+    pub(super) fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
+        TIPSET_CHECKPOINTS.get(&tipset_hash(tsk).as_str()).cloned()
+    }
+
+    pub fn tipset_hash(tsk: &TipsetKeys) -> String {
+        let ts_bytes: Vec<_> = tsk.cids().iter().flat_map(|s| s.to_bytes()).collect();
+        let tipset_keys_hash = blake2b_simd::blake2b(&ts_bytes).to_hex();
+        tipset_keys_hash.to_string()
+    }
+}
+
 /// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when doing `lookbacks`.
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct LookbackEntry {
@@ -84,6 +148,14 @@ impl<BS: Blockstore> ChainIndex<BS> {
                     .inc();
                 self.fill_cache(std::mem::take(&mut cur)).await?
             };
+
+            if let Some(genesis_tipset_keys) =
+                checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
+            {
+                let tipset =
+                    tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
+                return Ok(tipset);
+            }
 
             if lbe.tipset.epoch() == to || lbe.parent_height < to {
                 return Ok(lbe.tipset.clone());

@@ -41,6 +41,7 @@ serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
 tokio-util                       = { workspace = true, features = ["compat"] }
+once_cell.workspace              = true
 
 [dev-dependencies]
 multihash = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }

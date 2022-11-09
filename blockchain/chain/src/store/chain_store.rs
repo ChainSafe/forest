@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::Scale;
-
 use super::metrics;
+use super::index::checkpoint_tipsets;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
@@ -204,6 +204,11 @@ where
             return Ok(self.heaviest_tipset().await.unwrap());
         }
         tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
+    }
+
+    /// Returns Tipset key hash from key-value store from provided CIDs
+    pub async fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
+        checkpoint_tipsets::tipset_hash(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
