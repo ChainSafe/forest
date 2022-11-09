@@ -84,7 +84,6 @@ pub async fn get_params(
             }
             SectorSizeOpt::All => true,
         })
-        .filter(|(_, info)| info.cid == "QmfCeddjFpWtavzfEzZpJfzSajGNwfL4RjFXWAvA9TSnTV")
         .for_each(|(name, info)| {
             let data_dir_clone = data_dir.to_owned();
             tasks.push(task::spawn(async move {
@@ -153,9 +152,10 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::E
     let mut r = Ok(());
     for _ in 0..5 {
         if let Err(err) = fetch_params_inner(&url, path).await {
-            warn!("Error downloading {url}, retrying. {err}");
+            warn!("Error downloading {url}: {err}");
             r = Err(err);
         } else {
+            debug!("Successfully downloaded {url} to {}", path.display());
             r = Ok(());
             break;
         }
@@ -167,6 +167,7 @@ async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), any
     let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
     let req = client.get(url);
     let response = req.await.map_err(|e| anyhow::anyhow!(e))?;
+    anyhow::ensure!(response.status().is_success());
     let content_len = response.len();
     let mut source = response.compat();
     let file = File::create(path).await?;
