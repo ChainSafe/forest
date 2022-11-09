@@ -67,7 +67,7 @@ impl From<Height> for NetworkVersion {
             Height::Chocolate => NetworkVersion::V14,
             Height::OhSnap => NetworkVersion::V15,
             Height::Skyr => NetworkVersion::V16,
-            Height::Shark => NetworkVersion::V16, // Fix this when `fvm_shared` has been updated.
+            Height::Shark => NetworkVersion::V17,
         }
     }
 }
@@ -492,6 +492,7 @@ pub mod de_network_version {
             "v14" => Ok(NetworkVersion::V14),
             "v15" => Ok(NetworkVersion::V15),
             "v16" => Ok(NetworkVersion::V16),
+            "v17" => Ok(NetworkVersion::V17),
             _ => Err(de::Error::custom(&format!(
                 "Invalid network version: {}",
                 version
@@ -521,6 +522,7 @@ pub mod de_network_version {
             NetworkVersion::V14 => "V14",
             NetworkVersion::V15 => "V15",
             NetworkVersion::V16 => "V16",
+            NetworkVersion::V17 => "V17",
             _ => unimplemented!(),
         }
         .to_string();

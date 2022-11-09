@@ -100,6 +100,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
+    #if: ${{ false }}
     runs-on: buildjet-8vcpu-ubuntu-2004
     timeout-minutes: 30
     steps:
@@ -123,12 +124,10 @@ jobs:
       - name: download snapshot
         run: forest-cli --chain calibnet snapshot fetch --aria2 -s /tmp/snapshots/
       - name: import snapshot and run Forest
-        if: ${{ false }}
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
       - name: wait for sync and check health
-        if: ${{ false }}
         run: |
           forest-cli sync wait
           bash scripts/health_check.sh localhost
