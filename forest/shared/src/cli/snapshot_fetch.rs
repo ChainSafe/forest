@@ -15,6 +15,7 @@ use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
+    process::Command,
     time::Duration,
 };
 use tokio::{
@@ -27,15 +28,28 @@ use crate::cli::to_size_string;
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
-pub async fn snapshot_fetch(snapshot_out_dir: &Path, config: &Config) -> anyhow::Result<PathBuf> {
+pub async fn snapshot_fetch(
+    snapshot_out_dir: &Path,
+    config: &Config,
+    use_aria2: bool,
+) -> anyhow::Result<PathBuf> {
     match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch).await,
-        "calibnet" => snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch).await,
+        "mainnet" => {
+            snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch, use_aria2).await
+        }
+        "calibnet" => {
+            snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch, use_aria2).await
+        }
         _ => Err(anyhow::anyhow!(
             "Fetch not supported for chain {}",
             config.chain.name,
         )),
     }
+}
+
+/// Checks whether `aria2c` is available in PATH
+pub fn is_aria2_installed() -> bool {
+    which::which("aria2c").is_ok()
 }
 
 /// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
@@ -44,6 +58,7 @@ pub async fn snapshot_fetch(snapshot_out_dir: &Path, config: &Config) -> anyhow:
 async fn snapshot_fetch_calibnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
+    use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let name = &snapshot_fetch_config.calibnet.bucket_name;
     let region = &snapshot_fetch_config.calibnet.region;
@@ -81,15 +96,19 @@ async fn snapshot_fetch_calibnet(
     let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
 
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
-    let total_size = last_modified.size;
-    download_snapshot_and_validate_checksum(
-        client,
-        url,
-        &snapshot_path,
-        snapshot_response,
-        total_size,
-    )
-    .await?;
+    if use_aria2 {
+        download_snapshot_and_validate_checksum_with_aria2(client, url, &snapshot_path).await?
+    } else {
+        let total_size = last_modified.size;
+        download_snapshot_and_validate_checksum(
+            client,
+            url,
+            &snapshot_path,
+            snapshot_response,
+            total_size,
+        )
+        .await?;
+    }
 
     Ok(snapshot_path)
 }
@@ -100,6 +119,7 @@ async fn snapshot_fetch_calibnet(
 async fn snapshot_fetch_mainnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
+    use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let client = https_client();
 
@@ -120,12 +140,6 @@ async fn snapshot_fetch_mainnet(
     };
 
     let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
-    let total_size = snapshot_response
-        .headers()
-        .get("content-length")
-        .and_then(|ct_len| ct_len.to_str().ok())
-        .and_then(|ct_len| ct_len.parse::<u64>().ok())
-        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
 
     // Grab the snapshot file name
     let snapshot_name = filename_from_url(&snapshot_url)?;
@@ -133,14 +147,26 @@ async fn snapshot_fetch_mainnet(
     create_dir_all(snapshot_out_dir).await?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
 
-    download_snapshot_and_validate_checksum(
-        client,
-        snapshot_url,
-        &snapshot_path,
-        snapshot_response,
-        total_size,
-    )
-    .await?;
+    if use_aria2 {
+        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
+            .await?
+    } else {
+        let total_size = snapshot_response
+            .headers()
+            .get("content-length")
+            .and_then(|ct_len| ct_len.to_str().ok())
+            .and_then(|ct_len| ct_len.parse::<u64>().ok())
+            .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
+
+        download_snapshot_and_validate_checksum(
+            client,
+            snapshot_url,
+            &snapshot_path,
+            snapshot_response,
+            total_size,
+        )
+        .await?;
+    }
 
     Ok(snapshot_path)
 }
@@ -195,6 +221,66 @@ where
     std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
 
     Ok(())
+}
+
+async fn download_snapshot_and_validate_checksum_with_aria2<C>(
+    client: hyper::Client<C>,
+    url: Url,
+    snapshot_path: &Path,
+) -> anyhow::Result<()>
+where
+    C: Connect + Clone + Send + Sync + 'static,
+{
+    info!("Snapshot url: {url}");
+    info!("Snapshot will be downloaded to {}", snapshot_path.display());
+
+    if !is_aria2_installed() {
+        bail!("Command aria2c is not in PATH. To install aria2, refer to instructions on https://aria2.github.io/");
+    }
+
+    let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
+    let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
+    if !checksum_response.status().is_success() {
+        bail!("Unable to get the checksum file. Url: {checksum_url}");
+    }
+    let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body())
+        .await?
+        .to_vec();
+    let checksum_expected = String::from_utf8(checksum_bytes)?.trim().to_owned();
+    info!("Expected sha256 checksum: {checksum_expected}");
+    download_with_aria2(
+        url.as_str(),
+        snapshot_path
+            .parent()
+            .map(|p| p.to_str().unwrap_or_default())
+            .unwrap_or_default(),
+        format!("sha-256={checksum_expected}").as_str(),
+    )
+}
+
+fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<()> {
+    let mut child = Command::new("aria2c")
+        .args([
+            "--continue=true",
+            "--max-connection-per-server=5",
+            "--split=5",
+            "--max-tries=0",
+            &format!("--checksum={checksum}"),
+            &format!("--dir={dir}",),
+            url,
+        ])
+        .spawn()?;
+    let exit_code = child.wait()?;
+    if exit_code.success() {
+        Ok(())
+    } else {
+        // https://aria2.github.io/manual/en/html/aria2c.html#exit-status
+        bail!(match exit_code.code() {
+            Some(32) => "Checksum validation failed".into(),
+            Some(code) =>format!("Failed with exit code {code}, checkout https://aria2.github.io/manual/en/html/aria2c.html#exit-status"),
+            None => "Failed with unknown exit code.".into(),
+        });
+    }
 }
 
 /// Tries to extract resource filename from a given URL.
@@ -317,6 +403,11 @@ fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use anyhow::{ensure, Result};
+    use axum::{routing::get_service, Router};
+    use http::StatusCode;
+    use std::{env::temp_dir, net::TcpListener};
+    use tower_http::services::ServeDir;
 
     #[test]
     fn checksum_from_file_test() {
@@ -401,5 +492,65 @@ mod test {
         error_cases.iter().for_each(|case| {
             assert!(replace_extension_url(case.0.try_into().unwrap(), case.1).is_err())
         });
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_with_aria2_test_wrong_checksum() -> Result<()> {
+        if !is_github_action() && !is_aria2_installed() {
+            return Ok(());
+        }
+
+        let (url, shutdown_tx) = serve_forest_logo()?;
+        let r = download_with_aria2(
+            &url,
+            temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
+        );
+        ensure!(r.is_err());
+        let err = r.unwrap_err().to_string();
+        ensure!(err.contains("Checksum validation failed"));
+        shutdown_tx.send(()).unwrap();
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_with_aria2_test_good_checksum() -> Result<()> {
+        if !is_github_action() && !is_aria2_installed() {
+            return Ok(());
+        }
+
+        let (url, shutdown_tx) = serve_forest_logo()?;
+        download_with_aria2(
+            &url,
+            temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
+        )?;
+        shutdown_tx.send(()).unwrap();
+        Ok(())
+    }
+
+    fn serve_forest_logo() -> Result<(String, tokio::sync::oneshot::Sender<()>)> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
+        let url = format!("http://{}:{}/forest_logo.png", addr.ip(), addr.port());
+        let app = {
+            let serve_dir = get_service(ServeDir::new("../../.github")).handle_error(|_| async {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
+            });
+            Router::<axum::body::Body>::new().nest("/", serve_dir)
+        };
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+        let server = axum::Server::from_tcp(listener)?
+            .serve(app.into_make_service())
+            .with_graceful_shutdown(async {
+                shutdown_rx.await.ok();
+            });
+        tokio::spawn(server);
+        Ok((url, shutdown_tx))
+    }
+
+    fn is_github_action() -> bool {
+        // https://docs.github.com/en/actions/learn-github-actions/environment-variables#default-environment-variables
+        std::env::var("GITHUB_ACTION").is_ok()
     }
 }

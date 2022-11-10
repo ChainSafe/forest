@@ -49,6 +49,7 @@ async-log             = "2.0"
 async-std             = "1.12"
 async-trait           = "0.1"
 atty                  = "0.2"
+axum                  = "0.5"
 base64                = "0.13"
 blake2b_simd          = "1.0"
 bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }
@@ -93,6 +94,7 @@ fvm_ipld_hamt         = "0.5"
 fvm_shared            = "2.0"
 git-version           = "0.3"
 hex                   = "0.4"
+http                  = "0.2.8"
 hyper                 = "0.14"
 hyper-rustls          = "0.23"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
@@ -137,7 +139,9 @@ time                  = "0.3"
 tokio                 = "1.21"
 tokio-util            = "0.7.0"
 toml                  = "0.5"
+tower-http            = "0.3"
 url                   = "2.3"
+which                 = "4.3"
 
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }

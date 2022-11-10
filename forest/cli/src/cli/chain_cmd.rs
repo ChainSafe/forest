@@ -126,6 +126,7 @@ impl ChainCommands {
                 warn!("Deprecated, use `forest-cli snapshot fetch` instead.");
                 let cmd = SnapshotCommands::Fetch {
                     snapshot_dir: snapshot_dir.clone(),
+                    aria2: false,
                 };
                 cmd.run(config).await
             }
