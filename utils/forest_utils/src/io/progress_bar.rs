@@ -9,6 +9,7 @@ use std::{cell::RefCell, io::Stdout};
 pub use pbr::Units;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ProgressBarVisibility {
     Always,
     Auto,

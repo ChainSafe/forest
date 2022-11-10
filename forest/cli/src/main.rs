@@ -4,8 +4,6 @@
 mod cli;
 mod subcommand;
 
-use std::error::Error;
-
 use cli::{cli_error_and_die, Cli};
 
 use async_std::task;
@@ -13,7 +11,7 @@ use forest_cli_shared::{cli::LogConfig, logger};
 use forest_utils::io::ProgressBar;
 use structopt::StructOpt;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
@@ -29,6 +27,4 @@ fn main() -> Result<(), Box<dyn Error>> {
             cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
-
-    Ok(())
 }
