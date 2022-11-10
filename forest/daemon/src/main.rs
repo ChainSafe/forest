@@ -12,6 +12,7 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
+use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
 use log::{info, warn};
 use raw_sync::events::{Event, EventInit};
@@ -20,9 +21,9 @@ use shared_memory::ShmemConf;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
 
-use std::fs::File;
 use std::process;
 use std::time::Duration;
+use std::{error::Error, fs::File};
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
@@ -92,7 +93,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     Ok(daemon)
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
@@ -100,6 +101,8 @@ fn main() {
     match opts.to_config() {
         Ok((cfg, path)) => {
             logger::setup_logger(&cfg.log, opts.color.into());
+            ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
+
             if let Some(path) = &path {
                 match path {
                     ConfigPath::Env(path) => {
@@ -153,4 +156,6 @@ fn main() {
             cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };
+
+    Ok(())
 }

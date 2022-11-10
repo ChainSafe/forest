@@ -8,6 +8,7 @@ use cli::{cli_error_and_die, Cli};
 
 use async_std::task;
 use forest_cli_shared::{cli::LogConfig, logger};
+use forest_utils::io::ProgressBar;
 use structopt::StructOpt;
 
 fn main() {
@@ -18,6 +19,7 @@ fn main() {
     match opts.to_config() {
         Ok((cfg, _)) => {
             logger::setup_logger(&cfg.log, opts.color.into());
+            ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
             task::block_on(subcommand::process(cmd, cfg));
         }
         Err(e) => {
