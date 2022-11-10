@@ -9,7 +9,8 @@ use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_cli_shared::cli::{
-    cli_error_and_die, default_snapshot_dir, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
+    cli_error_and_die, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+    FOREST_VERSION_STRING,
 };
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
@@ -407,7 +408,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = match snapshot_fetch(&snapshot_path, &config).await {
+        let path = match snapshot_fetch(&snapshot_path, &config, is_aria2_installed()).await {
             Ok(path) => path,
             Err(err) => cli_error_and_die(err.to_string(), 1),
         };

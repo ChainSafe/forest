@@ -67,8 +67,13 @@ time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
 url.workspace                    = true
+which.workspace                  = true
 
 [dev-dependencies]
+axum.workspace              = true
+http.workspace              = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 rand.workspace              = true
+tokio.workspace             = true
+tower-http                  = { workspace = true, features = ["fs"] }
