@@ -54,7 +54,6 @@ multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true
 once_cell.workspace              = true
-pbr.workspace                    = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true

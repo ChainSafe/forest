@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use async_std::stream::{Stream, StreamExt};
 use async_std::task;
+use forest_utils::io::ProgressBar;
 use futures::stream::FuturesUnordered;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
@@ -855,7 +856,7 @@ async fn sync_headers_in_reverse<
     tracker.write().await.set_epoch(current_head.epoch());
 
     let total_size = proposed_head.epoch() - current_head.epoch();
-    let mut pb = pbr::ProgressBar::new(total_size as u64);
+    let pb = ProgressBar::new(total_size as u64);
     pb.message("Downloading headers ");
     pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 

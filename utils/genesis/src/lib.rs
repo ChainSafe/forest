@@ -13,7 +13,6 @@ use forest_utils::net::FetchProgress;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
-use std::io::Stdout;
 use std::sync::Arc;
 use std::time;
 use tokio::fs::File;
@@ -187,7 +186,7 @@ where
 /// Loads car file into database, and returns the block header CIDs from the CAR header.
 async fn load_and_retrieve_header<DB, R>(
     store: &DB,
-    reader: FetchProgress<R, Stdout>,
+    reader: FetchProgress<R>,
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where

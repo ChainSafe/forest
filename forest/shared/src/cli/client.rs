@@ -3,6 +3,7 @@
 
 use directories::ProjectDirs;
 use forest_rpc_client::DEFAULT_PORT;
+use forest_utils::io::ProgressBarVisibility;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -34,6 +35,8 @@ pub struct Client {
     pub rpc_address: SocketAddr,
     /// Download a chain specific snapshot to sync with the Filecoin network
     pub download_snapshot: bool,
+    /// Display progress bars mode. Auto will display if TTY.
+    pub show_progress_bars: ProgressBarVisibility,
 }
 
 impl Default for Client {
@@ -54,6 +57,7 @@ impl Default for Client {
             metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             download_snapshot: false,
+            show_progress_bars: Default::default(),
         }
     }
 }

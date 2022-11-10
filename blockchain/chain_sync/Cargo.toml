@@ -39,7 +39,6 @@ lru.workspace                    = true
 nonempty.workspace               = true
 num-bigint.workspace             = true
 num-traits.workspace             = true
-pbr.workspace                    = true
 prometheus                       = { workspace = true, features = ["process"] }
 quickcheck.workspace             = true
 rand.workspace                   = true

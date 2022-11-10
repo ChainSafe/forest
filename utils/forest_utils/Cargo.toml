@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace              = true
+atty.workspace                = true
 cid                           = { workspace = true, default-features = false, features = ["std"] }
 const_format                  = "0.2.26"
 digest.workspace              = true
@@ -19,8 +20,9 @@ hyper                         = { workspace = true, features = ["client", "strea
 hyper-rustls.workspace        = true
 libc                          = "0.2"
 log.workspace                 = true
-pbr.workspace                 = true
+pbr                           = "1.0"
 pin-project-lite.workspace    = true
+quickcheck.workspace          = true
 serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
 tokio                         = { workspace = true, features = ["fs"] }
