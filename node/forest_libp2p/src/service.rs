@@ -47,7 +47,7 @@ use libp2p::{
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use libp2p_bitswap::{BitswapEvent, BitswapStore};
 use log::{debug, error, info, trace, warn};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -78,6 +78,7 @@ pub enum NetworkEvent {
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
     BitswapBlock {
+        query_id: libp2p_bitswap::QueryId,
         cid: Cid,
     },
 }
@@ -206,7 +207,7 @@ where
 
         let mut hello_request_table = HashMap::new();
         let mut cx_request_table = HashMap::new();
-        let mut outgoing_bitswap_query_ids = HashSet::new();
+        let mut outgoing_bitswap_query_ids = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         loop {
@@ -279,7 +280,7 @@ async fn handle_network_message<P: StoreParams>(
         RequestId,
         futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
     >,
-    outgoing_bitswap_query_ids: &mut HashSet<libp2p_bitswap::QueryId>,
+    outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -311,7 +312,7 @@ async fn handle_network_message<P: StoreParams>(
             response_channel: _,
         } => match st_mut.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
-                outgoing_bitswap_query_ids.insert(query_id);
+                outgoing_bitswap_query_ids.insert(query_id, cid);
             }
             Err(e) => warn!("Failed to send a bitswap want_block: {}", e.to_string()),
         },
@@ -374,7 +375,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
         RequestId,
         futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
     >,
-    outgoing_bitswap_query_ids: &mut HashSet<libp2p_bitswap::QueryId>,
+    outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
     cx_response_tx: Sender<(
         ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
@@ -534,7 +535,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
         },
         ForestBehaviourEvent::Bitswap(bs_event) => {
             let get_prefix = |query_id: &libp2p_bitswap::QueryId| {
-                if outgoing_bitswap_query_ids.contains(query_id) {
+                if outgoing_bitswap_query_ids.contains_key(query_id) {
                     "Outgoing"
                 } else {
                     "Inbound"
@@ -543,22 +544,27 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
             match bs_event {
                 BitswapEvent::Progress(query_id, num_missing) => {
                     let prefix = get_prefix(&query_id);
-                    trace!("{prefix} bitswap query {query_id} in progress, {num_missing} blocks pending");
+                    info!("{prefix} bitswap query {query_id} in progress, {num_missing} blocks pending");
                 }
                 BitswapEvent::Complete(query_id, result) => match result {
                     Ok(()) => {
                         let prefix = get_prefix(&query_id);
                         outgoing_bitswap_query_ids.remove(&query_id);
                         info!("{prefix} bitswap query {query_id} completed successfully");
-                        // TODO: Convert query_id to cid?
-                        // emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{query_id}).await;
+                        if let Some(&cid) = outgoing_bitswap_query_ids.get(&query_id) {
+                            emit_event(
+                                network_sender_out,
+                                NetworkEvent::BitswapBlock { query_id, cid },
+                            )
+                            .await;
+                        }
                     }
                     Err(err) => {
                         let prefix = get_prefix(&query_id);
                         let msg = format!(
                             "{prefix} bitswap query {query_id} completed with error: {err}"
                         );
-                        if outgoing_bitswap_query_ids.contains(&query_id) {
+                        if outgoing_bitswap_query_ids.contains_key(&query_id) {
                             warn!("{msg}");
                         } else {
                             trace!("{msg}");
