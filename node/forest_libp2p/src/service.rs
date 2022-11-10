@@ -67,17 +67,38 @@ pub enum NetworkEvent {
         source: PeerId,
         message: PubsubMessage,
     },
-    HelloRequest {
-        request: HelloRequest,
+    HelloRequestInbound {
         source: PeerId,
     },
-    ChainExchangeRequest {
-        request: ChainExchangeRequest,
-        channel: ResponseChannel<ChainExchangeResponse>,
+    HelloResponseOutbound {
+        source: PeerId,
+        request: HelloRequest,
+    },
+    HelloRequestOutbound {
+        request_id: RequestId,
+    },
+    HelloResponseInbound {
+        request_id: RequestId,
+    },
+    ChainExchangeRequestOutbound {
+        request_id: RequestId,
+    },
+    ChainExchangeResponseInbound {
+        request_id: RequestId,
+    },
+    ChainExchangeRequestInbound {
+        request_id: RequestId,
+    },
+    ChainExchangeResponseOutbound {
+        request_id: RequestId,
     },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
-    BitswapBlock {
+    BitswapRequestOutbound {
+        query_id: libp2p_bitswap::QueryId,
+        cid: Cid,
+    },
+    BitswapResponseInbound {
         query_id: libp2p_bitswap::QueryId,
         cid: Cid,
     },
@@ -236,6 +257,7 @@ where
                         handle_network_message(
                             swarm_stream.get_mut(),
                             message,
+                            &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
                             &mut outgoing_bitswap_query_ids).await;
@@ -247,7 +269,7 @@ where
                     debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
                 },
                 pair_opt = cx_response_rx_stream.next() => {
-                    if let Some((channel, cx_response)) = pair_opt {
+                    if let Some((_request_id, channel, cx_response)) = pair_opt {
                         let bh_mut = swarm_stream.get_mut().behaviour_mut();
                         if let Err(e) = bh_mut.chain_exchange.send_response(channel, cx_response) {
                             warn!("Error sending chain exchange response: {e:?}");
@@ -272,6 +294,7 @@ where
 async fn handle_network_message<P: StoreParams>(
     st_mut: &mut Swarm<ForestBehaviour<P>>,
     message: NetworkMessage,
+    network_sender_out: &flume::Sender<NetworkEvent>,
     hello_request_table: &mut HashMap<
         RequestId,
         futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
@@ -295,17 +318,27 @@ async fn handle_network_message<P: StoreParams>(
         } => {
             let request_id = st_mut.behaviour_mut().hello.send_request(&peer_id, request);
             hello_request_table.insert(request_id, response_channel);
+            emit_event(
+                network_sender_out,
+                NetworkEvent::HelloRequestOutbound { request_id },
+            )
+            .await;
         }
         NetworkMessage::ChainExchangeRequest {
             peer_id,
             request,
             response_channel,
         } => {
-            let req_id = st_mut
+            let request_id = st_mut
                 .behaviour_mut()
                 .chain_exchange
                 .send_request(&peer_id, request);
-            cx_request_table.insert(req_id, response_channel);
+            cx_request_table.insert(request_id, response_channel);
+            emit_event(
+                network_sender_out,
+                NetworkEvent::ChainExchangeRequestOutbound { request_id },
+            )
+            .await;
         }
         NetworkMessage::BitswapRequest {
             cid,
@@ -313,6 +346,11 @@ async fn handle_network_message<P: StoreParams>(
         } => match st_mut.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
                 outgoing_bitswap_query_ids.insert(query_id, cid);
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::BitswapRequestOutbound { query_id, cid },
+                )
+                .await;
             }
             Err(e) => warn!("Failed to send a bitswap want_block: {}", e.to_string()),
         },
@@ -377,6 +415,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     >,
     outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
     cx_response_tx: Sender<(
+        RequestId,
         ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
@@ -460,6 +499,12 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                     channel,
                     request_id: _,
                 } => {
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::HelloRequestInbound { source: peer },
+                    )
+                    .await;
+
                     let arrival = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
@@ -467,7 +512,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         .try_into()
                         .expect("System time since unix epoch should not exceed u64");
 
-                    debug!("Received hello request: {:?}", request);
+                    trace!("Received hello request: {:?}", request);
                     let sent = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
@@ -482,15 +527,16 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         .send_response(channel, HelloResponse { arrival, sent })
                     {
                         warn!("Failed to send HelloResponse: {e:?}");
-                    };
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::HelloRequest {
-                            request,
-                            source: peer,
-                        },
-                    )
-                    .await;
+                    } else {
+                        emit_event(
+                            network_sender_out,
+                            NetworkEvent::HelloResponseOutbound {
+                                source: peer,
+                                request,
+                            },
+                        )
+                        .await;
+                    }
                 }
                 RequestResponseMessage::Response {
                     request_id,
@@ -499,10 +545,16 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                     // Send the sucessful response through channel out.
                     if let Some(tx) = hello_request_table.remove(&request_id) {
                         if tx.send(Ok(response)).is_err() {
-                            debug!("RPCResponse receive timed out");
+                            warn!("RPCResponse receive timed out");
+                        } else {
+                            emit_event(
+                                network_sender_out,
+                                NetworkEvent::HelloResponseInbound { request_id },
+                            )
+                            .await;
                         }
                     } else {
-                        debug!("RPCResponse receive failed: channel not found");
+                        warn!("RPCResponse receive failed: channel not found");
                     };
                 }
             },
@@ -520,7 +572,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 let tx = hello_request_table.remove(&request_id);
                 if let Some(tx) = tx {
                     if tx.send(Err(error.into())).is_err() {
-                        debug!("RPCResponse receive failed");
+                        warn!("RPCResponse receive failed");
                     }
                 }
             }
@@ -529,7 +581,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 error,
                 request_id: _,
             } => {
-                debug!("Hello inbound error (peer: {:?}): {:?}", peer, error);
+                warn!("Hello inbound error (peer: {:?}): {:?}", peer, error);
             }
             RequestResponseEvent::ResponseSent { .. } => (),
         },
@@ -554,7 +606,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         if let Some(&cid) = outgoing_bitswap_query_ids.get(&query_id) {
                             emit_event(
                                 network_sender_out,
-                                NetworkEvent::BitswapBlock { query_id, cid },
+                                NetworkEvent::BitswapResponseInbound { query_id, cid },
                             )
                             .await;
                         }
@@ -567,7 +619,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         if outgoing_bitswap_query_ids.contains_key(&query_id) {
                             warn!("{msg}");
                         } else {
-                            trace!("{msg}");
+                            debug!("{msg}");
                         }
                     }
                 },
@@ -584,18 +636,15 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
             Ok(ping::Success::Pong) => {
                 trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
             }
-            Err(ping::Failure::Timeout) => {
-                debug!("PingFailure::Timeout {}", ping_event.peer.to_base58());
-            }
             Err(ping::Failure::Other { error }) => {
-                debug!(
+                warn!(
                     "PingFailure::Other {}: {}",
                     ping_event.peer.to_base58(),
                     error
                 );
             }
-            Err(ping::Failure::Unsupported) => {
-                debug!("PingFailure::Unsupported {}", ping_event.peer.to_base58());
+            Err(err) => {
+                warn!("{err}:{}", ping_event.peer.to_base58());
             }
         },
         ForestBehaviourEvent::Identify(id_event) => match id_event {
@@ -616,12 +665,18 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 RequestResponseMessage::Request {
                     request,
                     channel,
-                    request_id: _,
+                    request_id,
                 } => {
-                    debug!("Received chain_exchange request (peer_id: {:?})", peer);
+                    trace!("Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",);
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::ChainExchangeRequestInbound { request_id },
+                    )
+                    .await;
                     let db = db.clone();
                     task::spawn(async move {
                         if let Err(e) = cx_response_tx.send((
+                            request_id,
                             channel,
                             make_chain_exchange_response(db.as_ref(), &request).await,
                         )) {
@@ -633,15 +688,19 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                     request_id,
                     response,
                 } => {
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::ChainExchangeResponseInbound { request_id },
+                    )
+                    .await;
                     let tx = cx_request_table.remove(&request_id);
-
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
                         if tx.send(Ok(response)).is_err() {
-                            debug!("RPCResponse receive timed out")
+                            warn!("RPCResponse receive timed out")
                         }
                     } else {
-                        debug!("RPCResponse receive failed: channel not found");
+                        warn!("RPCResponse receive failed: channel not found");
                     };
                 }
             },
@@ -650,7 +709,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 request_id,
                 error,
             } => {
-                debug!(
+                warn!(
                     "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
                     peer, request_id, error
                 );
@@ -660,7 +719,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 // Send error through channel out.
                 if let Some(tx) = tx {
                     if tx.send(Err(error.into())).is_err() {
-                        debug!("RPCResponse receive failed")
+                        warn!("RPCResponse receive failed")
                     }
                 }
             }
@@ -669,12 +728,18 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 error,
                 request_id: _,
             } => {
-                debug!(
+                warn!(
                     "ChainExchange inbound error (peer: {:?}): {:?}",
                     peer, error
                 );
             }
-            RequestResponseEvent::ResponseSent { .. } => (),
+            RequestResponseEvent::ResponseSent { request_id, .. } => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeResponseOutbound { request_id },
+                )
+                .await;
+            }
         },
     }
 }
