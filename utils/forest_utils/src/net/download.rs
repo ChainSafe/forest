@@ -4,9 +4,7 @@
 use futures::stream::{IntoAsyncRead, MapErr};
 use futures::TryStreamExt;
 use hyper_rustls::HttpsConnectorBuilder;
-use pbr::{ProgressBar, Units};
 use pin_project_lite::pin_project;
-use std::io::{Stdout, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -17,6 +15,8 @@ use tokio::io::{BufReader, ReadBuf};
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
 
+use crate::io::ProgressBar;
+
 #[derive(Debug, Error)]
 enum DownloadError {
     #[error("Cannot read a file header")]
@@ -25,20 +25,20 @@ enum DownloadError {
 
 pin_project! {
     /// Holds a Reader, tracks read progress and draw a progress bar.
-    pub struct FetchProgress<R, W: Write> {
+    pub struct FetchProgress<R> {
         #[pin]
         pub inner: R,
-        pub progress_bar: ProgressBar<W>,
+        pub progress_bar: ProgressBar,
     }
 }
 
-impl<R, W: Write> FetchProgress<R, W> {
+impl<R> FetchProgress<R> {
     pub fn finish(&mut self) {
         self.progress_bar.finish();
     }
 }
 
-impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
+impl<R: AsyncRead + Unpin> AsyncRead for FetchProgress<R> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -57,8 +57,8 @@ impl<R: AsyncRead + Unpin, W: Write> AsyncRead for FetchProgress<R, W> {
 type DownloadStream =
     Compat<IntoAsyncRead<MapErr<hyper::Body, fn(hyper::Error) -> futures::io::Error>>>;
 
-impl FetchProgress<DownloadStream, Stdout> {
-    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream, Stdout>> {
+impl FetchProgress<DownloadStream> {
+    pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream>> {
         let https = HttpsConnectorBuilder::new()
             .with_native_roots()
             .https_or_http()
@@ -82,9 +82,9 @@ impl FetchProgress<DownloadStream, Stdout> {
 
         let response = client.get(url.as_str().try_into()?).await?;
 
-        let mut pb = ProgressBar::new(total_size);
+        let pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
-        pb.set_units(Units::Bytes);
+        pb.set_units(crate::io::progress_bar::Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         let map_err: fn(hyper::Error) -> futures::io::Error =
@@ -102,13 +102,13 @@ impl FetchProgress<DownloadStream, Stdout> {
     }
 }
 
-impl FetchProgress<BufReader<File>, Stdout> {
+impl FetchProgress<BufReader<File>> {
     pub async fn fetch_from_file(file: File) -> anyhow::Result<Self> {
         let total_size = file.metadata().await?.len();
 
-        let mut pb = ProgressBar::new(total_size);
+        let pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");
-        pb.set_units(Units::Bytes);
+        pb.set_units(crate::io::progress_bar::Units::Bytes);
         pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         Ok(FetchProgress {
