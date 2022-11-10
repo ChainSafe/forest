@@ -33,6 +33,41 @@ pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[structopt(short, long)]
     pub config: Option<String>,
+    /// Enable or disable colored logging in `stdout`
+    #[structopt(long, default_value = "auto")]
+    pub color: LoggingColor,
+    // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
+    // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
+    // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
+    // #[structopt(
+    // help = "Specify a filename into which logging should be appended"
+    // )]
+    // pub log_file: Option<PathBuf>,
+}
+
+impl CliOpts {
+    pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
+        let path = find_cli_config_path(self);
+        let cfg: Config = match &path {
+            Some(path) => {
+                // Read from config file
+                let toml = read_file_to_string(path.to_path_buf())?;
+                // Parse and return the configuration file
+                read_toml(&toml)?
+            }
+            None => Config::default(),
+        };
+
+        Ok((cfg, path))
+    }
+}
+
+/// Daemon options
+#[derive(StructOpt, Debug)]
+pub struct DaemonOpts {
+    /// A TOML file containing relevant configurations
+    #[structopt(short, long)]
+    pub config: Option<String>,
     /// The genesis CAR file
     #[structopt(short, long)]
     pub genesis: Option<String>,
@@ -83,10 +118,10 @@ pub struct CliOpts {
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
     #[structopt(
-        long,
-        default_value = "mainnet",
-        possible_values = &["mainnet", "calibnet"],
-    )]
+long,
+default_value = "mainnet",
+possible_values = &["mainnet", "calibnet"],
+)]
     pub chain: String,
     /// Daemonize Forest process
     #[structopt(long)]
@@ -101,14 +136,14 @@ pub struct CliOpts {
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
     // #[structopt(
-    //     help = "Specify a filename into which logging should be appended"
+    // help = "Specify a filename into which logging should be appended"
     // )]
     // pub log_file: Option<PathBuf>,
 }
 
-impl CliOpts {
+impl DaemonOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(self);
+        let path = find_daemon_config_path(self);
         let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
@@ -200,7 +235,23 @@ impl ConfigPath {
     }
 }
 
-fn find_config_path(opts: &CliOpts) -> Option<ConfigPath> {
+fn find_cli_config_path(opts: &CliOpts) -> Option<ConfigPath> {
+    if let Some(s) = &opts.config {
+        return Some(ConfigPath::Cli(PathBuf::from(s)));
+    }
+    if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
+        return Some(ConfigPath::Env(PathBuf::from(s)));
+    }
+    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+        let path = dir.config_dir().join("config.toml");
+        if path.exists() {
+            return Some(ConfigPath::Project(path));
+        }
+    }
+    None
+}
+
+fn find_daemon_config_path(opts: &DaemonOpts) -> Option<ConfigPath> {
     if let Some(s) = &opts.config {
         return Some(ConfigPath::Cli(PathBuf::from(s)));
     }
@@ -337,31 +388,31 @@ mod tests {
     fn find_unknown_keys_must_work() {
         let x: toml::Value = toml::from_str(
             r#"
-            folklore = true
-            foo = "foo"
-            [myth]
-            author = 'H. P. Lovecraft'
-            entities = [
-                { name = 'Cthulhu' },
-                { name = 'Azathoth' },
-                { baz = 'Dagon' },
-            ]
-            bar = "bar"
-        "#,
+folklore = true
+foo = "foo"
+[myth]
+author = 'H. P. Lovecraft'
+entities = [
+{ name = 'Cthulhu' },
+{ name = 'Azathoth' },
+{ baz = 'Dagon' },
+]
+bar = "bar"
+"#,
         )
         .unwrap();
 
         let y: toml::Value = toml::from_str(
             r#"
-            folklore = true
-            [myth]
-            author = 'H. P. Lovecraft'
-            entities = [
-                { name = 'Cthulhu' },
-                { name = 'Azathoth' },
-                { name = 'Dagon' },
-            ]
-        "#,
+folklore = true
+[myth]
+author = 'H. P. Lovecraft'
+entities = [
+{ name = 'Cthulhu' },
+{ name = 'Azathoth' },
+{ name = 'Dagon' },
+]
+"#,
         )
         .unwrap();
 

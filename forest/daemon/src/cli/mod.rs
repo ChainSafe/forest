@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
+use forest_cli_shared::cli::{DaemonOpts, FOREST_VERSION_STRING};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};
 use std::cell::RefCell;
@@ -20,7 +20,7 @@ use structopt::StructOpt;
 )]
 pub struct Cli {
     #[structopt(flatten)]
-    pub opts: CliOpts,
+    pub opts: DaemonOpts,
     pub cmd: Option<String>,
 }
 
