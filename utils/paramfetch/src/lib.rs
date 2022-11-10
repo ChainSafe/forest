@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::task;
+use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
@@ -149,18 +150,10 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::E
     debug!("Fetching {:?} from {}", path, gw);
     let url = format!("{}{}", gw, info.cid);
 
-    let mut r = Ok(());
-    for _ in 0..5 {
-        if let Err(err) = fetch_params_inner(&url, path).await {
-            warn!("Error downloading {url}: {err}");
-            r = Err(err);
-        } else {
-            debug!("Successfully downloaded {url} to {}", path.display());
-            r = Ok(());
-            break;
-        }
-    }
-    r
+    retry(ExponentialBackoff::default(), || async {
+        Ok(fetch_params_inner(&url, path).await?)
+    })
+    .await
 }
 
 async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
