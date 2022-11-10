@@ -4,12 +4,13 @@
 
 # Script to test various configurations that can impact performance of the node
 
-require "fileutils"
-require "open3"
-require "optparse"
-require "pathname"
-require "pp"
-require "toml-rb"
+require 'fileutils'
+require 'open3'
+require 'optparse'
+require 'pathname'
+require 'pp'
+require 'tmpdir'
+require 'toml-rb'
 
 # Defines some hardcoded constants
 
@@ -59,6 +60,15 @@ Benchmark_suite = [
   },
 ]
 
+$tmp_dir = nil
+
+def tmp_dir()
+  if !$tmp_dir
+    $tmp_dir = Dir.mktmpdir("forest-benchs-")
+  end
+  $tmp_dir
+end
+
 def get_forest_version()
   version = exec_command("./target/release/forest --version", quiet: true)
   version.chomp
@@ -67,7 +77,9 @@ end
 def get_default_config()
   toml_str = exec_command("./target/release/forest-cli config dump", quiet: true)
 
-  TomlRB.parse(toml_str)
+  default = TomlRB.parse(toml_str)
+  default["client"]["data_dir"] = tmp_dir()
+  default
 end
 
 def get_snapshot_dir()
@@ -100,15 +112,18 @@ def exec_command(command, quiet: false, merge: false)
   }
 end
 
+def config_path(bench)
+  "#{tmp_dir()}/#{bench["name"]}.toml"
+end
+
 def build_config_file(bench)
   default = get_default_config()
   bench_config = bench["config"]
   # TODO: Find a better way to merge (conserve the default keys)
   default.merge!(bench_config)
 
-  # TODO: Write toml file in some temp dir?
   toml_str = TomlRB.dump(default)
-  File.open("#{bench["name"]}.toml", "w") { |file| file.write(toml_str) }
+  File.open("#{config_path(bench)}", "w") { |file| file.write(toml_str) }
 end
 
 def build_substitution_hash(bench)
@@ -116,7 +131,7 @@ def build_substitution_hash(bench)
   start = height - Heights_to_validate
 
   # Escape spaces if any
-  config_path = "#{bench["name"]}.toml".gsub(/\s/, '\\ ')
+  config_path = config_path(bench).gsub(/\s/, '\\ ')
   snapshot_path = "#{get_snapshot_dir()}/#{Snapshot}".gsub(/\s/, '\\ ')
 
   { c: config_path, s: snapshot_path, h: start }
@@ -129,7 +144,7 @@ def run_benchmarks(benchs = Benchmark_suite)
     # Clean db
     db_dir = get_db_dir()
     puts "wiping #{db_dir}"
-    FileUtils.rm_rf(db_dir, :secure => true)
+    #FileUtils.rm_rf(db_dir, :secure => true)
 
     # TODO: cargo clean before
     # TODO: we should disable incremental build as well
