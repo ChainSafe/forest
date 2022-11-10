@@ -101,7 +101,7 @@ libipld               = "0.14"
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
 libp2p                = { version = "0.49", default-features = false }
-libp2p-bitswap        = { version = "0.24", features = ["compat"] }
+libp2p-bitswap        = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest", features = ["compat"] }
 libsecp256k1          = "0.7"
 log                   = "0.4"
 lru                   = "0.8"

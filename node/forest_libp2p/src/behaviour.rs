@@ -26,9 +26,8 @@ use libp2p::{
 };
 use libp2p::{identify, ping};
 use libp2p_bitswap::{Bitswap, BitswapStore};
-use log::debug;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use log::{debug, warn};
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
@@ -73,6 +72,9 @@ impl<P: StoreParams> ForestBehaviour<P> {
             .unwrap();
 
         let bitswap = Bitswap::new(libp2p_bitswap::BitswapConfig::new(), db);
+        if let Err(err) = bitswap.register_metrics(prometheus::default_registry()) {
+            warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
+        }
 
         let mut discovery_config = DiscoveryConfig::new(local_key.public(), network_name);
         discovery_config
@@ -135,8 +137,8 @@ impl<P: StoreParams> ForestBehaviour<P> {
     /// Send a request for data over bit-swap
     pub fn want_block(&mut self, cid: Cid) -> Result<libp2p_bitswap::QueryId, anyhow::Error> {
         debug!("want {}", cid.to_string());
-        let peers = self.discovery.peers().iter().cloned();
-        let query_id = self.bitswap.get(cid, peers);
+        let peers = self.discovery.peers().iter().cloned().collect();
+        let query_id = self.bitswap.sync(cid, peers, [cid].into_iter());
         Ok(query_id)
     }
 }

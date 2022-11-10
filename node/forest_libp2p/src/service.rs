@@ -581,7 +581,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 error,
                 request_id: _,
             } => {
-                warn!("Hello inbound error (peer: {:?}): {:?}", peer, error);
+                debug!("Hello inbound error (peer: {:?}): {:?}", peer, error);
             }
             RequestResponseEvent::ResponseSent { .. } => (),
         },
@@ -596,14 +596,13 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
             match bs_event {
                 BitswapEvent::Progress(query_id, num_missing) => {
                     let prefix = get_prefix(&query_id);
-                    info!("{prefix} bitswap query {query_id} in progress, {num_missing} blocks pending");
+                    debug!("{prefix} bitswap query {query_id} in progress, {num_missing} blocks pending");
                 }
                 BitswapEvent::Complete(query_id, result) => match result {
                     Ok(()) => {
                         let prefix = get_prefix(&query_id);
-                        outgoing_bitswap_query_ids.remove(&query_id);
-                        info!("{prefix} bitswap query {query_id} completed successfully");
-                        if let Some(&cid) = outgoing_bitswap_query_ids.get(&query_id) {
+                        debug!("{prefix} bitswap query {query_id} completed successfully");
+                        if let Some(cid) = outgoing_bitswap_query_ids.remove(&query_id) {
                             emit_event(
                                 network_sender_out,
                                 NetworkEvent::BitswapResponseInbound { query_id, cid },
@@ -728,7 +727,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 error,
                 request_id: _,
             } => {
-                warn!(
+                debug!(
                     "ChainExchange inbound error (peer: {:?}): {:?}",
                     peer, error
                 );
