@@ -10,7 +10,7 @@ testing = []
 [dependencies]
 anyhow.workspace               = true
 async-std.workspace            = true
-cid                            = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                  = true
 forest_blocks.workspace        = true
 forest_chain.workspace         = true
 forest_db.workspace            = true

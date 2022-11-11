@@ -24,7 +24,7 @@ fil_actors_runtime.workspace    = true
 fil_actors_runtime_v9.workspace = true
 
 anyhow.workspace              = true
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 forest_encoding.workspace     = true
 forest_fil_types.workspace    = true
 forest_json.workspace         = true
