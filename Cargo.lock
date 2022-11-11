@@ -3554,7 +3554,6 @@ name = "forest_metrics"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "axum",
  "fs_extra",
  "log",

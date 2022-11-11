@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace    = true
-async-std           = { workspace = true, features = ["tokio1", "unstable"] }
 axum.workspace      = true
 fs_extra            = "1.2"
 log.workspace       = true
