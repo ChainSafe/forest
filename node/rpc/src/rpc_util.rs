@@ -1,15 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use log::{debug, error};
-use serde::de::DeserializeOwned;
-use tide::http::headers::HeaderValues;
-
 use forest_beacon::Beacon;
 use forest_rpc_api::{
     auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
 };
 use fvm_ipld_blockstore::Blockstore;
+use http::{HeaderMap, HeaderValue, StatusCode};
+use log::{debug, error};
+use serde::de::DeserializeOwned;
 
 pub fn get_error_obj(code: i64, message: String) -> jsonrpc_v2::Error {
     debug!(
@@ -47,19 +46,18 @@ pub fn is_streaming_method(method_name: &str) -> bool {
 pub async fn check_permissions<DB, B>(
     rpc_server: JsonRpcServerState,
     method: &str,
-    authorization_header: Option<HeaderValues>,
-) -> Result<(), tide::Error>
+    authorization_header: Option<HeaderValue>,
+) -> Result<(), (StatusCode, String)>
 where
     DB: Blockstore,
     B: Beacon,
 {
-    let claims = match authorization_header
-        .and_then(|header_values| header_values.get(0).cloned())
-        .map(|token| token.to_string())
-    {
+    let claims = match authorization_header {
         Some(token) => {
+            let token = token
+                .to_str()
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             debug!("JWT from HTTP Header: {}", token);
-
             let (_, claims) = call_rpc::<Vec<String>>(
                 rpc_server,
                 jsonrpc_v2::RequestObject::request()
@@ -67,7 +65,8 @@ where
                     .with_params(vec![token])
                     .finish(),
             )
-            .await?;
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
             debug!("Decoded JWT Claims: {:?}", claims);
 
@@ -82,24 +81,22 @@ where
             if check_access(access, &claims) {
                 Ok(())
             } else {
-                Err(tide::Error::from_str(403, "Forbidden"))
+                Err((StatusCode::FORBIDDEN, "Forbidden".into()))
             }
         }
-        None => Err(tide::Error::from_str(404, "Not Found")),
+        None => Err((StatusCode::NOT_FOUND, "Not Found".into())),
     }
 }
 
-pub fn get_auth_header(
-    request: tide::Request<JsonRpcServerState>,
-) -> (Option<HeaderValues>, tide::Request<JsonRpcServerState>) {
-    (request.header("Authorization").cloned(), request)
+pub fn get_auth_header(headers: HeaderMap) -> Option<HeaderValue> {
+    headers.get("Authorization").cloned()
 }
 
 // Calls an RPC method and returns the full response as a string.
 pub async fn call_rpc_str(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,
-) -> Result<String, tide::Error> {
+) -> anyhow::Result<String> {
     let rpc_subscription_response = rpc_server.handle(rpc_request).await;
     Ok(serde_json::to_string(&rpc_subscription_response)?)
 }
@@ -108,7 +105,7 @@ pub async fn call_rpc_str(
 pub async fn call_rpc<T>(
     rpc_server: JsonRpcServerState,
     rpc_request: jsonrpc_v2::RequestObject,
-) -> Result<(String, T), tide::Error>
+) -> anyhow::Result<(String, T)>
 where
     T: DeserializeOwned,
 {
@@ -136,7 +133,7 @@ where
                             code, &message
                         );
                         error!("RPC call error: {}", msg);
-                        Err(tide::Error::from_str(500, msg))
+                        anyhow::bail!(msg)
                     }
                     jsonrpc_v2::Error::Full { code, message, .. } => {
                         let msg = format!(
@@ -144,7 +141,7 @@ where
                             code, message
                         );
                         error!("RPC call error: {}", msg);
-                        Err(tide::Error::from_str(500, msg))
+                        anyhow::bail!(msg)
                     }
                 },
             }
@@ -152,7 +149,7 @@ where
         _ => {
             let msg = "Unexpected response type after making RPC call";
             error!("RPC call error: {}", msg);
-            Err(tide::Error::from_str(500, msg))
+            anyhow::bail!(msg)
         }
     }
 }

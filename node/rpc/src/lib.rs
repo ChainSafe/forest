@@ -15,27 +15,24 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
-use async_std::net::TcpListener;
-use forest_chain::Scale;
-use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
-use log::info;
-use std::sync::Arc;
-use tide_websockets::WebSocket;
-
-use forest_beacon::Beacon;
-use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
-use forest_rpc_api::data_types::RPCState;
-use fvm_ipld_blockstore::Blockstore;
-
 use crate::rpc_http_handler::rpc_http_handler;
 use crate::rpc_ws_handler::rpc_ws_handler;
 use crate::{beacon_api::beacon_get_entry, common_api::version, state_api::*};
-
+use axum::routing::{get, post};
+use forest_beacon::Beacon;
+use forest_chain::Scale;
+use forest_db::Store;
+use forest_fil_types::verifier::ProofVerifier;
+use forest_rpc_api::data_types::RPCState;
 use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, gas_api::*, mpool_api::*, net_api::*,
     state_api::*, sync_api::*, wallet_api::*,
 };
+use fvm_ipld_blockstore::Blockstore;
+use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use log::info;
+use std::net::TcpListener;
+use std::sync::Arc;
 
 pub async fn start_rpc<DB, B, V, S>(
     state: Arc<RPCState<DB, B>>,
@@ -178,14 +175,14 @@ where
             .finish_unwrapped(),
     );
 
-    let mut app = tide::with_state(Arc::clone(&rpc_server));
-
-    app.at("/rpc/v0")
-        .get(WebSocket::new(rpc_ws_handler::<DB, B>))
-        .post(rpc_http_handler::<DB, B>);
+    let app = axum::Router::new()
+        .route("/rpc/v0", get(rpc_ws_handler::<DB, B>))
+        .route("/rpc/v0", post(rpc_http_handler::<DB, B>))
+        .layer(axum::Extension(rpc_server));
 
     info!("Ready for RPC connections");
-    app.listen(rpc_endpoint).await?;
+    let server = axum::Server::from_tcp(rpc_endpoint)?.serve(app.into_make_service());
+    server.await?;
 
     info!("Stopped accepting RPC connections");
 
