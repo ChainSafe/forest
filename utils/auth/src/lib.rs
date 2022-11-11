@@ -58,8 +58,8 @@ struct Claims {
 }
 
 /// Create a new JWT Token
-pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: usize) -> JWTResult<String> {
-    let exp_time = Utc::now() + Duration::seconds(token_exp as i64);
+pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTResult<String> {
+    let exp_time = Utc::now() + token_exp;
     let payload = Claims {
         allow: perms,
         exp: exp_time.timestamp() as usize,

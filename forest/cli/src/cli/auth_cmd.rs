@@ -3,6 +3,7 @@
 
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 use forest_libp2p::{Multiaddr, Protocol};
+use forest_rpc_api::auth_api::AuthNewParams;
 use forest_rpc_client::auth_new;
 use jsonrpc_v2::Error as JsonRpcError;
 use structopt::StructOpt;
@@ -42,13 +43,15 @@ impl AuthCommands {
                 let perm: String = perm.parse().unwrap();
                 let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
                 let token_exp = config.client.token_exp;
-                print_rpc_res_bytes(auth_new((perms, token_exp), &config.client.rpc_token).await);
+                let auth_params = AuthNewParams { perms, token_exp };
+                print_rpc_res_bytes(auth_new(auth_params, &config.client.rpc_token).await);
             }
             Self::ApiInfo { perm } => {
                 let perm: String = perm.parse().unwrap();
                 let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
                 let token_exp = config.client.token_exp;
-                match auth_new((perms, token_exp), &config.client.rpc_token).await {
+                let auth_params = AuthNewParams { perms, token_exp };
+                match auth_new(auth_params, &config.client.rpc_token).await {
                     Ok(token) => {
                         let mut addr = Multiaddr::empty();
                         addr.push(config.client.rpc_address.ip().into());
