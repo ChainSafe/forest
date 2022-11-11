@@ -128,6 +128,7 @@ rpassword             = "7.0"
 serde                 = "1.0"
 serde_ipld_dagcbor    = "0.1"
 serde_json            = "1.0"
+serde_with            = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2                  = "0.10.5"
 smallvec              = "1.9"
 structopt             = "0.3"

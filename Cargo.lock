@@ -2995,6 +2995,7 @@ dependencies = [
 name = "forest_auth"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "forest_key_management",
  "fvm_shared",
  "jsonrpc-v2",
@@ -3219,6 +3220,7 @@ dependencies = [
  "rust-s3",
  "serde",
  "serde_json",
+ "serde_with",
  "sha2 0.10.6",
  "structopt",
  "tempfile",
@@ -3734,6 +3736,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-std",
+ "chrono",
  "cid",
  "flume",
  "forest_actor_interface",
@@ -3761,6 +3764,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "serde_with",
  "syn 1.0.103",
  "tokio",
 ]
@@ -7674,6 +7678,34 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_with"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "368f2d60d049ea019a84dcd6687b0d1e0030fe663ae105039bdf967ed5e6a9a7"
+dependencies = [
+ "base64 0.13.1",
+ "chrono",
+ "hex",
+ "indexmap",
+ "serde",
+ "serde_json",
+ "serde_with_macros",
+ "time 0.3.17",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ccadfacf6cf10faad22bbadf55986bdd0856edfb5d9210aa1dcf1f516e84e93"
+dependencies = [
+ "darling",
+ "proc-macro2 1.0.47",
+ "quote 1.0.21",
+ "syn 1.0.103",
 ]
 
 [[package]]

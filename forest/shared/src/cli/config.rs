@@ -136,6 +136,7 @@ pub struct Config {
 #[cfg(test)]
 mod test {
     use super::*;
+    use chrono::Duration;
     use forest_db::rocks_config::RocksDbConfig;
     use forest_utils::io::ProgressBarVisibility;
     use quickcheck::Arbitrary;
@@ -188,6 +189,7 @@ mod test {
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
                     download_snapshot: bool::arbitrary(g),
+                    token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 rocks_db: RocksDbConfig {

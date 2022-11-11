@@ -24,6 +24,7 @@ forest_utils.workspace           = true
 # Public
 anyhow.workspace              = true
 async-std                     = { workspace = true, features = ["attributes"] }
+chrono.workspace              = true
 cid                           = { workspace = true, default-features = false, features = ["std"] }
 flume.workspace               = true
 forest_db.workspace           = true
@@ -36,6 +37,7 @@ libp2p                        = { workspace = true, default-features = false }
 once_cell.workspace           = true
 serde                         = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace          = true
+serde_with.workspace          = true
 tokio                         = { workspace = true, features = ["sync"] }
 
 [build-dependencies]
