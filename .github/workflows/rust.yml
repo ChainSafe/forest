@@ -121,6 +121,8 @@ jobs:
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
+      - name: fetch params
+        run: forest-cli fetch-params --keys
       - name: download snapshot
         run: forest-cli --chain calibnet snapshot fetch --aria2 -s /tmp/snapshots/
       - name: import snapshot and run Forest

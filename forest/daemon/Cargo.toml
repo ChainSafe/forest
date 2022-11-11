@@ -16,7 +16,7 @@ async-std                        = { workspace = true, features = ["attributes",
 atty.workspace                   = true
 base64.workspace                 = true
 chrono.workspace                 = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                    = true
 ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
 dialoguer                        = "0.10.2"

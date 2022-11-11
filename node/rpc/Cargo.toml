@@ -11,7 +11,7 @@ async-std                        = { workspace = true, features = ["attributes"]
 axum                             = { workspace = true, features = ["ws"] }
 base64.workspace                 = true
 bls-signatures.workspace         = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                    = true
 crossbeam                        = "0.8"
 fil_actor_miner_v8.workspace     = true
 flume.workspace                  = true

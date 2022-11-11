@@ -10,7 +10,7 @@ repository  = "https://github.com/ChainSafe/forest"
 [dependencies]
 anyhow.workspace            = true
 base64.workspace            = true
-cid                         = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace               = true
 forest_encoding.workspace   = true
 fvm.workspace               = true
 fvm_ipld_encoding.workspace = true

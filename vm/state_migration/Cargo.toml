@@ -5,7 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 crossbeam-channel             = "0.5"
 fvm.workspace                 = true
 fvm_ipld_blockstore.workspace = true

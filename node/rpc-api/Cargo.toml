@@ -25,7 +25,7 @@ forest_utils.workspace           = true
 anyhow.workspace              = true
 async-std                     = { workspace = true, features = ["attributes"] }
 chrono.workspace              = true
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 flume.workspace               = true
 forest_db.workspace           = true
 fvm.workspace                 = true
