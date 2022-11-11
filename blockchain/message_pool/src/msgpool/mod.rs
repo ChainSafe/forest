@@ -322,19 +322,25 @@ pub(crate) fn add_to_selected_msgs(
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    #[cfg(feature = "slow_tests")]
     use crate::msg_chain::{create_message_chains, Chains};
     use crate::msg_pool::MessagePool;
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
+    #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
     use fvm_shared::crypto::signature::SignatureType;
     use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
+    #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
+    #[cfg(feature = "slow_tests")]
     use std::borrow::BorrowMut;
+    #[cfg(feature = "slow_tests")]
     use std::thread::sleep;
+    #[cfg(feature = "slow_tests")]
     use std::time::Duration;
     use test_provider::*;
 
