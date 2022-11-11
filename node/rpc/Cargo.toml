@@ -8,6 +8,7 @@ edition = "2021"
 # Public
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["attributes"] }
+axum                             = { workspace = true, features = ["ws"] }
 base64.workspace                 = true
 bls-signatures.workspace         = true
 cid.workspace                    = true
@@ -43,6 +44,7 @@ fvm_ipld_blockstore.workspace    = true
 fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 hex.workspace                    = true
+http.workspace                   = true
 jsonrpc-v2.workspace             = true
 libipld-core.workspace           = true
 log.workspace                    = true
@@ -54,8 +56,6 @@ semver                           = "1.0"
 serde                            = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace             = true
 sha2                             = { workspace = true, default-features = false }
-tide-websockets                  = "0.4"
-tide.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 tokio-util                       = { workspace = true, features = ["compat"] }
 

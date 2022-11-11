@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
-use async_std::{net::TcpListener, task};
+use async_std::task;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
@@ -29,6 +29,7 @@ use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
+use std::net::TcpListener;
 use tokio::sync::RwLock;
 
 use std::io::prelude::*;
@@ -135,9 +136,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     {
         // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-            .await
-            .unwrap_or_else(|_| {
+        let prometheus_listener =
+            TcpListener::bind(config.client.metrics_address).unwrap_or_else(|_| {
                 cli_error_and_die(
                     format!("could not bind to {}", config.client.metrics_address),
                     1,
@@ -308,8 +308,7 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
-            .await
+        let rpc_listen = std::net::TcpListener::bind(config.client.rpc_address)
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         let rpc_state_manager = Arc::clone(&state_manager);
