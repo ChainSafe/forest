@@ -307,8 +307,7 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = async_std::net::TcpListener::bind(&config.client.rpc_address)
-            .await
+        let rpc_listen = std::net::TcpListener::bind(config.client.rpc_address)
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         let rpc_state_manager = Arc::clone(&state_manager);
