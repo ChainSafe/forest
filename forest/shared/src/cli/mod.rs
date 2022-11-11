@@ -11,7 +11,7 @@ use crate::logger::LoggingColor;
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
-use forest_utils::io::{read_file_to_string, read_toml};
+use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
 use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::error;
@@ -97,6 +97,9 @@ pub struct CliOpts {
     /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto")]
     pub color: LoggingColor,
+    /// Display progress bars mode [always, never, auto]. Auto will display if TTY.
+    #[structopt(long, default_value = "auto")]
+    pub show_progress_bars: ProgressBarVisibility,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
@@ -160,6 +163,7 @@ impl CliOpts {
 
         cfg.client.halt_after_import = self.halt_after_import;
         cfg.client.download_snapshot = self.download_snapshot;
+        cfg.client.show_progress_bars = self.show_progress_bars;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);

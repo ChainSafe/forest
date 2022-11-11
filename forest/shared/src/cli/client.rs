@@ -4,6 +4,7 @@
 use chrono::Duration;
 use directories::ProjectDirs;
 use forest_rpc_client::DEFAULT_PORT;
+use forest_utils::io::ProgressBarVisibility;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use std::{
@@ -40,6 +41,8 @@ pub struct Client {
     // Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
     pub token_exp: Duration,
+    /// Display progress bars mode. Auto will display if TTY.
+    pub show_progress_bars: ProgressBarVisibility,
 }
 
 impl Default for Client {
@@ -61,6 +64,7 @@ impl Default for Client {
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             download_snapshot: false,
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
+            show_progress_bars: Default::default(),
         }
     }
 }

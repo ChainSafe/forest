@@ -54,7 +54,6 @@ multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true
 once_cell.workspace              = true
-pbr.workspace                    = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
@@ -69,8 +68,13 @@ time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
 url.workspace                    = true
+which.workspace                  = true
 
 [dev-dependencies]
+axum.workspace              = true
+http.workspace              = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 rand.workspace              = true
+tokio.workspace             = true
+tower-http                  = { workspace = true, features = ["fs"] }

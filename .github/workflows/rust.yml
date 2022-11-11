@@ -122,7 +122,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: download snapshot
-        run: forest-cli --chain calibnet chain fetch -s /tmp/snapshots/
+        run: forest-cli --chain calibnet snapshot fetch --aria2 -s /tmp/snapshots/
       - name: import snapshot and run Forest
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
@@ -135,7 +135,7 @@ jobs:
         run: |
           pkill forest
           cat forest.out forest.err
-  
+
   dependencies-duplicate-check:
     name: Check cargo files for duplicates
     runs-on: ubuntu-latest
@@ -144,7 +144,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.0'
+          ruby-version: "3.0"
       - name: Run duplicate find check
         run: |
           gem install toml-rb --no-document

@@ -137,6 +137,7 @@ pub struct Config {
 mod test {
     use super::*;
     use forest_db::rocks_config::RocksDbConfig;
+    use forest_utils::io::ProgressBarVisibility;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::{
@@ -188,6 +189,7 @@ mod test {
                     rpc_address: SocketAddr::arbitrary(g),
                     download_snapshot: bool::arbitrary(g),
                     token_exp: usize::arbitrary(g),
+                    show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
