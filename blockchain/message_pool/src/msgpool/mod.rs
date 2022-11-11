@@ -526,6 +526,7 @@ pub mod tests {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn test_async_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
@@ -579,6 +580,7 @@ pub mod tests {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn test_msg_chains() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
