@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 # Public
+chrono.workspace     = true
 fvm_shared           = { workspace = true, default-features = false }
 jsonrpc-v2.workspace = true
 jsonwebtoken         = "8.1"

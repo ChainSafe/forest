@@ -161,7 +161,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
-    let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
+    let token_exp = config.client.token_exp;
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
     info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));

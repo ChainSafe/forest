@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use chrono::{Duration, Utc};
 use jsonrpc_v2::Error as JsonRpcError;
 use jsonwebtoken::errors::Result as JWTResult;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header};
@@ -52,19 +53,23 @@ pub enum Error {
 struct Claims {
     #[serde(rename = "Allow")]
     allow: Vec<String>,
+    // Expiration time (as UTC timestamp)
+    exp: usize,
 }
 
 /// Create a new JWT Token
-pub fn create_token(perms: Vec<String>, key: &[u8]) -> JWTResult<String> {
-    let payload = Claims { allow: perms };
+pub fn create_token(perms: Vec<String>, key: &[u8], token_exp: Duration) -> JWTResult<String> {
+    let exp_time = Utc::now() + token_exp;
+    let payload = Claims {
+        allow: perms,
+        exp: exp_time.timestamp() as usize,
+    };
     encode(&Header::default(), &payload, &EncodingKey::from_secret(key))
 }
 
 /// Verify JWT Token and return the allowed permissions from token
 pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
-    let mut validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
-    validation.validate_exp = false;
-    validation.required_spec_claims.remove("exp");
+    let validation = jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::default());
     let token = decode::<Claims>(token, &DecodingKey::from_secret(key), &validation)?;
     Ok(token.claims.allow)
 }
