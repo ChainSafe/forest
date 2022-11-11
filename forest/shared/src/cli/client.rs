@@ -34,7 +34,7 @@ pub struct Client {
     pub rpc_address: SocketAddr,
     /// Download a chain specific snapshot to sync with the Filecoin network
     pub download_snapshot: bool,
-    // Expiration time for JWT
+    // Period of validity for JWT in seconds. Defaults to 60 days.
     pub token_exp: usize,
 }
 
