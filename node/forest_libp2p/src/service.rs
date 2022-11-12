@@ -158,6 +158,7 @@ pub struct Libp2pService<DB, P: StoreParams> {
     network_receiver_out: flume::Receiver<NetworkEvent>,
     network_sender_out: flume::Sender<NetworkEvent>,
     network_name: String,
+    genesis_cid: Cid,
 }
 
 impl<DB, P: StoreParams> Libp2pService<DB, P>
@@ -169,6 +170,7 @@ where
         cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
         network_name: &str,
+        genesis_cid: Cid,
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
@@ -214,7 +216,8 @@ where
             network_sender_in,
             network_receiver_out,
             network_sender_out,
-            network_name: network_name.to_owned(),
+            network_name: network_name.into(),
+            genesis_cid,
         }
     }
 
@@ -237,9 +240,10 @@ where
                     // outbound events
                     Some(SwarmEvent::Behaviour(event)) => {
                         handle_forest_behaviour_event(
-                            swarm_stream.get_mut().behaviour_mut(),
+                            swarm_stream.get_mut(),
                             event,
                             &self.cs,
+                            &self.genesis_cid,
                             &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
@@ -401,9 +405,10 @@ async fn handle_network_message<P: StoreParams>(
 
 #[allow(clippy::too_many_arguments)]
 async fn handle_forest_behaviour_event<DB, P: StoreParams>(
-    bh_mut: &mut ForestBehaviour<P>,
+    st_mut: &mut Swarm<ForestBehaviour<P>>,
     event: ForestBehaviourEvent<P>,
     db: &Arc<ChainStore<DB>>,
+    genesis_hash: &Cid,
     network_sender_out: &flume::Sender<NetworkEvent>,
     hello_request_table: &mut HashMap<
         RequestId,
@@ -424,6 +429,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
 ) where
     DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
 {
+    let bh_mut = st_mut.behaviour_mut();
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => match discovery_out {
             DiscoveryOut::Connected(peer_id, addresses) => {
@@ -513,29 +519,37 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         .expect("System time since unix epoch should not exceed u64");
 
                     trace!("Received hello request: {:?}", request);
-                    let sent = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .expect("System time before unix epoch")
-                        .as_nanos()
-                        .try_into()
-                        .expect("System time since unix epoch should not exceed u64");
-
-                    // Send hello response immediately, no need to have the overhead of emitting
-                    // channel and polling future here.
-                    if let Err(e) = bh_mut
-                        .hello
-                        .send_response(channel, HelloResponse { arrival, sent })
-                    {
-                        warn!("Failed to send HelloResponse: {e:?}");
+                    if &request.genesis_hash != genesis_hash {
+                        warn!(
+                            "Genesis hash mismatch: {} received, {genesis_hash} expected. Banning {peer}",
+                            request.genesis_hash
+                        );
+                        st_mut.ban_peer_id(peer);
                     } else {
-                        emit_event(
-                            network_sender_out,
-                            NetworkEvent::HelloResponseOutbound {
-                                source: peer,
-                                request,
-                            },
-                        )
-                        .await;
+                        let sent = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .expect("System time before unix epoch")
+                            .as_nanos()
+                            .try_into()
+                            .expect("System time since unix epoch should not exceed u64");
+
+                        // Send hello response immediately, no need to have the overhead of emitting
+                        // channel and polling future here.
+                        if let Err(e) = bh_mut
+                            .hello
+                            .send_response(channel, HelloResponse { arrival, sent })
+                        {
+                            warn!("Failed to send HelloResponse: {e:?}");
+                        } else {
+                            emit_event(
+                                network_sender_out,
+                                NetworkEvent::HelloResponseOutbound {
+                                    source: peer,
+                                    request,
+                                },
+                            )
+                            .await;
+                        }
                     }
                 }
                 RequestResponseMessage::Response {

@@ -250,6 +250,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
+        *genesis.blocks()[0].cid(),
     )
     .await;
 
