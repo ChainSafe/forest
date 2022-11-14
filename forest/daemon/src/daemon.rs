@@ -342,6 +342,18 @@ pub(super) async fn start(config: Config, detached: bool) {
         unblock_parent_process();
     }
 
+    // Fetch and ensure verification keys are downloaded
+    if cns::FETCH_PARAMS {
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
+        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
+            .await
+            .unwrap();
+    }
+
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await;
 
     select! {
@@ -363,18 +375,6 @@ pub(super) async fn start(config: Config, detached: bool) {
         }
         info!("Forest finish shutdown");
         return;
-    }
-
-    // Fetch and ensure verification keys are downloaded
-    if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
-            .await
-            .unwrap();
     }
 
     services.push(task::spawn(p2p_service.run()));
