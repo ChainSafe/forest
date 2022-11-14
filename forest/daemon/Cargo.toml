@@ -16,7 +16,7 @@ async-std                        = { workspace = true, features = ["attributes",
 atty.workspace                   = true
 base64.workspace                 = true
 chrono.workspace                 = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                    = true
 ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
 dialoguer                        = "0.10.2"
@@ -66,11 +66,11 @@ multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true
 once_cell.workspace              = true
-pbr.workspace                    = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
 rayon.workspace                  = true
+rlimit                           = "0.8"
 rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
@@ -91,3 +91,4 @@ default          = ["forest_fil_cns"]
 insecure_post    = ["forest_fil_cns/insecure_post"]
 forest_fil_cns   = ["dep:forest_fil_cns"]
 forest_deleg_cns = ["dep:forest_deleg_cns"]
+slow_tests       = []

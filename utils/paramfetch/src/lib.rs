@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_std::task;
+use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
@@ -12,7 +13,7 @@ use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::{self, File};
-use tokio::io::{copy, BufWriter};
+use tokio::io::BufWriter;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
@@ -147,19 +148,26 @@ async fn fetch_verify_params(
 async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     debug!("Fetching {:?} from {}", path, gw);
-
-    let file = File::create(path).await?;
-    let mut writer = BufWriter::new(file);
-
     let url = format!("{}{}", gw, info.cid);
 
+    retry(ExponentialBackoff::default(), || async {
+        Ok(fetch_params_inner(&url, path).await?)
+    })
+    .await
+}
+
+async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
     let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
-
-    let req = client.get(url.as_str());
-
-    let mut source = req.await.map_err(|e| anyhow::anyhow!(e))?.compat();
-    copy(&mut source, &mut writer).await?;
-
+    let req = client.get(url);
+    let response = req.await.map_err(|e| anyhow::anyhow!(e))?;
+    anyhow::ensure!(response.status().is_success());
+    let content_len = response.len();
+    let mut source = response.compat();
+    let file = File::create(path).await?;
+    let mut writer = BufWriter::new(file);
+    tokio::io::copy(&mut source, &mut writer).await?;
+    let file_metadata = std::fs::metadata(path)?;
+    anyhow::ensure!(Some(file_metadata.len() as usize) == content_len);
     Ok(())
 }
 

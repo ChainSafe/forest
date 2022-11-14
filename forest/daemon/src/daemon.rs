@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
-use async_std::{net::TcpListener, task};
+use async_std::task;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_cli_shared::cli::{
-    cli_error_and_die, default_snapshot_dir, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
+    cli_error_and_die, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+    FOREST_VERSION_STRING,
 };
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
@@ -28,6 +29,7 @@ use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
+use std::net::TcpListener;
 use tokio::sync::RwLock;
 
 use std::io::prelude::*;
@@ -134,9 +136,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     {
         // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-            .await
-            .unwrap_or_else(|_| {
+        let prometheus_listener =
+            TcpListener::bind(config.client.metrics_address).unwrap_or_else(|_| {
                 cli_error_and_die(
                     format!("could not bind to {}", config.client.metrics_address),
                     1,
@@ -160,7 +161,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
-    let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
+    let token_exp = config.client.token_exp;
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
     info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
@@ -306,8 +308,7 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
-            .await
+        let rpc_listen = std::net::TcpListener::bind(config.client.rpc_address)
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         let rpc_state_manager = Arc::clone(&state_manager);
@@ -341,6 +342,18 @@ pub(super) async fn start(config: Config, detached: bool) {
         unblock_parent_process();
     }
 
+    // Fetch and ensure verification keys are downloaded
+    if cns::FETCH_PARAMS {
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
+        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
+            .await
+            .unwrap();
+    }
+
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await;
 
     select! {
@@ -362,18 +375,6 @@ pub(super) async fn start(config: Config, detached: bool) {
         }
         info!("Forest finish shutdown");
         return;
-    }
-
-    // Fetch and ensure verification keys are downloaded
-    if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
-            .await
-            .unwrap();
     }
 
     services.push(task::spawn(p2p_service.run()));
@@ -407,7 +408,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = match snapshot_fetch(&snapshot_path, &config).await {
+        let path = match snapshot_fetch(&snapshot_path, &config, is_aria2_installed()).await {
             Ok(path) => path,
             Err(err) => cli_error_and_die(err.to_string(), 1),
         };
@@ -524,6 +525,7 @@ mod test {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
             .await

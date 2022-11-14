@@ -20,6 +20,7 @@ pub enum ActorVersion {
     V6,
     V7,
     V8,
+    V9,
 }
 
 impl Display for ActorVersion {
@@ -33,6 +34,7 @@ impl Display for ActorVersion {
             Self::V6 => write!(f, "V6"),
             Self::V7 => write!(f, "V7"),
             Self::V8 => write!(f, "V8"),
+            Self::V9 => write!(f, "V9"),
         }
     }
 }
@@ -55,6 +57,7 @@ impl From<NetworkVersion> for ActorVersion {
             NetworkVersion::V14 => ActorVersion::V6,
             NetworkVersion::V15 => ActorVersion::V7,
             NetworkVersion::V16 => ActorVersion::V8,
+            NetworkVersion::V17 => ActorVersion::V9,
             _ => panic!("nv16+ not supported by native backend"),
         }
     }
@@ -67,7 +70,7 @@ impl From<StateTreeVersion> for ActorVersion {
             StateTreeVersion::V1 => ActorVersion::V2,
             StateTreeVersion::V2 => ActorVersion::V3,
             StateTreeVersion::V3 => ActorVersion::V6,
-            StateTreeVersion::V4 => ActorVersion::V8,
+            StateTreeVersion::V4 => ActorVersion::V9,
         }
     }
 }

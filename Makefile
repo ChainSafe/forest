@@ -10,7 +10,7 @@ install: install-cli install-daemon
 
 install-deps:
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake
+	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev aria2 cmake
 
 install-lint-tools:
 	RUSTFLAGS="-Cstrip=symbols" cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
@@ -95,15 +95,25 @@ test:
 	cargo nextest run -p forest_crypto --features blst --no-default-features
 	cargo nextest run -p forest_message --features blst --no-default-features
 
+test-slow:
+	cargo nextest run -p forest_message_pool --features slow_tests
+	cargo nextest run -p forest-cli --features slow_tests
+	cargo nextest run -p forest-daemon --features slow_tests
+
 test-release:
 	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
 	cargo nextest run --release -p forest_crypto --features blst --no-default-features
 	cargo nextest run --release -p forest_message --features blst --no-default-features
 
+test-slow-release:
+	cargo nextest run --release -p forest_message_pool --features slow_tests
+	cargo nextest run --release -p forest-cli --features slow_tests
+	cargo nextest run --release -p forest-daemon --features slow_tests
+
 smoke-test:
 	./scripts/smoke_test.sh
 
-test-all: test-release test-vectors
+test-all: test-release test-vectors test-slow-release
 
 # Checks if all headers are present and adds if not
 license:
