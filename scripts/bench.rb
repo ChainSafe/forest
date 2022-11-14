@@ -35,9 +35,9 @@ Benchmark_suite = [
   },
   # {
   #   :name => "baseline-with-jemalloc",
-  #   :build_command" => "cargo build --release --features 'rocksdb/jemalloc'",
-  #   :import_command" => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
-  #   :validate_command" => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
+  #   :build_command => "cargo build --release --features 'rocksdb/jemalloc'",
+  #   :import_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
+  #   :validate_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
   #   :config => {},
   # },
   {
@@ -93,7 +93,11 @@ def get_db_dir()
   "#{data_dir}/mainnet/db"
 end
 
-def exec_command(command, quiet: false, merge: false)
+def exec_command(command, quiet: false, merge: false, dry_run: false)
+  if dry_run
+    puts "$ #{command}"
+    return
+  end
   # TODO: handle merge?
   opts = merge ? { :err => [:child, :out] } : {}
   Open3.popen2("#{command}", {}) { |i, o|
@@ -135,18 +139,21 @@ def build_substitution_hash(bench)
   { c: config_path, s: snapshot_path, h: start }
 end
 
-def run_benchmarks(benchs = Benchmark_suite)
+def run_benchmarks(benchs, options)
   benchs.each { |bench|
     puts "Running bench: #{bench[:name]}"
 
+    dry_run = options[:dry_run]
+
     # Clean db
     db_dir = get_db_dir()
-    puts "wiping #{db_dir}"
-    #FileUtils.rm_rf(db_dir, :secure => true)
+    puts "Wiping #{db_dir}"
+    if !dry_run
+      FileUtils.rm_rf(db_dir, :secure => true)
+    end
 
     # TODO: cargo clean before
-    # TODO: we should disable incremental build as well
-    exec_command(bench[:build_command])
+    exec_command(bench[:build_command], quiet: false, dry_run: dry_run)
 
     # Build bench artefacts
     #puts "#{get_snapshot_dir()}/#{Snapshot}"
@@ -157,12 +164,10 @@ def run_benchmarks(benchs = Benchmark_suite)
     puts "Version: #{get_forest_version()}"
 
     import_command = bench[:import_command] % params
-    puts import_command
-    #exec_command(import_command)
+    exec_command(import_command, quiet: false, dry_run: dry_run)
 
     validate_command = bench[:validate_command] % params
-    puts validate_command
-    #exec_command(validate_command)
+    exec_command(validate_command, quiet: false, dry_run: dry_run)
 
     # TODO: retrieve stats
 
@@ -171,7 +176,14 @@ def run_benchmarks(benchs = Benchmark_suite)
 end
 
 # TODO: read script arguments and do some filtering otherwise run them all
-run_benchmarks()
+
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: bench.rb [options]"
+  opts.on('--dry-run', 'Only prints the commands that will be run') { |v| options[:dry_run] = v }
+end.parse!
+
+run_benchmarks(Benchmark_suite, options)
 
 # pp get_default_config()
 
