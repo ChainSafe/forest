@@ -54,6 +54,9 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
+        /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
+        #[structopt(long)]
+        aria2: bool,
     },
 
     /// Shows default snapshot dir
@@ -167,11 +170,14 @@ impl SnapshotCommands {
 
                 println!("Export completed. Snapshot located at {}", out.display());
             }
-            Self::Fetch { snapshot_dir } => {
+            Self::Fetch {
+                snapshot_dir,
+                aria2: use_aria2,
+            } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(&snapshot_dir, &config).await {
+                match snapshot_fetch(&snapshot_dir, &config, *use_aria2).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
@@ -386,5 +392,5 @@ fn prompt_confirm() -> bool {
 
 fn is_car_or_tmp(path: &Path) -> bool {
     let ext = path.extension().unwrap_or_default();
-    ext == "car" || ext == "tmp"
+    ext == "car" || ext == "tmp" || ext == "aria2"
 }

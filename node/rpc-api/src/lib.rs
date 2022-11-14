@@ -143,8 +143,18 @@ pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 
 /// Authorization API
 pub mod auth_api {
+    use chrono::Duration;
+    use serde::{Deserialize, Serialize};
+    use serde_with::{serde_as, DurationSeconds};
+
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
-    pub type AuthNewParams = (Vec<String>,);
+    #[serde_as]
+    #[derive(Deserialize, Serialize)]
+    pub struct AuthNewParams {
+        pub perms: Vec<String>,
+        #[serde_as(as = "DurationSeconds<i64>")]
+        pub token_exp: Duration,
+    }
     pub type AuthNewResult = Vec<u8>;
 
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";

@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 base64.workspace            = true
 byteorder.workspace         = true
-cid                         = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace               = true
 derive_builder              = "0.11"
 forest_beacon.workspace     = true
 forest_crypto               = { workspace = true, features = ["blst"] }

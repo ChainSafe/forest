@@ -12,6 +12,7 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, Config, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
+use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
 use log::{info, warn};
 use raw_sync::events::{Event, EventInit};
@@ -133,6 +134,8 @@ fn main() {
     match opts.to_config() {
         Ok((cfg, path)) => {
             logger::setup_logger(&cfg.log, opts.color.into());
+            ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
+
             if let Some(path) = &path {
                 match path {
                     ConfigPath::Env(path) => {

@@ -160,18 +160,18 @@ where
     let mut http_res = match api_info.token.to_owned() {
         Some(jwt) => client
             .post(api_url)
-            .content_type("application/json-rpc")
+            .content_type("application/json")
             .body(surf::Body::from_json(&rpc_req)?)
             .header("Authorization", jwt),
         None => {
             if let Some(jwt) = token {
                 surf::post(api_url)
-                    .content_type("application/json-rpc")
+                    .content_type("application/json")
                     .body(surf::Body::from_json(&rpc_req)?)
                     .header("Authorization", jwt)
             } else {
                 surf::post(api_url)
-                    .content_type("application/json-rpc")
+                    .content_type("application/json")
                     .body(surf::Body::from_json(&rpc_req)?)
             }
         }

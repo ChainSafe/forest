@@ -12,8 +12,8 @@ async-std                        = { workspace = true, features = ["attributes",
 atty.workspace                   = true
 base64.workspace                 = true
 byte-unit                        = "4.0"
-chrono                           = "0.4"
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+chrono.workspace                 = true
+cid.workspace                    = true
 directories.workspace            = true
 fil_actor_miner_v8.workspace     = true
 forest_actor_interface.workspace = true
@@ -54,13 +54,13 @@ multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true
 once_cell.workspace              = true
-pbr.workspace                    = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 rayon.workspace                  = true
 rust-s3                          = { version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
 serde                            = { workspace = true, features = ["derive"] }
 serde_json.workspace             = true
+serde_with.workspace             = true
 sha2.workspace                   = true
 structopt.workspace              = true
 tempfile.workspace               = true
@@ -68,8 +68,13 @@ time.workspace                   = true
 tokio                            = { workspace = true, features = ["sync"] }
 toml.workspace                   = true
 url.workspace                    = true
+which.workspace                  = true
 
 [dev-dependencies]
+axum.workspace              = true
+http.workspace              = true
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 rand.workspace              = true
+tokio.workspace             = true
+tower-http                  = { workspace = true, features = ["fs"] }

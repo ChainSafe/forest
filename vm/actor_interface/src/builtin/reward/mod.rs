@@ -23,12 +23,18 @@ pub fn is_v8_reward_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v8
         Cid::try_from("bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu").unwrap(),
-        // calibnet v9
-        Cid::try_from("bafk2bzacedhw7p6ognchfairevqikx4odnoojo3a3oicvla4tiacy7sq2n4ds").unwrap(),
         // mainnet
         Cid::try_from("bafk2bzacecwzzxlgjiavnc3545cqqil3cmq4hgpvfp2crguxy2pl5ybusfsbe").unwrap(),
         // devnet
         Cid::try_from("bafk2bzacedn3fkp27ys5dxn4pwqdq2atj2x6cyezxuekdorvjwi7zazirgvgy").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
+pub fn is_v9_reward_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v9
+        Cid::try_from("bafk2bzacebpptqhcw6mcwdj576dgpryapdd2zfexxvqzlh3aoc24mabwgmcss").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -38,6 +44,7 @@ pub fn is_v8_reward_cid(cid: &Cid) -> bool {
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_reward_v8::State),
+    V9(fil_actor_reward_v9::State),
 }
 
 impl State {
@@ -51,6 +58,12 @@ impl State {
                 .map(State::V8)
                 .context("Actor state doesn't exist in store");
         }
+        if is_v9_reward_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V8)
+                .context("Actor state doesn't exist in store");
+        }
         Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))
     }
 
@@ -58,6 +71,7 @@ impl State {
     pub fn into_total_storage_power_reward(self) -> TokenAmount {
         match self {
             State::V8(st) => st.into_total_storage_power_reward(),
+            State::V9(st) => st.into_total_storage_power_reward(),
         }
     }
 

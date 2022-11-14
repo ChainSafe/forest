@@ -8,7 +8,7 @@ edition = "2021"
 anyhow.workspace                 = true
 async-std                        = { workspace = true, features = ["tokio1", "unstable"] }
 async-trait.workspace            = true
-cid                              = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                    = true
 fil_actors_runtime.workspace     = true
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true

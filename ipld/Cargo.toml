@@ -11,7 +11,7 @@ repository  = "https://github.com/ChainSafe/forest"
 anyhow.workspace            = true
 async-recursion             = "1.0"
 async-trait.workspace       = true
-cid                         = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace               = true
 forest_encoding.workspace   = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
