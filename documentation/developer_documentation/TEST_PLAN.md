@@ -8,7 +8,7 @@
 
 The Filecoin specification is complex and changes rapidly over time. To manage this complexity, Forest uses a rigorous testing framework, starting with individual functions and ending with complete end-to-end validation. The goals, in descending order of priority, are:
 
-- **Regression detection.** If Forest can no longer connect to main net or if any of its features break, the development team should be automatically notified.
+- **Regression detection.** If Forest can no longer connect to mainnet or if any of its features break, the development team should be automatically notified.
 - **No institutional/expert knowledge required.** Developers can work on a Forest subsystem without worrying about accidentally breaking a different subsystem.
 - **Bug identification.** If something break, the test data should narrow down the location of the issue.
 
