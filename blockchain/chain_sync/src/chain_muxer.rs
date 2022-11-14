@@ -10,8 +10,6 @@ use crate::tipset_syncer::{
     TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
-
-use async_std::stream::StreamExt;
 use cid::Cid;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
@@ -26,6 +24,7 @@ use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;

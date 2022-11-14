@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{tipset_from_keys, Error, TipsetCache};
-use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
@@ -95,7 +94,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
             if counter == MAX_COUNT {
                 counter = 0;
-                task::yield_now().await;
+                tokio::task::yield_now().await;
             } else {
                 counter += 1;
             }

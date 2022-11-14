@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::stream::{Stream, StreamExt};
 use forest_utils::io::ProgressBar;
 use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
@@ -39,6 +39,7 @@ use forest_message::Message as MessageTrait;
 use forest_networks::Height;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
+use futures::Stream;
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
@@ -249,7 +250,7 @@ pub(crate) struct TipsetProcessor<DB, C: Consensus> {
     state: TipsetProcessorState<DB, C>,
     tracker: crate::chain_muxer::WorkerState,
     /// Tipsets pushed into this stream _must_ be validated beforehand by the `TipsetValidator`
-    tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
+    tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
@@ -266,7 +267,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         tracker: crate::chain_muxer::WorkerState,
-        tipsets: Pin<Box<dyn Stream<Item = Arc<Tipset>> + Send>>,
+        tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
         network: SyncNetworkContext<DB>,

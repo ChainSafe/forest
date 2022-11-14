@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use async_std::stream::StreamExt;
+
 use async_trait::async_trait;
 use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
@@ -19,6 +19,7 @@ use tokio::task::JoinSet;
 use forest_blocks::{Block, GossipBlock, Tipset};
 use forest_db::Store;
 use forest_state_manager::StateManager;
+use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation

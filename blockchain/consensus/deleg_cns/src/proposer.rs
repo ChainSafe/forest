@@ -1,13 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use anyhow::anyhow;
-use async_std::stream::interval;
 use async_trait::async_trait;
 use core::time::Duration;
 use futures::StreamExt;
 use log::{error, info};
 use std::sync::Arc;
 use tokio::task::JoinSet;
+use tokio_stream::wrappers::IntervalStream;
 
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
@@ -132,7 +133,9 @@ impl DelegatedProposer {
         let chain_store = state_manager.chain_store();
 
         // FIXME(creativcoder): need tokio stream to use tokio::interval
-        let mut interval = interval(Duration::from_secs(chain_config.block_delay_secs));
+        let mut interval = IntervalStream::new(tokio::time::interval(Duration::from_secs(
+            chain_config.block_delay_secs,
+        )));
 
         while interval.next().await.is_some() {
             if let Some(base) = chain_store.heaviest_tipset().await {
