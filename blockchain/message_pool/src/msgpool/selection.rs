@@ -707,6 +707,7 @@ mod test_selection {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn basic_message_selection() {
         let mpool = make_test_mpool().await;
 
@@ -878,6 +879,7 @@ mod test_selection {
     #[async_std::test]
     // #[ignore = "test is incredibly slow"]
     // TODO optimize logic tested in this function
+    #[cfg(feature = "slow_tests")]
     async fn message_selection_trimming() {
         let mpool = make_test_mpool().await;
 
@@ -1054,6 +1056,7 @@ mod test_selection {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn test_optimal_msg_selection1() {
         // this test uses just a single actor sending messages with a low tq
         // the chain depenent merging algorithm should pick messages from the actor
@@ -1135,6 +1138,7 @@ mod test_selection {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn test_optimal_msg_selection2() {
         // this test uses two actors sending messages to each other, with the first
         // actor paying (much) higher gas premium than the second.
@@ -1250,6 +1254,7 @@ mod test_selection {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn test_optimal_message_selection3() {
         // this test uses 10 actors sending a block of messages to each other, with the the first
         // actors paying higher gas premium than the subsequent actors.
