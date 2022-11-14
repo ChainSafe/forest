@@ -63,4 +63,4 @@ The template is applied automatically when bugs are reported through GitHub.
 
 - We depend on the calibration network for testing. If this network is down, our testing capabilities are degraded.
 - We depend on GitHub Actions for testing. If GitHub Action is unavailable, testing will be degraded.
-- Testing against main net is effective for discovering issues, but not great for identifying root causes. Finding bugs *before* syncing to main net is always to be preferred.
+- Testing against mainnet is effective for discovering issues, but not great for identifying root causes. Finding bugs *before* syncing to mainnet is always to be preferred.
