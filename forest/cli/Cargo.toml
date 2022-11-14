@@ -73,3 +73,6 @@ uuid                             = { version = "1.1", features = ["v4"] }
 assert_cmd.workspace = true
 quickcheck.workspace = true
 rand.workspace       = true
+
+[features]
+slow_tests = []
