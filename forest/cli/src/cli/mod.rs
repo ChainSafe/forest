@@ -15,7 +15,6 @@ mod mpool_cmd;
 mod net_cmd;
 mod send_cmd;
 mod snapshot_cmd;
-mod snapshot_fetch;
 mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
@@ -31,15 +30,12 @@ pub(super) use self::snapshot_cmd::{SnapshotCommands, OUTPUT_PATH_DEFAULT_FORMAT
 pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
-pub(crate) use forest_cli_shared::cli::{
-    CliOpts, Config, SnapshotFetchConfig, FOREST_VERSION_STRING,
-};
+pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 
 use crate::cli::config_cmd::ConfigCommands;
-use byte_unit::Byte;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use fvm_shared::bigint::BigInt;
+use forest_cli_shared::cli::{to_size_string, CliOpts};
 use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
@@ -134,17 +130,6 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
 }
 
-/// convert `BigInt` to size string using byte size units (i.e. KiB, GiB, PiB, etc)
-/// Provided number cannot be negative, otherwise the function will panic.
-pub(super) fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
-    let bytes = u128::try_from(input)
-        .map_err(|e| anyhow::anyhow!("error parsing the input {}: {}", input, e))?;
-
-    Ok(Byte::from_bytes(bytes)
-        .get_appropriate_unit(true)
-        .to_string())
-}
-
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub(super) fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
@@ -218,7 +203,7 @@ pub(super) fn print_stdout(out: String) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use fvm_shared::bigint::Zero;
+    use fvm_shared::bigint::{BigInt, Zero};
 
     #[test]
     fn to_size_string_valid_input() {

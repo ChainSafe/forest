@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
@@ -12,7 +13,6 @@ use forest_utils::net::FetchProgress;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
-use std::io::Stdout;
 use std::sync::Arc;
 use std::time;
 use tokio::fs::File;
@@ -161,6 +161,14 @@ where
             .tipset_by_height(0, ts.clone(), true)
             .await?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
+        if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
+        {
+            bail!(
+                "Snapshot incompatible with {}. Consider specifying the network with `--chain` flag or 
+                 use a custom config file to set expected genesis CID for selected network", 
+                sm.chain_config().name
+            );
+        }
     }
 
     // Update head with snapshot header tipset
@@ -178,7 +186,7 @@ where
 /// Loads car file into database, and returns the block header CIDs from the CAR header.
 async fn load_and_retrieve_header<DB, R>(
     store: &DB,
-    reader: FetchProgress<R, Stdout>,
+    reader: FetchProgress<R>,
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where

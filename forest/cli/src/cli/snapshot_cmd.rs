@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::cli::{cli_error_and_die, handle_rpc_err, snapshot_fetch::snapshot_fetch};
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch};
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
 use std::{
@@ -53,6 +54,9 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
+        /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
+        #[structopt(long)]
+        aria2: bool,
     },
 
     /// Shows default snapshot dir
@@ -118,7 +122,7 @@ impl SnapshotCommands {
                 include_old_messages,
                 skip_checksum,
             } => {
-                let chain_head = match chain_head().await {
+                let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
@@ -130,7 +134,10 @@ impl SnapshotCommands {
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
                 let day_string = format!("{:02}", now.day());
-                let chain_name = chain_get_name().await.map_err(handle_rpc_err).unwrap();
+                let chain_name = chain_get_name(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let vars = HashMap::from([
                     ("year".to_string(), year.to_string()),
@@ -156,15 +163,21 @@ impl SnapshotCommands {
                 );
 
                 // infallible unwrap
-                let out = chain_export(params).await.map_err(handle_rpc_err).unwrap();
+                let out = chain_export(params, &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 println!("Export completed. Snapshot located at {}", out.display());
             }
-            Self::Fetch { snapshot_dir } => {
+            Self::Fetch {
+                snapshot_dir,
+                aria2: use_aria2,
+            } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(&snapshot_dir, config).await {
+                match snapshot_fetch(&snapshot_dir, &config, *use_aria2).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
@@ -356,14 +369,6 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     Ok(())
 }
 
-fn default_snapshot_dir(config: &Config) -> PathBuf {
-    config
-        .client
-        .data_dir
-        .join("snapshots")
-        .join(config.chain.name.clone())
-}
-
 fn delete_snapshot(snapshot_path: &PathBuf) {
     let checksum_path = snapshot_path.with_extension("sha256sum");
     for path in [snapshot_path, &checksum_path] {
@@ -387,5 +392,5 @@ fn prompt_confirm() -> bool {
 
 fn is_car_or_tmp(path: &Path) -> bool {
     let ext = path.extension().unwrap_or_default();
-    ext == "car" || ext == "tmp"
+    ext == "car" || ext == "tmp" || ext == "aria2"
 }

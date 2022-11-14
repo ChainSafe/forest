@@ -1,9 +1,11 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod progress_bar;
 mod tempfile;
 mod writer_checksum;
 
+pub use progress_bar::{ProgressBar, ProgressBarVisibility};
 pub use tempfile::*;
 pub use writer_checksum::*;
 

@@ -9,7 +9,7 @@ anyhow.workspace               = true
 async-std                      = { workspace = true, features = ["tokio1"] }
 async-trait.workspace          = true
 blake2b_simd.workspace         = true
-cid                            = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                  = true
 flume.workspace                = true
 forest_blocks.workspace        = true
 forest_chain.workspace         = true

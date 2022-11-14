@@ -1,8 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
-
+use super::Config;
 use fil_actor_miner_v8::State as MinerState;
 use forest_actor_interface::is_miner_actor;
 use forest_blocks::{tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson};
@@ -18,6 +17,7 @@ use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
+use std::str::FromStr;
 use structopt::StructOpt;
 
 use crate::cli::{cli_error_and_die, to_size_string};
@@ -62,22 +62,28 @@ pub enum StateCommands {
 }
 
 impl StateCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self, config: Config) {
         match self {
             Self::Power { miner_address } => {
                 let miner_address = miner_address.to_owned();
 
-                let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let tipset = chain_head(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
                 let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
 
                 let address = Address::from_str(&miner_address).unwrap_or_else(|_| {
                     cli_error_and_die(format!("Cannot read address {miner_address}"), 1)
                 });
 
-                match state_get_actor((AddressJson(address), tipset_keys_json.clone()))
-                    .await
-                    .map_err(handle_rpc_err)
-                    .unwrap()
+                match state_get_actor(
+                    (AddressJson(address), tipset_keys_json.clone()),
+                    &config.client.rpc_token,
+                )
+                .await
+                .map_err(handle_rpc_err)
+                .unwrap()
                 {
                     Some(actor_json) => {
                         let actor_state: ActorState = actor_json.into();
@@ -103,7 +109,7 @@ impl StateCommands {
                     tipset_keys_json,
                 );
 
-                let power = state_miner_power(params)
+                let power = state_miner_power(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -130,13 +136,16 @@ impl StateCommands {
                     )
                 });
 
-                let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let TipsetJson(tipset) = chain_head(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
                 let params = (AddressJson(address), tsk);
 
-                let actor = state_get_actor(params)
+                let actor = state_get_actor(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -153,10 +162,13 @@ impl StateCommands {
                 }
             }
             Self::ListMiners => {
-                let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let TipsetJson(tipset) = chain_head(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
-                let actors = state_list_actors((tsk,))
+                let actors = state_list_actors((tsk,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap();
@@ -171,19 +183,26 @@ impl StateCommands {
                     cli_error_and_die(format!("Invalid address: {address}"), 1)
                 });
 
-                let tipset = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let tipset = chain_head(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let TipsetJson(ts) = tipset;
 
                 let params = (AddressJson(address), TipsetKeysJson(ts.key().to_owned()));
 
                 if !reverse {
-                    match state_lookup(params).await.map_err(handle_rpc_err).unwrap() {
+                    match state_lookup(params, &config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)
+                        .unwrap()
+                    {
                         Some(AddressJson(addr)) => println!("{}", addr),
                         None => println!("No address found"),
                     };
                 } else {
-                    match state_account_key(params)
+                    match state_account_key(params, &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)
                         .unwrap()
@@ -200,39 +219,44 @@ impl StateCommands {
                     panic!("Failed to create address from argument {}", address)
                 });
 
-                let TipsetJson(tipset) = chain_head().await.map_err(handle_rpc_err).unwrap();
+                let TipsetJson(tipset) = chain_head(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
+                    .unwrap();
 
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
                 let params = (AddressJson(address), tsk);
 
-                let actor_state: ActorState = state_get_actor(params)
+                let actor_state: ActorState = state_get_actor(params, &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
                     .unwrap()
                     .expect("ActorState empty")
                     .into();
 
-                let miner_state: MinerState = chain_read_obj((CidJson(actor_state.state),))
-                    .await
-                    .map_err(handle_rpc_err)
-                    .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
-                    .map(RawBytes::from)
-                    .map(|obj| {
-                        RawBytes::deserialize(&obj).expect("Couldn't deserialize to MinerState")
-                    })
-                    .expect("Couldn't build MinerState");
-
-                let schedule: VestingSchedule =
-                    chain_read_obj((CidJson(miner_state.vesting_funds),))
+                let miner_state: MinerState =
+                    chain_read_obj((CidJson(actor_state.state),), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)
                         .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
                         .map(RawBytes::from)
                         .map(|obj| {
-                            RawBytes::deserialize(&obj)
-                                .expect("Couldn't deserialize to VestingSchedule")
+                            RawBytes::deserialize(&obj).expect("Couldn't deserialize to MinerState")
                         })
-                        .expect("Couldn't build VestingSchedule");
+                        .expect("Couldn't build MinerState");
+
+                let schedule: VestingSchedule = chain_read_obj(
+                    (CidJson(miner_state.vesting_funds),),
+                    &config.client.rpc_token,
+                )
+                .await
+                .map_err(handle_rpc_err)
+                .map(|obj| hex::decode(obj).expect("hex decode fiasco"))
+                .map(RawBytes::from)
+                .map(|obj| {
+                    RawBytes::deserialize(&obj).expect("Couldn't deserialize to VestingSchedule")
+                })
+                .expect("Couldn't build VestingSchedule");
 
                 println!("Vesting Schedule for Miner {}:", address);
                 for entry in schedule.entries {

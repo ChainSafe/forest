@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
-use async_std::{net::TcpListener, task};
+use async_std::task;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
-use forest_cli_shared::cli::{cli_error_and_die, Config, FOREST_VERSION_STRING};
+use forest_cli_shared::cli::{
+    cli_error_and_die, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+    FOREST_VERSION_STRING,
+};
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -25,6 +29,7 @@ use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
+use std::net::TcpListener;
 use tokio::sync::RwLock;
 
 use std::io::prelude::*;
@@ -131,9 +136,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     {
         // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-            .await
-            .unwrap_or_else(|_| {
+        let prometheus_listener =
+            TcpListener::bind(config.client.metrics_address).unwrap_or_else(|_| {
                 cli_error_and_die(
                     format!("could not bind to {}", config.client.metrics_address),
                     1,
@@ -157,7 +161,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     // Print admin token
     let ki = ks.get(JWT_IDENTIFIER).unwrap();
-    let token = create_token(ADMIN.to_owned(), ki.private_key()).unwrap();
+    let token_exp = config.client.token_exp;
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
     info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
@@ -181,6 +186,22 @@ pub(super) async fn start(config: Config, detached: bool) {
     .unwrap();
     chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
 
+    // XXX: This code has to be run before starting the background services.
+    //      If it isn't, several threads will be competing for access to stdout.
+    // Terminate if no snapshot is provided or DB isn't recent enough
+    let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
+        None => prompt_snapshot_or_die(&config).await,
+        Some(tipset) => {
+            let epoch = tipset.epoch();
+            let nv = config.chain.network_version(epoch);
+            if nv < NetworkVersion::V16 {
+                prompt_snapshot_or_die(&config).await
+            } else {
+                false
+            }
+        }
+    };
+
     // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
     // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
     let reward_calc = cns::reward_calc();
@@ -200,7 +221,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         .await
         .unwrap();
 
-    info!("Using network :: {}", network_name);
+    info!("Using network :: {}", get_actual_chain_name(&network_name));
 
     let (tipset_sink, tipset_stream) = flume::bounded(20);
 
@@ -287,8 +308,7 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = TcpListener::bind(&config.client.rpc_address)
-            .await
+        let rpc_listen = std::net::TcpListener::bind(config.client.rpc_address)
             .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
 
         let rpc_state_manager = Arc::clone(&state_manager);
@@ -322,6 +342,20 @@ pub(super) async fn start(config: Config, detached: bool) {
         unblock_parent_process();
     }
 
+    // Fetch and ensure verification keys are downloaded
+    if cns::FETCH_PARAMS {
+        use forest_paramfetch::{
+            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
+        };
+        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
+
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
+            .await
+            .unwrap();
+    }
+
+    let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await;
+
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
         _ = ctrlc_oneshot => {
@@ -333,26 +367,6 @@ pub(super) async fn start(config: Config, detached: bool) {
         },
     }
 
-    // Terminate if no snapshot is provided or DB isn't recent enough
-    match chain_store.heaviest_tipset().await {
-        None => {
-            cli_error_and_die(
-                "Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                1,
-            );
-        }
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                cli_error_and_die(
-                    "Database too old. Download a snapshot from a trusted source and import with --import-snapshot=[file]",
-                    1,
-                );
-            }
-        }
-    }
-
     // Halt
     if config.client.halt_after_import {
         // Cancel all async services
@@ -361,18 +375,6 @@ pub(super) async fn start(config: Config, detached: bool) {
         }
         info!("Forest finish shutdown");
         return;
-    }
-
-    // Fetch and ensure verification keys are downloaded
-    if cns::FETCH_PARAMS {
-        use forest_paramfetch::{
-            get_params_default, set_proofs_parameter_cache_dir_env, SectorSizeOpt,
-        };
-        set_proofs_parameter_cache_dir_env(&config.client.data_dir);
-
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
-            .await
-            .unwrap();
     }
 
     services.push(task::spawn(p2p_service.run()));
@@ -402,6 +404,52 @@ pub(super) async fn start(config: Config, detached: bool) {
     info!("Forest finish shutdown");
 }
 
+/// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
+async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
+    if should_fetch_snapshot {
+        let snapshot_path = default_snapshot_dir(&config);
+        let path = match snapshot_fetch(&snapshot_path, &config, is_aria2_installed()).await {
+            Ok(path) => path,
+            Err(err) => cli_error_and_die(err.to_string(), 1),
+        };
+        Config {
+            client: Client {
+                snapshot_path: Some(path),
+                snapshot: true,
+                ..config.client
+            },
+            ..config
+        }
+    } else {
+        config
+    }
+}
+
+/// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
+/// exits the process.
+async fn prompt_snapshot_or_die(config: &Config) -> bool {
+    if config.client.snapshot_path.is_some() {
+        return false;
+    }
+    let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
+        Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(
+                    "Forest needs a snapshot to sync with the network. Would you like to download one now?",
+                )
+                .default(false)
+                .interact()
+                .unwrap_or_default()
+    } else {
+        config.client.download_snapshot
+    };
+
+    if should_download {
+        true
+    } else {
+        cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
+    }
+}
+
 async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
@@ -413,7 +461,7 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
 
         match import_chain::<FullVerifier, _>(
             state_manager,
-            path,
+            &path.display().to_string(),
             validate_height,
             config.client.skip_load,
         )
@@ -423,7 +471,10 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
                 info!("Imported snapshot in: {}s", stopwatch.elapsed().as_secs());
             }
             Err(err) => {
-                error!("Failed miserably while importing chain from snapshot {path}: {err}")
+                error!(
+                    "Failed miserably while importing chain from snapshot {}: {err}",
+                    path.display()
+                )
             }
         }
     }
@@ -435,6 +486,14 @@ fn db_path(config: &Config) -> PathBuf {
 
 fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(&config.chain.name)
+}
+
+fn get_actual_chain_name(internal_network_name: &str) -> &str {
+    match internal_network_name {
+        "testnetnet" => "mainnet",
+        "calibrationnet" => "calibnet",
+        _ => internal_network_name,
+    }
 }
 
 #[cfg(test)]

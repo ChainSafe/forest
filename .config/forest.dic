@@ -1,4 +1,4 @@
-50
+51
 Algorand/M
 API/M
 APIs
@@ -47,6 +47,7 @@ tipset/SM
 tipsetkey/S
 TOML
 trie
+TTY
 validator/S
 verifier
 VM

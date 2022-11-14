@@ -67,7 +67,7 @@ impl From<Height> for NetworkVersion {
             Height::Chocolate => NetworkVersion::V14,
             Height::OhSnap => NetworkVersion::V15,
             Height::Skyr => NetworkVersion::V16,
-            Height::Shark => NetworkVersion::V16, // Fix this when `fvm_shared` has been updated.
+            Height::Shark => NetworkVersion::V17,
         }
     }
 }
@@ -103,6 +103,7 @@ struct DrandPoint<'a> {
 #[serde(default)]
 pub struct ChainConfig {
     pub name: String,
+    pub genesis_cid: Option<String>,
     pub bootstrap_peers: Vec<String>,
     pub block_delay_secs: u64,
     pub height_infos: Vec<HeightInfo>,
@@ -181,6 +182,7 @@ impl ChainConfig {
         use calibnet::*;
         Self {
             name: "calibnet".to_string(),
+            genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -259,6 +261,7 @@ impl Default for ChainConfig {
         use mainnet::*;
         Self {
             name: "mainnet".to_string(),
+            genesis_cid: Some(GENESIS_CID.to_owned()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -489,6 +492,7 @@ pub mod de_network_version {
             "v14" => Ok(NetworkVersion::V14),
             "v15" => Ok(NetworkVersion::V15),
             "v16" => Ok(NetworkVersion::V16),
+            "v17" => Ok(NetworkVersion::V17),
             _ => Err(de::Error::custom(&format!(
                 "Invalid network version: {}",
                 version
@@ -518,6 +522,7 @@ pub mod de_network_version {
             NetworkVersion::V14 => "V14",
             NetworkVersion::V15 => "V15",
             NetworkVersion::V16 => "V16",
+            NetworkVersion::V17 => "V17",
             _ => unimplemented!(),
         }
         .to_string();

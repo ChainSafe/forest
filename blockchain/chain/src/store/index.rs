@@ -4,6 +4,7 @@
 use crate::{tipset_from_keys, Error, TipsetCache};
 use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
+use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
@@ -62,7 +63,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             return self.walk_back(from, to).await;
         }
         let total_size = from.epoch() - to;
-        let mut pb = pbr::ProgressBar::new(total_size as u64);
+        let pb = ProgressBar::new(total_size as u64);
         pb.message("Scanning blockchain ");
         pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
