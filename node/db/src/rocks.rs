@@ -18,6 +18,7 @@ use std::{path::Path, sync::Arc};
 #[derive(Clone)]
 pub struct RocksDb {
     pub db: Arc<DB>,
+    options: Options,
 }
 
 /// `RocksDb` is used as the KV store for Forest
@@ -76,10 +77,16 @@ impl RocksDb {
     where
         P: AsRef<Path>,
     {
-        let db_opts = Self::to_options(config);
+        let mut db_opts = Self::to_options(config);
+        db_opts.enable_statistics();
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
+            options: db_opts,
         })
+    }
+
+    pub fn get_statistics(&self) -> Option<String> {
+        self.options.get_statistics()
     }
 }
 

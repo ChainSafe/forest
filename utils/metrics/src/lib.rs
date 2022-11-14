@@ -4,12 +4,14 @@
 pub mod db;
 
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
+use forest_db::rocks::RocksDb;
 use prometheus::{Encoder, TextEncoder};
 use std::net::TcpListener;
 
 pub async fn init_prometheus(
     prometheus_listener: TcpListener,
     db_directory: String,
+    db: RocksDb,
 ) -> anyhow::Result<()> {
     let registry = prometheus::default_registry();
 
@@ -18,14 +20,16 @@ pub async fn init_prometheus(
     registry.register(Box::new(db_collector))?;
 
     // Create an configure HTTP server
-    let app = Router::new().route("/metrics", get(collect_metrics));
+    let app = Router::new()
+        .route("/metrics", get(collect_metrics))
+        .layer(axum::Extension(db));
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
     // Wait for server to exit
     Ok(server.await?)
 }
 
-async fn collect_metrics() -> impl IntoResponse {
+async fn collect_metrics(axum::Extension(db): axum::Extension<RocksDb>) -> impl IntoResponse {
     let registry = prometheus::default_registry();
     let metric_families = registry.gather();
     let mut metrics = vec![];
@@ -34,6 +38,11 @@ async fn collect_metrics() -> impl IntoResponse {
     encoder
         .encode(&metric_families, &mut metrics)
         .expect("Encoding Prometheus metrics must succeed.");
+
+    if let Some(db_stats) = db.get_statistics() {
+        metrics.extend("\n# RocksDB statistics:\n".as_bytes());
+        metrics.extend(db_stats.as_bytes());
+    }
 
     (
         StatusCode::OK,

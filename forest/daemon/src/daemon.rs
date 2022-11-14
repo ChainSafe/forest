@@ -132,6 +132,17 @@ pub(super) async fn start(config: Config, detached: bool) {
             .unwrap();
     }
 
+    // Print admin token
+    let ki = ks.get(JWT_IDENTIFIER).unwrap();
+    let token_exp = config.client.token_exp;
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
+    info!("Admin token: {}", token);
+
+    let keystore = Arc::new(RwLock::new(ks));
+
+    let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
+        .expect("Opening RocksDB must succeed");
+
     let mut services = vec![];
 
     {
@@ -151,24 +162,15 @@ pub(super) async fn start(config: Config, detached: bool) {
             .into_os_string()
             .into_string()
             .expect("Failed converting the path to db");
+        let db = db.clone();
         services.push(task::spawn(async {
-            if let Err(e) = forest_metrics::init_prometheus(prometheus_listener, db_directory).await
+            if let Err(e) =
+                forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
             {
                 error!("Failed to initiate prometheus server: {e}");
             }
         }));
     }
-
-    // Print admin token
-    let ki = ks.get(JWT_IDENTIFIER).unwrap();
-    let token_exp = config.client.token_exp;
-    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
-    info!("Admin token: {}", token);
-
-    let keystore = Arc::new(RwLock::new(ks));
-
-    let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
-        .expect("Opening RocksDB must succeed");
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(db.clone()).await);

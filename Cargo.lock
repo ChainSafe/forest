@@ -3573,6 +3573,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
+ "forest_db",
  "fs_extra",
  "log",
  "prometheus",
