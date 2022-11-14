@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace              = true
 async-std                     = { workspace = true, features = ["attributes", "tokio1"] }
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 colored                       = "2.0"
 difference                    = "2.0"
 directories.workspace         = true

@@ -140,7 +140,7 @@ fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
 }
 
 /// Utility method for sending RPC requests over HTTP
-async fn call<P, R>(method_name: &str, params: P) -> Result<R, Error>
+async fn call<P, R>(method_name: &str, params: P, token: &Option<String>) -> Result<R, Error>
 where
     P: Serialize,
     R: DeserializeOwned,
@@ -160,13 +160,21 @@ where
     let mut http_res = match api_info.token.to_owned() {
         Some(jwt) => client
             .post(api_url)
-            .content_type("application/json-rpc")
+            .content_type("application/json")
             .body(surf::Body::from_json(&rpc_req)?)
             .header("Authorization", jwt),
-        None => client
-            .post(api_url)
-            .content_type("application/json-rpc")
-            .body(surf::Body::from_json(&rpc_req)?),
+        None => {
+            if let Some(jwt) = token {
+                surf::post(api_url)
+                    .content_type("application/json")
+                    .body(surf::Body::from_json(&rpc_req)?)
+                    .header("Authorization", jwt)
+            } else {
+                surf::post(api_url)
+                    .content_type("application/json")
+                    .body(surf::Body::from_json(&rpc_req)?)
+            }
+        }
     }
     .await?;
 

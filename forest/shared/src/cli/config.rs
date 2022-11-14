@@ -6,7 +6,6 @@ use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 use url::Url;
@@ -14,42 +13,38 @@ use url::Url;
 use super::client::Client;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct LogConfig(pub Vec<LogValue>);
-
-impl Deref for LogConfig {
-    type Target = Vec<LogValue>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+pub struct LogConfig {
+    pub filters: Vec<LogValue>,
 }
 
 impl Default for LogConfig {
     fn default() -> Self {
-        let underlying = vec![
-            LogValue::new("libp2p_gossipsub", LevelFilter::Error),
-            LogValue::new("filecoin_proofs", LevelFilter::Warn),
-            LogValue::new("storage_proofs_core", LevelFilter::Warn),
-            LogValue::new("surf::middleware", LevelFilter::Warn),
-            LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
-            LogValue::new("tide", LevelFilter::Warn),
-            LogValue::new("libp2p_bitswap", LevelFilter::Warn),
-            LogValue::new("rpc", LevelFilter::Error),
-        ];
-        Self(underlying)
+        Self {
+            filters: vec![
+                LogValue::new("libp2p_gossipsub", LevelFilter::Error),
+                LogValue::new("filecoin_proofs", LevelFilter::Warn),
+                LogValue::new("storage_proofs_core", LevelFilter::Warn),
+                LogValue::new("surf::middleware", LevelFilter::Warn),
+                LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
+                LogValue::new("axum", LevelFilter::Warn),
+                LogValue::new("libp2p_bitswap", LevelFilter::Warn),
+                LogValue::new("rpc", LevelFilter::Error),
+            ],
+        }
     }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct LogValue {
     pub module: String,
-    pub level: String,
+    pub level: LevelFilter,
 }
 
 impl LogValue {
     pub fn new(module: &str, level: LevelFilter) -> Self {
         Self {
             module: module.to_string(),
-            level: level.to_string(),
+            level,
         }
     }
 }
@@ -141,7 +136,9 @@ pub struct Config {
 #[cfg(test)]
 mod test {
     use super::*;
+    use chrono::Duration;
     use forest_db::rocks_config::RocksDbConfig;
+    use forest_utils::io::ProgressBarVisibility;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::{
@@ -191,6 +188,9 @@ mod test {
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
+                    download_snapshot: bool::arbitrary(g),
+                    token_exp: Duration::milliseconds(i64::arbitrary(g)),
+                    show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),

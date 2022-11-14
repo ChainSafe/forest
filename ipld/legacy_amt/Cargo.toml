@@ -10,7 +10,7 @@ repository  = "https://github.com/ChainSafe/forest"
 [dependencies]
 ahash                         = { workspace = true, optional = true }
 anyhow.workspace              = true
-cid                           = { workspace = true, default-features = false, features = ["std"] }
+cid.workspace                 = true
 forest_db.workspace           = true
 forest_encoding.workspace     = true
 forest_utils.workspace        = true
