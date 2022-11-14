@@ -243,10 +243,10 @@ where
     if !checksum_response.status().is_success() {
         bail!("Unable to get the checksum file. Url: {checksum_url}");
     }
-    let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body())
-        .await?
+    let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body()).await?
+        [..Sha256::output_size() * 2]
         .to_vec();
-    let checksum_expected = String::from_utf8(checksum_bytes)?.trim().to_owned();
+    let checksum_expected = String::from_utf8(checksum_bytes)?;
     info!("Expected sha256 checksum: {checksum_expected}");
     download_with_aria2(
         url.as_str(),
