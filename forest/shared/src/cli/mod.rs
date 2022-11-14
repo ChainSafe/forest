@@ -33,6 +33,25 @@ pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[structopt(short, long)]
     pub config: Option<String>,
+    /// Allow RPC to be active or not (default: true)
+    #[structopt(short, long)]
+    pub rpc: Option<bool>,
+    /// Client JWT token to use for JSON-RPC authentication
+    #[structopt(short, long)]
+    pub token: Option<String>,
+    /// Address used for RPC. By defaults binds on localhost on port 1234.
+    #[structopt(long)]
+    pub rpc_address: Option<SocketAddr>,
+    /// Address used for metrics collection server. By defaults binds on localhost on port 6116.
+    #[structopt(long)]
+    pub metrics_address: Option<SocketAddr>,
+    /// Choose network chain to sync to
+    #[structopt(
+long,
+default_value = "mainnet",
+possible_values = &["mainnet", "calibnet"],
+)]
+    pub chain: String,
     /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto")]
     pub color: LoggingColor,
@@ -48,7 +67,7 @@ pub struct CliOpts {
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
         let path = find_cli_config_path(self);
-        let cfg: Config = match &path {
+        let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
                 let toml = read_file_to_string(path.to_path_buf())?;
@@ -57,6 +76,28 @@ impl CliOpts {
             }
             None => Config::default(),
         };
+
+        if self.chain == "calibnet" {
+            // override the chain configuration
+            cfg.chain = Arc::new(ChainConfig::calibnet());
+        }
+
+        if self.rpc.unwrap_or(cfg.client.enable_rpc) {
+            cfg.client.enable_rpc = true;
+            if let Some(rpc_address) = self.rpc_address {
+                cfg.client.rpc_address = rpc_address;
+            }
+
+            if self.token.is_some() {
+                cfg.client.rpc_token = self.token.to_owned();
+            }
+        } else {
+            cfg.client.enable_rpc = false;
+        }
+
+        if let Some(metrics_address) = self.metrics_address {
+            cfg.client.metrics_address = metrics_address;
+        }
 
         Ok((cfg, path))
     }
