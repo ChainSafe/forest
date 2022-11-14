@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{tipset_from_keys, Error, TipsetCache};
+use crate::{store::metrics, tipset_from_keys, Error, TipsetCache};
 use async_std::task;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_utils::io::ProgressBar;
@@ -75,8 +75,14 @@ impl<BS: Blockstore> ChainIndex<BS> {
         loop {
             let entry = self.skip_cache.write().await.get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
+                metrics::LRU_CACHE_TOTAL
+                    .with_label_values(&[metrics::values::SKIP_LRU_HIT])
+                    .inc();
                 cached
             } else {
+                metrics::LRU_CACHE_TOTAL
+                    .with_label_values(&[metrics::values::SKIP_LRU_MISS])
+                    .inc();
                 self.fill_cache(std::mem::take(&mut cur)).await?
             };
 
