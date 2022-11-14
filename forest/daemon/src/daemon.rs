@@ -525,6 +525,7 @@ mod test {
     }
 
     #[async_std::test]
+    #[cfg(feature = "slow_tests")]
     async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
             .await
