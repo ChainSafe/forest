@@ -158,7 +158,7 @@ pub struct Libp2pService<DB, P: StoreParams> {
     network_receiver_out: flume::Receiver<NetworkEvent>,
     network_sender_out: flume::Sender<NetworkEvent>,
     network_name: String,
-    genesis_cid: Cid,
+    genesis_hash: Cid,
 }
 
 impl<DB, P: StoreParams> Libp2pService<DB, P>
@@ -170,7 +170,7 @@ where
         cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
         network_name: &str,
-        genesis_cid: Cid,
+        genesis_hash: Cid,
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
@@ -217,7 +217,7 @@ where
             network_receiver_out,
             network_sender_out,
             network_name: network_name.into(),
-            genesis_cid,
+            genesis_hash,
         }
     }
 
@@ -243,7 +243,7 @@ where
                             swarm_stream.get_mut(),
                             event,
                             &self.cs,
-                            &self.genesis_cid,
+                            &self.genesis_hash,
                             &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
@@ -657,7 +657,13 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 );
             }
             Err(err) => {
-                warn!("{err}:{}", ping_event.peer.to_base58());
+                let err = err.to_string();
+                let peer = ping_event.peer.to_base58();
+                warn!("{err}: {peer}",);
+                if err.contains("protocol not supported") {
+                    warn!("Banning peer {peer}");
+                    st_mut.ban_peer_id(ping_event.peer);
+                }
             }
         },
         ForestBehaviourEvent::Identify(id_event) => match id_event {
