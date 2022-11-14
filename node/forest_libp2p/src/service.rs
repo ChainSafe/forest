@@ -196,7 +196,7 @@ where
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
-            IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse(); //.fuse();
+            IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 

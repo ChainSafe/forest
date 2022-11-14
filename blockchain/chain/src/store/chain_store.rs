@@ -478,7 +478,7 @@ where
                     }),
                 )
                 .await
-                .map_err(|e| Error::Other(format!("Failed to write blocks in export: {}", e)))
+                .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
         });
 
         let global_pre_time = SystemTime::now();

@@ -117,13 +117,13 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
 
 impl<C: Consensus, T> From<flume::SendError<T>> for TipsetRangeSyncerError<C> {
     fn from(err: flume::SendError<T>) -> Self {
-        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
+        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{err}"))
     }
 }
 
 impl<C: Consensus> From<tokio::task::JoinError> for TipsetRangeSyncerError<C> {
     fn from(err: tokio::task::JoinError) -> Self {
-        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{}", err))
+        TipsetRangeSyncerError::NetworkTipsetQueryFailed(format!("{err}"))
     }
 }
 

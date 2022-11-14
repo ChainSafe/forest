@@ -132,7 +132,6 @@ impl DelegatedProposer {
         let chain_config = state_manager.chain_config();
         let chain_store = state_manager.chain_store();
 
-        // FIXME(creativcoder): need tokio stream to use tokio::interval
         let mut interval = IntervalStream::new(tokio::time::interval(Duration::from_secs(
             chain_config.block_delay_secs,
         )));
