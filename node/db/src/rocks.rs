@@ -77,8 +77,7 @@ impl RocksDb {
     where
         P: AsRef<Path>,
     {
-        let mut db_opts = Self::to_options(config);
-        db_opts.enable_statistics();
+        let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
             options: db_opts,

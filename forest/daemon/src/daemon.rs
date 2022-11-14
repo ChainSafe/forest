@@ -163,7 +163,7 @@ pub(super) async fn start(config: Config, detached: bool) {
             .into_string()
             .expect("Failed converting the path to db");
         let db = db.clone();
-        services.push(task::spawn(async {
+        services.push(task::spawn(async move {
             if let Err(e) =
                 forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
             {
