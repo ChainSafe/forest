@@ -673,7 +673,7 @@ where
     BS: Blockstore,
 {
     if let Some(ts) = cache.write().await.get(tsk) {
-        metrics::LRU_CACHE_TOTAL
+        metrics::LRU_CACHE_HIT
             .with_label_values(&[metrics::values::TIPSET_LRU_HIT])
             .inc();
         return Ok(ts.clone());
@@ -693,7 +693,7 @@ where
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
     cache.write().await.put(tsk.clone(), ts.clone());
-    metrics::LRU_CACHE_TOTAL
+    metrics::LRU_CACHE_MISS
         .with_label_values(&[metrics::values::TIPSET_LRU_MISS])
         .inc();
     Ok(ts)

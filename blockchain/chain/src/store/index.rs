@@ -75,12 +75,12 @@ impl<BS: Blockstore> ChainIndex<BS> {
         loop {
             let entry = self.skip_cache.write().await.get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
-                metrics::LRU_CACHE_TOTAL
+                metrics::LRU_CACHE_HIT
                     .with_label_values(&[metrics::values::SKIP_LRU_HIT])
                     .inc();
                 cached
             } else {
-                metrics::LRU_CACHE_TOTAL
+                metrics::LRU_CACHE_MISS
                     .with_label_values(&[metrics::values::SKIP_LRU_MISS])
                     .inc();
                 self.fill_cache(std::mem::take(&mut cur)).await?
