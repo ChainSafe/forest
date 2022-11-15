@@ -282,6 +282,16 @@ pub fn default_snapshot_dir(config: &Config) -> PathBuf {
         .join(config.chain.name.clone())
 }
 
+/// Gets database directory
+pub fn db_path(config: &Config) -> PathBuf {
+    chain_path(config).join("db")
+}
+
+/// Gets chain data directory
+pub fn chain_path(config: &Config) -> PathBuf {
+    PathBuf::from(&config.client.data_dir).join(&config.chain.name)
+}
+
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
