@@ -17,6 +17,11 @@ pub use rocksdb::{
 };
 use std::{path::Path, sync::Arc};
 
+pub mod columns {
+    pub const BLOCK_VALIDATION_COLUMN: &str = "block_validation";
+    pub const CHAIN_INFO_COLUMN: &str = "chain_info";
+}
+
 /// `RocksDB` instance this satisfies the [Store] interface.
 #[derive(Clone)]
 pub struct RocksDb {
@@ -36,6 +41,7 @@ impl RocksDb {
     fn to_options(config: &RocksDbConfig) -> Options {
         let mut db_opts = Options::default();
         db_opts.create_if_missing(config.create_if_missing);
+        db_opts.create_missing_column_families(config.create_missing_column_families);
         db_opts.increase_parallelism(config.parallelism);
         db_opts.set_write_buffer_size(config.write_buffer_size);
         db_opts.set_max_open_files(config.max_open_files);
@@ -81,7 +87,11 @@ impl RocksDb {
     {
         let db_opts = Self::to_options(config);
         Ok(Self {
-            db: Arc::new(DB::open(&db_opts, path)?),
+            db: Arc::new(DB::open_cf(
+                &db_opts,
+                path,
+                vec![columns::BLOCK_VALIDATION_COLUMN, columns::CHAIN_INFO_COLUMN],
+            )?),
         })
     }
 }
@@ -94,6 +104,17 @@ impl Store for RocksDb {
         self.db.get(key).map_err(Error::from)
     }
 
+    fn read_column<K>(&self, key: K, column: &str) -> Result<Option<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let cf = self
+            .db
+            .cf_handle(column)
+            .ok_or(Error::GetColumnFamilyHandle)?;
+        self.db.get_cf(&cf, key).map_err(Error::from)
+    }
+
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -102,11 +123,34 @@ impl Store for RocksDb {
         Ok(self.db.put(key, value)?)
     }
 
+    fn write_column<K, V>(&self, key: K, value: V, column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let cf = self
+            .db
+            .cf_handle(column)
+            .ok_or(Error::GetColumnFamilyHandle)?;
+        Ok(self.db.put_cf(&cf, key, value)?)
+    }
+
     fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
         Ok(self.db.delete(key)?)
+    }
+
+    fn delete_column<K>(&self, key: K, column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let cf = self
+            .db
+            .cf_handle(column)
+            .ok_or(Error::GetColumnFamilyHandle)?;
+        Ok(self.db.delete_cf(&cf, key)?)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>
@@ -119,6 +163,20 @@ impl Store for RocksDb {
             .map_err(Error::from)
     }
 
+    fn exists_column<K>(&self, key: K, column: &str) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let cf = self
+            .db
+            .cf_handle(column)
+            .ok_or(Error::GetColumnFamilyHandle)?;
+        self.db
+            .get_pinned_cf(&cf, key)
+            .map(|v| v.is_some())
+            .map_err(Error::from)
+    }
+
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -127,6 +185,22 @@ impl Store for RocksDb {
         let mut batch = WriteBatch::default();
         for (k, v) in values {
             batch.put(k, v);
+        }
+        Ok(self.db.write(batch)?)
+    }
+
+    fn bulk_write_column<K, V>(&self, values: &[(K, V)], column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let cf = self
+            .db
+            .cf_handle(column)
+            .ok_or(Error::GetColumnFamilyHandle)?;
+        let mut batch = WriteBatch::default();
+        for (k, v) in values {
+            batch.put_cf(&cf, k, v);
         }
         Ok(self.db.write(batch)?)
     }

@@ -11,6 +11,8 @@ pub enum Error {
     InvalidBulkLen,
     #[error("Cannot use unopened database")]
     Unopened,
+    #[error("Cannot get column family handle")]
+    GetColumnFamilyHandle,
     #[error(transparent)]
     Database(#[from] rocksdb::Error),
     #[error(transparent)]

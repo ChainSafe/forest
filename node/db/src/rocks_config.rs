@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct RocksDbConfig {
     pub create_if_missing: bool,
+    pub create_missing_column_families: bool,
     pub parallelism: i32,
     /// This is the `memtable` size in bytes.
     pub write_buffer_size: usize,
@@ -31,6 +32,7 @@ impl Default for RocksDbConfig {
     fn default() -> Self {
         Self {
             create_if_missing: true,
+            create_missing_column_families: true,
             parallelism: num_cpus::get() as i32,
             write_buffer_size: 256 * 1024 * 1024,
             max_open_files: 1024,

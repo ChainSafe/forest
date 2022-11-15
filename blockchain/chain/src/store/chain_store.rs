@@ -12,6 +12,7 @@ use digest::Digest;
 use forest_actor_interface::{miner, EPOCHS_IN_DAY};
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
+use forest_db::rocks::columns::{BLOCK_VALIDATION_COLUMN, CHAIN_INFO_COLUMN};
 use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
@@ -47,7 +48,6 @@ use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
-const BLOCK_VAL_PREFIX: &[u8] = b"block_val/";
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -122,7 +122,8 @@ where
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
     pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
+        self.db
+            .write_column(HEAD_KEY, ts.key().marshal_cbor()?, CHAIN_INFO_COLUMN)?;
         *self.heaviest.write().await = Some(ts.clone());
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
@@ -164,7 +165,7 @@ where
 
     /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.
     async fn load_heaviest_tipset(&self) -> Result<(), Error> {
-        let heaviest_ts = match self.db.read(HEAD_KEY)? {
+        let heaviest_ts = match self.db.read_column(HEAD_KEY, CHAIN_INFO_COLUMN)? {
             Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
             None => {
                 warn!("No previous chain state found");
@@ -240,16 +241,16 @@ where
 
     /// Checks store if block has already been validated. Key based on the block validation prefix.
     pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
-        let key = block_validation_key(cid);
-
-        Ok(self.db.exists(key)?)
+        Ok(self
+            .db
+            .exists_column(cid.to_bytes(), BLOCK_VALIDATION_COLUMN)?)
     }
 
     /// Marks block as validated in the store. This is retrieved using the block validation prefix.
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
-        let key = block_validation_key(cid);
-
-        Ok(self.db.write(key, [])?)
+        Ok(self
+            .db
+            .write_column(cid.to_bytes(), [], BLOCK_VALIDATION_COLUMN)?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.
@@ -692,14 +693,6 @@ where
     Ok(ts)
 }
 
-/// Helper to ensure consistent CID to db key translation.
-fn block_validation_key(cid: &Cid) -> Vec<u8> {
-    let mut key = Vec::new();
-    key.extend_from_slice(BLOCK_VAL_PREFIX);
-    key.extend(cid.to_bytes());
-    key
-}
-
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
 /// of type `SignedMessage`
 pub fn block_messages<DB>(
@@ -760,7 +753,7 @@ pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
 where
     DB: Blockstore + Store,
 {
-    db.write(GENESIS_KEY, header.marshal_cbor()?)?;
+    db.write_column(GENESIS_KEY, header.marshal_cbor()?, CHAIN_INFO_COLUMN)?;
     db.put_obj(&header, Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))
 }
@@ -801,7 +794,7 @@ where
     DB: Blockstore + Store,
 {
     Ok(db
-        .read(GENESIS_KEY)?
+        .read_column(GENESIS_KEY, CHAIN_INFO_COLUMN)?
         .map(|bz| BlockHeader::unmarshal_cbor(&bz))
         .transpose()?)
 }

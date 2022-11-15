@@ -194,6 +194,7 @@ mod test {
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
+                    create_missing_column_families: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
                     write_buffer_size: usize::arbitrary(g),
                     max_open_files: i32::arbitrary(g),

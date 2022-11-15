@@ -6,7 +6,8 @@ use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
-use std::collections::{hash_map::DefaultHasher, HashMap};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -27,38 +28,55 @@ impl MemoryDB {
     }
 }
 
+fn full_key(column: &str, key: impl AsRef<[u8]>) -> Vec<u8> {
+    let mut full_key = column.as_bytes().to_vec();
+    full_key.extend("|".as_bytes());
+    full_key.extend(key.as_ref());
+    full_key
+}
+
 impl Store for MemoryDB {
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    fn write_column<K, V>(&self, key: K, value: V, column: &str) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
+        self.db.write().insert(
+            Self::db_index(full_key(column, key)),
+            value.as_ref().to_vec(),
+        );
+        Ok(())
+    }
+
+    fn delete_column<K>(&self, key: K, column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
         self.db
             .write()
-            .insert(Self::db_index(key), value.as_ref().to_vec());
+            .remove(&Self::db_index(full_key(column, key)));
         Ok(())
     }
 
-    fn delete<K>(&self, key: K) -> Result<(), Error>
+    fn read_column<K>(&self, key: K, column: &str) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
     {
-        self.db.write().remove(&Self::db_index(key));
-        Ok(())
+        Ok(self
+            .db
+            .read()
+            .get(&Self::db_index(full_key(column, key)))
+            .cloned())
     }
 
-    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
+    fn exists_column<K>(&self, key: K, column: &str) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,
     {
-        Ok(self.db.read().get(&Self::db_index(key)).cloned())
-    }
-
-    fn exists<K>(&self, key: K) -> Result<bool, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        Ok(self.db.read().contains_key(&Self::db_index(key)))
+        Ok(self
+            .db
+            .read()
+            .contains_key(&Self::db_index(full_key(column, key))))
     }
 }
 

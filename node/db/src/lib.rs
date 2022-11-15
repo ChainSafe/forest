@@ -11,30 +11,65 @@ pub mod rocks_config;
 pub use errors::Error;
 pub use memory::MemoryDB;
 
+const DEFAULT_COLUMN: &str = "default";
+
 /// Store interface used as a KV store implementation
 pub trait Store {
-    /// Read single value from data store and return `None` if key doesn't exist.
+    /// Read single value from the default column of the data store and return `None` if key doesn't exist.
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.read_column(key, DEFAULT_COLUMN)
+    }
+
+    /// Read single value from the specified column of the data store and return `None` if key doesn't exist.
+    fn read_column<K>(&self, key: K, column: &str) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>;
 
-    /// Write a single value to the data store.
+    /// Write a single value to the default column of the data store.
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        self.write_column(key, value, DEFAULT_COLUMN)
+    }
+
+    /// Write a single value to the specified column of the data store.
+    fn write_column<K, V>(&self, key: K, value: V, column: &str) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>;
 
-    /// Delete value at key.
+    /// Delete value at key from the default column.
     fn delete<K>(&self, key: K) -> Result<(), Error>
     where
-        K: AsRef<[u8]>;
+        K: AsRef<[u8]>,
+    {
+        self.delete_column(key, DEFAULT_COLUMN)
+    }
 
-    /// Returns `Ok(true)` if key exists in store
-    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    /// Delete value at key from the specified column.
+    fn delete_column<K>(&self, key: K, column: &str) -> Result<(), Error>
     where
         K: AsRef<[u8]>;
 
-    /// Read slice of keys and return a vector of optional values.
+    /// Returns `Ok(true)` if key exists in the default column of the store
+    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.exists_column(key, DEFAULT_COLUMN)
+    }
+
+    /// Returns `Ok(true)` if key exists in the specified column of the store
+    fn exists_column<K>(&self, key: K, column: &str) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>;
+
+    /// Read slice of keys and return a vector of optional values from the default column.
     fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
     where
         K: AsRef<[u8]>,
@@ -42,7 +77,17 @@ pub trait Store {
         keys.iter().map(|key| self.read(key)).collect()
     }
 
-    /// Write slice of KV pairs.
+    /// Read slice of keys and return a vector of optional values from the specified column.
+    fn bulk_read_column<K>(&self, keys: &[K], column: &str) -> Result<Vec<Option<Vec<u8>>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        keys.iter()
+            .map(|key| self.read_column(key, column))
+            .collect()
+    }
+
+    /// Write slice of KV pairs to the default column.
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -53,12 +98,32 @@ pub trait Store {
             .try_for_each(|(key, value)| self.write(key, value))
     }
 
-    /// Bulk delete keys from the data store.
+    /// Write slice of KV pairs to the specified column.
+    fn bulk_write_column<K, V>(&self, values: &[(K, V)], column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        values
+            .iter()
+            .try_for_each(|(key, value)| self.write_column(key, value, column))
+    }
+
+    /// Bulk delete keys from the default column of the data store.
     fn bulk_delete<K>(&self, keys: &[K]) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
     {
         keys.iter().try_for_each(|key| self.delete(key))
+    }
+
+    /// Bulk delete keys from the specified column of the data store.
+    fn bulk_delete_column<K>(&self, keys: &[K], column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        keys.iter()
+            .try_for_each(|key| self.delete_column(key, column))
     }
 }
 
@@ -70,12 +135,27 @@ impl<BS: Store> Store for &BS {
         (*self).read(key)
     }
 
+    fn read_column<K>(&self, key: K, column: &str) -> Result<Option<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).read_column(key, column)
+    }
+
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
         (*self).write(key, value)
+    }
+
+    fn write_column<K, V>(&self, key: K, value: V, column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        (*self).write_column(key, value, column)
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>
@@ -85,11 +165,25 @@ impl<BS: Store> Store for &BS {
         (*self).delete(key)
     }
 
+    fn delete_column<K>(&self, key: K, column: &str) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).delete_column(key, column)
+    }
+
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,
     {
         (*self).exists(key)
+    }
+
+    fn exists_column<K>(&self, key: K, column: &str) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).exists_column(key, column)
     }
 
     fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
