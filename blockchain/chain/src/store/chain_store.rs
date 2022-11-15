@@ -459,7 +459,7 @@ where
     {
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
-        let (tx, rx) = async_std::channel::bounded(CHANNEL_CAP);
+        let (tx, rx) = flume::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
         let writer = Arc::new(Mutex::new(writer.compat_write()));
@@ -472,7 +472,7 @@ where
                 .write_stream_async(
                     &mut *writer,
                     &mut Box::pin(stream! {
-                        while let Ok(val) = rx.recv().await {
+                        while let Ok(val) = rx.recv_async().await {
                             yield val;
                         }
                     }),
@@ -500,7 +500,7 @@ where
 
             // XXX: * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
-            let _ = async_handle.block_on(tx.send((cid, block.clone())));
+            let _ = async_handle.block_on(tx.send_async((cid, block.clone())));
             Ok(block)
         })
         .await?;

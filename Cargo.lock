@@ -3009,6 +3009,7 @@ dependencies = [
  "byteorder",
  "cid",
  "digest 0.10.5",
+ "flume",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
