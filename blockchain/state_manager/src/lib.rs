@@ -1176,10 +1176,10 @@ where
         loop {
             select! {
                 res = subscriber_poll => {
-                    return res.map_err(|e| Error::Other(format!("failed joining on tokio task {e}")))?
+                    return res?
                 }
                 res = search_back_poll => {
-                    if let Ok((Some(ts), Some(rct))) = res.map_err(|e| Error::Other(format!("failed joining on tokio task {e}")))? {
+                    if let Ok((Some(ts), Some(rct))) = res? {
                         return Ok((Some(ts), Some(rct)));
                     }
                 }

@@ -791,7 +791,7 @@ mod test_selection {
             next_nonce += 1;
         }
 
-        // // now we make a block with all the messages and advance the chain
+        // now we make a block with all the messages and advance the chain
         let b2 = mpool.api.write().await.next_block();
         mpool.api.write().await.set_block_messages(&b2, msgs);
         head_change(
@@ -1063,11 +1063,10 @@ mod test_selection {
     #[cfg(feature = "slow_tests")]
     #[tokio::test]
     async fn test_optimal_msg_selection1() {
-        let mut joinset = JoinSet::new();
         // this test uses just a single actor sending messages with a low tq
         // the chain depenent merging algorithm should pick messages from the actor
         // from the start
-
+        let mut joinset = JoinSet::new();
         let mpool = make_test_mpool(&mut joinset).await;
 
         // create two actors
