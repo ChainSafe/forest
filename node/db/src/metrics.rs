@@ -18,7 +18,7 @@ lazy_static! {
 
         prometheus::default_registry()
             .register(block_size.clone())
-            .expect("Registering the lru_cache_hit metric with the metrics registry must succeed");
+            .expect("Registering the block_size_bytes metric with the metrics registry must succeed");
         block_size
     };
 }
