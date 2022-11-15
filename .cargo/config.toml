@@ -16,7 +16,7 @@ incremental = true
 # clang has been listed as prerequisite in the doc
 linker = "clang"
 # enable avx2 by default since it's avaiable on almost all x86_64 CPUs
-rustflags = ["-Clink-arg=-fuse-ld=lld", "-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y"]
+rustflags = ["-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y"]
 
 [target.x86_64-apple-darwin]
 # zld might help here

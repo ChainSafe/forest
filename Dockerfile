@@ -20,7 +20,7 @@
 FROM buildpack-deps:buster AS build-env
 
 # Install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev cmake ca-certificates curl
+RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake ca-certificates curl
 RUN update-ca-certificates
 
 # Install rustup
