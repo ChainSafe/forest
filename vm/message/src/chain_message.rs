@@ -4,12 +4,30 @@
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-use cid::Cid;
-use fvm_ipld_encoding::{Cbor, Error, RawBytes};
+use cid::{multihash, Cid};
+use fvm_ipld_encoding::{Cbor, Error, RawBytes, DAG_CBOR};
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
 use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
+
+impl CidHash for Message {}
+impl CidHash for SignedMessage {}
+
+pub trait CidHash: fvm_ipld_encoding::Cbor {
+    fn cid(&self) -> Result<Cid, Error> {
+        use multihash::MultihashDigest;
+        const DIGEST_SIZE: u32 = 32; // TODO get from the multihash?
+        let data = &self.marshal_cbor()?;
+        let hash = multihash::Code::Blake2b256.digest(data);
+        debug_assert_eq!(
+            u32::from(hash.size()),
+            DIGEST_SIZE,
+            "expected 32byte digest"
+        );
+        Ok(Cid::new_v1(DAG_CBOR, hash))
+    }
+}
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
@@ -117,7 +135,7 @@ impl MessageTrait for ChainMessage {
     }
 }
 
-impl Cbor for ChainMessage {
+impl ChainMessage {
     /// Returns the content identifier of the raw block of data
     /// Default is `Blake2b256` hash
     fn cid(&self) -> Result<Cid, Error> {

@@ -85,14 +85,14 @@ filecoin-proofs-api   = "12.0"
 flume                 = "0.10"
 futures               = "0.3"
 futures-util          = "0.3"
-fvm                   = "2.1"
-fvm_ipld_amt          = "0.4"
+fvm                   = {git = "https://github.com/filecoin-project/ref-fvm", rev="cf5ba35"}
+fvm_ipld_amt           = {git = "https://github.com/filecoin-project/ref-fvm", rev="cf5ba35"}
 fvm_ipld_bitfield     = "0.5"
-fvm_ipld_blockstore   = "0.1"
+fvm_ipld_blockstore    = {git = "https://github.com/filecoin-project/ref-fvm", rev="cf5ba35"}
 fvm_ipld_car          = "0.5"
-fvm_ipld_encoding     = "0.2"
+fvm_ipld_encoding     = {git = "https://github.com/filecoin-project/ref-fvm", rev="cf5ba35"}
 fvm_ipld_hamt         = "0.5"
-fvm_shared            = "2.0"
+fvm_shared            = {git = "https://github.com/filecoin-project/ref-fvm", rev="cf5ba35", features=["crypto"]}
 git-version           = "0.3"
 hex                   = "0.4"
 http                  = "0.2.8"

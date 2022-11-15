@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::chain_message::CidHash;
+
 use super::Message as MessageTrait;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};

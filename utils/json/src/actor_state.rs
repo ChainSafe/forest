@@ -75,6 +75,7 @@ pub mod json {
             state,
             sequence,
             balance: TokenAmount::from_atto(BigInt::from_str(&balance).map_err(de::Error::custom)?),
+            address: None, // FIXME: figure out this
         })
     }
 }

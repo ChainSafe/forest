@@ -4,6 +4,7 @@
 pub mod json {
     use crate::address::json::AddressJson;
     use cid::Cid;
+    use forest_message::chain_message::CidHash;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding::RawBytes;
     use fvm_shared::econ::TokenAmount;
