@@ -42,7 +42,6 @@ use std::{
 };
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
@@ -461,7 +460,7 @@ where
     {
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
-        let (tx, mut rx) = mpsc::channel(CHANNEL_CAP);
+        let (tx, rx) = async_std::channel::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
         let writer = Arc::new(Mutex::new(writer.compat_write()));
@@ -474,7 +473,7 @@ where
                 .write_stream_async(
                     &mut *writer,
                     &mut Box::pin(stream! {
-                        while let Some(val) = rx.recv().await {
+                        while let Ok(val) = rx.recv().await {
                             yield val;
                         }
                     }),
