@@ -83,6 +83,7 @@ fil_actors_runtime    = { package = "fil_actors_runtime_common", version = "=9.0
 fil_actors_runtime_v9 = { package = "fil_actors_runtime", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 filecoin-proofs-api   = "12.0"
 flume                 = "0.10"
+fs_extra              = "1.2"
 futures               = "0.3"
 futures-util          = "0.3"
 fvm                   = "2.1"
@@ -96,6 +97,7 @@ fvm_shared            = "2.0"
 git-version           = "0.3"
 hex                   = "0.4"
 http                  = "0.2.8"
+human-repr            = "1.0"
 hyper                 = "0.14"
 hyper-rustls          = "0.23"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
