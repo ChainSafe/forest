@@ -205,6 +205,7 @@ mod test {
                     log_level: String::arbitrary(g),
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
+                    block_size: usize::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),

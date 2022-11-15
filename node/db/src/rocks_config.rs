@@ -25,6 +25,7 @@ pub struct RocksDbConfig {
     pub log_level: String,
     pub optimize_filters_for_hits: bool,
     pub optimize_for_point_lookup: i32,
+    pub block_size: usize,
 }
 
 impl Default for RocksDbConfig {
@@ -42,6 +43,8 @@ impl Default for RocksDbConfig {
             log_level: "warn".into(),
             optimize_filters_for_hits: true,
             optimize_for_point_lookup: 8,
+            // According to metrics, p95 of keyed blocks are smaller than 2KB
+            block_size: 2048,
         }
     }
 }

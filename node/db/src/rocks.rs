@@ -59,6 +59,7 @@ impl RocksDb {
         if !config.optimize_for_point_lookup.is_negative() {
             let cache_size = config.optimize_for_point_lookup as usize;
             let mut opts = BlockBasedOptions::default();
+            opts.set_block_size(config.block_size);
             opts.set_format_version(5);
             opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
             opts.set_data_block_hash_ratio(0.75);
@@ -88,7 +89,12 @@ impl Store for RocksDb {
     where
         K: AsRef<[u8]>,
     {
-        self.db.get(key).map_err(Error::from)
+        let key = key.as_ref();
+        if !self.db.key_may_exist(key) {
+            Ok(None)
+        } else {
+            self.db.get(key).map_err(Error::from)
+        }
     }
 
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
@@ -110,10 +116,13 @@ impl Store for RocksDb {
     where
         K: AsRef<[u8]>,
     {
-        self.db
-            .get_pinned(key)
-            .map(|v| v.is_some())
-            .map_err(Error::from)
+        let key = key.as_ref();
+        Ok(self.db.key_may_exist(key)
+            && self
+                .db
+                .get_pinned(key)
+                .map(|v| v.is_some())
+                .map_err(Error::from)?)
     }
 
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
