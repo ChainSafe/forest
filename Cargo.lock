@@ -5126,7 +5126,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.24.0"
-source = "git+https://github.com/hanabi1224/libp2p-bitswap?branch=forest#1500a58b6c155a544a1a5748c8efb9d65314218b"
+source = "git+https://github.com/hanabi1224/libp2p-bitswap?branch=forest#84cca35f0b69574335e6d8579b3dc4f646e3499c"
 dependencies = [
  "async-trait",
  "fnv",
@@ -5444,9 +5444,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-yamux"
-version = "0.41.0"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30f079097a21ad017fc8139460630286f02488c8c13b26affb46623aa20d8845"
+checksum = "0d6874d66543c4f7e26e3b8ca9a6bead351563a13ab4fafd43c7927f7c0d6c12"
 dependencies = [
  "futures",
  "libp2p-core",
