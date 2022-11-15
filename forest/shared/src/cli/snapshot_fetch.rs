@@ -130,10 +130,7 @@ async fn snapshot_fetch_mainnet(
             .await?;
 
         // Use the redirect if available.
-        match head_response
-            .headers()
-            .get("x-amz-website-redirect-location")
-        {
+        match head_response.headers().get("location") {
             Some(url) => url.to_str()?.try_into()?,
             None => url,
         }
@@ -147,6 +144,7 @@ async fn snapshot_fetch_mainnet(
     create_dir_all(snapshot_out_dir).await?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
 
+    // Download the file
     if use_aria2 {
         download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
             .await?

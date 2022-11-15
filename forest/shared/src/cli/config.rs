@@ -66,7 +66,8 @@ impl Default for MainnetSnapshotFetchConfig {
         Self {
             /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
             /// `sha256sum` file with the same URL (but different extension).
-            snapshot_url: Url::try_from("https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car").unwrap(),
+            snapshot_url: Url::try_from("https://snapshots.mainnet.filops.net/minimal/latest")
+                .unwrap(),
         }
     }
 }
