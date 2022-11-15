@@ -11,8 +11,12 @@ pub enum Error {
     InvalidBulkLen,
     #[error("Cannot use unopened database")]
     Unopened,
+    #[cfg(feature = "rocksdb")]
     #[error(transparent)]
     Database(#[from] rocksdb::Error),
+    #[cfg(feature = "paritydb")]
+    #[error(transparent)]
+    Database(#[from] parity_db::Error),
     #[error(transparent)]
     Encoding(#[from] CborError),
     #[error("{0}")]
@@ -26,7 +30,9 @@ impl PartialEq for Error {
         match (self, other) {
             (&InvalidBulkLen, &InvalidBulkLen) => true,
             (&Unopened, &Unopened) => true,
+            #[cfg(feature = "rocksdb")]
             (&Database(_), &Database(_)) => true,
+            #[cfg(feature = "rocksdb")]
             (&Encoding(_), &Encoding(_)) => true,
             (&Other(ref a), &Other(ref b)) => a == b,
             _ => false,
