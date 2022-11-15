@@ -10,7 +10,7 @@ install: install-cli install-daemon
 
 install-deps:
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang lld ocl-icd-opencl-dev aria2 cmake
+	apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev aria2 cmake
 
 install-lint-tools:
 	RUSTFLAGS="-Cstrip=symbols" cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
