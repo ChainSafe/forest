@@ -500,7 +500,11 @@ where
 
             // XXX: * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
-            let _ = async_handle.block_on(tx.send_async((cid, block.clone())));
+            let block_clone = block.clone();
+            let tx_clone = tx.clone();
+            async_handle.spawn(async move {
+                tx_clone.send_async((cid, block_clone)).await.expect("failed sending block for export");
+            });
             Ok(block)
         })
         .await?;
