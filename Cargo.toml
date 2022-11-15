@@ -182,6 +182,7 @@ forest_utils           = { path = "./utils/forest_utils" }
 
 [profile.dev]
 debug = 0
+split-debuginfo = "unpacked"
 
 [profile.quick]
 inherits  = "release"
@@ -191,3 +192,5 @@ lto       = "off"
 [profile.release]
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
+# https://doc.rust-lang.org/rustc/codegen-options/index.html#split-debuginfo
+split-debuginfo = "unpacked"
