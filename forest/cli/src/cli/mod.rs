@@ -9,6 +9,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
+mod db_cmd;
 mod fetch_params_cmd;
 mod genesis_cmd;
 mod mpool_cmd;
@@ -21,6 +22,7 @@ mod wallet_cmd;
 
 pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
+pub(super) use self::db_cmd::DBCommands;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
@@ -100,6 +102,9 @@ pub enum Subcommand {
 
     /// Send funds between accounts
     Send(SendCommand),
+
+    /// Database management
+    DB(DBCommands),
 }
 
 /// Pretty-print a JSON-RPC error and exit
@@ -198,6 +203,14 @@ pub(super) fn print_stdout(out: String) {
         .write("\n".as_bytes())
         .map_err(|e| handle_rpc_err(e.into()))
         .unwrap();
+}
+
+fn prompt_confirm() -> bool {
+    println!("Do you want to continue? [y/n]");
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line).unwrap();
+    let line = line.trim().to_lowercase();
+    line == "y" || line == "yes"
 }
 
 #[cfg(test)]
