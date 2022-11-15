@@ -41,5 +41,6 @@ pub(super) async fn process(command: Subcommand, config: Config) {
             cmd.run(config).await.unwrap();
         }
         Subcommand::Snapshot(cmd) => cmd.run(config).await,
+        Subcommand::DB(cmd) => cmd.run(&config).await,
     }
 }

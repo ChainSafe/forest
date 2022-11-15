@@ -35,6 +35,7 @@ forest_rpc-api.workspace         = true
 forest_rpc-client.workspace      = true
 forest_state_manager.workspace   = true
 forest_utils.workspace           = true
+fs_extra.workspace               = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_car.workspace           = true
@@ -43,6 +44,7 @@ fvm_shared                       = { workspace = true, default-features = false 
 git-version.workspace            = true
 hex.workspace                    = true
 http.workspace                   = true
+human-repr.workspace             = true
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
