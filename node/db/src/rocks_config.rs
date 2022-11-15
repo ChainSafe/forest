@@ -37,7 +37,7 @@ impl Default for RocksDbConfig {
             max_background_jobs: None,
             compaction_style: "level".into(),
             compression_type: "lz4".into(),
-            enable_statistics: false,
+            enable_statistics: true,
             stats_dump_period_sec: 600,
             log_level: "warn".into(),
             optimize_filters_for_hits: true,

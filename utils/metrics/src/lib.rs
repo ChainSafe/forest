@@ -21,7 +21,8 @@ pub async fn init_prometheus(
 
     // Create an configure HTTP server
     let app = Router::new()
-        .route("/metrics", get(collect_metrics))
+        .route("/metrics", get(collect_prometheus_metrics))
+        .route("/metrics/db", get(collect_db_metrics))
         .layer(axum::Extension(db));
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
@@ -29,7 +30,7 @@ pub async fn init_prometheus(
     Ok(server.await?)
 }
 
-async fn collect_metrics(axum::Extension(db): axum::Extension<RocksDb>) -> impl IntoResponse {
+async fn collect_prometheus_metrics() -> impl IntoResponse {
     let registry = prometheus::default_registry();
     let metric_families = registry.gather();
     let mut metrics = vec![];
@@ -39,9 +40,17 @@ async fn collect_metrics(axum::Extension(db): axum::Extension<RocksDb>) -> impl 
         .encode(&metric_families, &mut metrics)
         .expect("Encoding Prometheus metrics must succeed.");
 
+    (
+        StatusCode::OK,
+        [("content-type", "text/plain; charset=utf-8")],
+        metrics,
+    )
+}
+
+async fn collect_db_metrics(axum::Extension(db): axum::Extension<RocksDb>) -> impl IntoResponse {
+    let mut metrics = "# RocksDB statistics:\n".to_owned();
     if let Some(db_stats) = db.get_statistics() {
-        metrics.extend("\n# RocksDB statistics:\n".as_bytes());
-        metrics.extend(db_stats.as_bytes());
+        metrics.push_str(&db_stats);
     }
 
     (
