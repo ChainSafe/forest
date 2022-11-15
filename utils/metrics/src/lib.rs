@@ -51,8 +51,9 @@ async fn collect_db_metrics(axum::Extension(db): axum::Extension<RocksDb>) -> im
     let mut metrics = "# RocksDB statistics:\n".to_owned();
     if let Some(db_stats) = db.get_statistics() {
         metrics.push_str(&db_stats);
+    } else {
+        metrics.push_str("Not enabled. Set enable_statistics to true in config and restart daemon");
     }
-
     (
         StatusCode::OK,
         [("content-type", "text/plain; charset=utf-8")],
