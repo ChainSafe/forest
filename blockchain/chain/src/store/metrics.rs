@@ -9,7 +9,7 @@ lazy_static! {
         let lru_cache_hit = Box::new(
             GenericCounterVec::<AtomicU64>::new(
                 Opts::new("lru_cache_hit", "Stats of lru cache hit"),
-                &[labels::LRU_CACHE_HIT_KIND],
+                &[labels::KIND],
             )
             .expect("Defining the lru_cache_hit metric must succeed"),
         );
@@ -22,7 +22,7 @@ lazy_static! {
         let lru_cache_miss = Box::new(
             GenericCounterVec::<AtomicU64>::new(
                 Opts::new("lru_cache_miss", "Stats of lru cache miss"),
-                &[labels::LRU_CACHE_MISS_KIND],
+                &[labels::KIND],
             )
             .expect("Defining the lru_cache_miss metric must succeed"),
         );
@@ -34,17 +34,12 @@ lazy_static! {
 }
 
 pub mod labels {
-    pub const LRU_CACHE_HIT_KIND: &str = "lru_cache_hit_kind";
-    pub const LRU_CACHE_MISS_KIND: &str = "lru_cache_miss_kind";
+    pub const KIND: &str = "kind";
 }
 
 pub mod values {
-    /// Cache hit of `TipsetCache`.
-    pub const TIPSET_LRU_HIT: &str = "tipset_lru_hit";
-    /// Cache miss of `TipsetCache`.
-    pub const TIPSET_LRU_MISS: &str = "tipset_lru_miss";
-    /// Cache hit of look-back entries to speed up lookup in `ChainIndex`.
-    pub const SKIP_LRU_HIT: &str = "skip_lru_hit";
-    /// Cache miss of look-back entries to speed up lookup in `ChainIndex`.
-    pub const SKIP_LRU_MISS: &str = "skip_lru_miss";
+    /// `TipsetCache`.
+    pub const TIPSET: &str = "tipset";
+    /// Cache of look-back entries to speed up lookup in `ChainIndex`.
+    pub const SKIP: &str = "skip";
 }

@@ -674,7 +674,7 @@ where
 {
     if let Some(ts) = cache.write().await.get(tsk) {
         metrics::LRU_CACHE_HIT
-            .with_label_values(&[metrics::values::TIPSET_LRU_HIT])
+            .with_label_values(&[metrics::values::TIPSET])
             .inc();
         return Ok(ts.clone());
     }
@@ -694,7 +694,7 @@ where
     let ts = Arc::new(Tipset::new(block_headers)?);
     cache.write().await.put(tsk.clone(), ts.clone());
     metrics::LRU_CACHE_MISS
-        .with_label_values(&[metrics::values::TIPSET_LRU_MISS])
+        .with_label_values(&[metrics::values::TIPSET])
         .inc();
     Ok(ts)
 }
