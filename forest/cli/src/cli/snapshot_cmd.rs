@@ -382,14 +382,6 @@ fn delete_snapshot(snapshot_path: &PathBuf) {
     }
 }
 
-fn prompt_confirm() -> bool {
-    println!("Do you want to continue? [y/n]");
-    let mut line = String::new();
-    std::io::stdin().read_line(&mut line).unwrap();
-    let line = line.trim().to_lowercase();
-    line == "y" || line == "yes"
-}
-
 fn is_car_or_tmp(path: &Path) -> bool {
     let ext = path.extension().unwrap_or_default();
     ext == "car" || ext == "tmp" || ext == "aria2"

@@ -9,8 +9,8 @@ use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_cli_shared::cli::{
-    cli_error_and_die, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
-    FOREST_VERSION_STRING,
+    cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
+    Config, FOREST_VERSION_STRING,
 };
 use forest_db::rocks::RocksDb;
 use forest_fil_types::verifier::FullVerifier;
@@ -478,14 +478,6 @@ async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<Ro
             }
         }
     }
-}
-
-fn db_path(config: &Config) -> PathBuf {
-    chain_path(config).join("db")
-}
-
-fn chain_path(config: &Config) -> PathBuf {
-    PathBuf::from(&config.client.data_dir).join(&config.chain.name)
 }
 
 fn get_actual_chain_name(internal_network_name: &str) -> &str {
