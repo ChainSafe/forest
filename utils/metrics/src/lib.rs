@@ -22,7 +22,7 @@ pub async fn init_prometheus(
     // Create an configure HTTP server
     let app = Router::new()
         .route("/metrics", get(collect_prometheus_metrics))
-        .route("/metrics/db", get(collect_db_metrics))
+        .route("/stats/db", get(collect_db_metrics))
         .layer(axum::Extension(db));
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
