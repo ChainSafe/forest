@@ -3,8 +3,11 @@
 
 use super::errors::Error;
 use super::Store;
-use crate::rocks_config::{
-    compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
+use crate::{
+    metrics,
+    rocks_config::{
+        compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
+    },
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -135,6 +138,7 @@ impl Blockstore for RocksDb {
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        metrics::BLOCK_SIZE_BYTES.observe(block.len() as f64);
         self.write(k.to_bytes(), block).map_err(|e| e.into())
     }
 
@@ -148,6 +152,9 @@ impl Blockstore for RocksDb {
             .into_iter()
             .map(|(k, v)| (k.to_bytes(), v))
             .collect::<Vec<_>>();
+        for (_k, v) in &values {
+            metrics::BLOCK_SIZE_BYTES.observe(v.as_ref().len() as f64);
+        }
         self.bulk_write(&values).map_err(|e| e.into())
     }
 }
