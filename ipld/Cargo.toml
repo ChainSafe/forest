@@ -16,9 +16,9 @@ forest_encoding.workspace   = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
 indexmap                    = { version = "1.9", features = ["serde-1"] }
-libipld                     = { workspace = true, default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core                = { workspace = true, features = ["serde-codec"] }
 libipld-macro.workspace     = true
+libipld.workspace           = true
 multibase.workspace         = true
 serde                       = { workspace = true, features = ["derive"] }
 thiserror.workspace         = true
