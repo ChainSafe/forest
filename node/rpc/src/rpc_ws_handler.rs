@@ -168,7 +168,7 @@ async fn rpc_ws_handler_inner<DB, B>(
                     as Result<jsonrpc_v2::RequestObject, serde_json::Error>
                 {
                     Ok(rpc_call) => {
-                        async_std::task::spawn(async move {
+                        tokio::task::spawn(async move {
                             match rpc_ws_task::<DB, B>(
                                 authorization_header,
                                 rpc_call,

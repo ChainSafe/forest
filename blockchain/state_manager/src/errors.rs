@@ -3,6 +3,7 @@
 
 use forest_db::Error as DbErr;
 use thiserror::Error;
+use tokio::task::JoinError;
 
 /// State manager error
 #[derive(Debug, PartialEq, Error)]
@@ -35,6 +36,12 @@ impl From<String> for Error {
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
         Error::Other(e.to_string())
+    }
+}
+
+impl From<JoinError> for Error {
+    fn from(e: JoinError) -> Self {
+        Error::Other(format!("failed joining on tokio task: {e}"))
     }
 }
 
