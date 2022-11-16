@@ -10,8 +10,6 @@ use crate::tipset_syncer::{
     TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
-
-use async_std::stream::StreamExt;
 use cid::Cid;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
@@ -26,6 +24,7 @@ use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
@@ -390,7 +389,7 @@ where
                     .with_label_values(&[metrics::values::PEER_CONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
-                async_std::task::spawn(Self::handle_peer_connected_event(
+                tokio::task::spawn(Self::handle_peer_connected_event(
                     network.clone(),
                     chain_store.clone(),
                     peer_id,
@@ -403,7 +402,7 @@ where
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
                 // Spawn and immediately move on to the next event
-                async_std::task::spawn(Self::handle_peer_disconnected_event(
+                tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
                     peer_id,
                 ));
@@ -425,7 +424,7 @@ where
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
-                        async_std::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                        tokio::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
                     }
                     return Ok(None);
                 }

@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-async-std.workspace = true
 async-trait.workspace = true
 asynchronous-codec = "0.6"
 bytes.workspace = true
@@ -49,11 +48,11 @@ serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 smallvec.workspace = true
 # cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
-tiny-cid = "0.2"
-tokio    = { workspace = true, features = ["sync", "time"] }
+tiny-cid               = "0.2"
+tokio                  = { workspace = true, features = ["sync", "time"] }
+tokio-stream.workspace = true
 
 [dev-dependencies]
-async-std                   = { workspace = true, features = ["attributes", "unstable"] }
 forest_crypto               = { workspace = true, features = ["blst"] }
 forest_db.workspace         = true
 forest_genesis              = { workspace = true, features = ["testing"] }

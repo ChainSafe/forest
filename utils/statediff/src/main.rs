@@ -60,7 +60,7 @@ struct Cli {
     cmd: Subcommand,
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // Capture Cli inputs
     let Cli { cmd } = Cli::from_args();
