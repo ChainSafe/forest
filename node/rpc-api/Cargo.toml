@@ -23,7 +23,6 @@ forest_state_manager.workspace   = true
 forest_utils.workspace           = true
 # Public
 anyhow.workspace              = true
-async-std                     = { workspace = true, features = ["attributes"] }
 chrono.workspace              = true
 cid.workspace                 = true
 flume.workspace               = true

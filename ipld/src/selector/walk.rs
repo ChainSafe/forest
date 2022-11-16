@@ -212,7 +212,7 @@ mod tests {
     use multihash::Code::Blake2b256;
     use multihash::MultihashDigest;
 
-    #[async_std::test]
+    #[tokio::test]
     async fn basic_walk() {
         let selector = Selector::Matcher;
 
@@ -225,7 +225,7 @@ mod tests {
             .unwrap();
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn explore_fields() {
         let selector = Selector::ExploreFields {
             fields: IndexMap::from([("name".to_owned(), Selector::Matcher)]),
@@ -241,7 +241,7 @@ mod tests {
             .unwrap();
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn explore_index() {
         let selector = Selector::ExploreIndex {
             index: 2,
@@ -257,7 +257,7 @@ mod tests {
             .unwrap();
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn explore_range() {
         let selector = Selector::ExploreRange {
             start: 2,

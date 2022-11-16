@@ -11,7 +11,7 @@ use crate::{
     rpc::RequestResponseError,
 };
 use async_std::{stream, task};
-use cid::Cid;
+use cid::{multihash::Code::Blake2b256, Cid};
 use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
@@ -51,6 +51,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio_stream::wrappers::IntervalStream;
 
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -222,7 +223,8 @@ where
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
-        let mut interval = stream::interval(Duration::from_secs(15)).fuse();
+        let mut interval =
+            IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
@@ -233,50 +235,158 @@ where
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         loop {
             select! {
-                swarm_event = swarm_stream.next() => match swarm_event {
-                    // outbound events
-                    Some(SwarmEvent::Behaviour(event)) => {
-                        handle_forest_behaviour_event(
-                            swarm_stream.get_mut().behaviour_mut(),
-                            event,
-                            &self.cs,
-                            &self.network_sender_out,
-                            &mut hello_request_table,
-                            &mut cx_request_table,
-                            &mut outgoing_bitswap_query_ids,
-                            cx_response_tx.clone(),
-                            &pubsub_block_str,
-                            &pubsub_msg_str,).await;
-                    },
-                    None => { break; },
-                    _ => { },
-                },
-                rpc_message = network_stream.next() => match rpc_message {
-                    // Inbound messages
-                    Some(message) => {
-                        handle_network_message(
-                            swarm_stream.get_mut(),
-                            message,
-                            &self.network_sender_out,
-                            &mut hello_request_table,
-                            &mut cx_request_table,
-                            &mut outgoing_bitswap_query_ids).await;
-                    }
-                    None => { break; }
-                },
-                interval_event = interval.next() => if interval_event.is_some() {
-                    // Print peer count on an interval.
-                    debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
-                },
-                pair_opt = cx_response_rx_stream.next() => {
-                    if let Some((_request_id, channel, cx_response)) = pair_opt {
-                        let bh_mut = swarm_stream.get_mut().behaviour_mut();
-                        if let Err(e) = bh_mut.chain_exchange.send_response(channel, cx_response) {
-                            warn!("Error sending chain exchange response: {e:?}");
-                        }
-                    }
-                },
-            };
+                            swarm_event = swarm_stream.next() => match swarm_event {
+                                // outbound events
+            <<<<<<< HEAD
+                                Some(SwarmEvent::Behaviour(event)) => {
+                                    handle_forest_behaviour_event(
+                                        swarm_stream.get_mut().behaviour_mut(),
+                                        event,
+                                        &self.cs,
+                                        &self.network_sender_out,
+                                        &mut hello_request_table,
+                                        &mut cx_request_table,
+                                        &mut outgoing_bitswap_query_ids,
+                                        cx_response_tx.clone(),
+                                        &pubsub_block_str,
+                                        &pubsub_msg_str,).await;
+                                },
+                                None => { break; },
+                                _ => { },
+            =======
+                                Some(event) => match event {
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::PeerConnected(peer_id)) => {
+                                        debug!("Peer connected, {:?}", peer_id);
+                                        emit_event(&self.network_sender_out,
+                                            NetworkEvent::PeerConnected(peer_id)).await;
+                                    }
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::PeerDisconnected(peer_id)) => {
+                                        emit_event(&self.network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
+                                    }
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::GossipMessage {
+                                        source,
+                                        topic,
+                                        message,
+                                    }) => {
+                                        trace!("Got a Gossip Message from {:?}", source);
+                                        let topic = topic.as_str();
+                                        if topic == pubsub_block_str {
+                                            match from_slice::<GossipBlock>(&message) {
+                                                Ok(b) => {
+                                                    emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                                        source,
+                                                        message: PubsubMessage::Block(b),
+                                                    }).await;
+                                                }
+                                                Err(e) => {
+                                                    warn!("Gossip Block from peer {:?} could not be deserialized: {}", source, e);
+                                                }
+                                            }
+                                        } else if topic == pubsub_msg_str {
+                                            match from_slice::<SignedMessage>(&message) {
+                                                Ok(m) => {
+                                                    emit_event(&self.network_sender_out, NetworkEvent::PubsubMessage{
+                                                        source,
+                                                        message: PubsubMessage::Message(m),
+                                                    }).await;
+                                                }
+                                                Err(e) => {
+                                                    warn!("Gossip Message from peer {:?} could not be deserialized: {}", source, e);
+                                                }
+                                            }
+                                        } else {
+                                            warn!("Getting gossip messages from unknown topic: {}", topic);
+                                        }
+                                    }
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::HelloRequest { request,  peer } )=> {
+                                        debug!("Received hello request (peer_id: {:?})", peer);
+                                        emit_event(&self.network_sender_out, NetworkEvent::HelloRequest {
+                                            request,
+                                            source: peer,
+                                        }).await;
+                                    }
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::ChainExchangeRequest { channel, peer, request }) => {
+                                        debug!("Received chain_exchange request (peer_id: {:?})", peer);
+                                        let db = self.cs.clone();
+
+                                        tokio::task::spawn(async move {
+                                            channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
+                                        });
+                                    }
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedBlock(_peer_id, cid, block)) => {
+                                        let res: Result<_, String> = self.cs.blockstore().put_raw(block.into(), Blake2b256).map_err(|e| e.to_string());
+                                        match res {
+                                            Ok(actual_cid) => {
+                                                if actual_cid != cid {
+                                                    warn!("Bitswap cid mismatch: cid {:?}, expected cid: {:?}", actual_cid, cid);
+                                                } else if let Some (chans) = self.bitswap_response_channels.remove(&cid) {
+                                                        for chan in chans.into_iter(){
+                                                            if chan.send(()).is_err() {
+                                                                debug!("Bitswap response channel send failed");
+                                                            }
+                                                            trace!("Saved Bitswap block with cid {:?}", cid);
+                                                    }
+                                                } else {
+                                                    debug!("Received Bitswap response, but response channel cannot be found");
+                                                }
+                                                emit_event(&self.network_sender_out, NetworkEvent::BitswapBlock{cid}).await;
+                                            }
+                                            Err(e) => {
+                                                warn!("failed to save bitswap block: {:?}", e.to_string());
+                                            }
+                                        }
+                                    },
+                                    SwarmEvent::Behaviour(ForestBehaviourEvent::BitswapReceivedWant(peer_id, cid,)) => match self.cs.blockstore().get_obj(&cid) {
+                                        Ok(Some(data)) => {
+                                            match swarm_stream.get_mut().behaviour_mut().send_block(&peer_id, cid, data) {
+                                                Ok(_) => {
+                                                    trace!("Sent bitswap message successfully");
+                                                },
+                                                Err(e) => {
+                                                    warn!("Failed to send Bitswap reply: {}", e.to_string());
+                                                },
+                                            }
+                                        }
+                                        Ok(None) => {
+                                            trace!("Don't have data for: {}", cid);
+                                        }
+                                        Err(e) => {
+                                            trace!("Failed to get data: {}", e.to_string());
+                                        }
+                                    },
+                                    _ => {
+                                        continue;
+                                    }
+                                }
+                                None => { break; }
+            >>>>>>> origin/main
+                            },
+                            rpc_message = network_stream.next() => match rpc_message {
+                                // Inbound messages
+                                Some(message) => {
+                                    handle_network_message(
+                                        swarm_stream.get_mut(),
+                                        message,
+                                        &self.network_sender_out,
+                                        &mut hello_request_table,
+                                        &mut cx_request_table,
+                                        &mut outgoing_bitswap_query_ids).await;
+                                }
+                                None => { break; }
+                            },
+                            interval_event = interval.next() => if interval_event.is_some() {
+                                // Print peer count on an interval.
+                                debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                            },
+                            pair_opt = cx_response_rx_stream.next() => {
+                                if let Some((_request_id, channel, cx_response)) = pair_opt {
+                                    let bh_mut = swarm_stream.get_mut().behaviour_mut();
+                                    if let Err(e) = bh_mut.chain_exchange.send_response(channel, cx_response) {
+                                        warn!("Error sending chain exchange response: {e:?}");
+                                    }
+                                }
+                            },
+                        };
         }
     }
 
