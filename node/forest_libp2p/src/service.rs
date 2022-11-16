@@ -10,7 +10,6 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::{stream, task};
 use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
@@ -51,6 +50,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio_stream::wrappers::IntervalStream;
 
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -225,7 +225,8 @@ where
     pub async fn run(self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
-        let mut interval = stream::interval(Duration::from_secs(15)).fuse();
+        let mut interval =
+            IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
@@ -693,7 +694,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                     )
                     .await;
                     let db = db.clone();
-                    task::spawn(async move {
+                    tokio::task::spawn(async move {
                         if let Err(e) = cx_response_tx.send((
                             request_id,
                             channel,

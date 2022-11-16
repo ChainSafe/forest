@@ -197,7 +197,7 @@ pub mod labels {
 }
 
 pub mod values {
-    // gosssipsub_message_total
+    // libp2p_message_total
     pub const HELLO_REQUEST_INBOUND: &str = "hello_request_in";
     pub const HELLO_RESPONSE_OUTBOUND: &str = "hello_response_out";
     pub const HELLO_REQUEST_OUTBOUND: &str = "hello_request_out";

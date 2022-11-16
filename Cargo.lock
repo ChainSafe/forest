@@ -254,16 +254,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-attributes"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
-dependencies = [
- "quote 1.0.21",
- "syn 1.0.103",
-]
-
-[[package]]
 name = "async-channel"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -311,7 +301,6 @@ dependencies = [
  "blocking",
  "futures-lite",
  "once_cell",
- "tokio",
 ]
 
 [[package]]
@@ -417,7 +406,6 @@ version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62565bb4402e926b29953c785397c6dc0391b7b446e45008b0049eb43cec6f5d"
 dependencies = [
- "async-attributes",
  "async-channel",
  "async-global-executor",
  "async-io",
@@ -639,12 +627,12 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
 dependencies = [
- "async-std",
  "futures-core",
  "getrandom 0.2.8",
  "instant",
  "pin-project-lite 0.2.9",
  "rand 0.8.5",
+ "tokio",
 ]
 
 [[package]]
@@ -775,7 +763,7 @@ dependencies = [
  "funty 2.0.0",
  "radium 0.7.0",
  "tap",
- "wyz 0.5.0",
+ "wyz 0.5.1",
 ]
 
 [[package]]
@@ -1223,15 +1211,6 @@ dependencies = [
  "textwrap",
  "unicode-width",
  "vec_map",
-]
-
-[[package]]
-name = "cmake"
-version = "0.1.49"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db34956e100b30725f2eb215f90d4871051239535632f84fea3bc92722c66b7c"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -2726,7 +2705,6 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "async-log",
- "async-std",
  "base64 0.13.1",
  "cid",
  "directories",
@@ -2798,7 +2776,6 @@ version = "0.4.1"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "atty",
  "base64 0.13.1",
  "chrono",
@@ -2929,7 +2906,6 @@ version = "0.2.0"
 dependencies = [
  "ahash 0.8.2",
  "anyhow",
- "async-std",
  "async-trait",
  "base64 0.13.1",
  "bls-signatures",
@@ -2951,7 +2927,6 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
- "async-std",
  "base64 0.13.1",
  "byteorder",
  "cid",
@@ -2976,6 +2951,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -2983,13 +2959,13 @@ name = "forest_chain"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-stream",
  "blake2b_simd",
  "bls-signatures",
  "byteorder",
  "cid",
  "digest 0.10.5",
+ "flume",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -3009,10 +2985,12 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
+ "lazy_static",
  "log",
  "lru",
  "multihash",
  "num-traits",
+ "prometheus",
  "serde",
  "thiserror",
  "tokio",
@@ -3024,7 +3002,6 @@ name = "forest_chain_sync"
 version = "0.2.1"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "base64 0.13.1",
  "cid",
@@ -3080,7 +3057,6 @@ version = "0.4.1"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "atty",
  "axum",
  "base64 0.13.1",
@@ -3176,10 +3152,12 @@ dependencies = [
  "cid",
  "forest_encoding",
  "fvm_ipld_blockstore",
+ "lazy_static",
  "libipld",
  "libp2p-bitswap",
  "num_cpus",
  "parking_lot 0.12.1",
+ "prometheus",
  "rocksdb",
  "serde",
  "tempfile",
@@ -3191,7 +3169,6 @@ name = "forest_deleg_cns"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "cid",
  "forest_actor_interface",
@@ -3214,6 +3191,7 @@ dependencies = [
  "nonempty",
  "thiserror",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -3233,7 +3211,6 @@ name = "forest_fil_cns"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "cid",
  "fil_actors_runtime_common",
@@ -3288,7 +3265,6 @@ name = "forest_genesis"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "cid",
  "forest_blocks",
  "forest_chain",
@@ -3323,7 +3299,6 @@ version = "0.2.0"
 dependencies = [
  "ahash 0.8.2",
  "anyhow",
- "async-std",
  "byteorder",
  "cid",
  "fil_actors_runtime_common",
@@ -3355,7 +3330,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-recursion",
- "async-std",
  "async-trait",
  "cid",
  "forest_db",
@@ -3375,6 +3349,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3451,7 +3426,6 @@ name = "forest_libp2p"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "asynchronous-codec",
  "bytes 1.2.1",
@@ -3486,6 +3460,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "tokio",
+ "tokio-stream",
  "tokio-util",
 ]
 
@@ -3512,7 +3487,6 @@ name = "forest_message_pool"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "blake2b_simd",
  "cid",
@@ -3579,7 +3553,6 @@ name = "forest_paramfetch"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "backoff",
  "blake2b_simd",
  "fvm_shared",
@@ -3598,7 +3571,6 @@ name = "forest_rpc"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "axum",
  "base64 0.13.1",
  "bls-signatures",
@@ -3656,7 +3628,6 @@ name = "forest_rpc-api"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "chrono",
  "cid",
  "flume",
@@ -3694,7 +3665,6 @@ dependencies = [
 name = "forest_rpc-client"
 version = "0.2.0"
 dependencies = [
- "async-std",
  "forest_blocks",
  "forest_crypto",
  "forest_key_management",
@@ -3716,7 +3686,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "blake2b_simd",
  "byteorder",
  "cid",
@@ -3771,7 +3740,6 @@ name = "forest_statediff"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "cid",
  "colored",
  "difference",
@@ -3789,6 +3757,7 @@ dependencies = [
  "serde",
  "serde_json",
  "structopt",
+ "tokio",
 ]
 
 [[package]]
@@ -3943,8 +3912,7 @@ checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 [[package]]
 name = "funty"
 version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
+source = "git+https://github.com/bitvecto-rs/funty/?rev=7ef0d890fbcd8b3def1635ac1a877fc298488446#7ef0d890fbcd8b3def1635ac1a877fc298488446"
 
 [[package]]
 name = "funty"
@@ -4671,9 +4639,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d87c48c02e0dc5e3b849a2041db3029fd066650f8f717c07bf8ed78ccb895cac"
+checksum = "59df7c4e19c950e6e0e868dcc0a300b09a9b88e9ec55bd879ca819087a77355d"
 dependencies = [
  "http",
  "hyper",
@@ -4979,7 +4947,6 @@ dependencies = [
  "libipld-core 0.14.0",
  "libipld-json",
  "libipld-macro",
- "libipld-pb",
  "log",
  "multihash",
  "parking_lot 0.12.1",
@@ -5062,18 +5029,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libipld-pb"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c003be513496578115256a1b4ac7b80d4ece2462c9869dfb736fd30d8bb1d1c0"
-dependencies = [
- "libipld-core 0.14.0",
- "prost 0.10.4",
- "prost-build 0.10.4",
- "thiserror",
-]
-
-[[package]]
 name = "libloading"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5126,7 +5081,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.24.0"
-source = "git+https://github.com/hanabi1224/libp2p-bitswap?branch=forest#1500a58b6c155a544a1a5748c8efb9d65314218b"
+source = "git+https://github.com/hanabi1224/libp2p-bitswap?branch=forest#84cca35f0b69574335e6d8579b3dc4f646e3499c"
 dependencies = [
  "async-trait",
  "fnv",
@@ -5135,8 +5090,8 @@ dependencies = [
  "libipld",
  "libp2p",
  "prometheus",
- "prost 0.11.2",
- "prost-build 0.11.2",
+ "prost",
+ "prost-build",
  "thiserror",
  "tracing",
  "unsigned-varint",
@@ -5163,8 +5118,8 @@ dependencies = [
  "multistream-select",
  "parking_lot 0.12.1",
  "pin-project",
- "prost 0.11.2",
- "prost-build 0.11.2",
+ "prost",
+ "prost-build",
  "rand 0.8.5",
  "rw-stream-sink",
  "sha2 0.10.6",
@@ -5208,8 +5163,8 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "prometheus-client",
- "prost 0.11.2",
- "prost-build 0.11.2",
+ "prost",
+ "prost-build",
  "rand 0.8.5",
  "regex",
  "sha2 0.10.6",
@@ -5231,8 +5186,8 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "lru",
- "prost 0.11.2",
- "prost-build 0.11.2",
+ "prost",
+ "prost-build",
  "prost-codec",
  "smallvec",
  "thiserror",
@@ -5256,8 +5211,8 @@ dependencies = [
  "libp2p-core",
  "libp2p-swarm",
  "log",
- "prost 0.11.2",
- "prost-build 0.11.2",
+ "prost",
+ "prost-build",
  "rand 0.8.5",
  "sha2 0.10.6",
  "smallvec",
@@ -5332,8 +5287,8 @@ dependencies = [
  "lazy_static",
  "libp2p-core",
  "log",
- "prost 0.11.2",
- "prost-build 0.11.2",
+ "prost",
+ "prost-build",
  "rand 0.8.5",
  "sha2 0.10.6",
  "snow",
@@ -5444,9 +5399,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-yamux"
-version = "0.41.0"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30f079097a21ad017fc8139460630286f02488c8c13b26affb46623aa20d8845"
+checksum = "0d6874d66543c4f7e26e3b8ca9a6bead351563a13ab4fafd43c7927f7c0d6c12"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -6628,44 +6583,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71adf41db68aa0daaefc69bb30bcd68ded9b9abaad5d1fbb6304c4fb390e083e"
-dependencies = [
- "bytes 1.2.1",
- "prost-derive 0.10.1",
-]
-
-[[package]]
-name = "prost"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0841812012b2d4a6145fae9a6af1534873c32aa67fff26bd09f8fa42c83f95a"
 dependencies = [
  "bytes 1.2.1",
- "prost-derive 0.11.2",
-]
-
-[[package]]
-name = "prost-build"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ae5a4388762d5815a9fc0dea33c56b021cdc8dde0c55e0c9ca57197254b0cab"
-dependencies = [
- "bytes 1.2.1",
- "cfg-if 1.0.0",
- "cmake",
- "heck 0.4.0",
- "itertools 0.10.5",
- "lazy_static",
- "log",
- "multimap",
- "petgraph",
- "prost 0.10.4",
- "prost-types 0.10.1",
- "regex",
- "tempfile",
- "which",
+ "prost-derive",
 ]
 
 [[package]]
@@ -6682,8 +6605,8 @@ dependencies = [
  "multimap",
  "petgraph",
  "prettyplease",
- "prost 0.11.2",
- "prost-types 0.11.2",
+ "prost",
+ "prost-types",
  "regex",
  "syn 1.0.103",
  "tempfile",
@@ -6698,22 +6621,9 @@ checksum = "011ae9ff8359df7915f97302d591cdd9e0e27fbd5a4ddc5bd13b71079bb20987"
 dependencies = [
  "asynchronous-codec",
  "bytes 1.2.1",
- "prost 0.11.2",
+ "prost",
  "thiserror",
  "unsigned-varint",
-]
-
-[[package]]
-name = "prost-derive"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b670f45da57fb8542ebdbb6105a925fe571b67f9e7ed9f47a06a84e72b4e7cc"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "proc-macro2 1.0.47",
- "quote 1.0.21",
- "syn 1.0.103",
 ]
 
 [[package]]
@@ -6731,22 +6641,12 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d0a014229361011dc8e69c8a1ec6c2e8d0f2af7c91e3ea3f5b2170298461e68"
-dependencies = [
- "bytes 1.2.1",
- "prost 0.10.4",
-]
-
-[[package]]
-name = "prost-types"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "747761bc3dc48f9a34553bf65605cf6cb6288ba219f3450b4275dbd81539551a"
 dependencies = [
  "bytes 1.2.1",
- "prost 0.11.2",
+ "prost",
 ]
 
 [[package]]
@@ -8461,6 +8361,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-stream"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d660770404473ccd7bc9f8b28494a811bc18542b915c0855c51e8f419d5223ce"
+dependencies = [
+ "futures-core",
+ "pin-project-lite 0.2.9",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-tungstenite"
 version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9397,9 +9308,9 @@ dependencies = [
 
 [[package]]
 name = "wyz"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30b31594f29d27036c383b53b59ed3476874d518f0efb151b27a4c275141390e"
+checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
 ]

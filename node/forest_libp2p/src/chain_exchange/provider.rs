@@ -166,7 +166,7 @@ mod tests {
         (cids, db)
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn compact_messages_test() {
         let (cids, db) = populate_db().await;
 
