@@ -40,6 +40,11 @@ members = [
 ]
 resolver = "2"
 
+[patch.crates-io]
+# temporary solution to funty@1.2.0 being yanked, we should propose bitvec upgrade to upstream filecoin crates
+# tracking issue: https://github.com/bitvecto-rs/funty/issues/7
+funty = { git = "https://github.com/bitvecto-rs/funty/", rev = "7ef0d890fbcd8b3def1635ac1a877fc298488446" }
+
 [workspace.dependencies]
 ahash                 = "0.8"
 anyhow                = "1.0"
@@ -102,7 +107,7 @@ hyper                 = "0.14"
 hyper-rustls          = "0.23"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
-libipld               = "0.14"
+libipld               = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
 libp2p                = { version = "0.46", default-features = false }
