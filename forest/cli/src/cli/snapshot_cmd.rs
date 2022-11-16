@@ -16,6 +16,7 @@ use std::{
 use strfmt::strfmt;
 use structopt::StructOpt;
 use time::{format_description::well_known::Iso8601, Date, OffsetDateTime};
+use url::Url;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -57,6 +58,15 @@ pub enum SnapshotCommands {
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
+        /// Download snapshot from other trusted sources, default is None
+        #[structopt(long)]
+        custom_url: Option<Url>,
+        /// Download compressed snapshot file, default is false
+        #[structopt(long)]
+        compressed: bool,
+        /// Skip checksum validation of downloaded file, default is false
+        #[structopt(long)]
+        skip_checksum_validation: bool,
     },
 
     /// Shows default snapshot dir
@@ -173,11 +183,23 @@ impl SnapshotCommands {
             Self::Fetch {
                 snapshot_dir,
                 aria2: use_aria2,
+                custom_url,
+                compressed,
+                skip_checksum_validation,
             } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(&snapshot_dir, &config, *use_aria2).await {
+                match snapshot_fetch(
+                    &snapshot_dir,
+                    &config,
+                    *use_aria2,
+                    custom_url.clone(),
+                    *compressed,
+                    *skip_checksum_validation,
+                )
+                .await
+                {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
