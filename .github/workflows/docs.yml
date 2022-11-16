@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Install Protoc
-        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Link Checker (Repo)

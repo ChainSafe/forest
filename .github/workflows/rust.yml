@@ -24,8 +24,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Install Protoc
-        run: ./scripts/install_protoc_linux.sh
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
@@ -47,8 +45,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Install Protoc
-        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - uses: actions/cache@v3
@@ -78,10 +74,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Install Protoc (Linux)
-        run: ./scripts/install_protoc_linux.sh
-        if: startsWith(matrix.os, 'Ubuntu')
-        # MacOS runners always get rate limited when calling gh api
       - name: Install Protoc (MacOS)
         if: startsWith(matrix.os, 'macOS')
         run: |
@@ -121,8 +113,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Install Protoc
-        run: ./scripts/install_protoc_linux.sh
       - name: Apt Dependencies
         run: sudo make install-deps
       - name: Setup sccache

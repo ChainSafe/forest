@@ -19,22 +19,14 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
-      - name: Install Protoc (Linux)
-        run: ./scripts/install_protoc_linux.sh
-        if: startsWith(matrix.os, 'Ubuntu')
-        # MacOS runners always get rate limited when calling gh api
-      - name: Install Protoc (MacOS)
-        if: startsWith(matrix.os, 'macOS')
-        run: |
-          brew install protobuf
-          protoc --version
       - name: Apt Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
         run: sudo make install-deps
       - name: Homebrew Utils
         if: startsWith(matrix.os, 'macOS')
         run: |
-          brew install --verbose coreutils
+          brew install --verbose coreutils protobuf
+          protoc --version
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
