@@ -68,7 +68,7 @@ rustup install nightly
 # Ubuntu (20.04)
 sudo make install-deps
 # Or
-sudo apt install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev cmake
+sudo apt install build-essential clang ocl-icd-opencl-dev cmake
 
 # Archlinux
 sudo pacman -S base-devel clang ocl-icd openssl
