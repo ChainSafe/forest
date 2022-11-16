@@ -6,7 +6,6 @@ mod daemon;
 
 use cli::Cli;
 
-use async_std::task;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, Config, ConfigPath, DaemonConfig, LogConfig},
@@ -21,6 +20,7 @@ use rlimit::{getrlimit, Resource};
 use shared_memory::ShmemConf;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
+use tokio::runtime::Runtime;
 
 use std::fs::File;
 use std::process;
@@ -183,7 +183,9 @@ fn main() {
                             }
                         }
                     }
-                    task::block_on(daemon::start(cfg, opts.detach));
+
+                    let rt = Runtime::new().unwrap();
+                    rt.block_on(daemon::start(cfg, opts.detach));
                 }
             }
         }

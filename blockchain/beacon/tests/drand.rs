@@ -31,12 +31,12 @@ pub struct BeaconEntryJson {
     previous_signature: String,
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn construct_drand_beacon() {
     new_beacon().await;
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn ask_and_verify_beacon_entry_fail() {
     let beacon = new_beacon().await;
 

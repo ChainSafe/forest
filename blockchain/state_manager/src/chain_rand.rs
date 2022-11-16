@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::{bail, Context};
-use async_std::task;
 use blake2b_simd::Params;
 use byteorder::{BigEndian, WriteBytesExt};
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon};
@@ -23,6 +22,7 @@ pub struct ChainRand<DB> {
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
+    async_handle: tokio::runtime::Handle,
 }
 
 impl<DB> Clone for ChainRand<DB> {
@@ -32,6 +32,7 @@ impl<DB> Clone for ChainRand<DB> {
             blks: self.blks.clone(),
             cs: self.cs.clone(),
             beacon: self.beacon.clone(),
+            async_handle: self.async_handle.clone(),
         }
     }
 }
@@ -45,12 +46,14 @@ where
         blks: TipsetKeys,
         cs: Arc<ChainStore<DB>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
+        async_handle: tokio::runtime::Handle,
     ) -> Self {
         Self {
             chain_config,
             blks,
             cs,
             beacon,
+            async_handle,
         }
     }
 
@@ -233,8 +236,10 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        // XXX: This `block_on` can be removed by adding a runtime Handle to `ChainRand`.
-        task::block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
+        tokio::task::block_in_place(move || {
+            self.async_handle
+                .block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
+        })
     }
 
     fn get_beacon_randomness(
@@ -243,8 +248,10 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        // XXX: This `block_on` can be removed by adding a runtime Handle to `ChainRand`.
-        task::block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
+        tokio::task::block_in_place(move || {
+            self.async_handle
+                .block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
+        })
     }
 }
 

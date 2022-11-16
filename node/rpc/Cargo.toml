@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 # Public
 anyhow.workspace                 = true
-async-std                        = { workspace = true, features = ["attributes"] }
 axum                             = { workspace = true, features = ["ws"] }
 base64.workspace                 = true
 bls-signatures.workspace         = true

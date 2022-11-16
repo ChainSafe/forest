@@ -31,7 +31,7 @@ impl ConfigCommands {
 mod tests {
     use super::*;
 
-    #[async_std::test]
+    #[tokio::test]
     async fn given_default_configuration_should_print_valid_toml() {
         let expected_config = Config::default();
         let mut sink = std::io::BufWriter::new(Vec::new());
