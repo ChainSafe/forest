@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
-use async_std::task;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
@@ -31,6 +30,7 @@ use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use std::net::TcpListener;
 use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -132,7 +132,7 @@ pub(super) async fn start(config: Config, detached: bool) {
             .unwrap();
     }
 
-    let mut services = vec![];
+    let mut services = JoinSet::new();
 
     {
         // Start Prometheus server port
@@ -151,12 +151,12 @@ pub(super) async fn start(config: Config, detached: bool) {
             .into_os_string()
             .into_string()
             .expect("Failed converting the path to db");
-        services.push(task::spawn(async {
+        services.spawn(async {
             if let Err(e) = forest_metrics::init_prometheus(prometheus_listener, db_directory).await
             {
                 error!("Failed to initiate prometheus server: {e}");
             }
-        }));
+        });
     }
 
     // Print admin token
@@ -258,17 +258,17 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     // Initialize mpool
     let provider = MpoolRpcProvider::new(publisher.clone(), Arc::clone(&state_manager));
-    let (mpool, head_changes_task, republish_task) = MessagePool::with_tasks(
+    let mpool = MessagePool::new(
         provider,
         network_name.clone(),
         network_send.clone(),
         MpoolConfig::load_config(&db).unwrap(),
         Arc::clone(state_manager.chain_config()),
+        &mut services,
     )
     .await
     .unwrap();
-    services.push(head_changes_task);
-    services.push(republish_task);
+
     let mpool = Arc::new(mpool);
 
     // For consensus types that do mining, create a component to submit their proposals.
@@ -279,11 +279,9 @@ pub(super) async fn start(config: Config, detached: bool) {
     );
 
     // Initialize Consensus. Mining may or may not happen, depending on type.
-    let (consensus, mut mining_tasks) =
-        cns::consensus(&state_manager, &keystore, &mpool, submitter)
-            .await
-            .unwrap();
-    services.append(&mut mining_tasks);
+    let consensus = cns::consensus(&state_manager, &keystore, &mpool, submitter, &mut services)
+        .await
+        .unwrap();
 
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
@@ -301,9 +299,9 @@ pub(super) async fn start(config: Config, detached: bool) {
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    services.push(task::spawn(async {
+    services.spawn(async {
         chain_muxer.await;
-    }));
+    });
 
     // Start services
     if config.client.enable_rpc {
@@ -314,7 +312,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
-        services.push(task::spawn(async move {
+        services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
             let _ = start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
@@ -334,7 +332,7 @@ pub(super) async fn start(config: Config, detached: bool) {
                 FOREST_VERSION_STRING.as_str(),
             )
             .await;
-        }))
+        });
     } else {
         debug!("RPC disabled.");
     };
@@ -360,9 +358,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
         _ = ctrlc_oneshot => {
             // Cancel all async services
-            for handle in services {
-                handle.cancel().await;
-            }
+            services.shutdown().await;
             return;
         },
     }
@@ -370,14 +366,12 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Halt
     if config.client.halt_after_import {
         // Cancel all async services
-        for handle in services {
-            handle.cancel().await;
-        }
+        services.shutdown().await;
         info!("Forest finish shutdown");
         return;
     }
 
-    services.push(task::spawn(p2p_service.run()));
+    services.spawn(p2p_service.run());
 
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
@@ -385,15 +379,14 @@ pub(super) async fn start(config: Config, detached: bool) {
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
 
-    let keystore_write = task::spawn(async move {
+    let keystore_write = tokio::task::spawn(async move {
         keystore.read().await.flush().unwrap();
     });
 
     // Cancel all async services
-    for handle in services {
-        handle.cancel().await;
-    }
-    keystore_write.await;
+    services.shutdown().await;
+
+    keystore_write.await.expect("keystore write failed");
 
     if db_weak_ref.strong_count() != 0 {
         error!(
@@ -496,7 +489,7 @@ mod test {
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
 
-    #[async_std::test]
+    #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("test_files/chain4.car")
             .await
@@ -504,20 +497,20 @@ mod test {
         Ok(())
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn import_snapshot_from_file_invalid() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("Cargo.toml").await.is_err());
         Ok(())
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn import_snapshot_from_file_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("dummy.car").await.is_err());
         Ok(())
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn import_snapshot_from_url_not_found() -> anyhow::Result<()> {
         anyhow::ensure!(import_snapshot_from_file("https://dummy.com/dummy.car")
             .await

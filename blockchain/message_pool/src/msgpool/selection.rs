@@ -689,10 +689,11 @@ mod test_selection {
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
     use std::sync::Arc;
+    use tokio::task::JoinSet;
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
-    async fn make_test_mpool() -> MessagePool<TestApi> {
+    async fn make_test_mpool(joinset: &mut JoinSet<()>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
         MessagePool::new(
@@ -701,15 +702,17 @@ mod test_selection {
             tx,
             Default::default(),
             Arc::default(),
+            joinset,
         )
         .await
         .unwrap()
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn basic_message_selection() {
-        let mpool = make_test_mpool().await;
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset).await;
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -876,12 +879,13 @@ mod test_selection {
         }
     }
 
-    #[async_std::test]
+    #[tokio::test]
     // #[ignore = "test is incredibly slow"]
     // TODO optimize logic tested in this function
     #[cfg(feature = "slow_tests")]
     async fn message_selection_trimming() {
-        let mpool = make_test_mpool().await;
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset).await;
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -956,11 +960,12 @@ mod test_selection {
         assert!(m_gas_lim <= fvm_shared::BLOCK_GAS_LIMIT);
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn message_selection_priority() {
         let db = MemoryDB::default();
 
-        let mut mpool = make_test_mpool().await;
+        let mut joinset = JoinSet::new();
+        let mut mpool = make_test_mpool(&mut joinset).await;
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -1055,13 +1060,14 @@ mod test_selection {
         }
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn test_optimal_msg_selection1() {
         // this test uses just a single actor sending messages with a low tq
         // the chain depenent merging algorithm should pick messages from the actor
         // from the start
-        let mpool = make_test_mpool().await;
+        let mut joinset = JoinSet::new();
+        let mpool = make_test_mpool(&mut joinset).await;
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1137,14 +1143,15 @@ mod test_selection {
         }
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn test_optimal_msg_selection2() {
+        let mut joinset = JoinSet::new();
         // this test uses two actors sending messages to each other, with the first
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the second actor from the start
-        let mpool = make_test_mpool().await;
+        let mpool = make_test_mpool(&mut joinset).await;
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1253,14 +1260,15 @@ mod test_selection {
         }
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn test_optimal_message_selection3() {
+        let mut joinset = JoinSet::new();
         // this test uses 10 actors sending a block of messages to each other, with the the first
         // actors paying higher gas premium than the subsequent actors.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the median actor from the start
-        let mpool = make_test_mpool().await;
+        let mpool = make_test_mpool(&mut joinset).await;
 
         let n_actors = 10;
 

@@ -311,7 +311,6 @@ dependencies = [
  "blocking",
  "futures-lite",
  "once_cell",
- "tokio",
 ]
 
 [[package]]
@@ -639,12 +638,12 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
 dependencies = [
- "async-std",
  "futures-core",
  "getrandom 0.2.8",
  "instant",
  "pin-project-lite 0.2.9",
  "rand 0.8.5",
+ "tokio",
 ]
 
 [[package]]
@@ -2750,7 +2749,6 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "async-log",
- "async-std",
  "base64 0.13.1",
  "cid",
  "directories",
@@ -2822,7 +2820,6 @@ version = "0.4.1"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "atty",
  "base64 0.13.1",
  "chrono",
@@ -2953,7 +2950,6 @@ version = "0.2.0"
 dependencies = [
  "ahash 0.8.2",
  "anyhow",
- "async-std",
  "async-trait",
  "base64 0.13.1",
  "bls-signatures",
@@ -2975,7 +2971,6 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
- "async-std",
  "base64 0.13.1",
  "byteorder",
  "cid",
@@ -3000,6 +2995,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3007,13 +3003,13 @@ name = "forest_chain"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-stream",
  "blake2b_simd 1.0.0",
  "bls-signatures",
  "byteorder",
  "cid",
  "digest 0.10.5",
+ "flume",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -3048,7 +3044,6 @@ name = "forest_chain_sync"
 version = "0.2.1"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "base64 0.13.1",
  "cid",
@@ -3104,7 +3099,6 @@ version = "0.4.1"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "atty",
  "axum",
  "base64 0.13.1",
@@ -3215,7 +3209,6 @@ name = "forest_deleg_cns"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "cid",
  "forest_actor_interface",
@@ -3238,6 +3231,7 @@ dependencies = [
  "nonempty",
  "thiserror",
  "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -3257,7 +3251,6 @@ name = "forest_fil_cns"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "cid",
  "fil_actors_runtime_common",
@@ -3312,7 +3305,6 @@ name = "forest_genesis"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "cid",
  "forest_blocks",
  "forest_chain",
@@ -3347,7 +3339,6 @@ version = "0.2.0"
 dependencies = [
  "ahash 0.8.2",
  "anyhow",
- "async-std",
  "byteorder",
  "cid",
  "fil_actors_runtime_common",
@@ -3379,7 +3370,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-recursion",
- "async-std",
  "async-trait",
  "cid",
  "forest_db",
@@ -3399,6 +3389,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -3475,7 +3466,6 @@ name = "forest_libp2p"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "asynchronous-codec",
  "bytes 1.2.1",
@@ -3509,6 +3499,7 @@ dependencies = [
  "smallvec",
  "tiny-cid",
  "tokio",
+ "tokio-stream",
  "tokio-util",
 ]
 
@@ -3535,7 +3526,6 @@ name = "forest_message_pool"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "async-trait",
  "blake2b_simd 1.0.0",
  "cid",
@@ -3602,7 +3592,6 @@ name = "forest_paramfetch"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "backoff",
  "blake2b_simd 1.0.0",
  "fvm_shared",
@@ -3621,7 +3610,6 @@ name = "forest_rpc"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "axum",
  "base64 0.13.1",
  "bls-signatures",
@@ -3679,7 +3667,6 @@ name = "forest_rpc-api"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "chrono",
  "cid",
  "flume",
@@ -3717,7 +3704,6 @@ dependencies = [
 name = "forest_rpc-client"
 version = "0.2.0"
 dependencies = [
- "async-std",
  "forest_blocks",
  "forest_crypto",
  "forest_key_management",
@@ -3739,7 +3725,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-log",
- "async-std",
  "blake2b_simd 1.0.0",
  "byteorder",
  "cid",
@@ -3794,7 +3779,6 @@ name = "forest_statediff"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "async-std",
  "cid",
  "colored",
  "difference",
@@ -3812,6 +3796,7 @@ dependencies = [
  "serde",
  "serde_json",
  "structopt",
+ "tokio",
 ]
 
 [[package]]
@@ -8592,6 +8577,17 @@ dependencies = [
  "rustls 0.20.7",
  "tokio",
  "webpki 0.22.0",
+]
+
+[[package]]
+name = "tokio-stream"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d660770404473ccd7bc9f8b28494a811bc18542b915c0855c51e8f419d5223ce"
+dependencies = [
+ "futures-core",
+ "pin-project-lite 0.2.9",
+ "tokio",
 ]
 
 [[package]]

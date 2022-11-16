@@ -270,7 +270,7 @@ where
         repub_trigger
             .send_async(())
             .await
-            .map_err(|_| Error::Other("Republish receiver dropped".to_string()))?;
+            .map_err(|e| Error::Other(format!("Republish receiver dropped: {e}")))?;
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
@@ -343,6 +343,7 @@ pub mod tests {
     #[cfg(feature = "slow_tests")]
     use std::time::Duration;
     use test_provider::*;
+    use tokio::task::JoinSet;
 
     pub fn create_smsg(
         to: &Address,
@@ -366,7 +367,7 @@ pub mod tests {
         SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn test_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
@@ -376,12 +377,14 @@ pub mod tests {
         tma.set_state_sequence(&sender, 0);
 
         let (tx, _rx) = flume::bounded(50);
+        let mut services = JoinSet::new();
         let mpool = MessagePool::new(
             tma,
             "mptest".to_string(),
             tx,
             Default::default(),
             Arc::default(),
+            &mut services,
         )
         .await
         .unwrap();
@@ -423,7 +426,7 @@ pub mod tests {
         assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn test_revert_messages() {
         let tma = TestApi::default();
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -443,13 +446,14 @@ pub mod tests {
             smsg_vec.push(msg);
         }
         let (tx, _rx) = flume::bounded(50);
-
+        let mut services = JoinSet::new();
         let mpool = MessagePool::new(
             tma,
             "mptest".to_string(),
             tx,
             Default::default(),
             Arc::default(),
+            &mut services,
         )
         .await
         .unwrap();
@@ -531,8 +535,8 @@ pub mod tests {
         assert_eq!(p.len(), 3);
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn test_async_message_pool() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
@@ -542,13 +546,14 @@ pub mod tests {
         let mut tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = flume::bounded(50);
-
+        let mut services = JoinSet::new();
         let mpool = MessagePool::new(
             tma,
             "mptest".to_string(),
             tx,
             Default::default(),
             Arc::default(),
+            &mut services,
         )
         .await
         .unwrap();
@@ -579,14 +584,14 @@ pub mod tests {
             .await;
 
         // sleep allows for async block to update mpool's cur_tipset
-        sleep(Duration::new(2, 0));
+        tokio::time::sleep(Duration::new(2, 0)).await;
 
         let cur_ts = mpool.cur_tipset.read().await.clone();
         assert_eq!(cur_ts.as_ref(), &tipset);
     }
 
-    #[async_std::test]
     #[cfg(feature = "slow_tests")]
+    #[tokio::test]
     async fn test_msg_chains() {
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut wallet = Wallet::new(keystore);
