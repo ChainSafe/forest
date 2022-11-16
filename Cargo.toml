@@ -181,7 +181,8 @@ forest_test_utils      = { path = "./utils/test_utils" }
 forest_utils           = { path = "./utils/forest_utils" }
 
 [profile.dev]
-debug = 0
+debug           = 0
+split-debuginfo = "unpacked"
 
 [profile.quick]
 inherits  = "release"
