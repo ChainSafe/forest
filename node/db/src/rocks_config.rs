@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 use num_cpus;
-use rocksdb::{DBCompactionStyle, DBCompressionType, LogLevel};
+use rocksdb::{
+    BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
+    Options,
+};
 use serde::{Deserialize, Serialize};
 
 /// `RocksDB` configuration exposed in Forest.
@@ -28,6 +31,56 @@ pub struct RocksDbConfig {
     pub block_size: usize,
 }
 
+impl RocksDbConfig {
+    pub fn to_options(&self) -> Options {
+        let mut db_opts = Options::default();
+        db_opts.create_if_missing(self.create_if_missing);
+        db_opts.increase_parallelism(self.parallelism);
+        db_opts.set_write_buffer_size(self.write_buffer_size);
+        db_opts.set_max_open_files(self.max_open_files);
+
+        if let Some(max_background_jobs) = self.max_background_jobs {
+            db_opts.set_max_background_jobs(max_background_jobs);
+        }
+        if let Some(compaction_style) = compaction_style_from_str(&self.compaction_style).unwrap() {
+            db_opts.set_compaction_style(compaction_style);
+            db_opts.set_disable_auto_compactions(false);
+        } else {
+            db_opts.set_disable_auto_compactions(true);
+        }
+        db_opts.set_compression_type(compression_type_from_str(&self.compression_type).unwrap());
+        if self.enable_statistics {
+            db_opts.set_stats_dump_period_sec(self.stats_dump_period_sec);
+            db_opts.enable_statistics();
+        };
+        db_opts.set_log_level(log_level_from_str(&self.log_level).unwrap());
+        db_opts.set_optimize_filters_for_hits(self.optimize_filters_for_hits);
+        // Comes from https://github.com/facebook/rocksdb/blob/main/options/options.cc#L606
+        // Only modified to upgrade format to v5
+        if !self.optimize_for_point_lookup.is_negative() {
+            let cache_size = self.optimize_for_point_lookup as usize;
+            let mut opts = BlockBasedOptions::default();
+            if self.block_size > 0 {
+                opts.set_block_size(self.block_size);
+            }
+            opts.set_format_version(5);
+            opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
+            opts.set_data_block_hash_ratio(0.75);
+            opts.set_bloom_filter(10.0, false);
+            let cache = Cache::new_lru_cache(cache_size * 1024 * 1024).unwrap();
+            opts.set_block_cache(&cache);
+            db_opts.set_block_based_table_factory(&opts);
+            db_opts.set_memtable_prefix_bloom_ratio(0.02);
+            db_opts.set_memtable_whole_key_filtering(true);
+        } else if self.block_size > 0 {
+            let mut opts = BlockBasedOptions::default();
+            opts.set_block_size(self.block_size);
+            db_opts.set_block_based_table_factory(&opts);
+        }
+        db_opts
+    }
+}
+
 impl Default for RocksDbConfig {
     fn default() -> Self {
         Self {
@@ -43,8 +96,7 @@ impl Default for RocksDbConfig {
             log_level: "warn".into(),
             optimize_filters_for_hits: true,
             optimize_for_point_lookup: 8,
-            // According to metrics, p95 of keyed blocks are smaller than 2KB
-            block_size: 2048,
+            block_size: 0,
         }
     }
 }

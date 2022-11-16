@@ -3,12 +3,7 @@
 
 use super::errors::Error;
 use super::Store;
-use crate::{
-    metrics,
-    rocks_config::{
-        compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
-    },
-};
+use crate::{metrics, rocks_config::RocksDbConfig};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 pub use rocksdb::{
@@ -33,54 +28,11 @@ pub struct RocksDb {
 /// let mut db = RocksDb::open("test_db", &RocksDbConfig::default()).unwrap();
 /// ```
 impl RocksDb {
-    fn to_options(config: &RocksDbConfig) -> Options {
-        let mut db_opts = Options::default();
-        db_opts.create_if_missing(config.create_if_missing);
-        db_opts.increase_parallelism(config.parallelism);
-        db_opts.set_write_buffer_size(config.write_buffer_size);
-        db_opts.set_max_open_files(config.max_open_files);
-
-        if let Some(max_background_jobs) = config.max_background_jobs {
-            db_opts.set_max_background_jobs(max_background_jobs);
-        }
-        if let Some(compaction_style) = compaction_style_from_str(&config.compaction_style).unwrap()
-        {
-            db_opts.set_compaction_style(compaction_style);
-            db_opts.set_disable_auto_compactions(false);
-        } else {
-            db_opts.set_disable_auto_compactions(true);
-        }
-        db_opts.set_compression_type(compression_type_from_str(&config.compression_type).unwrap());
-        if config.enable_statistics {
-            db_opts.set_stats_dump_period_sec(config.stats_dump_period_sec);
-            db_opts.enable_statistics();
-        };
-        db_opts.set_log_level(log_level_from_str(&config.log_level).unwrap());
-        db_opts.set_optimize_filters_for_hits(config.optimize_filters_for_hits);
-        // Comes from https://github.com/facebook/rocksdb/blob/main/options/options.cc#L606
-        // Only modified to upgrade format to v5
-        if !config.optimize_for_point_lookup.is_negative() {
-            let cache_size = config.optimize_for_point_lookup as usize;
-            let mut opts = BlockBasedOptions::default();
-            opts.set_block_size(config.block_size);
-            opts.set_format_version(5);
-            opts.set_data_block_index_type(DataBlockIndexType::BinaryAndHash);
-            opts.set_data_block_hash_ratio(0.75);
-            opts.set_bloom_filter(10.0, false);
-            let cache = Cache::new_lru_cache(cache_size * 1024 * 1024).unwrap();
-            opts.set_block_cache(&cache);
-            db_opts.set_block_based_table_factory(&opts);
-            db_opts.set_memtable_prefix_bloom_ratio(0.02);
-            db_opts.set_memtable_whole_key_filtering(true);
-        }
-        db_opts
-    }
-
     pub fn open<P>(path: P, config: &RocksDbConfig) -> Result<Self, Error>
     where
         P: AsRef<Path>,
     {
-        let db_opts = Self::to_options(config);
+        let db_opts = config.to_options();
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
         })
@@ -93,6 +45,7 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
     {
         let key = key.as_ref();
+        // If the return value of 'key_may_exist' is false, the key definitely does not exist in the db
         if !self.db.key_may_exist(key) {
             Ok(None)
         } else {
@@ -120,6 +73,7 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
     {
         let key = key.as_ref();
+        // If the return value of 'key_may_exist' is false, the key definitely does not exist in the db
         Ok(self.db.key_may_exist(key)
             && self
                 .db
