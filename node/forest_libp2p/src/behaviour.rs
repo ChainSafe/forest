@@ -25,7 +25,7 @@ use libp2p::{
     Multiaddr,
 };
 use libp2p::{identify, ping};
-use libp2p_bitswap::{Bitswap, BitswapStore};
+use libp2p_bitswap::{Bitswap, BitswapConfig, BitswapStore};
 use log::{debug, warn};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -71,7 +71,7 @@ impl<P: StoreParams> ForestBehaviour<P> {
             )
             .unwrap();
 
-        let bitswap = Bitswap::new(libp2p_bitswap::BitswapConfig::new(), db);
+        let bitswap = Bitswap::new(BitswapConfig::new(), db);
         if let Err(err) = bitswap.register_metrics(prometheus::default_registry()) {
             warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
         }
@@ -135,7 +135,7 @@ impl<P: StoreParams> ForestBehaviour<P> {
     }
 
     /// Send a request for data over bit-swap
-    pub fn want_block(&mut self, cid: Cid) -> Result<libp2p_bitswap::QueryId, anyhow::Error> {
+    pub fn want_block(&mut self, cid: Cid) -> anyhow::Result<libp2p_bitswap::QueryId> {
         debug!("want {}", cid.to_string());
         let peers = self.discovery.peers().iter().cloned().collect();
         let query_id = self.bitswap.sync(cid, peers, [cid].into_iter());
