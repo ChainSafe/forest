@@ -58,6 +58,7 @@ byteorder             = "1.4.3"
 bytes                 = "1.2"
 chrono                = "0.4"
 cid                   = { version = "0.8", default-features = false, features = ["std"] }
+criterion             = { version = "0.4", features = ["html_reports"] }
 cs_serde_bytes        = "0.12.2"
 digest                = "0.10.5"
 directories           = "4.0.1"

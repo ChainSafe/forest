@@ -32,4 +32,12 @@ serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
 
 [dev-dependencies]
-tempfile.workspace = true
+criterion.workspace = true
+rand.workspace      = true
+tempfile.workspace  = true
+fs_extra.workspace=true
+human-repr.workspace=true
+
+[[bench]]
+harness = false
+name    = "rocksdb_sim_bench"
