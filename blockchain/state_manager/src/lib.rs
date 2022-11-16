@@ -1413,11 +1413,13 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
-        let (_, st) = async_handle
-            .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
-            .unwrap_or_else(|err| {
-                panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-            });
+        let (_, st) = tokio::task::block_in_place(|| {
+            async_handle
+                .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+                .unwrap_or_else(|err| {
+                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+                })
+        });
         st
     })
 }
