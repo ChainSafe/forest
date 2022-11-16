@@ -49,6 +49,12 @@ Short-running tests are executed via GitHub Actions on Linux and MacOS. Long-run
 
 The services on the dedicated servers are described here: https://github.com/ChainSafe/forest-iac
 
+In short, the long-running tests are executed in dockerized environments with
+some running one per day and some running on every commit to the main Forest
+branch. At the moment, the tests are run on DigitalOcean but they can be run
+from anywhere. Feedback is reported to ChainSafe's Slack server and artifacts
+are uploaded to DigitalOcean Spaces.
+
 ## Test Data:
 
 No private or confidential data is involved in testing. Everything is public.
