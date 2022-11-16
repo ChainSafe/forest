@@ -484,8 +484,6 @@ where
         let global_pre_time = SystemTime::now();
         info!("chain export started");
 
-        let async_handle = tokio::runtime::Handle::current();
-
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
             let block = self.blockstore().get(&cid)?.ok_or_else(|| {
@@ -500,11 +498,15 @@ where
 
             // XXX: * If cb can return a generic type, deserializing would remove need to clone.
             // Ignore error intentionally, if receiver dropped, error will be handled below
+            let async_handle = tokio::runtime::Handle::current();
             let block_clone = block.clone();
             let tx_clone = tx.clone();
-            async_handle.spawn(async move {
-                tx_clone.send_async((cid, block_clone)).await.expect("failed sending block for export");
+            tokio::task::block_in_place(move || {
+                async_handle.block_on(async {
+                    tx_clone.send_async((cid, block_clone)).await.expect("failed sending block for export");
+                });
             });
+
             Ok(block)
         })
         .await?;
