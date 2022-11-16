@@ -67,13 +67,14 @@ Install [rustup](https://rustup.rs/)
 # Ubuntu
 sudo make install-deps
 # Or
-sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
+sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev protobuf-compiler
 
 # Archlinux
 sudo pacman -S base-devel clang ocl-icd openssl
+# NOTE: protobuf needs to be installed manually, and protoc needs to present in PATH
 
 # Fedora (36)
-sudo dnf install -y clang-devel ocl-icd-devel cmake
+sudo dnf install -y clang-devel ocl-icd-devel cmake protobuf-compiler
 ```
 
 ## Installation
