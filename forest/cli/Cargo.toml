@@ -8,7 +8,6 @@ edition     = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-log.workspace              = true
-async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
 cid.workspace                    = true
 directories.workspace            = true

@@ -5,6 +5,7 @@ pub mod base_fee;
 mod chain_store;
 mod errors;
 mod index;
+mod metrics;
 mod tipset_tracker;
 
 pub use self::base_fee::*;

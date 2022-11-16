@@ -103,7 +103,7 @@ hyper                 = "0.14"
 hyper-rustls          = "0.23"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
-libipld               = "0.14"
+libipld               = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
 libp2p                = { version = "0.46", default-features = false }
@@ -141,6 +141,7 @@ tempfile              = "3.3"
 thiserror             = "1.0"
 time                  = "0.3"
 tokio                 = "1.21"
+tokio-stream          = "0.1"
 tokio-util            = "0.7.0"
 toml                  = "0.5"
 tower-http            = "0.3"
