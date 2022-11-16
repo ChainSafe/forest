@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use async_std::stream::StreamExt;
-use async_std::task::{self, JoinHandle};
+
 use async_trait::async_trait;
 use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
@@ -15,10 +14,12 @@ use std::{
     fmt::{Debug, Display},
     sync::Arc,
 };
+use tokio::task::JoinSet;
 
 use forest_blocks::{Block, GossipBlock, Tipset};
 use forest_db::Store;
 use forest_state_manager::StateManager;
+use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation
@@ -50,12 +51,12 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
 
 /// Helper function to collect errors from async validations.
 pub async fn collect_errs<E>(
-    mut handles: FuturesUnordered<task::JoinHandle<Result<(), E>>>,
+    mut handles: FuturesUnordered<tokio::task::JoinHandle<Result<(), E>>>,
 ) -> Result<(), NonEmpty<E>> {
     let mut errors = Vec::new();
 
     while let Some(result) = handles.next().await {
-        if let Err(e) = result {
+        if let Ok(Err(e)) = result {
             errors.push(e);
         }
     }
@@ -110,7 +111,8 @@ pub trait Proposer {
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
         submitter: SyncGossipSubmitter,
-    ) -> anyhow::Result<Vec<JoinHandle<()>>>
+        services: &mut JoinSet<()>,
+    ) -> anyhow::Result<()>
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Sync + Send + 'static;

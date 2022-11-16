@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 ahash.workspace                  = true
 anyhow.workspace                 = true
-async-std.workspace              = true
 byteorder.workspace              = true
 cid.workspace                    = true
 fil_actors_runtime.workspace     = true

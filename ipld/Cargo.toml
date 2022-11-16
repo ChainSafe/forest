@@ -24,7 +24,6 @@ serde                       = { workspace = true, features = ["derive"] }
 thiserror.workspace         = true
 
 [dev-dependencies]
-async-std                   = { workspace = true, features = ["attributes"] }
 forest_db.workspace         = true
 forest_json.workspace       = true
 forest_utils.workspace      = true
@@ -32,3 +31,4 @@ multihash                   = { workspace = true, default-features = false, feat
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
 serde_json.workspace        = true
+tokio.workspace             = true

@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use async_std::task;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use fvm_shared::sector::SectorSize;
@@ -87,7 +86,7 @@ pub async fn get_params(
         })
         .for_each(|(name, info)| {
             let data_dir_clone = data_dir.to_owned();
-            tasks.push(task::spawn(async move {
+            tasks.push(tokio::task::spawn(async move {
                 fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await
             }))
         });
@@ -178,14 +177,14 @@ async fn check_file(path: Arc<Path>, info: Arc<ParameterData>) -> Result<(), io:
     }
 
     let cloned_path = path.clone();
-    let hash = task::spawn_blocking(move || -> Result<Hash, io::Error> {
+    let hash = tokio::task::spawn_blocking(move || -> Result<Hash, io::Error> {
         let file = SyncFile::open(cloned_path.as_ref())?;
         let mut reader = SyncBufReader::new(file);
         let mut hasher = Blake2b::new();
         sync_copy(&mut reader, &mut hasher)?;
         Ok(hasher.finalize())
     })
-    .await?;
+    .await??;
 
     let str_sum = hash.to_hex();
     let str_sum = &str_sum[..32];
