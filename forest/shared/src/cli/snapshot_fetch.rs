@@ -37,7 +37,14 @@ pub async fn snapshot_fetch(
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
     if let Some(url) = custom_url {
-        snapshot_fetch_custom(snapshot_out_dir, use_aria2, url, skip_checksum_validation).await
+        snapshot_fetch_custom(
+            snapshot_out_dir,
+            url,
+            use_aria2,
+            compressed,
+            skip_checksum_validation,
+        )
+        .await
     } else {
         match config.chain.name.to_lowercase().as_ref() {
             "mainnet" => {
@@ -55,6 +62,7 @@ pub async fn snapshot_fetch(
                     snapshot_out_dir,
                     &config.snapshot_fetch,
                     use_aria2,
+                    compressed,
                     skip_checksum_validation,
                 )
                 .await
@@ -76,13 +84,19 @@ pub fn is_aria2_installed() -> bool {
 /// saved in the given directory without any checksum validation
 async fn snapshot_fetch_custom(
     snapshot_out_dir: &Path,
+    custom_url: Url,
     use_aria2: bool,
-    url: Url,
+    compressed: bool,
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
     let client = https_client();
 
     let snapshot_url = {
+        let url: Url = if compressed {
+            custom_url.join("latest.zst")?
+        } else {
+            custom_url
+        };
         let head_response = client
             .request(hyper::Request::head(url.as_str()).body("".into())?)
             .await?;
@@ -140,8 +154,12 @@ async fn snapshot_fetch_calibnet(
     snapshot_out_dir: &Path,
     snapshot_fetch_config: &SnapshotFetchConfig,
     use_aria2: bool,
+    compressed: bool,
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
+    if compressed {
+        info!("Compressed snapshot download option not available for Calibnet, Continuing with regular download.");
+    }
     let name = &snapshot_fetch_config.calibnet.bucket_name;
     let region = &snapshot_fetch_config.calibnet.region;
     let bucket = Bucket::new_public(name, region.parse()?)?;
