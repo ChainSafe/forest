@@ -6,8 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace           = true
-async-std                  = { workspace = true, features = ["unstable", "attributes"] }
-backoff                    = { workspace = true, features = ["async-std"] }
+backoff                    = { workspace = true, features = ["tokio"] }
 blake2b_simd.workspace     = true
 fvm_shared.workspace       = true
 log.workspace              = true
