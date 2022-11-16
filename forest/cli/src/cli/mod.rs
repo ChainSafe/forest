@@ -28,7 +28,7 @@ pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
 pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::send_cmd::SendCommand;
-pub(super) use self::snapshot_cmd::{SnapshotCommands, OUTPUT_PATH_DEFAULT_FORMAT};
+pub(super) use self::snapshot_cmd::SnapshotCommands;
 pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
