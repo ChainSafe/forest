@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace                 = true
-async-std                        = { workspace = true, features = ["tokio1", "unstable"] }
 async-trait.workspace            = true
 cid.workspace                    = true
 forest_actor_interface.workspace = true
@@ -28,4 +27,5 @@ fvm_shared                       = { workspace = true, default-features = false 
 log.workspace                    = true
 nonempty.workspace               = true
 thiserror.workspace              = true
-tokio                            = { workspace = true, features = ["sync"] }
+tokio                            = { workspace = true, features = ["sync", "time"] }
+tokio-stream.workspace           = true

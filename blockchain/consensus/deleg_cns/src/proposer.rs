@@ -1,15 +1,14 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use anyhow::anyhow;
-use async_std::{
-    stream::interval,
-    task::{self, JoinHandle},
-};
 use async_trait::async_trait;
 use core::time::Duration;
 use futures::StreamExt;
 use log::{error, info};
 use std::sync::Arc;
+use tokio::task::JoinSet;
+use tokio_stream::wrappers::IntervalStream;
 
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
@@ -103,17 +102,18 @@ impl Proposer for DelegatedProposer {
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
         submitter: SyncGossipSubmitter,
-    ) -> anyhow::Result<Vec<JoinHandle<()>>>
+        services: &mut JoinSet<()>,
+    ) -> anyhow::Result<()>
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
-        let running = task::spawn(async move {
+        services.spawn(async move {
             if let Err(e) = self.run(state_manager, mpool.as_ref(), &submitter).await {
                 error!("block proposal stopped: {}", e)
             }
         });
-        Ok(vec![running])
+        Ok(())
     }
 }
 
@@ -132,7 +132,9 @@ impl DelegatedProposer {
         let chain_config = state_manager.chain_config();
         let chain_store = state_manager.chain_store();
 
-        let mut interval = interval(Duration::from_secs(chain_config.block_delay_secs));
+        let mut interval = IntervalStream::new(tokio::time::interval(Duration::from_secs(
+            chain_config.block_delay_secs,
+        )));
 
         while interval.next().await.is_some() {
             if let Some(base) = chain_store.heaviest_tipset().await {
