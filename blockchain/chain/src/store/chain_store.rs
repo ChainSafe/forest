@@ -3,6 +3,7 @@
 
 use crate::Scale;
 
+use super::metrics;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
@@ -678,6 +679,9 @@ where
     BS: Blockstore,
 {
     if let Some(ts) = cache.write().await.get(tsk) {
+        metrics::LRU_CACHE_HIT
+            .with_label_values(&[metrics::values::TIPSET])
+            .inc();
         return Ok(ts.clone());
     }
 
@@ -695,6 +699,9 @@ where
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
     cache.write().await.put(tsk.clone(), ts.clone());
+    metrics::LRU_CACHE_MISS
+        .with_label_values(&[metrics::values::TIPSET])
+        .inc();
     Ok(ts)
 }
 
