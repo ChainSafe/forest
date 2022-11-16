@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace               = true
-async-std                      = { workspace = true, features = ["tokio1"] }
 async-trait.workspace          = true
 blake2b_simd.workspace         = true
 cid.workspace                  = true
@@ -42,3 +41,6 @@ tokio                          = { workspace = true, features = ["sync", "macros
 
 [dev-dependencies]
 forest_key_management.workspace = true
+
+[features]
+slow_tests = []

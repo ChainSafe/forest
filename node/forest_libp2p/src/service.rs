@@ -9,7 +9,6 @@ use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
 };
-use async_std::{stream, task};
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
@@ -43,6 +42,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio_stream::wrappers::IntervalStream;
 
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
@@ -195,7 +195,8 @@ where
     pub async fn run(mut self) {
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
-        let mut interval = stream::interval(Duration::from_secs(15)).fuse();
+        let mut interval =
+            IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
@@ -258,7 +259,7 @@ where
                             debug!("Received chain_exchange request (peer_id: {:?})", peer);
                             let db = self.cs.clone();
 
-                            task::spawn(async move {
+                            tokio::task::spawn(async move {
                                 channel.send(make_chain_exchange_response(db.as_ref(), &request).await)
                             });
                         }

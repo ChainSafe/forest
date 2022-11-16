@@ -8,7 +8,6 @@ edition     = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-log.workspace              = true
-async-std                        = { workspace = true, features = ["attributes", "tokio1"] }
 base64.workspace                 = true
 cid.workspace                    = true
 directories.workspace            = true
@@ -35,6 +34,7 @@ forest_rpc-api.workspace         = true
 forest_rpc-client.workspace      = true
 forest_state_manager.workspace   = true
 forest_utils.workspace           = true
+fs_extra.workspace               = true
 futures.workspace                = true
 fvm.workspace                    = true
 fvm_ipld_car.workspace           = true
@@ -43,6 +43,7 @@ fvm_shared                       = { workspace = true, default-features = false 
 git-version.workspace            = true
 hex.workspace                    = true
 http.workspace                   = true
+human-repr.workspace             = true
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
@@ -73,3 +74,6 @@ uuid                             = { version = "1.1", features = ["v4"] }
 assert_cmd.workspace = true
 quickcheck.workspace = true
 rand.workspace       = true
+
+[features]
+slow_tests = []

@@ -197,7 +197,7 @@ pub mod labels {
 }
 
 pub mod values {
-    // gosssipsub_message_total
+    // libp2p_message_total
     pub const HELLO_REQUEST: &str = "hello_request";
     pub const PEER_CONNECTED: &str = "peer_connected";
     pub const PEER_DISCONNECTED: &str = "peer_disconnected";
