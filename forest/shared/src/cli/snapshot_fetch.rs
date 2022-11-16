@@ -10,7 +10,7 @@ use hyper::{
     Body, Response,
 };
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use log::info;
+use log::{info, warn};
 use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
@@ -158,7 +158,7 @@ async fn snapshot_fetch_calibnet(
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
     if compressed {
-        info!("Compressed snapshot download option not available for Calibnet, Continuing with regular download.");
+        warn!("Compressed snapshot is not available for Calibnet, to download from other trusted source use `--custom-url <custom-url>`, Continuing with regular download.");
     }
     let name = &snapshot_fetch_config.calibnet.bucket_name;
     let region = &snapshot_fetch_config.calibnet.region;
@@ -340,6 +340,8 @@ where
 
     if !skip_checksum_validation {
         fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
+    } else {
+        warn!("Skipping checksum validation for downloaded file. Snapshot downloaded but not verified.");
     }
 
     std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
@@ -383,6 +385,7 @@ where
             Some(format!("sha-256={checksum_expected}").as_str()),
         )
     } else {
+        warn!("Skip checksum validation, Snapshot will be downloaded but not verified.");
         download_with_aria2(
             url.as_str(),
             snapshot_path
@@ -395,19 +398,19 @@ where
 }
 
 fn download_with_aria2(url: &str, dir: &str, checksum_opt: Option<&str>) -> anyhow::Result<()> {
-    let checksum;
-    let out_dir = format!("--dir={dir}",);
+    let checksum_arg;
+    let out_dir_arg = format!("--dir={dir}",);
     let mut args = vec![
         "--continue=true",
         "--max-connection-per-server=5",
         "--split=5",
         "--max-tries=0",
-        &out_dir,
+        &out_dir_arg,
         url,
     ];
     if let Some(expected_checksum) = checksum_opt {
-        checksum = format!("--checksum={expected_checksum}",);
-        args.push(&checksum);
+        checksum_arg = format!("--checksum={expected_checksum}",);
+        args.push(&checksum_arg);
     }
     let mut child = Command::new("aria2c").args(args).spawn()?;
     let exit_code = child.wait()?;

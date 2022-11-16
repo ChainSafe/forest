@@ -58,10 +58,10 @@ pub enum SnapshotCommands {
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
-        /// Download snapshot from other trusted sources, default is None
+        /// Download snapshot from other trusted sources
         #[structopt(long)]
         custom_url: Option<Url>,
-        /// Download compressed snapshot file, default is false
+        /// Download compressed snapshot file if available, default is false
         #[structopt(long)]
         compressed: bool,
         /// Skip checksum validation of downloaded file, default is false
