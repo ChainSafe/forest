@@ -40,6 +40,11 @@ members = [
 ]
 resolver = "2"
 
+[patch.crates-io]
+# temporary solution to funty@1.2.0 being yanked, we should propose bitvec upgrade to upstream filecoin crates
+# tracking issue: https://github.com/bitvecto-rs/funty/issues/7
+funty = { git = "https://github.com/bitvecto-rs/funty/", rev = "7ef0d890fbcd8b3def1635ac1a877fc298488446" }
+
 [workspace.dependencies]
 ahash                 = "0.8"
 anyhow                = "1.0"
