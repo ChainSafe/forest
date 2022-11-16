@@ -6,7 +6,6 @@ version = "0.2.0"
 
 [dependencies]
 # Public
-async-std            = { workspace = true, features = ["attributes"] }
 jsonrpc-v2.workspace = true
 log.workspace        = true
 once_cell.workspace  = true
