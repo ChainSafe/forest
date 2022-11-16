@@ -7,7 +7,6 @@ edition = "2021"
 [dependencies]
 anyhow.workspace                 = true
 async-log.workspace              = true
-async-std                        = { workspace = true, features = ["unstable", "tokio1"] }
 blake2b_simd.workspace           = true
 byteorder.workspace              = true
 cid.workspace                    = true

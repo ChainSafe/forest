@@ -9,7 +9,6 @@ mod vm_circ_supply;
 pub use self::errors::*;
 use anyhow::Context;
 use async_log::span;
-use async_std::task;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
@@ -45,6 +44,7 @@ use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::runtime::Handle;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
@@ -186,7 +186,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = self.chain_rand(blocks.to_owned());
+        let chain_rand = self.chain_rand(blocks.to_owned(), tokio::runtime::Handle::current());
         match self.get_network_version(round) {
             NetworkVersion::V16 | NetworkVersion::V15 | NetworkVersion::V14 => {
                 chain_rand
@@ -229,7 +229,7 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = self.chain_rand(blocks.to_owned());
+        let chain_rand = self.chain_rand(blocks.to_owned(), tokio::runtime::Handle::current());
         chain_rand
             .get_chain_randomness(blocks, pers, round, entropy, lookback)
             .await
@@ -354,7 +354,11 @@ where
                 self.genesis_info
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
-                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
+                chain_epoch_root(
+                    Arc::clone(self),
+                    Arc::clone(tipset),
+                    tokio::runtime::Handle::current(),
+                ),
                 &self.engine,
                 Arc::clone(self.chain_config()),
             )
@@ -475,7 +479,11 @@ where
                 self.genesis_info
                     .get_circulating_supply(bheight, self.blockstore(), bstate)?,
                 self.reward_calc.clone(),
-                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
+                chain_epoch_root(
+                    Arc::clone(self),
+                    Arc::clone(tipset),
+                    tokio::runtime::Handle::current(),
+                ),
                 &self.engine,
                 Arc::clone(self.chain_config()),
             )?;
@@ -521,7 +529,7 @@ where
                 .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let chain_rand = self.chain_rand(ts.key().to_owned());
+        let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
         self.call_raw(message, chain_rand, &ts)
     }
 
@@ -545,11 +553,12 @@ where
             .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = self.chain_rand(ts.key().to_owned());
+        let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
 
         let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let epoch = ts.epoch() + 1;
+        let async_handle = tokio::runtime::Handle::current();
         let mut vm = VM::new(
             st,
             store,
@@ -559,7 +568,7 @@ where
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
-            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
+            chain_epoch_root(Arc::clone(self), Arc::clone(&ts), async_handle),
             &self.engine,
             Arc::clone(self.chain_config()),
         )?;
@@ -851,9 +860,10 @@ where
                 Default::default()
             };
 
+            let async_handle = tokio::runtime::Handle::current();
             let tipset_keys =
                 TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = self.chain_rand(tipset_keys);
+            let chain_rand = self.chain_rand(tipset_keys, async_handle);
             let base_fee = first_block.parent_base_fee().clone();
 
             let blocks = self
@@ -865,7 +875,7 @@ where
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
             let ts_cloned = Arc::clone(tipset);
-            task::spawn_blocking(move || {
+            tokio::task::spawn_blocking(move || {
                 Ok(sm.apply_blocks(
                     parent_epoch,
                     &sr,
@@ -878,6 +888,7 @@ where
                 )?)
             })
             .await
+            .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
         })
     }
 
@@ -1067,7 +1078,7 @@ where
         let address_for_task = *message.from();
         let sequence_for_task = message.sequence();
         let height_of_head = current_tipset.epoch();
-        let task = task::spawn(async move {
+        let task = tokio::task::spawn(async move {
             let back_tuple = sm_cloned
                 .search_back_for_message(
                     &current_tipset,
@@ -1085,7 +1096,7 @@ where
         let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
-        let mut subscriber_poll = task::spawn(async move {
+        let mut subscriber_poll = tokio::task::spawn(async move {
             loop {
                 match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
@@ -1139,8 +1150,10 @@ where
         .fuse();
 
         // Search backwards for message.
-        let mut search_back_poll = task::spawn::<_, Result<_, Error>>(async move {
-            let back_tuple = task.await?;
+        let mut search_back_poll = tokio::task::spawn(async move {
+            let back_tuple = task.await.map_err(|e| {
+                Error::Other(format!("Could not search backwards for message {e}"))
+            })??;
             if let Some((back_tipset, back_receipt)) = back_tuple {
                 let should_revert = *reverts
                     .read()
@@ -1149,7 +1162,7 @@ where
                     .unwrap_or(&false);
                 let larger_height_of_head = height_of_head >= back_tipset.epoch() + confidence;
                 if !should_revert && larger_height_of_head {
-                    return Ok((Some(back_tipset), Some(back_receipt)));
+                    return Ok::<_, Error>((Some(back_tipset), Some(back_receipt)));
                 }
                 return Ok((None, None));
             }
@@ -1163,10 +1176,10 @@ where
         loop {
             select! {
                 res = subscriber_poll => {
-                    return res;
+                    return res?
                 }
                 res = search_back_poll => {
-                    if let Ok((Some(ts), Some(rct))) = res {
+                    if let Ok((Some(ts), Some(rct))) = res? {
                         return Ok((Some(ts), Some(rct)));
                     }
                 }
@@ -1361,12 +1374,17 @@ where
         Ok(market_state)
     }
 
-    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
+    fn chain_rand(
+        &self,
+        blocks: TipsetKeys,
+        async_handle: tokio::runtime::Handle,
+    ) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config.clone(),
             blocks,
             self.cs.clone(),
             self.beacon.clone(),
+            async_handle,
         )
     }
 }
@@ -1388,18 +1406,20 @@ pub struct MiningBaseInfo {
 fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
+    async_handle: Handle,
 ) -> Box<dyn Fn(ChainEpoch) -> Cid>
 where
     // Yes, both are needed, because the VM should only use the buffered store
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
-        // XXX: This `block_on` can be removed by passing in a runtime Handle or (preferably) by
-        //      refactoring the lookback code completely.
-        let (_, st) = task::block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
-            .unwrap_or_else(|err| {
-                panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-            });
+        let (_, st) = tokio::task::block_in_place(|| {
+            async_handle
+                .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
+                .unwrap_or_else(|err| {
+                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
+                })
+        });
         st
     })
 }
