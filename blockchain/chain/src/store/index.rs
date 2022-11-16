@@ -6,6 +6,7 @@ use forest_blocks::{Tipset, TipsetKeys};
 use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
+use log::info;
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::RwLock;
@@ -24,13 +25,16 @@ pub(super) mod checkpoint_tipsets {
     use std::collections::HashMap;
     use std::str::FromStr;
 
+    const CALIBNET_GENESIS_CID: &str = "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
+    const MAINNET_GENESIS_CID: &str = "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
+
     macro_rules! add_calibnet {
         ($map: ident, $key_hash:expr) => {
             $map.insert(
                 $key_hash,
                 // calibnet genesis tipset keys
                 TipsetKeys::new(vec![Cid::from_str(
-                    "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4",
+                    CALIBNET_GENESIS_CID,
                 )
                 .unwrap()]),
             );
@@ -43,7 +47,7 @@ pub(super) mod checkpoint_tipsets {
                 $key_hash,
                 // mainnet genesis tipset keys
                 TipsetKeys::new(vec![Cid::from_str(
-                    "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2",
+                    MAINNET_GENESIS_CID,
                 )
                 .unwrap()]),
             );
@@ -64,7 +68,9 @@ pub(super) mod checkpoint_tipsets {
         // NB: Add desired tipset checkpoints below this by using RPC command: forest-cli chain tipset-hash <cid keys>
         const CALIBNET_CHECKPOINT_1405400: TipsetKeyHash = "7930ad8bf32b35314b3bc47b9e25249af8ec6ba7f5544c05e8b5bd3b3ec09f76df8bd2278f9b318badf1a08d0a468abd55130465c6c55f99e67badc0e614ca79";
         const MAINNET_CHECKPOINT_2325300: TipsetKeyHash = "319f2351ceaf78fbcc8688dc75a19bdf8ee6e895e547ff5cc2f7b18a3a36b65ff94c1860733137d0244352f82ba6fd9672aec14deee358e7cf6e088bf89a28b1";
+        const CALIBNET_CHECKPOINT_41000: TipsetKeyHash = "1a11a07d427348cc14eaa901de1ba9c6a4e18400bb557f5a0fabbcb22352319e31a7bc988a92525339f84275c0ef6dfbffcb50bb9d9843701875eecfa3ccb069";
         add_calibnet!(map, CALIBNET_CHECKPOINT_1405400);
+        add_calibnet!(map, CALIBNET_CHECKPOINT_41000);
         add_mainnet!(map, MAINNET_CHECKPOINT_2325300);
         map
     });
@@ -152,9 +158,12 @@ impl<BS: Blockstore> ChainIndex<BS> {
             if let Some(genesis_tipset_keys) =
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
             {
-                let tipset =
-                    tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
-                return Ok(tipset);
+                if to == 0 {
+                    let tipset =
+                        tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
+                        info!("using checkpoint tipset at height: {}", lbe.tipset.epoch());
+                    return Ok(tipset);
+                }
             }
 
             if lbe.tipset.epoch() == to || lbe.parent_height < to {
