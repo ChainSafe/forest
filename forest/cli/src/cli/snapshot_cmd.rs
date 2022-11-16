@@ -15,7 +15,7 @@ use std::{
 };
 use strfmt::strfmt;
 use structopt::StructOpt;
-use time::{format_description::well_known::Iso8601, Date, OffsetDateTime};
+use time::{format_description::well_known::Iso8601, Date, OffsetDateTime, Time};
 use url::Url;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
@@ -278,9 +278,14 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
         let mut snapshots_with_valid_name = vec![];
         let mut snapshot_to_keep = None;
         let mut latest_date = Date::MIN;
+        let mut latest_time = Time::MIDNIGHT;
         let mut latest_height = 0;
-        let pattern = Regex::new(
+        let internal_pattern = Regex::new(
             r"^forest_snapshot_([^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car$",
+        )
+        .unwrap();
+        let pattern = Regex::new(
+            r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
         )
         .unwrap();
         if let Ok(dir) = fs::read_dir(snapshot_dir) {
@@ -290,7 +295,7 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
                 .filter(|p| p.is_file())
             {
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                    if let Some(captures) = pattern.captures(filename) {
+                    if let Some(captures) = internal_pattern.captures(filename) {
                         let date = captures.name("date").unwrap();
                         if let Ok(date) = time::Date::parse(date.as_str(), &Iso8601::DEFAULT) {
                             let height = captures
@@ -310,6 +315,43 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
 
                             snapshots_with_valid_name.push(path);
                         }
+                    } else if let Some(captures) = pattern.captures(filename) {
+                        let date_format =
+                            time::format_description::parse("[year]_[month]_[day]").unwrap();
+                        let date = time::Date::parse(
+                            captures.name("date").unwrap().as_str(),
+                            &date_format,
+                        )
+                        .unwrap();
+                        let time_format =
+                            time::format_description::parse("[hour]_[minute]_[second]").unwrap();
+                        let time =
+                            Time::parse(captures.name("time").unwrap().as_str(), &time_format)
+                                .unwrap();
+                        let height = captures
+                            .name("height")
+                            .unwrap()
+                            .as_str()
+                            .parse::<i64>()
+                            .unwrap();
+                        if date > latest_date {
+                            latest_date = date;
+                            latest_time = time;
+                            latest_height = height;
+                            snapshot_to_keep = Some(path.clone());
+                        } else if date == latest_date && time > latest_time {
+                            latest_time = time;
+                            latest_height = height;
+                            snapshot_to_keep = Some(path.clone());
+                        } else if date == latest_date
+                            && time == latest_time
+                            && height > latest_height
+                        {
+                            latest_height = height;
+                            snapshot_to_keep = Some(path.clone());
+                        }
+
+                        snapshots_with_valid_name.push(path);
                     } else if path.extension().unwrap_or_default() == "tmp" {
                         snapshots_with_valid_name.push(path);
                     }

@@ -143,7 +143,7 @@ structopt             = "0.3"
 surf                  = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
 tempfile              = "3.3"
 thiserror             = "1.0"
-time                  = "0.3"
+time                  = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 tokio                 = "1.21"
 tokio-stream          = "0.1"
 tokio-util            = "0.7.0"
