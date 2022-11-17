@@ -25,12 +25,13 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
+libipld.workspace = true
 libp2p = { workspace = true, default-features = false, features = [
   "gossipsub",
   "kad",
   "identify",
   "ping",
-  "mdns",
+  "mdns-async-io",
   "noise",
   "yamux",
   "tcp-async-io",
@@ -42,14 +43,13 @@ libp2p = { workspace = true, default-features = false, features = [
 libp2p-bitswap.workspace = true
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+prometheus.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
 smallvec.workspace = true
-# cannot update as Cid struct moved from `tiny_cid::cid::Cid`, to struct `tiny_cid::Cid`
-tiny-cid               = "0.2"
-tokio                  = { workspace = true, features = ["sync", "time"] }
+tokio = { workspace = true, features = ["sync", "time"] }
 tokio-stream.workspace = true
 
 [dev-dependencies]

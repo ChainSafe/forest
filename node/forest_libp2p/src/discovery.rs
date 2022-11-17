@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use libp2p::core::transport::ListenerId;
+use libp2p::kad::record::store::MemoryStore;
+use libp2p::mdns::Mdns;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
 use libp2p::swarm::{ConnectionHandler, DialError, IntoConnectionHandler};
 use libp2p::{
@@ -10,8 +12,8 @@ use libp2p::{
     multiaddr::Protocol,
     swarm::{behaviour::toggle::Toggle, NetworkBehaviour, NetworkBehaviourAction, PollParameters},
 };
-use libp2p::{kad::record::store::MemoryStore, mdns::Mdns};
 use log::{debug, error, trace, warn};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::{
     cmp,
@@ -26,10 +28,10 @@ use tokio::time::Interval;
 #[derive(Debug)]
 pub enum DiscoveryOut {
     /// Event that notifies that we connected to the node with the given peer id.
-    Connected(PeerId),
+    Connected(PeerId, Vec<Multiaddr>),
 
     /// Event that notifies that we disconnected with the node with the given peer id.
-    Disconnected(PeerId),
+    Disconnected(PeerId, Vec<Multiaddr>),
 }
 
 /// `DiscoveryBehaviour` configuration.
@@ -103,7 +105,7 @@ impl<'a> DiscoveryConfig<'a> {
         let store = MemoryStore::new(local_peer_id.to_owned());
         let mut kad_config = KademliaConfig::default();
         let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
-        kad_config.set_protocol_name(network.as_bytes().to_vec());
+        kad_config.set_protocol_names(vec![Cow::Owned(network.as_bytes().to_vec())]);
 
         // TODO this parsing should probably be done when parsing config, not initializing node
         let user_defined: Vec<(PeerId, Multiaddr)> = user_defined
@@ -135,11 +137,7 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let mdns_opt = if enable_mdns {
-            Some(
-                Mdns::new(Default::default())
-                    .await
-                    .expect("Could not start mDNS"),
-            )
+            Some(Mdns::new(Default::default()).expect("Could not start mDNS"))
         } else {
             None
         };
@@ -248,10 +246,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         if other_established == 0 {
             let multiaddr = self.addresses_of_peer(peer_id);
-            self.peer_addresses.insert(*peer_id, multiaddr);
+            self.peer_addresses.insert(*peer_id, multiaddr.clone());
             self.peers.insert(*peer_id);
             self.pending_events
-                .push_back(DiscoveryOut::Connected(*peer_id));
+                .push_back(DiscoveryOut::Connected(*peer_id, multiaddr));
         }
 
         self.kademlia.inject_connection_established(
@@ -275,8 +273,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
         if remaining_established == 0 {
             self.peers.remove(peer_id);
+            let addresses = self.peer_addresses.remove(peer_id).unwrap_or_default();
             self.pending_events
-                .push_back(DiscoveryOut::Disconnected(*peer_id));
+                .push_back(DiscoveryOut::Disconnected(*peer_id, addresses));
         }
 
         self.kademlia.inject_connection_closed(

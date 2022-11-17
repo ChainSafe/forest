@@ -74,6 +74,11 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Install Protoc (MacOS)
+        if: startsWith(matrix.os, 'macOS')
+        run: |
+          brew install protobuf
+          protoc --version
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
