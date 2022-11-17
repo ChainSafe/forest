@@ -60,6 +60,11 @@ pub trait Store {
     {
         keys.iter().try_for_each(|key| self.delete(key))
     }
+
+    /// Blush writing buffers if any. Default implementation is blank
+    fn flush(&self) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 impl<BS: Store> Store for &BS {
