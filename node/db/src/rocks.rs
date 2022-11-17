@@ -44,13 +44,7 @@ impl Store for RocksDb {
     where
         K: AsRef<[u8]>,
     {
-        let key = key.as_ref();
-        // If the return value of 'key_may_exist' is false, the key definitely does not exist in the db
-        if !self.db.key_may_exist(key) {
-            Ok(None)
-        } else {
-            self.db.get(key).map_err(Error::from)
-        }
+        self.db.get(key).map_err(Error::from)
     }
 
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
@@ -72,14 +66,10 @@ impl Store for RocksDb {
     where
         K: AsRef<[u8]>,
     {
-        let key = key.as_ref();
-        // If the return value of 'key_may_exist' is false, the key definitely does not exist in the db
-        Ok(self.db.key_may_exist(key)
-            && self
-                .db
-                .get_pinned(key)
-                .map(|v| v.is_some())
-                .map_err(Error::from)?)
+        self.db
+            .get_pinned(key)
+            .map(|v| v.is_some())
+            .map_err(Error::from)
     }
 
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
