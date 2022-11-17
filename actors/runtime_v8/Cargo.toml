@@ -1,0 +1,73 @@
+[package]
+name        = "fil_actors_runtime_v8"
+description = "System actors for the Filecoin protocol"
+version     = "1.0.0"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>", "Protocol Labs", "Filecoin Core Devs"]
+edition     = "2021"
+repository  = "https://github.com/filecoin-project/builtin-actors"
+
+[dependencies]
+anyhow              = { workspace = true }
+base64              = { workspace = true }
+blake2b_simd        = { workspace = true }
+byteorder           = { workspace = true }
+cid                 = { workspace = true, features = ["serde-codec"] }
+fvm_ipld_amt        = { version = "0.4.2", features = ["go-interop"] }
+fvm_ipld_bitfield   = { workspace = true }
+fvm_ipld_blockstore = { workspace = true }
+fvm_ipld_encoding   = { workspace = true }
+fvm_ipld_hamt       = { workspace = true }
+fvm_shared          = { workspace = true }
+getrandom           = { version = "0.2.5", features = ["js"] }
+indexmap            = { version = "1.8.0", features = ["serde-1"] }
+integer-encoding    = { version = "3.0.3", default-features = false }
+itertools           = "0.10"
+log                 = { workspace = true }
+multihash           = { version = "0.16.1", default-features = false }
+num-derive          = { workspace = true }
+num-traits          = { workspace = true }
+paste               = "1.0.9"
+rand                = { workspace = true }
+regex               = { workspace = true }
+serde               = { workspace = true, features = ["derive"] }
+serde_repr          = "0.1.8"
+sha2                = { workspace = true }
+thiserror           = { workspace = true }
+unsigned-varint     = "0.7.1"
+
+[dev-dependencies]
+derive_builder = "0.10.2"
+hex            = { workspace = true }
+
+[features]
+default = []
+
+# Enable 2k sectors
+sector-2k = []
+# Enable 8m sectors
+sector-8m = []
+# Enable 512m sectors
+sector-512m = []
+# Enable 32g sectors
+sector-32g = []
+# Enable 64g sectors
+sector-64g = []
+# Enable the "default" sectors types.
+sector-default = ["sector-64g", "sector-32g"]
+
+# Reduce min verified deal size from 1MiB to 256B
+small-deals = []
+# Reduce pre-commit delay from 150 epochs, to 10.
+short-precommit = []
+
+# Lower the minimum power requirement to 2k
+min-power-2k = []
+# Lower the minimum power requirement to 2g
+min-power-2g = []
+
+# no collateral for deals (for testing)
+no-provider-deal-collateral = []
+
+# fake proofs (for testing)
+fake-proofs = []
