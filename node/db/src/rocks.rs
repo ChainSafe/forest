@@ -8,9 +8,11 @@ use crate::{
     rocks_config::{
         compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
     },
+    utils::bitswap_missing_blocks,
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use libp2p_bitswap::BitswapStore;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
@@ -156,5 +158,27 @@ impl Blockstore for RocksDb {
             metrics::BLOCK_SIZE_BYTES.observe(v.as_ref().len() as f64);
         }
         self.bulk_write(&values).map_err(|e| e.into())
+    }
+}
+
+impl BitswapStore for RocksDb {
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
+    /// under feature `dag-cbor`
+    type Params = libipld::DefaultParams;
+
+    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+        Ok(self.exists(cid.to_bytes())?)
+    }
+
+    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Blockstore::get(self, cid)
+    }
+
+    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        self.put_keyed(block.cid(), block.data())
+    }
+
+    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
+        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }

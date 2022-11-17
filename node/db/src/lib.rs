@@ -4,6 +4,7 @@
 mod errors;
 mod memory;
 mod metrics;
+mod utils;
 
 pub mod rocks;
 pub mod rocks_config;

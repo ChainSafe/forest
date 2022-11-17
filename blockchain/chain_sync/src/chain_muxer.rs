@@ -363,9 +363,15 @@ where
         block_delay: u64,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError<C>> {
         let (tipset, source) = match event {
-            NetworkEvent::HelloRequest { request, source } => {
+            NetworkEvent::HelloRequestInbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::HELLO_REQUEST])
+                    .with_label_values(&[metrics::values::HELLO_REQUEST_INBOUND])
+                    .inc();
+                return Ok(None);
+            }
+            NetworkEvent::HelloResponseOutbound { request, source } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
                 let tipset_keys = TipsetKeys::new(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
@@ -383,6 +389,18 @@ where
                     }
                 };
                 (tipset, source)
+            }
+            NetworkEvent::HelloRequestOutbound { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::HELLO_REQUEST_OUTBOUND])
+                    .inc();
+                return Ok(None);
+            }
+            NetworkEvent::HelloResponseInbound { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::HELLO_RESPONSE_INBOUND])
+                    .inc();
+                return Ok(None);
             }
             NetworkEvent::PeerConnected(peer_id) => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -429,18 +447,40 @@ where
                     return Ok(None);
                 }
             },
-            NetworkEvent::ChainExchangeRequest { .. } => {
+            NetworkEvent::ChainExchangeRequestOutbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_REQUEST])
+                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND])
                     .inc();
-                // Not supported.
                 return Ok(None);
             }
-            NetworkEvent::BitswapBlock { .. } => {
+            NetworkEvent::ChainExchangeResponseInbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::BITSWAP_BLOCK])
+                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND])
                     .inc();
-                // Not supported.
+                return Ok(None);
+            }
+            NetworkEvent::ChainExchangeRequestInbound { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND])
+                    .inc();
+                return Ok(None);
+            }
+            NetworkEvent::ChainExchangeResponseOutbound { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND])
+                    .inc();
+                return Ok(None);
+            }
+            NetworkEvent::BitswapRequestOutbound { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::BITSWAP_BLOCK_REQUEST_OUTBOUND])
+                    .inc();
+                return Ok(None);
+            }
+            NetworkEvent::BitswapResponseInbound { .. } => {
+                metrics::LIBP2P_MESSAGE_TOTAL
+                    .with_label_values(&[metrics::values::BITSWAP_BLOCK_RESPONSE_INBOUND])
+                    .inc();
                 return Ok(None);
             }
         };
