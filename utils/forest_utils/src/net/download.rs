@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::https_client;
+use crate::io::ProgressBar;
 use futures::stream::{IntoAsyncRead, MapErr};
 use futures::TryStreamExt;
 use pin_project_lite::pin_project;
@@ -13,10 +15,6 @@ use tokio::io::AsyncRead;
 use tokio::io::{BufReader, ReadBuf};
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
-
-use crate::io::ProgressBar;
-
-use super::https_client;
 
 #[derive(Debug, Error)]
 enum DownloadError {

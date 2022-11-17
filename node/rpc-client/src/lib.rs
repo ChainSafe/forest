@@ -161,15 +161,15 @@ where
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
     let mut request =
         hyper::Request::post(&api_url).body(serde_json::to_string(&rpc_req)?.into())?;
-    let header_mut = request.headers_mut();
-    header_mut.insert("content-type", HeaderValue::from_static("application/json"));
+    let headers_mut = request.headers_mut();
+    headers_mut.insert("content-type", HeaderValue::from_static("application/json"));
     match api_info.token.to_owned() {
         Some(jwt) => {
-            header_mut.insert("Authorization", HeaderValue::from_str(&jwt)?);
+            headers_mut.insert("Authorization", HeaderValue::from_str(&jwt)?);
         }
         None => {
             if let Some(jwt) = token {
-                header_mut.insert("Authorization", HeaderValue::from_str(jwt)?);
+                headers_mut.insert("Authorization", HeaderValue::from_str(jwt)?);
             }
         }
     }
