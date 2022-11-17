@@ -8,6 +8,7 @@ use crate::{
     rocks_config::{
         compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
     },
+    utils::bitswap_missing_blocks,
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -178,16 +179,6 @@ impl BitswapStore for RocksDb {
     }
 
     fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        let mut stack = vec![*cid];
-        let mut missing = vec![];
-        while let Some(cid) = stack.pop() {
-            if let Some(data) = self.get(&cid)? {
-                let block = libipld::Block::<Self::Params>::new_unchecked(cid, data);
-                block.references(&mut stack)?;
-            } else {
-                missing.push(cid);
-            }
-        }
-        Ok(missing)
+        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }

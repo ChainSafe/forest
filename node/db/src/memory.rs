@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::utils::bitswap_missing_blocks;
+
 use super::{Error, Store};
 use anyhow::Result;
 use cid::Cid;
@@ -89,16 +91,6 @@ impl BitswapStore for MemoryDB {
     }
 
     fn missing_blocks(&mut self, cid: &Cid) -> Result<Vec<Cid>> {
-        let mut stack = vec![*cid];
-        let mut missing = vec![];
-        while let Some(cid) = stack.pop() {
-            if let Some(data) = self.get(&cid)? {
-                let block = libipld::Block::<Self::Params>::new_unchecked(cid, data);
-                block.references(&mut stack)?;
-            } else {
-                missing.push(cid);
-            }
-        }
-        Ok(missing)
+        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
