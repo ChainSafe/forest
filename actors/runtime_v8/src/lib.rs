@@ -26,20 +26,6 @@ pub mod builtin;
 pub mod runtime;
 pub mod util;
 
-#[macro_export]
-macro_rules! wasm_trampoline {
-    ($target:ty) => {
-        #[no_mangle]
-        pub extern "C" fn invoke(param: u32) -> u32 {
-            $crate::runtime::fvm::trampoline::<$target>(param)
-        }
-    };
-}
-
-#[cfg(feature = "fil-actor")]
-type Hasher = FvmHashSha256;
-
-#[cfg(not(feature = "fil-actor"))]
 type Hasher = Sha256;
 
 /// Map type to be used within actors. The underlying type is a HAMT.

@@ -42,32 +42,3 @@ hex            = { workspace = true }
 
 [features]
 default = []
-
-# Enable 2k sectors
-sector-2k = []
-# Enable 8m sectors
-sector-8m = []
-# Enable 512m sectors
-sector-512m = []
-# Enable 32g sectors
-sector-32g = []
-# Enable 64g sectors
-sector-64g = []
-# Enable the "default" sectors types.
-sector-default = ["sector-64g", "sector-32g"]
-
-# Reduce min verified deal size from 1MiB to 256B
-small-deals = []
-# Reduce pre-commit delay from 150 epochs, to 10.
-short-precommit = []
-
-# Lower the minimum power requirement to 2k
-min-power-2k = []
-# Lower the minimum power requirement to 2g
-min-power-2g = []
-
-# no collateral for deals (for testing)
-no-provider-deal-collateral = []
-
-# fake proofs (for testing)
-fake-proofs = []

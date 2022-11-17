@@ -106,30 +106,6 @@ impl From<fvm_ipld_encoding::Error> for ActorError {
     }
 }
 
-/// Converts an actor deletion error into an actor error with the appropriate exit code. This
-/// facilitates propagation.
-#[cfg(feature = "fil-actor")]
-impl From<fvm_sdk::error::ActorDeleteError> for ActorError {
-    fn from(e: fvm_sdk::error::ActorDeleteError) -> Self {
-        Self {
-            exit_code: ExitCode::USR_ILLEGAL_ARGUMENT,
-            msg: e.to_string(),
-        }
-    }
-}
-
-/// Converts a no-state error into an an actor error with the appropriate exit code (illegal actor).
-/// This facilitates propagation.
-#[cfg(feature = "fil-actor")]
-impl From<fvm_sdk::error::NoStateError> for ActorError {
-    fn from(e: fvm_sdk::error::NoStateError) -> Self {
-        Self {
-            exit_code: ExitCode::USR_ILLEGAL_STATE,
-            msg: e.to_string(),
-        }
-    }
-}
-
 /// Convenience macro for generating Actor Errors
 #[macro_export]
 macro_rules! actor_error {

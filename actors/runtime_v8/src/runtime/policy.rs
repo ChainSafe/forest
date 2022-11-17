@@ -171,8 +171,8 @@ pub struct Policy {
     pub minimum_consensus_power: StoragePower,
 }
 
-impl Default for Policy {
-    fn default() -> Policy {
+impl Policy {
+    pub fn mainnet() -> Self {
         Policy {
             max_aggregated_sectors: policy_constants::MAX_AGGREGATED_SECTORS,
             min_aggregated_sectors: policy_constants::MIN_AGGREGATED_SECTORS,
@@ -210,27 +210,11 @@ impl Default for Policy {
             chain_finality: policy_constants::CHAIN_FINALITY,
 
             valid_post_proof_type: HashSet::<RegisteredPoStProof>::from([
-                #[cfg(feature = "sector-2k")]
-                RegisteredPoStProof::StackedDRGWindow2KiBV1,
-                #[cfg(feature = "sector-8m")]
-                RegisteredPoStProof::StackedDRGWindow8MiBV1,
-                #[cfg(feature = "sector-512m")]
-                RegisteredPoStProof::StackedDRGWindow512MiBV1,
-                #[cfg(feature = "sector-32g")]
                 RegisteredPoStProof::StackedDRGWindow32GiBV1,
-                #[cfg(feature = "sector-64g")]
                 RegisteredPoStProof::StackedDRGWindow64GiBV1,
             ]),
             valid_pre_commit_proof_type: HashSet::<RegisteredSealProof>::from([
-                #[cfg(feature = "sector-2k")]
-                RegisteredSealProof::StackedDRG2KiBV1P1,
-                #[cfg(feature = "sector-8m")]
-                RegisteredSealProof::StackedDRG8MiBV1P1,
-                #[cfg(feature = "sector-512m")]
-                RegisteredSealProof::StackedDRG512MiBV1P1,
-                #[cfg(feature = "sector-32g")]
                 RegisteredSealProof::StackedDRG32GiBV1P1,
-                #[cfg(feature = "sector-64g")]
                 RegisteredSealProof::StackedDRG64GiBV1P1,
             ]),
 
@@ -251,7 +235,18 @@ impl Default for Policy {
             market_default_allocation_term_buffer:
                 policy_constants::MARKET_DEFAULT_ALLOCATION_TERM_BUFFER,
 
-            minimum_consensus_power: StoragePower::from(policy_constants::MINIMUM_CONSENSUS_POWER),
+            minimum_consensus_power: StoragePower::from(
+                policy_constants::MAINNET_MINIMUM_CONSENSUS_POWER,
+            ),
+        }
+    }
+
+    pub fn calibnet() -> Self {
+        Policy {
+            minimum_consensus_power: StoragePower::from(
+                policy_constants::CALIBNET_MINIMUM_CONSENSUS_POWER,
+            ),
+            ..Policy::mainnet()
         }
     }
 }
@@ -332,10 +327,7 @@ pub mod policy_constants {
 
     /// Number of epochs between publishing the precommit and when the challenge for interactive PoRep is drawn
     /// used to ensure it is not predictable by miner.
-    #[cfg(not(feature = "short-precommit"))]
     pub const PRE_COMMIT_CHALLENGE_DELAY: ChainEpoch = 150;
-    #[cfg(feature = "short-precommit")]
-    pub const PRE_COMMIT_CHALLENGE_DELAY: ChainEpoch = 10;
 
     /// Lookback from the deadline's challenge window opening from which to sample chain randomness for the challenge seed.
 
@@ -382,10 +374,7 @@ pub mod policy_constants {
     /// This is a conservative value that is chosen via simulations of all known attacks.
     pub const CHAIN_FINALITY: ChainEpoch = 900;
 
-    #[cfg(not(feature = "small-deals"))]
     pub const MINIMUM_VERIFIED_ALLOCATION_SIZE: i32 = 1 << 20;
-    #[cfg(feature = "small-deals")]
-    pub const MINIMUM_VERIFIED_ALLOCATION_SIZE: i32 = 256;
     pub const MINIMUM_VERIFIED_ALLOCATION_TERM: i64 = 180 * EPOCHS_IN_DAY;
     pub const MAXIMUM_VERIFIED_ALLOCATION_TERM: i64 = 5 * EPOCHS_IN_YEAR;
     pub const MAXIMUM_VERIFIED_ALLOCATION_EXPIRATION: i64 = 60 * EPOCHS_IN_DAY;
@@ -396,10 +385,7 @@ pub mod policy_constants {
 
     /// Numerator of the percentage of normalized cirulating
     /// supply that must be covered by provider collateral
-    #[cfg(not(feature = "no-provider-deal-collateral"))]
     pub const PROV_COLLATERAL_PERCENT_SUPPLY_NUM: i64 = 1;
-    #[cfg(feature = "no-provider-deal-collateral")]
-    pub const PROV_COLLATERAL_PERCENT_SUPPLY_NUM: i64 = 0;
 
     /// Denominator of the percentage of normalized cirulating
     /// supply that must be covered by provider collateral
@@ -407,16 +393,6 @@ pub mod policy_constants {
 
     pub const MARKET_DEFAULT_ALLOCATION_TERM_BUFFER: i64 = 90 * EPOCHS_IN_DAY;
 
-    #[cfg(feature = "min-power-2k")]
-    pub const MINIMUM_CONSENSUS_POWER: i64 = 2 << 10;
-    #[cfg(feature = "min-power-2g")]
-    pub const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
-    #[cfg(feature = "min-power-32g")]
-    pub const MINIMUM_CONSENSUS_POWER: i64 = 32 << 30;
-    #[cfg(not(any(
-        feature = "min-power-2k",
-        feature = "min-power-2g",
-        feature = "min-power-32g"
-    )))]
-    pub const MINIMUM_CONSENSUS_POWER: i64 = 10 << 40;
+    pub const CALIBNET_MINIMUM_CONSENSUS_POWER: i64 = 32 << 30;
+    pub const MAINNET_MINIMUM_CONSENSUS_POWER: i64 = 10 << 40;
 }
