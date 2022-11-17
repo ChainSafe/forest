@@ -21,6 +21,9 @@ Snapshot_regex = /(?<height>\d+)_.*/
 
 Heights_to_validate = 2000
 
+Minute = 60
+Hour = Minute * Minute
+
 Benchmark_suite = [
   {
     :name => "baseline",
@@ -93,25 +96,34 @@ def get_db_dir()
   "#{data_dir}/mainnet/db"
 end
 
+def hr(seconds)
+  seconds = seconds < Minute ? seconds.ceil(1) : seconds.ceil(0)
+  time = Time.at(seconds)
+  durfmt = "#{seconds>Hour ? '%-Hh' : ''}#{seconds<Minute ? '' : '%-Mm'}%-S#{seconds<Minute ? '.%1L' : ''}s"
+  time.strftime(durfmt)
+end
+
 def exec_command(command, quiet: false, merge: false, dry_run: false)
+  t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   if dry_run
     puts "$ #{command}"
-    return
-  end
-  # TODO: handle merge?
-  opts = merge ? { :err => [:child, :out] } : {}
-  Open3.popen2("#{command}", {}) { |i, o|
-    i.close
-    if quiet
-      return o.read
-    else
-      puts "$ #{command}"
-      o.each_line do |l|
-        print l
+  else
+    # TODO: handle merge?
+    opts = merge ? { :err => [:child, :out] } : {}
+    Open3.popen2("#{command}", {}) { |i, o|
+      i.close
+      if quiet
+        return o.read
+      else
+        puts "$ #{command}"
+        o.each_line do |l|
+          print l
+        end
       end
-      return
-    end
-  }
+    }
+  end
+  t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  elapsed_time = t1 - t0
 end
 
 def config_path(bench)
@@ -164,10 +176,12 @@ def run_benchmarks(benchs, options)
     puts "Version: #{get_forest_version()}"
 
     import_command = bench[:import_command] % params
-    exec_command(import_command, quiet: false, dry_run: dry_run)
+    import_time = exec_command(import_command, quiet: false, dry_run: dry_run)
+    puts "Took #{hr(import_time)}"
 
     validate_command = bench[:validate_command] % params
-    exec_command(validate_command, quiet: false, dry_run: dry_run)
+    validate_time = exec_command(validate_command, quiet: false, dry_run: dry_run)
+    puts "Took #{hr(validate_time)}"
 
     # TODO: retrieve stats
 
