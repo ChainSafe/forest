@@ -2610,20 +2610,16 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
- "blake2b_simd 1.0.0",
+ "blake2b_simd",
  "byteorder",
  "cid",
- "derive_builder",
  "fvm_ipld_amt",
- "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
  "getrandom 0.2.8",
  "hex",
- "indexmap",
- "integer-encoding",
  "itertools 0.10.5",
  "log",
  "multihash",
@@ -2636,7 +2632,7 @@ dependencies = [
  "serde_repr",
  "sha2 0.10.6",
  "thiserror",
- "unsigned-varint 0.7.1",
+ "unsigned-varint",
 ]
 
 [[package]]
