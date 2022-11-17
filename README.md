@@ -64,16 +64,20 @@ rustup install nightly
 * Clang compiler
 * OpenCL bindings
 
-```shell
-# Ubuntu
+### Ubuntu (20.04)
+```
 sudo make install-deps
-# Or
-sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev
-
-# Archlinux
+```
+or
+```
+sudo apt install build-essential clang ocl-icd-opencl-dev cmake
+```
+### Archlinux
+```
 sudo pacman -S base-devel clang ocl-icd openssl
-
-# Fedora (36)
+```
+### Fedora (36)
+```
 sudo dnf install -y clang-devel ocl-icd-devel cmake
 ```
 
