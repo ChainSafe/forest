@@ -32,16 +32,14 @@ libp2p = { workspace = true, default-features = false, features = [
   "identify",
   "ping",
   "mdns",
-  "mdns-tokio",
   "noise",
   "yamux",
   "tcp",
-  "tcp-tokio",
   "dns",
-  "dns-tokio",
   "mplex",
   "request-response",
   "websocket",
+  "tokio",
 ] }
 libp2p-bitswap.workspace = true
 log.workspace = true
