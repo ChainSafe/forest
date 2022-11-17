@@ -3,7 +3,6 @@
 
 use futures::stream::{IntoAsyncRead, MapErr};
 use futures::TryStreamExt;
-use hyper_rustls::HttpsConnectorBuilder;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -16,6 +15,8 @@ use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
 
 use crate::io::ProgressBar;
+
+use super::https_client;
 
 #[derive(Debug, Error)]
 enum DownloadError {
@@ -59,12 +60,7 @@ type DownloadStream =
 
 impl FetchProgress<DownloadStream> {
     pub async fn fetch_from_url(url: Url) -> anyhow::Result<FetchProgress<DownloadStream>> {
-        let https = HttpsConnectorBuilder::new()
-            .with_native_roots()
-            .https_or_http()
-            .enable_http1()
-            .build();
-        let client = hyper::Client::builder().build::<_, hyper::Body>(https);
+        let client = https_client();
         let total_size = {
             let resp = client
                 .request(hyper::Request::head(url.as_str()).body("".into())?)
