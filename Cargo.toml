@@ -66,6 +66,7 @@ bytes                 = "1.2"
 chrono                = "0.4"
 cid                   = { version = "0.8", default-features = false, features = ["std"] }
 cs_serde_bytes        = "0.12.2"
+derive_builder        = "0.11"
 digest                = "0.10.5"
 directories           = "4.0.1"
 fil_actor_account_v8  = { package = "fil_actor_account_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
@@ -107,6 +108,9 @@ http                  = "0.2.8"
 human-repr            = "1.0"
 hyper                 = "0.14"
 hyper-rustls          = "0.23"
+indexmap              = { version = "1.9", features = ["serde-1"] }
+indextools            = "0.10"
+itertools             = "0.10"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
 libipld               = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
@@ -138,6 +142,7 @@ rpassword             = "7.0"
 serde                 = "1.0"
 serde_ipld_dagcbor    = "0.1"
 serde_json            = "1.0"
+serde_repr            = "0.1.8"
 serde_with            = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2                  = "0.10.5"
 smallvec              = "1.9"
