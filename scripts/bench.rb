@@ -19,7 +19,7 @@ Snapshot = "2322240_2022_11_09T06_00_00Z.car"
 # This is just for capturing the snapshot height
 Snapshot_regex = /(?<height>\d+)_.*/
 
-Heights_to_validate = 2000
+Heights_to_validate = 400
 
 Minute = 60
 Hour = Minute * Minute
@@ -124,7 +124,7 @@ def mem_monitor(pid)
       end
     end
   }
-  return handle, { :rss => rss_serie, vsz: vsz_serie }
+  return handle, { :rss => rss_serie, :vsz => vsz_serie }
 end
 
 def exec_command(command, quiet: false, merge: false, dry_run: false)
@@ -169,13 +169,14 @@ def build_config_file(bench)
   File.open("#{config_path(bench)}", "w") { |file| file.write(toml_str) }
 end
 
-def build_substitution_hash(bench)
-  height = Snapshot.match(Snapshot_regex).named_captures["height"].to_i
-  start = height - Heights_to_validate
+def build_substitution_hash(bench, options)
+  snapshot = options.fetch(:snapshot, Snapshot)
+  height = snapshot.match(Snapshot_regex).named_captures["height"].to_i
+  start = height - options.fetch(:height, Heights_to_validate)
 
   # Escape spaces if any
   config_path = config_path(bench).gsub(/\s/, '\\ ')
-  snapshot_path = "#{get_snapshot_dir()}/#{Snapshot}".gsub(/\s/, '\\ ')
+  snapshot_path = "#{get_snapshot_dir()}/#{snapshot}".gsub(/\s/, '\\ ')
 
   { c: config_path, s: snapshot_path, h: start }
 end
@@ -199,7 +200,7 @@ def run_benchmarks(benchs, options)
     # Build bench artefacts
     #puts "Snapshot dir: #{get_snapshot_dir()}/#{Snapshot}"
     build_config_file(bench)
-    params = build_substitution_hash(bench)
+    params = build_substitution_hash(bench, options)
 
     # Run forest benchmark
     puts "Version: #{get_forest_version()}"
@@ -223,7 +224,9 @@ end
 options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: bench.rb [options]"
-  opts.on('--dry-run', 'Only prints the commands that will be run') { |v| options[:dry_run] = v }
+  opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
+  opts.on('--snapshot [Object]', Object, 'Snapshot file to use for benchmarks') { |v| options[:snapshot] = v }
+  opts.on('--height [Integer]', Integer, 'Number of heights to validate') { |v| options[:height] = v }
 end.parse!
 
 run_benchmarks(Benchmark_suite, options)
