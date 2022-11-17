@@ -6,6 +6,7 @@ use super::Store;
 use crate::{metrics, rocks_config::RocksDbConfig};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use rocksdb::WriteOptions;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
@@ -38,13 +39,13 @@ impl RocksDb {
         P: AsRef<Path>,
     {
         let db_opts = config.to_options();
-        Ok(Self {
-            db: Arc::new(DB::open_cf(
-                &db_opts,
-                path,
-                vec![columns::BLOCK_VALIDATION_COLUMN, columns::CHAIN_INFO_COLUMN],
-            )?),
-        })
+        let mut db = DB::open(&db_opts, path)?;
+        for col in [columns::BLOCK_VALIDATION_COLUMN, columns::CHAIN_INFO_COLUMN] {
+            if db.cf_handle(col).is_none() {
+                db.create_cf(col, &db_opts)?;
+            }
+        }
+        Ok(Self { db: Arc::new(db) })
     }
 
     pub fn from_raw_db(db: DB) -> Self {
@@ -76,7 +77,9 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        Ok(self.db.put(key, value)?)
+        let mut opt = WriteOptions::default();
+        opt.disable_wal(true);
+        Ok(self.db.put_opt(key, value, &opt)?)
     }
 
     fn write_column<K, V>(&self, key: K, value: V, column: &str) -> Result<(), Error>
@@ -88,7 +91,9 @@ impl Store for RocksDb {
             .db
             .cf_handle(column)
             .ok_or(Error::GetColumnFamilyHandle)?;
-        Ok(self.db.put_cf(&cf, key, value)?)
+        let mut opt = WriteOptions::default();
+        opt.disable_wal(true);
+        Ok(self.db.put_cf_opt(&cf, key, value, &opt)?)
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>

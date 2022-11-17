@@ -194,7 +194,6 @@ mod test {
                 },
                 rocks_db: RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
-                    create_missing_column_families: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
                     write_buffer_size: usize::arbitrary(g),
                     max_open_files: i32::arbitrary(g),
@@ -206,6 +205,7 @@ mod test {
                     log_level: String::arbitrary(g),
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
+                    block_size: usize::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),

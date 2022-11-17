@@ -8,14 +8,14 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [features]
-default = ["snappy", "lz4", "zlib", "bzip2"]
+default = ["lz4"]
 
-snappy = ["rocksdb/snappy"]
-lz4    = ["rocksdb/lz4"]
-zlib   = ["rocksdb/zlib"]
-bzip2  = ["rocksdb/bzip2"]
 # not included by default to reduce build time
 # uncomment when it needs to be used by other crates
+# snappy = ["rocksdb/snappy"]
+lz4    = ["rocksdb/lz4"]
+# zlib   = ["rocksdb/zlib"]
+# bzip2  = ["rocksdb/bzip2"]
 # zstd = ["rocksdb/zstd"]
 
 [dependencies]
@@ -32,11 +32,11 @@ serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
 
 [dev-dependencies]
-criterion.workspace = true
-rand.workspace      = true
-tempfile.workspace  = true
-fs_extra.workspace=true
-human-repr.workspace=true
+criterion.workspace  = true
+fs_extra.workspace   = true
+human-repr.workspace = true
+rand.workspace       = true
+tempfile.workspace   = true
 
 [[bench]]
 harness = false
