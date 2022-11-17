@@ -3,8 +3,9 @@
 
 mod cli;
 mod daemon;
+mod subcommand;
 
-use cli::Cli;
+use cli::{Cli, Subcommand};
 
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
@@ -13,7 +14,7 @@ use forest_cli_shared::{
 };
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::info;
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use rlimit::{getrlimit, Resource};
@@ -126,7 +127,8 @@ fn check_for_low_fd(config: &Config) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
@@ -151,8 +153,8 @@ fn main() {
                 info!("Using default {} config", cfg.chain.name);
             }
             match cmd {
-                Some(_) => {
-                    warn!("All subcommands have been moved to forest-cli tool");
+                Some(Subcommand::Config(cmd)) => {
+                    subcommand::process(cli::Subcommand::Config(cmd), cfg).await;
                 }
                 None => {
                     if let Err(e) = check_for_low_fd(&cfg) {

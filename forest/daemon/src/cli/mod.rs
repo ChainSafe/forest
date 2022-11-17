@@ -1,6 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod config_cmd;
+
+use crate::cli::config_cmd::ConfigCommands;
 use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};
@@ -21,7 +24,16 @@ use structopt::StructOpt;
 pub struct Cli {
     #[structopt(flatten)]
     pub opts: CliOpts,
-    pub cmd: Option<String>,
+    #[structopt(subcommand)]
+    pub cmd: Option<Subcommand>,
+}
+
+/// Forest binary sub-commands available.
+#[derive(StructOpt)]
+#[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
+pub enum Subcommand {
+    /// Manage node configuration
+    Config(ConfigCommands),
 }
 
 pub fn set_sigint_handler() -> Receiver<()> {
