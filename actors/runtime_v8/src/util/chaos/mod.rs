@@ -6,15 +6,14 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
 use fvm_shared::error::ExitCode;
-use fvm_shared::{MethodNum, METHOD_CONSTRUCTOR};
+use fvm_shared::METHOD_CONSTRUCTOR;
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
 pub use state::*;
 pub use types::*;
 
 use crate::runtime::builtins::Type;
-use crate::runtime::{ActorCode, Runtime};
-use crate::{actor_error, cbor, ActorError};
+use crate::runtime::Runtime;
+use crate::{actor_error, ActorError};
 
 mod state;
 mod types;
@@ -200,64 +199,5 @@ impl Actor {
             current_balance: rt.current_balance(),
             state: rt.state()?,
         })
-    }
-}
-
-impl ActorCode for Actor {
-    fn invoke_method<BS, RT>(
-        rt: &mut RT,
-        method: MethodNum,
-        params: &RawBytes,
-    ) -> Result<RawBytes, ActorError>
-    where
-        BS: Blockstore,
-        RT: Runtime<BS>,
-    {
-        match FromPrimitive::from_u64(method) {
-            Some(Method::Constructor) => {
-                Self::constructor(rt);
-                Ok(RawBytes::default())
-            }
-            Some(Method::CallerValidation) => {
-                Self::caller_validation(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::default())
-            }
-
-            Some(Method::CreateActor) => {
-                Self::create_actor(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::default())
-            }
-            Some(Method::ResolveAddress) => {
-                let res = Self::resolve_address(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::serialize(res)?)
-            }
-
-            Some(Method::Send) => {
-                let res: SendReturn = Self::send(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::serialize(res)?)
-            }
-
-            Some(Method::DeleteActor) => {
-                Self::delete_actor(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::default())
-            }
-
-            Some(Method::MutateState) => {
-                Self::mutate_state(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::default())
-            }
-
-            Some(Method::AbortWith) => {
-                Self::abort_with(cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::default())
-            }
-
-            Some(Method::InspectRuntime) => {
-                let inspect = Self::inspect_runtime(rt)?;
-                Ok(RawBytes::serialize(inspect)?)
-            }
-
-            None => Err(actor_error!(unhandled_message; "Invalid method")),
-        }
     }
 }

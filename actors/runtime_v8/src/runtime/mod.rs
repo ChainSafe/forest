@@ -18,13 +18,11 @@ use fvm_shared::sector::{
 use fvm_shared::version::NetworkVersion;
 use fvm_shared::{ActorID, MethodNum};
 
-pub use self::actor_code::*;
 pub use self::policy::*;
 pub use self::randomness::DomainSeparationTag;
 use crate::runtime::builtins::Type;
 use crate::ActorError;
 
-mod actor_code;
 pub mod builtins;
 pub mod policy;
 mod randomness;

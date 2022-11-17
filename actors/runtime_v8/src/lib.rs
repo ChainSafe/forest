@@ -17,7 +17,6 @@ pub use {fvm_ipld_amt, fvm_ipld_hamt};
 pub use self::actor_error::*;
 pub use self::builtin::*;
 pub use self::util::*;
-use crate::runtime::Runtime;
 
 use fvm_ipld_hamt::Sha256;
 
