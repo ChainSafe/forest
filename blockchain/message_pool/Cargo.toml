@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace               = true
-async-std                      = { workspace = true, features = ["tokio1"] }
 async-trait.workspace          = true
 blake2b_simd.workspace         = true
 cid.workspace                  = true

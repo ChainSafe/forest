@@ -504,7 +504,7 @@ mod tests {
             .unwrap();
     }
 
-    #[async_std::test]
+    #[tokio::test]
     async fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
