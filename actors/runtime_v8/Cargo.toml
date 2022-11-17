@@ -5,7 +5,7 @@ version     = "1.0.0"
 license     = "MIT OR Apache-2.0"
 authors     = ["ChainSafe Systems <info@chainsafe.io>", "Protocol Labs", "Filecoin Core Devs"]
 edition     = "2021"
-repository  = "https://github.com/filecoin-project/builtin-actors"
+repository  = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 anyhow              = { workspace = true }
