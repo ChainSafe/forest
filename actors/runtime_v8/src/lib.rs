@@ -36,7 +36,7 @@ pub type Array<'bs, V, BS> = Amt<V, &'bs BS>;
 /// Deal weight
 pub type DealWeight = BigInt;
 
-/// Create a hamt with a custom bitwidth.
+/// Create a HAMT with a custom bit width.
 #[inline]
 pub fn make_empty_map<BS, V>(store: &'_ BS, bitwidth: u32) -> Map<'_, BS, V>
 where
@@ -46,7 +46,7 @@ where
     Map::<_, V>::new_with_bit_width(store, bitwidth)
 }
 
-/// Create a map with a root cid.
+/// Create a map with a root Cid.
 #[inline]
 pub fn make_map_with_root<'bs, BS, V>(
     root: &Cid,
@@ -59,7 +59,7 @@ where
     Map::<_, V>::load_with_bit_width(root, store, HAMT_BIT_WIDTH)
 }
 
-/// Create a map with a root cid.
+/// Create a map with a root Cid.
 #[inline]
 pub fn make_map_with_root_and_bitwidth<'bs, BS, V>(
     root: &Cid,

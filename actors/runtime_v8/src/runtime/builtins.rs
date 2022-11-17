@@ -1,9 +1,9 @@
 use num_derive::FromPrimitive;
 
 /// Identifies the builtin actor types for usage with the
-/// actor::resolve_builtin_actor_type syscall.
-/// Note that there is a mirror of this enum in the FVM SDK src/actors/builtins.rs.
-/// These must be kept in sync for the syscall to work correctly, without either side
+/// `actor::resolve_builtin_actor_type` `syscall`.
+/// Note that there is a mirror of this `enum` in the `FVM` SDK `src/actors/builtins.rs`.
+/// These must be kept in sync for the `syscall` to work correctly, without either side
 /// importing the other.
 #[derive(PartialEq, Eq, Clone, Copy, PartialOrd, Ord, FromPrimitive, Debug)]
 #[repr(i32)]

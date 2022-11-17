@@ -12,7 +12,7 @@ use fvm_shared::ActorID;
 
 use super::state::State;
 
-/// CreateActorArgs are the arguments to CreateActor.
+/// `CreateActorArgs` are the arguments to `CreateActor`.
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct CreateActorArgs {
     pub undef_cid: bool,
@@ -21,7 +21,7 @@ pub struct CreateActorArgs {
     pub actor_id: ActorID,
 }
 
-/// Holds the response of a call to runtime.ResolveAddress
+/// Holds the response of a call to `runtime.ResolveAddress`
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct ResolveAddressResponse {
     pub id: ActorID,

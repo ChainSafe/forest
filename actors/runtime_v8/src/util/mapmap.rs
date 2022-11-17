@@ -148,7 +148,7 @@ where
         Ok(())
     }
 
-    /// Removes a key from the MapMap, returning the value at the key if the key
+    /// Removes a key from the `MapMap`, returning the value at the key if the key
     /// was previously set.
     pub fn remove(&mut self, outside_k: K1, inside_k: K2) -> Result<Option<V>, Error> {
         let (is_empty, in_map) = self.load_inner_map(outside_k)?;

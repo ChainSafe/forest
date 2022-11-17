@@ -15,7 +15,7 @@ pub struct ActorError {
 }
 
 impl ActorError {
-    /// Creates a new ActorError. This method does not check that the code is in the
+    /// Creates a new `ActorError`. This method does not check that the code is in the
     /// range of valid actor abort codes.
     pub fn unchecked(code: ExitCode, msg: String) -> Self {
         Self {
@@ -96,7 +96,7 @@ impl ActorError {
     }
 }
 
-/// Converts a raw encoding error into an ErrSerialization.
+/// Converts a raw encoding error into an `ErrSerialization`.
 impl From<fvm_ipld_encoding::Error> for ActorError {
     fn from(e: fvm_ipld_encoding::Error) -> Self {
         Self {

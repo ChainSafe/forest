@@ -79,13 +79,13 @@ impl Actor {
         panic!("Constructor should not be called");
     }
 
-    /// CallerValidation violates VM call validation constraints.
+    /// `CallerValidation` violates VM call validation constraints.
     ///
-    ///  CALLER_VALIDATION_BRANCH_NONE performs no validation.
-    ///  CALLER_VALIDATION_BRANCH_TWICE validates twice.
-    ///  CALLER_VALIDATION_BRANCH_IS_ADDRESS validates against an empty caller
+    ///  `CALLER_VALIDATION_BRANCH_NONE` performs no validation.
+    ///  `CALLER_VALIDATION_BRANCH_TWICE` validates twice.
+    ///  `CALLER_VALIDATION_BRANCH_IS_ADDRESS` validates against an empty caller
     ///  address set.
-    ///  CALLER_VALIDATION_BRANCH_IS_TYPE validates against an empty caller type set.
+    ///  `CALLER_VALIDATION_BRANCH_IS_TYPE` validates against an empty caller type set.
     pub fn caller_validation<BS, RT>(
         rt: &mut RT,
         args: CallerValidationArgs,

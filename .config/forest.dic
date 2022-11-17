@@ -34,7 +34,7 @@ multisig
 mutex
 P2P
 pointer/SM
-PoSt
+PoSt/SM
 RPC
 SECP
 SECP256k1
@@ -52,3 +52,8 @@ validator/S
 verifier
 VM
 VRF
+permissioned
+SDK
+unbiasable
+biasable
+invariants

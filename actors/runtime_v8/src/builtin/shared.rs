@@ -13,12 +13,12 @@ use crate::runtime::Runtime;
 pub const HAMT_BIT_WIDTH: u32 = 5;
 
 /// Types of built-in actors that can be treated as principles.
-/// This distinction is legacy and should be removed prior to FVM support for
+/// This distinction is legacy and should be removed prior to `FVM` support for
 /// user-programmable actors.
 pub const CALLER_TYPES_SIGNABLE: &[Type] = &[Type::Account, Type::Multisig];
 
-/// ResolveToActorID resolves the given address to it's actor ID.
-/// If an actor ID for the given address dosen't exist yet, it tries to create one by sending
+/// `ResolveToActorID` resolves the given address to it's actor ID.
+/// If an actor ID for the given address doesn't exist yet, it tries to create one by sending
 /// a zero balance to the given address.
 pub fn resolve_to_actor_id<BS, RT>(rt: &mut RT, address: &Address) -> Result<ActorID, ActorError>
 where
