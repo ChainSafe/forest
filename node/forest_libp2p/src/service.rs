@@ -753,9 +753,9 @@ async fn emit_event(sender: &flume::Sender<NetworkEvent>, event: NetworkEvent) {
 /// Builds the transport stack that libp2p will communicate over.
 pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
-        || libp2p::tcp::TcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
+        || libp2p::tcp::TokioTcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
     let transport = libp2p::websocket::WsConfig::new(tcp_transport()).or_transport(tcp_transport());
-    let transport = libp2p::dns::DnsConfig::system(transport).await.unwrap();
+    let transport = libp2p::dns::TokioDnsConfig::system(transport).unwrap();
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
             .into_authentic(&local_key)
