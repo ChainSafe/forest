@@ -121,6 +121,7 @@ pub enum NetRPCMethods {
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
+    config: Libp2pConfig,
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
 
@@ -163,8 +164,6 @@ where
         .connection_event_buffer_size(64)
         .build();
 
-        Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
-
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
             let t = Topic::new(format!("{}/{}", topic, network_name));
@@ -180,6 +179,7 @@ where
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
         Libp2pService {
+            config,
             swarm,
             cs,
             network_receiver_in,
@@ -193,6 +193,8 @@ where
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
     pub async fn run(mut self) {
+        info!("Running libp2p service");
+        Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr).unwrap();
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
