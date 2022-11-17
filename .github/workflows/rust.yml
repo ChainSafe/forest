@@ -139,7 +139,6 @@ jobs:
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
-          bash scripts/health_check.sh localhost
       - name: kill Forest process, print forest logs
         run: |
           pkill forest
