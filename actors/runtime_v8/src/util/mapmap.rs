@@ -77,7 +77,10 @@ where
                         self.inner_bitwidth,
                     )?,
                 )),
-                None => Ok((true, make_empty_map(*self.outer.store(), self.inner_bitwidth))),
+                None => Ok((
+                    true,
+                    make_empty_map(*self.outer.store(), self.inner_bitwidth),
+                )),
             }
         };
         let raw_k = k.key().0;

@@ -59,9 +59,15 @@ impl Actor {
 
         let result = rt.send(&arg.to, arg.method, arg.params, arg.value);
         if let Err(e) = result {
-            Ok(SendReturn { return_value: RawBytes::default(), code: e.exit_code() })
+            Ok(SendReturn {
+                return_value: RawBytes::default(),
+                code: e.exit_code(),
+            })
         } else {
-            Ok(SendReturn { return_value: result.unwrap(), code: ExitCode::OK })
+            Ok(SendReturn {
+                return_value: result.unwrap(),
+                code: ExitCode::OK,
+            })
         }
     }
 
@@ -119,7 +125,11 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any()?;
         // TODO Temporarily fine to use default as Undefined Cid, but may need to change in the future
-        let actor_cid = if arg.undef_cid { Cid::default() } else { arg.cid };
+        let actor_cid = if arg.undef_cid {
+            Cid::default()
+        } else {
+            arg.cid
+        };
 
         let actor_address = arg.actor_id;
 
@@ -137,7 +147,10 @@ impl Actor {
     {
         rt.validate_immediate_caller_accept_any()?;
         let resolved = rt.resolve_address(&args);
-        Ok(ResolveAddressResponse { id: resolved.unwrap_or(0), success: resolved.is_some() })
+        Ok(ResolveAddressResponse {
+            id: resolved.unwrap_or(0),
+            success: resolved.is_some(),
+        })
     }
 
     pub fn delete_actor<BS, RT>(rt: &mut RT, beneficiary: Address) -> Result<(), ActorError>

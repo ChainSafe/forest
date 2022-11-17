@@ -19,11 +19,17 @@ pub struct BatchReturn {
 
 impl BatchReturn {
     pub const fn empty() -> Self {
-        Self { success_count: 0, fail_codes: Vec::new() }
+        Self {
+            success_count: 0,
+            fail_codes: Vec::new(),
+        }
     }
 
     pub const fn ok(n: u32) -> Self {
-        Self { success_count: n, fail_codes: Vec::new() }
+        Self {
+            success_count: n,
+            fail_codes: Vec::new(),
+        }
     }
 
     pub fn size(&self) -> usize {
@@ -54,7 +60,11 @@ impl BatchReturn {
     // Panics if `items` is not the same length as this batch return.
     pub fn successes<T: Copy>(&self, items: &[T]) -> Vec<T> {
         if items.len() != self.size() {
-            panic!("items length {} does not match batch size {}", items.len(), self.size());
+            panic!(
+                "items length {} does not match batch size {}",
+                items.len(),
+                self.size()
+            );
         }
         let mut ret = Vec::new();
         let mut fail_idx = 0;
@@ -99,7 +109,11 @@ pub struct BatchReturnGen {
 
 impl BatchReturnGen {
     pub fn new(expect_count: usize) -> Self {
-        BatchReturnGen { success_count: 0, fail_codes: Vec::new(), expect_count }
+        BatchReturnGen {
+            success_count: 0,
+            fail_codes: Vec::new(),
+            expect_count,
+        }
     }
 
     pub fn add_success(&mut self) -> &mut Self {
@@ -108,8 +122,10 @@ impl BatchReturnGen {
     }
 
     pub fn add_fail(&mut self, code: ExitCode) -> &mut Self {
-        self.fail_codes
-            .push(FailCode { idx: (self.success_count + self.fail_codes.len()) as u32, code });
+        self.fail_codes.push(FailCode {
+            idx: (self.success_count + self.fail_codes.len()) as u32,
+            code,
+        });
         self
     }
 

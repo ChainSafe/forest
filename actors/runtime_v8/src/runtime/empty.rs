@@ -23,7 +23,10 @@ const EMPTY_ARR_HASH_DIGEST: &[u8] = &[
 // bafy2bzacebc3bt6cedhoyw34drrmjvazhu4oj25er2ebk4u445pzycvq4ta4a
 pub const EMPTY_ARR_CID: Cid = Cid::new_v1(
     DAG_CBOR,
-    const_unwrap(Multihash::wrap(SupportedHashes::Blake2b256 as u64, EMPTY_ARR_HASH_DIGEST)),
+    const_unwrap(Multihash::wrap(
+        SupportedHashes::Blake2b256 as u64,
+        EMPTY_ARR_HASH_DIGEST,
+    )),
 );
 
 #[test]

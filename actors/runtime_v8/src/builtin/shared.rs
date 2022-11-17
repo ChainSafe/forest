@@ -38,5 +38,9 @@ where
         return Ok(id);
     }
 
-    Err(actor_error!(illegal_argument, "failed to resolve or initialize address {}", address))
+    Err(actor_error!(
+        illegal_argument,
+        "failed to resolve or initialize address {}",
+        address
+    ))
 }

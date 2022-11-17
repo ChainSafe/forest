@@ -548,12 +548,17 @@ pub fn trampoline<C: ActorCode>(params: u32) -> u32 {
     fvm::debug::init_logging();
 
     std::panic::set_hook(Box::new(|info| {
-        fvm::vm::abort(ExitCode::USR_ASSERTION_FAILED.value(), Some(&format!("{}", info)))
+        fvm::vm::abort(
+            ExitCode::USR_ASSERTION_FAILED.value(),
+            Some(&format!("{}", info)),
+        )
     }));
 
     let method = fvm::message::method_number();
     log::debug!("fetching parameters block: {}", params);
-    let params = fvm::message::params_raw(params).expect("params block invalid").1;
+    let params = fvm::message::params_raw(params)
+        .expect("params block invalid")
+        .1;
     let params = RawBytes::new(params);
     log::debug!("input params: {:x?}", params.bytes());
 
@@ -567,7 +572,10 @@ pub fn trampoline<C: ActorCode>(params: u32) -> u32 {
     // We do this after handling the error, because the actor may have encountered an error before
     // it even could validate the caller.
     if !rt.caller_validated {
-        fvm::vm::abort(ExitCode::USR_ASSERTION_FAILED.value(), Some("failed to validate caller"))
+        fvm::vm::abort(
+            ExitCode::USR_ASSERTION_FAILED.value(),
+            Some("failed to validate caller"),
+        )
     }
 
     // Then handle the return value.

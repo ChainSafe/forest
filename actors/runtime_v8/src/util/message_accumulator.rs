@@ -39,12 +39,16 @@ impl MessageAccumulator {
 
     /// Adds a message to the accumulator
     pub fn add<S: AsRef<str>>(&self, msg: S) {
-        self.msgs.borrow_mut().push(format!("{}{}", self.prefix, msg.as_ref()));
+        self.msgs
+            .borrow_mut()
+            .push(format!("{}{}", self.prefix, msg.as_ref()));
     }
 
     /// Adds messages from another accumulator to this one
     pub fn add_all(&self, other: &Self) {
-        self.msgs.borrow_mut().extend_from_slice(&other.msgs.borrow());
+        self.msgs
+            .borrow_mut()
+            .extend_from_slice(&other.msgs.borrow());
     }
 
     /// Adds a message if predicate is false
@@ -75,17 +79,23 @@ impl MessageAccumulator {
             messages.len() == expected_patterns.len(),
             "Incorrect number of accumulator messages. Actual: {}.\nExpected: {}",
             messages.join("\n"),
-            expected_patterns.iter().map(|regex| regex.as_str()).join("\n")
+            expected_patterns
+                .iter()
+                .map(|regex| regex.as_str())
+                .join("\n")
         );
 
-        messages.iter().zip(expected_patterns).for_each(|(message, pattern)| {
-            assert!(
-                pattern.is_match(message),
-                "message does not match. Actual: {}, expected: {}",
-                message,
-                pattern.as_str()
-            );
-        });
+        messages
+            .iter()
+            .zip(expected_patterns)
+            .for_each(|(message, pattern)| {
+                assert!(
+                    pattern.is_match(message),
+                    "message does not match. Actual: {}, expected: {}",
+                    message,
+                    pattern.as_str()
+                );
+            });
     }
 }
 
