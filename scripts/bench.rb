@@ -110,21 +110,13 @@ def mem_monitor(pid)
     loop do
       sleep 0.5
       code = 0
-      Open3.popen2("ps -o rss #{pid}", {}) { |i, o, t|
+      Open3.popen2("ps -o rss,vsz #{pid}", {}) { |i, o, t|
         i.close
         code = t.value
         if code == 0
-          rss_serie.push o.read.lines.last.to_i
-        end
-      }
-      if code != 0
-        break
-      end
-      Open3.popen2("ps -o vsz #{pid}", {}) { |i, o, t|
-        i.close
-        code = t.value
-        if code == 0
-          vsz_serie.push o.read.lines.last.to_i
+          output = o.read.lines.last.split
+          rss_serie.push output[0].to_i
+          vsz_serie.push output[1].to_i
         end
       }
       if code != 0
