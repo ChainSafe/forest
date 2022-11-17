@@ -63,18 +63,22 @@ Install [rustup](https://rustup.rs/)
 * OpenCL bindings
 * [Protoc](https://github.com/protocolbuffers/protobuf/releases/)
 
-```shell
-# Ubuntu
+### Ubuntu (20.04)
+```
 sudo make install-deps
-# Or
-sudo apt install build-essential clang ocl-icd-opencl-dev libssl-dev protobuf-compiler
-
-# Archlinux
+```
+or
+```
+sudo apt install build-essential clang ocl-icd-opencl-dev protobuf-compiler cmake
+```
+### Archlinux
+```
 sudo pacman -S base-devel clang ocl-icd openssl
-# NOTE: protobuf needs to be installed manually, and protoc needs to present in PATH
-
-# Fedora (36)
-sudo dnf install -y clang-devel ocl-icd-devel cmake protobuf-compiler
+```
+NOTE: protobuf needs to be installed manually, and protoc needs to present in PATH
+### Fedora (36)
+```
+sudo dnf install -y clang-devel ocl-icd-devel protobuf-compiler cmake
 ```
 
 ## Installation
