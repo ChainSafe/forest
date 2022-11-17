@@ -103,14 +103,48 @@ def hr(seconds)
   time.strftime(durfmt)
 end
 
+def mem_monitor(pid)
+  rss_serie = []
+  vsz_serie = []
+  handle = Thread.new() { ||
+    loop do
+      sleep 0.5
+      code = 0
+      Open3.popen2("ps -o rss #{pid}", {}) { |i, o, t|
+        i.close
+        code = t.value
+        if code == 0
+          rss_serie.push o.read.lines.last.to_i
+        end
+      }
+      if code != 0
+        break
+      end
+      Open3.popen2("ps -o vsz #{pid}", {}) { |i, o, t|
+        i.close
+        code = t.value
+        if code == 0
+          vsz_serie.push o.read.lines.last.to_i
+        end
+      }
+      if code != 0
+        break
+      end
+    end
+  }
+  return handle, { :rss => rss_serie, vsz: vsz_serie }
+end
+
 def exec_command(command, quiet: false, merge: false, dry_run: false)
+  metrics = {}
   t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   if dry_run
     puts "$ #{command}"
   else
     # TODO: handle merge?
     opts = merge ? { :err => [:child, :out] } : {}
-    Open3.popen2("#{command}", {}) { |i, o|
+    Open3.popen2("#{command}", {}) { |i, o, t|
+      handle, mem = mem_monitor(t.pid)
       i.close
       if quiet
         return o.read
@@ -120,10 +154,13 @@ def exec_command(command, quiet: false, merge: false, dry_run: false)
           print l
         end
       end
+      handle.join
+      metrics.merge!(mem)
     }
   end
   t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  elapsed_time = t1 - t0
+  metrics[:elapsed] = hr(t1 - t0)
+  metrics
 end
 
 def config_path(bench)
@@ -176,12 +213,12 @@ def run_benchmarks(benchs, options)
     puts "Version: #{get_forest_version()}"
 
     import_command = bench[:import_command] % params
-    import_time = exec_command(import_command, quiet: false, dry_run: dry_run)
-    puts "Took: #{hr(import_time)}"
+    metrics = exec_command(import_command, quiet: false, dry_run: dry_run)
+    pp metrics
 
     validate_command = bench[:validate_command] % params
-    validate_time = exec_command(validate_command, quiet: false, dry_run: dry_run)
-    puts "Took: #{hr(validate_time)}"
+    metrics = exec_command(validate_command, quiet: false, dry_run: dry_run)
+    pp metrics
 
     # TODO: retrieve stats
 
