@@ -157,6 +157,9 @@ def run_benchmarks(benchs, options)
 
     dry_run = options[:dry_run]
 
+    # TODO: cargo clean before
+    exec_command(bench[:build_command], quiet: false, dry_run: dry_run)
+
     # Clean db
     db_dir = get_db_dir()
     puts "Wiping #{db_dir}"
@@ -164,11 +167,8 @@ def run_benchmarks(benchs, options)
       FileUtils.rm_rf(db_dir, :secure => true)
     end
 
-    # TODO: cargo clean before
-    exec_command(bench[:build_command], quiet: false, dry_run: dry_run)
-
     # Build bench artefacts
-    #puts "#{get_snapshot_dir()}/#{Snapshot}"
+    #puts "Snapshot dir: #{get_snapshot_dir()}/#{Snapshot}"
     build_config_file(bench)
     params = build_substitution_hash(bench)
 
@@ -177,11 +177,11 @@ def run_benchmarks(benchs, options)
 
     import_command = bench[:import_command] % params
     import_time = exec_command(import_command, quiet: false, dry_run: dry_run)
-    puts "Took #{hr(import_time)}"
+    puts "Took: #{hr(import_time)}"
 
     validate_command = bench[:validate_command] % params
     validate_time = exec_command(validate_command, quiet: false, dry_run: dry_run)
-    puts "Took #{hr(validate_time)}"
+    puts "Took: #{hr(validate_time)}"
 
     # TODO: retrieve stats
 
