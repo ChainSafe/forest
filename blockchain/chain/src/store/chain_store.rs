@@ -1,10 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Scale;
-use super::metrics;
 use super::index::checkpoint_tipsets;
+use super::metrics;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
+use crate::Scale;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};

@@ -36,12 +36,12 @@ lazy_static.workspace            = true
 log.workspace                    = true
 lru.workspace                    = true
 num-traits.workspace             = true
+once_cell.workspace              = true
 prometheus                       = { workspace = true }
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
 tokio-util                       = { workspace = true, features = ["compat"] }
-once_cell.workspace              = true
 
 [dev-dependencies]
 multihash = { workspace = true, default-features = false, features = ["std", "blake2b", "derive"] }

@@ -25,18 +25,17 @@ pub(super) mod checkpoint_tipsets {
     use std::collections::HashMap;
     use std::str::FromStr;
 
-    const CALIBNET_GENESIS_CID: &str = "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
-    const MAINNET_GENESIS_CID: &str = "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
+    const CALIBNET_GENESIS_CID: &str =
+        "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
+    const MAINNET_GENESIS_CID: &str =
+        "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
 
     macro_rules! add_calibnet {
         ($map: ident, $key_hash:expr) => {
             $map.insert(
                 $key_hash,
                 // calibnet genesis tipset keys
-                TipsetKeys::new(vec![Cid::from_str(
-                    CALIBNET_GENESIS_CID,
-                )
-                .unwrap()]),
+                TipsetKeys::new(vec![Cid::from_str(CALIBNET_GENESIS_CID).unwrap()]),
             );
         };
     }
@@ -46,10 +45,7 @@ pub(super) mod checkpoint_tipsets {
             $map.insert(
                 $key_hash,
                 // mainnet genesis tipset keys
-                TipsetKeys::new(vec![Cid::from_str(
-                    MAINNET_GENESIS_CID,
-                )
-                .unwrap()]),
+                TipsetKeys::new(vec![Cid::from_str(MAINNET_GENESIS_CID).unwrap()]),
             );
         };
     }
@@ -161,7 +157,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 if to == 0 {
                     let tipset =
                         tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
-                        info!("using checkpoint tipset at height: {}", lbe.tipset.epoch());
+                    info!("using checkpoint tipset at height: {}", lbe.tipset.epoch());
                     return Ok(tipset);
                 }
             }
