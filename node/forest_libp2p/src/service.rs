@@ -662,7 +662,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 let peer = ping_event.peer.to_base58();
                 warn!("{err}: {peer}",);
                 if err.contains("protocol not supported") {
-                    warn!("Banning peer {peer}");
+                    warn!("Banning peer {peer} due to protocol error");
                     st_mut.ban_peer_id(ping_event.peer);
                 }
             }
