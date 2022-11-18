@@ -53,10 +53,9 @@ BENCHMARK_SUITE = [
   }
 ].freeze
 
-BENCH_PATHS = {}.freeze
+BENCH_PATHS = { tmpdir: Dir.mktmpdir('forest-benchs-') }.freeze
 
 def tmp_dir
-  BENCH_PATHS[:tmpdir] ||= Dir.mktmpdir('forest-benchs-')
   BENCH_PATHS[:tmpdir]
 end
 
@@ -124,8 +123,6 @@ def exec_command(command, quiet: false, merge: false, dry_run: false)
   if dry_run
     puts "$ #{command}"
   else
-    # TODO: handle merge?
-    opts = merge ? { err: %i[child out] } : {}
     Open3.popen2(command.to_s, {}) do |i, o, t|
       handle, mem = mem_monitor(t.pid)
       i.close
@@ -202,7 +199,7 @@ end
 
 def write_result(metrics)
   # Output file is a suite of markdown tables
-  result = ""
+  result = ''
   result += write_import_table(metrics)
   result += "---\n"
   result += write_validate_table(metrics)
