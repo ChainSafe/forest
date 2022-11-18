@@ -3,9 +3,7 @@
 
 use fil_actors_runtime_v8::runtime::builtins::Type;
 use fil_actors_runtime_v8::runtime::Runtime;
-use fil_actors_runtime_v8::{
-    actor_error, resolve_to_actor_id, ActorDowncast, ActorError, Array,
-};
+use fil_actors_runtime_v8::{actor_error, resolve_to_actor_id, ActorDowncast, ActorError, Array};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared::address::Address;
@@ -44,7 +42,7 @@ pub const ERR_CHANNEL_STATE_UPDATE_AFTER_SETTLED: ExitCode = ExitCode::new(32);
 pub struct Actor;
 impl Actor {
     /// Constructor for Payment channel actor
-    pub fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError> 
+    pub fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: Blockstore,
         RT: Runtime<BS>,
@@ -70,7 +68,7 @@ impl Actor {
     }
 
     /// Resolves an address to a canonical ID address and requires it to address an account actor.
-    fn resolve_account<BS, RT>(rt: &mut RT, raw: &Address) -> Result<Address, ActorError> 
+    fn resolve_account<BS, RT>(rt: &mut RT, raw: &Address) -> Result<Address, ActorError>
     where
         BS: Blockstore,
         RT: Runtime<BS>,
@@ -98,7 +96,7 @@ impl Actor {
     pub fn update_channel_state<BS, RT>(
         rt: &mut RT,
         params: UpdateChannelStateParams,
-    ) -> Result<(), ActorError> 
+    ) -> Result<(), ActorError>
     where
         BS: Blockstore,
         RT: Runtime<BS>,
@@ -106,7 +104,11 @@ impl Actor {
         let st: State = rt.state()?;
 
         rt.validate_immediate_caller_is([st.from, st.to].iter())?;
-        let signer = if rt.message().caller() == st.from { st.to } else { st.from };
+        let signer = if rt.message().caller() == st.from {
+            st.to
+        } else {
+            st.from
+        };
         let sv = params.sv;
 
         // Pull signature from signed voucher
@@ -123,7 +125,10 @@ impl Actor {
         }
 
         if params.secret.len() > MAX_SECRET_SIZE {
-            return Err(actor_error!(illegal_argument, "secret must be at most 256 bytes long"));
+            return Err(actor_error!(
+                illegal_argument,
+                "secret must be at most 256 bytes long"
+            ));
         }
 
         // Generate unsigned bytes
@@ -171,8 +176,13 @@ impl Actor {
         }
 
         if let Some(extra) = &sv.extra {
-            rt.send(&extra.actor, extra.method, extra.data.clone(), TokenAmount::zero())
-                .map_err(|e| e.wrap("spend voucher verification failed"))?;
+            rt.send(
+                &extra.actor,
+                extra.method,
+                extra.data.clone(),
+                TokenAmount::zero(),
+            )
+            .map_err(|e| e.wrap("spend voucher verification failed"))?;
         }
 
         rt.transaction(|st: &mut State, rt| {
@@ -274,10 +284,10 @@ impl Actor {
         })
     }
 
-    pub fn settle<BS, RT>(rt: &mut RT) -> Result<(), ActorError> 
+    pub fn settle<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: Blockstore,
-        RT: Runtime<BS>,    
+        RT: Runtime<BS>,
     {
         rt.transaction(|st: &mut State, rt| {
             rt.validate_immediate_caller_is([st.from, st.to].iter())?;
@@ -295,10 +305,10 @@ impl Actor {
         })
     }
 
-    pub fn collect<BS, RT>(rt: &mut RT) -> Result<(), ActorError> 
+    pub fn collect<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: Blockstore,
-        RT: Runtime<BS>,    
+        RT: Runtime<BS>,
     {
         let st: State = rt.state()?;
         rt.validate_immediate_caller_is(&[st.from, st.to])?;
@@ -331,6 +341,9 @@ where
     }
 
     ls.get(id).map_err(|e| {
-        e.downcast_default(ExitCode::USR_ILLEGAL_STATE, format!("failed to load lane {}", id))
+        e.downcast_default(
+            ExitCode::USR_ILLEGAL_STATE,
+            format!("failed to load lane {}", id),
+        )
     })
 }

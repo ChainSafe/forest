@@ -41,7 +41,10 @@ pub fn check_state_invariants<BS: Blockstore>(
             let ret = lanes.for_each(|i, lane| {
                 acc.require(
                     lane.redeemed.is_positive(),
-                    format!("lane {i} redeemed is not greater than zero {}", lane.redeemed),
+                    format!(
+                        "lane {i} redeemed is not greater than zero {}",
+                        lane.redeemed
+                    ),
                 );
                 redeemed += &lane.redeemed;
                 Ok(())
@@ -53,7 +56,10 @@ pub fn check_state_invariants<BS: Blockstore>(
 
     acc.require(
         balance >= &state.to_send,
-        format!("channel has insufficient funds to send ({} < {})", balance, state.to_send),
+        format!(
+            "channel has insufficient funds to send ({} < {})",
+            balance, state.to_send
+        ),
     );
 
     (StateSummary { redeemed }, acc)
