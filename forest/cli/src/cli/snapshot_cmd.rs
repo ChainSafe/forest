@@ -54,6 +54,9 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
+        /// Fetch latest snapshot provided by filops servers, Default is set to Forest servers
+        #[structopt(long)]
+        filops: bool,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
@@ -181,6 +184,7 @@ impl SnapshotCommands {
                 aria2: use_aria2,
                 compressed,
                 skip_checksum_validation,
+                filops,
             } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
@@ -191,6 +195,7 @@ impl SnapshotCommands {
                     *use_aria2,
                     *compressed,
                     *skip_checksum_validation,
+                    *filops,
                 )
                 .await
                 {

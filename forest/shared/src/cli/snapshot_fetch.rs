@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::{Config, SnapshotFetchConfig};
+use super::Config;
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::io::{progress_bar::Units, ProgressBar, TempFile};
@@ -29,12 +29,15 @@ use crate::cli::to_size_string;
 pub enum FetchFlags {
     NoCompression,
     ChecksumValidation,
+    ForestServer,
 }
 
 impl From<FetchFlags> for bool {
     fn from(flag: FetchFlags) -> bool {
         match flag {
-            FetchFlags::NoCompression | FetchFlags::ChecksumValidation => false,
+            FetchFlags::NoCompression
+            | FetchFlags::ChecksumValidation
+            | FetchFlags::ForestServer => false,
         }
     }
 }
@@ -47,32 +50,26 @@ pub async fn snapshot_fetch(
     use_aria2: bool,
     compressed: bool,
     skip_checksum_validation: bool,
+    filops: bool,
 ) -> anyhow::Result<PathBuf> {
-    match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => {
-            snapshot_fetch_mainnet(
-                snapshot_out_dir,
-                &config.snapshot_fetch,
-                use_aria2,
-                compressed,
-                skip_checksum_validation,
-            )
-            .await
-        }
-        "calibnet" => {
-            snapshot_fetch_calibnet(
-                snapshot_out_dir,
-                &config.snapshot_fetch,
-                use_aria2,
-                compressed,
-                skip_checksum_validation,
-            )
-            .await
-        }
-        _ => Err(anyhow::anyhow!(
-            "Fetch not supported for chain {}",
-            config.chain.name,
-        )),
+    if !filops {
+        snapshot_fetch_forest(
+            snapshot_out_dir,
+            &config,
+            use_aria2,
+            compressed,
+            skip_checksum_validation,
+        )
+        .await
+    } else {
+        snapshot_fetch_filops(
+            snapshot_out_dir,
+            &config,
+            use_aria2,
+            compressed,
+            skip_checksum_validation,
+        )
+        .await
     }
 }
 
@@ -84,9 +81,9 @@ pub fn is_aria2_installed() -> bool {
 /// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. connection interrupted) it will not be
 /// removed.
-async fn snapshot_fetch_calibnet(
+async fn snapshot_fetch_forest(
     snapshot_out_dir: &Path,
-    snapshot_fetch_config: &SnapshotFetchConfig,
+    config: &Config,
     use_aria2: bool,
     compressed: bool,
     skip_checksum_validation: bool,
@@ -94,15 +91,21 @@ async fn snapshot_fetch_calibnet(
     if compressed {
         warn!("Compressed snapshot is not available for Calibnet, to download from other trusted source use `--custom-url <custom-url>`, Continuing with regular download.");
     }
-    let name = &snapshot_fetch_config.calibnet.bucket_name;
-    let region = &snapshot_fetch_config.calibnet.region;
+    let snapshot_fetch_config;
+    match config.chain.name.to_lowercase().as_str() {
+        "mainnet" => bail!("Mainnet snapshot service has not started yet, Alternatively you can use `--filops` flag to fetch `mainnet` snapshot from filops server."),
+        "calibnet" => snapshot_fetch_config = &config.snapshot_fetch.forest.calibnet,
+        _ => bail!(
+            "Fetch not supported for chain {}",
+            config.chain.name,
+        ),
+    }
+    let name = &snapshot_fetch_config.bucket_name;
+    let region = &snapshot_fetch_config.region;
     let bucket = Bucket::new_public(name, region.parse()?)?;
 
     // Grab contents of the bucket
-    let bucket_contents = bucket.list(
-        snapshot_fetch_config.calibnet.path.clone(),
-        Some("/".to_string()),
-    )?;
+    let bucket_contents = bucket.list(snapshot_fetch_config.path.clone(), Some("/".to_string()))?;
 
     // Find the the last modified file that is not a directory or empty file
     let last_modified = bucket_contents
@@ -125,9 +128,9 @@ async fn snapshot_fetch_calibnet(
     // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
     // https://github.com/durch/rust-s3/issues/275
     let client = https_client();
-    let snapshot_spaces_url = &snapshot_fetch_config.calibnet.snapshot_spaces_url;
-    let calibnet_path = &snapshot_fetch_config.calibnet.path;
-    let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
+    let snapshot_spaces_url = &snapshot_fetch_config.snapshot_spaces_url;
+    let path = &snapshot_fetch_config.path;
+    let url = snapshot_spaces_url.join(path)?.join(filename)?;
 
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
     if use_aria2 {
@@ -157,32 +160,32 @@ async fn snapshot_fetch_calibnet(
 /// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
 /// not be removed.
-async fn snapshot_fetch_mainnet(
+async fn snapshot_fetch_filops(
     snapshot_out_dir: &Path,
-    snapshot_fetch_config: &SnapshotFetchConfig,
+    config: &Config,
     use_aria2: bool,
     compressed: bool,
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
+    let mut service_url = match config.chain.name.to_lowercase().as_ref() {
+        "mainnet" => config.snapshot_fetch.filops.mainnet.clone(),
+        "calibnet" => config.snapshot_fetch.filops.calibnet.clone(),
+        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+    };
     let client = https_client();
 
     let snapshot_url = {
-        let url: Url = if compressed {
-            snapshot_fetch_config
-                .mainnet
-                .snapshot_url
-                .join("latest.zst")?
-        } else {
-            snapshot_fetch_config.mainnet.snapshot_url.clone()
-        };
+        if compressed {
+            service_url = service_url.join("latest.zst")?;
+        }
         let head_response = client
-            .request(hyper::Request::head(url.as_str()).body("".into())?)
+            .request(hyper::Request::head(service_url.as_str()).body("".into())?)
             .await?;
 
         // Use the redirect if available.
         match head_response.headers().get("location") {
             Some(url) => url.to_str()?.try_into()?,
-            None => url,
+            None => service_url,
         }
     };
 

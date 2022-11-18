@@ -407,6 +407,7 @@ async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Co
             is_aria2_installed(),
             FetchFlags::NoCompression.into(),
             FetchFlags::ChecksumValidation.into(),
+            FetchFlags::ForestServer.into(),
         )
         .await
         {
