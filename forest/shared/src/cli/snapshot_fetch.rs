@@ -26,6 +26,19 @@ use url::Url;
 
 use crate::cli::to_size_string;
 
+pub enum FetchFlags {
+    NoCompression,
+    ChecksumValidation,
+}
+
+impl From<FetchFlags> for bool {
+    fn from(flag: FetchFlags) -> bool {
+        match flag {
+            FetchFlags::NoCompression | FetchFlags::ChecksumValidation => false,
+        }
+    }
+}
+
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
 pub async fn snapshot_fetch(
