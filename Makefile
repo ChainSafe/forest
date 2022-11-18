@@ -55,7 +55,7 @@ udeps:
 	cargo udeps --all-targets --features submodule_tests
 
 spellcheck:
-	cargo spellcheck --code 1
+	cargo spellcheck --code 1 --recursive blockchian crypto encoding forest ipld key_management networks node types utils vm
 
 lint: license clean
 	cargo fmt --all --check
