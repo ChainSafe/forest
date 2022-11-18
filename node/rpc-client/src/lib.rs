@@ -11,6 +11,8 @@ pub mod sync_ops;
 pub mod wallet_ops;
 
 use forest_libp2p::{Multiaddr, Protocol};
+use forest_utils::net::hyper::http::HeaderValue;
+use forest_utils::net::{https_client, hyper, HyperBodyExt};
 /// Filecoin HTTP JSON-RPC client methods
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
@@ -155,43 +157,34 @@ where
 
     debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
-    let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
+    let client = https_client();
     // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
-    let mut http_res = match api_info.token.to_owned() {
-        Some(jwt) => client
-            .post(api_url)
-            .content_type("application/json")
-            .body(surf::Body::from_json(&rpc_req)?)
-            .header("Authorization", jwt),
+    let mut request =
+        hyper::Request::post(&api_url).body(serde_json::to_string(&rpc_req)?.into())?;
+    let headers_mut = request.headers_mut();
+    headers_mut.insert("content-type", HeaderValue::from_static("application/json"));
+    match api_info.token.to_owned() {
+        Some(jwt) => {
+            headers_mut.insert("Authorization", HeaderValue::from_str(&jwt)?);
+        }
         None => {
             if let Some(jwt) = token {
-                surf::post(api_url)
-                    .content_type("application/json")
-                    .body(surf::Body::from_json(&rpc_req)?)
-                    .header("Authorization", jwt)
-            } else {
-                surf::post(api_url)
-                    .content_type("application/json")
-                    .body(surf::Body::from_json(&rpc_req)?)
+                headers_mut.insert("Authorization", HeaderValue::from_str(jwt)?);
             }
         }
     }
-    .await?;
-
-    let res = http_res.body_string().await?;
-
-    let code = http_res.status() as i64;
-
-    if code != 200 {
+    let response = client.request(request).await?;
+    let code = response.status();
+    if !code.is_success() {
         return Err(Error::Full {
-            message: format!("Error code from HTTP Response: {}", code),
-            code,
+            message: format!("Error code from HTTP Response: {code}"),
+            code: code.as_u16().into(),
             data: None,
         });
     }
 
     // Return the parsed RPC result
-    let rpc_res: JsonRpcResponse<R> = match serde_json::from_str(&res) {
+    let rpc_res: JsonRpcResponse<R> = match response.into_body().json().await {
         Ok(r) => r,
         Err(e) => {
             let err = format!(

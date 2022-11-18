@@ -10,7 +10,7 @@ install: install-cli install-daemon
 
 install-deps:
 	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev aria2 cmake
+	apt-get install --no-install-recommends -y build-essential clang protobuf-compiler ocl-icd-opencl-dev aria2 cmake
 
 install-lint-tools:
 	RUSTFLAGS="-Cstrip=symbols" cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
@@ -62,7 +62,7 @@ lint: license clean
 	taplo fmt --check
 	taplo lint
 	cargo clippy --all-targets -- -D warnings
-	cargo clippy --all-targets --features forest_deleg_cns -- -D warnings
+	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb -- -D warnings
 
 # Formats Rust and TOML files
 fmt:
@@ -91,9 +91,11 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo nextest run --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
+	cargo nextest run --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto --exclude forest_db
 	cargo nextest run -p forest_crypto --features blst --no-default-features
 	cargo nextest run -p forest_message --features blst --no-default-features
+	cargo nextest run -p forest_db --no-default-features --features paritydb
+	cargo nextest run -p forest_db --no-default-features --features rocksdb
 
 test-slow:
 	cargo nextest run -p forest_message_pool --features slow_tests
@@ -129,6 +131,6 @@ mdbook-build:
 	mdbook build ./documentation
 
 rustdoc:
-	cargo doc --workspace --all-features --no-deps
+	cargo doc --workspace --no-deps
 
 .PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc

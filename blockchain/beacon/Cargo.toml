@@ -20,7 +20,6 @@ fvm_shared                = { workspace = true, default-features = false }
 hex.workspace             = true
 serde                     = { workspace = true, features = ["derive"] }
 sha2                      = { workspace = true, default-features = false }
-surf.workspace            = true
 tokio                     = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
