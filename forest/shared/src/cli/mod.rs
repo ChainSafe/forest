@@ -282,9 +282,16 @@ pub fn default_snapshot_dir(config: &Config) -> PathBuf {
         .join(config.chain.name.clone())
 }
 
+#[cfg(feature = "rocksdb")]
 /// Gets database directory
 pub fn db_path(config: &Config) -> PathBuf {
-    chain_path(config).join("db")
+    chain_path(config).join("rocksdb")
+}
+
+#[cfg(feature = "paritydb")]
+/// Gets database directory
+pub fn db_path(config: &Config) -> PathBuf {
+    chain_path(config).join("paritydb")
 }
 
 /// Gets chain data directory
