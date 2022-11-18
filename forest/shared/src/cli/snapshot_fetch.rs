@@ -261,7 +261,10 @@ where
         writer.write_all(&chunk).await?;
         downloaded = total_size.min(downloaded + chunk.len() as u64);
         progress_bar.set(downloaded);
-        snapshot_hasher.update(chunk);
+
+        if !skip_checksum_validation {
+            snapshot_hasher.update(chunk);
+        }
     }
     writer.flush().await?;
 
