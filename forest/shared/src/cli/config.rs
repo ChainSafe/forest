@@ -124,6 +124,7 @@ impl Default for DaemonConfig {
 #[serde(default)]
 pub struct Config {
     pub client: Client,
+    #[cfg(feature = "rocksdb")]
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
@@ -137,7 +138,6 @@ pub struct Config {
 mod test {
     use super::*;
     use chrono::Duration;
-    use forest_db::rocks_config::RocksDbConfig;
     use forest_utils::io::ProgressBarVisibility;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
@@ -151,6 +151,7 @@ mod test {
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
+        #[cfg(feature = "rocksdb")]
         rocks_db: forest_db::rocks_config::RocksDbConfig,
         network: forest_libp2p::Libp2pConfig,
         sync: forest_chain_sync::SyncConfig,
@@ -160,6 +161,7 @@ mod test {
         fn from(val: ConfigPartial) -> Self {
             Config {
                 client: val.client,
+                #[cfg(feature = "rocksdb")]
                 rocks_db: val.rocks_db,
                 network: val.network,
                 sync: val.sync,
@@ -192,7 +194,8 @@ mod test {
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
-                rocks_db: RocksDbConfig {
+                #[cfg(feature = "rocksdb")]
+                rocks_db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
                     write_buffer_size: usize::arbitrary(g),
