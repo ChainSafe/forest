@@ -11,7 +11,6 @@ log.workspace        = true
 once_cell.workspace  = true
 serde.workspace      = true
 serde_json.workspace = true
-surf.workspace       = true
 tokio                = { workspace = true, features = ["sync"] }
 
 # Internal
@@ -21,3 +20,4 @@ forest_key_management.workspace = true
 forest_libp2p.workspace         = true
 forest_message.workspace        = true
 forest_rpc-api.workspace        = true
+forest_utils.workspace          = true

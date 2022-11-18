@@ -3,6 +3,8 @@
 
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
+use forest_utils::net::{https_client, hyper};
+use futures::TryStreamExt;
 use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
@@ -156,17 +158,28 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::E
 }
 
 async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {
-    let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
-    let req = client.get(url);
+    let client = https_client();
+    let req = client.get(url.as_ref().try_into()?);
     let response = req.await.map_err(|e| anyhow::anyhow!(e))?;
     anyhow::ensure!(response.status().is_success());
-    let content_len = response.len();
-    let mut source = response.compat();
+    let content_len = response
+        .headers()
+        .get("content-length")
+        .and_then(|ct_len| ct_len.to_str().ok())
+        .and_then(|ct_len| ct_len.parse::<u64>().ok())
+        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
+    let map_err: fn(hyper::Error) -> futures::io::Error =
+        |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
+    let mut source = response
+        .into_body()
+        .map_err(map_err)
+        .into_async_read()
+        .compat();
     let file = File::create(path).await?;
     let mut writer = BufWriter::new(file);
     tokio::io::copy(&mut source, &mut writer).await?;
     let file_metadata = std::fs::metadata(path)?;
-    anyhow::ensure!(Some(file_metadata.len() as usize) == content_len);
+    anyhow::ensure!(file_metadata.len() == content_len);
     Ok(())
 }
 
