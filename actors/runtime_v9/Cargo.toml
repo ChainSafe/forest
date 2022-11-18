@@ -14,14 +14,11 @@ blake2b_simd        = { workspace = true }
 byteorder           = { workspace = true }
 cid                 = { workspace = true, features = ["serde-codec"] }
 fvm_ipld_amt        = { workspace = true, features = ["go-interop"] }
-fvm_ipld_bitfield   = { workspace = true }
 fvm_ipld_blockstore = { workspace = true }
 fvm_ipld_encoding   = { workspace = true }
 fvm_ipld_hamt       = { workspace = true }
 fvm_shared          = { workspace = true, default-features = false }
 getrandom           = { workspace = true }
-indexmap            = { workspace = true, features = ["serde-1"] }
-integer-encoding    = { workspace = true, default-features = false }
 itertools           = { workspace = true }
 log                 = { workspace = true }
 multihash           = { workspace = true }
@@ -32,15 +29,12 @@ rand                = { workspace = true }
 regex               = { workspace = true }
 serde               = { workspace = true }
 serde_repr          = { workspace = true }
+sha2                = { workspace = true }
 thiserror           = { workspace = true }
 unsigned-varint     = { workspace = true }
 
-[dependencies.sha2]
-version = "0.10"
-
 [dev-dependencies]
-derive_builder = "0.10.2"
-hex            = "0.4.3"
+hex = { workspace = true }
 
 [features]
 default = []
