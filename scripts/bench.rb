@@ -53,7 +53,7 @@ BENCHMARK_SUITE = [
   }
 ].freeze
 
-BENCH_PATHS = {}
+BENCH_PATHS = {}.freeze
 
 def tmp_dir
   BENCH_PATHS[:tmpdir] ||= Dir.mktmpdir('forest-benchs-')
