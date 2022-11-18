@@ -4,51 +4,43 @@
 
 # Script to test various configurations that can impact performance of the node
 
-require "fileutils"
-require "open3"
-require "optparse"
-require "pathname"
-require "pp"
-require "tmpdir"
-require "toml-rb"
+require 'fileutils'
+require 'open3'
+require 'optparse'
+require 'pathname'
+require 'tmpdir'
+require 'toml-rb'
 
 # Defines some hardcoded constants
 
-Snapshot = "2322240_2022_11_09T06_00_00Z.car"
+SNAPSHOT = '2322240_2022_11_09T06_00_00Z.car'
 
 # This is just for capturing the snapshot height
-Snapshot_regex = /(?<height>\d+)_.*/
+SNAPSHOT_REGEX = /(?<height>\d+)_.*/.freeze
 
-Heights_to_validate = 400
+HEIGHTS_TO_VALIDATE = 400
 
-Minute = 60
-Hour = Minute * Minute
+MINUTE = 60
+HOUR = MINUTE * MINUTE
 
-Benchmark_suite = [
+BENCHMARK_SUITE = [
   {
-    :name => "baseline",
-    :build_command => "cargo build --release",
-    :import_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
-    :validate_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
-    :config => {
+    name: "baseline",
+    build_command: "cargo build --release",
+    import_command: "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
+    validate_command: "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
+    config: {
       "rocks_db" => {
         "enable_statistics" => true,
       },
     },
   },
-  # {
-  #   :name => "baseline-with-jemalloc",
-  #   :build_command => "cargo build --release --features 'rocksdb/jemalloc'",
-  #   :import_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
-  #   :validate_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
-  #   :config => {},
-  # },
   {
-    :name => "aggresive-rocksdb",
-    :build_command => "cargo build --release",
-    :import_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
-    :validate_command => "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
-    :config => {
+    name: "aggresive-rocksdb",
+    build_command: "cargo build --release",
+    import_command: "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import",
+    validate_command: "./target/release/forest --config %{c} --target-peer-count 50 --encrypt-keystore false --import-snapshot %{s} --halt-after-import --skip-load --height %{h}",
+    config: {
       "rocks_db" => {
         "write_buffer_size" => 1024 * 1024 * 1024, # 1Gb memtable, will create as large L0 sst files
         "max_open_files" => -1,
@@ -59,7 +51,7 @@ Benchmark_suite = [
       },
     },
   },
-]
+].freeze
 
 $tmp_dir = nil
 
@@ -102,9 +94,9 @@ def get_db_size()
 end
 
 def hr(seconds)
-  seconds = seconds < Minute ? seconds.ceil(1) : seconds.ceil(0)
+  seconds = seconds < MINUTE ? seconds.ceil(1) : seconds.ceil(0)
   time = Time.at(seconds)
-  durfmt = "#{seconds > Hour ? "%-Hh" : ""}#{seconds < Minute ? "" : "%-Mm"}%-S#{seconds < Minute ? ".%1L" : ""}s"
+  durfmt = "#{seconds > HOUR ? "%-Hh" : ""}#{seconds < MINUTE ? "" : "%-Mm"}%-S#{seconds < MINUTE ? ".%1L" : ""}s"
   time.strftime(durfmt)
 end
 
@@ -175,9 +167,9 @@ def build_config_file(bench)
 end
 
 def build_substitution_hash(bench, options)
-  snapshot = options.fetch(:snapshot, Snapshot)
-  height = snapshot.match(Snapshot_regex).named_captures["height"].to_i
-  start = height - options.fetch(:height, Heights_to_validate)
+  snapshot = options.fetch(:snapshot, SNAPSHOT)
+  height = snapshot.match(SNAPSHOT_REGEX).named_captures["height"].to_i
+  start = height - options.fetch(:height, HEIGHTS_TO_VALIDATE)
 
   # Escape spaces if any
   config_path = config_path(bench).gsub(/\s/, '\\ ')
@@ -234,7 +226,6 @@ def run_benchmarks(benchs, options)
     end
 
     # Build bench artefacts
-    #puts "Snapshot dir: #{get_snapshot_dir()}/#{Snapshot}"
     build_config_file(bench)
     params = build_substitution_hash(bench, options)
 
@@ -269,6 +260,6 @@ OptionParser.new do |opts|
   opts.on("--height [Integer]", Integer, "Number of heights to validate") { |v| options[:height] = v }
 end.parse!
 
-run_benchmarks(Benchmark_suite, options)
+run_benchmarks(BENCHMARK_SUITE, options)
 
 puts "Done."
