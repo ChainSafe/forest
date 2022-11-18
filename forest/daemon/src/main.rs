@@ -132,8 +132,7 @@ fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
@@ -159,7 +158,10 @@ async fn main() {
             }
             match cmd {
                 Some(Subcommand::Config(cmd)) => {
-                    subcommand::process(cli::Subcommand::Config(cmd), cfg).await;
+                    let rt = Runtime::new().unwrap();
+                    rt.block_on(async {
+                        subcommand::process(cli::Subcommand::Config(cmd), cfg).await
+                    });
                 }
                 None => {
                     if let Err(e) = check_for_low_fd(&cfg) {
