@@ -5,6 +5,8 @@ use async_trait::async_trait;
 use hyper::{client::HttpConnector, Body};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
+/// Constructs [hyper::Client] that supports both `http` and `https`.
+/// Note that only `http1` is supported.
 pub fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
     hyper::Client::builder().build::<_, Body>(
         HttpsConnectorBuilder::new()
@@ -15,11 +17,13 @@ pub fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
     )
 }
 
+/// Trait that contains extension methods of [Body]
 #[async_trait]
 pub trait HyperBodyExt
 where
     Self: Sized,
 {
+    /// Converts [Body] into JSON
     async fn json<T>(self) -> anyhow::Result<T>
     where
         T: serde::de::DeserializeOwned;

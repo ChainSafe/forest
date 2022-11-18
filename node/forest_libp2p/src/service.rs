@@ -225,7 +225,7 @@ where
         Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr).unwrap();
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
-            warn!("Failed to bootstrap with Kademlia: {}", e);
+            warn!("Failed to bootstrap with Kademlia: {e}");
         }
 
         let mut swarm_stream = self.swarm.fuse();
