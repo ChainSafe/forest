@@ -99,14 +99,14 @@ end
 def hr(seconds)
   seconds = seconds < Minute ? seconds.ceil(1) : seconds.ceil(0)
   time = Time.at(seconds)
-  durfmt = "#{seconds>Hour ? '%-Hh' : ''}#{seconds<Minute ? '' : '%-Mm'}%-S#{seconds<Minute ? '.%1L' : ''}s"
+  durfmt = "#{seconds > Hour ? "%-Hh" : ""}#{seconds < Minute ? "" : "%-Mm"}%-S#{seconds < Minute ? ".%1L" : ""}s"
   time.strftime(durfmt)
 end
 
 def mem_monitor(pid)
   rss_serie = []
   vsz_serie = []
-  handle = Thread.new() { ||
+  handle = Thread.new() {
     loop do
       sleep 0.5
       code = 0
@@ -224,9 +224,9 @@ end
 options = {}
 OptionParser.new do |opts|
   opts.banner = "Usage: bench.rb [options]"
-  opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
-  opts.on('--snapshot [Object]', Object, 'Snapshot file to use for benchmarks') { |v| options[:snapshot] = v }
-  opts.on('--height [Integer]', Integer, 'Number of heights to validate') { |v| options[:height] = v }
+  opts.on("--dry-run", "Only print the commands that will be run") { |v| options[:dry_run] = v }
+  opts.on("--snapshot [Object]", Object, "Snapshot file to use for benchmarks") { |v| options[:snapshot] = v }
+  opts.on("--height [Integer]", Integer, "Number of heights to validate") { |v| options[:height] = v }
 end.parse!
 
 run_benchmarks(Benchmark_suite, options)
