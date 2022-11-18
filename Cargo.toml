@@ -54,7 +54,6 @@ anyhow                = "1.0"
 arbitrary             = "1.1"
 assert_cmd            = "2"
 async-log             = "2.0"
-async-std             = "1.12"
 async-trait           = "0.1"
 atty                  = "0.2"
 axum                  = "0.5"
@@ -107,7 +106,7 @@ git-version           = "0.3"
 hex                   = "0.4"
 http                  = "0.2.8"
 human-repr            = "1.0"
-hyper                 = "0.14"
+hyper                 = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls          = "0.23"
 indexmap              = { version = "1.9", features = ["serde-1"] }
 indextools            = "0.10"
@@ -150,7 +149,6 @@ serde_with            = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2                  = "0.10.5"
 smallvec              = "1.9"
 structopt             = "0.3"
-surf                  = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
 tempfile              = "3.3"
 thiserror             = "1.0"
 time                  = "0.3"
@@ -160,7 +158,7 @@ tokio-util            = "0.7.0"
 toml                  = "0.5"
 tower-http            = "0.3"
 unsigned-varint       = "0.7.1"
-url                   = "2.3"
+url                   = { version = "2.3", features = ["serde"] }
 which                 = "4.3"
 
 fil_actor_account_v8   = { path = "./actors/account_v8" }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use libp2p::core::transport::ListenerId;
 use libp2p::kad::record::store::MemoryStore;
-use libp2p::mdns::Mdns;
+use libp2p::mdns::TokioMdns as Mdns;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
 use libp2p::swarm::{ConnectionHandler, DialError, IntoConnectionHandler};
 use libp2p::{

@@ -76,4 +76,7 @@ quickcheck.workspace = true
 rand.workspace       = true
 
 [features]
+default    = ["rocksdb"]
+rocksdb    = ["forest_cli_shared/rocksdb", "forest_chain_sync/rocksdb"]
+paritydb   = ["forest_cli_shared/paritydb", "forest_chain_sync/paritydb"]
 slow_tests = []
