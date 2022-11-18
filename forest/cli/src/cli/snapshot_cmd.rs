@@ -295,65 +295,61 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
                 .filter(|p| p.is_file())
             {
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
+                    let date;
+                    let time;
+                    let height;
+                    if path.extension().unwrap_or_default() == "tmp" {
+                        snapshots_with_valid_name.push(path.clone());
+                        continue;
+                    }
                     if let Some(captures) = internal_pattern.captures(filename) {
-                        let date = captures.name("date").unwrap();
-                        if let Ok(date) = time::Date::parse(date.as_str(), &Iso8601::DEFAULT) {
-                            let height = captures
-                                .name("height")
-                                .unwrap()
-                                .as_str()
-                                .parse::<i64>()
-                                .unwrap();
-                            if date > latest_date {
-                                latest_date = date;
-                                latest_height = height;
-                                snapshot_to_keep = Some(path.clone());
-                            } else if date == latest_date && height > latest_height {
-                                latest_height = height;
-                                snapshot_to_keep = Some(path.clone());
-                            }
-
-                            snapshots_with_valid_name.push(path);
-                        }
+                        time = Time::MIDNIGHT;
+                        date = time::Date::parse(
+                            captures.name("date").unwrap().as_str(),
+                            &Iso8601::DEFAULT,
+                        )
+                        .unwrap();
+                        height = captures
+                            .name("height")
+                            .unwrap()
+                            .as_str()
+                            .parse::<i64>()
+                            .unwrap();
+                        snapshots_with_valid_name.push(path.clone());
                     } else if let Some(captures) = pattern.captures(filename) {
                         let date_format =
                             time::format_description::parse("[year]_[month]_[day]").unwrap();
-                        let date = time::Date::parse(
+                        date = time::Date::parse(
                             captures.name("date").unwrap().as_str(),
                             &date_format,
                         )
                         .unwrap();
                         let time_format =
                             time::format_description::parse("[hour]_[minute]_[second]").unwrap();
-                        let time =
-                            Time::parse(captures.name("time").unwrap().as_str(), &time_format)
-                                .unwrap();
-                        let height = captures
+                        time = Time::parse(captures.name("time").unwrap().as_str(), &time_format)
+                            .unwrap();
+                        height = captures
                             .name("height")
                             .unwrap()
                             .as_str()
                             .parse::<i64>()
                             .unwrap();
-                        if date > latest_date {
-                            latest_date = date;
-                            latest_time = time;
-                            latest_height = height;
-                            snapshot_to_keep = Some(path.clone());
-                        } else if date == latest_date && time > latest_time {
-                            latest_time = time;
-                            latest_height = height;
-                            snapshot_to_keep = Some(path.clone());
-                        } else if date == latest_date
-                            && time == latest_time
-                            && height > latest_height
-                        {
-                            latest_height = height;
-                            snapshot_to_keep = Some(path.clone());
-                        }
-
-                        snapshots_with_valid_name.push(path);
-                    } else if path.extension().unwrap_or_default() == "tmp" {
-                        snapshots_with_valid_name.push(path);
+                        snapshots_with_valid_name.push(path.clone());
+                    } else {
+                        continue;
+                    }
+                    if date > latest_date {
+                        latest_date = date;
+                        latest_time = time;
+                        latest_height = height;
+                        snapshot_to_keep = Some(path.clone());
+                    } else if date == latest_date && time > latest_time {
+                        latest_time = time;
+                        latest_height = height;
+                        snapshot_to_keep = Some(path.clone());
+                    } else if date == latest_date && time == latest_time && height > latest_height {
+                        latest_height = height;
+                        snapshot_to_keep = Some(path.clone());
                     }
                 }
             }
