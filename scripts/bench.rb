@@ -26,30 +26,34 @@ HOUR = MINUTE * MINUTE
 BENCHMARK_SUITE = [
   {
     name: 'baseline',
-    build_command: 'cargo build --release',
-    import_command: './target/release/forest --config %<c>s --target-peer-count 50 --encrypt-keystore false --import-snapshot %<s>s --halt-after-import',
-    validate_command: './target/release/forest --config %<c>s --target-peer-count 50 --encrypt-keystore false --import-snapshot %<s>s --halt-after-import --skip-load --height %<h>s',
     config: {
       'rocks_db' => {
         'enable_statistics' => true
       }
-    }
-  },
-  {
-    name: 'aggresive-rocksdb',
-    build_command: 'cargo build --release',
-    import_command: './target/release/forest --config %<c>s --target-peer-count 50 --encrypt-keystore false --import-snapshot %<s>s --halt-after-import',
-    validate_command: './target/release/forest --config %<c>s --target-peer-count 50 --encrypt-keystore false --import-snapshot %<s>s --halt-after-import --skip-load --height %<h>s',
-    config: {
-      'rocks_db' => {
-        'write_buffer_size' => 1024 * 1024 * 1024, # 1Gb memtable, will create as large L0 sst files
-        'max_open_files' => -1,
-        'compaction_style' => 'none',
-        'compression_type' => 'none',
-        'enable_statistics' => true,
-        'optimize_for_point_lookup' => 256
-      }
-    }
+    },
+    build_command: [
+      'cargo',
+      'build',
+      '--release'
+    ],
+    import_command: [
+      './target/release/forest',
+      '--config', '%<c>s',
+      '--target-peer-count', '50',
+      '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s',
+      '--halt-after-import'
+    ],
+    validate_command: [
+      './target/release/forest',
+      '--config', '%<c>s',
+      '--target-peer-count', '50',
+      '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s',
+      '--halt-after-import',
+      '--skip-load',
+      '--height', '%<h>s'
+    ]
   }
 ].freeze
 
@@ -105,7 +109,7 @@ def mem_monitor(pid)
       Open3.popen2("ps -o rss,vsz #{pid}", {}) do |i, o, t|
         i.close
         code = t.value
-        if code.zero?
+        if code == 1
           output = o.read.lines.last.split
           rss_serie.push output[0].to_i
           vsz_serie.push output[1].to_i
@@ -121,14 +125,14 @@ def exec_command(command, quiet: false, dry_run: false)
   metrics = {}
   t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   if dry_run
-    puts "$ #{command}"
+    puts "$ #{command.join(' ')}"
   else
-    Open3.popen2(command.to_s, {}) do |i, o, t|
+    Open3.popen2(*command) do |i, o, t|
       handle, mem = mem_monitor(t.pid)
       i.close
       return o.read if quiet
 
-      puts "$ #{command}"
+      puts "$ #{command.join(' ')}"
       o.each_line do |l|
         print l
       end
@@ -162,8 +166,8 @@ def build_substitution_hash(bench, options)
   start = height - options.fetch(:height, HEIGHTS_TO_VALIDATE)
 
   # Escape spaces if any
-  config_path = config_path(bench).gsub(/\s/, '\\ ')
-  snapshot_path = "#{snapshot_dir}/#{snapshot}".gsub(/\s/, '\\ ')
+  config_path = config_path(bench)
+  snapshot_path = "#{snapshot_dir}/#{snapshot}"
 
   { c: config_path, s: snapshot_path, h: start }
 end
@@ -207,6 +211,10 @@ def write_result(metrics)
   File.open('result.md', 'w') { |file| file.write(result) }
 end
 
+def splice_args(command, args)
+  command.map { |s| s % args }
+end
+
 def run_benchmarks(benchs, options)
   benchs_metrics = {}
   benchs.each do |bench|
@@ -227,18 +235,15 @@ def run_benchmarks(benchs, options)
 
     # Build bench artefacts
     build_config_file(bench)
-    params = build_substitution_hash(bench, options)
+    args = build_substitution_hash(bench, options)
 
-    # Run forest benchmark
-    puts "Version: #{forest_version}"
-
-    import_command = bench[:import_command] % params
+    import_command = splice_args(bench[:import_command], args)
     metrics[:import] = exec_command(import_command, quiet: false, dry_run: dry_run)
 
     # Save db size just after import
     metrics[:import][:db_size] = get_db_size unless dry_run
 
-    validate_command = bench[:validate_command] % params
+    validate_command = splice_args(bench[:validate_command], args)
     metrics[:validate] = exec_command(validate_command, quiet: false, dry_run: dry_run)
 
     benchs_metrics[bench[:name]] = metrics
