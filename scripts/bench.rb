@@ -53,11 +53,11 @@ BENCHMARK_SUITE = [
   }
 ].freeze
 
-$tmp_dir = nil
+BENCH_PATHS = {}
 
 def tmp_dir
-  $tmp_dir ||= Dir.mktmpdir('forest-benchs-')
-  $tmp_dir
+  BENCH_PATHS[:tmpdir] ||= Dir.mktmpdir('forest-benchs-')
+  BENCH_PATHS[:tmpdir]
 end
 
 def forest_version
