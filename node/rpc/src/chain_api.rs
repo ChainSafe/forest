@@ -6,7 +6,7 @@ use cid::Cid;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-    BlockHeader, Tipset,
+    BlockHeader, Tipset, TipsetKeys,
 };
 use forest_db::Store;
 use forest_json::cid::CidJson;
@@ -353,6 +353,37 @@ where
         .tipset_hash_from_keys(&tsk)
         .await;
     Ok(ts)
+}
+
+pub(crate) async fn chain_validate_tipset_checkpoints<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainValidateTipSetCheckpointsParams>,
+) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
+where
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
+{
+    let () = params;
+
+    let tipset_keys = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .unwrap()
+        .key()
+        .cids()
+        .to_vec();
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&TipsetKeys::new(tipset_keys))
+        .await?;
+    data.state_manager
+        .chain_store()
+        .validate_tipset_checkpoints(ts, 0)
+        .await?;
+    Ok("Ok".to_string())
 }
 
 pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(

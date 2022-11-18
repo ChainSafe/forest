@@ -302,6 +302,50 @@ where
         }
     }
 
+    pub async fn validate_tipset_checkpoints(
+        &self,
+        from: Arc<Tipset>,
+        to: ChainEpoch,
+    ) -> Result<(), Error> {
+        info!("Validating tipset checkpoint hashes from: {}", from.epoch());
+        if to > from.epoch() {
+            return Err(Error::Other(
+                "Looking for tipset with height greater than start point".to_string(),
+            ));
+        }
+
+        // filter tipset checkpoints that are within the snapshot's range.
+        let mut hashes: HashSet<String> = checkpoint_tipsets::TIPSET_CHECKPOINTS
+            .keys()
+            .filter(|s| s.0 <= from.epoch())
+            .map(|s| s.1.to_string())
+            .collect();
+
+        let mut ts = from;
+        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
+        hashes.remove(&tipset_hash);
+
+        loop {
+            let pts = self.chain_index.load_tipset(ts.parents()).await?;
+            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
+            hashes.remove(&tipset_hash);
+
+            if to == pts.epoch() {
+                break;
+            }
+            ts = pts;
+        }
+
+        if !hashes.is_empty() {
+            Err(Error::Other(format!(
+                "Found invalid/unknown tipset hash(es): {:?}",
+                hashes
+            )))
+        } else {
+            Ok(())
+        }
+    }
+
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub async fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
