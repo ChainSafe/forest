@@ -159,10 +159,10 @@ pub struct DaemonOpts {
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
     #[structopt(
-long,
-default_value = "mainnet",
-possible_values = &["mainnet", "calibnet"],
-)]
+        long,
+        default_value = "mainnet",
+        possible_values = &["mainnet", "calibnet"],
+     )]
     pub chain: String,
     /// Daemonize Forest process
     #[structopt(long)]
@@ -180,7 +180,7 @@ possible_values = &["mainnet", "calibnet"],
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
     // #[structopt(
-    // help = "Specify a filename into which logging should be appended"
+    //     help = "Specify a filename into which logging should be appended"
     // )]
     // pub log_file: Option<PathBuf>,
 }
@@ -450,31 +450,31 @@ mod tests {
     fn find_unknown_keys_must_work() {
         let x: toml::Value = toml::from_str(
             r#"
-folklore = true
-foo = "foo"
-[myth]
-author = 'H. P. Lovecraft'
-entities = [
-{ name = 'Cthulhu' },
-{ name = 'Azathoth' },
-{ baz = 'Dagon' },
-]
-bar = "bar"
-"#,
+            folklore = true
+            foo = "foo"
+            [myth]
+            author = 'H. P. Lovecraft'
+            entities = [
+                { name = 'Cthulhu' },
+                { name = 'Azathoth' },
+                { baz = 'Dagon' },
+            ]
+            bar = "bar"
+        "#,
         )
         .unwrap();
 
         let y: toml::Value = toml::from_str(
             r#"
-folklore = true
-[myth]
-author = 'H. P. Lovecraft'
-entities = [
-{ name = 'Cthulhu' },
-{ name = 'Azathoth' },
-{ name = 'Dagon' },
-]
-"#,
+            folklore = true
+            [myth]
+            author = 'H. P. Lovecraft'
+            entities = [
+                { name = 'Cthulhu' },
+                { name = 'Azathoth' },
+                { name = 'Dagon' },
+            ]
+        "#,
         )
         .unwrap();
 
