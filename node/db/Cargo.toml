@@ -11,10 +11,10 @@ repository  = "https://github.com/ChainSafe/forest"
 default = []
 
 rocksdb = ["dep:rocksdb", "snappy", "lz4", "zlib", "bzip2"]
-snappy  = ["rocksdb/snappy"]
-lz4     = ["rocksdb/lz4"]
-zlib    = ["rocksdb/zlib"]
-bzip2   = ["rocksdb/bzip2"]
+snappy  = ["rocksdb?/snappy"]
+lz4     = ["rocksdb?/lz4"]
+zlib    = ["rocksdb?/zlib"]
+bzip2   = ["rocksdb?/bzip2"]
 # not included by default to reduce build time
 # uncomment when it needs to be used by other crates
 # zstd = ["rocksdb/zstd"]

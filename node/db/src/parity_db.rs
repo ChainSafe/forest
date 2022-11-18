@@ -76,6 +76,19 @@ impl Store for ParityDb {
         self.db.commit(tx).map_err(Error::from)
     }
 
+    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let tx = values
+            .iter()
+            .map(|(k, v)| (0, k.as_ref(), Some(v.as_ref().to_owned())))
+            .collect::<Vec<_>>();
+
+        self.db.commit(tx).map_err(Error::from)
+    }
+
     fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
