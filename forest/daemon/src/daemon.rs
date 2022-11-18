@@ -401,15 +401,8 @@ pub(super) async fn start(config: Config, detached: bool) {
 async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = match snapshot_fetch(
-            &snapshot_path,
-            &config,
-            is_aria2_installed(),
-            None,
-            false,
-            false,
-        )
-        .await
+        let path = match snapshot_fetch(&snapshot_path, &config, is_aria2_installed(), false, false)
+            .await
         {
             Ok(path) => path,
             Err(err) => cli_error_and_die(err.to_string(), 1),

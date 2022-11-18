@@ -32,119 +32,40 @@ pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
     use_aria2: bool,
-    custom_url: Option<Url>,
     compressed: bool,
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
-    if let Some(url) = custom_url {
-        snapshot_fetch_custom(
-            snapshot_out_dir,
-            url,
-            use_aria2,
-            compressed,
-            skip_checksum_validation,
-        )
-        .await
-    } else {
-        match config.chain.name.to_lowercase().as_ref() {
-            "mainnet" => {
-                snapshot_fetch_mainnet(
-                    snapshot_out_dir,
-                    &config.snapshot_fetch,
-                    use_aria2,
-                    compressed,
-                    skip_checksum_validation,
-                )
-                .await
-            }
-            "calibnet" => {
-                snapshot_fetch_calibnet(
-                    snapshot_out_dir,
-                    &config.snapshot_fetch,
-                    use_aria2,
-                    compressed,
-                    skip_checksum_validation,
-                )
-                .await
-            }
-            _ => Err(anyhow::anyhow!(
-                "Fetch not supported for chain {}",
-                config.chain.name,
-            )),
+    match config.chain.name.to_lowercase().as_ref() {
+        "mainnet" => {
+            snapshot_fetch_mainnet(
+                snapshot_out_dir,
+                &config.snapshot_fetch,
+                use_aria2,
+                compressed,
+                skip_checksum_validation,
+            )
+            .await
         }
+        "calibnet" => {
+            snapshot_fetch_calibnet(
+                snapshot_out_dir,
+                &config.snapshot_fetch,
+                use_aria2,
+                compressed,
+                skip_checksum_validation,
+            )
+            .await
+        }
+        _ => Err(anyhow::anyhow!(
+            "Fetch not supported for chain {}",
+            config.chain.name,
+        )),
     }
 }
 
 /// Checks whether `aria2c` is available in PATH
 pub fn is_aria2_installed() -> bool {
     which::which("aria2c").is_ok()
-}
-
-/// Fetches snapshot from other trusted location. On success, the snapshot will be
-/// saved in the given directory without any checksum validation
-async fn snapshot_fetch_custom(
-    snapshot_out_dir: &Path,
-    custom_url: Url,
-    use_aria2: bool,
-    compressed: bool,
-    skip_checksum_validation: bool,
-) -> anyhow::Result<PathBuf> {
-    let client = https_client();
-
-    let snapshot_url = {
-        let url: Url = if compressed {
-            custom_url.join("latest.zst")?
-        } else {
-            custom_url
-        };
-        let head_response = client
-            .request(hyper::Request::head(url.as_str()).body("".into())?)
-            .await?;
-
-        // Use the redirect if available.
-        match head_response.headers().get("location") {
-            Some(url) => url.to_str()?.try_into()?,
-            None => url,
-        }
-    };
-
-    let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
-
-    // Grab the snapshot file name
-    let snapshot_name = filename_from_url(&snapshot_url)?;
-    // Create requested directory tree to store the snapshot
-    create_dir_all(snapshot_out_dir).await?;
-    let snapshot_path = snapshot_out_dir.join(&snapshot_name);
-
-    // Download the file
-    if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(
-            client,
-            snapshot_url,
-            &snapshot_path,
-            skip_checksum_validation,
-        )
-        .await?
-    } else {
-        let total_size = snapshot_response
-            .headers()
-            .get("content-length")
-            .and_then(|ct_len| ct_len.to_str().ok())
-            .and_then(|ct_len| ct_len.parse::<u64>().ok())
-            .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
-
-        download_snapshot_and_validate_checksum(
-            client,
-            snapshot_url,
-            &snapshot_path,
-            snapshot_response,
-            total_size,
-            skip_checksum_validation,
-        )
-        .await?;
-    }
-
-    Ok(snapshot_path)
 }
 
 /// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be

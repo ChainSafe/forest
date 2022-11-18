@@ -16,7 +16,6 @@ use std::{
 use strfmt::strfmt;
 use structopt::StructOpt;
 use time::{format_description::well_known::Iso8601, Date, OffsetDateTime, Time};
-use url::Url;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -58,9 +57,6 @@ pub enum SnapshotCommands {
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
-        /// Download snapshot from other trusted sources
-        #[structopt(long)]
-        custom_url: Option<Url>,
         /// Download compressed snapshot file if available, default is false
         #[structopt(long)]
         compressed: bool,
@@ -183,7 +179,6 @@ impl SnapshotCommands {
             Self::Fetch {
                 snapshot_dir,
                 aria2: use_aria2,
-                custom_url,
                 compressed,
                 skip_checksum_validation,
             } => {
@@ -194,7 +189,6 @@ impl SnapshotCommands {
                     &snapshot_dir,
                     &config,
                     *use_aria2,
-                    custom_url.clone(),
                     *compressed,
                     *skip_checksum_validation,
                 )
