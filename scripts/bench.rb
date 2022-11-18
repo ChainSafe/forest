@@ -171,7 +171,7 @@ def build_substitution_hash(bench, options)
   { c: config_path, s: snapshot_path, h: start }
 end
 
-def write_result(metrics)
+def write_import_table(metrics)
   result = "Bench | Import Time | Import RSS | DB Size\n"
   result += "-|-|-|-\n"
 
@@ -183,9 +183,11 @@ def write_result(metrics)
     result += "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
   end
 
-  result += "---\n"
+  result
+end
 
-  result += "Bench | Validate Time | Validate RSS\n"
+def write_validate_table(metrics)
+  result = "Bench | Validate Time | Validate RSS\n"
   result += "-|-|-\n"
 
   metrics.each do |key, value|
@@ -194,6 +196,16 @@ def write_result(metrics)
     rss_max = rss ? "#{rss.max}B" : 'n/a'
     result += "#{key} | #{elapsed} | #{rss_max}\n"
   end
+
+  result
+end
+
+def write_result(metrics)
+  # Output file is a suite of markdown tables
+  result = ""
+  result += write_import_table(metrics)
+  result += "---\n"
+  result += write_validate_table(metrics)
 
   File.open('result.md', 'w') { |file| file.write(result) }
 end
