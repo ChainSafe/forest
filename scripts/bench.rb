@@ -13,7 +13,7 @@ require 'toml-rb'
 
 # Defines some hardcoded constants
 
-SNAPSHOT = '2322240_2022_11_09T06_00_00Z.car'
+DEFAULT_SNAPSHOT = '2322240_2022_11_09T06_00_00Z.car'
 
 # This is just for capturing the snapshot height
 SNAPSHOT_REGEX = /(?<height>\d+)_.*/.freeze
@@ -60,12 +60,12 @@ def tmp_dir
   $tmp_dir
 end
 
-def get_forest_version
+def forest_version
   version = exec_command('./target/release/forest --version', quiet: true)
   version.chomp
 end
 
-def get_default_config
+def default_config
   toml_str = exec_command('./target/release/forest-cli config dump', quiet: true)
 
   default = TomlRB.parse(toml_str)
@@ -73,21 +73,19 @@ def get_default_config
   default
 end
 
-def get_snapshot_dir
+def snapshot_dir
   snapshot_dir = exec_command('./target/release/forest-cli snapshot dir', quiet: true)
   snapshot_dir.chomp
 end
 
-def get_db_dir
-  # TODO: expose chain as a script parameter, by default it should be mainnet
-  config = get_default_config
-  data_dir = config.dig('client', 'data_dir')
+def db_dir
+  data_dir = default_config.dig('client', 'data_dir')
 
   "#{data_dir}/mainnet/db"
 end
 
-def get_db_size
-  size = exec_command("du -h '#{get_db_dir}'", quiet: true)
+def db_size
+  size = exec_command("du -h '#{db_dir}'", quiet: true)
   size.chomp.split[0]
 end
 
@@ -152,7 +150,7 @@ def config_path(bench)
 end
 
 def build_config_file(bench)
-  default = get_default_config
+  default = default_config
   bench_config = bench[:config]
   # TODO: Find a better way to merge (conserve the default keys)
   default.merge!(bench_config)
@@ -162,13 +160,13 @@ def build_config_file(bench)
 end
 
 def build_substitution_hash(bench, options)
-  snapshot = options.fetch(:snapshot, SNAPSHOT)
+  snapshot = options.fetch(:snapshot, DEFAULT_SNAPSHOT)
   height = snapshot.match(SNAPSHOT_REGEX).named_captures['height'].to_i
   start = height - options.fetch(:height, HEIGHTS_TO_VALIDATE)
 
   # Escape spaces if any
   config_path = config_path(bench).gsub(/\s/, '\\ ')
-  snapshot_path = "#{get_snapshot_dir}/#{snapshot}".gsub(/\s/, '\\ ')
+  snapshot_path = "#{snapshot_dir}/#{snapshot}".gsub(/\s/, '\\ ')
 
   { c: config_path, s: snapshot_path, h: start }
 end
@@ -214,16 +212,16 @@ def run_benchmarks(benchs, options)
     exec_command(bench[:build_command], quiet: false, dry_run: dry_run)
 
     # Clean db
-    db_dir = get_db_dir
-    puts "Wiping #{db_dir}"
-    FileUtils.rm_rf(db_dir, secure: true) unless dry_run
+    dir = db_dir
+    puts "Wiping #{dir}"
+    FileUtils.rm_rf(dir, secure: true) unless dry_run
 
     # Build bench artefacts
     build_config_file(bench)
     params = build_substitution_hash(bench, options)
 
     # Run forest benchmark
-    puts "Version: #{get_forest_version}"
+    puts "Version: #{forest_version}"
 
     import_command = bench[:import_command] % params
     metrics[:import] = exec_command(import_command, quiet: false, dry_run: dry_run)
