@@ -55,7 +55,7 @@ pub async fn snapshot_fetch(
     if !filops {
         snapshot_fetch_forest(
             snapshot_out_dir,
-            &config,
+            config,
             use_aria2,
             compressed,
             skip_checksum_validation,
@@ -64,7 +64,7 @@ pub async fn snapshot_fetch(
     } else {
         snapshot_fetch_filops(
             snapshot_out_dir,
-            &config,
+            config,
             use_aria2,
             compressed,
             skip_checksum_validation,
@@ -89,17 +89,16 @@ async fn snapshot_fetch_forest(
     skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
     if compressed {
-        warn!("Compressed snapshot is not available for Calibnet, to download from other trusted source use `--custom-url <custom-url>`, Continuing with regular download.");
+        bail!("Compressed snapshot is not available, Use `--filops` flag to download compressed snapshot from filops servers.");
     }
-    let snapshot_fetch_config;
-    match config.chain.name.to_lowercase().as_str() {
+    let snapshot_fetch_config = match config.chain.name.to_lowercase().as_str() {
         "mainnet" => bail!("Mainnet snapshot service has not started yet, Alternatively you can use `--filops` flag to fetch `mainnet` snapshot from filops server."),
-        "calibnet" => snapshot_fetch_config = &config.snapshot_fetch.forest.calibnet,
+        "calibnet" => &config.snapshot_fetch.forest.calibnet,
         _ => bail!(
             "Fetch not supported for chain {}",
             config.chain.name,
         ),
-    }
+    };
     let name = &snapshot_fetch_config.bucket_name;
     let region = &snapshot_fetch_config.region;
     let bucket = Bucket::new_public(name, region.parse()?)?;

@@ -18,6 +18,7 @@ crypto
 daemon
 daemonize
 Filecoin
+filops
 HAMT
 hasher
 IPFS
