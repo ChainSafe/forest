@@ -15,12 +15,6 @@ use fvm_shared::sector::{
 pub use self::policy::*;
 pub use self::randomness::DomainSeparationTag;
 
-#[cfg(feature = "fil-actor")]
-pub mod fvm;
-
-#[cfg(feature = "fil-actor")]
-mod actor_blockstore;
-
 pub mod policy;
 mod randomness;
 

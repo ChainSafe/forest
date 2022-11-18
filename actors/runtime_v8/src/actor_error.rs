@@ -16,35 +16,65 @@ impl ActorError {
     /// Creates a new ActorError. This method does not check that the code is in the
     /// range of valid actor abort codes.
     pub fn unchecked(code: ExitCode, msg: String) -> Self {
-        Self { exit_code: code, msg }
+        Self {
+            exit_code: code,
+            msg,
+        }
     }
 
     pub fn illegal_argument(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_ILLEGAL_ARGUMENT, msg }
+        Self {
+            exit_code: ExitCode::USR_ILLEGAL_ARGUMENT,
+            msg,
+        }
     }
     pub fn not_found(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_NOT_FOUND, msg }
+        Self {
+            exit_code: ExitCode::USR_NOT_FOUND,
+            msg,
+        }
     }
     pub fn forbidden(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_FORBIDDEN, msg }
+        Self {
+            exit_code: ExitCode::USR_FORBIDDEN,
+            msg,
+        }
     }
     pub fn insufficient_funds(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_INSUFFICIENT_FUNDS, msg }
+        Self {
+            exit_code: ExitCode::USR_INSUFFICIENT_FUNDS,
+            msg,
+        }
     }
     pub fn illegal_state(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_ILLEGAL_STATE, msg }
+        Self {
+            exit_code: ExitCode::USR_ILLEGAL_STATE,
+            msg,
+        }
     }
     pub fn serialization(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_SERIALIZATION, msg }
+        Self {
+            exit_code: ExitCode::USR_SERIALIZATION,
+            msg,
+        }
     }
     pub fn unhandled_message(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_UNHANDLED_MESSAGE, msg }
+        Self {
+            exit_code: ExitCode::USR_UNHANDLED_MESSAGE,
+            msg,
+        }
     }
     pub fn unspecified(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_UNSPECIFIED, msg }
+        Self {
+            exit_code: ExitCode::USR_UNSPECIFIED,
+            msg,
+        }
     }
     pub fn assertion_failed(msg: String) -> Self {
-        Self { exit_code: ExitCode::USR_ASSERTION_FAILED, msg }
+        Self {
+            exit_code: ExitCode::USR_ASSERTION_FAILED,
+            msg,
+        }
     }
 
     /// Returns the exit code of the error.
@@ -67,7 +97,10 @@ impl ActorError {
 /// Converts a raw encoding error into an ErrSerialization.
 impl From<fvm_ipld_encoding::Error> for ActorError {
     fn from(e: fvm_ipld_encoding::Error) -> Self {
-        Self { exit_code: ExitCode::USR_SERIALIZATION, msg: e.to_string() }
+        Self {
+            exit_code: ExitCode::USR_SERIALIZATION,
+            msg: e.to_string(),
+        }
     }
 }
 
@@ -76,7 +109,10 @@ impl From<fvm_ipld_encoding::Error> for ActorError {
 #[cfg(feature = "fil-actor")]
 impl From<fvm_sdk::error::ActorDeleteError> for ActorError {
     fn from(e: fvm_sdk::error::ActorDeleteError) -> Self {
-        Self { exit_code: ExitCode::USR_ILLEGAL_ARGUMENT, msg: e.to_string() }
+        Self {
+            exit_code: ExitCode::USR_ILLEGAL_ARGUMENT,
+            msg: e.to_string(),
+        }
     }
 }
 
@@ -85,7 +121,10 @@ impl From<fvm_sdk::error::ActorDeleteError> for ActorError {
 #[cfg(feature = "fil-actor")]
 impl From<fvm_sdk::error::NoStateError> for ActorError {
     fn from(e: fvm_sdk::error::NoStateError) -> Self {
-        Self { exit_code: ExitCode::USR_ILLEGAL_STATE, msg: e.to_string() }
+        Self {
+            exit_code: ExitCode::USR_ILLEGAL_STATE,
+            msg: e.to_string(),
+        }
     }
 }
 

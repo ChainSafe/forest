@@ -13,7 +13,9 @@ impl Serialize for UnmarshallableCBOR {
     where
         S: Serializer,
     {
-        Err(ser::Error::custom("Automatic fail when serializing UnmarshallableCBOR"))
+        Err(ser::Error::custom(
+            "Automatic fail when serializing UnmarshallableCBOR",
+        ))
     }
 }
 
@@ -22,7 +24,9 @@ impl<'de> Deserialize<'de> for UnmarshallableCBOR {
     where
         D: Deserializer<'de>,
     {
-        Err(de::Error::custom("Automatic fail when deserializing UnmarshallableCBOR"))
+        Err(de::Error::custom(
+            "Automatic fail when deserializing UnmarshallableCBOR",
+        ))
     }
 }
 

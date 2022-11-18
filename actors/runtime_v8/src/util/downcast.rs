@@ -83,7 +83,10 @@ fn downcast_util(error: anyhow::Error) -> anyhow::Result<ActorError> {
     // Check if error is Encoding error, if so return `ErrSerialization`
     let error = match error.downcast::<EncodingError>() {
         Ok(enc_error) => {
-            return Ok(ActorError::unchecked(ExitCode::USR_SERIALIZATION, enc_error.to_string()))
+            return Ok(ActorError::unchecked(
+                ExitCode::USR_SERIALIZATION,
+                enc_error.to_string(),
+            ))
         }
         Err(other) => other,
     };

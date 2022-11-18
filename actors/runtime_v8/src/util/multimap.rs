@@ -30,7 +30,10 @@ where
         outer_bitwidth: u32,
         inner_bitwidth: u32,
     ) -> Result<Self, Error> {
-        Ok(Self(make_map_with_root_and_bitwidth(cid, bs, outer_bitwidth)?, inner_bitwidth))
+        Ok(Self(
+            make_map_with_root_and_bitwidth(cid, bs, outer_bitwidth)?,
+            inner_bitwidth,
+        ))
     }
 
     /// Retrieve root from the multimap.
@@ -50,7 +53,8 @@ where
             .unwrap_or_else(|| Array::new_with_bit_width(self.0.store(), self.1));
 
         // Set value at next index
-        arr.set(arr.count(), value).map_err(|e| anyhow::anyhow!(e))?;
+        arr.set(arr.count(), value)
+            .map_err(|e| anyhow::anyhow!(e))?;
 
         // flush to get new array root to put in hamt
         let new_root = arr.flush().map_err(|e| anyhow::anyhow!(e))?;
@@ -67,9 +71,9 @@ where
         V: DeserializeOwned + Serialize,
     {
         match self.0.get(key)? {
-            Some(cid) => {
-                Ok(Some(Array::load(cid, *self.0.store()).map_err(|e| anyhow::anyhow!(e))?))
-            }
+            Some(cid) => Ok(Some(
+                Array::load(cid, *self.0.store()).map_err(|e| anyhow::anyhow!(e))?,
+            )),
             None => Ok(None),
         }
     }
@@ -78,7 +82,9 @@ where
     #[inline]
     pub fn remove_all(&mut self, key: &[u8]) -> Result<(), Error> {
         // Remove entry from table
-        self.0.delete(key)?.ok_or("failed to delete from multimap")?;
+        self.0
+            .delete(key)?
+            .ok_or("failed to delete from multimap")?;
 
         Ok(())
     }
