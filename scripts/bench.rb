@@ -117,7 +117,7 @@ def mem_monitor(pid)
   [handle, { rss: rss_serie, vsz: vsz_serie }]
 end
 
-def exec_command(command, quiet: false, merge: false, dry_run: false)
+def exec_command(command, quiet: false, dry_run: false)
   metrics = {}
   t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   if dry_run
