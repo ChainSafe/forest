@@ -1,0 +1,48 @@
+[package]
+name        = "fil_actors_runtime_v9"
+description = "System actors for the Filecoin protocol"
+version     = "9.0.3"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>", "Protocol Labs", "Filecoin Core Devs"]
+edition     = "2021"
+repository  = "https://github.com/filecoin-project/builtin-actors"
+
+[dependencies]
+anyhow              = { workspace = true }
+base64              = { workspace = true }
+blake2b_simd        = { workspace = true }
+byteorder           = { workspace = true }
+cid                 = { workspace = true, features = ["serde-codec"] }
+fvm_ipld_amt        = { workspace = true, features = ["go-interop"] }
+fvm_ipld_bitfield   = { workspace = true }
+fvm_ipld_blockstore = { workspace = true }
+fvm_ipld_encoding   = { workspace = true }
+fvm_ipld_hamt       = { workspace = true }
+fvm_shared          = { workspace = true, default-features = false }
+getrandom           = { version = "0.2.5", features = ["js"] }
+hex                 = { workspace = true, optional = true }
+indexmap            = { workspace = true, features = ["serde-1"] }
+integer-encoding    = { workspace = true, default-features = false }
+itertools           = { workspace = true }
+lazy_static         = { version = "1.4.0", optional = true }
+log                 = { workspace = true }
+multihash           = { version = "0.16.1", default-features = false }
+num-derive          = { workspace = true }
+num-traits          = { workspace = true }
+paste               = "1.0.9"
+rand                = { workspace = true }
+regex               = { workspace = true }
+serde               = { version = "1.0.136", features = ["derive"] }
+serde_repr          = { workspace = true }
+thiserror           = { workspace = true }
+unsigned-varint     = "0.7.1"
+
+[dependencies.sha2]
+version = "0.10"
+
+[dev-dependencies]
+derive_builder = "0.10.2"
+hex            = "0.4.3"
+
+[features]
+default = []

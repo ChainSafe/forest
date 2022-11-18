@@ -38,6 +38,7 @@ members = [
   "utils/json",
   "utils/forest_utils",
   "actors/runtime_v8",
+  "actors/runtime_v9",
   "actors/account_v8",
   "actors/paych_v8",
   "actors/paych_v9",
