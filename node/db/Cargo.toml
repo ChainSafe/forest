@@ -8,15 +8,18 @@ edition     = "2021"
 repository  = "https://github.com/ChainSafe/forest"
 
 [features]
-default = ["snappy", "lz4", "zlib", "bzip2"]
+default = []
 
-snappy = ["rocksdb/snappy"]
-lz4    = ["rocksdb/lz4"]
-zlib   = ["rocksdb/zlib"]
-bzip2  = ["rocksdb/bzip2"]
+rocksdb = ["dep:rocksdb", "snappy", "lz4", "zlib", "bzip2"]
+snappy  = ["rocksdb?/snappy"]
+lz4     = ["rocksdb?/lz4"]
+zlib    = ["rocksdb?/zlib"]
+bzip2   = ["rocksdb?/bzip2"]
 # not included by default to reduce build time
 # uncomment when it needs to be used by other crates
 # zstd = ["rocksdb/zstd"]
+
+paritydb = ["dep:parity-db"]
 
 [dependencies]
 anyhow.workspace              = true
@@ -27,9 +30,10 @@ lazy_static.workspace         = true
 libipld.workspace             = true
 libp2p-bitswap.workspace      = true
 num_cpus.workspace            = true
+parity-db                     = { version = "0.4", default-features = false, optional = true }
 parking_lot                   = "0.12"
 prometheus                    = { workspace = true }
-rocksdb                       = { version = "0.19", default-features = false }
+rocksdb                       = { version = "0.19", default-features = false, optional = true }
 serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
 

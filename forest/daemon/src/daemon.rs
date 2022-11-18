@@ -11,7 +11,7 @@ use forest_cli_shared::cli::{
     cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
     Config, FOREST_VERSION_STRING,
 };
-use forest_db::rocks::RocksDb;
+use forest_db::Store;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -24,6 +24,7 @@ use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
@@ -167,8 +168,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
-        .expect("Opening RocksDB must succeed");
+    let db = open_db(&config);
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(db.clone()).await);
@@ -443,7 +443,10 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
     }
 }
 
-async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
+async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>)
+where
+    DB: Store + Send + Clone + Sync + Blockstore + 'static,
+{
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
         let validate_height = if config.client.snapshot {
@@ -479,6 +482,22 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
         "calibrationnet" => "calibnet",
         _ => internal_network_name,
     }
+}
+
+#[cfg(feature = "rocksdb")]
+fn open_db(config: &Config) -> forest_db::rocks::RocksDb {
+    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
+        .expect("Opening RocksDB must succeed")
+}
+
+#[cfg(feature = "paritydb")]
+fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
+    use forest_db::parity_db::*;
+    let config = ParityDbConfig {
+        path: db_path(config),
+        columns: 1,
+    };
+    ParityDb::open(&config).expect("Opening ParityDb must succeed")
 }
 
 #[cfg(test)]

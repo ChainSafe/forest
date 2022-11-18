@@ -31,14 +31,15 @@ libp2p = { workspace = true, default-features = false, features = [
   "kad",
   "identify",
   "ping",
-  "mdns-async-io",
+  "mdns",
   "noise",
   "yamux",
-  "tcp-async-io",
-  "dns-async-std",
+  "tcp",
+  "dns",
   "mplex",
   "request-response",
   "websocket",
+  "tokio",
 ] }
 libp2p-bitswap.workspace = true
 log.workspace = true
