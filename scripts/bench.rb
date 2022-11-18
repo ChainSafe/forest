@@ -186,7 +186,35 @@ def build_substitution_hash(bench, options)
   { c: config_path, s: snapshot_path, h: start }
 end
 
+def write_result(metrics)
+  result = "Bench | Import Time | Import RSS | DB Size\n"
+  result += "-|-|-|-\n"
+
+  metrics.each do |key, value|
+    elapsed = value[:import][:elapsed]
+    rss = value[:import][:rss]
+    rss_max = rss ? "#{rss.max()}B" : "n/a"
+    db_size = value[:import][:db_size] || "n/a"
+    result += "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
+  end
+
+  result += "---\n"
+
+  result += "Bench | Validate Time | Validate RSS\n"
+  result += "-|-|-\n"
+
+  metrics.each do |key, value|
+    elapsed = value[:validate][:elapsed]
+    rss = value[:validate][:rss]
+    rss_max = rss ? "#{rss.max()}B" : "n/a"
+    result += "#{key} | #{elapsed} | #{rss_max}\n"
+  end
+
+  File.open("result.md", 'w') { |file| file.write(result) }
+end
+
 def run_benchmarks(benchs, options)
+  benchs_metrics = {}
   benchs.each { |bench|
     puts "Running bench: #{bench[:name]}"
 
@@ -218,17 +246,17 @@ def run_benchmarks(benchs, options)
 
     # Save db size just after import
     if !dry_run
-      metrics[:db_size] = get_db_size()
+      metrics[:import][:db_size] = get_db_size()
     end
 
     validate_command = bench[:validate_command] % params
     metrics[:validate] = exec_command(validate_command, quiet: false, dry_run: dry_run)
 
-    pp metrics
-    # TODO: retrieve stats
+    benchs_metrics[bench[:name]] = metrics
 
     puts "\n"
   }
+  write_result(benchs_metrics)
 end
 
 # TODO: read script arguments and do some filtering otherwise run them all
@@ -242,7 +270,5 @@ OptionParser.new do |opts|
 end.parse!
 
 run_benchmarks(Benchmark_suite, options)
-
-# pp get_default_config()
 
 puts "Done."
