@@ -17,7 +17,7 @@
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ## 
-FROM buildpack-deps:buster AS build-env
+FROM buildpack-deps:bullseye AS build-env
 
 # Install dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev protobuf-compiler cmake ca-certificates curl
@@ -39,7 +39,7 @@ RUN make install
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # Link package to the repository
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
