@@ -77,3 +77,7 @@ quickcheck_macros.workspace = true
 rand.workspace              = true
 tokio.workspace             = true
 tower-http                  = { workspace = true, features = ["fs"] }
+
+[features]
+rocksdb  = []
+paritydb = []
