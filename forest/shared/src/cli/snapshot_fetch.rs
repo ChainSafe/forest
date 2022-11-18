@@ -3,13 +3,14 @@
 use super::{Config, SnapshotFetchConfig};
 use anyhow::bail;
 use chrono::DateTime;
-use forest_utils::io::{progress_bar::Units, ProgressBar, TempFile};
-use hex::{FromHex, ToHex};
-use hyper::{
-    client::{connect::Connect, HttpConnector},
-    Body, Response,
+use forest_utils::{
+    io::{progress_bar::Units, ProgressBar, TempFile},
+    net::{
+        https_client,
+        hyper::{self, client::connect::Connect, Body, Response},
+    },
 };
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
+use hex::{FromHex, ToHex};
 use log::info;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
@@ -388,16 +389,6 @@ fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow
     }
 
     Ok(())
-}
-
-fn https_client() -> hyper::Client<HttpsConnector<HttpConnector>> {
-    hyper::Client::builder().build::<_, Body>(
-        HttpsConnectorBuilder::new()
-            .with_native_roots()
-            .https_or_http()
-            .enable_http1()
-            .build(),
-    )
 }
 
 #[cfg(test)]

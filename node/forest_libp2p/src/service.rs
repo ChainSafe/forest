@@ -151,6 +151,7 @@ pub enum NetRPCMethods {
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB, P: StoreParams> {
+    config: Libp2pConfig,
     swarm: Swarm<ForestBehaviour<P>>,
     cs: Arc<ChainStore<DB>>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
@@ -186,12 +187,16 @@ where
             ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()).await,
             peer_id,
         )
+        // We want the connection background tasks to be spawned
+        // onto the tokio runtime.
+        // <https://github.com/libp2p/rust-libp2p/discussions/2592>
+        .executor(Box::new(|fut| {
+            tokio::spawn(fut);
+        }))
         .connection_limits(limits)
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .connection_event_buffer_size(64)
         .build();
-
-        Swarm::listen_on(&mut swarm, config.listening_multiaddr).unwrap();
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
@@ -199,15 +204,11 @@ where
             swarm.behaviour_mut().subscribe(&t).unwrap();
         }
 
-        // Bootstrap with Kademlia
-        if let Err(e) = swarm.behaviour_mut().bootstrap() {
-            warn!("Failed to bootstrap with Kademlia: {}", e);
-        }
-
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
         Libp2pService {
+            config,
             swarm,
             cs,
             network_receiver_in,
@@ -219,7 +220,14 @@ where
     }
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
-    pub async fn run(self) {
+    pub async fn run(mut self) {
+        info!("Running libp2p service");
+        Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr).unwrap();
+        // Bootstrap with Kademlia
+        if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
+            warn!("Failed to bootstrap with Kademlia: {e}");
+        }
+
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
@@ -753,9 +761,9 @@ async fn emit_event(sender: &flume::Sender<NetworkEvent>, event: NetworkEvent) {
 /// Builds the transport stack that libp2p will communicate over.
 pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
-        || libp2p::tcp::TcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
+        || libp2p::tcp::TokioTcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
     let transport = libp2p::websocket::WsConfig::new(tcp_transport()).or_transport(tcp_transport());
-    let transport = libp2p::dns::DnsConfig::system(transport).await.unwrap();
+    let transport = libp2p::dns::TokioDnsConfig::system(transport).unwrap();
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
             .into_authentic(&local_key)

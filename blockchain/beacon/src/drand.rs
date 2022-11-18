@@ -7,6 +7,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
+use forest_utils::net::{https_client, HyperBodyExt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::version::NetworkVersion;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
@@ -204,10 +205,12 @@ impl DrandBeacon {
         let chain_info = &config.chain_info;
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
+            let client = https_client();
             let remote_chain_info: ChainInfo = client
-                .get(&format!("{}/info", &config.server))
-                .recv_json()
+                .get(format!("{}/info", &config.server).try_into()?)
+                .await?
+                .into_body()
+                .json()
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             debug_assert!(&remote_chain_info == chain_info);
@@ -266,10 +269,12 @@ impl Beacon for DrandBeacon {
             Some(cached_entry) => Ok(cached_entry),
             None => {
                 let url = format!("{}/public/{}", self.url, round);
-                let client: surf::Client = surf::Config::default().set_timeout(None).try_into()?;
+                let client = https_client();
                 let resp: BeaconEntryJson = client
-                    .get(&url)
-                    .recv_json()
+                    .get(url.try_into()?)
+                    .await?
+                    .into_body()
+                    .json()
                     .await
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
                 Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))

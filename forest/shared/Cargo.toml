@@ -43,8 +43,6 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 git-version.workspace            = true
 hex.workspace                    = true
-hyper                            = { workspace = true, features = ["client", "stream", "http1"] }
-hyper-rustls.workspace           = true
 jsonrpc-v2.workspace             = true
 lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
