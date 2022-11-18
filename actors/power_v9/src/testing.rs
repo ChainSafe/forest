@@ -47,15 +47,24 @@ pub fn check_state_invariants<BS: Blockstore>(
     );
     acc.require(
         !state.total_quality_adj_power.is_negative(),
-        format!("total qa power is negative {}", state.total_quality_adj_power),
+        format!(
+            "total qa power is negative {}",
+            state.total_quality_adj_power
+        ),
     );
     acc.require(
         !state.total_bytes_committed.is_negative(),
-        format!("total raw power committed is negative {}", state.total_bytes_committed),
+        format!(
+            "total raw power committed is negative {}",
+            state.total_bytes_committed
+        ),
     );
     acc.require(
         !state.total_qa_bytes_committed.is_negative(),
-        format!("total qa power committed is negative {}", state.total_qa_bytes_committed),
+        format!(
+            "total qa power committed is negative {}",
+            state.total_qa_bytes_committed
+        ),
     );
 
     acc.require(
@@ -91,7 +100,14 @@ pub fn check_state_invariants<BS: Blockstore>(
     let claims = check_claims_invariants(policy, state, store, &acc);
     let proofs = check_proofs_invariants(state, store, &claims, &acc);
 
-    (StateSummary { crons, claims, proofs }, acc)
+    (
+        StateSummary {
+            crons,
+            claims,
+            proofs,
+        },
+        acc,
+    )
 }
 
 fn check_cron_invariants<BS: Blockstore>(
@@ -126,9 +142,13 @@ fn check_cron_invariants<BS: Blockstore>(
                 );
                 events
                     .for_each(|_, event| {
-                        cron_events_by_address.entry(event.miner_addr).or_insert(Vec::new()).push(
-                            MinerCronEvent { epoch, payload: event.callback_payload.clone() },
-                        );
+                        cron_events_by_address
+                            .entry(event.miner_addr)
+                            .or_default()
+                            .push(MinerCronEvent {
+                                epoch,
+                                payload: event.callback_payload.clone(),
+                            });
                         Ok(())
                     })
                     .map_err(|e| {

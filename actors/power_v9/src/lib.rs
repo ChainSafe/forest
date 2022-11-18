@@ -78,7 +78,10 @@ impl Actor {
         rt.validate_immediate_caller_is(std::iter::once(&SYSTEM_ACTOR_ADDR))?;
 
         let st = State::new(rt.store()).map_err(|e| {
-            e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "Failed to create power actor state")
+            e.downcast_default(
+                ExitCode::USR_ILLEGAL_STATE,
+                "Failed to create power actor state",
+            )
         })?;
         rt.create(&st)?;
         Ok(())
@@ -105,7 +108,10 @@ impl Actor {
         })?;
 
         let miner_actor_code_cid = rt.get_code_cid_for_type(Type::Miner);
-        let ext::init::ExecReturn { id_address, robust_address } = rt
+        let ext::init::ExecReturn {
+            id_address,
+            robust_address,
+        } = rt
             .send(
                 &INIT_ACTOR_ADDR,
                 ext::init::EXEC_METHOD,
@@ -140,21 +146,25 @@ impl Actor {
             })?;
             st.miner_count += 1;
 
-            st.update_stats_for_new_miner(rt.policy(), window_post_proof_type).map_err(|e| {
-                actor_error!(
-                    illegal_state,
-                    "failed to update power stats for new miner {}: {}",
-                    &id_address,
-                    e
-                )
-            })?;
+            st.update_stats_for_new_miner(rt.policy(), window_post_proof_type)
+                .map_err(|e| {
+                    actor_error!(
+                        illegal_state,
+                        "failed to update power stats for new miner {}: {}",
+                        &id_address,
+                        e
+                    )
+                })?;
 
             st.claims = claims.flush().map_err(|e| {
                 e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to flush claims")
             })?;
             Ok(())
         })?;
-        Ok(CreateMinerReturn { id_address, robust_address })
+        Ok(CreateMinerReturn {
+            id_address,
+            robust_address,
+        })
     }
 
     /// Adds or removes claimed power for the calling actor.
@@ -232,9 +242,10 @@ impl Actor {
                 e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to load cron events")
             })?;
 
-            st.append_cron_event(&mut events, params.event_epoch, miner_event).map_err(|e| {
-                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to enroll cron event")
-            })?;
+            st.append_cron_event(&mut events, params.event_epoch, miner_event)
+                .map_err(|e| {
+                    e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to enroll cron event")
+                })?;
 
             st.cron_event_queue = events.root().map_err(|e| {
                 e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to flush cron events")
@@ -274,7 +285,9 @@ impl Actor {
             // Can assume delta is one since cron is invoked every epoch.
             st.update_smoothed_estimate(1);
 
-            Ok(RawBytes::serialize(&BigIntSer(&st.this_epoch_raw_byte_power)))
+            Ok(RawBytes::serialize(&BigIntSer(
+                &st.this_epoch_raw_byte_power,
+            )))
         })?;
 
         // Update network KPA in reward actor
@@ -340,15 +353,21 @@ impl Actor {
                 })?
             } else {
                 debug!("ProofValidationBatch created");
-                Multimap::new(rt.store(), HAMT_BIT_WIDTH, PROOF_VALIDATION_BATCH_AMT_BITWIDTH)
+                Multimap::new(
+                    rt.store(),
+                    HAMT_BIT_WIDTH,
+                    PROOF_VALIDATION_BATCH_AMT_BITWIDTH,
+                )
             };
             let miner_addr = rt.message().caller();
-            let arr = mmap.get::<SealVerifyInfo>(&miner_addr.to_bytes()).map_err(|e| {
-                e.downcast_default(
-                    ExitCode::USR_ILLEGAL_STATE,
-                    format!("failed to get seal verify infos at addr {}", miner_addr),
-                )
-            })?;
+            let arr = mmap
+                .get::<SealVerifyInfo>(&miner_addr.to_bytes())
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::USR_ILLEGAL_STATE,
+                        format!("failed to get seal verify infos at addr {}", miner_addr),
+                    )
+                })?;
             if let Some(arr) = arr {
                 if arr.count() >= MAX_MINER_PROVE_COMMITS_PER_EPOCH {
                     return Err(ActorError::unchecked(
@@ -361,12 +380,19 @@ impl Actor {
                 }
             }
 
-            mmap.add(miner_addr.to_bytes().into(), seal_info).map_err(|e| {
-                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to insert proof into set")
-            })?;
+            mmap.add(miner_addr.to_bytes().into(), seal_info)
+                .map_err(|e| {
+                    e.downcast_default(
+                        ExitCode::USR_ILLEGAL_STATE,
+                        "failed to insert proof into set",
+                    )
+                })?;
 
             let mmrc = mmap.root().map_err(|e| {
-                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to flush proofs batch map")
+                e.downcast_default(
+                    ExitCode::USR_ILLEGAL_STATE,
+                    "failed to flush proofs batch map",
+                )
             })?;
 
             rt.charge_gas("OnSubmitVerifySeal", detail::GAS_ON_SUBMIT_VERIFY_SEAL);
@@ -485,14 +511,18 @@ impl Actor {
                 result
             })
             .map_err(|e| {
-                format!("failed to do transaction in process batch proof verifies: {}", e)
+                format!(
+                    "failed to do transaction in process batch proof verifies: {}",
+                    e
+                )
             })?;
         if let Some(st_err) = st_err {
             return Err(st_err);
         }
 
-        let res =
-            rt.batch_verify_seals(&infos).map_err(|e| format!("failed to batch verify: {}", e))?;
+        let res = rt
+            .batch_verify_seals(&infos)
+            .map_err(|e| format!("failed to batch verify: {}", e))?;
 
         let mut res_iter = infos.iter().zip(res.iter().copied());
         for (m, count) in miners {
@@ -527,7 +557,10 @@ impl Actor {
                 .map_err(|e| format!("failed to serialize ConfirmSectorProofsParams: {}", e))?,
                 Default::default(),
             ) {
-                error!("failed to confirm sector proof validity to {}, error code {}", m, e);
+                error!(
+                    "failed to confirm sector proof validity to {}, error code {}",
+                    m, e
+                );
             }
         }
         Ok(())
@@ -574,12 +607,14 @@ impl Actor {
 
                 for evt in epoch_events.into_iter() {
                     let miner_has_claim =
-                        claims.contains_key(&evt.miner_addr.to_bytes()).map_err(|e| {
-                            e.downcast_default(
-                                ExitCode::USR_ILLEGAL_STATE,
-                                "failed to look up claim",
-                            )
-                        })?;
+                        claims
+                            .contains_key(&evt.miner_addr.to_bytes())
+                            .map_err(|e| {
+                                e.downcast_default(
+                                    ExitCode::USR_ILLEGAL_STATE,
+                                    "failed to look up claim",
+                                )
+                            })?;
                     if !miner_has_claim {
                         debug!("skipping cron event for unknown miner: {}", evt.miner_addr);
                         continue;
@@ -621,7 +656,10 @@ impl Actor {
             // Failures are unexpected here but will result in removal of miner power
             // A log message would really help here.
             if let Err(e) = res {
-                error!("OnDeferredCronEvent failed for miner {}: res {}", event.miner_addr, e);
+                error!(
+                    "OnDeferredCronEvent failed for miner {}: res {}",
+                    event.miner_addr, e
+                );
                 failed_miner_crons.push(event.miner_addr)
             }
         }

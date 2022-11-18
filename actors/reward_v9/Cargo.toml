@@ -1,7 +1,7 @@
 [package]
-name        = "fil_actor_power_v8"
-description = "Builtin power actor for Filecoin"
-version     = "8.0.0"
+name        = "fil_actor_reward_v9"
+description = "Builtin reward actor for Filecoin"
+version     = "9.0.0"
 license     = "MIT OR Apache-2.0"
 authors     = ["ChainSafe Systems <info@chainsafe.io>", "Protocol Labs", "Filecoin Core Devs"]
 edition     = "2018"
@@ -11,13 +11,11 @@ keywords    = ["filecoin", "web3", "wasm"]
 [dependencies]
 anyhow                = { workspace = true }
 cid                   = { workspace = true }
-fil_actors_runtime_v8 = { workspace = true }
+fil_actors_runtime_v9 = { workspace = true }
 fvm_ipld_blockstore   = { workspace = true }
 fvm_ipld_encoding     = { workspace = true }
 fvm_ipld_hamt         = { workspace = true }
 fvm_shared            = { workspace = true }
-indexmap              = { workspace = true }
-integer-encoding      = { workspace = true }
 lazy_static           = { workspace = true }
 log                   = { workspace = true }
 num-derive            = { workspace = true }
