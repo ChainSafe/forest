@@ -245,14 +245,14 @@ pub(super) async fn start(config: Config, detached: bool) {
         config
     };
 
-    let genesis_hash = *genesis_header.cid();
+    let genesis_cid = *genesis_header.cid();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
-        genesis_hash,
+        genesis_cid,
     )
     .await;
 

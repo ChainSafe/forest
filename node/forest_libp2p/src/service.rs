@@ -158,7 +158,7 @@ pub struct Libp2pService<DB, P: StoreParams> {
     network_receiver_out: flume::Receiver<NetworkEvent>,
     network_sender_out: flume::Sender<NetworkEvent>,
     network_name: String,
-    genesis_hash: Cid,
+    genesis_cid: Cid,
 }
 
 impl<DB, P: StoreParams> Libp2pService<DB, P>
@@ -170,7 +170,7 @@ where
         cs: Arc<ChainStore<DB>>,
         net_keypair: Keypair,
         network_name: &str,
-        genesis_hash: Cid,
+        genesis_cid: Cid,
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
@@ -217,7 +217,7 @@ where
             network_receiver_out,
             network_sender_out,
             network_name: network_name.into(),
-            genesis_hash,
+            genesis_cid,
         }
     }
 
@@ -244,7 +244,7 @@ where
                             swarm_stream.get_mut(),
                             event,
                             &self.cs,
-                            &self.genesis_hash,
+                            &self.genesis_cid,
                             &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
@@ -275,8 +275,8 @@ where
                 },
                 pair_opt = cx_response_rx_stream.next() => {
                     if let Some((_request_id, channel, cx_response)) = pair_opt {
-                        let bh_mut = swarm_stream.get_mut().behaviour_mut();
-                        if let Err(e) = bh_mut.chain_exchange.send_response(channel, cx_response) {
+                        let behaviour = swarm_stream.get_mut().behaviour_mut();
+                        if let Err(e) = behaviour.chain_exchange.send_response(channel, cx_response) {
                             warn!("Error sending chain exchange response: {e:?}");
                         }
                     }
@@ -297,7 +297,7 @@ where
 }
 
 async fn handle_network_message<P: StoreParams>(
-    st_mut: &mut Swarm<ForestBehaviour<P>>,
+    swarm: &mut Swarm<ForestBehaviour<P>>,
     message: NetworkMessage,
     network_sender_out: &flume::Sender<NetworkEvent>,
     hello_request_table: &mut HashMap<
@@ -312,7 +312,7 @@ async fn handle_network_message<P: StoreParams>(
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
-            if let Err(e) = st_mut.behaviour_mut().publish(topic, message) {
+            if let Err(e) = swarm.behaviour_mut().publish(topic, message) {
                 warn!("Failed to send gossipsub message: {:?}", e);
             }
         }
@@ -321,7 +321,7 @@ async fn handle_network_message<P: StoreParams>(
             request,
             response_channel,
         } => {
-            let request_id = st_mut.behaviour_mut().hello.send_request(&peer_id, request);
+            let request_id = swarm.behaviour_mut().hello.send_request(&peer_id, request);
             hello_request_table.insert(request_id, response_channel);
             emit_event(
                 network_sender_out,
@@ -334,7 +334,7 @@ async fn handle_network_message<P: StoreParams>(
             request,
             response_channel,
         } => {
-            let request_id = st_mut
+            let request_id = swarm
                 .behaviour_mut()
                 .chain_exchange
                 .send_request(&peer_id, request);
@@ -348,7 +348,7 @@ async fn handle_network_message<P: StoreParams>(
         NetworkMessage::BitswapRequest {
             cid,
             response_channel: _,
-        } => match st_mut.behaviour_mut().want_block(cid) {
+        } => match swarm.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
                 outgoing_bitswap_query_ids.insert(query_id, cid);
                 emit_event(
@@ -361,8 +361,8 @@ async fn handle_network_message<P: StoreParams>(
         },
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {
-                let listeners: Vec<_> = Swarm::listeners(st_mut).cloned().collect();
-                let peer_id = Swarm::local_peer_id(st_mut);
+                let listeners: Vec<_> = Swarm::listeners(swarm).cloned().collect();
+                let peer_id = Swarm::local_peer_id(swarm);
 
                 if response_channel.send((*peer_id, listeners)).is_err() {
                     warn!("Failed to get Libp2p listeners");
@@ -370,7 +370,7 @@ async fn handle_network_message<P: StoreParams>(
             }
             NetRPCMethods::NetPeers(response_channel) => {
                 let peer_addresses: &HashMap<PeerId, Vec<Multiaddr>> =
-                    st_mut.behaviour_mut().peer_addresses();
+                    swarm.behaviour_mut().peer_addresses();
 
                 if response_channel.send(peer_addresses.to_owned()).is_err() {
                     warn!("Failed to get Libp2p peers");
@@ -384,7 +384,7 @@ async fn handle_network_message<P: StoreParams>(
                         Multihash::from_bytes(&peer_id.to_bytes()).unwrap(),
                     ));
 
-                    if Swarm::dial(st_mut, multiaddr.clone()).is_ok() {
+                    if Swarm::dial(swarm, multiaddr.clone()).is_ok() {
                         success = true;
                         break;
                     };
@@ -395,7 +395,7 @@ async fn handle_network_message<P: StoreParams>(
                 }
             }
             NetRPCMethods::NetDisconnect(response_channel, peer_id) => {
-                let _ = Swarm::disconnect_peer_id(st_mut, peer_id);
+                let _ = Swarm::disconnect_peer_id(swarm, peer_id);
                 if response_channel.send(()).is_err() {
                     warn!("Failed to disconnect from a peer");
                 }
@@ -406,10 +406,10 @@ async fn handle_network_message<P: StoreParams>(
 
 #[allow(clippy::too_many_arguments)]
 async fn handle_forest_behaviour_event<DB, P: StoreParams>(
-    st_mut: &mut Swarm<ForestBehaviour<P>>,
+    swarm: &mut Swarm<ForestBehaviour<P>>,
     event: ForestBehaviourEvent<P>,
     db: &Arc<ChainStore<DB>>,
-    genesis_hash: &Cid,
+    genesis_cid: &Cid,
     network_sender_out: &flume::Sender<NetworkEvent>,
     hello_request_table: &mut HashMap<
         RequestId,
@@ -430,20 +430,20 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
 ) where
     DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
 {
-    let bh_mut = st_mut.behaviour_mut();
+    let behaviour = swarm.behaviour_mut();
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => match discovery_out {
             DiscoveryOut::Connected(peer_id, addresses) => {
                 debug!("Peer connected, {:?}", peer_id);
                 for addr in addresses {
-                    bh_mut.bitswap.add_address(&peer_id, addr);
+                    behaviour.bitswap.add_address(&peer_id, addr);
                 }
                 emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
             }
             DiscoveryOut::Disconnected(peer_id, addresses) => {
                 debug!("Peer disconnected, {:?}", peer_id);
                 for addr in addresses {
-                    bh_mut.bitswap.remove_address(&peer_id, &addr);
+                    behaviour.bitswap.remove_address(&peer_id, &addr);
                 }
                 emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
             }
@@ -520,12 +520,12 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         .expect("System time since unix epoch should not exceed u64");
 
                     trace!("Received hello request: {:?}", request);
-                    if &request.genesis_hash != genesis_hash {
+                    if &request.genesis_cid != genesis_cid {
                         warn!(
-                            "Genesis hash mismatch: {} received, {genesis_hash} expected. Banning {peer}",
-                            request.genesis_hash
+                            "Genesis hash mismatch: {} received, {genesis_cid} expected. Banning {peer}",
+                            request.genesis_cid
                         );
-                        st_mut.ban_peer_id(peer);
+                        swarm.ban_peer_id(peer);
                     } else {
                         let sent = SystemTime::now()
                             .duration_since(UNIX_EPOCH)
@@ -536,7 +536,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
 
                         // Send hello response immediately, no need to have the overhead of emitting
                         // channel and polling future here.
-                        if let Err(e) = bh_mut
+                        if let Err(e) = behaviour
                             .hello
                             .send_response(channel, HelloResponse { arrival, sent })
                         {
@@ -663,7 +663,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 warn!("{err}: {peer}",);
                 if err.contains("protocol not supported") {
                     warn!("Banning peer {peer} due to protocol error");
-                    st_mut.ban_peer_id(ping_event.peer);
+                    swarm.ban_peer_id(ping_event.peer);
                 }
             }
         },
