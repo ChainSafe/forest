@@ -19,23 +19,21 @@ fvm_ipld_blockstore = { workspace = true }
 fvm_ipld_encoding   = { workspace = true }
 fvm_ipld_hamt       = { workspace = true }
 fvm_shared          = { workspace = true, default-features = false }
-getrandom           = { version = "0.2.5", features = ["js"] }
-hex                 = { workspace = true, optional = true }
+getrandom           = { workspace = true }
 indexmap            = { workspace = true, features = ["serde-1"] }
 integer-encoding    = { workspace = true, default-features = false }
 itertools           = { workspace = true }
-lazy_static         = { version = "1.4.0", optional = true }
 log                 = { workspace = true }
-multihash           = { version = "0.16.1", default-features = false }
+multihash           = { workspace = true }
 num-derive          = { workspace = true }
 num-traits          = { workspace = true }
-paste               = "1.0.9"
+paste               = { workspace = true }
 rand                = { workspace = true }
 regex               = { workspace = true }
-serde               = { version = "1.0.136", features = ["derive"] }
+serde               = { workspace = true }
 serde_repr          = { workspace = true }
 thiserror           = { workspace = true }
-unsigned-varint     = "0.7.1"
+unsigned-varint     = { workspace = true }
 
 [dependencies.sha2]
 version = "0.10"
