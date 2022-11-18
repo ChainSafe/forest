@@ -41,6 +41,8 @@ members = [
   "actors/account_v8",
   "actors/paych_v8",
   "actors/paych_v9",
+  "actors/power_v8",
+  "actors/power_v9",
 ]
 resolver = "2"
 
@@ -160,6 +162,7 @@ toml                  = "0.5"
 tower-http            = "0.3"
 url                   = "2.3"
 which                 = "4.3"
+integer-encoding = { version = "3.0.3", default-features = false }
 
 fil_actors_runtime_v8  = { path = "./actors/runtime_v8" }
 forest_actor_interface = { path = "./vm/actor_interface" }
