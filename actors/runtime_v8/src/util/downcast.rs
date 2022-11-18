@@ -9,10 +9,10 @@ use fvm_shared::error::ExitCode;
 
 use crate::ActorError;
 
-/// Trait to allow multiple error types to be able to be down-casted into an `ActorError`.
+/// Trait to allow multiple error types to be able to be downcasted into an `ActorError`.
 pub trait ActorDowncast {
-    /// Downcast a dynamic std Error into an `ActorError`. If the error cannot be down-casted
-    /// into an `ActorError` automatically, use the provided `ExitCode` to generate a new error.
+    /// Downcast a dynamic std Error into an `ActorError`. If the error cannot be downcasted
+    /// into an ActorError automatically, use the provided `ExitCode` to generate a new error.
     fn downcast_default(self, default_exit_code: ExitCode, msg: impl AsRef<str>) -> ActorError;
 
     /// Wrap the error with a message, without overwriting an exit code.
@@ -71,7 +71,7 @@ impl ActorDowncast for HamtError {
 }
 
 /// Attempts to downcast a `Box<dyn std::error::Error>` into an actor error.
-/// Returns `Ok` with the actor error if it can be down-casted automatically
+/// Returns `Ok` with the actor error if it can be downcasted automatically
 /// and returns `Err` with the original error if it cannot.
 fn downcast_util(error: anyhow::Error) -> anyhow::Result<ActorError> {
     // Check if error is ActorError, return as such
@@ -83,10 +83,7 @@ fn downcast_util(error: anyhow::Error) -> anyhow::Result<ActorError> {
     // Check if error is Encoding error, if so return `ErrSerialization`
     let error = match error.downcast::<EncodingError>() {
         Ok(enc_error) => {
-            return Ok(ActorError::unchecked(
-                ExitCode::USR_SERIALIZATION,
-                enc_error.to_string(),
-            ))
+            return Ok(ActorError::unchecked(ExitCode::USR_SERIALIZATION, enc_error.to_string()))
         }
         Err(other) => other,
     };

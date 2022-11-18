@@ -2433,36 +2433,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_paych_v8"
-version = "8.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime_v8",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_shared",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_paych_v9"
-version = "9.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_shared",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_power"
 version = "9.0.3"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
@@ -2505,46 +2475,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_power_v8"
-version = "8.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime_v8",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "indexmap",
- "integer-encoding",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_power_v9"
-version = "9.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "indexmap",
- "integer-encoding",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_reward"
 version = "9.0.3"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
@@ -2568,42 +2498,6 @@ dependencies = [
  "fil_actors_runtime_common",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
- "fvm_shared",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_reward_v8"
-version = "8.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime_v8",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_reward_v9"
-version = "9.0.0"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
  "fvm_shared",
  "lazy_static",
  "log",
@@ -2698,7 +2592,7 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_runtime_v8"
-version = "1.0.0"
+version = "8.0.0"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2714,6 +2608,7 @@ dependencies = [
  "getrandom 0.2.8",
  "hex",
  "itertools 0.10.5",
+ "lazy_static",
  "log",
  "multihash",
  "num-derive",

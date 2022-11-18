@@ -1,32 +1,22 @@
+// Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fvm_shared::address::Address;
 use fvm_shared::ActorID;
 
-use paste::paste;
+lazy_static! {
+    pub static ref SYSTEM_ACTOR_ADDR: Address         = Address::new_id(0);
+    pub static ref INIT_ACTOR_ADDR: Address           = Address::new_id(1);
+    pub static ref REWARD_ACTOR_ADDR: Address         = Address::new_id(2);
+    pub static ref CRON_ACTOR_ADDR: Address           = Address::new_id(3);
+    pub static ref STORAGE_POWER_ACTOR_ADDR: Address  = Address::new_id(4);
+    pub static ref STORAGE_MARKET_ACTOR_ADDR: Address = Address::new_id(5);
+    pub static ref VERIFIED_REGISTRY_ACTOR_ADDR: Address = Address::new_id(6);
 
-macro_rules! define_singletons {
-    ($($name:ident = $id:literal,)*) => {
-        $(
-            paste! {
-                pub const [<$name _ID>]: ActorID = $id;
-                pub const [<$name _ADDR>]: Address = Address::new_id([<$name _ID>]);
-            }
-        )*
-    }
-}
+    pub static ref CHAOS_ACTOR_ADDR: Address    = Address::new_id(98);
 
-define_singletons! {
-    SYSTEM_ACTOR = 0,
-    INIT_ACTOR = 1,
-    REWARD_ACTOR = 2,
-    CRON_ACTOR = 3,
-    STORAGE_POWER_ACTOR = 4,
-    STORAGE_MARKET_ACTOR = 5,
-    VERIFIED_REGISTRY_ACTOR = 6,
-    DATACAP_TOKEN_ACTOR = 7,
-    CHAOS_ACTOR = 98,
-    BURNT_FUNDS_ACTOR = 99,
+    /// Distinguished AccountActor that is the destination of all burnt funds.
+    pub static ref BURNT_FUNDS_ACTOR_ADDR: Address = Address::new_id(99);
 }
 
 /// Defines first available ID address after builtin actors

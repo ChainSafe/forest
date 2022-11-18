@@ -22,14 +22,14 @@ where
     Ok(RawBytes::new(serialize_vec(value, desc)?))
 }
 
-/// De-serialises CBOR-encoded bytes as a structure, returning a serialization error on failure.
-/// `desc` is a noun phrase for the object being de-serialized, included in any error message.
+/// Deserialises CBOR-encoded bytes as a structure, returning a serialization error on failure.
+/// `desc` is a noun phrase for the object being deserialized, included in any error message.
 pub fn deserialize<O: de::DeserializeOwned>(v: &RawBytes, desc: &str) -> Result<O, ActorError> {
     v.deserialize()
         .map_err(|e| ActorError::serialization(format!("failed to deserialize {}: {}", desc, e)))
 }
 
-/// De-serialises CBOR-encoded bytes as a method parameters object.
+/// Deserialises CBOR-encoded bytes as a method parameters object.
 pub fn deserialize_params<O: de::DeserializeOwned>(params: &RawBytes) -> Result<O, ActorError> {
     deserialize(params, "method parameters")
 }
