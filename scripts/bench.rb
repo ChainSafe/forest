@@ -96,6 +96,11 @@ def get_db_dir()
   "#{data_dir}/mainnet/db"
 end
 
+def get_db_size()
+  size = exec_command("du -h '#{get_db_dir()}'", quiet: true)
+  size.chomp.split[0]
+end
+
 def hr(seconds)
   seconds = seconds < Minute ? seconds.ceil(1) : seconds.ceil(0)
   time = Time.at(seconds)
@@ -185,6 +190,9 @@ def run_benchmarks(benchs, options)
   benchs.each { |bench|
     puts "Running bench: #{bench[:name]}"
 
+    metrics = {}
+    metrics[:name] = bench[:name]
+
     dry_run = options[:dry_run]
 
     # TODO: cargo clean before
@@ -206,13 +214,17 @@ def run_benchmarks(benchs, options)
     puts "Version: #{get_forest_version()}"
 
     import_command = bench[:import_command] % params
-    metrics = exec_command(import_command, quiet: false, dry_run: dry_run)
-    pp metrics
+    metrics[:import] = exec_command(import_command, quiet: false, dry_run: dry_run)
+
+    # Save db size just after import
+    if !dry_run
+      metrics[:db_size] = get_db_size()
+    end
 
     validate_command = bench[:validate_command] % params
-    metrics = exec_command(validate_command, quiet: false, dry_run: dry_run)
-    pp metrics
+    metrics[:validate] = exec_command(validate_command, quiet: false, dry_run: dry_run)
 
+    pp metrics
     # TODO: retrieve stats
 
     puts "\n"
