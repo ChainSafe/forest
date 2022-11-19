@@ -66,7 +66,7 @@ possible_values = &["mainnet", "calibnet"],
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_cli_config_path(self);
+        let path = find_config_path(Opts::CliOpts(self));
         let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
@@ -187,7 +187,7 @@ pub struct DaemonOpts {
 
 impl DaemonOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_daemon_config_path(self);
+        let path = find_config_path(Opts::DaemonOpts(&self));
         let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
@@ -280,36 +280,44 @@ impl ConfigPath {
     }
 }
 
-fn find_cli_config_path(opts: &CliOpts) -> Option<ConfigPath> {
-    if let Some(s) = &opts.config {
-        return Some(ConfigPath::Cli(PathBuf::from(s)));
-    }
-    if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
-        return Some(ConfigPath::Env(PathBuf::from(s)));
-    }
-    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
-        let path = dir.config_dir().join("config.toml");
-        if path.exists() {
-            return Some(ConfigPath::Project(path));
-        }
-    }
-    None
+pub enum Opts<'a> {
+    CliOpts(&'a CliOpts),
+    DaemonOpts(&'a DaemonOpts),
 }
 
-fn find_daemon_config_path(opts: &DaemonOpts) -> Option<ConfigPath> {
-    if let Some(s) = &opts.config {
-        return Some(ConfigPath::Cli(PathBuf::from(s)));
-    }
-    if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
-        return Some(ConfigPath::Env(PathBuf::from(s)));
-    }
-    if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
-        let path = dir.config_dir().join("config.toml");
-        if path.exists() {
-            return Some(ConfigPath::Project(path));
+fn find_config_path(opts: Opts) -> Option<ConfigPath> {
+    match opts {
+        Opts::CliOpts(cli_opts) => {
+            if let Some(s) = &cli_opts.config {
+                return Some(ConfigPath::Cli(PathBuf::from(s)));
+            }
+            if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
+                return Some(ConfigPath::Env(PathBuf::from(s)));
+            }
+            if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+                let path = dir.config_dir().join("config.toml");
+                if path.exists() {
+                    return Some(ConfigPath::Project(path));
+                }
+            }
+            None
+        }
+        Opts::DaemonOpts(daemon_opts) => {
+            if let Some(s) = &daemon_opts.config {
+                return Some(ConfigPath::Cli(PathBuf::from(s)));
+            }
+            if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
+                return Some(ConfigPath::Env(PathBuf::from(s)));
+            }
+            if let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest") {
+                let path = dir.config_dir().join("config.toml");
+                if path.exists() {
+                    return Some(ConfigPath::Project(path));
+                }
+            }
+            None
         }
     }
-    None
 }
 
 fn find_unknown_keys<'a>(
