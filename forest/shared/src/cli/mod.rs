@@ -187,7 +187,7 @@ pub struct DaemonOpts {
 
 impl DaemonOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(Opts::DaemonOpts(&self));
+        let path = find_config_path(Opts::DaemonOpts(self));
         let mut cfg: Config = match &path {
             Some(path) => {
                 // Read from config file
