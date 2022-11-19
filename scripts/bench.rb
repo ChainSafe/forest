@@ -63,13 +63,19 @@ def tmp_dir
   BENCH_PATHS[:tmpdir]
 end
 
+def syscall(*command)
+  stdout, _stderr, status = Open3.capture3(*command)
+  return stdout.chomp if status.success?
+
+  raise "#{command}, #{status}"
+end
+
 def forest_version
-  version = exec_command('./target/release/forest --version', quiet: true)
-  version.chomp
+  syscall('./target/release/forest', '--version')
 end
 
 def default_config
-  toml_str = exec_command('./target/release/forest-cli config dump', quiet: true)
+  toml_str = syscall('./target/release/forest-cli', 'config', 'dump')
 
   default = TomlRB.parse(toml_str)
   default['client']['data_dir'] = tmp_dir
@@ -77,8 +83,7 @@ def default_config
 end
 
 def snapshot_dir
-  snapshot_dir = exec_command('./target/release/forest-cli snapshot dir', quiet: true)
-  snapshot_dir.chomp
+  syscall('./target/release/forest-cli', 'snapshot', 'dir')
 end
 
 def db_dir
@@ -88,7 +93,7 @@ def db_dir
 end
 
 def db_size
-  size = exec_command("du -h '#{db_dir}'", quiet: true)
+  size = syscall('du', '-h', db_dir)
   size.chomp.split[0]
 end
 
@@ -99,51 +104,46 @@ def hr(seconds)
   time.strftime(durfmt)
 end
 
-def exec_ps(pid)
-  Open3.popen2("ps -o rss,vsz #{pid}", {}) do |i, o, t|
-    i.close
-    code = t.value
-    return nil if code.exitstatus.positive?
-
-    output = o.read.lines.last.split
-    return [output[0].to_i, output[1].to_i]
-  end
+def sample_proc(pid, metrics)
+  output = syscall('ps', '-o', 'rss,vsz', pid.to_s)
+  metrics[:rss].push(output[0].to_i)
+  metrics[:vsz].push(output[1].to_i)
 end
 
 def proc_monitor(pid)
   metrics = { rss: [], vsz: [] }
   handle = Thread.new do
     loop do
-      break unless (res = exec_ps(pid))
-
-      metrics[:rss].push(res[0])
-      metrics[:vsz].push(res[1])
+      sample_proc(pid, metrics)
       sleep 0.5
+    rescue StandardError => _e
+      break
     end
   end
   [handle, metrics]
 end
 
-def exec_command(command, quiet: false, dry_run: false)
+def exec_command_aux(command, metrics)
+  Open3.popen2(*command) do |i, o, t|
+    i.close
+
+    handle, proc_metrics = proc_monitor(t.pid)
+    o.each_line do |l|
+      print l
+    end
+
+    handle.join
+    metrics.merge!(proc_metrics)
+  end
+end
+
+def exec_command(command, dry_run)
+  puts "$ #{command.join(' ')}"
+  return {} if dry_run
+
   metrics = {}
   t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  if dry_run
-    puts "$ #{command.join(' ')}"
-  else
-    Open3.popen2(*command) do |i, o, t|
-      i.close
-      return o.read if quiet
-
-      handle, proc_metrics = proc_monitor(t.pid)
-      puts "$ #{command.join(' ')}"
-      o.each_line do |l|
-        print l
-      end
-
-      handle.join
-      metrics.merge!(proc_metrics)
-    end
-  end
+  exec_command_aux(command, metrics)
   t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   metrics[:elapsed] = hr(t1 - t0)
   metrics
@@ -180,7 +180,7 @@ def write_import_table(metrics)
   result += "-|-|-|-\n"
 
   metrics.each do |key, value|
-    elapsed = value[:import][:elapsed]
+    elapsed = value[:import][:elapsed] || 'n/a'
     rss = value[:import][:rss]
     rss_max = rss ? "#{rss.max}B" : 'n/a'
     db_size = value[:import][:db_size] || 'n/a'
@@ -195,7 +195,7 @@ def write_validate_table(metrics)
   result += "-|-|-\n"
 
   metrics.each do |key, value|
-    elapsed = value[:validate][:elapsed]
+    elapsed = value[:validate][:elapsed] || 'n/a'
     rss = value[:validate][:rss]
     rss_max = rss ? "#{rss.max}B" : 'n/a'
     result += "#{key} | #{elapsed} | #{rss_max}\n"
@@ -219,6 +219,7 @@ def splice_args(command, args)
 end
 
 def run_benchmarks(benchs, options)
+  dry_run = options[:dry_run]
   benchs_metrics = {}
   benchs.each do |bench|
     puts "Running bench: #{bench[:name]}"
@@ -226,10 +227,7 @@ def run_benchmarks(benchs, options)
     metrics = {}
     metrics[:name] = bench[:name]
 
-    dry_run = options[:dry_run]
-
-    # TODO: cargo clean before
-    exec_command(bench[:build_command], quiet: false, dry_run: dry_run)
+    exec_command(bench[:build_command], dry_run)
 
     # Clean db
     dir = db_dir
@@ -241,13 +239,13 @@ def run_benchmarks(benchs, options)
     args = build_substitution_hash(bench, options)
 
     import_command = splice_args(bench[:import_command], args)
-    metrics[:import] = exec_command(import_command, quiet: false, dry_run: dry_run)
+    metrics[:import] = exec_command(import_command, dry_run)
 
     # Save db size just after import
-    metrics[:import][:db_size] = get_db_size unless dry_run
+    metrics[:import][:db_size] = db_size unless dry_run
 
     validate_command = splice_args(bench[:validate_command], args)
-    metrics[:validate] = exec_command(validate_command, quiet: false, dry_run: dry_run)
+    metrics[:validate] = exec_command(validate_command, dry_run)
 
     benchs_metrics[bench[:name]] = metrics
 
