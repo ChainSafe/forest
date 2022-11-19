@@ -99,26 +99,29 @@ def hr(seconds)
   time.strftime(durfmt)
 end
 
-def mem_monitor(pid)
-  rss_serie = []
-  vsz_serie = []
+def exec_ps(pid)
+  Open3.popen2("ps -o rss,vsz #{pid}", {}) do |i, o, t|
+    i.close
+    code = t.value
+    return nil if code.exitstatus.positive?
+
+    output = o.read.lines.last.split
+    return [output[0].to_i, output[1].to_i]
+  end
+end
+
+def proc_monitor(pid)
+  metrics = { rss: [], vsz: [] }
   handle = Thread.new do
     loop do
+      break unless (res = exec_ps(pid))
+
+      metrics[:rss].push(res[0])
+      metrics[:vsz].push(res[1])
       sleep 0.5
-      code = 0
-      Open3.popen2("ps -o rss,vsz #{pid}", {}) do |i, o, t|
-        i.close
-        code = t.value
-        if code == 1
-          output = o.read.lines.last.split
-          rss_serie.push output[0].to_i
-          vsz_serie.push output[1].to_i
-        end
-      end
-      break if code != 0
     end
   end
-  [handle, { rss: rss_serie, vsz: vsz_serie }]
+  [handle, metrics]
 end
 
 def exec_command(command, quiet: false, dry_run: false)
@@ -128,17 +131,17 @@ def exec_command(command, quiet: false, dry_run: false)
     puts "$ #{command.join(' ')}"
   else
     Open3.popen2(*command) do |i, o, t|
-      handle, mem = mem_monitor(t.pid)
       i.close
       return o.read if quiet
 
+      handle, proc_metrics = proc_monitor(t.pid)
       puts "$ #{command.join(' ')}"
       o.each_line do |l|
         print l
       end
 
       handle.join
-      metrics.merge!(mem)
+      metrics.merge!(proc_metrics)
     end
   end
   t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
