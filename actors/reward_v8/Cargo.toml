@@ -1,5 +1,5 @@
 [package]
-name        = "fil_actor_reward"
+name        = "fil_actor_reward_v8"
 description = "Builtin reward actor for Filecoin"
 version     = "8.0.0"
 license     = "MIT OR Apache-2.0"
