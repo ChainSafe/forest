@@ -28,13 +28,37 @@ BENCHMARK_SUITE = [
     name: 'baseline',
     config: {
       'rocks_db' => {
-        'enable_statistics' => true
+        'enable_statistics' => false
       }
     },
     build_command: [
-      'cargo',
-      'build',
-      '--release'
+      'cargo', 'build', '--release'
+    ],
+    import_command: [
+      './target/release/forest',
+      '--config', '%<c>s',
+      '--target-peer-count', '50',
+      '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s',
+      '--halt-after-import'
+    ],
+    validate_command: [
+      './target/release/forest',
+      '--config', '%<c>s',
+      '--target-peer-count', '50',
+      '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s',
+      '--halt-after-import',
+      '--skip-load',
+      '--height', '%<h>s'
+    ]
+  },
+  {
+    name: 'paritydb',
+    config: {},
+    build_command: [
+      'cargo', 'build', '--release',
+      '--no-default-features', '--features', 'forest_fil_cns,paritydb'
     ],
     import_command: [
       './target/release/forest',
@@ -58,6 +82,13 @@ BENCHMARK_SUITE = [
 ].freeze
 
 BENCH_PATHS = { tmpdir: Dir.mktmpdir('forest-benchs-') }.freeze
+
+# Provides human readable formatting to Numeric class
+class Numeric
+  def to_bibyte
+    syscall('numfmt', '--to=iec-i', '--suffix=B', '--format=%.2f', to_s)
+  end
+end
 
 def tmp_dir
   BENCH_PATHS[:tmpdir]
@@ -87,25 +118,28 @@ def snapshot_dir
 end
 
 def db_dir
-  data_dir = default_config.dig('client', 'data_dir')
+  config = default_config
+  data_dir = config.dig('client', 'data_dir')
+  db = config.key?('rocks_db') ? 'rocksdb' : 'paritydb'
 
-  "#{data_dir}/mainnet/db"
+  "#{data_dir}/mainnet/#{db}"
 end
 
 def db_size
   size = syscall('du', '-h', db_dir)
-  size.chomp.split[0]
+  size.split[0]
 end
 
 def hr(seconds)
   seconds = seconds < MINUTE ? seconds.ceil(1) : seconds.ceil(0)
   time = Time.at(seconds)
-  durfmt = "#{seconds > HOUR ? '%-Hh' : ''}#{seconds < MINUTE ? '' : '%-Mm'}%-S#{seconds < MINUTE ? '.%1L' : ''}s"
+  durfmt = "#{seconds > HOUR ? '%-Hh ' : ''}#{seconds < MINUTE ? '' : '%-Mm '}%-S#{seconds < MINUTE ? '.%1L' : ''}s"
   time.strftime(durfmt)
 end
 
 def sample_proc(pid, metrics)
   output = syscall('ps', '-o', 'rss,vsz', pid.to_s)
+  output = output.split("\n").last.split
   metrics[:rss].push(output[0].to_i)
   metrics[:vsz].push(output[1].to_i)
 end
@@ -168,7 +202,8 @@ def build_substitution_hash(bench, options)
   height = snapshot.match(SNAPSHOT_REGEX).named_captures['height'].to_i
   start = height - options.fetch(:height, HEIGHTS_TO_VALIDATE)
 
-  # Escape spaces if any
+  return { c: '<tbd>', s: '<tbd>', h: start } if options[:dry_run]
+
   config_path = config_path(bench)
   snapshot_path = "#{snapshot_dir}/#{snapshot}"
 
@@ -182,7 +217,7 @@ def write_import_table(metrics)
   metrics.each do |key, value|
     elapsed = value[:import][:elapsed] || 'n/a'
     rss = value[:import][:rss]
-    rss_max = rss ? "#{rss.max}B" : 'n/a'
+    rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
     db_size = value[:import][:db_size] || 'n/a'
     result += "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
   end
@@ -197,7 +232,7 @@ def write_validate_table(metrics)
   metrics.each do |key, value|
     elapsed = value[:validate][:elapsed] || 'n/a'
     rss = value[:validate][:rss]
-    rss_max = rss ? "#{rss.max}B" : 'n/a'
+    rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
     result += "#{key} | #{elapsed} | #{rss_max}\n"
   end
 
@@ -218,35 +253,37 @@ def splice_args(command, args)
   command.map { |s| s % args }
 end
 
+def prepare_bench(bench, options)
+  exec_command(%w[cargo clean], options[:dry_run])
+  exec_command(bench[:build_command], options[:dry_run])
+
+  # Clean db
+  puts 'Wiping db'
+  FileUtils.rm_rf(db_dir, secure: true) unless options[:dry_run]
+
+  # Build bench artefacts
+  build_config_file(bench) unless options[:dry_run]
+  build_substitution_hash(bench, options)
+end
+
+def run_bench(bench, args, dry_run, metrics)
+  import_command = splice_args(bench[:import_command], args)
+  metrics[:import] = exec_command(import_command, dry_run)
+
+  # Save db size just after import
+  metrics[:import][:db_size] = db_size unless dry_run
+
+  validate_command = splice_args(bench[:validate_command], args)
+  metrics[:validate] = exec_command(validate_command, dry_run)
+end
+
 def run_benchmarks(benchs, options)
-  dry_run = options[:dry_run]
   benchs_metrics = {}
   benchs.each do |bench|
     puts "Running bench: #{bench[:name]}"
-
     metrics = {}
-    metrics[:name] = bench[:name]
-
-    exec_command(bench[:build_command], dry_run)
-
-    # Clean db
-    dir = db_dir
-    puts "Wiping #{dir}"
-    FileUtils.rm_rf(dir, secure: true) unless dry_run
-
-    # Build bench artefacts
-    build_config_file(bench)
-    args = build_substitution_hash(bench, options)
-
-    import_command = splice_args(bench[:import_command], args)
-    metrics[:import] = exec_command(import_command, dry_run)
-
-    # Save db size just after import
-    metrics[:import][:db_size] = db_size unless dry_run
-
-    validate_command = splice_args(bench[:validate_command], args)
-    metrics[:validate] = exec_command(validate_command, dry_run)
-
+    args = prepare_bench(bench, options)
+    run_bench(bench, args, options[:dry_run], metrics)
     benchs_metrics[bench[:name]] = metrics
 
     puts "\n"
