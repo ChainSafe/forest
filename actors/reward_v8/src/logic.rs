@@ -103,6 +103,7 @@ fn compute_baseline_supply(theta: BigInt, baseline_total: &BigInt) -> BigInt {
     one_sub * baseline_total
 }
 
+
 #[cfg(test)]
 mod tests {
     const SECONDS_IN_HOUR: i64 = 60 * 60;
