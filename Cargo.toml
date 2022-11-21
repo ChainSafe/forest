@@ -49,6 +49,7 @@ members = [
   "actors/multisig_v8",
   "actors/multisig_v9",
   "actors/market_v8",
+  "actors/power_v8",
 ]
 resolver = "2"
 
