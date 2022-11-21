@@ -2730,6 +2730,7 @@ dependencies = [
  "lru",
  "multihash",
  "num-traits",
+ "once_cell",
  "prometheus",
  "serde",
  "thiserror",
