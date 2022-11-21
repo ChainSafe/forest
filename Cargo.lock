@@ -2184,6 +2184,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_multisig_v9"
+version = "9.0.3"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "indexmap",
+ "integer-encoding",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_paych_v8"
 version = "8.0.0"
 dependencies = [
