@@ -59,6 +59,7 @@ members = [
   "actors/verifreg_v8",
   "actors/verifreg_v9",
 ]
+
 resolver = "2"
 
 [patch.crates-io]
