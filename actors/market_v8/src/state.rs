@@ -44,7 +44,7 @@ pub struct State {
     pub next_id: DealID,
 
     /// Metadata cached for efficient iteration over deals.
-    /// SetMultimap<Address>
+    /// `SetMultimap<Address>`
     pub deal_ops_by_epoch: Cid,
     pub last_cron: ChainEpoch,
 
