@@ -53,6 +53,7 @@ members = [
   "actors/market_v9",
   "actors/power_v8",
   "actors/reward_v8",
+  "actors/paych_v9",
 ]
 resolver = "2"
 

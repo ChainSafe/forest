@@ -50,7 +50,10 @@ impl TryFrom<Ipld> for Label {
         match ipld {
             Ipld::String(s) => Ok(Label::String(s)),
             Ipld::Bytes(b) => Ok(Label::Bytes(b)),
-            other => Err(format!("Expected `Ipld::String` or `Ipld::Bytes`, got {:#?}", other)),
+            other => Err(format!(
+                "Expected `Ipld::String` or `Ipld::Bytes`, got {:#?}",
+                other
+            )),
         }
     }
 }
