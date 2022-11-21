@@ -55,6 +55,7 @@ members = [
   "actors/reward_v8",
   "actors/paych_v9",
   "actors/power_v9",
+  "actors/reward_v9",
 ]
 resolver = "2"
 
@@ -131,6 +132,7 @@ lru                   = "0.8"
 multibase             = "0.9"
 multihash             = "0.16"
 nonempty              = "0.8.0"
+num                   = "0.4.0"
 num-bigint            = "0.4"
 num-derive            = "0.3"
 num-rational          = "0.4"
