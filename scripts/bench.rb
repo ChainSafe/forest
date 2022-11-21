@@ -11,10 +11,6 @@ require 'pathname'
 require 'tmpdir'
 require 'toml-rb'
 
-# Defines some hardcoded constants
-
-DEFAULT_SNAPSHOT = '2322240_2022_11_09T06_00_00Z.car'
-
 # This is just for capturing the snapshot height
 SNAPSHOT_REGEX = /(?<height>\d+)_.*/.freeze
 
@@ -198,7 +194,7 @@ def build_config_file(bench)
 end
 
 def build_substitution_hash(bench, options)
-  snapshot = options.fetch(:snapshot, DEFAULT_SNAPSHOT)
+  snapshot = options[:snapshot]
   height = snapshot.match(SNAPSHOT_REGEX).named_captures['height'].to_i
   start = height - options.fetch(:height, HEIGHTS_TO_VALIDATE)
 
@@ -299,11 +295,15 @@ end
 
 options = {}
 OptionParser.new do |opts|
-  opts.banner = 'Usage: bench.rb [options]'
+  opts.banner = 'Usage: bench.rb [options] snapshot'
   opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
-  opts.on('--snapshot [Object]', Object, 'Snapshot file to use for benchmarks') { |v| options[:snapshot] = v }
   opts.on('--height [Integer]', Integer, 'Number of heights to validate') { |v| options[:height] = v }
 end.parse!
+
+snapshot = ARGV.pop
+raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot
+
+options[:snapshot] = snapshot
 
 run_benchmarks(BENCHMARK_SUITE, options)
 
