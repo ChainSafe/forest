@@ -46,6 +46,7 @@ members = [
   "actors/paych_v8",
   "actors/system_v8",
   "actors/system_v9",
+  "actors/multisig_v8",
 ]
 resolver = "2"
 
@@ -81,7 +82,6 @@ fil_actor_market_v8   = { package = "fil_actor_market_state_v8", version = "=8.0
 fil_actor_market_v9   = { package = "fil_actor_market", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_miner_v8    = { package = "fil_actor_miner_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
 fil_actor_miner_v9    = { package = "fil_actor_miner", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_multisig_v8 = { package = "fil_actor_multisig_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
 fil_actor_multisig_v9 = { package = "fil_actor_multisig", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
 fil_actor_power_v8    = { package = "fil_actor_power_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
 fil_actor_power_v9    = { package = "fil_actor_power", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
@@ -168,6 +168,7 @@ fil_actor_cron_v9      = { path = "./actors/cron_v9" }
 fil_actor_init_v8      = { path = "./actors/init_v8" }
 fil_actor_system_v8    = { path = "./actors/system_v8" }
 fil_actor_system_v9    = { path = "./actors/system_v9" }
+fil_actor_multisig_v8  = { path = "./actors/multisig_v8" }
 fil_actors_runtime_v8  = { path = "./actors/runtime_v8" }
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }

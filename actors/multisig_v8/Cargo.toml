@@ -1,0 +1,28 @@
+[package]
+name        = "fil_actor_multisig_v8"
+description = "Builtin multisig actor for Filecoin"
+version     = "8.0.0"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>", "Protocol Labs", "Filecoin Core Devs"]
+edition     = "2018"
+repository  = "https://github.com/filecoin-project/builtin-actors"
+keywords    = ["filecoin", "web3", "wasm"]
+
+[lib]
+## lib is necessary for integration tests
+## cdylib is necessary for Wasm build
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anyhow                = { workspace = true }
+cid                   = { workspace = true }
+fil_actors_runtime_v8 = { workspace = true }
+fvm_ipld_blockstore   = { workspace = true }
+fvm_ipld_encoding     = { workspace = true }
+fvm_ipld_hamt         = { workspace = true }
+fvm_shared            = { workspace = true }
+indexmap              = { workspace = true }
+integer-encoding      = { workspace = true }
+num-derive            = { workspace = true }
+num-traits            = { workspace = true }
+serde                 = { workspace = true }
