@@ -195,7 +195,7 @@ mod tests {
 
             let prev_theta_str = &prev_theta.to_string();
             let theta_str = &theta.to_string();
-            let reward_str = &reward.to_string();
+            let reward_str = &reward.atto().to_string();
             b.push_str(prev_theta_str);
             b.push(',');
             b.push_str(theta_str);
@@ -230,7 +230,7 @@ mod tests {
             );
 
             let x_str = &x.to_string();
-            let reward_str = &reward.to_string();
+            let reward_str = &reward.atto().to_string();
             b.push_str(x_str);
             b.push(',');
             b.push_str(reward_str);
