@@ -257,24 +257,28 @@ def prepare_bench(bench, options)
   exec_command(%w[cargo clean], options[:dry_run])
   exec_command(bench[:build_command], options[:dry_run])
 
-  # Clean db
-  puts 'Wiping db'
-  FileUtils.rm_rf(db_dir, secure: true) unless options[:dry_run]
-
   # Build bench artefacts
   build_config_file(bench) unless options[:dry_run]
   build_substitution_hash(bench, options)
 end
 
-def run_bench(bench, args, dry_run, metrics)
+def run_bench(bench, args, options, metrics)
   import_command = splice_args(bench[:import_command], args)
-  metrics[:import] = exec_command(import_command, dry_run)
+  metrics[:import] = exec_command(import_command, options[:dry_run])
 
   # Save db size just after import
-  metrics[:import][:db_size] = db_size unless dry_run
+  metrics[:import][:db_size] = db_size unless options[:dry_run]
 
   validate_command = splice_args(bench[:validate_command], args)
-  metrics[:validate] = exec_command(validate_command, dry_run)
+  metrics[:validate] = exec_command(validate_command, options[:dry_run])
+  clean_up(options)
+  metrics
+end
+
+def clean_up(options)
+  # Clean db
+  puts 'Wiping db'
+  FileUtils.rm_rf(db_dir, secure: true) unless options[:dry_run]
 end
 
 def run_benchmarks(benchs, options)
@@ -283,7 +287,7 @@ def run_benchmarks(benchs, options)
     puts "Running bench: #{bench[:name]}"
     metrics = {}
     args = prepare_bench(bench, options)
-    run_bench(bench, args, options[:dry_run], metrics)
+    run_bench(bench, args, options, metrics)
     benchs_metrics[bench[:name]] = metrics
 
     puts "\n"
