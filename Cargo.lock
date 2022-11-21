@@ -2077,28 +2077,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_market"
-version = "9.0.3"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "frc46_token",
- "fvm_ipld_bitfield",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "integer-encoding",
- "libipld-core 0.13.1",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_market_v8"
 version = "8.0.0"
 dependencies = [
@@ -2110,6 +2088,26 @@ dependencies = [
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
+ "libipld-core 0.14.0",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_market_v9"
+version = "9.0.3"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "integer-encoding",
  "libipld-core 0.14.0",
  "log",
  "num-derive",
@@ -2743,8 +2741,8 @@ dependencies = [
  "fil_actor_cron_v8",
  "fil_actor_init",
  "fil_actor_init_v8",
- "fil_actor_market",
  "fil_actor_market_v8",
+ "fil_actor_market_v9",
  "fil_actor_miner",
  "fil_actor_miner_state_v8",
  "fil_actor_multisig_v8",
@@ -3755,29 +3753,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "frc46_token"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8958b1fe87ffacf17196cc3c7f2dd5a31293a79611a46771ac603d4cc289a099"
-dependencies = [
- "anyhow",
- "cid",
- "frc42_dispatch",
- "fvm_actor_utils",
- "fvm_ipld_amt",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_sdk",
- "fvm_shared",
- "integer-encoding",
- "num-traits",
- "serde",
- "serde_tuple",
- "thiserror",
-]
-
-[[package]]
 name = "fs2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3970,23 +3945,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06fb20587460d9ecd3c804c02a68240f132ec19c9a47c07afc418bff01f33a30"
 dependencies = [
  "parity-wasm",
-]
-
-[[package]]
-name = "fvm_actor_utils"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15b2605197066de1548fd18d5c367cd425be4dab83d4c0f5f9f730d0eec6124c"
-dependencies = [
- "anyhow",
- "cid",
- "frc42_dispatch",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_sdk",
- "fvm_shared",
- "num-traits",
- "thiserror",
 ]
 
 [[package]]
