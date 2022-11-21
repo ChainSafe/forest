@@ -43,6 +43,7 @@ members = [
   "actors/init_v8",
   "actors/cron_v8",
   "actors/cron_v9",
+  "actors/paych_v8",
 ]
 resolver = "2"
 
@@ -162,9 +163,9 @@ url                   = { version = "2.3", features = ["serde"] }
 which                 = "4.3"
 
 fil_actor_account_v8   = { path = "./actors/account_v8" }
-fil_actor_init_v8      = { path = "./actors/init_v8" }
 fil_actor_cron_v8      = { path = "./actors/cron_v8" }
 fil_actor_cron_v9      = { path = "./actors/cron_v9" }
+fil_actor_init_v8      = { path = "./actors/init_v8" }
 fil_actors_runtime_v8  = { path = "./actors/runtime_v8" }
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }
