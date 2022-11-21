@@ -51,7 +51,6 @@ anyhow                = "1.0"
 arbitrary             = "1.1"
 assert_cmd            = "2"
 async-log             = "2.0"
-async-std             = "1.12"
 async-trait           = "0.1"
 atty                  = "0.2"
 axum                  = "0.5"
@@ -104,15 +103,15 @@ git-version           = "0.3"
 hex                   = "0.4"
 http                  = "0.2.8"
 human-repr            = "1.0"
-hyper                 = "0.14"
+hyper                 = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls          = "0.23"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
 libipld               = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
-libp2p                = { version = "0.46", default-features = false }
-libp2p-bitswap        = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "47a5722767043ec1495bce2bffe02d4b1f5d87e0" }
+libp2p                = { version = "0.49", default-features = false }
+libp2p-bitswap        = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest", features = ["compat"] }
 libsecp256k1          = "0.7"
 log                   = "0.4"
 lru                   = "0.8"
@@ -141,7 +140,6 @@ serde_with            = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2                  = "0.10.5"
 smallvec              = "1.9"
 structopt             = "0.3"
-surf                  = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
 tempfile              = "3.3"
 thiserror             = "1.0"
 time                  = "0.3"
@@ -150,7 +148,7 @@ tokio-stream          = "0.1"
 tokio-util            = "0.7.0"
 toml                  = "0.5"
 tower-http            = "0.3"
-url                   = "2.3"
+url                   = { version = "2.3", features = ["serde"] }
 which                 = "4.3"
 
 forest_actor_interface = { path = "./vm/actor_interface" }
