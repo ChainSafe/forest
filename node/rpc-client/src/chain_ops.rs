@@ -50,6 +50,13 @@ pub async fn chain_get_tipset(
     call(CHAIN_GET_TIPSET, keys, auth_token).await
 }
 
+pub async fn chain_get_tipset_hash(
+    keys: ChainGetTipSetHashParams,
+    auth_token: &Option<String>,
+) -> Result<ChainGetTipSetHashResult, Error> {
+    call(CHAIN_GET_TIPSET_HASH, keys, auth_token).await
+}
+
 pub async fn chain_get_name(auth_token: &Option<String>) -> Result<ChainGetNameResult, Error> {
     call(CHAIN_GET_NAME, (), auth_token).await
 }

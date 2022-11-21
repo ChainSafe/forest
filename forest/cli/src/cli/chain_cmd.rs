@@ -1,12 +1,13 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use structopt::StructOpt;
-
 use super::*;
 use cid::Cid;
+use forest_blocks::TipsetKeys;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
+use std::str::FromStr;
+use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum ChainCommands {
@@ -22,6 +23,9 @@ pub enum ChainCommands {
 
     /// Prints out the canonical head of the chain
     Head,
+
+    /// Prints a BLAKE2b hash of the tipset give a tipset keys. useful for setting checkpoints to speed up boot times from a snapshot
+    TipsetHash { cids: Vec<String> },
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
@@ -54,6 +58,22 @@ impl ChainCommands {
             }
             Self::Head => {
                 print_rpc_res_cids(chain_head(&config.client.rpc_token).await);
+            }
+            Self::TipsetHash { cids } => {
+                use forest_blocks::tipset_keys_json::TipsetKeysJson;
+
+                let tipset_keys = TipsetKeys::new(
+                    cids.iter()
+                        .map(|s| Cid::from_str(s).expect("invalid cid"))
+                        .collect(),
+                );
+
+                let tsk_json = TipsetKeysJson(tipset_keys);
+                print_rpc_res(
+                    chain_get_tipset_hash((tsk_json,), &config.client.rpc_token)
+                        .await
+                        .map(|s| format!("blake2b hash: {s}")),
+                );
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();

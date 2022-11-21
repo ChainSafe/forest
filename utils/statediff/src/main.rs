@@ -1,11 +1,10 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
+use std::path::Path;
 use structopt::StructOpt;
 
 use cid::Cid;
-use forest_db::rocks::RocksDb;
-use forest_db::rocks_config::RocksDbConfig;
 use forest_statediff::print_state_diff;
 
 /// Examine the state delta
@@ -26,17 +25,32 @@ pub struct ChainCommand {
 impl ChainCommand {
     pub async fn run(&self) {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
-        let mut path = dir.data_dir().to_path_buf();
-        path.push(&self.chain);
-        path.push("db");
+        let chain_path = dir.data_dir().join(&self.chain);
+        let blockstore = open_db(&chain_path);
 
-        let bs =
-            RocksDb::open(path, &RocksDbConfig::default()).expect("Opening RocksDB must succeed");
-
-        if let Err(err) = print_state_diff(&bs, &self.pre, &self.post, self.depth) {
+        if let Err(err) = print_state_diff(&blockstore, &self.pre, &self.post, self.depth) {
             eprintln!("Failed to print state diff: {}", err);
         }
     }
+}
+
+#[cfg(feature = "rocksdb")]
+fn open_db(chain_path: &Path) -> forest_db::rocks::RocksDb {
+    forest_db::rocks::RocksDb::open(
+        chain_path.join("rocksdb"),
+        &forest_db::rocks_config::RocksDbConfig::default(),
+    )
+    .expect("Opening RocksDB must succeed")
+}
+
+#[cfg(feature = "paritydb")]
+fn open_db(chain_path: &Path) -> forest_db::parity_db::ParityDb {
+    use forest_db::parity_db::*;
+    let config = ParityDbConfig {
+        path: chain_path.join("paritydb"),
+        columns: 1,
+    };
+    ParityDb::open(&config).expect("Opening ParityDb must succeed")
 }
 
 /// statediff binary sub-commands available.

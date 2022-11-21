@@ -16,7 +16,6 @@ use lazy_static::lazy_static;
 use log::{info, warn};
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
-use rlimit::{getrlimit, Resource};
 use shared_memory::ShmemConf;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
@@ -94,7 +93,9 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
     Ok(daemon)
 }
 
+#[cfg(feature = "rocksdb")]
 fn check_for_low_fd(config: &Config) -> Result<(), anyhow::Error> {
+    use rlimit::{getrlimit, Resource};
     // Conservative estimate of how many FD we will need to run a Forest node
     const MAINNET_CHAIN_SIZE: u64 = 1000_u64.pow(4); // 1TB
     const ANOTHER_CHAIN_SIZE: u64 = 100 * 1000_u64.pow(3); // 100GB
@@ -123,6 +124,10 @@ fn check_for_low_fd(config: &Config) -> Result<(), anyhow::Error> {
         anyhow::bail!("Open-file limit is too low. Suggesting `ulimit -n {rounded_estimate}`");
     }
 
+    Ok(())
+}
+#[cfg(feature = "paritydb")]
+fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
     Ok(())
 }
 

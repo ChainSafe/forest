@@ -25,7 +25,8 @@ jobs:
       - name: Homebrew Utils
         if: startsWith(matrix.os, 'macOS')
         run: |
-          brew install --verbose coreutils
+          brew install --verbose coreutils protobuf
+          protoc --version
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5

@@ -74,6 +74,7 @@ where
             .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB, B>)
             .with_method(CHAIN_TIPSET_WEIGHT, chain_tipset_weight::<DB, B>)
             .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB, B>)
+            .with_method(CHAIN_GET_TIPSET_HASH, chain_get_tipset_hash::<DB, B>)
             .with_method(CHAIN_HEAD, chain_head::<DB, B>)
             // XXX: CHAIN_HEAD_SUBSCRIPTION disabled since it is unsed
             // .with_method(CHAIN_HEAD_SUBSCRIPTION, chain_head_subscription::<DB, B>)
