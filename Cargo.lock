@@ -2289,6 +2289,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_system_v9"
+version = "9.0.3"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_shared",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actors_runtime"
 version = "9.0.3"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
@@ -2303,6 +2318,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
+ "fvm_sdk",
  "fvm_shared",
  "getrandom 0.2.8",
  "indexmap",
