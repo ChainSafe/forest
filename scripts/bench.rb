@@ -242,7 +242,7 @@ def write_result(metrics)
   result += "---\n"
   result += write_validate_table(metrics)
 
-  File.open('result.md', 'w') { |file| file.write(result) }
+  File.open("result_#{Time.now.to_i}.md", 'w') { |file| file.write(result) }
 end
 
 def splice_args(command, args)
