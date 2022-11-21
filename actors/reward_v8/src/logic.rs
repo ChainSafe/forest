@@ -90,7 +90,6 @@ pub(crate) fn compute_reward(
     TokenAmount::from_atto((simple_reward + baseline_reward) >> PRECISION)
 }
 
-
 /// Computes baseline supply based on theta in Q.128 format.
 /// Return is in Q.128 format
 fn compute_baseline_supply(theta: BigInt, baseline_total: &BigInt) -> BigInt {
