@@ -95,7 +95,7 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore + Store + Send + Sync,
 {
     pub async fn new(db: DB) -> Self
     where
@@ -491,31 +491,8 @@ where
         info!("chain export started");
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
-        Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                if skip_old_msgs {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore")
-                } else {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore. \
-                                    Exporting a full snapshot is only possible when the node is initialised with a full one. \
-                                    Consider exporting a lightweight snapshot, e.g. skip the old messages.")
-                }
-            })?;
-
-            // XXX: * If cb can return a generic type, deserializing would remove need to clone.
-            // Ignore error intentionally, if receiver dropped, error will be handled below
-            let async_handle = tokio::runtime::Handle::current();
-            let block_clone = block.clone();
-            let tx_clone = tx.clone();
-            tokio::task::block_in_place(move || {
-                async_handle.block_on(async {
-                    tx_clone.send_async((cid, block_clone)).await.expect("failed sending block for export");
-                });
-            });
-
-            Ok(block)
-        })
-        .await?;
+        let snapshot_walker = SnapshotWalker::new(self.blockstore(), skip_old_msgs, &tx);
+        snapshot_walker.walk(tipset, recent_roots).await?;
 
         // Drop sender, to close the channel to write task, which will end when finished writing
         drop(tx);
@@ -617,18 +594,63 @@ where
     //         None
     //     }
     // }
+}
 
-    /// Walks over tipset and state data and loads all blocks not yet seen.
-    /// This is tracked based on the callback function loading blocks.
-    async fn walk_snapshot<F>(
-        tipset: &Tipset,
-        recent_roots: ChainEpoch,
+/// Walks over tipset and state data and loads all blocks not yet seen.
+/// This is tracked based on the callback function loading blocks.
+struct SnapshotWalker<'db, 'chan, DB> {
+    skip_old_msgs: bool,
+    tx: &'chan flume::Sender<(Cid, Vec<u8>)>,
+    blockstore: &'db DB,
+}
+
+impl<'db, 'chan, DB> SnapshotWalker<'db, 'chan, DB>
+where
+    DB: Blockstore + Store + Send + Sync,
+{
+    fn new(
+        blockstore: &'db DB,
         skip_old_msgs: bool,
-        mut load_block: F,
-    ) -> Result<(), Error>
-    where
-        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
-    {
+        tx: &'chan flume::Sender<(Cid, Vec<u8>)>,
+    ) -> Self {
+        Self {
+            skip_old_msgs,
+            tx,
+            blockstore,
+        }
+    }
+
+    fn load(&self, cid: Cid) -> Result<Vec<u8>, Error> {
+        self.blockstore.get(&cid)?.ok_or_else(|| {
+            if self.skip_old_msgs {
+                Error::Other("Cid {cid} not found in blockstore".to_string())
+            } else {
+                Error::Other("Cid {cid} not found in blockstore. \
+                                Exporting a full snapshot is only possible when the node is initialised with a full one. \
+                                Consider exporting a lightweight snapshot, e.g. skip the old messages.".to_string())
+            }
+        })
+    }
+
+    async fn send_block(&self, cid: Cid) -> Result<(), Error> {
+        let block = self.load(cid)?;
+        self.tx
+            .send_async((cid, block))
+            .await
+            .expect("failed sending block for export");
+        Ok(())
+    }
+
+    async fn load_and_send(&self, cid: Cid) -> Result<Vec<u8>, anyhow::Error> {
+        let block = self.load(cid)?;
+        self.tx
+            .send_async((cid, block.clone()))
+            .await
+            .expect("failed sending block for export");
+        Ok(block)
+    }
+
+    async fn walk(&self, tipset: &Tipset, recent_roots: i64) -> Result<(), Error> {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
         let mut current_min_height = tipset.epoch();
@@ -639,7 +661,7 @@ where
                 continue;
             }
 
-            let data = load_block(next)?;
+            let data = self.load_and_send(next).await?;
 
             let h = BlockHeader::unmarshal_cbor(&data)?;
 
@@ -650,8 +672,10 @@ where
                 }
             }
 
-            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.messages(), &mut load_block)?;
+            let mut loader = |cid| Box::pin(self.load_and_send(cid));
+
+            if !self.skip_old_msgs || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.messages(), &mut loader).await?;
             }
 
             if h.epoch() > 0 {
@@ -660,14 +684,15 @@ where
                 }
             } else {
                 for p in h.parents().cids() {
-                    load_block(*p)?;
+                    self.send_block(*p).await?;
                 }
             }
 
             if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.state_root(), &mut load_block)?;
+                recurse_links(&mut seen, *h.state_root(), &mut loader).await?;
             }
         }
+
         Ok(())
     }
 }
