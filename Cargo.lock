@@ -2389,6 +2389,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_verifreg_v8"
+version = "8.0.0"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime_v8",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actors_runtime"
 version = "9.0.3"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
