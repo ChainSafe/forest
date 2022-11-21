@@ -167,10 +167,10 @@ fil_actor_account_v8   = { path = "./actors/account_v8" }
 fil_actor_cron_v8      = { path = "./actors/cron_v8" }
 fil_actor_cron_v9      = { path = "./actors/cron_v9" }
 fil_actor_init_v8      = { path = "./actors/init_v8" }
-fil_actor_system_v8    = { path = "./actors/system_v8" }
-fil_actor_system_v9    = { path = "./actors/system_v9" }
 fil_actor_multisig_v8  = { path = "./actors/multisig_v8" }
 fil_actor_multisig_v9  = { path = "./actors/multisig_v9" }
+fil_actor_system_v8    = { path = "./actors/system_v8" }
+fil_actor_system_v9    = { path = "./actors/system_v9" }
 fil_actors_runtime_v8  = { path = "./actors/runtime_v8" }
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }
