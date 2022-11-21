@@ -39,7 +39,7 @@ pub struct ConstructorParams {
 pub struct Actor;
 impl Actor {
     /// Constructor for Cron actor
-    fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
+    pub fn constructor<BS, RT>(rt: &mut RT, params: ConstructorParams) -> Result<(), ActorError>
     where
         BS: Blockstore,
         RT: Runtime<BS>,
@@ -53,7 +53,7 @@ impl Actor {
     /// Executes built-in periodic actions, run at every Epoch.
     /// epoch_tick(r) is called after all other messages in the epoch have been applied.
     /// This can be seen as an implicit last message.
-    fn epoch_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
+    pub fn epoch_tick<BS, RT>(rt: &mut RT) -> Result<(), ActorError>
     where
         BS: Blockstore,
         RT: Runtime<BS>,
