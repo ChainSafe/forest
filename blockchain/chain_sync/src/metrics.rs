@@ -198,13 +198,20 @@ pub mod labels {
 
 pub mod values {
     // libp2p_message_total
-    pub const HELLO_REQUEST: &str = "hello_request";
+    pub const HELLO_REQUEST_INBOUND: &str = "hello_request_in";
+    pub const HELLO_RESPONSE_OUTBOUND: &str = "hello_response_out";
+    pub const HELLO_REQUEST_OUTBOUND: &str = "hello_request_out";
+    pub const HELLO_RESPONSE_INBOUND: &str = "hello_response_in";
     pub const PEER_CONNECTED: &str = "peer_connected";
     pub const PEER_DISCONNECTED: &str = "peer_disconnected";
     pub const PUBSUB_BLOCK: &str = "pubsub_message_block";
     pub const PUBSUB_MESSAGE: &str = "pubsub_message_message";
-    pub const CHAIN_EXCHANGE_REQUEST: &str = "chain_exchange_request";
-    pub const BITSWAP_BLOCK: &str = "bitswap_block";
+    pub const CHAIN_EXCHANGE_REQUEST_OUTBOUND: &str = "chain_exchange_request_out";
+    pub const CHAIN_EXCHANGE_RESPONSE_INBOUND: &str = "chain_exchange_response_in";
+    pub const CHAIN_EXCHANGE_REQUEST_INBOUND: &str = "chain_exchange_request_in";
+    pub const CHAIN_EXCHANGE_RESPONSE_OUTBOUND: &str = "chain_exchange_response_out";
+    pub const BITSWAP_BLOCK_REQUEST_OUTBOUND: &str = "bitswap_block_request_out";
+    pub const BITSWAP_BLOCK_RESPONSE_INBOUND: &str = "bitswap_block_response_in";
 }
 
 #[cfg(test)]

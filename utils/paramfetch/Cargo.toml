@@ -8,12 +8,13 @@ edition = "2021"
 anyhow.workspace           = true
 backoff                    = { workspace = true, features = ["tokio"] }
 blake2b_simd.workspace     = true
+forest_utils.workspace     = true
+futures.workspace          = true
 fvm_shared.workspace       = true
 log.workspace              = true
 pin-project-lite.workspace = true
 serde                      = { workspace = true, features = ["derive"] }
 serde_json.workspace       = true
-surf.workspace             = true
 tokio-util                 = { workspace = true, features = ["compat"] }
 tokio.workspace            = true
 url.workspace              = true

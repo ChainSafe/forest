@@ -4,9 +4,15 @@
 mod errors;
 mod memory;
 mod metrics;
+mod utils;
 
+#[cfg(feature = "rocksdb")]
 pub mod rocks;
+#[cfg(feature = "rocksdb")]
 pub mod rocks_config;
+
+#[cfg(feature = "paritydb")]
+pub mod parity_db;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
