@@ -2267,7 +2267,24 @@ dependencies = [
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
+ "indexmap",
  "integer-encoding",
+ "lazy_static",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_reward"
+version = "8.0.0"
+dependencies = [
+ "fil_actors_runtime_v8",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
+ "fvm_shared",
  "lazy_static",
  "log",
  "num-derive",
@@ -2745,7 +2762,7 @@ dependencies = [
  "fil_actor_multisig_v8",
  "fil_actor_power",
  "fil_actor_power_state_v8",
- "fil_actor_reward",
+ "fil_actor_reward 9.0.3",
  "fil_actor_reward_state_v8",
  "fil_actor_system_v8",
  "fil_actors_runtime",
