@@ -1,0 +1,19 @@
+[package]
+name        = "fil_actor_account_v9"
+description = "Builtin account actor for Filecoin"
+version     = "9.0.3"
+license     = "MIT OR Apache-2.0"
+authors     = ["ChainSafe Systems <info@chainsafe.io>", "Protocol Labs", "Filecoin Core Devs"]
+edition     = "2018"
+keywords    = ["filecoin", "web3", "wasm"]
+
+[dependencies]
+anyhow                = { workspace = true }
+fil_actors_runtime_v9 = { workspace = true }
+frc42_dispatch        = { workspace = true }
+fvm_ipld_blockstore   = { workspace = true }
+fvm_ipld_encoding     = { workspace = true }
+fvm_shared            = { workspace = true, default-features = false }
+num-derive            = { workspace = true }
+num-traits            = { workspace = true }
+serde                 = { workspace = true, features = ["derive"] }

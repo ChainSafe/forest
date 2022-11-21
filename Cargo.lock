@@ -1985,13 +1985,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_account"
-version = "9.0.3"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
+name = "fil_actor_account_v8"
+version = "8.0.0"
 dependencies = [
- "anyhow",
- "fil_actors_runtime",
- "frc42_dispatch",
+ "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -2001,10 +1998,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_account_v8"
-version = "8.0.0"
+name = "fil_actor_account_v9"
+version = "9.0.3"
 dependencies = [
- "fil_actors_runtime_v8",
+ "anyhow",
+ "fil_actors_runtime",
+ "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
@@ -2736,8 +2735,8 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_account",
  "fil_actor_account_v8",
+ "fil_actor_account_v9",
  "fil_actor_cron_v8",
  "fil_actor_init",
  "fil_actor_init_v8",
