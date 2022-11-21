@@ -24,15 +24,4 @@ impl State {
             .context_code(ExitCode::USR_ILLEGAL_STATE, "failed to store system state")?;
         Ok(Self { builtin_actors: c })
     }
-
-    pub fn get_builtin_actors<B: Blockstore>(
-        &self,
-        store: &B,
-    ) -> Result<Vec<(String, Cid)>, String> {
-        match store.get_cbor(&self.builtin_actors) {
-            Ok(Some(obj)) => Ok(obj),
-            Ok(None) => Err("failed to load builtin actor registry; not found".to_string()),
-            Err(e) => Err(e.to_string()),
-        }
-    }
 }

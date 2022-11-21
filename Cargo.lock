@@ -2267,7 +2267,6 @@ dependencies = [
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
- "indexmap",
  "integer-encoding",
  "lazy_static",
  "log",
@@ -2314,7 +2313,6 @@ version = "8.0.0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
