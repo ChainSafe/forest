@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             file: forest-${{ github.ref_name }}-linux-amd64.zip
           - os: macos-latest
             file: forest-${{ github.ref_name }}-macos-amd64.zip
