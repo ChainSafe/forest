@@ -54,8 +54,9 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
-        /// Fetch latest snapshot provided by `filecoin` server, Default is set to `forest` server
+        /// Fetch latest snapshot provided by `forest` | `filecoin`
         #[structopt(
+            short,
             long,
             default_value = "forest",
             possible_values = &["forest", "filecoin"],
@@ -185,7 +186,7 @@ impl SnapshotCommands {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                let server = match provider.as_str() {
+                let server = match provider.to_lowercase().as_str() {
                     "forest" => SnapshotServer::Forest,
                     "filecoin" => SnapshotServer::Filecoin,
                     _ => cli_error_and_die(format!("Failed to fetch snapshot from: {provider} (Suggestion: use `forest`|`filecoin`)"), 1),

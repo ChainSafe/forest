@@ -63,12 +63,11 @@ async fn snapshot_fetch_forest(
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     let snapshot_fetch_config = match config.chain.name.to_lowercase().as_str() {
-        "mainnet" => bail!("Mainnet snapshot service has not started yet, Alternatively you can use `--server = filecoin` to fetch `mainnet` snapshot from filecoin server."),
-        "calibnet" => &config.snapshot_fetch.forest.calibnet,
-        _ => bail!(
-            "Fetch not supported for chain {}",
-            config.chain.name,
+        "mainnet" => bail!(
+            "Mainnet snapshot fetch service not provided by Forest yet. Suggestion: use `--provider=filecoin` to fetch from Filecoin server."
         ),
+        "calibnet" => &config.snapshot_fetch.forest.calibnet,
+        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
     };
     let name = &snapshot_fetch_config.bucket_name;
     let region = &snapshot_fetch_config.region;
