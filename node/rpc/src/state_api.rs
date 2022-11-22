@@ -312,7 +312,8 @@ pub(crate) async fn state_miner_partitions<
         .miner_load_actor_tsk(&actor, &key.into())
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
-    let dl = mas.load_deadline(db, dl_idx)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let dl = mas.load_deadline(policy, db, dl_idx)?;
     let mut out = Vec::new();
     dl.for_each(db, |_, part| {
         out.push(Partition {

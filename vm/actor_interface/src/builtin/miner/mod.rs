@@ -102,10 +102,20 @@ impl State {
     /// Loads deadline at index for a miner's state
     pub fn load_deadline<BS: Blockstore>(
         &self,
-        _store: &BS,
-        _idx: u64,
+        policy: &Policy,
+        store: &BS,
+        idx: u64,
     ) -> anyhow::Result<Deadline> {
-        unimplemented!()
+        match self {
+            State::V8(st) => Ok(st
+                .load_deadlines(store)?
+                .load_deadline(policy, store, idx)
+                .map(Deadline::V8)?),
+            State::V9(st) => Ok(st
+                .load_deadlines(store)?
+                .load_deadline(policy, store, idx)
+                .map(Deadline::V9)?),
+        }
     }
 
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
@@ -164,10 +174,13 @@ impl State {
     /// Loads a specific sector number
     pub fn get_sector<BS: Blockstore>(
         &self,
-        _store: &BS,
-        _sector_num: u64,
+        store: &BS,
+        sector_num: u64,
     ) -> anyhow::Result<Option<SectorOnChainInfo>> {
-        unimplemented!()
+        match self {
+            State::V8(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+            State::V9(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+        }
     }
 
     /// Loads deadline at index for a miner's state
@@ -313,7 +326,10 @@ impl Deadline {
     }
 
     pub fn partitions_posted(&self) -> &BitField {
-        todo!()
+        match self {
+            Deadline::V8(dl) => &dl.partitions_posted,
+            Deadline::V9(dl) => &dl.partitions_posted,
+        }
     }
 }
 
@@ -326,13 +342,22 @@ pub enum Partition<'a> {
 
 impl Partition<'_> {
     pub fn all_sectors(&self) -> &BitField {
-        todo!()
+        match self {
+            Partition::V8(dl) => &dl.sectors,
+            Partition::V9(dl) => &dl.sectors,
+        }
     }
     pub fn faulty_sectors(&self) -> &BitField {
-        todo!()
+        match self {
+            Partition::V8(dl) => &dl.faults,
+            Partition::V9(dl) => &dl.faults,
+        }
     }
     pub fn recovering_sectors(&self) -> &BitField {
-        todo!()
+        match self {
+            Partition::V8(dl) => &dl.recoveries,
+            Partition::V9(dl) => &dl.recoveries,
+        }
     }
     pub fn live_sectors(&self) -> BitField {
         match self {
