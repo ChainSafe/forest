@@ -50,17 +50,17 @@ impl LogValue {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct SnapshotFetchConfig {
-    pub filops: FilOpsSnapshotFetchConfig,
     pub forest: ForestSnapshotFetchConfig,
+    pub filecoin: FilecoinSnapshotFetchConfig,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct FilOpsSnapshotFetchConfig {
+pub struct FilecoinSnapshotFetchConfig {
     pub mainnet: Url,
     pub calibnet: Url,
 }
 
-impl Default for FilOpsSnapshotFetchConfig {
+impl Default for FilecoinSnapshotFetchConfig {
     fn default() -> Self {
         // unfallible unwrap as we know that the value is correct
         Self {

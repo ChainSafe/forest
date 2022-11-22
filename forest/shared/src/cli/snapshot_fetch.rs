@@ -11,7 +11,7 @@ use forest_utils::{
     },
 };
 use hex::{FromHex, ToHex};
-use log::{info, warn};
+use log::info;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::{
@@ -27,20 +27,10 @@ use url::Url;
 
 use crate::cli::to_size_string;
 
-pub enum FetchFlags {
-    NoCompression,
-    ChecksumValidation,
-    ForestServer,
-}
-
-impl From<FetchFlags> for bool {
-    fn from(flag: FetchFlags) -> bool {
-        match flag {
-            FetchFlags::NoCompression
-            | FetchFlags::ChecksumValidation
-            | FetchFlags::ForestServer => false,
-        }
-    }
+/// Snapshot fetch service provider
+pub enum SnapshotServer {
+    Forest,
+    Filecoin,
 }
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
@@ -48,29 +38,14 @@ impl From<FetchFlags> for bool {
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
+    server: SnapshotServer,
     use_aria2: bool,
-    compressed: bool,
-    skip_checksum_validation: bool,
-    filops: bool,
 ) -> anyhow::Result<PathBuf> {
-    if !filops {
-        snapshot_fetch_forest(
-            snapshot_out_dir,
-            config,
-            use_aria2,
-            compressed,
-            skip_checksum_validation,
-        )
-        .await
-    } else {
-        snapshot_fetch_filops(
-            snapshot_out_dir,
-            config,
-            use_aria2,
-            compressed,
-            skip_checksum_validation,
-        )
-        .await
+    match server {
+        SnapshotServer::Forest => snapshot_fetch_forest(snapshot_out_dir, config, use_aria2).await,
+        SnapshotServer::Filecoin => {
+            snapshot_fetch_filecoin(snapshot_out_dir, config, use_aria2).await
+        }
     }
 }
 
@@ -86,14 +61,9 @@ async fn snapshot_fetch_forest(
     snapshot_out_dir: &Path,
     config: &Config,
     use_aria2: bool,
-    compressed: bool,
-    skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
-    if compressed {
-        bail!("Compressed snapshot is not available, Use `--filops` flag to download compressed snapshot from filops servers.");
-    }
     let snapshot_fetch_config = match config.chain.name.to_lowercase().as_str() {
-        "mainnet" => bail!("Mainnet snapshot service has not started yet, Alternatively you can use `--filops` flag to fetch `mainnet` snapshot from filops server."),
+        "mainnet" => bail!("Mainnet snapshot service has not started yet, Alternatively you can use `--server = filecoin` to fetch `mainnet` snapshot from filecoin server."),
         "calibnet" => &config.snapshot_fetch.forest.calibnet,
         _ => bail!(
             "Fetch not supported for chain {}",
@@ -134,13 +104,7 @@ async fn snapshot_fetch_forest(
 
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
     if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(
-            client,
-            url,
-            &snapshot_path,
-            skip_checksum_validation,
-        )
-        .await?
+        download_snapshot_and_validate_checksum_with_aria2(client, url, &snapshot_path).await?
     } else {
         let total_size = last_modified.size;
         download_snapshot_and_validate_checksum(
@@ -149,7 +113,6 @@ async fn snapshot_fetch_forest(
             &snapshot_path,
             snapshot_response,
             total_size,
-            skip_checksum_validation,
         )
         .await?;
     }
@@ -160,24 +123,19 @@ async fn snapshot_fetch_forest(
 /// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
 /// not be removed.
-async fn snapshot_fetch_filops(
+async fn snapshot_fetch_filecoin(
     snapshot_out_dir: &Path,
     config: &Config,
     use_aria2: bool,
-    compressed: bool,
-    skip_checksum_validation: bool,
 ) -> anyhow::Result<PathBuf> {
-    let mut service_url = match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => config.snapshot_fetch.filops.mainnet.clone(),
-        "calibnet" => config.snapshot_fetch.filops.calibnet.clone(),
+    let service_url = match config.chain.name.to_lowercase().as_ref() {
+        "mainnet" => config.snapshot_fetch.filecoin.mainnet.clone(),
+        "calibnet" => config.snapshot_fetch.filecoin.calibnet.clone(),
         _ => bail!("Fetch not supported for chain {}", config.chain.name,),
     };
     let client = https_client();
 
     let snapshot_url = {
-        if compressed {
-            service_url = service_url.join("latest.zst")?;
-        }
         let head_response = client
             .request(hyper::Request::head(service_url.as_str()).body("".into())?)
             .await?;
@@ -199,13 +157,8 @@ async fn snapshot_fetch_filops(
 
     // Download the file
     if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(
-            client,
-            snapshot_url,
-            &snapshot_path,
-            skip_checksum_validation,
-        )
-        .await?
+        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
+            .await?
     } else {
         let total_size = snapshot_response
             .headers()
@@ -220,7 +173,6 @@ async fn snapshot_fetch_filops(
             &snapshot_path,
             snapshot_response,
             total_size,
-            skip_checksum_validation,
         )
         .await?;
     }
@@ -235,7 +187,6 @@ async fn download_snapshot_and_validate_checksum<C>(
     snapshot_path: &Path,
     snapshot_response: Response<Body>,
     total_size: u64,
-    skip_checksum_validation: bool,
 ) -> anyhow::Result<()>
 where
     C: Connect + Clone + Send + Sync + 'static,
@@ -264,10 +215,7 @@ where
         writer.write_all(&chunk).await?;
         downloaded = total_size.min(downloaded + chunk.len() as u64);
         progress_bar.set(downloaded);
-
-        if !skip_checksum_validation {
-            snapshot_hasher.update(chunk);
-        }
+        snapshot_hasher.update(chunk);
     }
     writer.flush().await?;
 
@@ -278,12 +226,7 @@ where
 
     progress_bar.finish_println("Finished downloading the snapshot.");
 
-    if !skip_checksum_validation {
-        fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
-    } else {
-        warn!("Skipping checksum validation for downloaded file. Snapshot downloaded but not verified.");
-    }
-
+    fetch_checksum_and_validate(client, url, &snapshot_hasher.finalize()).await?;
     std::fs::rename(snapshot_file_tmp.path(), snapshot_path)?;
 
     Ok(())
@@ -293,7 +236,6 @@ async fn download_snapshot_and_validate_checksum_with_aria2<C>(
     client: hyper::Client<C>,
     url: Url,
     snapshot_path: &Path,
-    skip_checksum_validation: bool,
 ) -> anyhow::Result<()>
 where
     C: Connect + Clone + Send + Sync + 'static,
@@ -305,54 +247,39 @@ where
         bail!("Command aria2c is not in PATH. To install aria2, refer to instructions on https://aria2.github.io/");
     }
 
-    if !skip_checksum_validation {
-        let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
-        let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
-        if !checksum_response.status().is_success() {
-            bail!("Unable to get the checksum file. Url: {checksum_url}");
-        }
-        let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body()).await?
-            [..Sha256::output_size() * 2]
-            .to_vec();
-        let checksum_expected = String::from_utf8(checksum_bytes)?;
-        info!("Expected sha256 checksum: {checksum_expected}");
-        download_with_aria2(
-            url.as_str(),
-            snapshot_path
-                .parent()
-                .map(|p| p.to_str().unwrap_or_default())
-                .unwrap_or_default(),
-            Some(format!("sha-256={checksum_expected}").as_str()),
-        )
-    } else {
-        warn!("Skip checksum validation, Snapshot will be downloaded but not verified.");
-        download_with_aria2(
-            url.as_str(),
-            snapshot_path
-                .parent()
-                .map(|p| p.to_str().unwrap_or_default())
-                .unwrap_or_default(),
-            None,
-        )
+    let checksum_url = replace_extension_url(url.clone(), "sha256sum")?;
+    let checksum_response = client.get(checksum_url.as_str().try_into()?).await?;
+    if !checksum_response.status().is_success() {
+        bail!("Unable to get the checksum file. Url: {checksum_url}");
     }
+    let checksum_bytes = hyper::body::to_bytes(checksum_response.into_body()).await?
+        [..Sha256::output_size() * 2]
+        .to_vec();
+    let checksum_expected = String::from_utf8(checksum_bytes)?;
+    info!("Expected sha256 checksum: {checksum_expected}");
+    download_with_aria2(
+        url.as_str(),
+        snapshot_path
+            .parent()
+            .map(|p| p.to_str().unwrap_or_default())
+            .unwrap_or_default(),
+        format!("sha-256={checksum_expected}").as_str(),
+    )
 }
 
-fn download_with_aria2(url: &str, dir: &str, checksum_opt: Option<&str>) -> anyhow::Result<()> {
-    let checksum_arg;
-    let out_dir_arg = format!("--dir={dir}",);
-    let mut args = vec![
-        "--continue=true",
-        "--max-connection-per-server=5",
-        "--split=5",
-        "--max-tries=0",
-        &out_dir_arg,
-        url,
-    ];
-    if let Some(expected_checksum) = checksum_opt {
-        checksum_arg = format!("--checksum={expected_checksum}",);
-        args.push(&checksum_arg);
-    }
-    let mut child = Command::new("aria2c").args(args).spawn()?;
+fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<()> {
+    let mut child = Command::new("aria2c")
+        .args([
+            "--continue=true",
+            "--max-connection-per-server=5",
+            "--split=5",
+            "--max-tries=0",
+            &format!("--checksum={checksum}"),
+            &format!("--dir={dir}",),
+            url,
+        ])
+        .spawn()?;
+
     let exit_code = child.wait()?;
     if exit_code.success() {
         Ok(())
@@ -577,7 +504,7 @@ mod test {
         let r = download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
-            Some("sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64"),
+            "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
         );
         ensure!(r.is_err());
         let err = r.unwrap_err().to_string();
@@ -596,7 +523,7 @@ mod test {
         download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
-            Some("sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d"),
+            "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
         )?;
         shutdown_tx.send(()).unwrap();
         Ok(())

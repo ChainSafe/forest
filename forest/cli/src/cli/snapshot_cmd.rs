@@ -5,7 +5,7 @@ use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch};
+use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch, SnapshotServer};
 use forest_rpc_client::chain_ops::*;
 use regex::Regex;
 use std::{
@@ -54,18 +54,16 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
-        /// Fetch latest snapshot provided by filops servers, Default is set to Forest servers
-        #[structopt(long)]
-        filops: bool,
+        /// Fetch latest snapshot provided by `filecoin` server, Default is set to `forest` server
+        #[structopt(
+            long,
+            default_value = "forest",
+            possible_values = &["forest", "filecoin"],
+        )]
+        provider: String,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
-        /// Download compressed snapshot file if available, default is false
-        #[structopt(long)]
-        compressed: bool,
-        /// Skip checksum validation of downloaded file, default is false
-        #[structopt(long)]
-        skip_checksum_validation: bool,
     },
 
     /// Shows default snapshot dir
@@ -181,24 +179,18 @@ impl SnapshotCommands {
             }
             Self::Fetch {
                 snapshot_dir,
+                provider,
                 aria2: use_aria2,
-                compressed,
-                skip_checksum_validation,
-                filops,
             } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(
-                    &snapshot_dir,
-                    &config,
-                    *use_aria2,
-                    *compressed,
-                    *skip_checksum_validation,
-                    *filops,
-                )
-                .await
-                {
+                let server = match provider.as_str() {
+                    "forest" => SnapshotServer::Forest,
+                    "filecoin" => SnapshotServer::Filecoin,
+                    _ => cli_error_and_die(format!("Failed to fetch snapshot from: {provider} (Suggestion: use `forest`|`filecoin`)"), 1),
+                };
+                match snapshot_fetch(&snapshot_dir, &config, server, *use_aria2).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
@@ -294,21 +286,21 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
                 .filter(|p| p.is_file())
             {
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                    let date;
-                    let time;
-                    let height;
+                    let snapshot_date;
+                    let snapshot_time;
+                    let snapshot_height;
                     if path.extension().unwrap_or_default() == "tmp" {
                         snapshots_with_valid_name.push(path.clone());
                         continue;
                     }
                     if let Some(captures) = internal_pattern.captures(filename) {
-                        time = Time::MIDNIGHT;
-                        date = time::Date::parse(
+                        snapshot_time = Time::MIDNIGHT;
+                        snapshot_date = time::Date::parse(
                             captures.name("date").unwrap().as_str(),
                             &Iso8601::DEFAULT,
                         )
                         .unwrap();
-                        height = captures
+                        snapshot_height = captures
                             .name("height")
                             .unwrap()
                             .as_str()
@@ -318,16 +310,17 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
                     } else if let Some(captures) = pattern.captures(filename) {
                         let date_format =
                             time::format_description::parse("[year]_[month]_[day]").unwrap();
-                        date = time::Date::parse(
+                        snapshot_date = time::Date::parse(
                             captures.name("date").unwrap().as_str(),
                             &date_format,
                         )
                         .unwrap();
                         let time_format =
                             time::format_description::parse("[hour]_[minute]_[second]").unwrap();
-                        time = Time::parse(captures.name("time").unwrap().as_str(), &time_format)
-                            .unwrap();
-                        height = captures
+                        snapshot_time =
+                            Time::parse(captures.name("time").unwrap().as_str(), &time_format)
+                                .unwrap();
+                        snapshot_height = captures
                             .name("height")
                             .unwrap()
                             .as_str()
@@ -337,17 +330,20 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
                     } else {
                         continue;
                     }
-                    if date > latest_date {
-                        latest_date = date;
-                        latest_time = time;
-                        latest_height = height;
+                    if snapshot_date > latest_date {
+                        latest_date = snapshot_date;
+                        latest_time = snapshot_time;
+                        latest_height = snapshot_height;
                         snapshot_to_keep = Some(path.clone());
-                    } else if date == latest_date && time > latest_time {
-                        latest_time = time;
-                        latest_height = height;
+                    } else if snapshot_date == latest_date && snapshot_time > latest_time {
+                        latest_time = snapshot_time;
+                        latest_height = snapshot_height;
                         snapshot_to_keep = Some(path.clone());
-                    } else if date == latest_date && time == latest_time && height > latest_height {
-                        latest_height = height;
+                    } else if snapshot_date == latest_date
+                        && snapshot_time == latest_time
+                        && snapshot_height > latest_height
+                    {
+                        latest_height = snapshot_height;
                         snapshot_to_keep = Some(path.clone());
                     }
                 }
