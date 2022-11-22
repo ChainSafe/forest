@@ -13,8 +13,6 @@ use tempfile::TempDir;
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
     let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
-        .arg("--rpc")
-        .arg("true")
         .arg("--token")
         .arg("Azazello")
         .arg("config")
@@ -33,8 +31,6 @@ fn test_overrides_are_reflected_in_configuration_dump() {
 
     let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
-        .arg("--rpc")
-        .arg("true")
         .arg("--token")
         .arg("Azazello")
         .arg("--metrics-address")
@@ -77,8 +73,6 @@ fn test_reading_configuration_from_file() {
 
     let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
-        .arg("--rpc")
-        .arg("true")
         .arg("--token")
         .arg("Azazello")
         .arg("--config")

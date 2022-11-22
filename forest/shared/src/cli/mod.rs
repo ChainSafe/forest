@@ -33,9 +33,6 @@ pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[structopt(short, long)]
     pub config: Option<String>,
-    /// Allow RPC to be active or not (default: true)
-    #[structopt(short, long)]
-    pub rpc: Option<bool>,
     /// Client JWT token to use for JSON-RPC authentication
     #[structopt(short, long)]
     pub token: Option<String>,
@@ -80,19 +77,6 @@ impl CliOpts {
         if self.chain == "calibnet" {
             // override the chain configuration
             cfg.chain = Arc::new(ChainConfig::calibnet());
-        }
-
-        if self.rpc.unwrap_or(cfg.client.enable_rpc) {
-            cfg.client.enable_rpc = true;
-            if let Some(rpc_address) = self.rpc_address {
-                cfg.client.rpc_address = rpc_address;
-            }
-
-            if self.token.is_some() {
-                cfg.client.rpc_token = self.token.to_owned();
-            }
-        } else {
-            cfg.client.enable_rpc = false;
         }
 
         if let Some(metrics_address) = self.metrics_address {
