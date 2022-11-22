@@ -141,8 +141,11 @@ jobs:
           forest-cli --chain calibnet db stats
       - name: kill Forest process, print forest logs
         run: |
+          wget -O metrics.log http://localhost:6116/metrics
           pkill forest
-          cat forest.out forest.err
+          echo "--- Forest STDOUT ---"; cat forest.out
+          echo "--- Forest STDERR ---"; cat forest.err
+          echo "--- Forest Prometheus metrics ---"; cat metrics.log
 
   dependencies-duplicate-check:
     name: Check cargo files for duplicates
