@@ -19,7 +19,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -27,7 +27,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
@@ -41,7 +41,7 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -57,7 +57,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
@@ -70,7 +70,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-22.04, macos-latest]
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
         uses: hanabi1224/sccache-action@v1.2.0
         with:
           # hard code release-name for macos, it always get rate limited when calling github api
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Install Apt Dependencies
@@ -106,7 +106,7 @@ jobs:
   calibnet-check:
     name: Calibnet sync check
     #if: ${{ false }}
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -118,7 +118,7 @@ jobs:
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         with:
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
@@ -146,7 +146,7 @@ jobs:
 
   dependencies-duplicate-check:
     name: Check cargo files for duplicates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Ruby
