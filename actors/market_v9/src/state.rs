@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::balance_table::BalanceTable;
-use crate::ext::verifreg::AllocationID;
+use crate::types::AllocationID;
 use anyhow::anyhow;
 use cid::Cid;
 use fil_actors_runtime_v9::{make_empty_map, Array, SetMultimap};

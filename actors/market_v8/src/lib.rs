@@ -15,13 +15,10 @@ pub use self::types::*;
 pub mod balance_table;
 // export for testing
 mod deal;
-#[doc(hidden)]
-pub mod ext;
 // export for testing
 pub mod policy;
 // export for testing
 mod state;
-pub mod testing;
 mod types;
 
 /// Market actor methods available

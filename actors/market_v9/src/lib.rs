@@ -3,10 +3,7 @@
 
 use std::collections::BTreeSet;
 
-use cid::multihash::{Code, MultihashDigest};
-use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
 use fvm_ipld_hamt::BytesKey;
 use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
@@ -28,10 +25,7 @@ pub use self::types::*;
 
 // exports for testing
 pub mod balance_table;
-#[doc(hidden)]
-pub mod ext;
 pub mod policy;
-pub mod testing;
 
 mod deal;
 mod state;
@@ -169,19 +163,6 @@ fn validate_deal_can_activate(
 }
 
 pub const DAG_CBOR: u64 = 0x71; // TODO is there a better place to get this?
-
-/// Compute a deal CID directly.
-pub(crate) fn deal_cid(proposal: &DealProposal) -> Result<Cid, ActorError> {
-    const DIGEST_SIZE: u32 = 32;
-    let data = &proposal.marshal_cbor()?;
-    let hash = Code::Blake2b256.digest(data);
-    debug_assert_eq!(
-        u32::from(hash.size()),
-        DIGEST_SIZE,
-        "expected 32byte digest"
-    );
-    Ok(Cid::new_v1(DAG_CBOR, hash))
-}
 
 pub fn deal_id_key(k: DealID) -> BytesKey {
     let bz = k.encode_var_vec();

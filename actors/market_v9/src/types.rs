@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ext::verifreg::AllocationID;
 use cid::Cid;
 use fil_actors_runtime_v9::Array;
 use fvm_ipld_bitfield::BitField;
@@ -21,6 +20,8 @@ use super::deal::{ClientDealProposal, DealProposal, DealState};
 
 pub const PROPOSALS_AMT_BITWIDTH: u32 = 5;
 pub const STATES_AMT_BITWIDTH: u32 = 6;
+
+pub type AllocationID = u64;
 
 #[derive(Serialize_tuple, Deserialize_tuple)]
 pub struct WithdrawBalanceParams {
