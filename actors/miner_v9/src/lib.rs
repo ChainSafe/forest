@@ -3732,7 +3732,7 @@ struct SectorPreCommitInfoInner {
     pub unsealed_cid: Option<CompactCommD>,
 }
 
-/// ReplicaUpdate param with Option<Cid> for CommD
+/// ReplicaUpdate param with `Option<Cid>` for CommD
 /// None means unknown
 pub struct ReplicaUpdateInner {
     pub sector_number: SectorNumber,
