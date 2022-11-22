@@ -20,7 +20,7 @@ pub struct BeneficiaryTerm {
 impl Cbor for BeneficiaryTerm {}
 
 impl BeneficiaryTerm {
-    pub fn default() -> BeneficiaryTerm {
+    pub fn default_value() -> BeneficiaryTerm {
         BeneficiaryTerm {
             quota: TokenAmount::zero(),
             expiration: 0,

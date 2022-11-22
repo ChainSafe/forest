@@ -952,7 +952,6 @@ fn group_expiration_set(
     let mut total_pledge = TokenAmount::default();
 
     for u in es.on_time_sectors.iter() {
-        let u = u as u64;
         if include_set.remove(&u) {
             let sector = sectors.get(&u).expect("index should exist in sector set");
             sector_numbers.push(u);
@@ -975,7 +974,7 @@ fn group_expiration_set(
 /// Checks for invalid overlap between bitfield and a set's early sectors.
 fn check_no_early_sectors(set: &BTreeSet<u64>, es: &ExpirationSet) -> anyhow::Result<()> {
     for u in es.early_sectors.iter() {
-        if set.contains(&(u as u64)) {
+        if set.contains(&(u)) {
             return Err(anyhow!(
                 "Invalid attempt to group sector {} with an early expiration",
                 u

@@ -151,7 +151,7 @@ impl PartitionSectorMap {
                     )
                 })?;
                 sectors
-                    .checked_add(validated.len() as u64)
+                    .checked_add(validated.len())
                     .ok_or_else(|| anyhow!("integer overflow when counting sectors"))
             })?;
         Ok((self.0.len() as u64, sectors))

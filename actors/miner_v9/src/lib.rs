@@ -1499,7 +1499,7 @@ impl Actor {
 
                 // Find the proving period start for the deadline in question.
                 let mut pp_start = dl_info.period_start;
-                if dl_info.index < params.deadline as u64 {
+                if dl_info.index < params.deadline {
                     pp_start -= policy.wpost_proving_period
                 }
                 let target_deadline =
@@ -2124,7 +2124,7 @@ impl Actor {
         rt.send(
             &STORAGE_POWER_ACTOR_ADDR,
             ext::power::SUBMIT_POREP_FOR_BULK_VERIFY_METHOD,
-            RawBytes::serialize(&svi)?,
+            RawBytes::serialize(svi)?,
             TokenAmount::zero(),
         )?;
 
@@ -4792,7 +4792,7 @@ where
     };
     let ret_raw = rt.send(
         &VERIFIED_REGISTRY_ACTOR_ADDR,
-        ext::verifreg::GET_CLAIMS_METHOD as u64,
+        ext::verifreg::GET_CLAIMS_METHOD,
         serialize(&params, "get claims parameters")?,
         TokenAmount::zero(),
     )?;
@@ -5372,7 +5372,7 @@ impl ActorCode for Actor {
             }
             Some(Method::ControlAddresses) => {
                 let res = Self::control_addresses(rt)?;
-                Ok(RawBytes::serialize(&res)?)
+                Ok(RawBytes::serialize(res)?)
             }
             Some(Method::ChangeWorkerAddress) => {
                 Self::change_worker_address(rt, cbor::deserialize_params(params)?)?;
@@ -5428,7 +5428,7 @@ impl ActorCode for Actor {
             }
             Some(Method::WithdrawBalance) => {
                 let res = Self::withdraw_balance(rt, cbor::deserialize_params(params)?)?;
-                Ok(RawBytes::serialize(&res)?)
+                Ok(RawBytes::serialize(res)?)
             }
             Some(Method::ConfirmSectorProofsValid) => {
                 Self::confirm_sector_proofs_valid(rt, cbor::deserialize_params(params)?)?;
