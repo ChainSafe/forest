@@ -13,7 +13,6 @@ pub use self::set_multimap::SetMultimap;
 
 mod batch_return;
 pub mod cbor;
-pub mod chaos;
 mod downcast;
 mod mapmap;
 mod message_accumulator;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fil_actors_runtime_v9::{actor_error, ActorError, AsActorError};
+use fil_actors_runtime_v9::{ActorError, AsActorError};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
@@ -109,48 +109,6 @@ impl State {
             .flush()
             .context_code(ExitCode::USR_ILLEGAL_STATE, "failed to store entries")?;
 
-        Ok(())
-    }
-
-    pub(crate) fn check_available(
-        &self,
-        balance: TokenAmount,
-        amount_to_spend: &TokenAmount,
-        curr_epoch: ChainEpoch,
-    ) -> Result<(), ActorError> {
-        if amount_to_spend.is_negative() {
-            return Err(actor_error!(
-                illegal_argument,
-                "amount to spend {} less than zero",
-                amount_to_spend
-            ));
-        }
-        if &balance < amount_to_spend {
-            return Err(actor_error!(
-                insufficient_funds,
-                "current balance {} less than amount to spend {}",
-                balance,
-                amount_to_spend
-            ));
-        }
-
-        if amount_to_spend.is_zero() {
-            // Always permit a transaction that sends no value,
-            // even if the lockup exceeds the current balance.
-            return Ok(());
-        }
-
-        let remaining_balance = balance - amount_to_spend;
-        let amount_locked = self.amount_locked(curr_epoch - self.start_epoch);
-        if remaining_balance < amount_locked {
-            return Err(actor_error!(
-                insufficient_funds,
-                "actor balance {} if spent {} would be less than required locked amount {}",
-                remaining_balance,
-                amount_to_spend,
-                amount_locked
-            ));
-        }
         Ok(())
     }
 }

@@ -2,22 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::anyhow;
-use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 use cid::Cid;
 use fvm_ipld_bitfield::BitField;
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{BytesDe, Cbor, CborStore, RawBytes};
-use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::deal::DealID;
-use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::*;
 use fvm_shared::sector::*;
 use fvm_shared::METHOD_CONSTRUCTOR;
-use multihash::Code::Blake2b256;
 use num_derive::FromPrimitive;
-use num_traits::Zero;
 
 pub use beneficiary::*;
 pub use bitfield_queue::*;
@@ -27,12 +20,6 @@ pub use deadline_info::*;
 pub use deadline_state::*;
 pub use deadlines::*;
 pub use expiration_queue::*;
-use fil_actors_runtime_v9::cbor::deserialize;
-use fil_actors_runtime_v9::runtime::builtins::Type;
-use fil_actors_runtime_v9::runtime::{Policy, Runtime};
-use fil_actors_runtime_v9::{
-    actor_error, ActorDowncast, ActorError, CALLER_TYPES_SIGNABLE, INIT_ACTOR_ADDR,
-};
 pub use monies::*;
 pub use partition_state::*;
 pub use policy::*;
@@ -109,89 +96,6 @@ pub enum Method {
 
 pub const ERR_BALANCE_INVARIANTS_BROKEN: ExitCode = ExitCode::new(1000);
 
-/// Miner Actor
-/// here in order to update the Power Actor to v3.
-pub struct Actor;
-
-impl Actor {
-    pub fn constructor<BS, RT>(
-        rt: &mut RT,
-        params: MinerConstructorParams,
-    ) -> Result<(), ActorError>
-    where
-        BS: Blockstore,
-        RT: Runtime<BS>,
-    {
-        rt.validate_immediate_caller_is(std::iter::once(&INIT_ACTOR_ADDR))?;
-
-        check_control_addresses(rt.policy(), &params.control_addresses)?;
-        check_peer_info(rt.policy(), &params.peer_id, &params.multi_addresses)?;
-        check_valid_post_proof_type(rt.policy(), params.window_post_proof_type)?;
-
-        let owner = resolve_control_address(rt, params.owner)?;
-        let worker = resolve_worker_address(rt, params.worker)?;
-        let control_addresses: Vec<_> = params
-            .control_addresses
-            .into_iter()
-            .map(|address| resolve_control_address(rt, address))
-            .collect::<Result<_, _>>()?;
-
-        let policy = rt.policy();
-        let current_epoch = rt.curr_epoch();
-        let blake2b = |b: &[u8]| rt.hash_blake2b(b);
-        let offset =
-            assign_proving_period_offset(policy, rt.message().receiver(), current_epoch, blake2b)
-                .map_err(|e| {
-                e.downcast_default(
-                    ExitCode::USR_SERIALIZATION,
-                    "failed to assign proving period offset",
-                )
-            })?;
-
-        let period_start = current_proving_period_start(policy, current_epoch, offset);
-        if period_start > current_epoch {
-            return Err(actor_error!(
-                illegal_state,
-                "computed proving period start {} after current epoch {}",
-                period_start,
-                current_epoch
-            ));
-        }
-
-        let deadline_idx = current_deadline_index(policy, current_epoch, period_start);
-        if deadline_idx >= policy.wpost_period_deadlines {
-            return Err(actor_error!(
-                illegal_state,
-                "computed proving deadline index {} invalid",
-                deadline_idx
-            ));
-        }
-
-        let info = MinerInfo::new(
-            owner,
-            worker,
-            control_addresses,
-            params.peer_id,
-            params.multi_addresses,
-            params.window_post_proof_type,
-        )?;
-        let info_cid = rt.store().put_cbor(&info, Blake2b256).map_err(|e| {
-            e.downcast_default(
-                ExitCode::USR_ILLEGAL_STATE,
-                "failed to construct illegal state",
-            )
-        })?;
-
-        let st =
-            State::new(policy, rt.store(), info_cid, period_start, deadline_idx).map_err(|e| {
-                e.downcast_default(ExitCode::USR_ILLEGAL_STATE, "failed to construct state")
-            })?;
-        rt.create(&st)?;
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 struct SectorPreCommitInfoInner {
     pub seal_proof: RegisteredSealProof,
@@ -245,126 +149,6 @@ impl From<ExpirationExtension2> for ValidatedExpirationExtension {
     }
 }
 
-/// Resolves an address to an ID address and verifies that it is address of an account or multisig actor.
-fn resolve_control_address<BS, RT>(rt: &RT, raw: Address) -> Result<Address, ActorError>
-where
-    BS: Blockstore,
-    RT: Runtime<BS>,
-{
-    let resolved = rt
-        .resolve_address(&raw)
-        .ok_or_else(|| actor_error!(illegal_argument, "unable to resolve address: {}", raw))?;
-
-    let owner_code = rt
-        .get_actor_code_cid(&resolved)
-        .ok_or_else(|| actor_error!(illegal_argument, "no code for address: {}", resolved))?;
-
-    let is_principal = rt
-        .resolve_builtin_actor_type(&owner_code)
-        .as_ref()
-        .map(|t| CALLER_TYPES_SIGNABLE.contains(t))
-        .unwrap_or(false);
-
-    if !is_principal {
-        return Err(actor_error!(
-            illegal_argument,
-            "owner actor type must be a principal, was {}",
-            owner_code
-        ));
-    }
-
-    Ok(Address::new_id(resolved))
-}
-
-/// Resolves an address to an ID address and verifies that it is address of an account actor with an associated BLS key.
-/// The worker must be BLS since the worker key will be used alongside a BLS-VRF.
-fn resolve_worker_address<BS, RT>(rt: &mut RT, raw: Address) -> Result<Address, ActorError>
-where
-    BS: Blockstore,
-    RT: Runtime<BS>,
-{
-    let resolved = rt
-        .resolve_address(&raw)
-        .ok_or_else(|| actor_error!(illegal_argument, "unable to resolve address: {}", raw))?;
-
-    let worker_code = rt
-        .get_actor_code_cid(&resolved)
-        .ok_or_else(|| actor_error!(illegal_argument, "no code for address: {}", resolved))?;
-    if rt.resolve_builtin_actor_type(&worker_code) != Some(Type::Account) {
-        return Err(actor_error!(
-            illegal_argument,
-            "worker actor type must be an account, was {}",
-            worker_code
-        ));
-    }
-
-    if raw.protocol() != Protocol::BLS {
-        let ret = rt.send(
-            &Address::new_id(resolved),
-            ext::account::PUBKEY_ADDRESS_METHOD,
-            RawBytes::default(),
-            TokenAmount::zero(),
-        )?;
-        let pub_key: Address = deserialize(&ret, "address response")?;
-        if pub_key.protocol() != Protocol::BLS {
-            return Err(actor_error!(
-                illegal_argument,
-                "worker account {} must have BLS pubkey, was {}",
-                resolved,
-                pub_key.protocol()
-            ));
-        }
-    }
-    Ok(Address::new_id(resolved))
-}
-
-/// Assigns proving period offset randomly in the range [0, WPoStProvingPeriod) by hashing
-/// the actor's address and current epoch.
-fn assign_proving_period_offset(
-    policy: &Policy,
-    addr: Address,
-    current_epoch: ChainEpoch,
-    blake2b: impl FnOnce(&[u8]) -> [u8; 32],
-) -> anyhow::Result<ChainEpoch> {
-    let mut my_addr = addr.marshal_cbor()?;
-    my_addr.write_i64::<BigEndian>(current_epoch)?;
-
-    let digest = blake2b(&my_addr);
-
-    let mut offset: u64 = BigEndian::read_u64(&digest);
-    offset %= policy.wpost_proving_period as u64;
-
-    // Conversion from i64 to u64 is safe because it's % WPOST_PROVING_PERIOD which is i64
-    Ok(offset as ChainEpoch)
-}
-
-/// Computes the epoch at which a proving period should start such that it is greater than the current epoch, and
-/// has a defined offset from being an exact multiple of WPoStProvingPeriod.
-/// A miner is exempt from Winow PoSt until the first full proving period starts.
-fn current_proving_period_start(
-    policy: &Policy,
-    current_epoch: ChainEpoch,
-    offset: ChainEpoch,
-) -> ChainEpoch {
-    let curr_modulus = current_epoch % policy.wpost_proving_period;
-
-    let period_progress = if curr_modulus >= offset {
-        curr_modulus - offset
-    } else {
-        policy.wpost_proving_period - (offset - curr_modulus)
-    };
-
-    current_epoch - period_progress
-}
-
-fn current_deadline_index(
-    policy: &Policy,
-    current_epoch: ChainEpoch,
-    period_start: ChainEpoch,
-) -> u64 {
-    ((current_epoch - period_start) / policy.wpost_challenge_window) as u64
-}
-
 /// Validates that a partition contains the given sectors.
 fn validate_partition_contains_sectors(
     partition: &Partition,
@@ -396,68 +180,6 @@ pub fn power_for_sectors(sector_size: SectorSize, sectors: &[SectorOnChainInfo])
         raw: BigInt::from(sector_size as u64) * BigInt::from(sectors.len()),
         qa,
     }
-}
-
-fn check_control_addresses(policy: &Policy, control_addrs: &[Address]) -> Result<(), ActorError> {
-    if control_addrs.len() > policy.max_control_addresses {
-        return Err(actor_error!(
-            illegal_argument,
-            "control addresses length {} exceeds max control addresses length {}",
-            control_addrs.len(),
-            policy.max_control_addresses
-        ));
-    }
-
-    Ok(())
-}
-
-fn check_valid_post_proof_type(
-    policy: &Policy,
-    proof_type: RegisteredPoStProof,
-) -> Result<(), ActorError> {
-    if policy.valid_post_proof_type.contains(&proof_type) {
-        Ok(())
-    } else {
-        Err(actor_error!(
-            illegal_argument,
-            "proof type {:?} not allowed for new miner actors",
-            proof_type
-        ))
-    }
-}
-
-fn check_peer_info(
-    policy: &Policy,
-    peer_id: &[u8],
-    multiaddrs: &[BytesDe],
-) -> Result<(), ActorError> {
-    if peer_id.len() > policy.max_peer_id_length {
-        return Err(actor_error!(
-            illegal_argument,
-            "peer ID size of {} exceeds maximum size of {}",
-            peer_id.len(),
-            policy.max_peer_id_length
-        ));
-    }
-
-    let mut total_size = 0;
-    for ma in multiaddrs {
-        if ma.0.is_empty() {
-            return Err(actor_error!(illegal_argument, "invalid empty multiaddr"));
-        }
-        total_size += ma.0.len();
-    }
-
-    if total_size > policy.max_multiaddr_data {
-        return Err(actor_error!(
-            illegal_argument,
-            "multiaddr size of {} exceeds maximum of {}",
-            total_size,
-            policy.max_multiaddr_data
-        ));
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
