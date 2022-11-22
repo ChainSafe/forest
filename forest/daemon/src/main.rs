@@ -197,6 +197,8 @@ fn main() {
                     }
 
                     let rt = Runtime::new().unwrap();
+                    console_subscriber::init();
+
                     let db: Db = rt.block_on(daemon::start(cfg, opts.detach));
 
                     info!("Shutting down tokio...");
