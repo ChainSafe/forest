@@ -123,6 +123,7 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
         extra: &[u8],
     ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
         let mut total_gas: i64 = 0;
+        let mut ret: Option<ConsensusFault> = None;
 
         // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
         // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.
@@ -164,27 +165,20 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
             );
         };
 
+        let mut fault_type: Option<ConsensusFaultType> = None;
+
         // (2) check for the consensus faults themselves
-        let mut cf: Option<ConsensusFault> = None;
 
         // (a) double-fork mining fault
         if bh_1.epoch() == bh_2.epoch() {
-            cf = Some(ConsensusFault {
-                target: *bh_1.miner_address(),
-                epoch: bh_2.epoch(),
-                fault_type: ConsensusFaultType::DoubleForkMining,
-            })
+            fault_type = Some(ConsensusFaultType::DoubleForkMining);
         };
 
         // (b) time-offset mining fault
         // strictly speaking no need to compare heights based on double fork mining check above,
         // but at same height this would be a different fault.
         if bh_1.parents() == bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
-            cf = Some(ConsensusFault {
-                target: *bh_1.miner_address(),
-                epoch: bh_2.epoch(),
-                fault_type: ConsensusFaultType::TimeOffsetMining,
-            })
+            fault_type = Some(ConsensusFaultType::TimeOffsetMining);
         };
 
         // (c) parent-grinding fault
@@ -192,23 +186,20 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
         // A's sibling and B's parent.
         // Specifically, since A is of lower height, it must be that B was mined omitting A from its tipset
         if !extra.is_empty() {
+            // TODO: inspect decoding error case
             let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
             if bh_1.parents() == bh_3.parents()
                 && bh_1.epoch() == bh_3.epoch()
                 && bh_2.parents().cids().contains(bh_3.cid())
                 && !bh_2.parents().cids().contains(bh_1.cid())
             {
-                cf = Some(ConsensusFault {
-                    target: *bh_1.miner_address(),
-                    epoch: bh_2.epoch(),
-                    fault_type: ConsensusFaultType::ParentGrinding,
-                })
+                fault_type = Some(ConsensusFaultType::ParentGrinding);
             }
         };
 
         // (3) return if no consensus fault
-        if cf.is_none() {
-            return Ok((cf, total_gas));
+        if fault_type.is_none() {
+            return Ok((ret, total_gas));
         }
 
         // (4) expensive final checks
@@ -216,10 +207,25 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
         // check blocks are properly signed by their respective miner
         // note we do not need to check extra's: it is a parent to block b
         // which itself is signed, so it was willingly included by the miner
-        total_gas += self.verify_block_signature(&bh_1)?;
-        total_gas += self.verify_block_signature(&bh_2)?;
-
-        Ok((cf, total_gas))
+        if let Ok(gas_used) = self.verify_block_signature(&bh_1) {
+            total_gas += gas_used;
+            if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
+                total_gas += gas_used;
+                ret = Some(ConsensusFault {
+                    target: *bh_1.miner_address(),
+                    epoch: bh_2.epoch(),
+                    // Unwrapping is safe here, see (3)
+                    fault_type: fault_type.unwrap(),
+                });
+                Ok((ret, total_gas))
+            } else {
+                // invalid consensus fault: cannot verify second block header signature
+                Ok((ret, total_gas))
+            }
+        } else {
+            // invalid consensus fault: cannot verify first block header signature
+            Ok((ret, total_gas))
+        }
     }
 }
 
