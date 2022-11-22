@@ -42,6 +42,7 @@ members = [
   "actors/account_v8",
   "actors/account_v9",
   "actors/init_v8",
+  "actors/init_v9",
   "actors/cron_v8",
   "actors/cron_v9",
   "actors/paych_v8",

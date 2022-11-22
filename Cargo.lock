@@ -2076,6 +2076,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_init_v9"
+version = "9.0.3"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_market_v8"
 version = "8.0.0"
 dependencies = [

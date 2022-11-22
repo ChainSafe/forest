@@ -9,7 +9,7 @@ repository  = "https://github.com/filecoin-project/builtin-actors"
 keywords    = ["filecoin", "web3", "wasm"]
 
 [dependencies]
-anyhow                = "1.0.56"
+anyhow                = { workspace = true }
 cid                   = { workspace = true, features = ["serde-codec"] }
 fil_actors_runtime_v8 = { workspace = true }
 fvm_ipld_blockstore   = { workspace = true }
