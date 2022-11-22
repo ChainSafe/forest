@@ -306,20 +306,23 @@ where
         &self,
         from: Arc<Tipset>,
         to: ChainEpoch,
+        network: String,
     ) -> Result<(), Error> {
-        info!("Validating tipset checkpoint hashes from: {}", from.epoch());
+        info!(
+            "Validating {} tipset checkpoint hashes from: {}",
+            network,
+            from.epoch()
+        );
+
         if to > from.epoch() {
-            return Err(Error::Other(
-                "Looking for tipset with height greater than start point".to_string(),
-            ));
+            return Err(Error::Other(format!(
+                "Received tipset with height ({}) greater than start ({}) point",
+                to,
+                from.epoch()
+            )));
         }
 
-        // filter tipset checkpoints that are within the snapshot's range.
-        let mut hashes: HashSet<String> = checkpoint_tipsets::TIPSET_CHECKPOINTS
-            .keys()
-            .filter(|s| s.0 <= from.epoch())
-            .map(|s| s.1.to_string())
-            .collect();
+        let mut hashes = checkpoint_tipsets::get_tipset_hashes(&network);
 
         let mut ts = from;
         let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
@@ -333,12 +336,13 @@ where
             if to == pts.epoch() {
                 break;
             }
+
             ts = pts;
         }
 
         if !hashes.is_empty() {
             Err(Error::Other(format!(
-                "Found invalid/unknown tipset hash(es): {:?}",
+                "Found tipset hash(es) on {network} that are no longer valid: {:?}",
                 hashes
             )))
         } else {

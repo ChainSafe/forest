@@ -6,7 +6,7 @@ use cid::Cid;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-    BlockHeader, Tipset, TipsetKeys,
+    BlockHeader, Tipset,
 };
 use forest_db::Store;
 use forest_json::cid::CidJson;
@@ -370,18 +370,17 @@ where
         .chain_store()
         .heaviest_tipset()
         .await
-        .unwrap()
-        .key()
-        .cids()
-        .to_vec();
+        .unwrap();
+    let tipset_keys = tipset_keys.key();
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&TipsetKeys::new(tipset_keys))
+        .tipset_from_keys(tipset_keys)
         .await?;
+    // let network_name = data.state_manager.get_network_name(data.state_manager.chain_config().genesis_cid.unwrap_or_default()).unwrap_or("mainnet".to_string());
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, 0)
+        .validate_tipset_checkpoints(ts, 0, data.state_manager.chain_config().name.clone())
         .await?;
     Ok("Ok".to_string())
 }

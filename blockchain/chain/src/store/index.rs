@@ -18,26 +18,22 @@ const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
 /// Configuration which sets the length of tipsets to skip in between each cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
 
-// this module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
+// This module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
 pub(super) mod checkpoint_tipsets {
     use cid::Cid;
     use forest_blocks::TipsetKeys;
-    use fvm_shared::clock::ChainEpoch;
     use once_cell::sync::Lazy;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::str::FromStr;
-
-    const CALIBNET_GENESIS_CID: &str =
-        "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
-    const MAINNET_GENESIS_CID: &str =
-        "bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2";
 
     macro_rules! add_calibnet {
         ($map: ident, $key_hash:expr) => {
             $map.insert(
                 $key_hash,
                 // calibnet genesis tipset keys
-                TipsetKeys::new(vec![Cid::from_str(CALIBNET_GENESIS_CID).unwrap()]),
+                TipsetKeys::new(vec![
+                    Cid::from_str(forest_networks::calibnet::GENESIS_CID).unwrap()
+                ]),
             );
         };
     }
@@ -47,41 +43,56 @@ pub(super) mod checkpoint_tipsets {
             $map.insert(
                 $key_hash,
                 // mainnet genesis tipset keys
-                TipsetKeys::new(vec![Cid::from_str(MAINNET_GENESIS_CID).unwrap()]),
+                TipsetKeys::new(vec![
+                    Cid::from_str(forest_networks::mainnet::GENESIS_CID).unwrap()
+                ]),
             );
         };
     }
 
     // The hashes for these checkpoints is obtained by passing the tipset keys' cids (tipset.cids())
     // through a blake2b hasher.
-    type TipsetKeyHash = (ChainEpoch, &'static str);
+    type TipsetKeyHash = &'static str;
     type GenesisTipsetCids = TipsetKeys;
-    // A map of validated checkpoints mapping to their genesis tipkeys
-    type TipsetCheckpointsRegistry = HashMap<TipsetKeyHash, GenesisTipsetCids>;
     // Represents a static map of validated tipset hashes which helps to remove the need to validate the tipset
     // back to genesis if it has been validated before, thereby reducing boot times.
-    pub static TIPSET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
+    // NB: Add desired tipset checkpoints below this by using RPC command: forest-cli chain tipset-hash <cid keys>
+    // and one can use forest-cli chain validate-tipset-checkpoints to validate tipset hashes
+    // for entries that fall within the range of epochs in current downloaded snapshot file.
+    type TipsetCheckpointsRegistry = HashMap<TipsetKeyHash, GenesisTipsetCids>;
+    pub static CALIBNET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
         let mut map = HashMap::new();
-        // The first numeric entry in tuple is the epoch/height of the tipset hash.
-        // NB: Add desired tipset checkpoints below this by using RPC command: forest-cli chain tipset-hash <cid keys>
-        // and one can use forest-cli chain validate-tipset-checkpoints to validate tipset hashes
-        // for entries that fall within the range of epochs in current downloaded snapshot file.
-        const CALIBNET_CHECKPOINT_1405400: TipsetKeyHash = (1405400, "7930ad8bf32b35314b3bc47b9e25249af8ec6ba7f5544c05e8b5bd3b3ec09f76df8bd2278f9b318badf1a08d0a468abd55130465c6c55f99e67badc0e614ca79");
-        const MAINNET_CHECKPOINT_2325300: TipsetKeyHash = (2325300, "319f2351ceaf78fbcc8688dc75a19bdf8ee6e895e547ff5cc2f7b18a3a36b65ff94c1860733137d0244352f82ba6fd9672aec14deee358e7cf6e088bf89a28b1");
-        const CALIBNET_CHECKPOINT_41000: TipsetKeyHash = (41000, "1a11a07d427348cc14eaa901de1ba9c6a4e18400bb557f5a0fabbcb22352319e31a7bc988a92525339f84275c0ef6dfbffcb50bb9d9843701875eecfa3ccb069");
-        add_calibnet!(map, CALIBNET_CHECKPOINT_1405400);
+        const CALIBNET_CHECKPOINT_41000: TipsetKeyHash = "1a11a07d427348cc14eaa901de1ba9c6a4e18400bb557f5a0fabbcb22352319e31a7bc988a92525339f84275c0ef6dfbffcb50bb9d9843701875eecfa3ccb069";
         add_calibnet!(map, CALIBNET_CHECKPOINT_41000);
+        map
+    });
+
+    pub static MAINNET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
+        let mut map = HashMap::new();
+        const MAINNET_CHECKPOINT_2325300: TipsetKeyHash = "319f2351ceaf78fbcc8688dc75a19bdf8ee6e895e547ff5cc2f7b18a3a36b65ff94c1860733137d0244352f82ba6fd9672aec14deee358e7cf6e088bf89a28b1";
         add_mainnet!(map, MAINNET_CHECKPOINT_2325300);
         map
     });
 
-    pub(super) fn genesis_from_checkpoint_tipset(
-        height: ChainEpoch,
-        tsk: &TipsetKeys,
-    ) -> Option<GenesisTipsetCids> {
-        TIPSET_CHECKPOINTS
-            .get(&(height, tipset_hash(tsk).as_str()))
+    pub(super) fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
+        MAINNET_CHECKPOINTS
+            .get(tipset_hash(tsk).as_str())
+            .or(CALIBNET_CHECKPOINTS.get(tipset_hash(tsk).as_str()))
             .cloned()
+    }
+
+    pub fn get_tipset_hashes(network: &str) -> HashSet<String> {
+        match network.as_ref() {
+            "mainnet" => {
+                let keys = MAINNET_CHECKPOINTS.keys().map(|s| s.to_string());
+                HashSet::from_iter(keys)
+            }
+            "calibnet" => {
+                let keys = CALIBNET_CHECKPOINTS.keys().map(|s| s.to_string());
+                HashSet::from_iter(keys)
+            }
+            _ => unreachable!("invalid network id"),
+        }
     }
 
     pub fn tipset_hash(tsk: &TipsetKeys) -> String {
@@ -160,10 +171,9 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 self.fill_cache(std::mem::take(&mut cur)).await?
             };
 
-            if let Some(genesis_tipset_keys) = checkpoint_tipsets::genesis_from_checkpoint_tipset(
-                lbe.tipset.epoch(),
-                lbe.tipset.key(),
-            ) {
+            if let Some(genesis_tipset_keys) =
+                checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
+            {
                 if to == 0 {
                     let tipset =
                         tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
