@@ -13,7 +13,7 @@ pub struct HelloRequest {
     pub heaviest_tipset_height: ChainEpoch,
     #[serde(with = "fvm_shared::bigint::bigint_ser")]
     pub heaviest_tipset_weight: BigInt,
-    pub genesis_hash: Cid,
+    pub genesis_cid: Cid,
 }
 
 /// Response to a Hello message. This just handles latency of the peer.
@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn hello_default_ser() {
         let orig_msg = HelloRequest {
-            genesis_hash: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            genesis_cid: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             heaviest_tipset_weight: Default::default(),
             heaviest_tipset_height: Default::default(),
             heaviest_tip_set: Default::default(),
