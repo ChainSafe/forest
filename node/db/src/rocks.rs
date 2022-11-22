@@ -132,6 +132,10 @@ impl Store for RocksDb {
         }
         Ok(self.db.write(batch)?)
     }
+
+    fn flush(&self) -> Result<(), Error> {
+        self.db.flush().map_err(|e| Error::Other(e.to_string()))
+    }
 }
 
 impl Blockstore for RocksDb {
@@ -150,14 +154,17 @@ impl Blockstore for RocksDb {
         D: AsRef<[u8]>,
         I: IntoIterator<Item = (Cid, D)>,
     {
-        let values = blocks
-            .into_iter()
-            .map(|(k, v)| (k.to_bytes(), v))
-            .collect::<Vec<_>>();
-        for (_k, v) in &values {
-            metrics::BLOCK_SIZE_BYTES.observe(v.as_ref().len() as f64);
+        let mut batch = WriteBatch::default();
+        for (cid, v) in blocks.into_iter() {
+            let k = cid.to_bytes();
+            let v = v.as_ref();
+            metrics::BLOCK_SIZE_BYTES.observe(v.len() as f64);
+            batch.put(k, v);
         }
-        self.bulk_write(&values).map_err(|e| e.into())
+        // This function is used in `fvm_ipld_car::load_car`
+        // It reduces time cost of loading mainnet snapshot
+        // by ~10% by not writing to WAL(write ahead log).
+        Ok(self.db.write_without_wal(batch)?)
     }
 }
 
