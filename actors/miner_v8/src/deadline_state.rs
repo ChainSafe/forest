@@ -618,7 +618,7 @@ impl Deadline {
                 self.early_terminations.set(partition_idx);
 
                 // Record change to sectors and power
-                self.live_sectors -= removed.len() as u64;
+                self.live_sectors -= removed.len();
             } // note: we should _always_ have early terminations, unless the early termination bitfield is empty.
 
             self.faulty_power -= &removed.faulty_power;
@@ -739,8 +739,8 @@ impl Deadline {
         let live = BitField::union(&all_live_sectors);
 
         // Update sector counts.
-        let removed_dead_sectors = dead.len() as u64;
-        let removed_live_sectors = live.len() as u64;
+        let removed_dead_sectors = dead.len();
+        let removed_live_sectors = live.len();
 
         self.live_sectors -= removed_live_sectors;
         self.total_sectors -= removed_live_sectors + removed_dead_sectors;

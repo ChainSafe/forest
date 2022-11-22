@@ -1219,15 +1219,14 @@ impl State {
         let precommitted =
             make_map_with_root_and_bitwidth(&self.pre_committed_sectors, store, HAMT_BIT_WIDTH)?;
         for sector_no in sector_nos.iter() {
-            if sector_no as u64 > MAX_SECTOR_NUMBER {
+            if sector_no > MAX_SECTOR_NUMBER {
                 return Err(
                     actor_error!(illegal_argument; "sector number greater than maximum").into(),
                 );
             }
-            let info: &SectorPreCommitOnChainInfo =
-                precommitted
-                    .get(&u64_key(sector_no as u64))?
-                    .ok_or_else(|| actor_error!(not_found, "sector {} not found", sector_no))?;
+            let info: &SectorPreCommitOnChainInfo = precommitted
+                .get(&u64_key(sector_no))?
+                .ok_or_else(|| actor_error!(not_found, "sector {} not found", sector_no))?;
             precommits.push(info.clone());
         }
         Ok(precommits)
