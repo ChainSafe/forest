@@ -262,7 +262,7 @@ where
                 heaviest_tip_set: heaviest.cids().to_vec(),
                 heaviest_tipset_height: heaviest.epoch(),
                 heaviest_tipset_weight: heaviest.weight().clone(),
-                genesis_hash: genesis_block_cid,
+                genesis_cid: genesis_block_cid,
             };
             let (peer_id, moment_sent, response) =
                 match network.hello_request(peer_id, request).await {

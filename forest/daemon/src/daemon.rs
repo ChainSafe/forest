@@ -184,7 +184,8 @@ pub(super) async fn start(config: Config, detached: bool) {
     )
     .await
     .unwrap();
-    chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
+    let genesis_header = &genesis.blocks()[0];
+    chain_store.set_genesis(genesis_header).unwrap();
 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
@@ -244,12 +245,14 @@ pub(super) async fn start(config: Config, detached: bool) {
         config
     };
 
+    let genesis_cid = *genesis_header.cid();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
+        genesis_cid,
     )
     .await;
 
