@@ -163,7 +163,7 @@ impl Blockstore for RocksDb {
         }
         // This function is used in `fvm_ipld_car::load_car`
         // It reduces time cost of loading mainnet snapshot
-        // by ~20% by not writing to WAL(write ahead log).
+        // by ~10% by not writing to WAL(write ahead log).
         Ok(self.db.write_without_wal(batch)?)
     }
 }
