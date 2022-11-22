@@ -1154,7 +1154,9 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     let full_tipset_key = full_tipset.key().clone();
 
     let mut validations = FuturesUnordered::new();
-    for b in full_tipset.into_blocks() {
+    let blocks = full_tipset.into_blocks();
+    let blocks_len = blocks.len();
+    for b in blocks {
         let validation_fn = tokio::task::spawn(validate_block::<_, C>(
             consensus.clone(),
             state_manager.clone(),
@@ -1163,7 +1165,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
         validations.push(validation_fn);
     }
 
-    info!("Validating tipset: EPOCH = {epoch}");
+    info!("Validating tipset: EPOCH = {epoch}, N blocks = {blocks_len}");
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
@@ -1235,6 +1237,8 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
         return Ok(block);
     }
 
+    let _timer = metrics::BLOCK_VALIDATION_TIME.start_timer();
+
     let header = block.header();
 
     // Check to ensure all optional values exist
@@ -1285,6 +1289,9 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_block_store = state_manager.blockstore().clone();
     let v_block = Arc::clone(&block);
     validations.push(tokio::task::spawn_blocking(move || {
+        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
+            .with_label_values(&[metrics::values::BASE_FEE_CHECK])
+            .start_timer();
         let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetRangeSyncerError::<C>::Validation(format!(
@@ -1307,6 +1314,9 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(tokio::task::spawn_blocking(move || {
+        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
+            .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
+            .start_timer();
         let calc_weight = C::weight(&v_block_store, &v_base_tipset).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
         })?;
@@ -1362,6 +1372,9 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     // Block signature check
     let v_block = block.clone();
     validations.push(tokio::task::spawn_blocking(move || {
+        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
+            .with_label_values(&[metrics::values::BLOCK_SIGNATURE_CHECK])
+            .start_timer();
         v_block.header().check_block_signature(&work_addr)?;
         Ok(())
     }));
