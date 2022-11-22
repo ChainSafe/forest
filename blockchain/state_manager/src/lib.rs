@@ -47,6 +47,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
@@ -1303,52 +1304,81 @@ where
 
     pub async fn validate_chain<V: ProofVerifier>(
         self: &Arc<Self>,
-        mut ts: Arc<Tipset>,
+        ts: Arc<Tipset>,
         height: i64,
     ) -> Result<(), anyhow::Error> {
-        let mut ts_chain = Vec::<Arc<Tipset>>::new();
-        while ts.epoch() != height {
-            let next = self.cs.tipset_from_keys(ts.parents()).await?;
-            ts_chain.push(std::mem::replace(&mut ts, next));
+        // Control number for courutines
+        let (tx, rx) = flume::bounded::<()>(num_cpus::get());
+        let mut tasks = JoinSet::new();
+        let error = Arc::new(RwLock::new(None));
+        let mut current = ts;
+        while current.epoch() != height && error.read().await.is_none() {
+            let parent = self.cs.tipset_from_keys(current.parents()).await?;
+            let parent_cloned = parent.clone();
+            let current_cloned = current.clone();
+            let self_cloned = self.clone();
+            tx.send(())?;
+            let rx_cloned = rx.clone();
+            let error_cloned = error.clone();
+            tasks.spawn(async move {
+                let r = self_cloned
+                    .validate_pair(parent_cloned, current_cloned)
+                    .await;
+                rx_cloned.recv().expect("Infallible");
+                match r {
+                    Ok(()) => true,
+                    Err(e) => {
+                        // anyhow::Error is not clonable
+                        *error_cloned.write().await = Some(e.to_string());
+                        false
+                    }
+                }
+            });
+            current = parent;
         }
-        ts_chain.push(ts);
+        if let Some(e) = error.read_owned().await.clone() {
+            anyhow::bail!(e)
+        } else {
+            Ok(())
+        }
+    }
 
-        let mut last_state = *ts_chain.last().unwrap().parent_state();
-        let mut last_receipt = *ts_chain.last().unwrap().blocks()[0].message_receipts();
-        for ts in ts_chain.iter().rev() {
-            if ts.parent_state() != &last_state {
-                forest_statediff::print_state_diff(
-                    self.blockstore(),
-                    &last_state,
-                    ts.parent_state(),
-                    Some(1),
-                )
-                .unwrap();
+    async fn validate_pair(
+        self: &Arc<Self>,
+        parent: Arc<Tipset>,
+        child: Arc<Tipset>,
+    ) -> anyhow::Result<()> {
+        info!(
+            "Computing state (height: {}, ts={:?})",
+            parent.epoch(),
+            parent.cids()
+        );
+        let (state_root, msg_root) = self.tipset_state(&parent).await?;
+        if child.parent_state() != &state_root {
+            forest_statediff::print_state_diff(
+                self.blockstore(),
+                &state_root,
+                child.parent_state(),
+                Some(1),
+            )
+            .unwrap();
 
-                anyhow::bail!(
-                    "Tipset chain has state mismatch at height: {}, {} != {}, \
-                        receipts mismatched: {}",
-                    ts.epoch(),
-                    ts.parent_state(),
-                    last_state,
-                    ts.blocks()[0].message_receipts() != &last_receipt
-                );
-            }
-            if ts.blocks()[0].message_receipts() != &last_receipt {
-                anyhow::bail!(
-                    "Tipset message receipts has a mismatch at height: {}",
-                    ts.epoch(),
-                );
-            }
-            info!(
-                "Computing state (height: {}, ts={:?})",
-                ts.epoch(),
-                ts.cids()
+            anyhow::bail!(
+                "Tipset chain has state mismatch at height: {}, {} != {}, \
+                    receipts mismatched: {}",
+                child.epoch(),
+                child.parent_state(),
+                state_root,
+                child.blocks()[0].message_receipts() != &state_root
             );
-            let (st, msg_root) = self.tipset_state(ts).await?;
-            last_state = st;
-            last_receipt = msg_root;
         }
+        if child.blocks()[0].message_receipts() != &msg_root {
+            anyhow::bail!(
+                "Tipset message receipts has a mismatch at height: {}",
+                child.epoch(),
+            );
+        }
+
         Ok(())
     }
 

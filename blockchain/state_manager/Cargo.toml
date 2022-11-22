@@ -12,6 +12,7 @@ byteorder.workspace              = true
 cid.workspace                    = true
 fil_actors_runtime.workspace     = true
 filecoin-proofs-api              = { workspace = true, default-features = false }
+flume.workspace                  = true
 forest_actor_interface.workspace = true
 forest_beacon.workspace          = true
 forest_blocks.workspace          = true
@@ -35,6 +36,7 @@ fvm_ipld_encoding.workspace      = true
 fvm_shared                       = { workspace = true, default-features = false }
 log.workspace                    = true
 num-traits.workspace             = true
+num_cpus.workspace               = true
 serde                            = { workspace = true, features = ["derive"] }
 thiserror.workspace              = true
 tokio                            = { workspace = true, features = ["sync"] }
