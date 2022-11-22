@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
+use fil_actors_runtime::runtime::Policy;
 use forest_fil_types::deadlines::DeadlineInfo;
 use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
@@ -128,22 +129,17 @@ impl State {
     /// Loads deadlines for a miner's state
     pub fn for_each_deadline<BS: Blockstore>(
         &self,
+        policy: &Policy,
         store: &BS,
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            State::V8(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&Default::default(), &store, |idx, dl| {
-                        f(idx, Deadline::V8(dl))
-                    })
-            }
-            State::V9(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&Default::default(), &store, |idx, dl| {
-                        f(idx, Deadline::V9(dl))
-                    })
-            }
+            State::V8(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V8(dl))),
+            State::V9(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V9(dl))),
         }
     }
 

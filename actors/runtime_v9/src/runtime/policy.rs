@@ -12,7 +12,7 @@ pub trait RuntimePolicy {
 }
 
 // The policy itself
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Policy {
     /// Maximum amount of sectors that can be aggregated.
     pub max_aggregated_sectors: u64,

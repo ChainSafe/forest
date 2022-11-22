@@ -107,13 +107,10 @@ pub(crate) async fn state_miner_deadlines<
         .await
         .map_err(|e| format!("Could not load miner {:?}", e))?;
 
-    let num_deadlines = data
-        .state_manager
-        .chain_config()
-        .policy
-        .wpost_period_deadlines;
+    let policy = &data.state_manager.chain_config().policy;
+    let num_deadlines = policy.wpost_period_deadlines;
     let mut out = Vec::with_capacity(num_deadlines as usize);
-    mas.for_each_deadline(data.state_manager.blockstore(), |_, dl| {
+    mas.for_each_deadline(policy, data.state_manager.blockstore(), |_, dl| {
         out.push(Deadline {
             post_submissions: dl.partitions_posted().clone().into(),
             disputable_proof_count: dl.disputable_proof_count(data.state_manager.blockstore())?,
