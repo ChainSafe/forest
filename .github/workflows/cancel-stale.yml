@@ -12,7 +12,7 @@ on:
       - requested
 jobs:
   cancel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       # TODO: switch back to styfle/cancel-workflow-action once the change get merged and released
       - uses: hanabi1224/cancel-workflow-action@120898519f2940069cc6a070c4f9c3d6cc2e7ff8
