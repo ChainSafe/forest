@@ -3060,6 +3060,7 @@ dependencies = [
  "log",
  "num-traits",
  "num_cpus",
+ "prometheus",
  "rayon",
  "serde_ipld_dagcbor 0.1.2",
 ]
