@@ -32,7 +32,7 @@ impl Default for RocksDbConfig {
         Self {
             create_if_missing: true,
             parallelism: num_cpus::get() as i32,
-            write_buffer_size: 256 * 1024 * 1024,
+            write_buffer_size: 2usize.pow(30), // 1 GiB
             max_open_files: -1,
             max_background_jobs: None,
             compaction_style: "none".into(),
