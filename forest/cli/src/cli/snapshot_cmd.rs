@@ -7,7 +7,7 @@ use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch, SnapshotServer};
 use forest_rpc_client::chain_ops::*;
-use regex::Regex;
+use regex::{Captures, Regex};
 use std::{
     collections::HashMap,
     fs,
@@ -15,7 +15,10 @@ use std::{
 };
 use strfmt::strfmt;
 use structopt::StructOpt;
-use time::{format_description::well_known::Iso8601, Date, OffsetDateTime, Time};
+use time::{
+    format_description, format_description::well_known::Iso8601, parsing::Parsable, Date,
+    OffsetDateTime, PrimitiveDateTime, Time,
+};
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -190,7 +193,10 @@ impl SnapshotCommands {
                     None => match config.chain.name.to_lowercase().as_str() {
                         "mainnet" => &SnapshotServer::Filecoin,
                         "calibnet" => &SnapshotServer::Forest,
-                        _ => cli_error_and_die(format!("Fetch not supported for chain {}", config.chain.name), 1),
+                        _ => cli_error_and_die(
+                            format!("Fetch not supported for chain {}", config.chain.name),
+                            1,
+                        ),
                     },
                 };
                 match snapshot_fetch(&snapshot_dir, &config, server, *use_aria2).await {
@@ -271,8 +277,7 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
         println!("Snapshot dir: {}", snapshot_dir.display());
         let mut snapshots_with_valid_name = vec![];
         let mut snapshot_to_keep = None;
-        let mut latest_date = Date::MIN;
-        let mut latest_time = Time::MIDNIGHT;
+        let mut latest_datetime = PrimitiveDateTime::new(Date::MIN, Time::MIDNIGHT);
         let mut latest_height = 0;
         let internal_pattern = Regex::new(
             r"^forest_snapshot_([^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car$",
@@ -289,61 +294,33 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
                 .filter(|p| p.is_file())
             {
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                    let snapshot_date;
-                    let snapshot_time;
-                    let snapshot_height;
                     if path.extension().unwrap_or_default() == "tmp" {
                         snapshots_with_valid_name.push(path.clone());
                         continue;
                     }
+                    let snapshot_datetime: PrimitiveDateTime;
+                    let snapshot_height;
+
                     if let Some(captures) = internal_pattern.captures(filename) {
-                        snapshot_time = Time::MIDNIGHT;
-                        snapshot_date = time::Date::parse(
-                            captures.name("date").unwrap().as_str(),
-                            &Iso8601::DEFAULT,
-                        )
-                        .unwrap();
-                        snapshot_height = captures
-                            .name("height")
-                            .unwrap()
-                            .as_str()
-                            .parse::<i64>()
-                            .unwrap();
-                        snapshots_with_valid_name.push(path.clone());
+                        snapshot_datetime =
+                            get_snapshot_datetime(&captures, &Iso8601::DEFAULT, &Iso8601::DEFAULT);
+                        snapshot_height = get_snapshot_height(&captures);
                     } else if let Some(captures) = pattern.captures(filename) {
-                        let date_format =
-                            time::format_description::parse("[year]_[month]_[day]").unwrap();
-                        snapshot_date = time::Date::parse(
-                            captures.name("date").unwrap().as_str(),
-                            &date_format,
-                        )
-                        .unwrap();
-                        let time_format =
-                            time::format_description::parse("[hour]_[minute]_[second]").unwrap();
-                        snapshot_time =
-                            Time::parse(captures.name("time").unwrap().as_str(), &time_format)
-                                .unwrap();
-                        snapshot_height = captures
-                            .name("height")
-                            .unwrap()
-                            .as_str()
-                            .parse::<i64>()
-                            .unwrap();
-                        snapshots_with_valid_name.push(path.clone());
+                        snapshot_datetime = get_snapshot_datetime(
+                            &captures,
+                            &format_description::parse("[year]_[month]_[day]").unwrap(),
+                            &format_description::parse("[hour]_[minute]_[second]").unwrap(),
+                        );
+                        snapshot_height = get_snapshot_height(&captures);
                     } else {
                         continue;
                     }
-                    if snapshot_date > latest_date {
-                        latest_date = snapshot_date;
-                        latest_time = snapshot_time;
+                    snapshots_with_valid_name.push(path.clone());
+                    if snapshot_datetime > latest_datetime {
+                        latest_datetime = snapshot_datetime;
                         latest_height = snapshot_height;
                         snapshot_to_keep = Some(path.clone());
-                    } else if snapshot_date == latest_date && snapshot_time > latest_time {
-                        latest_time = snapshot_time;
-                        latest_height = snapshot_height;
-                        snapshot_to_keep = Some(path.clone());
-                    } else if snapshot_date == latest_date
-                        && snapshot_time == latest_time
+                    } else if snapshot_datetime == latest_datetime
                         && snapshot_height > latest_height
                     {
                         latest_height = snapshot_height;
@@ -381,6 +358,28 @@ fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
             delete_snapshot(&snapshot_path);
         }
     }
+}
+
+fn get_snapshot_datetime(
+    captures: &Captures,
+    date_fmt: &(impl Parsable + ?Sized),
+    time_fmt: &(impl Parsable + ?Sized),
+) -> PrimitiveDateTime {
+    let snapshot_date = Date::parse(captures.name("date").unwrap().as_str(), &date_fmt).unwrap();
+    let snapshot_time = match captures.name("time") {
+        Some(t) => Time::parse(t.as_str(), &time_fmt).unwrap(),
+        None => Time::MIDNIGHT,
+    };
+    PrimitiveDateTime::new(snapshot_date, snapshot_time)
+}
+
+fn get_snapshot_height(captures: &Captures) -> i64 {
+    captures
+        .name("height")
+        .unwrap()
+        .as_str()
+        .parse::<i64>()
+        .unwrap()
 }
 
 fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow::Result<()> {
