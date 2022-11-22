@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::Config;
+use crate::cli::to_size_string;
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -14,6 +15,7 @@ use hex::{FromHex, ToHex};
 use log::info;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
+use std::str::FromStr;
 use std::{
     path::{Path, PathBuf},
     process::Command,
@@ -25,12 +27,26 @@ use tokio::{
 };
 use url::Url;
 
-use crate::cli::to_size_string;
-
 /// Snapshot fetch service provider
+#[derive(Debug)]
 pub enum SnapshotServer {
     Forest,
     Filecoin,
+}
+
+impl FromStr for SnapshotServer {
+    type Err = anyhow::Error;
+
+    fn from_str(provider: &str) -> Result<Self, Self::Err> {
+        match provider.to_lowercase().as_str() {
+            "forest" => Ok(SnapshotServer::Forest),
+            "filecoin" => Ok(SnapshotServer::Filecoin),
+            _ => bail!(
+                "Failed to fetch snapshot from: {}, Must be one of `forest`|`filecoin`.",
+                provider
+            ),
+        }
+    }
 }
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
@@ -38,7 +54,7 @@ pub enum SnapshotServer {
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
-    server: SnapshotServer,
+    server: &SnapshotServer,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
     match server {

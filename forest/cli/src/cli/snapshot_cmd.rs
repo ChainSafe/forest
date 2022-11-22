@@ -58,10 +58,9 @@ pub enum SnapshotCommands {
         #[structopt(
             short,
             long,
-            default_value = "forest",
             possible_values = &["forest", "filecoin"],
         )]
-        provider: String,
+        provider: Option<SnapshotServer>,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
@@ -186,10 +185,13 @@ impl SnapshotCommands {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                let server = match provider.to_lowercase().as_str() {
-                    "forest" => SnapshotServer::Forest,
-                    "filecoin" => SnapshotServer::Filecoin,
-                    _ => cli_error_and_die(format!("Failed to fetch snapshot from: {provider} (Suggestion: use `forest`|`filecoin`)"), 1),
+                let server = match provider {
+                    Some(s) => s,
+                    None => match config.chain.name.to_lowercase().as_str() {
+                        "mainnet" => &SnapshotServer::Filecoin,
+                        "calibnet" => &SnapshotServer::Forest,
+                        _ => cli_error_and_die(format!("Fetch not supported for chain {}", config.chain.name), 1),
+                    },
                 };
                 match snapshot_fetch(&snapshot_dir, &config, server, *use_aria2).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),

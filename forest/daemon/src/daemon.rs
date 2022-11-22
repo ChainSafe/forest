@@ -407,7 +407,7 @@ async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Co
         let path = match snapshot_fetch(
             &snapshot_path,
             &config,
-            SnapshotServer::Forest,
+            &SnapshotServer::Filecoin,
             is_aria2_installed(),
         )
         .await
