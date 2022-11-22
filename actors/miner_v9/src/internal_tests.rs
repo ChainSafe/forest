@@ -3,6 +3,7 @@
 
 use super::*;
 use fil_actors_runtime_v9::EPOCHS_IN_DAY;
+use fvm_shared::smooth::FilterEstimate;
 
 #[test]
 fn test_current_proving_period_start() {
