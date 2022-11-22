@@ -1155,7 +1155,13 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
 
     let mut validations = FuturesUnordered::new();
     let blocks = full_tipset.into_blocks();
-    let blocks_len = blocks.len();
+
+    info!(
+        "Validating tipset: EPOCH = {epoch}, N blocks = {}",
+        blocks.len()
+    );
+    debug!("Tipset keys: {:?}", full_tipset_key.cids);
+
     for b in blocks {
         let validation_fn = tokio::task::spawn(validate_block::<_, C>(
             consensus.clone(),
@@ -1164,9 +1170,6 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
         ));
         validations.push(validation_fn);
     }
-
-    info!("Validating tipset: EPOCH = {epoch}, N blocks = {blocks_len}");
-    debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     while let Some(result) = validations.next().await {
         match result? {
