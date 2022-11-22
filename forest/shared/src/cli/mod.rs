@@ -162,7 +162,7 @@ pub struct DaemonOpts {
         long,
         default_value = "mainnet",
         possible_values = &["mainnet", "calibnet"],
-     )]
+    )]
     pub chain: String,
     /// Daemonize Forest process
     #[structopt(long)]
@@ -280,8 +280,8 @@ impl ConfigPath {
     }
 }
 
-fn find_config_path(opts: &Option<String>) -> Option<ConfigPath> {
-    if let Some(s) = &opts {
+fn find_config_path(config: &Option<String>) -> Option<ConfigPath> {
+    if let Some(s) = &config {
         return Some(ConfigPath::Cli(PathBuf::from(s)));
     }
     if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
