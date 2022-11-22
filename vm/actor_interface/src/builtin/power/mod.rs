@@ -137,14 +137,7 @@ impl State {
     ) -> anyhow::Result<bool> {
         match self {
             State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
-            State::V9(st) => {
-                // Ugly hack because the policy structs aren't shared. Issue 2147 will fix this.
-                let new_policy = fil_actors_runtime_v9::runtime::Policy {
-                    minimum_consensus_power: policy.minimum_consensus_power.clone(),
-                    ..Default::default()
-                };
-                st.miner_nominal_power_meets_consensus_minimum(&new_policy, &s, miner)
-            }
+            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
         }
     }
 

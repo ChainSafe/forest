@@ -2041,24 +2041,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_init"
-version = "9.0.3"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_init_v8"
 version = "8.0.0"
 dependencies = [
@@ -2248,48 +2230,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_power"
-version = "9.0.3"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "indexmap",
- "integer-encoding",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_power_state_v8"
-version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
-dependencies = [
- "anyhow",
- "cid",
- "fil_actors_runtime_common",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "indexmap",
- "integer-encoding",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_power_v8"
 version = "8.0.0"
 dependencies = [
@@ -2320,38 +2260,6 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared",
  "integer-encoding",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_reward"
-version = "9.0.3"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
-dependencies = [
- "fil_actors_runtime",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_shared",
- "lazy_static",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
-name = "fil_actor_reward_state_v8"
-version = "8.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
-dependencies = [
- "fil_actors_runtime_common",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_shared",
  "lazy_static",
  "log",
  "num-derive",
@@ -2458,74 +2366,6 @@ dependencies = [
  "num-derive",
  "num-traits",
  "serde",
-]
-
-[[package]]
-name = "fil_actors_runtime"
-version = "9.0.3"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
-dependencies = [
- "anyhow",
- "base64",
- "blake2b_simd",
- "byteorder",
- "cid",
- "fvm_ipld_amt",
- "fvm_ipld_bitfield",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "getrandom 0.2.8",
- "indexmap",
- "integer-encoding",
- "itertools 0.10.5",
- "log",
- "multihash",
- "num-derive",
- "num-traits",
- "paste",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_repr",
- "sha2 0.10.6",
- "thiserror",
- "unsigned-varint",
-]
-
-[[package]]
-name = "fil_actors_runtime_common"
-version = "9.0.0"
-source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
-dependencies = [
- "anyhow",
- "base64",
- "blake2b_simd",
- "byteorder",
- "cid",
- "fvm_ipld_amt",
- "fvm_ipld_bitfield",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.2",
- "fvm_ipld_hamt",
- "fvm_shared",
- "getrandom 0.2.8",
- "indexmap",
- "integer-encoding",
- "itertools 0.10.5",
- "log",
- "multihash",
- "num-derive",
- "num-traits",
- "paste",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_repr",
- "sha2 0.10.6",
- "thiserror",
- "unsigned-varint",
 ]
 
 [[package]]
@@ -2859,19 +2699,18 @@ dependencies = [
  "fil_actor_account_v8",
  "fil_actor_account_v9",
  "fil_actor_cron_v8",
- "fil_actor_init",
  "fil_actor_init_v8",
+ "fil_actor_init_v9",
  "fil_actor_market_v8",
  "fil_actor_market_v9",
  "fil_actor_miner_v8",
  "fil_actor_miner_v9",
  "fil_actor_multisig_v8",
- "fil_actor_power",
- "fil_actor_power_state_v8",
- "fil_actor_reward",
- "fil_actor_reward_state_v8",
+ "fil_actor_power_v8",
+ "fil_actor_power_v9",
+ "fil_actor_reward_v8",
+ "fil_actor_reward_v9",
  "fil_actor_system_v8",
- "fil_actors_runtime_common",
  "fil_actors_runtime_v9",
  "forest_encoding",
  "forest_fil_types",
@@ -3213,7 +3052,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cid",
- "fil_actors_runtime_common",
+ "fil_actors_runtime_v9",
  "forest_actor_interface",
  "forest_beacon",
  "forest_blocks",
@@ -3301,7 +3140,7 @@ dependencies = [
  "anyhow",
  "byteorder",
  "cid",
- "fil_actors_runtime_common",
+ "fil_actors_runtime_v9",
  "forest_actor_interface",
  "forest_blocks",
  "forest_crypto",
@@ -3539,7 +3378,7 @@ name = "forest_networks"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "fil_actors_runtime_common",
+ "fil_actors_runtime_v9",
  "forest_beacon",
  "forest_json",
  "fvm_shared",
@@ -3690,7 +3529,7 @@ dependencies = [
  "blake2b_simd",
  "byteorder",
  "cid",
- "fil_actors_runtime_common",
+ "fil_actors_runtime_v9",
  "filecoin-proofs-api",
  "forest_actor_interface",
  "forest_beacon",
