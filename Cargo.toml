@@ -37,30 +37,6 @@ members = [
   "utils/paramfetch",
   "utils/json",
   "utils/forest_utils",
-  "actors/runtime_v8",
-  "actors/runtime_v9",
-  "actors/account_v8",
-  "actors/account_v9",
-  "actors/init_v8",
-  "actors/init_v9",
-  "actors/cron_v8",
-  "actors/cron_v9",
-  "actors/paych_v8",
-  "actors/system_v8",
-  "actors/system_v9",
-  "actors/multisig_v8",
-  "actors/multisig_v9",
-  "actors/market_v8",
-  "actors/market_v9",
-  "actors/power_v8",
-  "actors/reward_v8",
-  "actors/paych_v9",
-  "actors/power_v9",
-  "actors/reward_v9",
-  "actors/verifreg_v8",
-  "actors/verifreg_v9",
-  "actors/miner_v8",
-  "actors/miner_v9",
 ]
 resolver = "2"
 
@@ -166,29 +142,29 @@ unsigned-varint     = "0.7.1"
 url                 = { version = "2.3", features = ["serde"] }
 which               = "4.3"
 
-fil_actor_account_v8   = { path = "./actors/account_v8" }
-fil_actor_account_v9   = { path = "./actors/account_v9" }
-fil_actor_cron_v8      = { path = "./actors/cron_v8" }
-fil_actor_cron_v9      = { path = "./actors/cron_v9" }
-fil_actor_init_v8      = { path = "./actors/init_v8" }
-fil_actor_init_v9      = { path = "./actors/init_v9" }
-fil_actor_market_v8    = { path = "./actors/market_v8" }
-fil_actor_market_v9    = { path = "./actors/market_v9" }
-fil_actor_miner_v8     = { path = "./actors/miner_v8" }
-fil_actor_miner_v9     = { path = "./actors/miner_v9" }
-fil_actor_multisig_v8  = { path = "./actors/multisig_v8" }
-fil_actor_multisig_v9  = { path = "./actors/multisig_v9" }
-fil_actor_power_v8     = { path = "./actors/power_v8" }
-fil_actor_power_v9     = { path = "./actors/power_v9" }
-fil_actor_reward_v8    = { path = "./actors/reward_v8" }
-fil_actor_reward_v9    = { path = "./actors/reward_v9" }
-fil_actor_system_v8    = { path = "./actors/system_v8" }
-fil_actor_system_v9    = { path = "./actors/system_v9" }
-fil_actor_verifreg_v8  = { path = "./actors/verifreg_v8" }
-fil_actor_verifreg_v9  = { path = "./actors/verifreg_v9" }
-fil_actors_runtime     = { path = "./actors/runtime_v9", package = "fil_actors_runtime_v9" }
-fil_actors_runtime_v8  = { path = "./actors/runtime_v8" }
-fil_actors_runtime_v9  = { path = "./actors/runtime_v9" }
+fil_actor_account_v8   = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_account_v9   = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_cron_v8      = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_cron_v9      = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v8      = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_init_v9      = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_market_v8    = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_market_v9    = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_miner_v8     = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_miner_v9     = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_multisig_v8  = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_multisig_v9  = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_power_v8     = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_power_v9     = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_reward_v8    = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_reward_v9    = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v8    = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_system_v9    = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_verifreg_v8  = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actor_verifreg_v9  = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actors_runtime     = { git = "https://github.com/ChainSafe/fil-actor-states", package = "fil_actors_runtime_v9" }
+fil_actors_runtime_v8  = { git = "https://github.com/ChainSafe/fil-actor-states" }
+fil_actors_runtime_v9  = { git = "https://github.com/ChainSafe/fil-actor-states" }
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }
 forest_beacon          = { path = "./blockchain/beacon" }
