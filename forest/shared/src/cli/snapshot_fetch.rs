@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::Config;
-use crate::cli::to_size_string;
+use crate::cli::{default_snapshot_dir, to_size_string};
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -13,6 +13,7 @@ use forest_utils::{
 };
 use hex::{FromHex, ToHex};
 use log::info;
+use regex::Regex;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
@@ -21,6 +22,7 @@ use std::{
     process::Command,
     time::Duration,
 };
+use time::{format_description::well_known::Iso8601, Date};
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufWriter},
@@ -47,6 +49,68 @@ impl FromStr for SnapshotServer {
             ),
         }
     }
+}
+
+/// Snapshot attributes
+pub struct SnapshotInfo {
+    pub network: String,
+    pub date: Date,
+    pub height: i64,
+    pub path: PathBuf,
+}
+
+/// Collection of snapshots
+pub struct SnapshotStore {
+    pub snapshots: Vec<SnapshotInfo>,
+}
+
+impl SnapshotStore {
+    pub fn get_snapshots(
+        config: &Config,
+        snapshot_dir: Option<PathBuf>,
+    ) -> anyhow::Result<SnapshotStore> {
+        let snapshot_dir = snapshot_dir
+            .clone()
+            .unwrap_or_else(|| default_snapshot_dir(config));
+        info!("Snapshot dir: {}", snapshot_dir.display());
+        let mut snapshots = Vec::new();
+        std::fs::read_dir(snapshot_dir)?.flatten()
+            .map(|entry| entry.path())
+            .filter(|p| is_car_or_tmp(&p))
+            .for_each(|path|
+                if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
+                    let pattern = Regex::new(
+                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car",
+                    ).unwrap();
+                    if let Some(captures) = pattern.captures(filename) {
+                        let network: String = captures.name("network").unwrap().as_str().into();
+                        if network == config.chain.name {
+                            let date = Date::parse(captures.name("date").unwrap().as_str(), &Iso8601::DEFAULT).unwrap();
+                            let height = captures.name("height").unwrap().as_str().parse::<i64>().unwrap();
+                            let snapshot = SnapshotInfo {
+                                network,
+                                date,
+                                height,
+                                path,
+                            };
+                            snapshots.push(snapshot);
+                        }
+                    }
+                }
+            );
+        Ok(SnapshotStore { snapshots })
+    }
+
+    pub fn display(&self) {
+        self.snapshots
+            .iter()
+            .for_each(|s| println!("{}", s.path.display()));
+    }
+}
+
+pub fn is_car_or_tmp(path: &Path) -> bool {
+    let ext = path.extension().unwrap_or_default();
+    ext == "car" || ext == "tmp" || ext == "aria2"
 }
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred

@@ -5,20 +5,14 @@ use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch, SnapshotServer};
-use forest_rpc_client::chain_ops::*;
-use regex::{Captures, Regex};
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
+use forest_cli_shared::cli::{
+    default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
+use forest_rpc_client::chain_ops::*;
+use std::{collections::HashMap, fs, path::PathBuf};
 use strfmt::strfmt;
 use structopt::StructOpt;
-use time::{
-    format_description, format_description::well_known::Iso8601, parsing::Parsable, Date,
-    OffsetDateTime, PrimitiveDateTime, Time,
-};
+use time::OffsetDateTime;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -235,17 +229,13 @@ impl SnapshotCommands {
 }
 
 fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
-    let snapshot_dir = snapshot_dir
-        .clone()
-        .unwrap_or_else(|| default_snapshot_dir(config));
-    println!("Snapshot dir: {}", snapshot_dir.display());
-    println!("\nLocal snapshots:");
-    fs::read_dir(snapshot_dir)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|p| is_car_or_tmp(p))
-        .for_each(|p| println!("{}", p.display()));
-
+    let store = SnapshotStore::get_snapshots(config, snapshot_dir.clone())?;
+    if store.snapshots.len() < 1 {
+        println!("Local snapshots not found.");
+    } else {
+        println!("Local snapshots:");
+        store.display();
+    }
     Ok(())
 }
 
@@ -270,116 +260,24 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
 }
 
 fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
-    {
-        let snapshot_dir = snapshot_dir
-            .clone()
-            .unwrap_or_else(|| default_snapshot_dir(config));
-        println!("Snapshot dir: {}", snapshot_dir.display());
-        let mut snapshots_with_valid_name = vec![];
-        let mut snapshot_to_keep = None;
-        let mut latest_datetime = PrimitiveDateTime::new(Date::MIN, Time::MIDNIGHT);
-        let mut latest_height = 0;
-        let internal_pattern = Regex::new(
-            r"^forest_snapshot_([^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car$",
-        )
-        .unwrap();
-        let pattern = Regex::new(
-            r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
-        )
-        .unwrap();
-        if let Ok(dir) = fs::read_dir(snapshot_dir) {
-            for path in dir
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|p| p.is_file())
-            {
-                if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                    if path.extension().unwrap_or_default() == "tmp" {
-                        snapshots_with_valid_name.push(path.clone());
-                        continue;
-                    }
-                    let snapshot_datetime: PrimitiveDateTime;
-                    let snapshot_height;
+    let mut store = SnapshotStore::get_snapshots(config, snapshot_dir.clone()).unwrap();
+    if store.snapshots.len() < 2 {
+        println!("No files to delete");
+        return;
+    }
+    store.snapshots.sort_by_key(|s| (s.date, s.height));
+    store.snapshots.pop().unwrap(); // Keep the latest snapshot
 
-                    if let Some(captures) = internal_pattern.captures(filename) {
-                        snapshot_datetime =
-                            get_snapshot_datetime(&captures, &Iso8601::DEFAULT, &Iso8601::DEFAULT);
-                        snapshot_height = get_snapshot_height(&captures);
-                    } else if let Some(captures) = pattern.captures(filename) {
-                        snapshot_datetime = get_snapshot_datetime(
-                            &captures,
-                            &format_description::parse("[year]_[month]_[day]").unwrap(),
-                            &format_description::parse("[hour]_[minute]_[second]").unwrap(),
-                        );
-                        snapshot_height = get_snapshot_height(&captures);
-                    } else {
-                        continue;
-                    }
-                    snapshots_with_valid_name.push(path.clone());
-                    if snapshot_datetime > latest_datetime {
-                        latest_datetime = snapshot_datetime;
-                        latest_height = snapshot_height;
-                        snapshot_to_keep = Some(path.clone());
-                    } else if snapshot_datetime == latest_datetime
-                        && snapshot_height > latest_height
-                    {
-                        latest_height = snapshot_height;
-                        snapshot_to_keep = Some(path.clone());
-                    }
-                }
-            }
-        }
+    println!("Files to delete:");
+    store.display();
 
-        if snapshots_with_valid_name.len() < 2 {
-            println!("No files to delete");
-            return;
-        }
-
-        let mut snapshots_to_delete = snapshots_with_valid_name;
-        let mut index_to_keep = 0;
-        println!("Files to delete:");
-        if let Some(snapshot_to_keep) = snapshot_to_keep {
-            for (i, path) in snapshots_to_delete.iter().enumerate() {
-                if &snapshot_to_keep != path {
-                    println!("{}", path.as_path().display());
-                } else {
-                    index_to_keep = i;
-                }
-            }
-        }
-        snapshots_to_delete.remove(index_to_keep);
-
-        if !force && !prompt_confirm() {
-            println!("Aborted.");
-            return;
-        }
-
-        for snapshot_path in snapshots_to_delete {
-            delete_snapshot(&snapshot_path);
+    if !force && !prompt_confirm() {
+        println!("Aborted.");
+    } else {
+        for snapshot_path in store.snapshots {
+            delete_snapshot(&snapshot_path.path);
         }
     }
-}
-
-fn get_snapshot_datetime(
-    captures: &Captures,
-    date_fmt: &(impl Parsable + ?Sized),
-    time_fmt: &(impl Parsable + ?Sized),
-) -> PrimitiveDateTime {
-    let snapshot_date = Date::parse(captures.name("date").unwrap().as_str(), &date_fmt).unwrap();
-    let snapshot_time = match captures.name("time") {
-        Some(t) => Time::parse(t.as_str(), &time_fmt).unwrap(),
-        None => Time::MIDNIGHT,
-    };
-    PrimitiveDateTime::new(snapshot_date, snapshot_time)
-}
-
-fn get_snapshot_height(captures: &Captures) -> i64 {
-    captures
-        .name("height")
-        .unwrap()
-        .as_str()
-        .parse::<i64>()
-        .unwrap()
 }
 
 fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow::Result<()> {
@@ -437,9 +335,4 @@ fn delete_snapshot(snapshot_path: &PathBuf) {
             }
         }
     }
-}
-
-fn is_car_or_tmp(path: &Path) -> bool {
-    let ext = path.extension().unwrap_or_default();
-    ext == "car" || ext == "tmp" || ext == "aria2"
 }
