@@ -61,10 +61,10 @@ fn test_snapshot_subcommand_list_invalid_dir() -> Result<()> {
         .arg("--snapshot-dir")
         .arg("/this/is/dummy/path")
         .assert()
-        .failure();
+        .success();
 
-    let stderr = std::str::from_utf8(&cmd.get_output().stderr)?.to_owned();
-    ensure!(stderr.contains("No such file or directory"));
+    let output = std::str::from_utf8(&cmd.get_output().stdout)?.trim_end();
+    ensure!(output.ends_with("No local snapshots"));
 
     Ok(())
 }

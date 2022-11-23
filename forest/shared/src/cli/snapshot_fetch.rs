@@ -83,7 +83,8 @@ impl SnapshotStore {
         let snapshot_dir = snapshot_dir.unwrap_or_else(|| default_snapshot_dir(config));
         info!("Snapshot dir: {}", snapshot_dir.display());
         let mut snapshots = Vec::new();
-        std::fs::read_dir(snapshot_dir)?.flatten()
+        if let Ok(dir) = std::fs::read_dir(snapshot_dir) {
+            dir.flatten()
             .map(|entry| entry.path())
             .filter(|p| is_car_or_tmp(p))
             .for_each(|path|
@@ -109,6 +110,7 @@ impl SnapshotStore {
                     }
                 }
             );
+        }
         Ok(SnapshotStore { snapshots })
     }
 

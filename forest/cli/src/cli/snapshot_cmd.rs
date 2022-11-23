@@ -231,7 +231,7 @@ impl SnapshotCommands {
 fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
     let store = SnapshotStore::get_snapshots(config, snapshot_dir.clone())?;
     if store.snapshots.is_empty() {
-        println!("Local snapshots not found.");
+        println!("No local snapshots");
     } else {
         println!("Local snapshots:");
         store.display();
