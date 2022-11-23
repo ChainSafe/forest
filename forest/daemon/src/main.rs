@@ -132,6 +132,12 @@ fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[cfg(feature = "rocksdb")]
+type Db = forest_db::rocks::RocksDb;
+
+#[cfg(feature = "paritydb")]
+type Db = forest_db::parity_db::ParityDb;
+
 fn main() {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
@@ -191,7 +197,7 @@ fn main() {
                     }
 
                     let rt = Runtime::new().unwrap();
-                    let db = rt.block_on(daemon::start(cfg, opts.detach));
+                    let db: Db = rt.block_on(daemon::start(cfg, opts.detach));
 
                     info!("Shutting down tokio...");
                     rt.shutdown_timeout(Duration::from_secs(10));

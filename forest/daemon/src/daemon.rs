@@ -11,7 +11,6 @@ use forest_cli_shared::cli::{
     cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
     Config, FOREST_VERSION_STRING,
 };
-use forest_db::rocks::RocksDb;
 use forest_db::Store;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -59,7 +58,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) -> RocksDb {
+pub(super) async fn start(config: Config, detached: bool) -> Db {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -493,6 +492,12 @@ fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
     };
     ParityDb::open(&config).expect("Opening ParityDb must succeed")
 }
+
+#[cfg(feature = "rocksdb")]
+type Db = forest_db::rocks::RocksDb;
+
+#[cfg(feature = "paritydb")]
+type Db = forest_db::parity_db::ParityDb;
 
 #[cfg(test)]
 mod test {
