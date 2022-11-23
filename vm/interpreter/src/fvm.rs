@@ -185,7 +185,6 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
         // A's sibling and B's parent.
         // Specifically, since A is of lower height, it must be that B was mined omitting A from its tipset
         if !extra.is_empty() {
-            // TODO: inspect decoding error case
             let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
             if bh_1.parents() == bh_3.parents()
                 && bh_1.epoch() == bh_3.epoch()
