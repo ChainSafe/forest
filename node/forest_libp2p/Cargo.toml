@@ -17,6 +17,7 @@ forest_chain.workspace = true
 forest_db.workspace = true
 forest_encoding.workspace = true
 forest_message.workspace = true
+forest_metrics.workspace = true
 forest_networks.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
@@ -38,6 +39,7 @@ libp2p = { workspace = true, default-features = false, features = [
   "dns",
   "mplex",
   "request-response",
+  "metrics",
   "tokio",
 ] }
 libp2p-bitswap.workspace = true
