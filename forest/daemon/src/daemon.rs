@@ -11,6 +11,7 @@ use forest_cli_shared::cli::{
     cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
     Config, FOREST_VERSION_STRING,
 };
+use forest_db::rocks::RocksDb;
 use forest_db::Store;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -58,7 +59,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) {
+pub(super) async fn start(config: Config, detached: bool) -> RocksDb {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -362,7 +363,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         _ = ctrlc_oneshot => {
             // Cancel all async services
             services.shutdown().await;
-            return;
+            return db;
         },
     }
 
@@ -370,14 +371,10 @@ pub(super) async fn start(config: Config, detached: bool) {
     if config.client.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
-        info!("Forest finish shutdown");
-        return;
+        return db;
     }
 
     services.spawn(p2p_service.run());
-
-    let db_weak_ref = Arc::downgrade(&db.db);
-    drop(db);
 
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
@@ -391,13 +388,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     keystore_write.await.expect("keystore write failed");
 
-    if db_weak_ref.strong_count() != 0 {
-        error!(
-            "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-            db_weak_ref.strong_count()
-        );
-    }
-    info!("Forest finish shutdown");
+    db
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
