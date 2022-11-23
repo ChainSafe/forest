@@ -46,7 +46,7 @@ async fn collect_metrics() -> impl IntoResponse {
         .expect("Encoding Prometheus metrics must succeed.");
 
     for (name, registry) in REGISTRIES_EXT.read().await.iter() {
-        metrics.extend_from_slice(format!("\n{name}:\n").as_bytes());
+        metrics.extend_from_slice(format!("\n# SECTION {name}\n").as_bytes());
         if let Err(e) = prometheus_client::encoding::text::encode(&mut metrics, registry) {
             warn!("{e}");
         }
