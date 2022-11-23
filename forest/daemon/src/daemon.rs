@@ -376,6 +376,9 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     services.spawn(p2p_service.run());
 
+    if let Err(e) = db.flush() {
+        error!("Error flushing db: {e}");
+    }
     let db_weak_ref = Arc::downgrade(&db.db);
     drop(db);
 

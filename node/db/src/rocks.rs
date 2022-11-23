@@ -13,11 +13,20 @@ use crate::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
+use rocksdb::WriteOptions;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
 };
 use std::{path::Path, sync::Arc};
+
+lazy_static::lazy_static! {
+    static ref WRITE_OPT_NO_WAL: WriteOptions = {
+        let mut opt = WriteOptions::default();
+        opt.disable_wal(true);
+        opt
+    };
+}
 
 /// `RocksDB` instance this satisfies the [Store] interface.
 #[derive(Clone)]
@@ -145,7 +154,7 @@ impl Blockstore for RocksDb {
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         metrics::BLOCK_SIZE_BYTES.observe(block.len() as f64);
-        self.write(k.to_bytes(), block).map_err(|e| e.into())
+        Ok(self.db.put_opt(k.to_bytes(), block, &WRITE_OPT_NO_WAL)?)
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
