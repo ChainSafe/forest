@@ -10,14 +10,14 @@ repository  = "https://github.com/ChainSafe/forest"
 [features]
 default = []
 
-rocksdb = ["dep:rocksdb", "snappy", "lz4", "zlib", "bzip2"]
-snappy  = ["rocksdb?/snappy"]
+rocksdb = ["dep:rocksdb", "lz4"]
 lz4     = ["rocksdb?/lz4"]
-zlib    = ["rocksdb?/zlib"]
-bzip2   = ["rocksdb?/bzip2"]
 # not included by default to reduce build time
 # uncomment when it needs to be used by other crates
-# zstd = ["rocksdb/zstd"]
+# snappy = ["rocksdb?/snappy"]
+# zlib   = ["rocksdb?/zlib"]
+# bzip2  = ["rocksdb?/bzip2"]
+# zstd = ["rocksdb?/zstd"]
 
 paritydb = ["dep:parity-db"]
 
