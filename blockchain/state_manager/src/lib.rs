@@ -3,6 +3,7 @@
 
 pub mod chain_rand;
 mod errors;
+mod metrics;
 mod utils;
 mod vm_circ_supply;
 
@@ -341,6 +342,8 @@ where
         R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
+        let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
+
         let db = self.blockstore().clone();
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);

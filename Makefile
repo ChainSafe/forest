@@ -49,7 +49,7 @@ clean:
 lint-all: lint audit spellcheck udeps
 
 audit:
-	cargo audit --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2022-0040
+	cargo audit
 
 udeps:
 	cargo udeps --all-targets --features submodule_tests

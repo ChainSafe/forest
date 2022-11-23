@@ -149,6 +149,7 @@ where
         let reader = FetchProgress::fetch_from_file(file).await?;
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     };
+    sm.blockstore().flush()?;
     info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
     let ts = sm
         .chain_store()
