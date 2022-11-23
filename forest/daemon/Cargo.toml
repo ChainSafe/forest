@@ -11,7 +11,6 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace                 = true
-async-log.workspace              = true
 atty.workspace                   = true
 base64.workspace                 = true
 chrono.workspace                 = true

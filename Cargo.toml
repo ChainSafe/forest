@@ -44,6 +44,9 @@ resolver = "2"
 # temporary solution to funty@1.2.0 being yanked, we should propose bitvec upgrade to upstream filecoin crates
 # tracking issue: https://github.com/bitvecto-rs/funty/issues/7
 funty = { git = "https://github.com/bitvecto-rs/funty/", rev = "7ef0d890fbcd8b3def1635ac1a877fc298488446" }
+# get rid of RUSTSEC-2020-0071, the fix is in place but not published to crates.io
+# tracking issue: https://github.com/ChainSafe/forest/issues/2251
+pbr = { git = "https://github.com/a8m/pb", rev = "09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd" }
 
 [workspace.dependencies]
 ahash                 = "0.8"
@@ -60,7 +63,7 @@ blake2b_simd          = "1.0"
 bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }
 byteorder             = "1.4.3"
 bytes                 = "1.2"
-chrono                = "0.4"
+chrono                = { version = "0.4", default-features = false, features = [] }
 cid                   = { version = "0.8", default-features = false, features = ["std"] }
 cs_serde_bytes        = "0.12.2"
 digest                = "0.10.5"
