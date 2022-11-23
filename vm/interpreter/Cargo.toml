@@ -31,7 +31,8 @@ num_cpus.workspace               = true
 prometheus.workspace             = true
 rayon.workspace                  = true
 serde_ipld_dagcbor.workspace     = true
+stdext                           = { version = "0.3", optional = true }
 
 [features]
 test_vectors        = []
-instrumented_kernel = []
+instrumented_kernel = ["dep:stdext"]

@@ -3063,6 +3063,7 @@ dependencies = [
  "prometheus",
  "rayon",
  "serde_ipld_dagcbor 0.1.2",
+ "stdext",
 ]
 
 [[package]]
@@ -7368,6 +7369,12 @@ dependencies = [
  "num-traits",
  "rand 0.8.5",
 ]
+
+[[package]]
+name = "stdext"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f3b6b32ae82412fb897ef134867d53a294f57ba5b758f06d71e865352c3e207"
 
 [[package]]
 name = "storage-proofs-core"
