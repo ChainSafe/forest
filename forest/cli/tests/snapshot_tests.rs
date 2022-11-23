@@ -27,7 +27,10 @@ fn test_snapshot_subcommand_dir() -> Result<()> {
 #[test]
 fn test_snapshot_subcommand_list() -> Result<()> {
     let tmp_dir = TempDir::new().unwrap();
-    let filenames = ["snapshot1.car", "snapshot2.car"];
+    let filenames = [
+        "forest_snapshot_calibnet_2022-11-22_height_1.car",
+        "forest_snapshot_calibnet_2022-11-22_height_2.car",
+    ];
     setup_data_dir(&tmp_dir, filenames.as_slice())?;
 
     let cmd = cli()?
