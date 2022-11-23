@@ -36,7 +36,7 @@ pub struct CliOpts {
     /// Client JWT token to use for JSON-RPC authentication
     #[structopt(short, long)]
     pub token: Option<String>,
-    /// Address used for RPC. By defaults binds on localhost on port 1234.
+    /// Address used for RPC. By default connects on localhost on port 1234.
     #[structopt(long)]
     pub rpc_address: Option<SocketAddr>,
     /// Address used for metrics collection server. By defaults binds on localhost on port 6116.
