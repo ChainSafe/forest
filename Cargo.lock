@@ -2021,6 +2021,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_cron"
+version = "9.0.3"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
+dependencies = [
+ "fil_actors_runtime",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_shared",
+ "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_cron_state_v8"
 version = "8.0.0"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
@@ -2161,6 +2176,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_multisig"
+version = "9.0.3"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "frc42_dispatch",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_ipld_hamt",
+ "fvm_shared",
+ "indexmap",
+ "integer-encoding",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_multisig_state_v8"
 version = "8.0.0"
 source = "git+https://github.com/filecoin-project/builtin-actors?branch=lemmih/upgraded-v8#63c2ff66fe5c9fcc81bb79f27c67b3a34777b4fd"
@@ -2248,6 +2283,22 @@ dependencies = [
  "fvm_shared",
  "lazy_static",
  "log",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_system"
+version = "9.0.3"
+source = "git+https://github.com/filecoin-project/builtin-actors?branch=release/v9#0c3720c05da4733c3a5ed39c124bc8027c143aa8"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_runtime",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.2.2",
+ "fvm_shared",
  "num-derive",
  "num-traits",
  "serde",
@@ -3484,6 +3535,15 @@ dependencies = [
  "colored",
  "difference",
  "directories",
+ "fil_actor_account",
+ "fil_actor_cron",
+ "fil_actor_init",
+ "fil_actor_market",
+ "fil_actor_miner",
+ "fil_actor_multisig",
+ "fil_actor_power",
+ "fil_actor_reward",
+ "fil_actor_system",
  "forest_db",
  "forest_ipld",
  "forest_json",
@@ -6439,7 +6499,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "libc",
  "nix 0.25.0",
- "rand 0.8.5",
+ "rand 0.7.3",
  "winapi",
 ]
 
