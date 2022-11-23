@@ -244,7 +244,7 @@ where
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
-        forest_metrics::add_metrics_registry("libp2p".into(), libp2p_registry);
+        forest_metrics::add_metrics_registry("libp2p".into(), libp2p_registry).await;
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {

@@ -3318,6 +3318,7 @@ dependencies = [
  "prometheus",
  "prometheus-client",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
