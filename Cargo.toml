@@ -144,7 +144,7 @@ smallvec              = "1.9"
 structopt             = "0.3"
 tempfile              = "3.3"
 thiserror             = "1.0"
-time                  = { version = "0.3" }
+time                  = "0.3"
 tokio                 = "1.21"
 tokio-stream          = "0.1"
 tokio-util            = "0.7.0"

@@ -59,6 +59,17 @@ pub struct SnapshotInfo {
     pub path: PathBuf,
 }
 
+impl SnapshotInfo {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            network: "forest".into(),
+            date: Date::MIN,
+            height: 0,
+            path,
+        }
+    }
+}
+
 /// Collection of snapshots
 pub struct SnapshotStore {
     pub snapshots: Vec<SnapshotInfo>,
@@ -78,7 +89,7 @@ impl SnapshotStore {
             .for_each(|path|
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
                     let pattern = Regex::new(
-                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car",
+                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car$",
                     ).unwrap();
                     if let Some(captures) = pattern.captures(filename) {
                         let network: String = captures.name("network").unwrap().as_str().into();
@@ -93,6 +104,8 @@ impl SnapshotStore {
                             };
                             snapshots.push(snapshot);
                         }
+                    } else if filename.contains(".tmp") {
+                        snapshots.push(SnapshotInfo::new(path));
                     }
                 }
             );
@@ -230,14 +243,12 @@ async fn snapshot_fetch_filecoin(
     let filename = filename_from_url(&snapshot_url)?;
     // Create requested directory tree to store the snapshot
     create_dir_all(snapshot_out_dir).await?;
-    let temp_file = snapshot_out_dir.join(&filename);
     let snapshot_name = get_snapshot_name(&config.chain.name, "filecoin", &filename)?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
     // Download the file
     if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, snapshot_out_dir)
-            .await?;
-        std::fs::rename(temp_file.to_str().unwrap(), snapshot_path.to_str().unwrap())?;
+        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
+            .await?
     } else {
         let total_size = snapshot_response
             .headers()
@@ -255,7 +266,6 @@ async fn snapshot_fetch_filecoin(
         )
         .await?;
     }
-
     Ok(snapshot_path)
 }
 
@@ -342,11 +352,15 @@ where
             .parent()
             .map(|p| p.to_str().unwrap_or_default())
             .unwrap_or_default(),
+        snapshot_path
+            .file_name()
+            .map(|f| f.to_str().unwrap())
+            .unwrap(),
         format!("sha-256={checksum_expected}").as_str(),
     )
 }
 
-fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<()> {
+fn download_with_aria2(url: &str, dir: &str, out: &str, checksum: &str) -> anyhow::Result<()> {
     let mut child = Command::new("aria2c")
         .args([
             "--continue=true",
@@ -355,6 +369,7 @@ fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<(
             "--max-tries=0",
             &format!("--checksum={checksum}"),
             &format!("--dir={dir}",),
+            &format!("--out={out}",),
             url,
         ])
         .spawn()?;
@@ -609,6 +624,7 @@ mod test {
         let r = download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "test",
             "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
         );
         ensure!(r.is_err());
@@ -628,6 +644,7 @@ mod test {
         download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "test",
             "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
         )?;
         shutdown_tx.send(()).unwrap();
