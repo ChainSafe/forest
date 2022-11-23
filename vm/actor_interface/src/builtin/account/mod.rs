@@ -37,6 +37,8 @@ pub fn is_v9_account_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v9
         Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw").unwrap(),
+        // mainnet v9
+        Cid::try_from("bafk2bzacebmfbtdj5vruje5auacrhhprcjdd6uclhukb7je7t2f6ozfcgqlu2").unwrap(),
     ];
     known_cids.contains(cid)
 }

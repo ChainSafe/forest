@@ -33,14 +33,13 @@ use libp2p::ping::{self};
 use libp2p::request_response::{
     RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
 };
-use libp2p::swarm::SwarmEvent;
 use libp2p::{
     core,
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
     mplex, noise,
-    swarm::ConnectionLimits,
+    swarm::{ConnectionLimits, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
@@ -782,8 +781,7 @@ async fn emit_event(sender: &flume::Sender<NetworkEvent>, event: NetworkEvent) {
 pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::TokioTcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
-    let transport = libp2p::websocket::WsConfig::new(tcp_transport()).or_transport(tcp_transport());
-    let transport = libp2p::dns::TokioDnsConfig::system(transport).unwrap();
+    let transport = libp2p::dns::TokioDnsConfig::system(tcp_transport()).unwrap();
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
             .into_authentic(&local_key)
