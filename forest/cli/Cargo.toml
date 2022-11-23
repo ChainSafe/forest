@@ -7,7 +7,6 @@ edition     = "2021"
 
 [dependencies]
 anyhow.workspace                 = true
-async-log.workspace              = true
 base64.workspace                 = true
 cid.workspace                    = true
 directories.workspace            = true
