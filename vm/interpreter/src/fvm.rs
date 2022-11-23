@@ -123,7 +123,6 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
         extra: &[u8],
     ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
         let mut total_gas: i64 = 0;
-        let mut ret: Option<ConsensusFault> = None;
 
         // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
         // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.
@@ -199,7 +198,7 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
 
         // (3) return if no consensus fault
         if fault_type.is_none() {
-            return Ok((ret, total_gas));
+            return Ok((None, total_gas));
         }
 
         // (4) expensive final checks
@@ -211,7 +210,7 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
             total_gas += gas_used;
             if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
                 total_gas += gas_used;
-                ret = Some(ConsensusFault {
+                let ret = Some(ConsensusFault {
                     target: *bh_1.miner_address(),
                     epoch: bh_2.epoch(),
                     // Unwrapping is safe here, see (3)
@@ -220,11 +219,11 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                 Ok((ret, total_gas))
             } else {
                 // invalid consensus fault: cannot verify second block header signature
-                Ok((ret, total_gas))
+                Ok((None, total_gas))
             }
         } else {
             // invalid consensus fault: cannot verify first block header signature
-            Ok((ret, total_gas))
+            Ok((None, total_gas))
         }
     }
 }
