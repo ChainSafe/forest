@@ -105,9 +105,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    #if: ${{ false }}
-    runs-on: buildjet-8vcpu-ubuntu-2204
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
