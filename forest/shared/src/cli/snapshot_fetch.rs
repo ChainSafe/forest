@@ -22,7 +22,7 @@ use std::{
     process::Command,
     time::Duration,
 };
-use time::{format_description::well_known::Iso8601, Date};
+use time::{format_description, format_description::well_known::Iso8601, Date};
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufWriter},
@@ -69,14 +69,12 @@ impl SnapshotStore {
         config: &Config,
         snapshot_dir: Option<PathBuf>,
     ) -> anyhow::Result<SnapshotStore> {
-        let snapshot_dir = snapshot_dir
-            .clone()
-            .unwrap_or_else(|| default_snapshot_dir(config));
+        let snapshot_dir = snapshot_dir.unwrap_or_else(|| default_snapshot_dir(config));
         info!("Snapshot dir: {}", snapshot_dir.display());
         let mut snapshots = Vec::new();
         std::fs::read_dir(snapshot_dir)?.flatten()
             .map(|entry| entry.path())
-            .filter(|p| is_car_or_tmp(&p))
+            .filter(|p| is_car_or_tmp(p))
             .for_each(|path|
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
                     let pattern = Regex::new(
@@ -229,15 +227,17 @@ async fn snapshot_fetch_filecoin(
     let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
 
     // Grab the snapshot file name
-    let snapshot_name = filename_from_url(&snapshot_url)?;
+    let filename = filename_from_url(&snapshot_url)?;
     // Create requested directory tree to store the snapshot
     create_dir_all(snapshot_out_dir).await?;
+    let temp_file = snapshot_out_dir.join(&filename);
+    let snapshot_name = get_snapshot_name(&config.chain.name, "filecoin", &filename)?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
-
     // Download the file
     if use_aria2 {
-        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
-            .await?
+        download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, snapshot_out_dir)
+            .await?;
+        std::fs::rename(temp_file.to_str().unwrap(), snapshot_path.to_str().unwrap())?;
     } else {
         let total_size = snapshot_response
             .headers()
@@ -385,6 +385,32 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
         Err(anyhow::anyhow!("can't extract filename from {url}"))
     } else {
         Ok(filename)
+    }
+}
+
+fn get_snapshot_name(network: &str, server: &str, filename: &str) -> anyhow::Result<String> {
+    let pattern = Regex::new(
+        r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
+    )
+    .unwrap();
+    if let Some(captures) = pattern.captures(filename) {
+        let date = Date::parse(
+            captures.name("date").unwrap().as_str(),
+            &format_description::parse("[year]_[month]_[day]").unwrap(),
+        )
+        .unwrap();
+        let height = captures
+            .name("height")
+            .unwrap()
+            .as_str()
+            .parse::<i64>()
+            .unwrap();
+        Ok(format!(
+            "{server}_snapshot_{network}_{}_height_{height}.car",
+            date.format(&format_description::parse("[year]-[month]-[day]").unwrap())?
+        ))
+    } else {
+        bail!("Cannot parse filename: {filename}");
     }
 }
 
