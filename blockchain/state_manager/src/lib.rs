@@ -53,7 +53,7 @@ use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
-    forest_utils::const_option!(NonZeroUsize::new(8192));
+    forest_utils::const_option!(NonZeroUsize::new(1024));
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
@@ -422,6 +422,9 @@ where
             // first try reading cache
             if let Some(entry) = self.cache.write().await.get(tipset.key()) {
                 trace!("hit cache for tipset {:?}", tipset.cids());
+                forest_metrics::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                    .inc();
                 return Ok(*entry.wait());
             }
 
@@ -461,6 +464,9 @@ where
             if let Err(e) = cache_entry.set(cid_pair) {
                 error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
             }
+            forest_metrics::metrics::LRU_CACHE_MISS
+                .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                .inc();
             Ok(cid_pair)
         })
     }
