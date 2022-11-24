@@ -485,8 +485,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         }
                         Err(e) => {
                             warn!(
-                                "Gossip Block from peer {:?} could not be deserialized: {}",
-                                source, e
+                                "Gossip Block from peer {source:?} could not be deserialized: {e}",
                             );
                         }
                     }
@@ -504,13 +503,11 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                         }
                         Err(e) => {
                             warn!(
-                                "Gossip Message from peer {:?} could not be deserialized: {}",
-                                source, e
-                            );
+                                "Gossip Message from peer {source:?} could not be deserialized: {e}");
                         }
                     }
                 } else {
-                    warn!("Getting gossip messages from unknown topic: {}", topic);
+                    warn!("Getting gossip messages from unknown topic: {topic}");
                 }
             }
         }
