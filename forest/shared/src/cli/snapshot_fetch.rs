@@ -74,7 +74,7 @@ impl SnapshotStore {
             .map(|entry| entry.path())
             .filter(|p| is_car_or_tmp(p))
             .for_each(|path|
-                if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
+                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
                     let pattern = Regex::new(
                         r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car(.tmp|.aria2)?$",
                     ).unwrap();
