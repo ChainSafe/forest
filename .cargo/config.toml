@@ -25,6 +25,9 @@ rustflags = ["-Ctarget-feature=+avx2,+fma", "-Zshare-generics=y", "--cfg", "toki
 # For details checkout https://jondot.medium.com/8-steps-for-troubleshooting-your-rust-build-times-2ffc965fd13e
 rustflags = ["-Zshare-generics=y", "--cfg", "tokio_unstable"]
 
+[target.aarch64-apple-darwin]
+rustflags = ["-Zshare-generics=y", "--cfg", "tokio_unstable"]
+
 [net]
 git-fetch-with-cli = true
 retry              = 5
