@@ -3,7 +3,6 @@
 
 use forest_utils::io::ProgressBar;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
@@ -18,6 +17,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+use tokio::task::JoinSet;
 
 use crate::bad_block_cache::BadBlockCache;
 use crate::consensus::{collect_errs, Consensus};
@@ -1153,7 +1153,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     let epoch = full_tipset.epoch();
     let full_tipset_key = full_tipset.key().clone();
 
-    let mut validations = FuturesUnordered::new();
+    let mut validations = JoinSet::new();
     let blocks = full_tipset.into_blocks();
 
     info!(
@@ -1163,39 +1163,43 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     for b in blocks {
-        let validation_fn = tokio::task::spawn(validate_block::<_, C>(
+        validations.spawn(validate_block::<_, C>(
             consensus.clone(),
             state_manager.clone(),
             Arc::new(b),
         ));
-        validations.push(validation_fn);
     }
 
-    while let Some(result) = validations.next().await {
-        match result? {
-            Ok(block) => {
-                chainstore.add_to_tipset_tracker(block.header()).await;
+    while let Some(result) = validations.join_next().await {
+        match result {
+            Err(e) => {
+                warn!("JoinError: {e}")
             }
-            Err((cid, why)) => {
-                warn!(
-                    "Validating block [CID = {}] in EPOCH = {} failed: {}",
-                    cid.clone(),
-                    epoch,
-                    why
-                );
-                // Only do bad block accounting if the function was called with
-                // `is_strict` = true
-                if let InvalidBlockStrategy::Strict = invalid_block_strategy {
-                    match &why {
-                        TipsetRangeSyncerError::TimeTravellingBlock(_, _)
-                        | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
-                        why => {
-                            bad_block_cache.put(cid, why.to_string()).await;
+            Ok(r) => match r {
+                Ok(block) => {
+                    chainstore.add_to_tipset_tracker(block.header()).await;
+                }
+                Err((cid, why)) => {
+                    warn!(
+                        "Validating block [CID = {}] in EPOCH = {} failed: {}",
+                        cid.clone(),
+                        epoch,
+                        why
+                    );
+                    // Only do bad block accounting if the function was called with
+                    // `is_strict` = true
+                    if let InvalidBlockStrategy::Strict = invalid_block_strategy {
+                        match &why {
+                            TipsetRangeSyncerError::TimeTravellingBlock(_, _)
+                            | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
+                            why => {
+                                bad_block_cache.put(cid, why.to_string()).await;
+                            }
                         }
                     }
+                    return Err(why);
                 }
-                return Err(why);
-            }
+            },
         }
     }
     Ok(())
