@@ -229,7 +229,11 @@ impl SnapshotCommands {
 }
 
 fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
-    let store = SnapshotStore::new(config, snapshot_dir.clone());
+    let snapshot_dir = snapshot_dir
+        .clone()
+        .unwrap_or_else(|| default_snapshot_dir(config));
+    println!("Snapshot dir: {}", snapshot_dir.display());
+    let store = SnapshotStore::new(config, &snapshot_dir);
     if store.snapshots.is_empty() {
         println!("No local snapshots");
     } else {
@@ -260,7 +264,11 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
 }
 
 fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
-    let mut store = SnapshotStore::new(config, snapshot_dir.clone());
+    let snapshot_dir = snapshot_dir
+        .clone()
+        .unwrap_or_else(|| default_snapshot_dir(config));
+    println!("Snapshot dir: {}", snapshot_dir.display());
+    let mut store = SnapshotStore::new(config, &snapshot_dir);
     if store.snapshots.len() < 2 {
         println!("No files to delete");
         return;

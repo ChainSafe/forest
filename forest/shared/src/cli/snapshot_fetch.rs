@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::Config;
-use crate::cli::{default_snapshot_dir, to_size_string};
+use crate::cli::to_size_string;
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -65,9 +65,7 @@ pub struct SnapshotStore {
 }
 
 impl SnapshotStore {
-    pub fn new(config: &Config, snapshot_dir: Option<PathBuf>) -> SnapshotStore {
-        let snapshot_dir = snapshot_dir.unwrap_or_else(|| default_snapshot_dir(config));
-        info!("Snapshot dir: {}", snapshot_dir.display());
+    pub fn new(config: &Config, snapshot_dir: &PathBuf) -> SnapshotStore {
         let mut snapshots = Vec::new();
         if let Ok(dir) = std::fs::read_dir(snapshot_dir) {
             dir.flatten()
@@ -390,12 +388,11 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
 }
 
 /// Returns a normalized snapshot name
-/// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`
-/// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`
+/// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`.
+/// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`.
 /// # Example
 /// ```
-/// use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
-///
+/// # use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
 /// let actual_name = "64050_2022_11_24T00_00_00Z.car";
 /// let normalized_name = "filecoin_snapshot_calibnet_2022-11-24_height_64050.car";
 /// assert_eq!(normalized_name, normalize_filecoin_snapshot_name("calibnet", actual_name).unwrap());
