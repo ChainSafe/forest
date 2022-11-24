@@ -389,6 +389,11 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
     }
 }
 
+/// Returns a normalized snapshot name
+/// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`
+/// Eg: `64050_2022_11_24T00_00_00Z.car`
+/// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`
+/// Eg: `filecoin_snapshot_calibnet_2022-11-24_height_64050.car`
 fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
     let pattern = Regex::new(
         r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
