@@ -218,11 +218,12 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
     println!("\nLocal snapshots:");
-    fs::read_dir(snapshot_dir)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|p| is_car_or_tmp(p))
-        .for_each(|p| println!("{}", p.display()));
+    if let Ok(dir) = fs::read_dir(snapshot_dir) {
+        dir.flatten()
+            .map(|entry| entry.path())
+            .filter(|p| is_car_or_tmp(p))
+            .for_each(|p| println!("{}", p.display()));
+    };
 
     Ok(())
 }
