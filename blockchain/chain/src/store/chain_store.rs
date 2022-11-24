@@ -322,7 +322,10 @@ where
             )));
         }
 
-        let mut hashes = checkpoint_tipsets::get_tipset_hashes(&network);
+        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(&network) else {
+            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
+            return Ok(());
+        };
 
         let mut ts = from;
         let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
