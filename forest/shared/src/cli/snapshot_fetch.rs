@@ -59,27 +59,13 @@ pub struct SnapshotInfo {
     pub path: PathBuf,
 }
 
-impl SnapshotInfo {
-    fn new(path: PathBuf) -> Self {
-        Self {
-            network: "forest".into(),
-            date: Date::MIN,
-            height: 0,
-            path,
-        }
-    }
-}
-
 /// Collection of snapshots
 pub struct SnapshotStore {
     pub snapshots: Vec<SnapshotInfo>,
 }
 
 impl SnapshotStore {
-    pub fn get_snapshots(
-        config: &Config,
-        snapshot_dir: Option<PathBuf>,
-    ) -> anyhow::Result<SnapshotStore> {
+    pub fn new(config: &Config, snapshot_dir: Option<PathBuf>) -> SnapshotStore {
         let snapshot_dir = snapshot_dir.unwrap_or_else(|| default_snapshot_dir(config));
         info!("Snapshot dir: {}", snapshot_dir.display());
         let mut snapshots = Vec::new();
@@ -90,7 +76,7 @@ impl SnapshotStore {
             .for_each(|path|
                 if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
                     let pattern = Regex::new(
-                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car$",
+                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car(.tmp|.aria2)?$",
                     ).unwrap();
                     if let Some(captures) = pattern.captures(filename) {
                         let network: String = captures.name("network").unwrap().as_str().into();
@@ -105,13 +91,11 @@ impl SnapshotStore {
                             };
                             snapshots.push(snapshot);
                         }
-                    } else if filename.contains(".tmp") {
-                        snapshots.push(SnapshotInfo::new(path));
                     }
                 }
             );
         }
-        Ok(SnapshotStore { snapshots })
+        SnapshotStore { snapshots }
     }
 
     pub fn display(&self) {
@@ -245,7 +229,7 @@ async fn snapshot_fetch_filecoin(
     let filename = filename_from_url(&snapshot_url)?;
     // Create requested directory tree to store the snapshot
     create_dir_all(snapshot_out_dir).await?;
-    let snapshot_name = get_snapshot_name(&config.chain.name, "filecoin", &filename)?;
+    let snapshot_name = normalize_filecoin_snapshot_name(&config.chain.name, &filename)?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
     // Download the file
     if use_aria2 {
@@ -405,7 +389,7 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
     }
 }
 
-fn get_snapshot_name(network: &str, server: &str, filename: &str) -> anyhow::Result<String> {
+fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
     let pattern = Regex::new(
         r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
     )
@@ -414,16 +398,10 @@ fn get_snapshot_name(network: &str, server: &str, filename: &str) -> anyhow::Res
         let date = Date::parse(
             captures.name("date").unwrap().as_str(),
             &format_description::parse("[year]_[month]_[day]").unwrap(),
-        )
-        .unwrap();
-        let height = captures
-            .name("height")
-            .unwrap()
-            .as_str()
-            .parse::<i64>()
-            .unwrap();
+        )?;
+        let height = captures.name("height").unwrap().as_str().parse::<i64>()?;
         Ok(format!(
-            "{server}_snapshot_{network}_{}_height_{height}.car",
+            "filecoin_snapshot_{network}_{}_height_{height}.car",
             date.format(&format_description::parse("[year]-[month]-[day]").unwrap())?
         ))
     } else {
@@ -528,6 +506,7 @@ mod test {
     use anyhow::{ensure, Result};
     use axum::{routing::get_service, Router};
     use http::StatusCode;
+    use quickcheck_macros::quickcheck;
     use std::{env::temp_dir, net::TcpListener};
     use tower_http::services::ServeDir;
 
@@ -577,6 +556,11 @@ mod test {
         error_cases
             .iter()
             .for_each(|case| assert!(filename_from_url(&Url::try_from(*case).unwrap()).is_err()));
+    }
+
+    #[quickcheck]
+    fn test_normalize_filecoin_snapshot_name(filename: String) {
+        assert!(normalize_filecoin_snapshot_name("calibnet", &filename).is_err())
     }
 
     #[test]
