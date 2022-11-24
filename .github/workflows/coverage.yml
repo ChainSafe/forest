@@ -8,7 +8,7 @@ on:
 jobs:
   codecov:
     name: Cover
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -26,7 +26,15 @@ jobs:
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        run: |
+          cargo llvm-cov --workspace --no-report --features slow_tests
+          cargo llvm-cov --no-report run --bin=forest-cli -- --chain calibnet snapshot fetch -s .
+          cargo llvm-cov --no-report run --bin=forest -- --chain calibnet --encrypt-keystore false --import-snapshot *.car --detach
+          cargo llvm-cov --no-report run --bin=forest-cli -- sync wait
+          cargo llvm-cov --no-report run --bin=forest-cli -- snapshot export
+          killall --signal SIGINT forest
+          sleep 5
+          cargo llvm-cov report --lcov --output-path lcov.info
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
