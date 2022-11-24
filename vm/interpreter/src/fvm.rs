@@ -195,34 +195,36 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
             }
         };
 
-        // (3) return if no consensus fault
-        if fault_type.is_none() {
-            return Ok((None, total_gas));
-        }
-
-        // (4) expensive final checks
-
-        // check blocks are properly signed by their respective miner
-        // note we do not need to check extra's: it is a parent to block b
-        // which itself is signed, so it was willingly included by the miner
-        if let Ok(gas_used) = self.verify_block_signature(&bh_1) {
-            total_gas += gas_used;
-            if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
-                total_gas += gas_used;
-                let ret = Some(ConsensusFault {
-                    target: *bh_1.miner_address(),
-                    epoch: bh_2.epoch(),
-                    // Unwrapping is safe here, see (3)
-                    fault_type: fault_type.unwrap(),
-                });
-                Ok((ret, total_gas))
-            } else {
-                // invalid consensus fault: cannot verify second block header signature
+        match fault_type {
+            None => {
+                // (3) return if no consensus fault
                 Ok((None, total_gas))
             }
-        } else {
-            // invalid consensus fault: cannot verify first block header signature
-            Ok((None, total_gas))
+            Some(fault_type) => {
+                // (4) expensive final checks
+
+                // check blocks are properly signed by their respective miner
+                // note we do not need to check extra's: it is a parent to block b
+                // which itself is signed, so it was willingly included by the miner
+                if let Ok(gas_used) = self.verify_block_signature(&bh_1) {
+                    total_gas += gas_used;
+                    if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
+                        total_gas += gas_used;
+                        let ret = Some(ConsensusFault {
+                            target: *bh_1.miner_address(),
+                            epoch: bh_2.epoch(),
+                            fault_type,
+                        });
+                        Ok((ret, total_gas))
+                    } else {
+                        // invalid consensus fault: cannot verify second block header signature
+                        Ok((None, total_gas))
+                    }
+                } else {
+                    // invalid consensus fault: cannot verify first block header signature
+                    Ok((None, total_gas))
+                }
+            }
         }
     }
 }
