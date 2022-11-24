@@ -1,8 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{store::metrics, tipset_from_keys, Error, TipsetCache};
+use crate::{tipset_from_keys, Error, TipsetCache};
 use forest_blocks::{Tipset, TipsetKeys};
+use forest_metrics::metrics;
 use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
