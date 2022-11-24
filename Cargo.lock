@@ -3270,6 +3270,7 @@ dependencies = [
  "forest_encoding",
  "forest_genesis",
  "forest_message",
+ "forest_metrics",
  "forest_networks",
  "forest_utils",
  "futures",
@@ -3360,9 +3361,12 @@ dependencies = [
  "anyhow",
  "axum",
  "fs_extra",
+ "lazy_static",
  "log",
  "prometheus",
+ "prometheus-client",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
