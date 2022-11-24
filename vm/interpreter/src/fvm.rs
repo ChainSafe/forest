@@ -116,6 +116,7 @@ impl<DB> Rand for ForestExterns<DB> {
 }
 
 impl<DB: Blockstore> Consensus for ForestExterns<DB> {
+    // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,
         h1: &[u8],
