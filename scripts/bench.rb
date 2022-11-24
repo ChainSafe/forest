@@ -92,9 +92,8 @@ end
 
 def syscall(*command)
   stdout, _stderr, status = Open3.capture3(*command)
-  return stdout.chomp if status.success?
 
-  raise "#{command}, #{status}"
+  status.success? ? stdout.chomp : (raise "#{command}, #{status}")
 end
 
 def forest_version
