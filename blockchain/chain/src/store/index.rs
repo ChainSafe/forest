@@ -77,12 +77,12 @@ pub(super) mod checkpoint_tipsets {
     pub(super) fn genesis_from_checkpoint_tipset(tsk: &TipsetKeys) -> Option<GenesisTipsetCids> {
         MAINNET_CHECKPOINTS
             .get(tipset_hash(tsk).as_str())
-            .or(CALIBNET_CHECKPOINTS.get(tipset_hash(tsk).as_str()))
+            .or_else(|| CALIBNET_CHECKPOINTS.get(tipset_hash(tsk).as_str()))
             .cloned()
     }
 
     pub fn get_tipset_hashes(network: &str) -> HashSet<String> {
-        match network.as_ref() {
+        match network {
             "mainnet" => {
                 let keys = MAINNET_CHECKPOINTS.keys().map(|s| s.to_string());
                 HashSet::from_iter(keys)

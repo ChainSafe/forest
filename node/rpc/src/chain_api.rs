@@ -365,19 +365,17 @@ where
 {
     let () = params;
 
-    let tipset_keys = data
+    let tipset = data
         .state_manager
         .chain_store()
         .heaviest_tipset()
         .await
-        .unwrap();
-    let tipset_keys = tipset_keys.key();
+        .ok_or(forest_chain::Error::NotFound("heaviest tipset".to_string()))?;
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(tipset_keys)
+        .tipset_from_keys(tipset.key())
         .await?;
-    // let network_name = data.state_manager.get_network_name(data.state_manager.chain_config().genesis_cid.unwrap_or_default()).unwrap_or("mainnet".to_string());
     data.state_manager
         .chain_store()
         .validate_tipset_checkpoints(ts, 0, data.state_manager.chain_config().name.clone())
