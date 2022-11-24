@@ -13,7 +13,7 @@ use forest_cli_shared::{
 };
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::{error, info, warn};
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
@@ -23,6 +23,7 @@ use tokio::runtime::Runtime;
 
 use std::fs::File;
 use std::process;
+use std::sync::Arc;
 use std::time::Duration;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
@@ -131,6 +132,12 @@ fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[cfg(feature = "rocksdb")]
+type Db = forest_db::rocks::RocksDb;
+
+#[cfg(feature = "paritydb")]
+type Db = forest_db::parity_db::ParityDb;
+
 fn main() {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
@@ -190,7 +197,21 @@ fn main() {
                     }
 
                     let rt = Runtime::new().unwrap();
-                    rt.block_on(daemon::start(cfg, opts.detach));
+                    let db: Db = rt.block_on(daemon::start(cfg, opts.detach));
+
+                    info!("Shutting down tokio...");
+                    rt.shutdown_timeout(Duration::from_secs(10));
+
+                    let db_weak_ref = Arc::downgrade(&db.db);
+                    drop(db);
+
+                    if db_weak_ref.strong_count() != 0 {
+                        error!(
+                            "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
+                            db_weak_ref.strong_count()
+                        );
+                    }
+                    info!("Forest finish shutdown");
                 }
             }
         }
