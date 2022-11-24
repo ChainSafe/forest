@@ -38,7 +38,6 @@ libp2p = { workspace = true, default-features = false, features = [
   "dns",
   "mplex",
   "request-response",
-  "websocket",
   "tokio",
 ] }
 libp2p-bitswap.workspace = true

@@ -19,6 +19,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
 
+mod metrics;
 mod validation;
 mod weight;
 
