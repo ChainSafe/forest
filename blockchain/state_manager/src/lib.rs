@@ -40,15 +40,20 @@ use fvm_shared::randomness::Randomness;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
-use log::{debug, info, trace, warn};
+use log::{debug, error, info, trace, warn};
+use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
+
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
+    forest_utils::const_option!(NonZeroUsize::new(1024));
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
@@ -85,7 +90,7 @@ pub struct StateManager<DB> {
     /// This is a cache which indexes tipsets to their calculated state.
     /// The calculated state is wrapped in a mutex to avoid duplicate computation
     /// of the state/receipt root.
-    cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
+    cache: RwLock<LruCache<TipsetKeys, Arc<once_cell::sync::OnceCell<CidPair>>>>,
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
@@ -112,7 +117,7 @@ where
 
         Ok(Self {
             cs,
-            cache: RwLock::new(HashMap::new()),
+            cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
             publisher: None,
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
@@ -139,7 +144,7 @@ where
 
         Ok(Self {
             cs,
-            cache: RwLock::new(HashMap::new()),
+            cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
             publisher: Some(chain_subs),
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
@@ -402,10 +407,7 @@ where
     /// Returns the pair of (parent state root, message receipt root). This will either be cached
     /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
     /// not to be computed twice.
-    pub async fn tipset_state(
-        self: &Arc<Self>,
-        tipset: &Arc<Tipset>,
-    ) -> Result<CidPair, anyhow::Error> {
+    pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
         span!("tipset_state", {
             // Get entry in cache, if it exists.
             // Arc is cloned here to avoid holding the entire cache lock until function ends.
@@ -416,22 +418,23 @@ where
             //
             // If two tasks are computing different tipset states, they will only block computation
             // when accessing/initializing the entry in cache, not during the whole tipset calc.
-            let cache_entry: Arc<_> = self
-                .cache
-                .write()
-                .await
-                .entry(tipset.key().clone())
-                .or_default()
-                // Clone Arc to drop lock of cache
-                .clone();
 
-            // Try to lock cache entry to ensure task is first to compute state.
-            // If another task has the lock, it will overwrite the state before releasing lock.
-            let mut entry_lock = cache_entry.write().await;
-            if let Some(ref entry) = *entry_lock {
-                // Entry had successfully populated state, return Cid and drop lock
+            // first try reading cache
+            if let Some(entry) = self.cache.write().await.get(tipset.key()) {
                 trace!("hit cache for tipset {:?}", tipset.cids());
-                return Ok(*entry);
+                forest_metrics::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                    .inc();
+                return Ok(*entry.wait());
+            }
+
+            // write an empty `OnceCell` when cache not hit
+            let cache_entry = Arc::new(once_cell::sync::OnceCell::new());
+            {
+                self.cache
+                    .write()
+                    .await
+                    .push(tipset.key().clone(), cache_entry.clone());
             }
 
             // Entry does not have state computed yet, this task will fill entry if successful.
@@ -458,7 +461,12 @@ where
             };
 
             // Fill entry with calculated cid pair
-            *entry_lock = Some(cid_pair);
+            if let Err(e) = cache_entry.set(cid_pair) {
+                error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
+            }
+            forest_metrics::metrics::LRU_CACHE_MISS
+                .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                .inc();
             Ok(cid_pair)
         })
     }
