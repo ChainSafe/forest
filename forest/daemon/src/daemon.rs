@@ -58,7 +58,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) {
+pub(super) async fn start(config: Config, detached: bool) -> Db {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -362,7 +362,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         _ = ctrlc_oneshot => {
             // Cancel all async services
             services.shutdown().await;
-            return;
+            return db;
         },
     }
 
@@ -370,14 +370,10 @@ pub(super) async fn start(config: Config, detached: bool) {
     if config.client.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
-        info!("Forest finish shutdown");
-        return;
+        return db;
     }
 
     services.spawn(p2p_service.run());
-
-    let db_weak_ref = Arc::downgrade(&db.db);
-    drop(db);
 
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
@@ -391,13 +387,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     keystore_write.await.expect("keystore write failed");
 
-    if db_weak_ref.strong_count() != 0 {
-        error!(
-            "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-            db_weak_ref.strong_count()
-        );
-    }
-    info!("Forest finish shutdown");
+    db
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
@@ -502,6 +492,12 @@ fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
     };
     ParityDb::open(&config).expect("Opening ParityDb must succeed")
 }
+
+#[cfg(feature = "rocksdb")]
+type Db = forest_db::rocks::RocksDb;
+
+#[cfg(feature = "paritydb")]
+type Db = forest_db::parity_db::ParityDb;
 
 #[cfg(test)]
 mod test {
