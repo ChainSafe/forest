@@ -86,10 +86,6 @@ class Numeric
   end
 end
 
-def tmp_dir
-  BENCH_PATHS[:tmpdir]
-end
-
 def syscall(*command)
   stdout, _stderr, status = Open3.capture3(*command)
 
@@ -104,7 +100,7 @@ def default_config
   toml_str = syscall('./target/release/forest-cli', 'config', 'dump')
 
   default = TomlRB.parse(toml_str)
-  default['client']['data_dir'] = tmp_dir
+  default['client']['data_dir'] = BENCH_PATHS[:tmpdir]
   default
 end
 
@@ -179,7 +175,7 @@ def exec_command(command, dry_run)
 end
 
 def config_path(bench)
-  "#{tmp_dir}/#{bench[:name]}.toml"
+  "#{BENCH_PATHS[:tmpdir]}/#{bench[:name]}.toml"
 end
 
 def build_config_file(bench)
