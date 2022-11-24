@@ -19,6 +19,8 @@ HEIGHTS_TO_VALIDATE = 400
 MINUTE = 60
 HOUR = MINUTE * MINUTE
 
+TEMP_DIR = Dir.mktmpdir('forest-benchs-')
+
 BENCHMARK_SUITE = [
   {
     name: 'baseline',
@@ -77,8 +79,6 @@ BENCHMARK_SUITE = [
   }
 ].freeze
 
-BENCH_PATHS = { tmpdir: Dir.mktmpdir('forest-benchs-') }.freeze
-
 # Provides human readable formatting to Numeric class
 class Numeric
   def to_bibyte
@@ -100,7 +100,7 @@ def default_config
   toml_str = syscall('./target/release/forest-cli', 'config', 'dump')
 
   default = TomlRB.parse(toml_str)
-  default['client']['data_dir'] = BENCH_PATHS[:tmpdir]
+  default['client']['data_dir'] = TEMP_DIR
   default
 end
 
@@ -175,7 +175,7 @@ def exec_command(command, dry_run)
 end
 
 def config_path(bench)
-  "#{BENCH_PATHS[:tmpdir]}/#{bench[:name]}.toml"
+  "#{TEMP_DIR}/#{bench[:name]}.toml"
 end
 
 def build_config_file(bench)
