@@ -305,7 +305,6 @@ where
     pub async fn validate_tipset_checkpoints(
         &self,
         from: Arc<Tipset>,
-        to: ChainEpoch,
         network: String,
     ) -> Result<(), Error> {
         info!(
@@ -313,14 +312,6 @@ where
             network,
             from.epoch()
         );
-
-        if to > from.epoch() {
-            return Err(Error::Other(format!(
-                "Received tipset with height ({}) greater than start ({}) point",
-                to,
-                from.epoch()
-            )));
-        }
 
         let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(&network) else {
             info!("No checkpoint tipsets found for network: {network}, skipping validation.");
@@ -336,7 +327,7 @@ where
             let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
             hashes.remove(&tipset_hash);
 
-            if to == pts.epoch() {
+            if pts.epoch() == 0 {
                 break;
             }
 
@@ -344,13 +335,20 @@ where
         }
 
         if !hashes.is_empty() {
-            Err(Error::Other(format!(
+            return Err(Error::Other(format!(
                 "Found tipset hash(es) on {network} that are no longer valid: {:?}",
                 hashes
-            )))
-        } else {
-            Ok(())
+            )));
         }
+
+        if !checkpoint_tipsets::validate_genesis_cid(ts.key(), &network) {
+            return Err(Error::Other(format!(
+                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
+                ts.key().cid()
+            )));
+        }
+
+        Ok(())
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind

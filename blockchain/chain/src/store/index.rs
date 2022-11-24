@@ -21,7 +21,7 @@ const SKIP_LENGTH: ChainEpoch = 20;
 // This module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
 pub(super) mod checkpoint_tipsets {
     use cid::Cid;
-    use forest_blocks::{Tipset, TipsetKeys};
+    use forest_blocks::TipsetKeys;
     use once_cell::sync::Lazy;
     use std::collections::{HashMap, HashSet};
     use std::str::FromStr;
@@ -91,11 +91,23 @@ pub(super) mod checkpoint_tipsets {
                 let keys = CALIBNET_CHECKPOINTS.keys().map(|s| s.to_string());
                 Some(HashSet::from_iter(keys))
             }
-            _ => None,
+            _ => None, // skip and pass through if an unsupported network found
         }
     }
 
-    pub fn validate_genesis_cid(ts: Arc<Tipset>) -> Result<(), Error> {}
+    pub fn validate_genesis_cid(ts: &TipsetKeys, network: &str) -> bool {
+        match network {
+            "mainnet" => {
+                let mut values = MAINNET_CHECKPOINTS.values();
+                values.all(|gen_cid| gen_cid == ts)
+            }
+            "calibnet" => {
+                let mut values = CALIBNET_CHECKPOINTS.values();
+                values.all(|gen_cid| gen_cid == ts)
+            }
+            _ => true, // skip and pass through if an unsupported network found
+        }
+    }
 
     pub fn tipset_hash(tsk: &TipsetKeys) -> String {
         let ts_bytes: Vec<_> = tsk.cids().iter().flat_map(|s| s.to_bytes()).collect();

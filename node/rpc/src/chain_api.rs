@@ -378,7 +378,7 @@ where
         .await?;
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, 0, data.state_manager.chain_config().name.clone())
+        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
         .await?;
     Ok("Ok".to_string())
 }
