@@ -4,8 +4,18 @@
 pub mod db;
 
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
+use log::warn;
 use prometheus::{Encoder, TextEncoder};
-use std::net::TcpListener;
+use std::{collections::HashMap, net::TcpListener};
+use tokio::sync::RwLock;
+
+lazy_static::lazy_static! {
+    static ref REGISTRIES_EXT: RwLock<HashMap<String,prometheus_client::registry::Registry>> = RwLock::new(HashMap::new());
+}
+
+pub async fn add_metrics_registry(name: String, registry: prometheus_client::registry::Registry) {
+    REGISTRIES_EXT.write().await.insert(name, registry);
+}
 
 pub async fn init_prometheus(
     prometheus_listener: TcpListener,
@@ -26,14 +36,20 @@ pub async fn init_prometheus(
 }
 
 async fn collect_metrics() -> impl IntoResponse {
-    let registry = prometheus::default_registry();
-    let metric_families = registry.gather();
+    let default_registry = prometheus::default_registry();
+    let metric_families = default_registry.gather();
     let mut metrics = vec![];
 
     let encoder = TextEncoder::new();
     encoder
         .encode(&metric_families, &mut metrics)
         .expect("Encoding Prometheus metrics must succeed.");
+
+    for (_name, registry) in REGISTRIES_EXT.read().await.iter() {
+        if let Err(e) = prometheus_client::encoding::text::encode(&mut metrics, registry) {
+            warn!("{e}");
+        }
+    }
 
     (
         StatusCode::OK,
