@@ -3,7 +3,6 @@
 
 use forest_utils::io::ProgressBar;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
@@ -1153,7 +1152,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     let epoch = full_tipset.epoch();
     let full_tipset_key = full_tipset.key().clone();
 
-    let mut validations = FuturesUnordered::new();
+    let mut validations = tokio::task::JoinSet::new();
     let blocks = full_tipset.into_blocks();
 
     info!(
@@ -1163,16 +1162,16 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     for b in blocks {
-        let validation_fn = tokio::task::spawn(validate_block::<_, C>(
-            consensus.clone(),
-            state_manager.clone(),
-            Arc::new(b),
-        ));
-        validations.push(validation_fn);
+        let consensus = consensus.clone();
+        let state_manager = state_manager.clone();
+        let validation_fn = tokio::task::spawn_blocking(|| {
+            validate_block::<_, C>(consensus, state_manager, Arc::new(b))
+        });
+        validations.spawn(validation_fn);
     }
 
-    while let Some(result) = validations.next().await {
-        match result? {
+    while let Some(result) = validations.join_next().await {
+        match result??.await {
             Ok(block) => {
                 chainstore.add_to_tipset_tracker(block.header()).await;
             }
