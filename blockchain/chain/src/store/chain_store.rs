@@ -327,11 +327,11 @@ where
             let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
             hashes.remove(&tipset_hash);
 
-            if pts.epoch() == 0 {
+            ts = pts;
+
+            if ts.epoch() == 0 {
                 break;
             }
-
-            ts = pts;
         }
 
         if !hashes.is_empty() {
