@@ -336,12 +336,12 @@ where
         url.as_str(),
         snapshot_path
             .parent()
-            .map(|p| p.to_str().unwrap_or_default())
+            .and_then(|p| p.to_str())
             .unwrap_or_default(),
         snapshot_path
             .file_name()
-            .map(|f| f.to_str().unwrap())
-            .unwrap(),
+            .and_then(|f| f.to_str())
+            .unwrap_or_default(),
         format!("sha-256={checksum_expected}").as_str(),
     )
 }
@@ -391,10 +391,16 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
 
 /// Returns a normalized snapshot name
 /// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`
-/// Eg: `64050_2022_11_24T00_00_00Z.car`
 /// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`
-/// Eg: `filecoin_snapshot_calibnet_2022-11-24_height_64050.car`
-fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
+/// # Example
+/// ```
+/// use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
+///
+/// let actual_name = "64050_2022_11_24T00_00_00Z.car";
+/// let normalized_name = "filecoin_snapshot_calibnet_2022-11-24_height_64050.car";
+/// assert_eq!(normalized_name, normalize_filecoin_snapshot_name("calibnet", actual_name).unwrap());
+/// ```
+pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
     let pattern = Regex::new(
         r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
     )
@@ -565,7 +571,7 @@ mod test {
 
     #[quickcheck]
     fn test_normalize_filecoin_snapshot_name(filename: String) {
-        assert!(normalize_filecoin_snapshot_name("calibnet", &filename).is_err())
+        _ = normalize_filecoin_snapshot_name("calibnet", &filename);
     }
 
     #[test]
