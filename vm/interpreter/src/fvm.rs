@@ -116,6 +116,7 @@ impl<DB> Rand for ForestExterns<DB> {
 }
 
 impl<DB: Blockstore> Consensus for ForestExterns<DB> {
+    // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,
         h1: &[u8],
@@ -164,27 +165,20 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
             );
         };
 
+        let mut fault_type: Option<ConsensusFaultType> = None;
+
         // (2) check for the consensus faults themselves
-        let mut cf: Option<ConsensusFault> = None;
 
         // (a) double-fork mining fault
         if bh_1.epoch() == bh_2.epoch() {
-            cf = Some(ConsensusFault {
-                target: *bh_1.miner_address(),
-                epoch: bh_2.epoch(),
-                fault_type: ConsensusFaultType::DoubleForkMining,
-            })
+            fault_type = Some(ConsensusFaultType::DoubleForkMining);
         };
 
         // (b) time-offset mining fault
         // strictly speaking no need to compare heights based on double fork mining check above,
         // but at same height this would be a different fault.
         if bh_1.parents() == bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
-            cf = Some(ConsensusFault {
-                target: *bh_1.miner_address(),
-                epoch: bh_2.epoch(),
-                fault_type: ConsensusFaultType::TimeOffsetMining,
-            })
+            fault_type = Some(ConsensusFaultType::TimeOffsetMining);
         };
 
         // (c) parent-grinding fault
@@ -198,28 +192,41 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                 && bh_2.parents().cids().contains(bh_3.cid())
                 && !bh_2.parents().cids().contains(bh_1.cid())
             {
-                cf = Some(ConsensusFault {
-                    target: *bh_1.miner_address(),
-                    epoch: bh_2.epoch(),
-                    fault_type: ConsensusFaultType::ParentGrinding,
-                })
+                fault_type = Some(ConsensusFaultType::ParentGrinding);
             }
         };
 
-        // (3) return if no consensus fault
-        if cf.is_none() {
-            return Ok((cf, total_gas));
+        match fault_type {
+            None => {
+                // (3) return if no consensus fault
+                Ok((None, total_gas))
+            }
+            Some(fault_type) => {
+                // (4) expensive final checks
+
+                // check blocks are properly signed by their respective miner
+                // note we do not need to check extra's: it is a parent to block b
+                // which itself is signed, so it was willingly included by the miner
+                if let Ok(gas_used) = self.verify_block_signature(&bh_1) {
+                    total_gas += gas_used;
+                    if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
+                        total_gas += gas_used;
+                        let ret = Some(ConsensusFault {
+                            target: *bh_1.miner_address(),
+                            epoch: bh_2.epoch(),
+                            fault_type,
+                        });
+                        Ok((ret, total_gas))
+                    } else {
+                        // invalid consensus fault: cannot verify second block header signature
+                        Ok((None, total_gas))
+                    }
+                } else {
+                    // invalid consensus fault: cannot verify first block header signature
+                    Ok((None, total_gas))
+                }
+            }
         }
-
-        // (4) expensive final checks
-
-        // check blocks are properly signed by their respective miner
-        // note we do not need to check extra's: it is a parent to block b
-        // which itself is signed, so it was willingly included by the miner
-        total_gas += self.verify_block_signature(&bh_1)?;
-        total_gas += self.verify_block_signature(&bh_2)?;
-
-        Ok((cf, total_gas))
     }
 }
 
