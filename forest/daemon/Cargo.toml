@@ -15,6 +15,7 @@ atty.workspace                   = true
 base64.workspace                 = true
 chrono.workspace                 = true
 cid.workspace                    = true
+console-subscriber               = { version = "0.1", features = ["parking_lot"] }
 ctrlc                            = "3.2"
 daemonize-me                     = "2.0"
 dialoguer                        = "0.10.2"
