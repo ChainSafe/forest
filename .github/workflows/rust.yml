@@ -26,6 +26,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
           release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
@@ -56,6 +58,8 @@ jobs:
         continue-on-error: true
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
           release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
@@ -81,6 +85,8 @@ jobs:
           protoc --version
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
           # hard code release-name for macos, it always get rate limited when calling github api
           release-name: v0.3.1
@@ -115,6 +121,8 @@ jobs:
         run: sudo make install-deps
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
           release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
