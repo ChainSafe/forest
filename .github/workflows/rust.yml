@@ -15,6 +15,7 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 1
   CACHE_TIMEOUT_MINUTES: 5
+  SNAPSHOT_DIRECTORY: /tmp/snapshots
 
 jobs:
   test:
@@ -135,17 +136,21 @@ jobs:
       - name: fetch params
         run: forest-cli fetch-params --keys
       - name: download snapshot
-        run: forest-cli --chain calibnet snapshot fetch --aria2 -s /tmp/snapshots/
+        run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
       - name: import snapshot and run Forest
         run: |
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
           forest-cli --chain calibnet db stats
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
       - name: wait for sync and check health
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
-      - name: kill Forest process, print forest logs
+      - name: export snapshot
+        run: |
+          forest-cli snapshot export
+          sha256sum -c *.sha256sum
+      - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
           pkill forest
