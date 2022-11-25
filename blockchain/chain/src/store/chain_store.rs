@@ -529,61 +529,6 @@ where
         Ok(digest)
     }
 
-    /// Walks over tipset and state data and loads all blocks not yet seen.
-    /// This is tracked based on the callback function loading blocks.
-    async fn walk_snapshot<F, T>(
-        tipset: &Tipset,
-        recent_roots: ChainEpoch,
-        skip_old_msgs: bool,
-        mut load_block: F,
-    ) -> Result<(), Error>
-    where
-        F: FnMut(Cid) -> T + Send,
-        T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
-    {
-        let mut seen = HashSet::<Cid>::new();
-        let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
-        let mut current_min_height = tipset.epoch();
-        let incl_roots_epoch = tipset.epoch() - recent_roots;
-
-        while let Some(next) = blocks_to_walk.pop_front() {
-            if !seen.insert(next) {
-                continue;
-            }
-
-            let data = load_block(next).await?;
-
-            let h = BlockHeader::unmarshal_cbor(&data)?;
-
-            if current_min_height > h.epoch() {
-                current_min_height = h.epoch();
-                if current_min_height % EPOCHS_IN_DAY == 0 {
-                    info!(target: "chain_api", "export at: {}", current_min_height);
-                }
-            }
-
-            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
-            }
-
-            if h.epoch() > 0 {
-                for p in h.parents().cids() {
-                    blocks_to_walk.push_back(*p);
-                }
-            } else {
-                for p in h.parents().cids() {
-                    load_block(*p).await?;
-                }
-            }
-
-            if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.state_root(), &mut load_block).await?;
-            }
-        }
-
-        Ok(())
-    }
-
     // XXX: 'sub_head_changes' disabled since it is unsed.
     // /// Subscribes to head changes. This function will send the current tipset through a channel,
     // /// start a task that listens to each head change event and forwards into the channel,
@@ -667,6 +612,61 @@ where
     //         None
     //     }
     // }
+
+    /// Walks over tipset and state data and loads all blocks not yet seen.
+    /// This is tracked based on the callback function loading blocks.
+    async fn walk_snapshot<F, T>(
+        tipset: &Tipset,
+        recent_roots: ChainEpoch,
+        skip_old_msgs: bool,
+        mut load_block: F,
+    ) -> Result<(), Error>
+    where
+        F: FnMut(Cid) -> T + Send,
+        T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
+    {
+        let mut seen = HashSet::<Cid>::new();
+        let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
+        let mut current_min_height = tipset.epoch();
+        let incl_roots_epoch = tipset.epoch() - recent_roots;
+
+        while let Some(next) = blocks_to_walk.pop_front() {
+            if !seen.insert(next) {
+                continue;
+            }
+
+            let data = load_block(next).await?;
+
+            let h = BlockHeader::unmarshal_cbor(&data)?;
+
+            if current_min_height > h.epoch() {
+                current_min_height = h.epoch();
+                if current_min_height % EPOCHS_IN_DAY == 0 {
+                    info!(target: "chain_api", "export at: {}", current_min_height);
+                }
+            }
+
+            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
+            }
+
+            if h.epoch() > 0 {
+                for p in h.parents().cids() {
+                    blocks_to_walk.push_back(*p);
+                }
+            } else {
+                for p in h.parents().cids() {
+                    load_block(*p).await?;
+                }
+            }
+
+            if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.state_root(), &mut load_block).await?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
