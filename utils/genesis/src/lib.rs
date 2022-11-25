@@ -32,7 +32,7 @@ pub async fn read_genesis_header<DB>(
     cs: &ChainStore<DB>,
 ) -> Result<Tipset, anyhow::Error>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore + Store + Send + Sync,
 {
     let genesis = match genesis_fp {
         Some(path) => {
@@ -89,7 +89,7 @@ async fn process_car<R, BS>(
 ) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Store,
+    BS: Blockstore + Store + Send + Sync,
 {
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader.compat()).await?;

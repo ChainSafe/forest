@@ -197,7 +197,9 @@ fn main() {
                     }
 
                     let rt = Runtime::new().unwrap();
-                    console_subscriber::init();
+                    if opts.tokio_console {
+                        console_subscriber::init();
+                    }
 
                     let db: Db = rt.block_on(daemon::start(cfg, opts.detach));
 
