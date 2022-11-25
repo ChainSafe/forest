@@ -5,9 +5,12 @@ authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow.workspace    = true
-axum.workspace      = true
-fs_extra            = "1.2"
-log.workspace       = true
-prometheus          = { workspace = true, features = ["process"] }
-thiserror.workspace = true
+anyhow.workspace            = true
+axum.workspace              = true
+fs_extra.workspace          = true
+lazy_static.workspace       = true
+log.workspace               = true
+prometheus                  = { workspace = true, features = ["process"] }
+prometheus-client.workspace = true
+thiserror.workspace         = true
+tokio.workspace             = true

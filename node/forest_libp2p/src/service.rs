@@ -26,7 +26,7 @@ use libipld::store::StoreParams;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
-use libp2p::identify;
+use libp2p::metrics::{Metrics, Recorder};
 use libp2p::multiaddr::Protocol;
 use libp2p::multihash::Multihash;
 use libp2p::ping::{self};
@@ -242,6 +242,9 @@ where
         let mut outgoing_bitswap_query_ids = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
+        let mut libp2p_registry = Default::default();
+        let metrics = Metrics::new(&mut libp2p_registry);
+        forest_metrics::add_metrics_registry("libp2p".into(), libp2p_registry).await;
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -249,6 +252,7 @@ where
                     Some(SwarmEvent::Behaviour(event)) => {
                         handle_forest_behaviour_event(
                             swarm_stream.get_mut(),
+                            &metrics,
                             event,
                             &self.cs,
                             &self.genesis_cid,
@@ -414,6 +418,7 @@ async fn handle_network_message<P: StoreParams>(
 #[allow(clippy::too_many_arguments)]
 async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     swarm: &mut Swarm<ForestBehaviour<P>>,
+    metrics: &Metrics,
     event: ForestBehaviourEvent<P>,
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
@@ -455,57 +460,57 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
             }
         },
-        ForestBehaviourEvent::Gossipsub(GossipsubEvent::Message {
-            propagation_source: source,
-            message,
-            message_id: _,
-        }) => {
-            let topic = message.topic.as_str();
-            let message = message.data;
-            trace!("Got a Gossip Message from {:?}", source);
-            if topic == pubsub_block_str {
-                match from_slice::<GossipBlock>(&message) {
-                    Ok(b) => {
-                        emit_event(
-                            network_sender_out,
-                            NetworkEvent::PubsubMessage {
-                                source,
-                                message: PubsubMessage::Block(b),
-                            },
-                        )
-                        .await;
+        ForestBehaviourEvent::Gossipsub(e) => {
+            metrics.record(&e);
+            if let GossipsubEvent::Message {
+                propagation_source: source,
+                message,
+                message_id: _,
+            } = e
+            {
+                let topic = message.topic.as_str();
+                let message = message.data;
+                trace!("Got a Gossip Message from {:?}", source);
+                if topic == pubsub_block_str {
+                    match from_slice::<GossipBlock>(&message) {
+                        Ok(b) => {
+                            emit_event(
+                                network_sender_out,
+                                NetworkEvent::PubsubMessage {
+                                    source,
+                                    message: PubsubMessage::Block(b),
+                                },
+                            )
+                            .await;
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Gossip Block from peer {source:?} could not be deserialized: {e}",
+                            );
+                        }
                     }
-                    Err(e) => {
-                        warn!(
-                            "Gossip Block from peer {:?} could not be deserialized: {}",
-                            source, e
-                        );
+                } else if topic == pubsub_msg_str {
+                    match from_slice::<SignedMessage>(&message) {
+                        Ok(m) => {
+                            emit_event(
+                                network_sender_out,
+                                NetworkEvent::PubsubMessage {
+                                    source,
+                                    message: PubsubMessage::Message(m),
+                                },
+                            )
+                            .await;
+                        }
+                        Err(e) => {
+                            warn!(
+                                "Gossip Message from peer {source:?} could not be deserialized: {e}");
+                        }
                     }
+                } else {
+                    warn!("Getting gossip messages from unknown topic: {topic}");
                 }
-            } else if topic == pubsub_msg_str {
-                match from_slice::<SignedMessage>(&message) {
-                    Ok(m) => {
-                        emit_event(
-                            network_sender_out,
-                            NetworkEvent::PubsubMessage {
-                                source,
-                                message: PubsubMessage::Message(m),
-                            },
-                        )
-                        .await;
-                    }
-                    Err(e) => {
-                        warn!(
-                            "Gossip Message from peer {:?} could not be deserialized: {}",
-                            source, e
-                        );
-                    }
-                }
-            } else {
-                warn!("Getting gossip messages from unknown topic: {}", topic);
             }
         }
-        ForestBehaviourEvent::Gossipsub(_) => {}
         ForestBehaviourEvent::Hello(rr_event) => match rr_event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request {
@@ -646,47 +651,38 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 },
             }
         }
-        ForestBehaviourEvent::Ping(ping_event) => match ping_event.result {
-            Ok(ping::Success::Ping { rtt }) => {
-                trace!(
-                    "PingSuccess::Ping rtt to {} is {} ms",
-                    ping_event.peer.to_base58(),
-                    rtt.as_millis()
-                );
-            }
-            Ok(ping::Success::Pong) => {
-                trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
-            }
-            Err(ping::Failure::Other { error }) => {
-                warn!(
-                    "PingFailure::Other {}: {}",
-                    ping_event.peer.to_base58(),
-                    error
-                );
-            }
-            Err(err) => {
-                let err = err.to_string();
-                let peer = ping_event.peer.to_base58();
-                warn!("{err}: {peer}",);
-                if err.contains("protocol not supported") {
-                    warn!("Banning peer {peer} due to protocol error");
-                    swarm.ban_peer_id(ping_event.peer);
+        ForestBehaviourEvent::Ping(ping_event) => {
+            metrics.record(&ping_event);
+            match ping_event.result {
+                Ok(ping::Success::Ping { rtt }) => {
+                    trace!(
+                        "PingSuccess::Ping rtt to {} is {} ms",
+                        ping_event.peer.to_base58(),
+                        rtt.as_millis()
+                    );
+                }
+                Ok(ping::Success::Pong) => {
+                    trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
+                }
+                Err(ping::Failure::Other { error }) => {
+                    warn!(
+                        "PingFailure::Other {}: {}",
+                        ping_event.peer.to_base58(),
+                        error
+                    );
+                }
+                Err(err) => {
+                    let err = err.to_string();
+                    let peer = ping_event.peer.to_base58();
+                    warn!("{err}: {peer}",);
+                    if err.contains("protocol not supported") {
+                        warn!("Banning peer {peer} due to protocol error");
+                        swarm.ban_peer_id(ping_event.peer);
+                    }
                 }
             }
-        },
-        ForestBehaviourEvent::Identify(id_event) => match id_event {
-            identify::Event::Received { peer_id, info } => {
-                trace!("Identified Peer {}", peer_id);
-                trace!("protocol_version {}", info.protocol_version);
-                trace!("agent_version {}", info.agent_version);
-                trace!("listening_ addresses {:?}", info.listen_addrs);
-                trace!("observed_address {}", info.observed_addr);
-                trace!("protocols {:?}", info.protocols);
-            }
-            identify::Event::Sent { .. } => (),
-            identify::Event::Pushed { .. } => (),
-            identify::Event::Error { .. } => (),
-        },
+        }
+        ForestBehaviourEvent::Identify(id_event) => metrics.record(&id_event),
         ForestBehaviourEvent::ChainExchange(ce_event) => match ce_event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request {

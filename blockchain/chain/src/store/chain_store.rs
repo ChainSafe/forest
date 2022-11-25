@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::index::checkpoint_tipsets;
-use super::metrics;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::Scale;
 use async_stream::stream;
@@ -19,6 +18,7 @@ use forest_ipld::recurse_links;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, SignedMessage};
+use forest_metrics::metrics;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
