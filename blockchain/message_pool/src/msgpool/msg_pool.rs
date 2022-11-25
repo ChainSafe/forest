@@ -89,7 +89,7 @@ impl MsgSet {
 
     /// Removes message with the given sequence. If applied, update the set's next sequence.
     pub fn rm(&mut self, sequence: u64, applied: bool) {
-        if let None = self.msgs.remove(&sequence) {
+        if self.msgs.remove(&sequence).is_none() {
             if applied && sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
                 while self.msgs.get(&self.next_sequence).is_some() {
