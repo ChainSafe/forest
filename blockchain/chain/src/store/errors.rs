@@ -70,3 +70,9 @@ impl From<anyhow::Error> for Error {
         Error::Other(e.to_string())
     }
 }
+
+impl<T> From<flume::SendError<T>> for Error {
+    fn from(e: flume::SendError<T>) -> Self {
+        Error::Other(e.to_string())
+    }
+}

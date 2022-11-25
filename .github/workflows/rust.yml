@@ -146,18 +146,19 @@ jobs:
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
-      - name: kill Forest process, print forest logs
+      - name: export snapshot and sync forest with exported snapshot
+        run: |
+          rm $SNAPSHOT_DIRECTORY/*
+          forest-cli snapshot export -o $SNAPSHOT_DIRECTORY
+          pkill forest
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
+      - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
           pkill forest
           echo "--- Forest STDOUT ---"; cat forest.out
           echo "--- Forest STDERR ---"; cat forest.err
           echo "--- Forest Prometheus metrics ---"; cat metrics.log
-      - name: export snapshot and sync forest with exported snapshot
-        run: |
-          rm $SNAPSHOT_DIRECTORY/*
-          forest-cli snapshot export -o $SNAPSHOT_DIRECTORY
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
 
   dependencies-duplicate-check:
     name: Check cargo files for duplicates
