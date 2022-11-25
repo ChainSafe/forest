@@ -67,8 +67,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk), skip_checksum) = params;
-    let skip_old_msgs = !include_olds_msgs;
+    let (epoch, recent_roots, out, TipsetKeysJson(tsk), skip_checksum) = params;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
     if recent_roots < chain_finality {
@@ -88,7 +87,7 @@ where
 
     match data
         .chain_store
-        .export(&start_ts, recent_roots, skip_old_msgs, writer)
+        .export(&start_ts, recent_roots, writer)
         .await
     {
         Ok(checksum) => {
