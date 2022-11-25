@@ -59,7 +59,8 @@ impl RocksDb {
             db_opts.set_compaction_style(compaction_style);
             db_opts.set_disable_auto_compactions(false);
         } else {
-            db_opts.set_disable_auto_compactions(true);
+            db_opts.set_disable_auto_compactions(false);
+            db_opts.set_target_file_size_base(config.write_buffer_size as u64);
         }
         db_opts.set_compression_type(compression_type_from_str(&config.compression_type).unwrap());
         if config.enable_statistics {
@@ -153,6 +154,7 @@ impl Blockstore for RocksDb {
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        metrics::BLOCK_SIZE_BYTES.observe(block.len() as f64);
         self.write(k.to_bytes(), block).map_err(Into::into)
     }
 
