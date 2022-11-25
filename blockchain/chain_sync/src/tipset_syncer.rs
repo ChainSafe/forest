@@ -113,8 +113,6 @@ pub enum TipsetRangeSyncerError<C: Consensus> {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(C::Error),
-    #[error("Other error: {0}")]
-    Other(String),
 }
 
 impl<C: Consensus, T> From<flume::SendError<T>> for TipsetRangeSyncerError<C> {
@@ -1200,10 +1198,9 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
             }
         }
     }
-    chainstore
-        .db
-        .flush()
-        .map_err(|e| TipsetRangeSyncerError::Other(e.to_string()))?;
+    if let Err(e) = chainstore.db.flush() {
+        warn!("Failed to flush db: {e}");
+    }
     Ok(())
 }
 
