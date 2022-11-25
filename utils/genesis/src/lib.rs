@@ -145,6 +145,7 @@ where
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
     } else {
         info!("Reading file...");
+        sm.blockstore().optimize_for_offline_workload();
         let file = File::open(&path).await?;
         let reader = FetchProgress::fetch_from_file(file).await?;
         load_and_retrieve_header(sm.blockstore(), reader, skip_load).await?
@@ -180,7 +181,8 @@ where
         sm.validate_chain::<V>(ts.clone(), height).await?;
     }
 
-    info!("Accepting {:?} as new head.", ts.cids(),);
+    info!("Accepting {:?} as new head.", ts.cids());
+
     Ok(())
 }
 

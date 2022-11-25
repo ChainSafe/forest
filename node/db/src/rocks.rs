@@ -13,6 +13,7 @@ use crate::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
+use log::warn;
 use rocksdb::WriteOptions;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
@@ -59,8 +60,7 @@ impl RocksDb {
             db_opts.set_compaction_style(compaction_style);
             db_opts.set_disable_auto_compactions(false);
         } else {
-            db_opts.set_disable_auto_compactions(false);
-            db_opts.set_target_file_size_base(config.write_buffer_size as u64);
+            db_opts.set_disable_auto_compactions(true);
         }
         db_opts.set_compression_type(compression_type_from_str(&config.compression_type).unwrap());
         if config.enable_statistics {
@@ -145,6 +145,21 @@ impl Store for RocksDb {
 
     fn flush(&self) -> Result<(), Error> {
         self.db.flush().map_err(|e| Error::Other(e.to_string()))
+    }
+
+    fn optimize_for_offline_workload(&self) {
+        if let Err(e) = self.db.set_options(&[("disable_auto_compactions", "true")]) {
+            warn!("{e}");
+        }
+    }
+
+    fn optimize_for_online_workload(&self) {
+        if let Err(e) = self
+            .db
+            .set_options(&[("disable_auto_compactions", "false")])
+        {
+            warn!("{e}");
+        }
     }
 }
 

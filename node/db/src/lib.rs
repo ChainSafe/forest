@@ -71,6 +71,12 @@ pub trait Store {
     fn flush(&self) -> Result<(), Error> {
         Ok(())
     }
+
+    /// Optimize for offline workload. Default implementation is blank
+    fn optimize_for_offline_workload(&self) {}
+
+    /// Optimize for online workload. Default implementation is blank
+    fn optimize_for_online_workload(&self) {}
 }
 
 impl<BS: Store> Store for &BS {

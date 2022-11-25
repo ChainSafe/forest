@@ -373,6 +373,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         return db;
     }
 
+    db.optimize_for_online_workload();
     services.spawn(p2p_service.run());
 
     // Block until ctrl-c is hit

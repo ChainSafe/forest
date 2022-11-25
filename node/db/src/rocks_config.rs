@@ -35,7 +35,7 @@ impl Default for RocksDbConfig {
             write_buffer_size: 2usize.pow(30), // 1 GiB
             max_open_files: -1,
             max_background_jobs: None,
-            compaction_style: "none".into(),
+            compaction_style: "universal".into(),
             compression_type: "lz4".into(),
             enable_statistics: false,
             stats_dump_period_sec: 600,
