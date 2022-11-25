@@ -65,11 +65,9 @@ log.workspace                    = true
 multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true
-once_cell.workspace              = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
 raw_sync                         = "0.1"
-rayon.workspace                  = true
 rlimit                           = "0.8"
 rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
