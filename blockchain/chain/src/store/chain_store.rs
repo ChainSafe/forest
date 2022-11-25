@@ -6,7 +6,10 @@ use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::Scale;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::{
+    multihash::{self, MultihashDigest},
+    Cid,
+};
 use digest::Digest;
 use forest_actor_interface::{miner, EPOCHS_IN_DAY};
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -24,7 +27,7 @@ use forest_utils::io::Checksum;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
-use fvm_ipld_encoding::{from_slice, Cbor};
+use fvm_ipld_encoding::{from_slice, Cbor, DAG_CBOR};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
@@ -779,18 +782,26 @@ where
     DB: Blockstore + Store,
 {
     db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    db.put_obj(&header, Blake2b256)
+    db.put_obj(&header, multihash::Code::Blake2b256)
         .map_err(|e| Error::Other(e.to_string()))
 }
 
 /// Persists slice of `serializable` objects to `blockstore`.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
-    DB: Blockstore,
+    DB: Blockstore + Store,
     C: Serialize,
 {
     for chunk in headers.chunks(256) {
-        db.bulk_put(chunk, Blake2b256)
+        let keyed_objects = chunk
+            .iter()
+            .map(|value| {
+                let bytes = fvm_ipld_encoding::to_vec(value)?;
+                let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&bytes));
+                Ok((cid.to_bytes(), bytes))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        db.bulk_write(&keyed_objects)
             .map_err(|e| Error::Other(e.to_string()))?;
     }
     Ok(())
@@ -976,11 +987,11 @@ pub fn persist_block_messages<DB: Blockstore>(
     let mut bls_sigs = Vec::new();
     for msg in messages {
         if msg.signature().signature_type() == SignatureType::BLS {
-            let c = db.put_obj(&msg.message, Blake2b256)?;
+            let c = db.put_obj(&msg.message, multihash::Code::Blake2b256)?;
             bls_cids.push(c);
             bls_sigs.push(&msg.signature);
         } else {
-            let c = db.put_obj(&msg, Blake2b256)?;
+            let c = db.put_obj(&msg, multihash::Code::Blake2b256)?;
             secp_cids.push(c);
         }
     }
@@ -993,7 +1004,7 @@ pub fn persist_block_messages<DB: Blockstore>(
             bls_message_root: bls_msg_root,
             secp_message_root: secp_msg_root,
         },
-        Blake2b256,
+        multihash::Code::Blake2b256,
     )?;
 
     let bls_agg = if bls_sigs.is_empty() {
@@ -1023,7 +1034,7 @@ pub fn persist_block_messages<DB: Blockstore>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cid::multihash::Code::{Blake2b256, Identity};
+    use cid::multihash::Code::Identity;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
     use fvm_ipld_encoding::DAG_CBOR;
@@ -1055,7 +1066,7 @@ mod tests {
 
         let cs = ChainStore::new(db).await;
 
-        let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
+        let cid = Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());
 
         cs.mark_block_as_validated(&cid).unwrap();

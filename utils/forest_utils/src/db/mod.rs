@@ -37,32 +37,6 @@ pub trait BlockstoreExt: Blockstore {
         self.put_keyed(&cid, &bytes)?;
         Ok(cid)
     }
-
-    /// Batch put CBOR objects into block store and returns vector of CIDs
-    fn bulk_put<'a, S, V>(&self, values: V, code: Code) -> anyhow::Result<Vec<Cid>>
-    where
-        Self: Sized,
-        S: Serialize + 'a,
-        V: IntoIterator<Item = &'a S>,
-    {
-        let keyed_objects = values
-            .into_iter()
-            .map(|value| {
-                let bytes = to_vec(value)?;
-                let cid = Cid::new_v1(DAG_CBOR, code.digest(&bytes));
-                Ok((cid, bytes))
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
-
-        let cids = keyed_objects
-            .iter()
-            .map(|(cid, _)| cid.to_owned())
-            .collect();
-
-        self.put_many_keyed(keyed_objects)?;
-
-        Ok(cids)
-    }
 }
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}

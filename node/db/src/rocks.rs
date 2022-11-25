@@ -13,6 +13,7 @@ use crate::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
+use rocksdb::DBRecoveryMode;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
@@ -40,6 +41,7 @@ impl RocksDb {
         db_opts.create_if_missing(config.create_if_missing);
         db_opts.increase_parallelism(config.parallelism);
         db_opts.set_write_buffer_size(config.write_buffer_size);
+        db_opts.set_wal_recovery_mode(DBRecoveryMode::AbsoluteConsistency);
         db_opts.set_max_open_files(config.max_open_files);
 
         if let Some(max_background_jobs) = config.max_background_jobs {
