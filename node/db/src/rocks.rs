@@ -110,7 +110,7 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        Ok(self.db.put(key, value)?)
+        Ok(self.db.put_opt(key, value, &WRITE_OPT_NO_WAL)?)
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>
@@ -149,12 +149,11 @@ impl Store for RocksDb {
 
 impl Blockstore for RocksDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read(k.to_bytes()).map_err(|e| e.into())
+        self.read(k.to_bytes()).map_err(Into::into)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        metrics::BLOCK_SIZE_BYTES.observe(block.len() as f64);
-        Ok(self.db.put_opt(k.to_bytes(), block, &WRITE_OPT_NO_WAL)?)
+        self.write(k.to_bytes(), block).map_err(Into::into)
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
