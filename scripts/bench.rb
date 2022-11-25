@@ -86,6 +86,13 @@ class Numeric
   end
 end
 
+class ::Hash
+  def deep_merge(second)
+      merger = proc { |key, v1, v2| Hash === v1 && Hash === v2 ? v1.merge(v2, &merger) : v2 }
+      self.merge(second, &merger)
+  end
+end
+
 def syscall(*command)
   stdout, _stderr, status = Open3.capture3(*command)
 
@@ -179,12 +186,10 @@ def config_path(bench)
 end
 
 def build_config_file(bench)
-  default = default_config
-  bench_config = bench[:config]
-  # TODO: Find a better way to merge (conserve the default keys)
-  default.merge!(bench_config)
+  config = default_config.deep_merge(bench[:config])
 
-  toml_str = TomlRB.dump(default)
+  toml_str = TomlRB.dump(config)
+  pp config
   File.open(config_path(bench).to_s, 'w') { |file| file.write(toml_str) }
 end
 
