@@ -147,7 +147,9 @@ jobs:
           forest-cli sync wait
           forest-cli --chain calibnet db stats
       - name: export snapshot
-        run: forest-cli snapshot export
+        run: |
+          forest-cli snapshot export
+          sha256sum -c *.sha256sum
       - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
