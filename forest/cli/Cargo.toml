@@ -53,7 +53,6 @@ num-traits.workspace             = true
 once_cell.workspace              = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
-rayon.workspace                  = true
 regex.workspace                  = true
 rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
