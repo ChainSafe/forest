@@ -1198,9 +1198,9 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
             }
         }
     }
-    if let Err(e) = chainstore.db.flush() {
-        warn!("Failed to flush db: {e}");
-    }
+    // if let Err(e) = chainstore.db.flush() {
+    //     warn!("Failed to flush db: {e}");
+    // }
     Ok(())
 }
 

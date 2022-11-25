@@ -13,7 +13,6 @@ use crate::{
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
-use log::warn;
 use rocksdb::WriteOptions;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
@@ -50,7 +49,6 @@ impl RocksDb {
         db_opts.create_if_missing(config.create_if_missing);
         db_opts.increase_parallelism(config.parallelism);
         db_opts.set_write_buffer_size(config.write_buffer_size);
-        db_opts.set_target_file_size_base(config.write_buffer_size as u64);
         db_opts.set_max_open_files(config.max_open_files);
 
         if let Some(max_background_jobs) = config.max_background_jobs {
@@ -141,26 +139,11 @@ impl Store for RocksDb {
         for (k, v) in values {
             batch.put(k, v);
         }
-        Ok(self.db.write(batch)?)
+        Ok(self.db.write_without_wal(batch)?)
     }
 
     fn flush(&self) -> Result<(), Error> {
         self.db.flush().map_err(|e| Error::Other(e.to_string()))
-    }
-
-    fn optimize_for_offline_workload(&self) {
-        if let Err(e) = self.db.set_options(&[("disable_auto_compactions", "true")]) {
-            warn!("{e}");
-        }
-    }
-
-    fn optimize_for_online_workload(&self) {
-        if let Err(e) = self
-            .db
-            .set_options(&[("disable_auto_compactions", "false")])
-        {
-            warn!("{e}");
-        }
     }
 }
 
