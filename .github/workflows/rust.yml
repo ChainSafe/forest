@@ -146,12 +146,8 @@ jobs:
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
-      - name: export snapshot and sync forest with exported snapshot
-        run: |
-          rm $SNAPSHOT_DIRECTORY/*
-          forest-cli snapshot export -o $SNAPSHOT_DIRECTORY
-          pkill forest
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
+      - name: export snapshot
+        run: forest-cli snapshot export
       - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
