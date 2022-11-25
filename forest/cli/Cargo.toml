@@ -44,7 +44,6 @@ hex.workspace                    = true
 http.workspace                   = true
 human-repr.workspace             = true
 jsonrpc-v2.workspace             = true
-lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
 log.workspace                    = true
 multibase.workspace              = true
