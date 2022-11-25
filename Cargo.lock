@@ -3086,7 +3086,6 @@ dependencies = [
  "num-derive",
  "num-traits",
  "quickcheck",
- "rayon",
  "serde",
  "serde_json",
  "time",
