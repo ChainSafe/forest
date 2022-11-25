@@ -21,6 +21,7 @@ use forest_message::{ChainMessage, SignedMessage};
 use forest_metrics::metrics;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
+use futures::Future;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -95,7 +96,7 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore + Store + Send + Sync,
 {
     pub async fn new(db: DB) -> Self
     where
@@ -492,30 +493,24 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                if skip_old_msgs {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore")
-                } else {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore. \
-                                    Exporting a full snapshot is only possible when the node is initialised with a full one. \
-                                    Consider exporting a lightweight snapshot, e.g. skip the old messages.")
-                }
-            })?;
-
-            // XXX: * If cb can return a generic type, deserializing would remove need to clone.
-            // Ignore error intentionally, if receiver dropped, error will be handled below
-            let async_handle = tokio::runtime::Handle::current();
-            let block_clone = block.clone();
             let tx_clone = tx.clone();
-            tokio::task::block_in_place(move || {
-                async_handle.block_on(async {
-                    tx_clone.send_async((cid, block_clone)).await.expect("failed sending block for export");
-                });
-            });
+            async move {
+                let block = self.blockstore().get(&cid)?.ok_or_else(|| {
+                    if skip_old_msgs {
+                        Error::Other("Cid {cid} not found in blockstore".to_string())
+                    } else {
+                        Error::Other("Cid {cid} not found in blockstore. \
+                                        Exporting a full snapshot is only possible when the node is initialised with a full one. \
+                                        Consider exporting a lightweight snapshot, e.g. skip the old messages.".to_string())
+                    }
+                })?;
 
-            Ok(block)
-        })
-        .await?;
+                tx_clone
+                    .send_async((cid, block.clone()))
+                    .await?;
+                Ok(block)
+            }
+        }).await?;
 
         // Drop sender, to close the channel to write task, which will end when finished writing
         drop(tx);
@@ -620,14 +615,15 @@ where
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
     /// This is tracked based on the callback function loading blocks.
-    async fn walk_snapshot<F>(
+    async fn walk_snapshot<F, T>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         skip_old_msgs: bool,
         mut load_block: F,
     ) -> Result<(), Error>
     where
-        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
+        F: FnMut(Cid) -> T + Send,
+        T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
     {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -639,7 +635,7 @@ where
                 continue;
             }
 
-            let data = load_block(next)?;
+            let data = load_block(next).await?;
 
             let h = BlockHeader::unmarshal_cbor(&data)?;
 
@@ -651,7 +647,7 @@ where
             }
 
             if !skip_old_msgs || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.messages(), &mut load_block)?;
+                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
             }
 
             if h.epoch() > 0 {
@@ -660,14 +656,15 @@ where
                 }
             } else {
                 for p in h.parents().cids() {
-                    load_block(*p)?;
+                    load_block(*p).await?;
                 }
             }
 
             if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.state_root(), &mut load_block)?;
+                recurse_links(&mut seen, *h.state_root(), &mut load_block).await?;
             }
         }
+
         Ok(())
     }
 }
