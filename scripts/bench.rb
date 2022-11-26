@@ -4,6 +4,7 @@
 
 # Script to test various configurations that can impact performance of the node
 
+require 'deep_merge'
 require 'fileutils'
 require 'open3'
 require 'optparse'
@@ -83,14 +84,6 @@ BENCHMARK_SUITE = [
 class Numeric
   def to_bibyte
     syscall('numfmt', '--to=iec-i', '--suffix=B', '--format=%.2f', to_s)
-  end
-end
-
-# Performs a simple deep merge for nested Hashes
-class ::Hash
-  def deep_merge(second)
-    merger = proc { |_key, v1, v2| v1.is_a?(Hash) && v2.is_a?(Hash) ? v1.merge(v2, &merger) : v2 }
-    merge(second, &merger)
   end
 end
 
@@ -187,10 +180,9 @@ def config_path(bench)
 end
 
 def build_config_file(bench)
-  config = default_config.deep_merge(bench[:config])
+  config = bench[:config].deep_merge(default_config)
 
   toml_str = TomlRB.dump(config)
-  pp config
   File.open(config_path(bench).to_s, 'w') { |file| file.write(toml_str) }
 end
 
