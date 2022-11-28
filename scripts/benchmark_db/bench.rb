@@ -260,7 +260,7 @@ def run_benchmarks(benchmarks, options)
   benchmarks.each do |bench|
     bench.snapshot_path = options[:snapshot_path]
     bench.heights = options[:heights]
-    bench.run
+    bench.run(options[:dry_run])
 
     bench_metrics[bench.name] = bench.metrics
 
