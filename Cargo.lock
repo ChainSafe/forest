@@ -3140,6 +3140,7 @@ dependencies = [
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
+ "lazy_static",
  "log",
  "num-traits",
  "prometheus",
