@@ -308,8 +308,7 @@ where
         network: String,
     ) -> Result<(), Error> {
         info!(
-            "Validating {} tipset checkpoint hashes from: {}",
-            network,
+            "Validating {network} tipset checkpoint hashes from: {}",
             from.epoch()
         );
 
