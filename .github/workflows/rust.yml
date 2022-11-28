@@ -15,19 +15,22 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 1
   CACHE_TIMEOUT_MINUTES: 5
+  SNAPSHOT_DIRECTORY: /tmp/snapshots
 
 jobs:
   test:
     name: Test
-    runs-on: buildjet-8vcpu-ubuntu-2004
+    runs-on: buildjet-8vcpu-ubuntu-2204
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
@@ -41,7 +44,7 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -56,8 +59,10 @@ jobs:
         continue-on-error: true
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-lints-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - run: make lint-all
@@ -70,15 +75,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-22.04, macos-latest]
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
+      - name: Install Protoc (MacOS)
+        if: startsWith(matrix.os, 'macOS')
+        run: |
+          brew install protobuf
+          protoc --version
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
           # hard code release-name for macos, it always get rate limited when calling github api
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Install Apt Dependencies
@@ -100,9 +112,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    #if: ${{ false }}
-    runs-on: buildjet-8vcpu-ubuntu-2004
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -112,8 +122,10 @@ jobs:
         run: sudo make install-deps
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
-          release-name: v0.3.0
+          release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-calibnet-check-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: build and install binaries
@@ -124,25 +136,31 @@ jobs:
       - name: fetch params
         run: forest-cli fetch-params --keys
       - name: download snapshot
-        run: forest-cli --chain calibnet snapshot fetch --aria2 -s /tmp/snapshots/
+        run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
       - name: import snapshot and run Forest
         run: |
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot /tmp/snapshots/*.car
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
           forest-cli --chain calibnet db stats
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
       - name: wait for sync and check health
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
-          bash scripts/health_check.sh localhost
-      - name: kill Forest process, print forest logs
+      - name: export snapshot
         run: |
+          forest-cli snapshot export
+          sha256sum -c *.sha256sum
+      - name: print forest logs
+        run: |
+          wget -O metrics.log http://localhost:6116/metrics
           pkill forest
-          cat forest.out forest.err
+          echo "--- Forest STDOUT ---"; cat forest.out
+          echo "--- Forest STDERR ---"; cat forest.err
+          echo "--- Forest Prometheus metrics ---"; cat metrics.log
 
   dependencies-duplicate-check:
     name: Check cargo files for duplicates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Ruby

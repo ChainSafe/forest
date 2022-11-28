@@ -100,6 +100,9 @@ pub struct CliOpts {
     /// Display progress bars mode [always, never, auto]. Auto will display if TTY.
     #[structopt(long, default_value = "auto")]
     pub show_progress_bars: ProgressBarVisibility,
+    /// Turn on tokio-console support for debugging
+    #[structopt(long)]
+    pub tokio_console: bool,
     // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
     // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
     // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
@@ -282,9 +285,16 @@ pub fn default_snapshot_dir(config: &Config) -> PathBuf {
         .join(config.chain.name.clone())
 }
 
+#[cfg(feature = "rocksdb")]
 /// Gets database directory
 pub fn db_path(config: &Config) -> PathBuf {
-    chain_path(config).join("db")
+    chain_path(config).join("rocksdb")
+}
+
+#[cfg(feature = "paritydb")]
+/// Gets database directory
+pub fn db_path(config: &Config) -> PathBuf {
+    chain_path(config).join("paritydb")
 }
 
 /// Gets chain data directory

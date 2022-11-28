@@ -4,7 +4,7 @@
 use lazy_static::lazy_static;
 use prometheus::{
     core::{AtomicU64, GenericCounter, GenericCounterVec, GenericGauge, Opts},
-    Histogram, HistogramOpts,
+    Histogram, HistogramOpts, HistogramVec,
 };
 
 lazy_static! {
@@ -23,6 +23,41 @@ lazy_static! {
             "Registering the tipset_processing_time metric with the metrics registry must succeed",
         );
         tipset_processing_time
+    };
+    pub static ref BLOCK_VALIDATION_TIME: Box<Histogram> = {
+        let block_validation_time = Box::new(
+            Histogram::with_opts(HistogramOpts {
+                common_opts: Opts::new(
+                    "block_validation_time",
+                    "Duration of routine which validate blocks with no cache hit",
+                ),
+                buckets: vec![],
+            })
+            .expect("Defining the block_validation_time metric must succeed"),
+        );
+        prometheus::default_registry().register(block_validation_time.clone()).expect(
+            "Registering the block_validation_time metric with the metrics registry must succeed",
+        );
+        block_validation_time
+    };
+    pub static ref BLOCK_VALIDATION_TASKS_TIME: Box<HistogramVec> = {
+        let block_validation_tasks_time = Box::new(
+            HistogramVec::new(
+                HistogramOpts {
+                    common_opts: Opts::new(
+                        "block_validation_tasks_time",
+                        "Duration of subroutines inside block validation",
+                    ),
+                    buckets: vec![],
+                },
+                &["type"],
+            )
+            .expect("Defining the block_validation_time metric must succeed"),
+        );
+        prometheus::default_registry().register(block_validation_tasks_time.clone()).expect(
+            "Registering the block_validation_time metric with the metrics registry must succeed",
+        );
+        block_validation_tasks_time
     };
     pub static ref LIBP2P_MESSAGE_TOTAL: Box<GenericCounterVec<AtomicU64>> = {
         let libp2p_message_total = Box::new(
@@ -198,13 +233,25 @@ pub mod labels {
 
 pub mod values {
     // libp2p_message_total
-    pub const HELLO_REQUEST: &str = "hello_request";
+    pub const HELLO_REQUEST_INBOUND: &str = "hello_request_in";
+    pub const HELLO_RESPONSE_OUTBOUND: &str = "hello_response_out";
+    pub const HELLO_REQUEST_OUTBOUND: &str = "hello_request_out";
+    pub const HELLO_RESPONSE_INBOUND: &str = "hello_response_in";
     pub const PEER_CONNECTED: &str = "peer_connected";
     pub const PEER_DISCONNECTED: &str = "peer_disconnected";
     pub const PUBSUB_BLOCK: &str = "pubsub_message_block";
     pub const PUBSUB_MESSAGE: &str = "pubsub_message_message";
-    pub const CHAIN_EXCHANGE_REQUEST: &str = "chain_exchange_request";
-    pub const BITSWAP_BLOCK: &str = "bitswap_block";
+    pub const CHAIN_EXCHANGE_REQUEST_OUTBOUND: &str = "chain_exchange_request_out";
+    pub const CHAIN_EXCHANGE_RESPONSE_INBOUND: &str = "chain_exchange_response_in";
+    pub const CHAIN_EXCHANGE_REQUEST_INBOUND: &str = "chain_exchange_request_in";
+    pub const CHAIN_EXCHANGE_RESPONSE_OUTBOUND: &str = "chain_exchange_response_out";
+    pub const BITSWAP_BLOCK_REQUEST_OUTBOUND: &str = "bitswap_block_request_out";
+    pub const BITSWAP_BLOCK_RESPONSE_INBOUND: &str = "bitswap_block_response_in";
+
+    // block validation tasks
+    pub const BASE_FEE_CHECK: &str = "base_fee_check";
+    pub const PARENT_WEIGHT_CAL: &str = "parent_weight_check";
+    pub const BLOCK_SIGNATURE_CHECK: &str = "block_signature_check";
 }
 
 #[cfg(test)]

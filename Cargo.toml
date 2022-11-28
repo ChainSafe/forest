@@ -44,6 +44,9 @@ resolver = "2"
 # temporary solution to funty@1.2.0 being yanked, we should propose bitvec upgrade to upstream filecoin crates
 # tracking issue: https://github.com/bitvecto-rs/funty/issues/7
 funty = { git = "https://github.com/bitvecto-rs/funty/", rev = "7ef0d890fbcd8b3def1635ac1a877fc298488446" }
+# get rid of RUSTSEC-2020-0071, the fix is in place but not published to crates.io
+# tracking issue: https://github.com/ChainSafe/forest/issues/2251
+pbr = { git = "https://github.com/a8m/pb", rev = "09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd" }
 
 [workspace.dependencies]
 ahash                 = "0.8"
@@ -51,7 +54,6 @@ anyhow                = "1.0"
 arbitrary             = "1.1"
 assert_cmd            = "2"
 async-log             = "2.0"
-async-std             = "1.12"
 async-trait           = "0.1"
 atty                  = "0.2"
 axum                  = "0.5"
@@ -61,7 +63,7 @@ blake2b_simd          = "1.0"
 bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }
 byteorder             = "1.4.3"
 bytes                 = "1.2"
-chrono                = "0.4"
+chrono                = { version = "0.4", default-features = false, features = [] }
 cid                   = { version = "0.8", default-features = false, features = ["std"] }
 cs_serde_bytes        = "0.12.2"
 digest                = "0.10.5"
@@ -103,15 +105,15 @@ git-version           = "0.3"
 hex                   = "0.4"
 http                  = "0.2.8"
 human-repr            = "1.0"
-hyper                 = "0.14"
+hyper                 = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls          = "0.23"
 jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static           = "1.4"
 libipld               = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
 libipld-core          = "0.14"
 libipld-macro         = "0.14"
-libp2p                = { version = "0.46", default-features = false }
-libp2p-bitswap        = { git = "https://github.com/ChainSafe/libp2p-bitswap", rev = "47a5722767043ec1495bce2bffe02d4b1f5d87e0" }
+libp2p                = { version = "0.49", default-features = false }
+libp2p-bitswap        = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest", features = ["compat"] }
 libsecp256k1          = "0.7"
 log                   = "0.4"
 lru                   = "0.8"
@@ -127,6 +129,7 @@ once_cell             = "1.15"
 pin-project-lite      = "0.2"
 pretty_env_logger     = "0.4"
 prometheus            = "0.13"
+prometheus-client     = "0.18"
 quickcheck            = "1"
 quickcheck_macros     = "1"
 rand                  = "0.8"
@@ -140,7 +143,6 @@ serde_with            = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2                  = "0.10.5"
 smallvec              = "1.9"
 structopt             = "0.3"
-surf                  = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
 tempfile              = "3.3"
 thiserror             = "1.0"
 time                  = "0.3"
@@ -149,7 +151,7 @@ tokio-stream          = "0.1"
 tokio-util            = "0.7.0"
 toml                  = "0.5"
 tower-http            = "0.3"
-url                   = "2.3"
+url                   = { version = "2.3", features = ["serde"] }
 which                 = "4.3"
 
 forest_actor_interface = { path = "./vm/actor_interface" }

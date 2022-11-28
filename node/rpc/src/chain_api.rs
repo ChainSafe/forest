@@ -117,7 +117,7 @@ where
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file with the same
 /// name but with a `.sha256sum` extension.
 async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
-    let encoded_hash = hash.encode_hex::<String>();
+    let encoded_hash = format!("{} {}", hash.encode_hex::<String>(), source.display());
 
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
@@ -336,6 +336,23 @@ where
         .tipset_from_keys(&tsk)
         .await?;
     Ok(TipsetJson(ts))
+}
+
+pub(crate) async fn chain_get_tipset_hash<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainGetTipSetHashParams>,
+) -> Result<ChainGetTipSetHashResult, JsonRpcError>
+where
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
+{
+    let (TipsetKeysJson(tsk),) = params;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_hash_from_keys(&tsk)
+        .await;
+    Ok(ts)
 }
 
 pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(

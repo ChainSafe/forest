@@ -54,15 +54,14 @@ Use dockerized Forest with host database:
 
 ## Dependencies
 
-* Rust `rustc >= nightly-2022-09-28`
+* Rust (toolchain version is specified in `rust-toolchain.toml`)
 
-```shell
-rustup install nightly
-```
+Install [rustup](https://rustup.rs/)
 
 * OS Base-Devel/Build-Essential
 * Clang compiler
 * OpenCL bindings
+* [Protoc](https://github.com/protocolbuffers/protobuf/releases/)
 
 ### Ubuntu (20.04)
 ```
@@ -70,15 +69,16 @@ sudo make install-deps
 ```
 or
 ```
-sudo apt install build-essential clang ocl-icd-opencl-dev cmake
+sudo apt install build-essential clang ocl-icd-opencl-dev protobuf-compiler cmake
 ```
 ### Archlinux
 ```
 sudo pacman -S base-devel clang ocl-icd openssl
 ```
+NOTE: protobuf needs to be installed manually, and protoc needs to present in PATH
 ### Fedora (36)
 ```
-sudo dnf install -y clang-devel ocl-icd-devel cmake
+sudo dnf install -y clang-devel ocl-icd-devel protobuf-compiler cmake
 ```
 
 ## Installation

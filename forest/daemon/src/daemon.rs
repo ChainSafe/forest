@@ -11,7 +11,7 @@ use forest_cli_shared::cli::{
     cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
     Config, FOREST_VERSION_STRING,
 };
-use forest_db::rocks::RocksDb;
+use forest_db::Store;
 use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -24,6 +24,7 @@ use forest_rpc_api::data_types::RPCState;
 use forest_state_manager::StateManager;
 use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
@@ -57,7 +58,7 @@ fn unblock_parent_process() {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) {
+pub(super) async fn start(config: Config, detached: bool) -> Db {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -167,8 +168,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = forest_db::rocks::RocksDb::open(db_path(&config), &config.rocks_db)
-        .expect("Opening RocksDB must succeed");
+    let db = open_db(&config);
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(db.clone()).await);
@@ -184,7 +184,8 @@ pub(super) async fn start(config: Config, detached: bool) {
     )
     .await
     .unwrap();
-    chain_store.set_genesis(&genesis.blocks()[0]).unwrap();
+    let genesis_header = &genesis.blocks()[0];
+    chain_store.set_genesis(genesis_header).unwrap();
 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
@@ -244,12 +245,14 @@ pub(super) async fn start(config: Config, detached: bool) {
         config
     };
 
+    let genesis_cid = *genesis_header.cid();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
         Arc::clone(&chain_store),
         net_keypair,
         &network_name,
+        genesis_cid,
     )
     .await;
 
@@ -359,7 +362,7 @@ pub(super) async fn start(config: Config, detached: bool) {
         _ = ctrlc_oneshot => {
             // Cancel all async services
             services.shutdown().await;
-            return;
+            return db;
         },
     }
 
@@ -367,14 +370,10 @@ pub(super) async fn start(config: Config, detached: bool) {
     if config.client.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
-        info!("Forest finish shutdown");
-        return;
+        return db;
     }
 
     services.spawn(p2p_service.run());
-
-    let db_weak_ref = Arc::downgrade(&db.db);
-    drop(db);
 
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
@@ -388,13 +387,7 @@ pub(super) async fn start(config: Config, detached: bool) {
 
     keystore_write.await.expect("keystore write failed");
 
-    if db_weak_ref.strong_count() != 0 {
-        error!(
-            "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-            db_weak_ref.strong_count()
-        );
-    }
-    info!("Forest finish shutdown");
+    db
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
@@ -443,7 +436,10 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
     }
 }
 
-async fn sync_from_snapshot(config: &Config, state_manager: &Arc<StateManager<RocksDb>>) {
+async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>)
+where
+    DB: Store + Send + Clone + Sync + Blockstore + 'static,
+{
     if let Some(path) = &config.client.snapshot_path {
         let stopwatch = time::Instant::now();
         let validate_height = if config.client.snapshot {
@@ -480,6 +476,28 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
         _ => internal_network_name,
     }
 }
+
+#[cfg(feature = "rocksdb")]
+fn open_db(config: &Config) -> forest_db::rocks::RocksDb {
+    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
+        .expect("Opening RocksDB must succeed")
+}
+
+#[cfg(feature = "paritydb")]
+fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
+    use forest_db::parity_db::*;
+    let config = ParityDbConfig {
+        path: db_path(config),
+        columns: 1,
+    };
+    ParityDb::open(&config).expect("Opening ParityDb must succeed")
+}
+
+#[cfg(feature = "rocksdb")]
+type Db = forest_db::rocks::RocksDb;
+
+#[cfg(feature = "paritydb")]
+type Db = forest_db::parity_db::ParityDb;
 
 #[cfg(test)]
 mod test {
