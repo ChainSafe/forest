@@ -4,7 +4,7 @@
 
 1. `forest` node running locally
 2. `docker` & `docker-compose` must be available in the `$PATH`
-3. Ports `3000` (for `grafana`) and `9090` (for `prometheus`) have to be free.
+3. Ports `3000` for `grafana` have to be free.
 
 ## Run
 

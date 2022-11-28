@@ -21,7 +21,6 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus/
-    network_mode: host
     restart: unless-stopped
 
   grafana:
@@ -31,5 +30,6 @@ services:
     volumes:
       - ./grafana/provisioning/:/etc/grafana/provisioning
       - ./grafana/dashboards/:/etc/grafana/provisioning/dashboard-definitions
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "3000:3000"
