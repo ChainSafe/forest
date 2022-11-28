@@ -127,33 +127,6 @@ where
         })
     }
 
-    /// Creates a constructor that passes in a `HeadChange` publisher.
-    pub async fn new_with_publisher(
-        cs: Arc<ChainStore<DB>>,
-        chain_subs: Publisher<HeadChange>,
-        config: ChainConfig,
-        reward_calc: Arc<dyn RewardCalc>,
-    ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis()?.context("genesis header missing")?;
-        let chain_config = Arc::new(config);
-        let beacon = Arc::new(
-            chain_config
-                .get_beacon_schedule(genesis.timestamp())
-                .await?,
-        );
-
-        Ok(Self {
-            cs,
-            cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
-            publisher: Some(chain_subs),
-            genesis_info: GenesisInfo::from_chain_config(&chain_config),
-            beacon,
-            chain_config,
-            engine: fvm::machine::MultiEngine::new(),
-            reward_calc,
-        })
-    }
-
     pub fn beacon_schedule(&self) -> Arc<BeaconSchedule<DrandBeacon>> {
         self.beacon.clone()
     }

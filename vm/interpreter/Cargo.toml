@@ -24,11 +24,8 @@ fvm_ipld_blockstore.workspace    = true
 fvm_ipld_encoding.workspace      = true
 fvm_ipld_hamt.workspace          = true
 fvm_shared                       = { workspace = true, default-features = false }
-lazy_static.workspace            = true
 log.workspace                    = true
 num-traits.workspace             = true
-num_cpus.workspace               = true
-rayon.workspace                  = true
 serde_ipld_dagcbor.workspace     = true
 
 [features]
