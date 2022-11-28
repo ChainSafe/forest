@@ -106,7 +106,7 @@ pub const HEIGHT_INFOS: [HeightInfo; 18] = [
     },
     HeightInfo {
         height: Height::Shark,
-        epoch: ChainEpoch::MAX,
+        epoch: 2_383_680,
     },
 ];
 

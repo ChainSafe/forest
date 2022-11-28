@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::index::checkpoint_tipsets;
-use super::metrics;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::Scale;
 use async_stream::stream;
@@ -19,8 +18,10 @@ use forest_ipld::recurse_links;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, SignedMessage};
+use forest_metrics::metrics;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
+use futures::Future;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
@@ -95,7 +96,7 @@ pub struct ChainStore<DB> {
 
 impl<DB> ChainStore<DB>
 where
-    DB: Blockstore + Store,
+    DB: Blockstore + Store + Send + Sync,
 {
     pub async fn new(db: DB) -> Self
     where
@@ -301,6 +302,54 @@ where
         }
     }
 
+    pub async fn validate_tipset_checkpoints(
+        &self,
+        from: Arc<Tipset>,
+        network: String,
+    ) -> Result<(), Error> {
+        info!(
+            "Validating {network} tipset checkpoint hashes from: {}",
+            from.epoch()
+        );
+
+        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(&network) else {
+            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
+            return Ok(());
+        };
+
+        let mut ts = from;
+        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
+        hashes.remove(&tipset_hash);
+
+        loop {
+            let pts = self.chain_index.load_tipset(ts.parents()).await?;
+            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
+            hashes.remove(&tipset_hash);
+
+            ts = pts;
+
+            if ts.epoch() == 0 {
+                break;
+            }
+        }
+
+        if !hashes.is_empty() {
+            return Err(Error::Other(format!(
+                "Found tipset hash(es) on {network} that are no longer valid: {:?}",
+                hashes
+            )));
+        }
+
+        if !checkpoint_tipsets::validate_genesis_cid(ts.key(), &network) {
+            return Err(Error::Other(format!(
+                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
+                ts.key().cid()
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub async fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
@@ -492,30 +541,24 @@ where
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
-            let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                if skip_old_msgs {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore")
-                } else {
-                    anyhow::anyhow!("Cid {cid} not found in blockstore. \
-                                    Exporting a full snapshot is only possible when the node is initialised with a full one. \
-                                    Consider exporting a lightweight snapshot, e.g. skip the old messages.")
-                }
-            })?;
-
-            // XXX: * If cb can return a generic type, deserializing would remove need to clone.
-            // Ignore error intentionally, if receiver dropped, error will be handled below
-            let async_handle = tokio::runtime::Handle::current();
-            let block_clone = block.clone();
             let tx_clone = tx.clone();
-            tokio::task::block_in_place(move || {
-                async_handle.block_on(async {
-                    tx_clone.send_async((cid, block_clone)).await.expect("failed sending block for export");
-                });
-            });
+            async move {
+                let block = self.blockstore().get(&cid)?.ok_or_else(|| {
+                    if skip_old_msgs {
+                        Error::Other("Cid {cid} not found in blockstore".to_string())
+                    } else {
+                        Error::Other("Cid {cid} not found in blockstore. \
+                                        Exporting a full snapshot is only possible when the node is initialised with a full one. \
+                                        Consider exporting a lightweight snapshot, e.g. skip the old messages.".to_string())
+                    }
+                })?;
 
-            Ok(block)
-        })
-        .await?;
+                tx_clone
+                    .send_async((cid, block.clone()))
+                    .await?;
+                Ok(block)
+            }
+        }).await?;
 
         // Drop sender, to close the channel to write task, which will end when finished writing
         drop(tx);
@@ -620,14 +663,15 @@ where
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
     /// This is tracked based on the callback function loading blocks.
-    async fn walk_snapshot<F>(
+    async fn walk_snapshot<F, T>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         skip_old_msgs: bool,
         mut load_block: F,
     ) -> Result<(), Error>
     where
-        F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
+        F: FnMut(Cid) -> T + Send,
+        T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
     {
         let mut seen = HashSet::<Cid>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
@@ -639,7 +683,7 @@ where
                 continue;
             }
 
-            let data = load_block(next)?;
+            let data = load_block(next).await?;
 
             let h = BlockHeader::unmarshal_cbor(&data)?;
 
@@ -651,7 +695,7 @@ where
             }
 
             if !skip_old_msgs || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.messages(), &mut load_block)?;
+                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
             }
 
             if h.epoch() > 0 {
@@ -660,14 +704,15 @@ where
                 }
             } else {
                 for p in h.parents().cids() {
-                    load_block(*p)?;
+                    load_block(*p).await?;
                 }
             }
 
             if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.state_root(), &mut load_block)?;
+                recurse_links(&mut seen, *h.state_root(), &mut load_block).await?;
             }
         }
+
         Ok(())
     }
 }

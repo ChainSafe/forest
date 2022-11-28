@@ -146,6 +146,13 @@ impl SnapshotCommands {
                     ("chain".to_string(), chain_name),
                     ("height".to_string(), epoch.to_string()),
                 ]);
+
+                let output_path = if output_path.is_dir() {
+                    output_path.join(OUTPUT_PATH_DEFAULT_FORMAT)
+                } else {
+                    output_path.clone()
+                };
+
                 let output_path = match strfmt(&output_path.display().to_string(), &vars) {
                     Ok(path) => path.into(),
                     Err(e) => {
@@ -218,11 +225,12 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
     println!("\nLocal snapshots:");
-    fs::read_dir(snapshot_dir)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|p| is_car_or_tmp(p))
-        .for_each(|p| println!("{}", p.display()));
+    if let Ok(dir) = fs::read_dir(snapshot_dir) {
+        dir.flatten()
+            .map(|entry| entry.path())
+            .filter(|p| is_car_or_tmp(p))
+            .for_each(|p| println!("{}", p.display()));
+    };
 
     Ok(())
 }
