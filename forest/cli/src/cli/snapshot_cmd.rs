@@ -146,6 +146,13 @@ impl SnapshotCommands {
                     ("chain".to_string(), chain_name),
                     ("height".to_string(), epoch.to_string()),
                 ]);
+
+                let output_path = if output_path.is_dir() {
+                    output_path.join(OUTPUT_PATH_DEFAULT_FORMAT)
+                } else {
+                    output_path.clone()
+                };
+
                 let output_path = match strfmt(&output_path.display().to_string(), &vars) {
                     Ok(path) => path.into(),
                     Err(e) => {

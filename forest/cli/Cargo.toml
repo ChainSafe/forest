@@ -44,16 +44,13 @@ hex.workspace                    = true
 http.workspace                   = true
 human-repr.workspace             = true
 jsonrpc-v2.workspace             = true
-lazy_static.workspace            = true
 libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
 log.workspace                    = true
 multibase.workspace              = true
 num-rational.workspace           = true
 num-traits.workspace             = true
-once_cell.workspace              = true
 pretty_env_logger.workspace      = true
 prometheus                       = { workspace = true, features = ["process"] }
-rayon.workspace                  = true
 regex.workspace                  = true
 rpassword.workspace              = true
 serde                            = { workspace = true, features = ["derive"] }
