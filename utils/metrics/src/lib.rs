@@ -5,7 +5,6 @@ pub mod db;
 pub mod metrics;
 
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
-use forest_db::rocks::RocksDb;
 use forest_db::DBStatistics;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
@@ -37,7 +36,7 @@ where
     // Create an configure HTTP server
     let app = Router::new()
         .route("/metrics", get(collect_prometheus_metrics))
-        .route("/stats/db", get(collect_db_metrics))
+        .route("/stats/db", get(collect_db_metrics::<DB>))
         .layer(axum::Extension(db));
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
@@ -68,7 +67,10 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     )
 }
 
-async fn collect_db_metrics(axum::Extension(db): axum::Extension<RocksDb>) -> impl IntoResponse {
+async fn collect_db_metrics<DB>(axum::Extension(db): axum::Extension<DB>) -> impl IntoResponse
+where
+    DB: DBStatistics + Sync + Send + Clone + 'static,
+{
     let mut metrics = "# RocksDB statistics:\n".to_owned();
     if let Some(db_stats) = db.get_statistics() {
         metrics.push_str(&db_stats);
