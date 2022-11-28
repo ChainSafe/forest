@@ -355,6 +355,34 @@ where
     Ok(ts)
 }
 
+pub(crate) async fn chain_validate_tipset_checkpoints<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainValidateTipSetCheckpointsParams>,
+) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
+where
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
+{
+    let () = params;
+
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or(forest_chain::Error::NotFound("heaviest tipset".to_string()))?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(tipset.key())
+        .await?;
+    data.state_manager
+        .chain_store()
+        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
+        .await?;
+    Ok("Ok".to_string())
+}
+
 pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetRandomnessFromTicketsParams>,

@@ -85,10 +85,11 @@ quickcheck.workspace = true
 rand.workspace       = true
 
 [features]
-default          = ["forest_fil_cns", "rocksdb"]
-rocksdb          = ["forest_db/rocksdb", "forest_cli_shared/rocksdb", "forest_chain_sync/rocksdb"]
-paritydb         = ["forest_db/paritydb", "forest_cli_shared/paritydb", "forest_chain_sync/paritydb"]
-insecure_post    = ["forest_fil_cns/insecure_post"]
-forest_fil_cns   = ["dep:forest_fil_cns"]
-forest_deleg_cns = ["dep:forest_deleg_cns"]
-slow_tests       = []
+default             = ["forest_fil_cns", "rocksdb"]
+rocksdb             = ["forest_db/rocksdb", "forest_cli_shared/rocksdb", "forest_chain_sync/rocksdb"]
+paritydb            = ["forest_db/paritydb", "forest_cli_shared/paritydb", "forest_chain_sync/paritydb"]
+insecure_post       = ["forest_fil_cns/insecure_post"]
+forest_fil_cns      = ["dep:forest_fil_cns"]
+forest_deleg_cns    = ["dep:forest_deleg_cns"]
+slow_tests          = []
+instrumented_kernel = ["forest_interpreter/instrumented_kernel"]

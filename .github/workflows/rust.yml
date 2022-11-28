@@ -142,6 +142,8 @@ jobs:
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
           forest-cli --chain calibnet db stats
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
+      - name: Validate checkpoint tipset hashes
+        run: forest-cli chain validate-tipset-checkpoints
       - name: wait for sync and check health
         run: |
           forest-cli sync wait

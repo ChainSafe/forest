@@ -6,11 +6,9 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use fvm::call_manager::DefaultCallManager;
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
 use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
-use fvm::DefaultKernel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
@@ -24,9 +22,17 @@ use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
-type ForestKernel<DB> = DefaultKernel<DefaultCallManager<ForestMachine<DB>>>;
+pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
+
+#[cfg(not(feature = "instrumented_kernel"))]
+type ForestKernel<DB> =
+    fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>;
+
+#[cfg(not(feature = "instrumented_kernel"))]
 type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
+
+#[cfg(feature = "instrumented_kernel")]
+type ForestExecutor<DB> = DefaultExecutor<crate::instrumented_kernel::ForestInstrumentedKernel<DB>>;
 
 /// Contains all messages to process through the VM as well as miner information for block rewards.
 #[derive(Debug)]
