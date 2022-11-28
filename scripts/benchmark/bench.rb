@@ -196,7 +196,7 @@ class Benchmark
     exec_command(build_command, dry_run)
 
     build_config_file unless dry_run
-    hash = build_substitution_hash(dry_run)
+    build_substitution_hash(dry_run)
   end
   private :build_artefacts
 
@@ -237,22 +237,12 @@ class Benchmark
   def initialize(name:, config: {})
     @name = name
     @config = config
-    @snapshot_path = nil
     @import_command = [
-      target,
-      '--config', '%<c>s',
-      '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s',
-      '--halt-after-import'
+      target, '--config', '%<c>s', '--encrypt-keystore', 'false', '--import-snapshot', '%<s>s', '--halt-after-import'
     ]
     @validate_command = [
-      target,
-      '--config', '%<c>s',
-      '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s',
-      '--halt-after-import',
-      '--skip-load',
-      '--height', '%<h>s'
+      target, '--config', '%<c>s', '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s', '--halt-after-import', '--skip-load', '--height', '%<h>s'
     ]
     @metrics = {}
   end
