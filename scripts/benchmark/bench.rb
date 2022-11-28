@@ -165,15 +165,12 @@ end
 
 # Benchmarks Forest import of a snapshot and validation of the chain
 class Benchmark
-  attr_reader :name
-  attr_reader :metrics
-  attr_accessor :snapshot_path
-  attr_accessor :heights
+  attr_reader :name, :metrics
+  attr_accessor :snapshot_path, :heights
 
-  def build_config_file()
+  def build_config_file
     config = @config.deep_merge(default_config)
     config_path = "#{TEMP_DIR}/#{@name}.toml"
-    #pp config
 
     toml_str = TomlRB.dump(config)
     File.open(config_path, 'w') { |file| file.write(toml_str) }
@@ -198,8 +195,7 @@ class Benchmark
     exec_command(%w[cargo clean], dry_run)
     exec_command(build_command, dry_run)
 
-
-    build_config_file() unless dry_run
+    build_config_file unless dry_run
     hash = build_substitution_hash(dry_run)
   end
   private :build_artefacts
@@ -210,7 +206,7 @@ class Benchmark
     FileUtils.rm_rf(db_dir, secure: true) unless dry_run
   end
 
-  def run(dry_run: true) # TODO: default back to false
+  def run(dry_run)
     puts "Running bench: #{@name}"
 
     metrics = {}
@@ -235,7 +231,7 @@ class Benchmark
   end
 
   def build_command
-    [ 'cargo', 'build', '--release' ]
+    ['cargo', 'build', '--release']
   end
 
   def initialize(name:, config: {})
@@ -265,7 +261,7 @@ end
 # Benchmark class for ParityDb
 class ParityDbBenchmark < Benchmark
   def build_command
-    [ 'cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb' ]
+    ['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb']
   end
 end
 
@@ -308,9 +304,7 @@ options[:snapshot_path] = snapshot_path
 selection = Set[]
 BENCHMARKS.each do |bench|
   options[:pattern].split(',').each do |pat|
-    if File.fnmatch(pat.strip, bench.name)
-      selection.add(bench)
-    end
+    selection.add(bench) if File.fnmatch(pat.strip, bench.name)
   end
 end
 if !selection.empty?
