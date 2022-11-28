@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashSet;
+use std::{collections::HashSet, future::Future};
 
 use cid::Cid;
 use fvm_ipld_encoding::from_slice;
@@ -10,23 +10,25 @@ use crate::Ipld;
 
 // Traverses all Cid links, loading all unique values and using the callback function
 // to interact with the data.
-fn traverse_ipld_links<F>(
+#[async_recursion::async_recursion]
+async fn traverse_ipld_links<F, T>(
     walked: &mut HashSet<Cid>,
     load_block: &mut F,
     ipld: &Ipld,
 ) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
+    F: FnMut(Cid) -> T + Send,
+    T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
 {
     match ipld {
         Ipld::Map(m) => {
             for (_, v) in m.iter() {
-                traverse_ipld_links(walked, load_block, v)?;
+                traverse_ipld_links(walked, load_block, v).await?;
             }
         }
         Ipld::List(list) => {
             for v in list.iter() {
-                traverse_ipld_links(walked, load_block, v)?;
+                traverse_ipld_links(walked, load_block, v).await?;
             }
         }
         Ipld::Link(cid) => {
@@ -35,15 +37,15 @@ where
                 if !walked.insert(*cid) {
                     return Ok(());
                 }
-                let _ = load_block(*cid)?;
+                let _ = load_block(*cid).await?;
             }
             if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
                 if !walked.insert(*cid) {
                     return Ok(());
                 }
-                let bytes = load_block(*cid)?;
+                let bytes = load_block(*cid).await?;
                 let ipld = from_slice(&bytes)?;
-                traverse_ipld_links(walked, load_block, &ipld)?;
+                traverse_ipld_links(walked, load_block, &ipld).await?;
             }
         }
         _ => (),
@@ -52,13 +54,14 @@ where
 }
 
 // Load cids and call [traverse_ipld_links] to resolve recursively.
-pub fn recurse_links<F>(
+pub async fn recurse_links<F, T>(
     walked: &mut HashSet<Cid>,
     root: Cid,
     load_block: &mut F,
 ) -> Result<(), anyhow::Error>
 where
-    F: FnMut(Cid) -> Result<Vec<u8>, anyhow::Error>,
+    F: FnMut(Cid) -> T + Send,
+    T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
 {
     if !walked.insert(root) {
         // Cid has already been traversed
@@ -68,10 +71,10 @@ where
         return Ok(());
     }
 
-    let bytes = load_block(root)?;
+    let bytes = load_block(root).await?;
     let ipld = from_slice(&bytes)?;
 
-    traverse_ipld_links(walked, load_block, &ipld)?;
+    traverse_ipld_links(walked, load_block, &ipld).await?;
 
     Ok(())
 }

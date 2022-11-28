@@ -11,6 +11,7 @@ on:
 env:
   # https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
   RUSTDOCFLAGS: "-Dwarnings -Zunstable-options --enable-index-page"
+  CACHE_TIMEOUT_MINUTES: 5
 
 jobs:
   check-publish-docs:
@@ -39,6 +40,8 @@ jobs:
         continue-on-error: true
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
+        timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
+        continue-on-error: true
         with:
           release-name: v0.3.1
           cache-key: ${{ runner.os }}-sccache-docs-${{ hashFiles('rust-toolchain.toml') }}

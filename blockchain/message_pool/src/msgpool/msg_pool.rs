@@ -28,13 +28,12 @@ use forest_utils::const_option;
 use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::{Address, Protocol};
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
-use num_traits::Zero;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -54,7 +53,6 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000))
 pub struct MsgSet {
     pub(crate) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
-    required_funds: TokenAmount,
 }
 
 impl MsgSet {
@@ -63,7 +61,6 @@ impl MsgSet {
         MsgSet {
             msgs: HashMap::new(),
             next_sequence: sequence,
-            required_funds: TokenAmount::zero(),
         }
     }
 
@@ -92,9 +89,7 @@ impl MsgSet {
 
     /// Removes message with the given sequence. If applied, update the set's next sequence.
     pub fn rm(&mut self, sequence: u64, applied: bool) {
-        let m = if let Some(m) = self.msgs.remove(&sequence) {
-            m
-        } else {
+        if self.msgs.remove(&sequence).is_none() {
             if applied && sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
                 while self.msgs.get(&self.next_sequence).is_some() {
@@ -103,7 +98,6 @@ impl MsgSet {
             }
             return;
         };
-        self.required_funds -= m.required_funds();
 
         // adjust next sequence
         if applied {
@@ -118,14 +112,6 @@ impl MsgSet {
         // we have to adjust the sequence if it creates a gap or rewinds state
         if sequence < self.next_sequence {
             self.next_sequence = sequence;
-        }
-    }
-
-    fn get_required_funds(&self, sequence: u64) -> TokenAmount {
-        let required_funds = self.required_funds.clone();
-        match self.msgs.get(&sequence) {
-            Some(m) => required_funds - m.required_funds(),
-            None => required_funds,
         }
     }
 }
@@ -449,69 +435,6 @@ where
     async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
         let actor = self.api.read().await.get_actor_after(addr, ts)?;
         Ok(actor.balance)
-    }
-
-    /// Adds a local message returned from the call back function with the current nonce.
-    pub async fn push_with_sequence(&self, addr: &Address, cb: T) -> Result<SignedMessage, Error>
-    where
-        T: Fn(Address, u64) -> Result<SignedMessage, Error>,
-    {
-        let cur_ts = self.cur_tipset.read().await.clone();
-        let from_key = match addr.protocol() {
-            Protocol::ID => {
-                let api = self.api.read().await;
-
-                api.state_account_key(addr, &self.cur_tipset.read().await.clone())
-                    .await?
-            }
-            _ => *addr,
-        };
-
-        let sequence = self.get_sequence(addr).await?;
-        let msg = cb(from_key, sequence)?;
-        self.check_message(&msg).await?;
-        if *self.cur_tipset.read().await != cur_ts {
-            return Err(Error::TryAgain);
-        }
-
-        if self.get_sequence(addr).await? != sequence {
-            return Err(Error::TryAgain);
-        }
-
-        let publish = verify_msg_before_add(&msg, &cur_ts, true, &self.chain_config)?;
-        self.check_balance(&msg, &cur_ts).await?;
-        self.add_helper(msg.clone()).await?;
-        self.add_local(msg.clone()).await?;
-
-        if publish {
-            self.network_sender
-                .send_async(NetworkMessage::PubsubMessage {
-                    topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, self.network_name)),
-                    message: msg.marshal_cbor()?,
-                })
-                .await
-                .map_err(|_| Error::Other("Network receiver dropped".to_string()))?;
-        }
-
-        Ok(msg)
-    }
-
-    async fn check_balance(&self, m: &SignedMessage, cur_ts: &Tipset) -> Result<(), Error> {
-        let bal = self.get_state_balance(m.from(), cur_ts).await?;
-        let mut required_funds = m.required_funds();
-        if bal < required_funds {
-            return Err(Error::NotEnoughFunds);
-        }
-        if let Some(mset) = self.pending.read().await.get(m.from()) {
-            required_funds += mset.get_required_funds(m.sequence());
-        }
-        if bal < required_funds {
-            return Err(Error::SoftValidationFailure(format!(
-                "not enough funds including pending messages (required: {}, balance: {})",
-                required_funds, bal
-            )));
-        }
-        Ok(())
     }
 
     /// Remove a message given a sequence and address from the message pool.
