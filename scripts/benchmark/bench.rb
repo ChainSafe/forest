@@ -9,6 +9,7 @@ require 'fileutils'
 require 'open3'
 require 'optparse'
 require 'pathname'
+require 'set'
 require 'tmpdir'
 require 'toml-rb'
 
@@ -21,64 +22,6 @@ MINUTE = 60
 HOUR = MINUTE * MINUTE
 
 TEMP_DIR = Dir.mktmpdir('forest-benchs-')
-
-BENCHMARK_SUITE = [
-  {
-    name: 'baseline',
-    config: {
-      'rocks_db' => {
-        'enable_statistics' => false
-      }
-    },
-    build_command: [
-      'cargo', 'build', '--release'
-    ],
-    import_command: [
-      './target/release/forest',
-      '--config', '%<c>s',
-      '--target-peer-count', '50',
-      '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s',
-      '--halt-after-import'
-    ],
-    validate_command: [
-      './target/release/forest',
-      '--config', '%<c>s',
-      '--target-peer-count', '50',
-      '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s',
-      '--halt-after-import',
-      '--skip-load',
-      '--height', '%<h>s'
-    ]
-  },
-  {
-    name: 'paritydb',
-    config: {},
-    build_command: [
-      'cargo', 'build', '--release',
-      '--no-default-features', '--features', 'forest_fil_cns,paritydb'
-    ],
-    import_command: [
-      './target/release/forest',
-      '--config', '%<c>s',
-      '--target-peer-count', '50',
-      '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s',
-      '--halt-after-import'
-    ],
-    validate_command: [
-      './target/release/forest',
-      '--config', '%<c>s',
-      '--target-peer-count', '50',
-      '--encrypt-keystore', 'false',
-      '--import-snapshot', '%<s>s',
-      '--halt-after-import',
-      '--skip-load',
-      '--height', '%<h>s'
-    ]
-  }
-].freeze
 
 # Provides human readable formatting to Numeric class
 class Numeric
@@ -175,30 +118,6 @@ def exec_command(command, dry_run)
   metrics
 end
 
-def config_path(bench)
-  "#{TEMP_DIR}/#{bench[:name]}.toml"
-end
-
-def build_config_file(bench)
-  config = bench[:config].deep_merge(default_config)
-
-  toml_str = TomlRB.dump(config)
-  File.open(config_path(bench).to_s, 'w') { |file| file.write(toml_str) }
-end
-
-def build_substitution_hash(bench, options)
-  snapshot = options[:snapshot]
-  height = snapshot.match(SNAPSHOT_REGEX).named_captures['height'].to_i
-  start = height - options.fetch(:height, HEIGHTS_TO_VALIDATE)
-
-  return { c: '<tbd>', s: '<tbd>', h: start } if options[:dry_run]
-
-  config_path = config_path(bench)
-  snapshot_path = "#{snapshot_dir}/#{snapshot}"
-
-  { c: config_path, s: snapshot_path, h: start }
-end
-
 def write_import_table(metrics)
   result = "Bench | Import Time | Import RSS | DB Size\n"
   result += "-|-|-|-\n"
@@ -235,69 +154,167 @@ def write_result(metrics)
   result += "---\n"
   result += write_validate_table(metrics)
 
-  File.open("result_#{Time.now.to_i}.md", 'w') { |file| file.write(result) }
+  filename = "result_#{Time.now.to_i}.md"
+  File.open(filename, 'w') { |file| file.write(result) }
+  puts "Wrote #{filename}"
 end
 
 def splice_args(command, args)
   command.map { |s| s % args }
 end
 
-def prepare_bench(bench, options)
-  exec_command(%w[cargo clean], options[:dry_run])
-  exec_command(bench[:build_command], options[:dry_run])
+# Benchmarks Forest import of a snapshot and validation of the chain
+class Benchmark
+  attr_reader :name
+  attr_reader :metrics
+  attr_accessor :snapshot_path
+  attr_accessor :heights
 
-  # Build bench artefacts
-  build_config_file(bench) unless options[:dry_run]
-  build_substitution_hash(bench, options)
-end
+  def build_config_file()
+    config = @config.deep_merge(default_config)
+    config_path = "#{TEMP_DIR}/#{@name}.toml"
+    #pp config
 
-def run_bench(bench, args, options, metrics)
-  import_command = splice_args(bench[:import_command], args)
-  metrics[:import] = exec_command(import_command, options[:dry_run])
+    toml_str = TomlRB.dump(config)
+    File.open(config_path, 'w') { |file| file.write(toml_str) }
+  end
+  private :build_config_file
 
-  # Save db size just after import
-  metrics[:import][:db_size] = db_size unless options[:dry_run]
+  def build_substitution_hash(dry_run)
+    snapshot = @snapshot_path
+    height = snapshot.match(SNAPSHOT_REGEX).named_captures['height'].to_i
+    start = height - @heights
 
-  validate_command = splice_args(bench[:validate_command], args)
-  metrics[:validate] = exec_command(validate_command, options[:dry_run])
-  clean_up(options)
-  metrics
-end
+    return { c: '<tbd>', s: '<tbd>', h: start } if dry_run
 
-def clean_up(options)
-  # Clean db
-  puts 'Wiping db'
-  FileUtils.rm_rf(db_dir, secure: true) unless options[:dry_run]
-end
+    config_path = "#{TEMP_DIR}/#{@name}.toml"
+    snapshot_path = "#{snapshot_dir}/#{snapshot}"
 
-def run_benchmarks(benchs, options)
-  benchs_metrics = {}
-  benchs.each do |bench|
-    puts "Running bench: #{bench[:name]}"
+    { c: config_path, s: snapshot_path, h: start }
+  end
+  private :build_substitution_hash
+
+  def build_artefacts(dry_run)
+    exec_command(%w[cargo clean], dry_run)
+    exec_command(build_command, dry_run)
+
+
+    build_config_file() unless dry_run
+    hash = build_substitution_hash(dry_run)
+  end
+  private :build_artefacts
+
+  def clean(dry_run)
+    # Clean db
+    puts 'Wiping db'
+    FileUtils.rm_rf(db_dir, secure: true) unless dry_run
+  end
+
+  def run(dry_run: true) # TODO: default back to false
+    puts "Running bench: #{@name}"
+
     metrics = {}
-    args = prepare_bench(bench, options)
-    run_bench(bench, args, options, metrics)
-    benchs_metrics[bench[:name]] = metrics
+    args = build_artefacts(dry_run)
+
+    import_command = splice_args(@import_command, args)
+    metrics[:import] = exec_command(import_command, dry_run)
+
+    # Save db size just after import
+    metrics[:import][:db_size] = db_size unless dry_run
+
+    validate_command = splice_args(@validate_command, args)
+    metrics[:validate] = exec_command(validate_command, dry_run)
+
+    clean(dry_run)
+
+    @metrics = metrics
+  end
+
+  def target
+    './target/release/forest'
+  end
+
+  def build_command
+    [ 'cargo', 'build', '--release' ]
+  end
+
+  def initialize(name:, config: {})
+    @name = name
+    @config = config
+    @snapshot_path = nil
+    @import_command = [
+      target,
+      '--config', '%<c>s',
+      '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s',
+      '--halt-after-import'
+    ]
+    @validate_command = [
+      target,
+      '--config', '%<c>s',
+      '--encrypt-keystore', 'false',
+      '--import-snapshot', '%<s>s',
+      '--halt-after-import',
+      '--skip-load',
+      '--height', '%<h>s'
+    ]
+    @metrics = {}
+  end
+end
+
+# Benchmark class for ParityDb
+class ParityDbBenchmark < Benchmark
+  def build_command
+    [ 'cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb' ]
+  end
+end
+
+def run_benchmarks(benchmarks, options)
+  bench_metrics = {}
+  benchmarks.each do |bench|
+    bench.snapshot_path = options[:snapshot_path]
+    bench.heights = options[:heights]
+    bench.run
+
+    bench_metrics[bench.name] = bench.metrics
 
     puts "\n"
   end
-  write_result(benchs_metrics)
+  write_result(bench_metrics)
 end
 
-# TODO: read script arguments and do some filtering otherwise run them all
+BENCHMARKS = [
+  Benchmark.new(name: 'baseline'),
+  Benchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
+  ParityDbBenchmark.new(name: 'paritydb')
+].freeze
 
-options = {}
+options = {
+  heights: HEIGHTS_TO_VALIDATE,
+  pattern: 'baseline'
+}
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
   opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
-  opts.on('--height [Integer]', Integer, 'Number of heights to validate') { |v| options[:height] = v }
+  opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
+  opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
 end.parse!
 
-snapshot = ARGV.pop
-raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot
+snapshot_path = ARGV.pop
+raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot_path
 
-options[:snapshot] = snapshot
+options[:snapshot_path] = snapshot_path
 
-run_benchmarks(BENCHMARK_SUITE, options)
-
-puts 'Done.'
+selection = Set[]
+BENCHMARKS.each do |bench|
+  options[:pattern].split(',').each do |pat|
+    if File.fnmatch(pat.strip, bench.name)
+      selection.add(bench)
+    end
+  end
+end
+if !selection.empty?
+  run_benchmarks(selection, options)
+else
+  puts 'Nothing to run'
+end
