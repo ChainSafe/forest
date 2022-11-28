@@ -9,6 +9,7 @@ use crate::{
         compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
     },
     utils::bitswap_missing_blocks,
+    DBStatistics,
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -193,5 +194,11 @@ impl BitswapStore for RocksDb {
 
     fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
         bitswap_missing_blocks::<_, Self::Params>(self, cid)
+    }
+}
+
+impl DBStatistics for RocksDb {
+    fn get_statistics(&self) -> Option<String> {
+        self.options.get_statistics()
     }
 }

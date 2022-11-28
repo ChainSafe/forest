@@ -6,6 +6,7 @@ pub mod metrics;
 
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use forest_db::rocks::RocksDb;
+use forest_db::DBStatistics;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
 use std::{collections::HashMap, net::TcpListener};
@@ -19,11 +20,14 @@ pub async fn add_metrics_registry(name: String, registry: prometheus_client::reg
     REGISTRIES_EXT.write().await.insert(name, registry);
 }
 
-pub async fn init_prometheus(
+pub async fn init_prometheus<DB>(
     prometheus_listener: TcpListener,
     db_directory: String,
-    db: RocksDb,
-) -> anyhow::Result<()> {
+    db: DB,
+) -> anyhow::Result<()>
+where
+    DB: DBStatistics + Sync + Send + Clone + 'static,
+{
     let registry = prometheus::default_registry();
 
     // Add the DBCollector to the registry
