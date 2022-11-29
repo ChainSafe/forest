@@ -27,9 +27,6 @@ pub enum SnapshotCommands {
         /// Specify the number of recent state roots to include in the export.
         #[structopt(short, long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Include old messages
-        #[structopt(short, long)]
-        include_old_messages: bool,
         /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
         /// Arguments:
@@ -123,7 +120,6 @@ impl SnapshotCommands {
                 tipset,
                 recent_stateroots,
                 output_path,
-                include_old_messages,
                 skip_checksum,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
@@ -167,7 +163,6 @@ impl SnapshotCommands {
                 let params = (
                     epoch,
                     *recent_stateroots,
-                    *include_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                     *skip_checksum,
