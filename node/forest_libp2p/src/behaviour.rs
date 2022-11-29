@@ -14,7 +14,7 @@ use cid::Cid;
 use forest_encoding::blake2b_256;
 use libipld::store::StoreParams;
 use libp2p::request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig};
-use libp2p::NetworkBehaviour;
+use libp2p::swarm::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
 use libp2p::{

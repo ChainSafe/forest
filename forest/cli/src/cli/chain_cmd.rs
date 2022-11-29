@@ -24,8 +24,11 @@ pub enum ChainCommands {
     /// Prints out the canonical head of the chain
     Head,
 
-    /// Prints a BLAKE2b hash of the tipset give a tipset keys. useful for setting checkpoints to speed up boot times from a snapshot
+    /// Prints a BLAKE2b hash of the tipset given its keys. Useful for setting checkpoints to speed up boot times from a snapshot
     TipsetHash { cids: Vec<String> },
+
+    /// Runs through all epochs back to 0 and validates the tipset checkpoint hashes
+    ValidateTipsetCheckpoints,
 
     /// Reads and prints out a message referenced by the specified CID from the
     /// chain block store
@@ -74,6 +77,10 @@ impl ChainCommands {
                         .await
                         .map(|s| format!("blake2b hash: {s}")),
                 );
+            }
+            Self::ValidateTipsetCheckpoints => {
+                let result = chain_validate_tipset_checkpoints((), &config.client.rpc_token).await;
+                print_rpc_res(result);
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();

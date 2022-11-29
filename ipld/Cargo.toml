@@ -15,7 +15,7 @@ cid.workspace               = true
 forest_encoding.workspace   = true
 fvm_ipld_encoding.workspace = true
 fvm_shared                  = { workspace = true, default-features = false }
-indexmap                    = { version = "1.9", features = ["serde-1"] }
+indexmap.workspace          = true
 libipld-core                = { workspace = true, features = ["serde-codec"] }
 libipld-macro.workspace     = true
 libipld.workspace           = true

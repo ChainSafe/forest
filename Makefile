@@ -52,7 +52,7 @@ audit:
 	cargo audit
 
 udeps:
-	cargo udeps --all-targets --features submodule_tests
+	cargo udeps --all-targets --features submodule_tests,instrumented_kernel
 
 spellcheck:
 	cargo spellcheck --code 1
@@ -62,7 +62,7 @@ lint: license clean
 	taplo fmt --check
 	taplo lint
 	cargo clippy --all-targets -- -D warnings
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb -- -D warnings
+	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings
 
 # Formats Rust and TOML files
 fmt:
