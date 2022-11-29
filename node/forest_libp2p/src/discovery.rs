@@ -1,14 +1,15 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use libp2p::core::transport::ListenerId;
+
 use libp2p::kad::record::store::MemoryStore;
-use libp2p::mdns::TokioMdns as Mdns;
+use libp2p::mdns::tokio::Behaviour as Mdns;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
-use libp2p::swarm::{ConnectionHandler, DialError, IntoConnectionHandler};
+use libp2p::swarm::derive_prelude::*;
+use libp2p::swarm::{ConnectionHandler, IntoConnectionHandler};
 use libp2p::{
-    core::{connection::ConnectionId, ConnectedPoint, Multiaddr, PeerId, PublicKey},
+    core::{connection::ConnectionId, Multiaddr, PeerId, PublicKey},
     kad::{handler::KademliaHandlerProto, Kademlia, KademliaConfig, KademliaEvent, QueryId},
-    mdns::MdnsEvent,
+    mdns::Event as MdnsEvent,
     multiaddr::Protocol,
     swarm::{behaviour::toggle::Toggle, NetworkBehaviour, NetworkBehaviourAction, PollParameters},
 };
@@ -18,7 +19,6 @@ use std::collections::HashMap;
 use std::{
     cmp,
     collections::{HashSet, VecDeque},
-    io,
     task::{Context, Poll},
     time::Duration,
 };
@@ -234,98 +234,42 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         list
     }
 
-    fn inject_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        conn: &ConnectionId,
-        endpoint: &ConnectedPoint,
-        failed_addresses: Option<&Vec<Multiaddr>>,
-        other_established: usize,
-    ) {
-        self.num_connections += 1;
-
-        if other_established == 0 {
-            let multiaddr = self.addresses_of_peer(peer_id);
-            self.peer_addresses.insert(*peer_id, multiaddr.clone());
-            self.peers.insert(*peer_id);
-            self.pending_events
-                .push_back(DiscoveryOut::Connected(*peer_id, multiaddr));
-        }
-
-        self.kademlia.inject_connection_established(
-            peer_id,
-            conn,
-            endpoint,
-            failed_addresses,
-            other_established,
-        )
+    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+        match &event {
+            FromSwarm::ConnectionEstablished(e) => {
+                self.num_connections += 1;
+                if e.other_established == 0 {
+                    let multiaddr = self.addresses_of_peer(&e.peer_id);
+                    self.peer_addresses.insert(e.peer_id, multiaddr.clone());
+                    self.peers.insert(e.peer_id);
+                    self.pending_events
+                        .push_back(DiscoveryOut::Connected(e.peer_id, multiaddr));
+                }
+            }
+            FromSwarm::ConnectionClosed(e) => {
+                self.num_connections -= 1;
+                if e.remaining_established == 0 {
+                    self.peers.remove(&e.peer_id);
+                    let addresses = self.peer_addresses.remove(&e.peer_id).unwrap_or_default();
+                    self.pending_events
+                        .push_back(DiscoveryOut::Disconnected(e.peer_id, addresses));
+                }
+            }
+            _ => {}
+        };
+        self.kademlia.on_swarm_event(event)
     }
 
-    fn inject_connection_closed(
-        &mut self,
-        peer_id: &PeerId,
-        conn: &ConnectionId,
-        endpoint: &ConnectedPoint,
-        handler: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
-        remaining_established: usize,
-    ) {
-        self.num_connections -= 1;
-
-        if remaining_established == 0 {
-            self.peers.remove(peer_id);
-            let addresses = self.peer_addresses.remove(peer_id).unwrap_or_default();
-            self.pending_events
-                .push_back(DiscoveryOut::Disconnected(*peer_id, addresses));
-        }
-
-        self.kademlia.inject_connection_closed(
-            peer_id,
-            conn,
-            endpoint,
-            handler,
-            remaining_established,
-        )
-    }
-
-    fn inject_event(
+    fn on_connection_handler_event(
         &mut self,
         peer_id: PeerId,
         connection: ConnectionId,
         event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
     ) {
         if let Some(kad) = self.kademlia.as_mut() {
-            return kad.inject_event(peer_id, connection, event);
+            return kad.on_connection_handler_event(peer_id, connection, event);
         }
-        error!("inject_node_event: no kademlia instance registered for protocol")
-    }
-
-    fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
-        self.kademlia.inject_new_external_addr(addr)
-    }
-
-    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
-        self.kademlia.inject_expired_listen_addr(id, addr);
-    }
-
-    fn inject_dial_failure(
-        &mut self,
-        peer_id: Option<PeerId>,
-        handler: Self::ConnectionHandler,
-        err: &DialError,
-    ) {
-        self.kademlia.inject_dial_failure(peer_id, handler, err)
-    }
-
-    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &Multiaddr) {
-        self.kademlia.inject_new_listen_addr(id, addr)
-    }
-
-    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
-        self.kademlia.inject_listener_error(id, err)
-    }
-
-    fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &io::Error>) {
-        self.kademlia.inject_listener_closed(id, reason)
+        error!("on_connection_handler_event: no kademlia instance registered for protocol")
     }
 
     #[allow(clippy::type_complexity)]

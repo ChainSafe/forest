@@ -49,110 +49,112 @@ funty = { git = "https://github.com/bitvecto-rs/funty/", rev = "7ef0d890fbcd8b3d
 pbr = { git = "https://github.com/a8m/pb", rev = "09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd" }
 
 [workspace.dependencies]
-ahash                 = "0.8"
-anyhow                = "1.0"
-arbitrary             = "1.1"
-assert_cmd            = "2"
-async-log             = "2.0"
-async-trait           = "0.1"
-atty                  = "0.2"
-axum                  = "0.5"
-backoff               = "0.4"
-base64                = "0.13"
-blake2b_simd          = "1.0"
-bls-signatures        = { version = "0.12", default-features = false, features = ["blst"] }
-byteorder             = "1.4.3"
-bytes                 = "1.2"
-chrono                = { version = "0.4", default-features = false, features = [] }
-cid                   = { version = "0.8", default-features = false, features = ["std"] }
-cs_serde_bytes        = "0.12.2"
-digest                = "0.10.5"
-directories           = "4.0.1"
-fil_actor_account_v8  = { package = "fil_actor_account_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_account_v9  = { package = "fil_actor_account", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_cron_v8     = { package = "fil_actor_cron_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_cron_v9     = { package = "fil_actor_cron", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_init_v8     = { package = "fil_actor_init_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_init_v9     = { package = "fil_actor_init", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_market_v8   = { package = "fil_actor_market_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_market_v9   = { package = "fil_actor_market", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_miner_v8    = { package = "fil_actor_miner_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_miner_v9    = { package = "fil_actor_miner", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_multisig_v8 = { package = "fil_actor_multisig_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_multisig_v9 = { package = "fil_actor_multisig", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_power_v8    = { package = "fil_actor_power_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_power_v9    = { package = "fil_actor_power", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_reward_v8   = { package = "fil_actor_reward_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_reward_v9   = { package = "fil_actor_reward", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actor_system_v8   = { package = "fil_actor_system_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actor_system_v9   = { package = "fil_actor_system", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-fil_actors_runtime    = { package = "fil_actors_runtime_common", version = "=9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
-fil_actors_runtime_v9 = { package = "fil_actors_runtime", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
-filecoin-proofs-api   = "12.0"
-flume                 = "0.10"
-fs_extra              = "1.2"
-futures               = "0.3"
-futures-util          = "0.3"
-fvm                   = "2.1"
-fvm_ipld_amt          = "0.4"
-fvm_ipld_bitfield     = "0.5"
-fvm_ipld_blockstore   = "0.1"
-fvm_ipld_car          = "0.5"
-fvm_ipld_encoding     = "0.2"
-fvm_ipld_hamt         = "0.5"
-fvm_shared            = "2.0"
-git-version           = "0.3"
-hex                   = "0.4"
-http                  = "0.2.8"
-human-repr            = "1.0"
-hyper                 = { version = "0.14", features = ["client", "stream", "http1"] }
-hyper-rustls          = "0.23"
-jsonrpc-v2            = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
-lazy_static           = "1.4"
-libipld               = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
-libipld-core          = "0.14"
-libipld-macro         = "0.14"
-libp2p                = { version = "0.49", default-features = false }
-libp2p-bitswap        = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest", features = ["compat"] }
-libsecp256k1          = "0.7"
-log                   = "0.4"
-lru                   = "0.8"
-multibase             = "0.9"
-multihash             = "0.16"
-nonempty              = "0.8.0"
-num-bigint            = "0.4"
-num-derive            = "0.3"
-num-rational          = "0.4"
-num-traits            = "0.2"
-num_cpus              = "1.14"
-once_cell             = "1.15"
-pin-project-lite      = "0.2"
-pretty_env_logger     = "0.4"
-prometheus            = "0.13"
-prometheus-client     = "0.18"
-quickcheck            = "1"
-quickcheck_macros     = "1"
-rand                  = "0.8"
-rayon                 = "1.5"
-regex                 = "1.6"
-rpassword             = "7.2"
-serde                 = "1.0"
-serde_ipld_dagcbor    = "0.1"
-serde_json            = "1.0"
-serde_with            = { version = "2.0.1", features = ["chrono_0_4"] }
-sha2                  = "0.10.5"
-smallvec              = "1.9"
-structopt             = "0.3"
-tempfile              = "3.3"
-thiserror             = "1.0"
-time                  = "0.3"
-tokio                 = "1.21"
-tokio-stream          = "0.1"
-tokio-util            = "0.7.0"
-toml                  = "0.5"
-tower-http            = "0.3"
-url                   = { version = "2.3", features = ["serde"] }
-which                 = "4.3"
+ahash                   = "0.8"
+anyhow                  = "1.0"
+arbitrary               = "1.1"
+assert_cmd              = "2"
+async-log               = "2.0"
+async-trait             = "0.1"
+atty                    = "0.2"
+axum                    = "0.5"
+backoff                 = "0.4"
+base64                  = "0.13"
+blake2b_simd            = "1.0"
+bls-signatures          = { version = "0.12", default-features = false, features = ["blst"] }
+byteorder               = "1.4.3"
+bytes                   = "1.2"
+chrono                  = { version = "0.4", default-features = false, features = [] }
+cid                     = { version = "0.8", default-features = false, features = ["std"] }
+cs_serde_bytes          = "0.12.2"
+digest                  = "0.10.5"
+directories             = "4.0.1"
+fil_actor_account_v8    = { package = "fil_actor_account_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_account_v9    = { package = "fil_actor_account", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_cron_v8       = { package = "fil_actor_cron_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_cron_v9       = { package = "fil_actor_cron", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_init_v8       = { package = "fil_actor_init_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_init_v9       = { package = "fil_actor_init", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_market_v8     = { package = "fil_actor_market_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_market_v9     = { package = "fil_actor_market", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_miner_v8      = { package = "fil_actor_miner_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_miner_v9      = { package = "fil_actor_miner", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_multisig_v8   = { package = "fil_actor_multisig_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_multisig_v9   = { package = "fil_actor_multisig", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_power_v8      = { package = "fil_actor_power_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_power_v9      = { package = "fil_actor_power", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_reward_v8     = { package = "fil_actor_reward_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_reward_v9     = { package = "fil_actor_reward", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actor_system_v8     = { package = "fil_actor_system_state_v8", version = "=8.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actor_system_v9     = { package = "fil_actor_system", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+fil_actors_runtime      = { package = "fil_actors_runtime_common", version = "=9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "lemmih/upgraded-v8" }
+fil_actors_runtime_v9   = { package = "fil_actors_runtime", version = "9.0.0", git = "https://github.com/filecoin-project/builtin-actors", branch = "release/v9" }
+filecoin-proofs-api     = "12.0"
+flume                   = "0.10"
+fs_extra                = "1.2"
+futures                 = "0.3"
+futures-util            = "0.3"
+fvm                     = "2.1"
+fvm_ipld_amt            = "0.4"
+fvm_ipld_bitfield       = "0.5"
+fvm_ipld_blockstore     = "0.1"
+fvm_ipld_car            = "0.5"
+fvm_ipld_encoding       = "0.2"
+fvm_ipld_hamt           = "0.5"
+fvm_shared              = "2.0"
+git-version             = "0.3"
+hex                     = "0.4"
+http                    = "0.2.8"
+human-repr              = "1.0"
+hyper                   = { version = "0.14", features = ["client", "stream", "http1"] }
+hyper-rustls            = "0.23"
+jsonrpc-v2              = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
+lazy_static             = "1.4"
+libipld                 = { version = "0.14", default-features = false, features = ["dag-cbor", "dag-json", "derive"] }
+libipld-core            = "0.14"
+libipld-macro           = "0.14"
+libp2p                  = { version = "0.50", default-features = false }
+libp2p-bitswap.branch   = "forest-libp2p@0.50"
+libp2p-bitswap.features = ["compat"]
+libp2p-bitswap.git      = "https://github.com/hanabi1224/libp2p-bitswap"
+libsecp256k1            = "0.7"
+log                     = "0.4"
+lru                     = "0.8"
+multibase               = "0.9"
+multihash               = "0.16"
+nonempty                = "0.8.0"
+num-bigint              = "0.4"
+num-derive              = "0.3"
+num-rational            = "0.4"
+num-traits              = "0.2"
+num_cpus                = "1.14"
+once_cell               = "1.15"
+pin-project-lite        = "0.2"
+pretty_env_logger       = "0.4"
+prometheus              = "0.13"
+prometheus-client       = "0.18"
+quickcheck              = "1"
+quickcheck_macros       = "1"
+rand                    = "0.8"
+rayon                   = "1.5"
+regex                   = "1.6"
+rpassword               = "7.2"
+serde                   = "1.0"
+serde_ipld_dagcbor      = "0.1"
+serde_json              = "1.0"
+serde_with              = { version = "2.0.1", features = ["chrono_0_4"] }
+sha2                    = "0.10.5"
+smallvec                = "1.9"
+structopt               = "0.3"
+tempfile                = "3.3"
+thiserror               = "1.0"
+time                    = "0.3"
+tokio                   = "1.21"
+tokio-stream            = "0.1"
+tokio-util              = "0.7.0"
+toml                    = "0.5"
+tower-http              = "0.3"
+url                     = { version = "2.3", features = ["serde"] }
+which                   = "4.3"
 
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth            = { path = "./utils/auth" }

@@ -41,6 +41,7 @@ libp2p = { workspace = true, default-features = false, features = [
   "request-response",
   "metrics",
   "tokio",
+  "macros",
 ] }
 libp2p-bitswap.workspace = true
 log.workspace = true
