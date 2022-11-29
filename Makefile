@@ -13,14 +13,14 @@ install-deps:
 	apt-get install --no-install-recommends -y build-essential clang protobuf-compiler ocl-icd-opencl-dev aria2 cmake
 
 install-lint-tools:
-	-which taplo || cargo quickinstall taplo-cli
-	-which cargo-audit || cargo quickinstall cargo-audit
-	-which cargo-spellcheck || cargo quickinstall cargo-spellcheck
-	-which cargo-udeps || cargo quickinstall cargo-udeps
+	which taplo || cargo quickinstall taplo-cli
+	which cargo-audit || cargo quickinstall cargo-audit
+	which cargo-spellcheck || cargo quickinstall cargo-spellcheck
+	which cargo-udeps || cargo quickinstall cargo-udeps
 
 install-doc-tools:
-	-which mdbook || cargo quickinstall mdbook
-	-which mdbook-linkcheck || cargo quickinstall mdbook
+	which mdbook || cargo quickinstall mdbook
+	which mdbook-linkcheck || cargo quickinstall mdbook
 
 clean-all:
 	cargo clean
