@@ -53,16 +53,6 @@ pub enum State {
     V9(fil_actor_power_v9::State),
 }
 
-/// Converts any `FilterEstimate`, e.g. `actorv0::util::smooth::FilterEstimate` type into
-/// generalized one `crate::FilterEstimate`.
-macro_rules! convert_filter_estimate {
-    ($from:expr) => {
-        FilterEstimate {
-            position: $from.position.clone(),
-            velocity: $from.velocity.clone(),
-        }
-    };
-}
 impl State {
     pub fn load<BS>(store: &BS, actor: &ActorState) -> anyhow::Result<State>
     where
@@ -139,22 +129,15 @@ impl State {
     ) -> anyhow::Result<bool> {
         match self {
             State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
-            State::V9(st) => {
-                // Ugly hack because the policy structs aren't shared. Issue 2147 will fix this.
-                let new_policy = fil_actors_runtime_v9::runtime::Policy {
-                    minimum_consensus_power: policy.minimum_consensus_power.clone(),
-                    ..Default::default()
-                };
-                st.miner_nominal_power_meets_consensus_minimum(&new_policy, &s, miner)
-            }
+            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
         }
     }
 
     /// Returns `this_epoch_qa_power_smoothed` from the state.
     pub fn total_power_smoothed(&self) -> FilterEstimate {
         match self {
-            State::V8(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
-            State::V9(st) => convert_filter_estimate!(st.this_epoch_qa_power_smoothed),
+            State::V8(st) => st.this_epoch_qa_power_smoothed.clone(),
+            State::V9(st) => st.this_epoch_qa_power_smoothed.clone(),
         }
     }
 

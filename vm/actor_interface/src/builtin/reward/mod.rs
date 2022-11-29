@@ -79,19 +79,45 @@ impl State {
 
     pub fn pre_commit_deposit_for_power(
         &self,
-        _network_qa_power: FilterEstimate,
-        _sector_weight: &StoragePower,
+        network_qa_power: FilterEstimate,
+        sector_weight: &StoragePower,
     ) -> TokenAmount {
-        todo!()
+        match self {
+            State::V8(st) => fil_actor_miner_v8::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &network_qa_power,
+                sector_weight,
+            ),
+            State::V9(st) => fil_actor_miner_v9::pre_commit_deposit_for_power(
+                &st.this_epoch_reward_smoothed,
+                &network_qa_power,
+                sector_weight,
+            ),
+        }
     }
 
     pub fn initial_pledge_for_power(
         &self,
-        _sector_weight: &StoragePower,
+        sector_weight: &StoragePower,
         _network_total_pledge: &TokenAmount,
-        _network_qa_power: FilterEstimate,
-        _circ_supply: &TokenAmount,
+        network_qa_power: FilterEstimate,
+        circ_supply: &TokenAmount,
     ) -> TokenAmount {
-        todo!()
+        match self {
+            State::V8(st) => fil_actor_miner_v8::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &network_qa_power,
+                circ_supply,
+            ),
+            State::V9(st) => fil_actor_miner_v9::initial_pledge_for_power(
+                sector_weight,
+                &st.this_epoch_baseline_power,
+                &st.this_epoch_reward_smoothed,
+                &network_qa_power,
+                circ_supply,
+            ),
+        }
     }
 }

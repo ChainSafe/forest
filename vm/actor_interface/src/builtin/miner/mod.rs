@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
+use fil_actors_runtime::runtime::Policy;
 use forest_fil_types::deadlines::DeadlineInfo;
 use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
@@ -78,84 +79,45 @@ impl State {
 
     pub fn info<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<MinerInfo> {
         match self {
-            State::V8(st) => {
-                let info = st.get_info(store)?;
-
-                // Deserialize into peer id if valid, `None` if not.
-                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
-
-                Ok(MinerInfo {
-                    owner: info.owner,
-                    worker: info.worker,
-                    control_addresses: info.control_addresses,
-                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
-                    worker_change_epoch: info
-                        .pending_worker_key
-                        .map(|k| k.effective_at)
-                        .unwrap_or(-1),
-                    peer_id,
-                    multiaddrs: info.multi_address,
-                    window_post_proof_type: info.window_post_proof_type,
-                    sector_size: info.sector_size,
-                    window_post_partition_sectors: info.window_post_partition_sectors,
-                    consensus_fault_elapsed: info.consensus_fault_elapsed,
-                })
-            }
-            State::V9(st) => {
-                let info = st.get_info(store)?;
-
-                // Deserialize into peer id if valid, `None` if not.
-                let peer_id = PeerId::from_bytes(&info.peer_id).ok();
-
-                Ok(MinerInfo {
-                    owner: info.owner,
-                    worker: info.worker,
-                    control_addresses: info.control_addresses,
-                    new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
-                    worker_change_epoch: info
-                        .pending_worker_key
-                        .map(|k| k.effective_at)
-                        .unwrap_or(-1),
-                    peer_id,
-                    multiaddrs: info.multi_address,
-                    window_post_proof_type: info.window_post_proof_type,
-                    sector_size: info.sector_size,
-                    window_post_partition_sectors: info.window_post_partition_sectors,
-                    consensus_fault_elapsed: info.consensus_fault_elapsed,
-                })
-            }
+            State::V8(st) => Ok(st.get_info(store)?.into()),
+            State::V9(st) => Ok(st.get_info(store)?.into()),
         }
     }
 
     /// Loads deadlines for a miner's state
     pub fn for_each_deadline<BS: Blockstore>(
         &self,
+        policy: &Policy,
         store: &BS,
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            State::V8(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&Default::default(), &store, |idx, dl| {
-                        f(idx, Deadline::V8(dl))
-                    })
-            }
-            State::V9(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&Default::default(), &store, |idx, dl| {
-                        f(idx, Deadline::V9(dl))
-                    })
-            }
+            State::V8(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V8(dl))),
+            State::V9(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V9(dl))),
         }
     }
 
     /// Loads deadline at index for a miner's state
     pub fn load_deadline<BS: Blockstore>(
         &self,
-        _store: &BS,
-        _idx: u64,
+        policy: &Policy,
+        store: &BS,
+        idx: u64,
     ) -> anyhow::Result<Deadline> {
-        unimplemented!()
+        match self {
+            State::V8(st) => Ok(st
+                .load_deadlines(store)?
+                .load_deadline(policy, store, idx)
+                .map(Deadline::V8)?),
+            State::V9(st) => Ok(st
+                .load_deadlines(store)?
+                .load_deadline(policy, store, idx)
+                .map(Deadline::V9)?),
+        }
     }
 
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
@@ -214,10 +176,13 @@ impl State {
     /// Loads a specific sector number
     pub fn get_sector<BS: Blockstore>(
         &self,
-        _store: &BS,
-        _sector_num: u64,
+        store: &BS,
+        sector_num: u64,
     ) -> anyhow::Result<Option<SectorOnChainInfo>> {
-        unimplemented!()
+        match self {
+            State::V8(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+            State::V9(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
+        }
     }
 
     /// Loads deadline at index for a miner's state
@@ -257,6 +222,54 @@ pub struct MinerInfo {
     pub sector_size: SectorSize,
     pub window_post_partition_sectors: u64,
     pub consensus_fault_elapsed: ChainEpoch,
+}
+
+impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
+    fn from(info: fil_actor_miner_v8::MinerInfo) -> Self {
+        // Deserialize into peer id if valid, `None` if not.
+        let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+        MinerInfo {
+            owner: info.owner,
+            worker: info.worker,
+            control_addresses: info.control_addresses,
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            worker_change_epoch: info
+                .pending_worker_key
+                .map(|k| k.effective_at)
+                .unwrap_or(-1),
+            peer_id,
+            multiaddrs: info.multi_address,
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: info.consensus_fault_elapsed,
+        }
+    }
+}
+
+impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
+    fn from(info: fil_actor_miner_v9::MinerInfo) -> Self {
+        // Deserialize into peer id if valid, `None` if not.
+        let peer_id = PeerId::from_bytes(&info.peer_id).ok();
+
+        MinerInfo {
+            owner: info.owner,
+            worker: info.worker,
+            control_addresses: info.control_addresses,
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            worker_change_epoch: info
+                .pending_worker_key
+                .map(|k| k.effective_at)
+                .unwrap_or(-1),
+            peer_id,
+            multiaddrs: info.multi_address,
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: info.consensus_fault_elapsed,
+        }
+    }
 }
 
 impl MinerInfo {
@@ -315,7 +328,10 @@ impl Deadline {
     }
 
     pub fn partitions_posted(&self) -> &BitField {
-        todo!()
+        match self {
+            Deadline::V8(dl) => &dl.partitions_posted,
+            Deadline::V9(dl) => &dl.partitions_posted,
+        }
     }
 }
 
@@ -328,13 +344,22 @@ pub enum Partition<'a> {
 
 impl Partition<'_> {
     pub fn all_sectors(&self) -> &BitField {
-        todo!()
+        match self {
+            Partition::V8(dl) => &dl.sectors,
+            Partition::V9(dl) => &dl.sectors,
+        }
     }
     pub fn faulty_sectors(&self) -> &BitField {
-        todo!()
+        match self {
+            Partition::V8(dl) => &dl.faults,
+            Partition::V9(dl) => &dl.faults,
+        }
     }
     pub fn recovering_sectors(&self) -> &BitField {
-        todo!()
+        match self {
+            Partition::V8(dl) => &dl.recoveries,
+            Partition::V9(dl) => &dl.recoveries,
+        }
     }
     pub fn live_sectors(&self) -> BitField {
         match self {
