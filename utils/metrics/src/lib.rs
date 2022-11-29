@@ -37,7 +37,7 @@ where
     let app = Router::new()
         .route("/metrics", get(collect_prometheus_metrics))
         .route("/stats/db", get(collect_db_metrics::<DB>))
-        .layer(axum::Extension(db));
+        .with_state(db);
     let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
     // Wait for server to exit
@@ -67,7 +67,9 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     )
 }
 
-async fn collect_db_metrics<DB>(axum::Extension(db): axum::Extension<DB>) -> impl IntoResponse
+async fn collect_db_metrics<DB>(
+    axum::extract::State(db): axum::extract::State<DB>,
+) -> impl IntoResponse
 where
     DB: DBStatistics + Sync + Send + Clone + 'static,
 {
