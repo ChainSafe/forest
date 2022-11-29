@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::error::Error as CborError;
+// use forest_encoding::error::*;
 use thiserror::Error;
 
 /// Database error
@@ -17,8 +17,10 @@ pub enum Error {
     #[cfg(feature = "paritydb")]
     #[error(transparent)]
     Database(#[from] parity_db::Error),
-    #[error(transparent)]
-    Encoding(#[from] CborError),
+    // #[error(transparent)]
+    // Encoding(#[from] CborEncodeError<anyhow::Error>),
+    // #[error(transparent)]
+    // Decoding(#[from] CborDecodeError<anyhow::Error>),
     #[error("{0}")]
     Other(String),
 }
@@ -30,10 +32,10 @@ impl PartialEq for Error {
         match (self, other) {
             (&InvalidBulkLen, &InvalidBulkLen) => true,
             (&Unopened, &Unopened) => true,
-            #[cfg(feature = "rocksdb")]
+            #[cfg(any(feature = "rocksdb", feature = "rocksdb"))]
             (&Database(_), &Database(_)) => true,
-            #[cfg(feature = "rocksdb")]
-            (&Encoding(_), &Encoding(_)) => true,
+            // (&Encoding(_), &Encoding(_)) => true,
+            // (&Decoding(_), &Decoding(_)) => true,
             (&Other(ref a), &Other(ref b)) => a == b,
             _ => false,
         }

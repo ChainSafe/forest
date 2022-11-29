@@ -47,6 +47,8 @@ funty = { git = "https://github.com/bitvecto-rs/funty/", rev = "7ef0d890fbcd8b3d
 # get rid of RUSTSEC-2020-0071, the fix is in place but not published to crates.io
 # tracking issue: https://github.com/ChainSafe/forest/issues/2251
 pbr = { git = "https://github.com/a8m/pb", rev = "09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd" }
+# temporary fix until `from_reader_unstrict` is accepted by upstream
+serde_ipld_dagcbor = { git = "https://github.com/hanabi1224/serde_ipld_dagcbor", branch = "forest" }
 
 [workspace.dependencies]
 ahash                   = "0.8"
@@ -129,7 +131,7 @@ rayon                   = "1.5"
 regex                   = "1.6"
 rpassword               = "7.2"
 serde                   = "1.0"
-serde_ipld_dagcbor      = "0.1"
+serde_ipld_dagcbor      = "0.2"
 serde_json              = "1.0"
 serde_repr              = "0.1.8"
 serde_with              = { version = "2.0.1", features = ["chrono_0_4"] }

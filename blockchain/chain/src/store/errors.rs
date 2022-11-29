@@ -4,9 +4,10 @@
 use cid::Error as CidErr;
 use forest_blocks::Error as BlkErr;
 use forest_db::Error as DbErr;
-use forest_encoding::error::Error as SerdeErr;
+use forest_encoding::error::*;
 use forest_legacy_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
+use std::fmt::Debug;
 use thiserror::Error;
 
 /// Chain error
@@ -30,6 +31,9 @@ pub enum Error {
     /// Error originating from encoding arbitrary data
     #[error("{0}")]
     Encoding(String),
+    /// Error originating from decoding arbitrary data
+    #[error("{0}")]
+    Decoding(String),
     /// Error originating from Cid creation
     #[error(transparent)]
     Cid(#[from] CidErr),
@@ -47,9 +51,15 @@ impl From<EncErr> for Error {
     }
 }
 
-impl From<SerdeErr> for Error {
-    fn from(e: SerdeErr) -> Error {
-        Error::Encoding(e.to_string())
+impl<E: Debug> From<CborEncodeError<E>> for Error {
+    fn from(e: CborEncodeError<E>) -> Error {
+        Error::Encoding(format!("{e:?}"))
+    }
+}
+
+impl<E: Debug> From<CborDecodeError<E>> for Error {
+    fn from(e: CborDecodeError<E>) -> Error {
+        Error::Decoding(format!("{e:?}"))
     }
 }
 

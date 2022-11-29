@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_db::Error as DbErr;
+use forest_encoding::error::*;
+use std::fmt::Debug;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -45,9 +47,15 @@ impl From<JoinError> for Error {
     }
 }
 
-impl From<forest_encoding::error::Error> for Error {
-    fn from(e: forest_encoding::error::Error) -> Self {
-        Error::Other(e.to_string())
+impl<E: Debug> From<CborEncodeError<E>> for Error {
+    fn from(e: CborEncodeError<E>) -> Error {
+        Error::Other(format!("{e:?}"))
+    }
+}
+
+impl<E: Debug> From<CborDecodeError<E>> for Error {
+    fn from(e: CborDecodeError<E>) -> Error {
+        Error::Other(format!("{e:?}"))
     }
 }
 

@@ -61,4 +61,5 @@ forest_db.workspace         = true
 forest_genesis              = { workspace = true, features = ["testing"] }
 quickcheck.workspace        = true
 quickcheck_macros.workspace = true
+tokio                       = { workspace = true, features = ["rt", "macros"] }
 tokio-util                  = { workspace = true, features = ["compat"] }

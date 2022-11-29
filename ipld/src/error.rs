@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::error::Error as CborError;
+use forest_encoding::error::*;
 use serde::ser;
-use std::fmt;
+use std::fmt::{self, Debug};
 use thiserror::Error;
 
 /// IPLD error
@@ -11,6 +11,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("{0}")]
     Encoding(String),
+    #[error("{0}")]
+    Decoding(String),
     #[error("{0}")]
     Other(&'static str),
     #[error("Failed to traverse link: {0}")]
@@ -25,8 +27,14 @@ impl ser::Error for Error {
     }
 }
 
-impl From<CborError> for Error {
-    fn from(e: CborError) -> Error {
-        Error::Encoding(e.to_string())
+impl<E: Debug> From<CborEncodeError<E>> for Error {
+    fn from(e: CborEncodeError<E>) -> Error {
+        Error::Encoding(format!("{e:?}"))
+    }
+}
+
+impl<E: Debug> From<CborDecodeError<E>> for Error {
+    fn from(e: CborDecodeError<E>) -> Error {
+        Error::Decoding(format!("{e:?}"))
     }
 }
