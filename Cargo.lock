@@ -3140,9 +3140,12 @@ dependencies = [
  "fvm_ipld_encoding 0.2.2",
  "fvm_ipld_hamt",
  "fvm_shared",
+ "lazy_static",
  "log",
  "num-traits",
+ "prometheus",
  "serde_ipld_dagcbor 0.1.2",
+ "stdext",
 ]
 
 [[package]]
@@ -6767,11 +6770,12 @@ dependencies = [
 
 [[package]]
 name = "rpassword"
-version = "7.1.0"
+version = "7.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20c9f5d2a0c3e2ea729ab3706d22217177770654c3ef5056b68b69d07332d3f5"
+checksum = "6678cf63ab3491898c0d021b493c94c9b221d91295294a2a5746eacbe5928322"
 dependencies = [
  "libc",
+ "rtoolbox",
  "winapi",
 ]
 
@@ -6788,6 +6792,16 @@ dependencies = [
  "netlink-proto",
  "nix 0.24.2",
  "thiserror",
+]
+
+[[package]]
+name = "rtoolbox"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "034e22c514f5c0cb8a10ff341b9b048b5ceb21591f31c8f44c43b960f9b3524a"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
@@ -7476,6 +7490,12 @@ dependencies = [
  "num-traits",
  "rand 0.8.5",
 ]
+
+[[package]]
+name = "stdext"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f3b6b32ae82412fb897ef134867d53a294f57ba5b758f06d71e865352c3e207"
 
 [[package]]
 name = "storage-proofs-core"
