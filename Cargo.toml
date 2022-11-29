@@ -63,7 +63,7 @@ blake2b_simd        = "1.0"
 bls-signatures      = { version = "0.12", default-features = false, features = ["blst"] }
 byteorder           = "1.4.3"
 bytes               = "1.2"
-chrono              = "0.4"
+chrono              = { version = "0.4", default-features = false, features = ["clock", "std"] }
 cid                 = { version = "0.8", default-features = false, features = ["std"] }
 cs_serde_bytes      = "0.12.2"
 derive_builder      = "0.11"
