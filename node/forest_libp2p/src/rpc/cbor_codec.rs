@@ -3,9 +3,9 @@
 // Code originally from futures_cbor_codec. License: Apache-2.0/MIT
 
 use asynchronous_codec::Decoder as IoDecoder;
-use bytes::{Buf, BytesMut};
+use bytes::BytesMut;
 use forest_encoding::{de::DeserializeOwned, error::*};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{
     fmt::{Display, Formatter, Result as FmtResult},
     io::{BufReader, Error as IoError},
@@ -80,7 +80,7 @@ impl<'de, Item: Deserialize<'de>> Default for Decoder<Item> {
     }
 }
 
-impl<Item: Serialize + DeserializeOwned> IoDecoder for Decoder<Item> {
+impl<Item: DeserializeOwned> IoDecoder for Decoder<Item> {
     type Item = Item;
     type Error = Error;
 
@@ -90,12 +90,7 @@ impl<Item: Serialize + DeserializeOwned> IoDecoder for Decoder<Item> {
         let reader = BufReader::new(slice);
 
         match serde_ipld_dagcbor::de::from_reader(reader) {
-            // If we read the item, we also need to consume the corresponding bytes.
-            Ok(item) => {
-                let offset = fvm_ipld_encoding::to_vec(&item).expect("Infallible").len();
-                src.advance(offset);
-                Ok(Some(item))
-            }
+            Ok(item) => Ok(Some(item)),
             // Sometimes the EOF is signalled as IO error
             Err(CborDecodeError::Eof) => Ok(None),
             Err(e) => Err(e.into()),
@@ -112,62 +107,36 @@ mod tests {
     type TestData = HashMap<String, usize>;
 
     /// Something to test with. It doesn't really matter what it is.
-    fn test_data1() -> TestData {
+    fn test_data() -> TestData {
         let mut data = HashMap::new();
         data.insert("hello".to_owned(), 42usize);
         data.insert("world".to_owned(), 0usize);
         data
     }
 
-    /// Something to test with. It doesn't really matter what it is.
-    fn test_data2() -> TestData {
-        let mut data = HashMap::new();
-        data.insert("hello".to_owned(), 33usize);
-        data.insert("forest".to_owned(), 22usize);
-        data
-    }
-
-    /// Try decoding CBOR based data.
-    fn decode<Dec: IoDecoder<Item = TestData, Error = Error>>(dec: Dec) {
-        let mut decoder = dec;
-        let data1 = test_data1();
-        let encoded1 = serde_ipld_dagcbor::to_vec(&data1).unwrap();
-        let data2 = test_data2();
-        let encoded2 = serde_ipld_dagcbor::to_vec(&data2).unwrap();
-        let mut all = BytesMut::with_capacity(128);
-        // Put two copies and a bit into the buffer
-        all.extend(&encoded1);
-        all.extend(&encoded2);
-        all.extend(&encoded1[..1]);
-        // We can now decode the first two copies
-        let decoded = decoder.decode(&mut all).unwrap().unwrap();
-        assert_eq!(data1, decoded);
-        let decoded = decoder.decode(&mut all).unwrap().unwrap();
-        assert_eq!(data2, decoded);
-        // And only 1 byte is left
-        assert_eq!(1, all.len());
-        // But the third one is not ready yet, so we get Ok(None)
-        assert!(decoder.decode(&mut all).unwrap().is_none());
-        // That single byte should still be there, yet unused
-        assert_eq!(1, all.len());
-        // We add the rest and get a third copy
-        all.extend(&encoded1[1..]);
-        let decoded = decoder.decode(&mut all).unwrap().unwrap();
-        assert_eq!(data1, decoded);
-        // Nothing there now
-        assert!(all.is_empty());
-        // These bytes can be deserialized now
-        // // Now we put some garbage there and see that it errors
-        // all.extend([0, 1, 2, 3, 4, 5]);
-        // decoder.decode(&mut all).unwrap_err();
-        // // All 5 bytes are still there
-        // assert_eq!(5, all.len());
-    }
-
-    /// Run the decoding tests on the lone decoder.
     #[test]
-    fn decode_only() {
-        let decoder = Decoder::new();
-        decode(decoder);
+    fn decode_success() {
+        let mut decoder = Decoder::new();
+        let data = test_data();
+        let encoded = serde_ipld_dagcbor::to_vec(&data).unwrap();
+
+        let mut all = BytesMut::with_capacity(encoded.len());
+        all.extend(&encoded);
+        let decoded = decoder.decode(&mut all).unwrap().unwrap();
+        assert_eq!(data, decoded);
+    }
+
+    #[test]
+    fn decode_failure() {
+        let mut decoder = Decoder::<HashMap<String, usize>>::new();
+        let data = test_data();
+        let encoded = serde_ipld_dagcbor::to_vec(&data).unwrap();
+
+        let mut all = BytesMut::with_capacity(encoded.len());
+        // Put two copies into the buffer
+        all.extend(&encoded);
+        all.extend(&encoded);
+
+        decoder.decode(&mut all).unwrap_err();
     }
 }
