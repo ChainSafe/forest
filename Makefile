@@ -18,6 +18,10 @@ install-lint-tools:
 	-which cargo-spellcheck && cargo quickinstall cargo-spellcheck
 	-which cargo-udeps && cargo quickinstall cargo-udeps
 
+install-doc-tools:
+	-which mdbook && cargo quickinstall mdbook
+	-which mdbook-linkcheck && cargo quickinstall mdbook
+
 clean-all:
 	cargo clean
 
