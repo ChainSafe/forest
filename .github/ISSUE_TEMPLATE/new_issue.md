@@ -2,7 +2,6 @@
 name: New issue
 about: New issue template
 title: ''
-labels: 'Status: Needs Triage'
 assignees: ''
 
 ---
