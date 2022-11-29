@@ -1198,6 +1198,12 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
             }
         }
     }
+    // Doing flush here creates small sst files at ~20KB
+    // Then we need to manually compact them by calling CompactFiles
+    // which howver is not exposed by rocksdb or librocksdb-sys crates
+    // if let Err(e) = chainstore.db.flush() {
+    //     warn!("Failed to flush db: {e}");
+    // }
     Ok(())
 }
 
