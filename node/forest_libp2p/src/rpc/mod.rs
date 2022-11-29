@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use asynchronous_codec::FramedRead;
-use forest_encoding::de::DeserializeOwned;
 use futures::prelude::*;
-use fvm_ipld_encoding::to_vec;
 use libp2p::core::ProtocolName;
 use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;
 use std::marker::PhantomData;
 
-mod cbor_codec;
+const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy [`RequestResponseCodec`]
 /// for Hello and `ChainExchange` protocols without duplication.
@@ -83,16 +81,10 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        // TODO: `cbor_codec::Decoder` no longer supports more than 1 frames, refactor this and remove asynchronous_codec
-        let mut reader = FramedRead::new(io, cbor_codec::Decoder::<RQ>::new());
-        // Expect only one request
-        let req = reader
-            .next()
-            .await
-            .transpose()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "read_request returned none"))?;
-        Ok(req)
+        let bytes = read_with_limit(io, MAX_BYTES_ALLOWED).await?;
+        serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("dagcbor decoding error: {e}"))
+        })
     }
 
     async fn read_response<T>(
@@ -103,16 +95,10 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        // TODO: `cbor_codec::Decoder` no longer supports more than 1 frames, refactor this and remove asynchronous_codec
-        let mut reader = FramedRead::new(io, cbor_codec::Decoder::<RS>::new());
-        // Expect only one response
-        let resp = reader
-            .next()
-            .await
-            .transpose()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "read_response returned none"))?;
-        Ok(resp)
+        let bytes = read_with_limit(io, MAX_BYTES_ALLOWED).await?;
+        serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(|e| {
+            io::Error::new(io::ErrorKind::Other, format!("dagcbor decoding error: {e}"))
+        })
     }
 
     async fn write_request<T>(
@@ -124,10 +110,9 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        // TODO: Use FramedWrite to stream write. Dilemma right now is if we should fork the cbor codec so we can replace serde_cbor to our fork of serde_cbor
-
         io.write_all(
-            &to_vec(&req).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
+            &fvm_ipld_encoding::to_vec(&req)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
         )
         .await?;
         io.close().await?;
@@ -143,12 +128,37 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        // TODO: Use FramedWrite to stream write. Dilemma right now is if we should fork the cbor codec so we can replace serde_cbor to our fork of serde_cbor
         io.write_all(
-            &to_vec(&res).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
+            &fvm_ipld_encoding::to_vec(&res)
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
         )
         .await?;
         io.close().await?;
         Ok(())
     }
+}
+
+async fn read_with_limit<T>(io: &mut T, max_bytes: usize) -> io::Result<Vec<u8>>
+where
+    T: AsyncRead + Unpin,
+{
+    let mut v = Vec::with_capacity(max_bytes);
+    let mut bytes_read = 0;
+    let mut buffer = [0; 1024];
+    'l: loop {
+        let size = io.read(&mut buffer).await?;
+        if size == 0 {
+            break 'l;
+        }
+        bytes_read += size;
+        if bytes_read > max_bytes {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Buffer size exceeds the maximum allowed {max_bytes}B"),
+            ));
+        }
+        v.extend_from_slice(&buffer[..size]);
+    }
+
+    Ok(v)
 }

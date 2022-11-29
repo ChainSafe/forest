@@ -3450,7 +3450,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "asynchronous-codec",
  "bytes 1.3.0",
  "cid",
  "flume",
