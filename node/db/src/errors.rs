@@ -17,10 +17,6 @@ pub enum Error {
     #[cfg(feature = "paritydb")]
     #[error(transparent)]
     Database(#[from] parity_db::Error),
-    // #[error(transparent)]
-    // Encoding(#[from] CborEncodeError<anyhow::Error>),
-    // #[error(transparent)]
-    // Decoding(#[from] CborDecodeError<anyhow::Error>),
     #[error("{0}")]
     Other(String),
 }
@@ -34,8 +30,6 @@ impl PartialEq for Error {
             (&Unopened, &Unopened) => true,
             #[cfg(any(feature = "rocksdb", feature = "rocksdb"))]
             (&Database(_), &Database(_)) => true,
-            // (&Encoding(_), &Encoding(_)) => true,
-            // (&Decoding(_), &Decoding(_)) => true,
             (&Other(ref a), &Other(ref b)) => a == b,
             _ => false,
         }

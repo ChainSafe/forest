@@ -89,11 +89,9 @@ impl<Item: Serialize + DeserializeOwned> IoDecoder for Decoder<Item> {
         let slice: &[u8] = src;
         let reader = BufReader::new(slice);
 
-        // Use the deserializer directly, instead of using `deserialize_from`. We explicitly do
-        // *not* want to check that there are no trailing bytes ‒ there may be, and they are
+        // Use [from_reader_unstrict] instead of `[from_reader]`. We explicitly do
+        // *NOT* want to check that there are no trailing bytes ‒ there may be, and they are
         // the next frame.
-        //
-        // let mut deserializer = Deserializer::new(reader);
         match serde_ipld_dagcbor::de::from_reader_unstrict(reader) {
             // If we read the item, we also need to consume the corresponding bytes.
             Ok(item) => {
