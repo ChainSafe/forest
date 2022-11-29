@@ -5,17 +5,14 @@ use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_cli_shared::cli::{default_snapshot_dir, snapshot_fetch};
-use forest_rpc_client::chain_ops::*;
-use regex::Regex;
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
+use forest_cli_shared::cli::{
+    default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
+use forest_rpc_client::chain_ops::*;
+use std::{collections::HashMap, fs, path::PathBuf};
 use strfmt::strfmt;
 use structopt::StructOpt;
-use time::{format_description::well_known::Iso8601, Date, OffsetDateTime};
+use time::OffsetDateTime;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -51,6 +48,13 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
+        /// Fetch latest snapshot provided by `forest` | `filecoin`
+        #[structopt(
+            short,
+            long,
+            possible_values = &["forest", "filecoin"],
+        )]
+        provider: Option<SnapshotServer>,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[structopt(long)]
         aria2: bool,
@@ -174,12 +178,24 @@ impl SnapshotCommands {
             }
             Self::Fetch {
                 snapshot_dir,
+                provider,
                 aria2: use_aria2,
             } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(&snapshot_dir, &config, *use_aria2).await {
+                let server = match provider {
+                    Some(s) => s,
+                    None => match config.chain.name.to_lowercase().as_str() {
+                        "mainnet" => &SnapshotServer::Filecoin,
+                        "calibnet" => &SnapshotServer::Forest,
+                        _ => cli_error_and_die(
+                            format!("Fetch not supported for chain {}", config.chain.name),
+                            1,
+                        ),
+                    },
+                };
+                match snapshot_fetch(&snapshot_dir, &config, server, *use_aria2).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
@@ -219,14 +235,13 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
         .clone()
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
-    println!("\nLocal snapshots:");
-    if let Ok(dir) = fs::read_dir(snapshot_dir) {
-        dir.flatten()
-            .map(|entry| entry.path())
-            .filter(|p| is_car_or_tmp(p))
-            .for_each(|p| println!("{}", p.display()));
-    };
-
+    let store = SnapshotStore::new(config, &snapshot_dir);
+    if store.snapshots.is_empty() {
+        println!("No local snapshots");
+    } else {
+        println!("Local snapshots:");
+        store.display();
+    }
     Ok(())
 }
 
@@ -251,79 +266,26 @@ fn remove(config: &Config, filename: &PathBuf, snapshot_dir: &Option<PathBuf>, f
 }
 
 fn prune(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) {
-    {
-        let snapshot_dir = snapshot_dir
-            .clone()
-            .unwrap_or_else(|| default_snapshot_dir(config));
-        println!("Snapshot dir: {}", snapshot_dir.display());
-        let mut snapshots_with_valid_name = vec![];
-        let mut snapshot_to_keep = None;
-        let mut latest_date = Date::MIN;
-        let mut latest_height = 0;
-        let pattern = Regex::new(
-            r"^forest_snapshot_([^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car$",
-        )
-        .unwrap();
-        if let Ok(dir) = fs::read_dir(snapshot_dir) {
-            for path in dir
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|p| p.is_file())
-            {
-                if let Some(Some(filename)) = path.file_name().map(|n| n.to_str()) {
-                    if let Some(captures) = pattern.captures(filename) {
-                        let date = captures.name("date").unwrap();
-                        if let Ok(date) = time::Date::parse(date.as_str(), &Iso8601::DEFAULT) {
-                            let height = captures
-                                .name("height")
-                                .unwrap()
-                                .as_str()
-                                .parse::<i64>()
-                                .unwrap();
-                            if date > latest_date {
-                                latest_date = date;
-                                latest_height = height;
-                                snapshot_to_keep = Some(path.clone());
-                            } else if date == latest_date && height > latest_height {
-                                latest_height = height;
-                                snapshot_to_keep = Some(path.clone());
-                            }
+    let snapshot_dir = snapshot_dir
+        .clone()
+        .unwrap_or_else(|| default_snapshot_dir(config));
+    println!("Snapshot dir: {}", snapshot_dir.display());
+    let mut store = SnapshotStore::new(config, &snapshot_dir);
+    if store.snapshots.len() < 2 {
+        println!("No files to delete");
+        return;
+    }
+    store.snapshots.sort_by_key(|s| (s.date, s.height));
+    store.snapshots.pop(); // Keep the latest snapshot
 
-                            snapshots_with_valid_name.push(path);
-                        }
-                    } else if path.extension().unwrap_or_default() == "tmp" {
-                        snapshots_with_valid_name.push(path);
-                    }
-                }
-            }
-        }
+    println!("Files to delete:");
+    store.display();
 
-        if snapshots_with_valid_name.len() < 2 {
-            println!("No files to delete");
-            return;
-        }
-
-        let mut snapshots_to_delete = snapshots_with_valid_name;
-        let mut index_to_keep = 0;
-        println!("Files to delete:");
-        if let Some(snapshot_to_keep) = snapshot_to_keep {
-            for (i, path) in snapshots_to_delete.iter().enumerate() {
-                if &snapshot_to_keep != path {
-                    println!("{}", path.as_path().display());
-                } else {
-                    index_to_keep = i;
-                }
-            }
-        }
-        snapshots_to_delete.remove(index_to_keep);
-
-        if !force && !prompt_confirm() {
-            println!("Aborted.");
-            return;
-        }
-
-        for snapshot_path in snapshots_to_delete {
-            delete_snapshot(&snapshot_path);
+    if !force && !prompt_confirm() {
+        println!("Aborted.");
+    } else {
+        for snapshot_path in store.snapshots {
+            delete_snapshot(&snapshot_path.path);
         }
     }
 }
@@ -383,9 +345,4 @@ fn delete_snapshot(snapshot_path: &PathBuf) {
             }
         }
     }
-}
-
-fn is_car_or_tmp(path: &Path) -> bool {
-    let ext = path.extension().unwrap_or_default();
-    ext == "car" || ext == "tmp" || ext == "aria2"
 }
