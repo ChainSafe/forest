@@ -9,6 +9,7 @@ use crate::{
         compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
     },
     utils::bitswap_missing_blocks,
+    DBStatistics,
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -23,6 +24,7 @@ use std::{path::Path, sync::Arc};
 #[derive(Clone)]
 pub struct RocksDb {
     pub db: Arc<DB>,
+    options: Options,
 }
 
 /// `RocksDb` is used as the KV store for Forest
@@ -84,7 +86,12 @@ impl RocksDb {
         let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
+            options: db_opts,
         })
+    }
+
+    pub fn get_statistics(&self) -> Option<String> {
+        self.options.get_statistics()
     }
 }
 
@@ -187,5 +194,11 @@ impl BitswapStore for RocksDb {
 
     fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
         bitswap_missing_blocks::<_, Self::Params>(self, cid)
+    }
+}
+
+impl DBStatistics for RocksDb {
+    fn get_statistics(&self) -> Option<String> {
+        self.options.get_statistics()
     }
 }

@@ -3,7 +3,7 @@
 
 use super::errors::Error;
 use crate::utils::bitswap_missing_blocks;
-use crate::Store;
+use crate::{DBStatistics, Store};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
@@ -152,3 +152,5 @@ impl BitswapStore for ParityDb {
         bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
+
+impl DBStatistics for ParityDb {}

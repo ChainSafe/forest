@@ -133,6 +133,16 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             .unwrap();
     }
 
+    // Print admin token
+    let ki = ks.get(JWT_IDENTIFIER).unwrap();
+    let token_exp = config.client.token_exp;
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
+    info!("Admin token: {}", token);
+
+    let keystore = Arc::new(RwLock::new(ks));
+
+    let db = open_db(&config);
+
     let mut services = JoinSet::new();
 
     {
@@ -152,23 +162,15 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             .into_os_string()
             .into_string()
             .expect("Failed converting the path to db");
+        let db = db.clone();
         services.spawn(async {
-            if let Err(e) = forest_metrics::init_prometheus(prometheus_listener, db_directory).await
+            if let Err(e) =
+                forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
             {
                 error!("Failed to initiate prometheus server: {e}");
             }
         });
     }
-
-    // Print admin token
-    let ki = ks.get(JWT_IDENTIFIER).unwrap();
-    let token_exp = config.client.token_exp;
-    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
-    info!("Admin token: {}", token);
-
-    let keystore = Arc::new(RwLock::new(ks));
-
-    let db = open_db(&config);
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(db.clone()).await);
