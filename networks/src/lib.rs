@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
 
-mod calibnet;
+pub mod calibnet;
 mod drand;
-mod mainnet;
+pub mod mainnet;
 
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V16;

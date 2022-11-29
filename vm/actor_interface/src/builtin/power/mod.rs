@@ -39,6 +39,8 @@ pub fn is_v9_power_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v9
         Cid::try_from("bafk2bzaceburxajojmywawjudovqvigmos4dlu4ifdikogumhso2ca2ccaleo").unwrap(),
+        // mainnet v9
+        Cid::try_from("bafk2bzaceakxw5wx3rtqoarrdbzhmxkufg2kx7n34xotzxzacvvbe5iqggmsa").unwrap(),
     ];
     known_cids.contains(cid)
 }

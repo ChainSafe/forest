@@ -35,6 +35,8 @@ pub fn is_v9_reward_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v9
         Cid::try_from("bafk2bzacebpptqhcw6mcwdj576dgpryapdd2zfexxvqzlh3aoc24mabwgmcss").unwrap(),
+        // mainnet v9
+        Cid::try_from("bafk2bzacecmcagk32pzdzfg7piobzqhlgla37x3g7jjzyndlz7mqdno2zulfi").unwrap(),
     ];
     known_cids.contains(cid)
 }

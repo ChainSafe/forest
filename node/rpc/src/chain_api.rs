@@ -67,8 +67,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let (epoch, recent_roots, include_olds_msgs, out, TipsetKeysJson(tsk), skip_checksum) = params;
-    let skip_old_msgs = !include_olds_msgs;
+    let (epoch, recent_roots, out, TipsetKeysJson(tsk), skip_checksum) = params;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
     if recent_roots < chain_finality {
@@ -88,7 +87,7 @@ where
 
     match data
         .chain_store
-        .export(&start_ts, recent_roots, skip_old_msgs, writer)
+        .export(&start_ts, recent_roots, writer)
         .await
     {
         Ok(checksum) => {
@@ -117,7 +116,7 @@ where
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file with the same
 /// name but with a `.sha256sum` extension.
 async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
-    let encoded_hash = hash.encode_hex::<String>();
+    let encoded_hash = format!("{} {}", hash.encode_hex::<String>(), source.display());
 
     let mut checksum_path = PathBuf::from(source);
     checksum_path.set_extension("sha256sum");
@@ -353,6 +352,34 @@ where
         .tipset_hash_from_keys(&tsk)
         .await;
     Ok(ts)
+}
+
+pub(crate) async fn chain_validate_tipset_checkpoints<DB, B>(
+    data: Data<RPCState<DB, B>>,
+    Params(params): Params<ChainValidateTipSetCheckpointsParams>,
+) -> Result<ChainValidateTipSetCheckpointsResult, JsonRpcError>
+where
+    DB: Blockstore + Store + Clone + Send + Sync + 'static,
+    B: Beacon,
+{
+    let () = params;
+
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .heaviest_tipset()
+        .await
+        .ok_or(forest_chain::Error::NotFound("heaviest tipset".to_string()))?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(tipset.key())
+        .await?;
+    data.state_manager
+        .chain_store()
+        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
+        .await?;
+    Ok("Ok".to_string())
 }
 
 pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(

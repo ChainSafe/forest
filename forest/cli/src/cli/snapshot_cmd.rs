@@ -30,9 +30,6 @@ pub enum SnapshotCommands {
         /// Specify the number of recent state roots to include in the export.
         #[structopt(short, long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Include old messages
-        #[structopt(short, long)]
-        include_old_messages: bool,
         /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
         /// Arguments:
@@ -119,7 +116,6 @@ impl SnapshotCommands {
                 tipset,
                 recent_stateroots,
                 output_path,
-                include_old_messages,
                 skip_checksum,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
@@ -146,6 +142,13 @@ impl SnapshotCommands {
                     ("chain".to_string(), chain_name),
                     ("height".to_string(), epoch.to_string()),
                 ]);
+
+                let output_path = if output_path.is_dir() {
+                    output_path.join(OUTPUT_PATH_DEFAULT_FORMAT)
+                } else {
+                    output_path.clone()
+                };
+
                 let output_path = match strfmt(&output_path.display().to_string(), &vars) {
                     Ok(path) => path.into(),
                     Err(e) => {
@@ -156,7 +159,6 @@ impl SnapshotCommands {
                 let params = (
                     epoch,
                     *recent_stateroots,
-                    *include_old_messages,
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                     *skip_checksum,
@@ -218,11 +220,12 @@ fn list(config: &Config, snapshot_dir: &Option<PathBuf>) -> anyhow::Result<()> {
         .unwrap_or_else(|| default_snapshot_dir(config));
     println!("Snapshot dir: {}", snapshot_dir.display());
     println!("\nLocal snapshots:");
-    fs::read_dir(snapshot_dir)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|p| is_car_or_tmp(p))
-        .for_each(|p| println!("{}", p.display()));
+    if let Ok(dir) = fs::read_dir(snapshot_dir) {
+        dir.flatten()
+            .map(|entry| entry.path())
+            .filter(|p| is_car_or_tmp(p))
+            .for_each(|p| println!("{}", p.display()));
+    };
 
     Ok(())
 }
