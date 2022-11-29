@@ -8,7 +8,7 @@ edition = "2021"
 base64.workspace            = true
 byteorder.workspace         = true
 cid.workspace               = true
-derive_builder              = "0.11"
+derive_builder.workspace    = true
 forest_beacon.workspace     = true
 forest_crypto               = { workspace = true, features = ["blst"] }
 forest_encoding.workspace   = true

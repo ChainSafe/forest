@@ -45,7 +45,7 @@ where
             let mut proving_sectors = BitField::new();
 
             if nv < NetworkVersion::V7 {
-                mas.for_each_deadline(store, |_, deadline| {
+                mas.for_each_deadline(&self.chain_config.policy, store, |_, deadline| {
                     let mut fault_sectors = BitField::new();
                     deadline.for_each(store, |_, partition: miner::Partition| {
                         proving_sectors |= partition.all_sectors();
@@ -57,7 +57,7 @@ where
                     Ok(())
                 })?;
             } else {
-                mas.for_each_deadline(store, |_, deadline| {
+                mas.for_each_deadline(&self.chain_config.policy, store, |_, deadline| {
                     deadline.for_each(store, |_, partition: miner::Partition| {
                         proving_sectors |= &partition.active_sectors();
                         Ok(())
@@ -197,7 +197,7 @@ where
             .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
         let mas = miner::State::load(self.blockstore(), &actor)?;
 
-        mas.for_each_deadline(store, |_, deadline| {
+        mas.for_each_deadline(&self.chain_config.policy, store, |_, deadline| {
             deadline.for_each(store, |_, partition: miner::Partition| {
                 cb(&partition)?;
                 Ok(())
