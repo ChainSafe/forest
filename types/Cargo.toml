@@ -1,11 +1,11 @@
 [package]
-name        = "forest_fil_types"
+name = "forest_fil_types"
 description = "Filecoin types used in Forest."
-version     = "0.4.0"
-license     = "MIT OR Apache-2.0"
-authors     = ["ChainSafe Systems <info@chainsafe.io>"]
-edition     = "2021"
-repository  = "https://github.com/ChainSafe/forest"
+version = "0.4.0"
+license = "MIT OR Apache-2.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["json"]
@@ -13,18 +13,18 @@ features = ["json"]
 [dependencies]
 anyhow.workspace = true
 base64.workspace = true
-cid.workspace    = true
+cid.workspace = true
 # cannot update due to `blst` version conflict
-filecoin-proofs-api         = { workspace = true, default-features = false }
-forest_json.workspace       = true
-forest_utils.workspace      = true
+filecoin-proofs-api = { workspace = true, default-features = false }
+forest_json.workspace = true
+forest_utils.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared                  = { workspace = true, default-features = false }
-num-derive.workspace        = true
-num-traits.workspace        = true
-serde                       = { workspace = true, features = ["derive"] }
-serde_json.workspace        = true
-time                        = { workspace = true, features = ["serde", "serde-well-known"] }
+fvm_shared = { workspace = true, default-features = false }
+num-derive.workspace = true
+num-traits.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+time = { workspace = true, features = ["serde", "serde-well-known"] }
 
 [dev-dependencies]
 quickcheck.workspace = true
