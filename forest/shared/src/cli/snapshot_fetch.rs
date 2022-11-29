@@ -1,6 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::{Config, SnapshotFetchConfig};
+use super::Config;
+use crate::cli::to_size_string;
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -12,39 +13,114 @@ use forest_utils::{
 };
 use hex::{FromHex, ToHex};
 use log::info;
+use regex::Regex;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
+use std::str::FromStr;
 use std::{
     path::{Path, PathBuf},
     process::Command,
     time::Duration,
 };
+use time::{format_description, format_description::well_known::Iso8601, Date};
 use tokio::{
     fs::{create_dir_all, File},
     io::{AsyncWriteExt, BufWriter},
 };
 use url::Url;
 
-use crate::cli::to_size_string;
+/// Snapshot fetch service provider
+#[derive(Debug)]
+pub enum SnapshotServer {
+    Forest,
+    Filecoin,
+}
+
+impl FromStr for SnapshotServer {
+    type Err = anyhow::Error;
+
+    fn from_str(provider: &str) -> Result<Self, Self::Err> {
+        match provider.to_lowercase().as_str() {
+            "forest" => Ok(SnapshotServer::Forest),
+            "filecoin" => Ok(SnapshotServer::Filecoin),
+            _ => bail!(
+                "Failed to fetch snapshot from: {}, Must be one of `forest`|`filecoin`.",
+                provider
+            ),
+        }
+    }
+}
+
+/// Snapshot attributes
+pub struct SnapshotInfo {
+    pub network: String,
+    pub date: Date,
+    pub height: i64,
+    pub path: PathBuf,
+}
+
+/// Collection of snapshots
+pub struct SnapshotStore {
+    pub snapshots: Vec<SnapshotInfo>,
+}
+
+impl SnapshotStore {
+    pub fn new(config: &Config, snapshot_dir: &PathBuf) -> SnapshotStore {
+        let mut snapshots = Vec::new();
+        if let Ok(dir) = std::fs::read_dir(snapshot_dir) {
+            dir.flatten()
+            .map(|entry| entry.path())
+            .filter(|p| is_car_or_tmp(p))
+            .for_each(|path|
+                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                    let pattern = Regex::new(
+                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car(.tmp|.aria2)?$",
+                    ).unwrap();
+                    if let Some(captures) = pattern.captures(filename) {
+                        let network: String = captures.name("network").unwrap().as_str().into();
+                        if network == config.chain.name {
+                            let date = Date::parse(captures.name("date").unwrap().as_str(), &Iso8601::DEFAULT).unwrap();
+                            let height = captures.name("height").unwrap().as_str().parse::<i64>().unwrap();
+                            let snapshot = SnapshotInfo {
+                                network,
+                                date,
+                                height,
+                                path,
+                            };
+                            snapshots.push(snapshot);
+                        }
+                    }
+                }
+            );
+        }
+        SnapshotStore { snapshots }
+    }
+
+    pub fn display(&self) {
+        self.snapshots
+            .iter()
+            .for_each(|s| println!("{}", s.path.display()));
+    }
+}
+
+pub fn is_car_or_tmp(path: &Path) -> bool {
+    let ext = path.extension().unwrap_or_default();
+    ext == "car" || ext == "tmp" || ext == "aria2"
+}
 
 /// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
 /// from configuration.
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
+    server: &SnapshotServer,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
-    match config.chain.name.to_lowercase().as_ref() {
-        "mainnet" => {
-            snapshot_fetch_mainnet(snapshot_out_dir, &config.snapshot_fetch, use_aria2).await
+    match server {
+        SnapshotServer::Forest => snapshot_fetch_forest(snapshot_out_dir, config, use_aria2).await,
+        SnapshotServer::Filecoin => {
+            snapshot_fetch_filecoin(snapshot_out_dir, config, use_aria2).await
         }
-        "calibnet" => {
-            snapshot_fetch_calibnet(snapshot_out_dir, &config.snapshot_fetch, use_aria2).await
-        }
-        _ => Err(anyhow::anyhow!(
-            "Fetch not supported for chain {}",
-            config.chain.name,
-        )),
     }
 }
 
@@ -56,20 +132,24 @@ pub fn is_aria2_installed() -> bool {
 /// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. connection interrupted) it will not be
 /// removed.
-async fn snapshot_fetch_calibnet(
+async fn snapshot_fetch_forest(
     snapshot_out_dir: &Path,
-    snapshot_fetch_config: &SnapshotFetchConfig,
+    config: &Config,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
-    let name = &snapshot_fetch_config.calibnet.bucket_name;
-    let region = &snapshot_fetch_config.calibnet.region;
+    let snapshot_fetch_config = match config.chain.name.to_lowercase().as_str() {
+        "mainnet" => bail!(
+            "Mainnet snapshot fetch service not provided by Forest yet. Suggestion: use `--provider=filecoin` to fetch from Filecoin server."
+        ),
+        "calibnet" => &config.snapshot_fetch.forest.calibnet,
+        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+    };
+    let name = &snapshot_fetch_config.bucket_name;
+    let region = &snapshot_fetch_config.region;
     let bucket = Bucket::new_public(name, region.parse()?)?;
 
     // Grab contents of the bucket
-    let bucket_contents = bucket.list(
-        snapshot_fetch_config.calibnet.path.clone(),
-        Some("/".to_string()),
-    )?;
+    let bucket_contents = bucket.list(snapshot_fetch_config.path.clone(), Some("/".to_string()))?;
 
     // Find the the last modified file that is not a directory or empty file
     let last_modified = bucket_contents
@@ -92,9 +172,9 @@ async fn snapshot_fetch_calibnet(
     // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
     // https://github.com/durch/rust-s3/issues/275
     let client = https_client();
-    let snapshot_spaces_url = &snapshot_fetch_config.calibnet.snapshot_spaces_url;
-    let calibnet_path = &snapshot_fetch_config.calibnet.path;
-    let url = snapshot_spaces_url.join(calibnet_path)?.join(filename)?;
+    let snapshot_spaces_url = &snapshot_fetch_config.snapshot_spaces_url;
+    let path = &snapshot_fetch_config.path;
+    let url = snapshot_spaces_url.join(path)?.join(filename)?;
 
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
     if use_aria2 {
@@ -117,37 +197,39 @@ async fn snapshot_fetch_calibnet(
 /// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
 /// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
 /// not be removed.
-async fn snapshot_fetch_mainnet(
+async fn snapshot_fetch_filecoin(
     snapshot_out_dir: &Path,
-    snapshot_fetch_config: &SnapshotFetchConfig,
+    config: &Config,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
+    let service_url = match config.chain.name.to_lowercase().as_ref() {
+        "mainnet" => config.snapshot_fetch.filecoin.mainnet.clone(),
+        "calibnet" => config.snapshot_fetch.filecoin.calibnet.clone(),
+        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+    };
     let client = https_client();
 
     let snapshot_url = {
-        let url = snapshot_fetch_config.mainnet.snapshot_url.clone();
         let head_response = client
-            .request(hyper::Request::head(url.as_str()).body("".into())?)
+            .request(hyper::Request::head(service_url.as_str()).body("".into())?)
             .await?;
 
         // Use the redirect if available.
-        match head_response
-            .headers()
-            .get("x-amz-website-redirect-location")
-        {
+        match head_response.headers().get("location") {
             Some(url) => url.to_str()?.try_into()?,
-            None => url,
+            None => service_url,
         }
     };
 
     let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
 
     // Grab the snapshot file name
-    let snapshot_name = filename_from_url(&snapshot_url)?;
+    let filename = filename_from_url(&snapshot_url)?;
     // Create requested directory tree to store the snapshot
     create_dir_all(snapshot_out_dir).await?;
+    let snapshot_name = normalize_filecoin_snapshot_name(&config.chain.name, &filename)?;
     let snapshot_path = snapshot_out_dir.join(&snapshot_name);
-
+    // Download the file
     if use_aria2 {
         download_snapshot_and_validate_checksum_with_aria2(client, snapshot_url, &snapshot_path)
             .await?
@@ -168,7 +250,6 @@ async fn snapshot_fetch_mainnet(
         )
         .await?;
     }
-
     Ok(snapshot_path)
 }
 
@@ -253,13 +334,17 @@ where
         url.as_str(),
         snapshot_path
             .parent()
-            .map(|p| p.to_str().unwrap_or_default())
+            .and_then(|p| p.to_str())
+            .unwrap_or_default(),
+        snapshot_path
+            .file_name()
+            .and_then(|f| f.to_str())
             .unwrap_or_default(),
         format!("sha-256={checksum_expected}").as_str(),
     )
 }
 
-fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<()> {
+fn download_with_aria2(url: &str, dir: &str, out: &str, checksum: &str) -> anyhow::Result<()> {
     let mut child = Command::new("aria2c")
         .args([
             "--continue=true",
@@ -268,9 +353,11 @@ fn download_with_aria2(url: &str, dir: &str, checksum: &str) -> anyhow::Result<(
             "--max-tries=0",
             &format!("--checksum={checksum}"),
             &format!("--dir={dir}",),
+            &format!("--out={out}",),
             url,
         ])
         .spawn()?;
+
     let exit_code = child.wait()?;
     if exit_code.success() {
         Ok(())
@@ -297,6 +384,36 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
         Err(anyhow::anyhow!("can't extract filename from {url}"))
     } else {
         Ok(filename)
+    }
+}
+
+/// Returns a normalized snapshot name
+/// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`.
+/// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`.
+/// # Example
+/// ```
+/// # use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
+/// let actual_name = "64050_2022_11_24T00_00_00Z.car";
+/// let normalized_name = "filecoin_snapshot_calibnet_2022-11-24_height_64050.car";
+/// assert_eq!(normalized_name, normalize_filecoin_snapshot_name("calibnet", actual_name).unwrap());
+/// ```
+pub fn normalize_filecoin_snapshot_name(network: &str, filename: &str) -> anyhow::Result<String> {
+    let pattern = Regex::new(
+        r"(?P<height>\d+)_(?P<date>\d{4}_\d{2}_\d{2})T(?P<time>\d{2}_\d{2}_\d{2})Z.car$",
+    )
+    .unwrap();
+    if let Some(captures) = pattern.captures(filename) {
+        let date = Date::parse(
+            captures.name("date").unwrap().as_str(),
+            &format_description::parse("[year]_[month]_[day]").unwrap(),
+        )?;
+        let height = captures.name("height").unwrap().as_str().parse::<i64>()?;
+        Ok(format!(
+            "filecoin_snapshot_{network}_{}_height_{height}.car",
+            date.format(&format_description::parse("[year]-[month]-[day]").unwrap())?
+        ))
+    } else {
+        bail!("Cannot parse filename: {filename}");
     }
 }
 
@@ -397,6 +514,7 @@ mod test {
     use anyhow::{ensure, Result};
     use axum::{routing::get_service, Router};
     use http::StatusCode;
+    use quickcheck_macros::quickcheck;
     use std::{env::temp_dir, net::TcpListener};
     use tower_http::services::ServeDir;
 
@@ -448,6 +566,11 @@ mod test {
             .for_each(|case| assert!(filename_from_url(&Url::try_from(*case).unwrap()).is_err()));
     }
 
+    #[quickcheck]
+    fn test_normalize_filecoin_snapshot_name(filename: String) {
+        _ = normalize_filecoin_snapshot_name("calibnet", &filename);
+    }
+
     #[test]
     fn replace_extension_url_test() {
         let correct_cases = [
@@ -495,6 +618,7 @@ mod test {
         let r = download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "test",
             "sha-256=f640a228f127a7ad7c3d7c8fa4a9e95c5a2eb8d32561905d97191178ab383a64",
         );
         ensure!(r.is_err());
@@ -514,6 +638,7 @@ mod test {
         download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
+            "test",
             "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
         )?;
         shutdown_tx.send(()).unwrap();
