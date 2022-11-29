@@ -14,7 +14,6 @@ use std::io;
 use std::marker::PhantomData;
 
 mod cbor_codec;
-use cbor_codec::Decoder;
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy [`RequestResponseCodec`]
 /// for Hello and `ChainExchange` protocols without duplication.
@@ -73,8 +72,8 @@ impl From<OutboundFailure> for RequestResponseError {
 impl<P, RQ, RS> RequestResponseCodec for CborRequestResponse<P, RQ, RS>
 where
     P: ProtocolName + Clone + Send + Sync,
-    RQ: Serialize + DeserializeOwned + Send + Sync,
-    RS: Serialize + DeserializeOwned + Send + Sync,
+    RQ: Serialize + DeserializeOwned + Send + Sync + 'static,
+    RS: Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     type Protocol = P;
     type Request = RQ;
@@ -84,7 +83,8 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut reader = FramedRead::new(io, Decoder::<RQ>::new());
+        // TODO: `cbor_codec::Decoder` no longer supports more than 1 frames, refactor this and remove asynchronous_codec
+        let mut reader = FramedRead::new(io, cbor_codec::Decoder::<RQ>::new());
         // Expect only one request
         let req = reader
             .next()
@@ -103,7 +103,8 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut reader = FramedRead::new(io, Decoder::<RS>::new());
+        // TODO: `cbor_codec::Decoder` no longer supports more than 1 frames, refactor this and remove asynchronous_codec
+        let mut reader = FramedRead::new(io, cbor_codec::Decoder::<RS>::new());
         // Expect only one response
         let resp = reader
             .next()

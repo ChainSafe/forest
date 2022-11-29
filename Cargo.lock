@@ -3172,7 +3172,6 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "cid",
- "forest_encoding",
  "fvm_ipld_blockstore",
  "lazy_static",
  "libipld",
@@ -3221,6 +3220,7 @@ dependencies = [
 name = "forest_encoding"
 version = "0.4.0"
 dependencies = [
+ "anyhow",
  "blake2b_simd",
  "cs_serde_bytes",
  "serde",
@@ -3357,7 +3357,6 @@ dependencies = [
  "async-trait",
  "cid",
  "forest_db",
- "forest_encoding",
  "forest_json",
  "forest_utils",
  "fvm_ipld_encoding 0.2.2",
@@ -7647,7 +7646,8 @@ dependencies = [
 [[package]]
 name = "serde_ipld_dagcbor"
 version = "0.2.2"
-source = "git+https://github.com/hanabi1224/serde_ipld_dagcbor?branch=forest#80a167aad6f03f1e41085411f34eeccb3053f384"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1e23de7a4a18dff77ab9531f279a882500b8cf3549fde044d4e10481b411f1e"
 dependencies = [
  "cbor4ii",
  "cid",
@@ -8515,9 +8515,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
+checksum = "5ec8ecbbb74d42a8dd0ce8ea9bfc38ad13e2ed5203c4f272dbe144f4e17d70ac"
 dependencies = [
  "proc-macro2 1.0.47",
  "quote 1.0.21",

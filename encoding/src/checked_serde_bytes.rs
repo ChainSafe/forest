@@ -47,6 +47,7 @@ pub mod serde_byte_array {
 mod tests {
     use super::serde_byte_array;
     use crate::BYTE_ARRAY_MAX_LEN;
+    use anyhow::{ensure, Result};
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -67,15 +68,17 @@ mod tests {
     }
 
     #[test]
-    fn cannot_serialize_byte_array_overflow() {
+    fn cannot_serialize_byte_array_overflow() -> Result<()> {
         let bytes = ByteArray {
             inner: vec![0; BYTE_ARRAY_MAX_LEN + 1],
         };
 
-        assert_eq!(
-            format!("{}", serde_ipld_dagcbor::to_vec(&bytes).err().unwrap()),
-            "Array exceed max length".to_string()
+        ensure!(
+            format!("{}", serde_ipld_dagcbor::to_vec(&bytes).err().unwrap())
+                .contains("Array exceed max length")
         );
+
+        Ok(())
     }
 
     #[test]

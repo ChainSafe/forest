@@ -89,10 +89,7 @@ impl<Item: Serialize + DeserializeOwned> IoDecoder for Decoder<Item> {
         let slice: &[u8] = src;
         let reader = BufReader::new(slice);
 
-        // Use [from_reader_unstrict] instead of `[from_reader]`. We explicitly do
-        // *NOT* want to check that there are no trailing bytes ‒ there may be, and they are
-        // the next frame.
-        match serde_ipld_dagcbor::de::from_reader_unstrict(reader) {
+        match serde_ipld_dagcbor::de::from_reader(reader) {
             // If we read the item, we also need to consume the corresponding bytes.
             Ok(item) => {
                 let offset = fvm_ipld_encoding::to_vec(&item).expect("Infallible").len();

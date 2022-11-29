@@ -745,7 +745,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 error,
                 request_id: _,
             } => {
-                debug!(
+                warn!(
                     "ChainExchange inbound error (peer: {:?}): {:?}",
                     peer, error
                 );
