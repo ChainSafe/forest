@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use serde::ser;
-use std::fmt::{self, Debug};
+use std::fmt;
 use thiserror::Error;
 
 /// IPLD error

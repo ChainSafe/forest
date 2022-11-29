@@ -27,7 +27,9 @@ impl PartialEq for Error {
         match (self, other) {
             (&InvalidBulkLen, &InvalidBulkLen) => true,
             (&Unopened, &Unopened) => true,
-            #[cfg(any(feature = "rocksdb", feature = "rocksdb"))]
+            #[cfg(feature = "rocksdb")]
+            (&Database(_), &Database(_)) => true,
+            #[cfg(feature = "paritydb")]
             (&Database(_), &Database(_)) => true,
             (&Other(ref a), &Other(ref b)) => a == b,
             _ => false,
