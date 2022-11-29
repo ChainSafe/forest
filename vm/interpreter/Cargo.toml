@@ -1,36 +1,36 @@
 [package]
-name    = "forest_interpreter"
+name = "forest_interpreter"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-ahash.workspace                  = true
-anyhow.workspace                 = true
-byteorder.workspace              = true
-cid.workspace                    = true
-fil_actors_runtime_v9.workspace  = true
+ahash.workspace = true
+anyhow.workspace = true
+byteorder.workspace = true
+cid.workspace = true
+fil_actors_runtime_v9.workspace = true
 forest_actor_interface.workspace = true
-forest_blocks.workspace          = true
-forest_crypto                    = { workspace = true, default-features = false, features = ["blst"] }
-forest_encoding.workspace        = true
-forest_fil_types.workspace       = true
-forest_message                   = { workspace = true, default_features = false, features = ["blst"] }
-forest_networks.workspace        = true
-forest_utils.workspace           = true
-fvm.workspace                    = true
-fvm_ipld_amt.workspace           = true
-fvm_ipld_blockstore.workspace    = true
-fvm_ipld_encoding.workspace      = true
-fvm_ipld_hamt.workspace          = true
-fvm_shared                       = { workspace = true, default-features = false }
-lazy_static.workspace            = true
-log.workspace                    = true
-num-traits.workspace             = true
-prometheus.workspace             = true
-serde_ipld_dagcbor.workspace     = true
-stdext                           = { version = "0.3", optional = true }
+forest_blocks.workspace = true
+forest_crypto = { workspace = true, default-features = false, features = ["blst"] }
+forest_encoding.workspace = true
+forest_fil_types.workspace = true
+forest_message = { workspace = true, default_features = false, features = ["blst"] }
+forest_networks.workspace = true
+forest_utils.workspace = true
+fvm.workspace = true
+fvm_ipld_amt.workspace = true
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace = true
+fvm_ipld_hamt.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+lazy_static.workspace = true
+log.workspace = true
+num-traits.workspace = true
+prometheus.workspace = true
+serde_ipld_dagcbor.workspace = true
+stdext = { version = "0.3", optional = true }
 
 [features]
-test_vectors        = []
+test_vectors = []
 instrumented_kernel = ["dep:stdext"]

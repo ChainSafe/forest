@@ -1,5 +1,5 @@
 [package]
-name    = "forest_key_management"
+name = "forest_key_management"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -8,25 +8,25 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-anyhow.workspace             = true
-argon2                       = "0.4"
-base64.workspace             = true
-bls-signatures.workspace     = true
-forest_encoding.workspace    = true
-forest_json.workspace        = true
-forest_utils.workspace       = true
-fvm_shared                   = { workspace = true, default-features = false }
-libsecp256k1.workspace       = true
-log.workspace                = true
-rand.workspace               = true
-serde                        = { workspace = true, features = ["derive"] }
+anyhow.workspace = true
+argon2 = "0.4"
+base64.workspace = true
+bls-signatures.workspace = true
+forest_encoding.workspace = true
+forest_json.workspace = true
+forest_utils.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+libsecp256k1.workspace = true
+log.workspace = true
+rand.workspace = true
+serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
-serde_json.workspace         = true
-thiserror.workspace          = true
-xsalsa20poly1305             = "0.9"
+serde_json.workspace = true
+thiserror.workspace = true
+xsalsa20poly1305 = "0.9"
 
 [dev-dependencies]
-quickcheck.workspace        = true
+quickcheck.workspace = true
 quickcheck_macros.workspace = true
-serde_json.workspace        = true
-tempfile.workspace          = true
+serde_json.workspace = true
+tempfile.workspace = true

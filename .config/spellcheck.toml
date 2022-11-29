@@ -1,13 +1,13 @@
 dev_comments = false
-skip_readme  = false
+skip_readme = false
 
 [hunspell]
-lang                    = "en_US"
-search_dirs             = ["."]
-skip_os_lookups         = true
-use_builtin             = true
+lang = "en_US"
+search_dirs = ["."]
+skip_os_lookups = true
+use_builtin = true
 tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…"
-extra_dictionaries      = ["forest.dic", "en_US.dic"]
+extra_dictionaries = ["forest.dic", "en_US.dic"]
 
 [hunspell.quirks]
 transform_regex = [

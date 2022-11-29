@@ -1,8 +1,8 @@
 [book]
-authors      = []
-language     = "en"
+authors = []
+language = "en"
 multilingual = false
-src          = "src"
+src = "src"
 
 [build]
 create-missing = false

@@ -1,18 +1,18 @@
 [package]
-name    = "forest_auth"
+name = "forest_auth"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
 # Public
-chrono.workspace     = true
-fvm_shared           = { workspace = true, default-features = false }
+chrono.workspace = true
+fvm_shared = { workspace = true, default-features = false }
 jsonrpc-v2.workspace = true
-jsonwebtoken         = "8.1"
-once_cell.workspace  = true
-rand.workspace       = true
-serde                = { workspace = true, default-features = false, features = ["derive"] }
-thiserror.workspace  = true
+jsonwebtoken = "8.1"
+once_cell.workspace = true
+rand.workspace = true
+serde = { workspace = true, default-features = false, features = ["derive"] }
+thiserror.workspace = true
 # Internal
 forest_key_management.workspace = true

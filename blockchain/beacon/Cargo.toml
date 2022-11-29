@@ -1,5 +1,5 @@
 [package]
-name    = "forest_beacon"
+name = "forest_beacon"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -8,21 +8,21 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
-ahash.workspace           = true
-anyhow.workspace          = true
-async-trait.workspace     = true
-base64.workspace          = true
-bls-signatures.workspace  = true
-byteorder.workspace       = true
+ahash.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+bls-signatures.workspace = true
+byteorder.workspace = true
 forest_encoding.workspace = true
-forest_utils.workspace    = true
-fvm_shared                = { workspace = true, default-features = false }
-hex.workspace             = true
-serde                     = { workspace = true, features = ["derive"] }
-sha2                      = { workspace = true, default-features = false }
-tokio                     = { workspace = true, features = ["sync"] }
+forest_utils.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+hex.workspace = true
+serde = { workspace = true, features = ["derive"] }
+sha2 = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
-quickcheck.workspace        = true
+quickcheck.workspace = true
 quickcheck_macros.workspace = true
-serde_json.workspace        = true
+serde_json.workspace = true

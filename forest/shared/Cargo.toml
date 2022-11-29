@@ -1,81 +1,81 @@
 [package]
-name        = "forest_cli_shared"
-version     = "0.4.1"
-authors     = ["ChainSafe Systems <info@chainsafe.io>"]
+name = "forest_cli_shared"
+version = "0.4.1"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This crate contains shared utilities that power both cli and daemon."
-edition     = "2021"
+edition = "2021"
 
 [dependencies]
-anyhow.workspace                 = true
-async-log.workspace              = true
-atty.workspace                   = true
-base64.workspace                 = true
-byte-unit                        = "4.0"
-chrono.workspace                 = true
-cid.workspace                    = true
-directories.workspace            = true
-fil_actor_miner_v8.workspace     = true
+anyhow.workspace = true
+async-log.workspace = true
+atty.workspace = true
+base64.workspace = true
+byte-unit = "4.0"
+chrono.workspace = true
+cid.workspace = true
+directories.workspace = true
+fil_actor_miner_v8.workspace = true
 forest_actor_interface.workspace = true
-forest_beacon.workspace          = true
-forest_blocks.workspace          = true
-forest_chain.workspace           = true
-forest_chain_sync.workspace      = true
-forest_crypto.workspace          = true
-forest_db.workspace              = true
-forest_deleg_cns                 = { workspace = true, optional = true }
-forest_encoding.workspace        = true
-forest_fil_types.workspace       = true
-forest_interpreter.workspace     = true
-forest_json.workspace            = true
-forest_key_management.workspace  = true
-forest_libp2p.workspace          = true
-forest_message                   = { workspace = true, features = ["blst"] }
-forest_message_pool.workspace    = true
-forest_networks.workspace        = true
-forest_rpc-api.workspace         = true
-forest_rpc-client.workspace      = true
-forest_state_manager.workspace   = true
-forest_utils.workspace           = true
-futures.workspace                = true
-fvm.workspace                    = true
-fvm_ipld_car.workspace           = true
-fvm_ipld_encoding.workspace      = true
-fvm_shared                       = { workspace = true, default-features = false }
-git-version.workspace            = true
-hex.workspace                    = true
-jsonrpc-v2.workspace             = true
-lazy_static.workspace            = true
-libp2p                           = { workspace = true, default-features = false, features = ["identify"] }
-log                              = { workspace = true, features = ["serde"] }
-multibase.workspace              = true
-num-rational.workspace           = true
-num-traits.workspace             = true
-once_cell.workspace              = true
-pretty_env_logger.workspace      = true
-prometheus                       = { workspace = true, features = ["process"] }
-regex.workspace                  = true
-rust-s3                          = { version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
-serde                            = { workspace = true, features = ["derive"] }
-serde_json.workspace             = true
-serde_with.workspace             = true
-sha2.workspace                   = true
-structopt.workspace              = true
-tempfile.workspace               = true
-time.workspace                   = true
-tokio                            = { workspace = true, features = ["sync"] }
-toml.workspace                   = true
-url.workspace                    = true
-which.workspace                  = true
+forest_beacon.workspace = true
+forest_blocks.workspace = true
+forest_chain.workspace = true
+forest_chain_sync.workspace = true
+forest_crypto.workspace = true
+forest_db.workspace = true
+forest_deleg_cns = { workspace = true, optional = true }
+forest_encoding.workspace = true
+forest_fil_types.workspace = true
+forest_interpreter.workspace = true
+forest_json.workspace = true
+forest_key_management.workspace = true
+forest_libp2p.workspace = true
+forest_message = { workspace = true, features = ["blst"] }
+forest_message_pool.workspace = true
+forest_networks.workspace = true
+forest_rpc-api.workspace = true
+forest_rpc-client.workspace = true
+forest_state_manager.workspace = true
+forest_utils.workspace = true
+futures.workspace = true
+fvm.workspace = true
+fvm_ipld_car.workspace = true
+fvm_ipld_encoding.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+git-version.workspace = true
+hex.workspace = true
+jsonrpc-v2.workspace = true
+lazy_static.workspace = true
+libp2p = { workspace = true, default-features = false, features = ["identify"] }
+log = { workspace = true, features = ["serde"] }
+multibase.workspace = true
+num-rational.workspace = true
+num-traits.workspace = true
+once_cell.workspace = true
+pretty_env_logger.workspace = true
+prometheus = { workspace = true, features = ["process"] }
+regex.workspace = true
+rust-s3 = { version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+serde_with.workspace = true
+sha2.workspace = true
+structopt.workspace = true
+tempfile.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+toml.workspace = true
+url.workspace = true
+which.workspace = true
 
 [dev-dependencies]
-axum.workspace              = true
-http.workspace              = true
-quickcheck.workspace        = true
+axum.workspace = true
+http.workspace = true
+quickcheck.workspace = true
 quickcheck_macros.workspace = true
-rand.workspace              = true
-tokio.workspace             = true
-tower-http                  = { workspace = true, features = ["fs"] }
+rand.workspace = true
+tokio.workspace = true
+tower-http = { workspace = true, features = ["fs"] }
 
 [features]
-rocksdb  = []
+rocksdb = []
 paritydb = []
