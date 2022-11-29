@@ -1,25 +1,25 @@
 [package]
-name        = "forest_legacy_ipld_amt"
+name = "forest_legacy_ipld_amt"
 description = "Sharded IPLD Array implementation."
-version     = "0.2.0"
-license     = "MIT OR Apache-2.0"
-authors     = ["ChainSafe Systems <info@chainsafe.io>"]
-edition     = "2021"
-repository  = "https://github.com/ChainSafe/forest"
+version = "0.2.0"
+license = "MIT OR Apache-2.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-ahash                         = { workspace = true, optional = true }
-anyhow.workspace              = true
-cid.workspace                 = true
-forest_db.workspace           = true
-forest_encoding.workspace     = true
-forest_utils.workspace        = true
+ahash = { workspace = true, optional = true }
+anyhow.workspace = true
+cid.workspace = true
+forest_db.workspace = true
+forest_encoding.workspace = true
+forest_utils.workspace = true
 fvm_ipld_blockstore.workspace = true
-fvm_ipld_encoding.workspace   = true
-itertools.workspace           = true
-once_cell.workspace           = true
-serde                         = { workspace = true, features = ["derive"] }
-thiserror.workspace           = true
+fvm_ipld_encoding.workspace = true
+itertools.workspace = true
+once_cell.workspace = true
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
 
 [features]
 go-interop = ["ahash"]

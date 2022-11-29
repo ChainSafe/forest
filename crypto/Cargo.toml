@@ -1,28 +1,28 @@
 [package]
-name        = "forest_crypto"
+name = "forest_crypto"
 description = "Filecoin crypto utilities for use in Forest"
-license     = "MIT OR Apache-2.0"
-version     = "0.6.0"
-authors     = ["ChainSafe Systems <info@chainsafe.io>"]
-edition     = "2021"
-repository  = "https://github.com/ChainSafe/forest"
+license = "MIT OR Apache-2.0"
+version = "0.6.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+repository = "https://github.com/ChainSafe/forest"
 
 [package.metadata.docs.rs]
 features = ["json"]
 
 [dependencies]
-anyhow.workspace            = true
-base64.workspace            = true
-bls-signatures.workspace    = true
-forest_encoding.workspace   = true
+anyhow.workspace = true
+base64.workspace = true
+bls-signatures.workspace = true
+forest_encoding.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared                  = { workspace = true, default-features = false }
-libsecp256k1.workspace      = true
-num-derive.workspace        = true
-num-traits.workspace        = true
-serde                       = { workspace = true, features = ["derive"] }
-serde_json.workspace        = true
-thiserror.workspace         = true
+fvm_shared = { workspace = true, default-features = false }
+libsecp256k1.workspace = true
+num-derive.workspace = true
+num-traits.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 quickcheck.workspace = true
@@ -30,4 +30,4 @@ serde_json.workspace = true
 
 [features]
 default = ["blst"]
-blst    = ["bls-signatures/blst", "fvm_shared/blst"]
+blst = ["bls-signatures/blst", "fvm_shared/blst"]

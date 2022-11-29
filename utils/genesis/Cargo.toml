@@ -1,5 +1,5 @@
 [package]
-name    = "forest_genesis"
+name = "forest_genesis"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -8,20 +8,20 @@ edition = "2021"
 testing = []
 
 [dependencies]
-anyhow.workspace               = true
-cid.workspace                  = true
-forest_blocks.workspace        = true
-forest_chain.workspace         = true
-forest_db.workspace            = true
-forest_encoding.workspace      = true
-forest_fil_types.workspace     = true
-forest_networks.workspace      = true
+anyhow.workspace = true
+cid.workspace = true
+forest_blocks.workspace = true
+forest_chain.workspace = true
+forest_db.workspace = true
+forest_encoding.workspace = true
+forest_fil_types.workspace = true
+forest_networks.workspace = true
 forest_state_manager.workspace = true
-forest_utils.workspace         = true
-futures.workspace              = true
-fvm_ipld_blockstore.workspace  = true
-fvm_ipld_car.workspace         = true
-log.workspace                  = true
-tokio-util                     = { workspace = true, features = ["compat"] }
-tokio.workspace                = true
-url.workspace                  = true
+forest_utils.workspace = true
+futures.workspace = true
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_car.workspace = true
+log.workspace = true
+tokio-util = { workspace = true, features = ["compat"] }
+tokio.workspace = true
+url.workspace = true

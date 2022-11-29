@@ -1,39 +1,39 @@
 [package]
-name    = "forest_statediff"
+name = "forest_statediff"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow.workspace                = true
-cid.workspace                   = true
-colored                         = "2.0"
-difference                      = "2.0"
-directories.workspace           = true
-fil_actor_account_v9.workspace  = true
-fil_actor_cron_v9.workspace     = true
-fil_actor_init_v9.workspace     = true
-fil_actor_market_v9.workspace   = true
-fil_actor_miner_v9.workspace    = true
+anyhow.workspace = true
+cid.workspace = true
+colored = "2.0"
+difference = "2.0"
+directories.workspace = true
+fil_actor_account_v9.workspace = true
+fil_actor_cron_v9.workspace = true
+fil_actor_init_v9.workspace = true
+fil_actor_market_v9.workspace = true
+fil_actor_miner_v9.workspace = true
 fil_actor_multisig_v9.workspace = true
-fil_actor_power_v9.workspace    = true
-fil_actor_reward_v9.workspace   = true
-fil_actor_system_v9.workspace   = true
-forest_db.workspace             = true
-forest_ipld.workspace           = true
-forest_json.workspace           = true
-forest_utils.workspace          = true
-fvm.workspace                   = true
-fvm_ipld_bitfield.workspace     = true
-fvm_ipld_blockstore.workspace   = true
-fvm_ipld_encoding.workspace     = true
-fvm_shared.workspace            = true
-libipld-core.workspace          = true
-serde                           = { workspace = true, features = ["derive"] }
-serde_json.workspace            = true
-structopt.workspace             = true
-tokio                           = { workspace = true, features = ["rt-multi-thread"] }
+fil_actor_power_v9.workspace = true
+fil_actor_reward_v9.workspace = true
+fil_actor_system_v9.workspace = true
+forest_db.workspace = true
+forest_ipld.workspace = true
+forest_json.workspace = true
+forest_utils.workspace = true
+fvm.workspace = true
+fvm_ipld_bitfield.workspace = true
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace = true
+fvm_shared.workspace = true
+libipld-core.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+structopt.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [features]
 paritydb = ["forest_db/paritydb"]
-rocksdb  = ["forest_db/rocksdb"]
+rocksdb = ["forest_db/rocksdb"]
