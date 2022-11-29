@@ -16,7 +16,7 @@ forest_encoding.workspace     = true
 forest_utils.workspace        = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace   = true
-itertools                     = "0.10"
+itertools.workspace           = true
 once_cell.workspace           = true
 serde                         = { workspace = true, features = ["derive"] }
 thiserror.workspace           = true
