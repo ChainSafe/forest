@@ -125,3 +125,10 @@ impl<BS: Store> Store for &BS {
         (*self).bulk_delete(keys)
     }
 }
+
+/// Traits for collecting DB stats
+pub trait DBStatistics {
+    fn get_statistics(&self) -> Option<String> {
+        None
+    }
+}

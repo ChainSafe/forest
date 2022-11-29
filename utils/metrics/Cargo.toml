@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow.workspace            = true
 axum.workspace              = true
+forest_db.workspace         = true
 fs_extra.workspace          = true
 lazy_static.workspace       = true
 log.workspace               = true
