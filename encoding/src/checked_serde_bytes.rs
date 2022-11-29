@@ -97,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn cannot_deserialize_byte_array_overflow() {
+    fn cannot_deserialize_byte_array_overflow() -> Result<()> {
         let max_length_bytes = ByteArray {
             inner: vec![0; BYTE_ARRAY_MAX_LEN],
         };
@@ -108,14 +108,13 @@ mod tests {
         overflow_encoding[encoding_len - BYTE_ARRAY_MAX_LEN - 1] = 1;
         overflow_encoding.push(0);
 
-        assert_eq!(
-            format!(
-                "{}",
-                serde_ipld_dagcbor::from_slice::<ByteArray>(&overflow_encoding)
-                    .err()
-                    .unwrap()
-            ),
-            "Array exceed max length".to_string()
-        );
+        ensure!(format!(
+            "{}",
+            serde_ipld_dagcbor::from_slice::<ByteArray>(&overflow_encoding)
+                .err()
+                .unwrap()
+        )
+        .contains("Array exceed max length"));
+        Ok(())
     }
 }
