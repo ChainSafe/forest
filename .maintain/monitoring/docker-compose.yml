@@ -22,6 +22,8 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus/
     restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
 
   grafana:
     image: grafana/grafana
