@@ -11,6 +11,7 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, Config, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
+use forest_db::Store;
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -206,6 +207,9 @@ fn main() {
                     info!("Shutting down tokio...");
                     rt.shutdown_timeout(Duration::from_secs(10));
 
+                    if let Err(e) = db.flush() {
+                        error!("Error flushing db: {e}");
+                    }
                     let db_weak_ref = Arc::downgrade(&db.db);
                     drop(db);
 
