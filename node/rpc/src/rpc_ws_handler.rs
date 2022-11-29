@@ -129,7 +129,7 @@ where
 
 pub async fn rpc_ws_handler<DB, B>(
     headers: HeaderMap,
-    axum::Extension(rpc_server): axum::Extension<JsonRpcServerState>,
+    axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse
 where

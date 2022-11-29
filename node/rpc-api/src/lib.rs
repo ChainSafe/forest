@@ -41,6 +41,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_HASH, Access::Read);
+    access.insert(chain_api::CHAIN_VALIDATE_TIPSET_CHECKPOINTS, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_BEACON, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
@@ -192,7 +193,7 @@ pub mod chain_api {
     pub type ChainGetMessageResult = MessageJson;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
-    pub type ChainExportParams = (ChainEpoch, i64, bool, PathBuf, TipsetKeysJson, bool);
+    pub type ChainExportParams = (ChainEpoch, i64, PathBuf, TipsetKeysJson, bool);
     pub type ChainExportResult = PathBuf;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
@@ -242,6 +243,10 @@ pub mod chain_api {
     pub const CHAIN_GET_TIPSET_HASH: &str = "Filecoin.ChainGetTipSetHash";
     pub type ChainGetTipSetHashParams = (TipsetKeysJson,);
     pub type ChainGetTipSetHashResult = String;
+
+    pub const CHAIN_VALIDATE_TIPSET_CHECKPOINTS: &str = "Filecoin.ChainValidateTipSetCheckpoints";
+    pub type ChainValidateTipSetCheckpointsParams = ();
+    pub type ChainValidateTipSetCheckpointsResult = String;
 
     pub const CHAIN_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.ChainGetRandomnessFromTickets";
     pub type ChainGetRandomnessFromTicketsParams =

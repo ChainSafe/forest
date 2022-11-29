@@ -5,6 +5,3 @@ use fvm_shared::address::Address;
 
 /// System actor address.
 pub const ADDRESS: Address = Address::new_id(0);
-
-/// System actor method.
-pub type Method = fil_actor_system_v8::Method;

@@ -8,8 +8,6 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 /// Genesis CID
 pub const GENESIS_CID: &str = "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4";
 
-pub const MINIMUM_CONSENSUS_POWER: i64 = 32 << 30;
-
 /// Bootstrap peer ids.
 pub const DEFAULT_BOOTSTRAP: &[&str] = &[
     "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy",

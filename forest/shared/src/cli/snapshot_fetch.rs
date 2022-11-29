@@ -528,7 +528,7 @@ mod test {
             let serve_dir = get_service(ServeDir::new("../../.github")).handle_error(|_| async {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
             });
-            Router::<axum::body::Body>::new().nest("/", serve_dir)
+            Router::new().nest_service("/", serve_dir)
         };
         let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
         let server = axum::Server::from_tcp(listener)?

@@ -302,6 +302,54 @@ where
         }
     }
 
+    pub async fn validate_tipset_checkpoints(
+        &self,
+        from: Arc<Tipset>,
+        network: String,
+    ) -> Result<(), Error> {
+        info!(
+            "Validating {network} tipset checkpoint hashes from: {}",
+            from.epoch()
+        );
+
+        let Some(mut hashes) = checkpoint_tipsets::get_tipset_hashes(&network) else {
+            info!("No checkpoint tipsets found for network: {network}, skipping validation.");
+            return Ok(());
+        };
+
+        let mut ts = from;
+        let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
+        hashes.remove(&tipset_hash);
+
+        loop {
+            let pts = self.chain_index.load_tipset(ts.parents()).await?;
+            let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
+            hashes.remove(&tipset_hash);
+
+            ts = pts;
+
+            if ts.epoch() == 0 {
+                break;
+            }
+        }
+
+        if !hashes.is_empty() {
+            return Err(Error::Other(format!(
+                "Found tipset hash(es) on {network} that are no longer valid: {:?}",
+                hashes
+            )));
+        }
+
+        if !checkpoint_tipsets::validate_genesis_cid(ts.key(), &network) {
+            return Err(Error::Other(format!(
+                "Genesis cid {:?} on {network} network does not match with one stored in checkpoint registry",
+                ts.key().cid()
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub async fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
@@ -457,7 +505,6 @@ where
         &self,
         tipset: &Tipset,
         recent_roots: ChainEpoch,
-        skip_old_msgs: bool,
         writer: W,
     ) -> Result<digest::Output<D>, Error>
     where
@@ -492,25 +539,19 @@ where
         info!("chain export started");
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
-        Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
+        Self::walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
-                let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                    if skip_old_msgs {
-                        Error::Other("Cid {cid} not found in blockstore".to_string())
-                    } else {
-                        Error::Other("Cid {cid} not found in blockstore. \
-                                        Exporting a full snapshot is only possible when the node is initialised with a full one. \
-                                        Consider exporting a lightweight snapshot, e.g. skip the old messages.".to_string())
-                    }
-                })?;
+                let block = self
+                    .blockstore()
+                    .get(&cid)?
+                    .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
 
-                tx_clone
-                    .send_async((cid, block.clone()))
-                    .await?;
+                tx_clone.send_async((cid, block.clone())).await?;
                 Ok(block)
             }
-        }).await?;
+        })
+        .await?;
 
         // Drop sender, to close the channel to write task, which will end when finished writing
         drop(tx);
@@ -618,7 +659,6 @@ where
     async fn walk_snapshot<F, T>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
-        skip_old_msgs: bool,
         mut load_block: F,
     ) -> Result<(), Error>
     where
@@ -644,10 +684,6 @@ where
                 if current_min_height % EPOCHS_IN_DAY == 0 {
                     info!(target: "chain_api", "export at: {}", current_min_height);
                 }
-            }
-
-            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
             }
 
             if h.epoch() > 0 {
