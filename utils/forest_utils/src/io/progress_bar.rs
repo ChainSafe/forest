@@ -87,10 +87,10 @@ impl ProgressBar {
         if self.display {
             self.inner.borrow_mut().set_style(
                 ProgressStyle::with_template(
-                    "{spinner:.green} [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})",
+                    "{spinner:.green} {msg} {bytes}/{total_bytes} [{wide_bar:.cyan/blue}] {percent}% {bytes_per_sec} {eta}",
                 )
                 .unwrap()
-                .progress_chars("#>-"),
+                .progress_chars("=>-"),
             );
         }
     }
