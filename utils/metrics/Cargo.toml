@@ -1,17 +1,17 @@
 [package]
-name    = "forest_metrics"
+name = "forest_metrics"
 version = "0.2.0"
 authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow.workspace            = true
-axum.workspace              = true
-forest_db.workspace         = true
-fs_extra.workspace          = true
-lazy_static.workspace       = true
-log.workspace               = true
-prometheus                  = { workspace = true, features = ["process"] }
+anyhow.workspace = true
+axum.workspace = true
+forest_db.workspace = true
+fs_extra.workspace = true
+lazy_static.workspace = true
+log.workspace = true
+prometheus = { workspace = true, features = ["process"] }
 prometheus-client.workspace = true
-thiserror.workspace         = true
-tokio.workspace             = true
+thiserror.workspace = true
+tokio.workspace = true

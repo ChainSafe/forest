@@ -1,5 +1,5 @@
 [package]
-name    = "forest_libp2p"
+name = "forest_libp2p"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
@@ -56,9 +56,9 @@ tokio = { workspace = true, features = ["sync", "time"] }
 tokio-stream.workspace = true
 
 [dev-dependencies]
-forest_crypto               = { workspace = true, features = ["blst"] }
-forest_db.workspace         = true
-forest_genesis              = { workspace = true, features = ["testing"] }
-quickcheck.workspace        = true
+forest_crypto = { workspace = true, features = ["blst"] }
+forest_db.workspace = true
+forest_genesis = { workspace = true, features = ["testing"] }
+quickcheck.workspace = true
 quickcheck_macros.workspace = true
-tokio-util                  = { workspace = true, features = ["compat"] }
+tokio-util = { workspace = true, features = ["compat"] }

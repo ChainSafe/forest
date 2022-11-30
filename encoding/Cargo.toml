@@ -1,16 +1,16 @@
 [package]
-name        = "forest_encoding"
+name = "forest_encoding"
 description = "Filecoin encoding and decoding utilities for use in Forest"
-license     = "MIT OR Apache-2.0"
-version     = "0.4.0"
-authors     = ["ChainSafe Systems <info@chainsafe.io>"]
-edition     = "2021"
-repository  = "https://github.com/ChainSafe/forest"
+license = "MIT OR Apache-2.0"
+version = "0.4.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-blake2b_simd.workspace       = true
-cs_serde_bytes.workspace     = true
-serde                        = { workspace = true, features = ["derive"] }
+blake2b_simd.workspace = true
+cs_serde_bytes.workspace = true
+serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
-serde_repr.workspace         = true
-serde_tuple                  = "0.5"
+serde_repr.workspace = true
+serde_tuple = "0.5"

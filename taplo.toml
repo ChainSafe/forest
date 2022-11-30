@@ -1,7 +1,6 @@
 [formatting]
-align_entries       = true
-column_width        = 120
-array_auto_expand   = true
+column_width = 120
+array_auto_expand = true
 allowed_blank_lines = 1
 
 [[rule]]

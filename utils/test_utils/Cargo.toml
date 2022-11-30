@@ -1,18 +1,18 @@
 [package]
-name    = "forest_test_utils"
+name = "forest_test_utils"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow.workspace            = true
-base64.workspace            = true
-cid.workspace               = true
-forest_blocks.workspace     = true
-forest_chain.workspace      = true
-forest_crypto               = { workspace = true, features = ["blst"] }
-forest_encoding.workspace   = true
-forest_libp2p.workspace     = true
-forest_message              = { workspace = true, features = ["blst"] }
+anyhow.workspace = true
+base64.workspace = true
+cid.workspace = true
+forest_blocks.workspace = true
+forest_chain.workspace = true
+forest_crypto = { workspace = true, features = ["blst"] }
+forest_encoding.workspace = true
+forest_libp2p.workspace = true
+forest_message = { workspace = true, features = ["blst"] }
 fvm_ipld_encoding.workspace = true
-fvm_shared                  = { workspace = true, default-features = false }
+fvm_shared = { workspace = true, default-features = false }

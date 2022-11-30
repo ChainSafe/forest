@@ -1,34 +1,34 @@
 [package]
-name        = "forest_ipld"
+name = "forest_ipld"
 description = "Interplanetary linked data types and implementation"
-version     = "0.2.0"
-license     = "MIT OR Apache-2.0"
-authors     = ["ChainSafe Systems <info@chainsafe.io>"]
-edition     = "2021"
-repository  = "https://github.com/ChainSafe/forest"
+version = "0.2.0"
+license = "MIT OR Apache-2.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
-anyhow.workspace            = true
-async-recursion             = "1.0"
-async-trait.workspace       = true
-cid.workspace               = true
-forest_encoding.workspace   = true
+anyhow.workspace = true
+async-recursion = "1.0"
+async-trait.workspace = true
+cid.workspace = true
+forest_encoding.workspace = true
 fvm_ipld_encoding.workspace = true
-fvm_shared                  = { workspace = true, default-features = false }
-indexmap.workspace          = true
-libipld-core                = { workspace = true, features = ["serde-codec"] }
-libipld-macro.workspace     = true
-libipld.workspace           = true
-multibase.workspace         = true
-serde                       = { workspace = true, features = ["derive"] }
-thiserror.workspace         = true
+fvm_shared = { workspace = true, default-features = false }
+indexmap.workspace = true
+libipld-core = { workspace = true, features = ["serde-codec"] }
+libipld-macro.workspace = true
+libipld.workspace = true
+multibase.workspace = true
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
 
 [dev-dependencies]
-forest_db.workspace         = true
-forest_json.workspace       = true
-forest_utils.workspace      = true
-multihash                   = { workspace = true, default-features = false, features = ["identity"] }
-quickcheck.workspace        = true
+forest_db.workspace = true
+forest_json.workspace = true
+forest_utils.workspace = true
+multihash = { workspace = true, default-features = false, features = ["identity"] }
+quickcheck.workspace = true
 quickcheck_macros.workspace = true
-serde_json.workspace        = true
-tokio.workspace             = true
+serde_json.workspace = true
+tokio.workspace = true

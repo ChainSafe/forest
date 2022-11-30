@@ -60,7 +60,7 @@ impl Default for Client {
             snapshot_height: None,
             skip_load: false,
             encrypt_keystore: true,
-            metrics_address: FromStr::from_str("127.0.0.1:6116").unwrap(),
+            metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             download_snapshot: false,
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
