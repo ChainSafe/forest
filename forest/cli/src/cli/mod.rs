@@ -114,9 +114,11 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
         JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
     };
 
-    match StatusCode::from_u16(
-        u16::try_from(code).expect("Normalized HTTP status codes are always under u16::MAX"),
-    ) {
+    // we sometimes get negative errors, e.g. -32602 INVALID_PARAMS from `jsonrpc`.
+    // It's a bit of a workaround to preserve partially the value but still try to fit into u16.
+    let code = code.abs().clamp(0, u16::MAX.into()) as u16;
+
+    match StatusCode::from_u16(code) {
         Ok(reason) => {
             error!("JSON RPC Error: Code: {reason} Message: {message}")
         }
