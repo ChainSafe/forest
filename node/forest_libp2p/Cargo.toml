@@ -45,6 +45,7 @@ libp2p = { workspace = true, default-features = false, features = [
 libp2p-bitswap.workspace = true
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }

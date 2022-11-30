@@ -1,6 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod decoder;
+use decoder::DagCborDecodingReader;
+
 use async_trait::async_trait;
 use futures::prelude::*;
 use libp2p::core::ProtocolName;
@@ -81,10 +84,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let bytes = read_with_limit(io, MAX_BYTES_ALLOWED).await?;
-        serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, format!("dagcbor decoding error: {e}"))
-        })
+        DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED).await
     }
 
     async fn read_response<T>(
@@ -95,10 +95,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let bytes = read_with_limit(io, MAX_BYTES_ALLOWED).await?;
-        serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(|e| {
-            io::Error::new(io::ErrorKind::Other, format!("dagcbor decoding error: {e}"))
-        })
+        DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED).await
     }
 
     async fn write_request<T>(
@@ -110,13 +107,7 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        io.write_all(
-            &fvm_ipld_encoding::to_vec(&req)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
-        io.close().await?;
-        Ok(())
+        encode_and_write(io, req).await
     }
 
     async fn write_response<T>(
@@ -128,37 +119,18 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        io.write_all(
-            &fvm_ipld_encoding::to_vec(&res)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
-        io.close().await?;
-        Ok(())
+        encode_and_write(io, res).await
     }
 }
 
-async fn read_with_limit<T>(io: &mut T, max_bytes: usize) -> io::Result<Vec<u8>>
+async fn encode_and_write<IO, T>(io: &mut IO, data: T) -> io::Result<()>
 where
-    T: AsyncRead + Unpin,
+    IO: AsyncWrite + Unpin,
+    T: serde::Serialize,
 {
-    let mut v = Vec::with_capacity(max_bytes);
-    let mut bytes_read = 0;
-    let mut buffer = [0; 1024];
-    'l: loop {
-        let size = io.read(&mut buffer).await?;
-        if size == 0 {
-            break 'l;
-        }
-        bytes_read += size;
-        if bytes_read > max_bytes {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("Buffer size exceeds the maximum allowed {max_bytes}B"),
-            ));
-        }
-        v.extend_from_slice(&buffer[..size]);
-    }
-
-    Ok(v)
+    let bytes = fvm_ipld_encoding::to_vec(&data)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    io.write_all(&bytes).await?;
+    io.close().await?;
+    Ok(())
 }
