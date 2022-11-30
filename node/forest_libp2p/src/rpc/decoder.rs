@@ -22,7 +22,7 @@ pin_project! {
 }
 
 impl<B, T> DagCborDecodingReader<B, T> {
-    /// max_bytes_allowed = 0 means unlimited
+    /// `max_bytes_allowed == 0` means unlimited
     pub(super) fn new(io: B, max_bytes_allowed: usize) -> Self {
         Self {
             io,
