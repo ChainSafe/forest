@@ -196,7 +196,8 @@ class Benchmark
     return { c: '<tbd>', s: '<tbd>', h: start } if dry_run
 
     config_path = "#{TEMP_DIR}/#{@name}.toml"
-    snapshot_path = "#{snapshot_dir}/#{snapshot}"
+
+    snapshot_path = File.file?(snapshot) ? snapshot : "#{snapshot_dir}/#{snapshot}"
 
     { c: config_path, s: snapshot_path, h: start }
   end
