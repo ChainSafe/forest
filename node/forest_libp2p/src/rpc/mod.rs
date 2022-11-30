@@ -13,8 +13,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;
 use std::marker::PhantomData;
-
-const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
+use std::time::Duration;
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy [`RequestResponseCodec`]
 /// for Hello and `ChainExchange` protocols without duplication.
@@ -84,7 +83,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED).await
+        read_and_decode(io).await
     }
 
     async fn read_response<T>(
@@ -95,7 +94,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED).await
+        read_and_decode(io).await
     }
 
     async fn write_request<T>(
@@ -120,6 +119,33 @@ where
         T: AsyncWrite + Unpin + Send,
     {
         encode_and_write(io, res).await
+    }
+}
+
+async fn read_and_decode<IO, T>(io: &mut IO) -> io::Result<T>
+where
+    IO: AsyncRead + Unpin,
+    T: serde::de::DeserializeOwned,
+{
+    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
+    const TIMEOUT_SECS: u64 = 30;
+
+    // Currently the protocol does not send length encoded message,
+    // and we use `decode-success-with-no-trailing-data` to detect end of frame
+    // just like what `FramedRead` does, so it's possible to cause deadlock at `io.poll_ready`
+    // Adding timeout here to mitigate the issue
+    match tokio::time::timeout(
+        Duration::from_secs(TIMEOUT_SECS),
+        DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED),
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(_) => {
+            let err = io::Error::new(io::ErrorKind::Other, format!("read_and_decode timeout"));
+            log::warn!("{err}");
+            Err(err)
+        }
     }
 }
 
