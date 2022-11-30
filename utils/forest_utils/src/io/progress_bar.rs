@@ -65,7 +65,7 @@ impl ProgressBar {
         }
     }
 
-    pub fn set_max_refresh_rate(&mut self, w: u8) {
+    pub fn set_max_refresh_rate_in_hz(&mut self, w: u8) {
         if self.display {
             self.inner = RefCell::new(IndicatifProgressBar::with_draw_target(
                 Some(self.size),

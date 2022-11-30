@@ -78,7 +78,7 @@ impl FetchProgress<DownloadStream> {
         let mut pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
         pb.set_bytes();
-        pb.set_max_refresh_rate(2);
+        pb.set_max_refresh_rate_in_hz(2);
 
         let map_err: fn(hyper::Error) -> futures::io::Error =
             |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
@@ -102,7 +102,7 @@ impl FetchProgress<BufReader<File>> {
         let mut pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");
         pb.set_bytes();
-        pb.set_max_refresh_rate(2);
+        pb.set_max_refresh_rate_in_hz(2);
 
         Ok(FetchProgress {
             progress_bar: pb,

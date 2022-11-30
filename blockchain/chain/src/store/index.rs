@@ -164,7 +164,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
         let total_size = from.epoch() - to;
         let mut pb = ProgressBar::new(total_size as u64);
         pb.message("Scanning blockchain ");
-        pb.set_max_refresh_rate(2);
+        pb.set_max_refresh_rate_in_hz(2);
 
         let rounded = self.round_down(from).await?;
 

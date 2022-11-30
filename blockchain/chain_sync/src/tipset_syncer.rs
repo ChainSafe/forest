@@ -863,7 +863,7 @@ async fn sync_headers_in_reverse<
     let total_size = proposed_head.epoch() - current_head.epoch();
     let mut pb = ProgressBar::new(total_size as u64);
     pb.message("Downloading headers ");
-    pb.set_max_refresh_rate(2);
+    pb.set_max_refresh_rate_in_hz(2);
 
     'sync: loop {
         // Unwrapping is safe here because the tipset vector always
