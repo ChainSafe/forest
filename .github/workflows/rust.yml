@@ -58,8 +58,7 @@ jobs:
             ~/.cargo/bin/
           key: ${{ runner.os }}-lints-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install Lint tools
-        run: (which cargo-quickinstall || cargo install cargo-quickinstall) && make install-lint-tools
-        continue-on-error: true
+        run: make install-lint-tools
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Setup sccache
