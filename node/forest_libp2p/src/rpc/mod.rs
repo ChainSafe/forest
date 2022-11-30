@@ -142,7 +142,7 @@ where
     {
         Ok(r) => r,
         Err(_) => {
-            let err = io::Error::new(io::ErrorKind::Other, format!("read_and_decode timeout"));
+            let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
             log::warn!("{err}");
             Err(err)
         }
