@@ -13,8 +13,11 @@ require 'set'
 require 'tmpdir'
 require 'toml-rb'
 
-# This is just for capturing the snapshot height
-SNAPSHOT_REGEX = /(?<height>\d+)_.*/.freeze
+# Those are for capturing the snapshot height
+SNAPSHOT_REGEXES = [
+  /_height_(?<height>\d+)\.car/,
+  /(?<height>\d+)_.*/
+].freeze
 
 HEIGHTS_TO_VALIDATE = 400
 
@@ -163,6 +166,14 @@ def splice_args(command, args)
   command.map { |s| s % args }
 end
 
+def snapshot_height(snapshot)
+  SNAPSHOT_REGEXES.each do |regex|
+    match = snapshot.match(regex)
+    return match.named_captures['height'].to_i if match
+  end
+  raise 'unsupported snapshot name'
+end
+
 # Benchmarks Forest import of a snapshot and validation of the chain
 class Benchmark
   attr_reader :name, :metrics
@@ -179,7 +190,7 @@ class Benchmark
 
   def build_substitution_hash(dry_run)
     snapshot = @snapshot_path
-    height = snapshot.match(SNAPSHOT_REGEX).named_captures['height'].to_i
+    height = snapshot_height(snapshot)
     start = height - @heights
 
     return { c: '<tbd>', s: '<tbd>', h: start } if dry_run
