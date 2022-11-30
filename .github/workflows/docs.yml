@@ -34,7 +34,8 @@ jobs:
             ~/.cargo/bin/
           key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
       - name: Install MDBook
-        run: cargo install cargo-quickinstall && make install-doc-tools
+        run: (which cargo-quickinstall || cargo install cargo-quickinstall) && make install-doc-tools
+        continue-on-error: true
         env:
           RUSTFLAGS: "-Cstrip=symbols"
       - name: Setup sccache
