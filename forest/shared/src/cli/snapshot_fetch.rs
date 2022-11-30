@@ -272,7 +272,7 @@ where
 
     let mut progress_bar = ProgressBar::new(total_size);
     progress_bar.message("Downloading snapshot ");
-    progress_bar.set_max_refresh_rate(20);
+    progress_bar.set_max_refresh_rate(2);
     progress_bar.set_bytes();
 
     let snapshot_file_tmp = TempFile::new(snapshot_path.with_extension("car.tmp"));
