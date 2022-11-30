@@ -1,4 +1,4 @@
-Forest follows a fixed, quarterly release schedule. On the last Friday of each
+Forest follows a fixed, quarterly release schedule. On the last week of each
 quarter, a new version is always released. This is supplemented with additional
 releases for bug fixes and special features. A "release officer" is appointed
 for each release and they are responsible for either following the checklist or,
