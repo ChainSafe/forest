@@ -1,6 +1,6 @@
 [chain]
-name             = "devnet"
-bootstrap_peers  = []
+name = "devnet"
+bootstrap_peers = []
 block_delay_secs = 30
 
 version_schedule = [{ height = "Skyr", version = "V16" }]
@@ -30,4 +30,4 @@ listening_multiaddr = "/ip4/0.0.0.0/tcp/2340"
 
 [sync]
 tipset_sample_size = 0
-req_window         = 100
+req_window = 100

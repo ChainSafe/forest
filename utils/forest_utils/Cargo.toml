@@ -1,40 +1,40 @@
 [package]
-name    = "forest_utils"
+name = "forest_utils"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow.workspace              = true
-async-trait.workspace         = true
-atty.workspace                = true
-cid.workspace                 = true
-const_format                  = "0.2.26"
-digest.workspace              = true
-forest_encoding.workspace     = true
-forest_ipld                   = { workspace = true, optional = true }
-futures.workspace             = true
+anyhow.workspace = true
+async-trait.workspace = true
+atty.workspace = true
+cid.workspace = true
+const_format = "0.2.26"
+digest.workspace = true
+forest_encoding.workspace = true
+forest_ipld = { workspace = true, optional = true }
+futures.workspace = true
 fvm_ipld_blockstore.workspace = true
-fvm_ipld_encoding.workspace   = true
-hyper-rustls.workspace        = true
-hyper.workspace               = true
-libc                          = "0.2"
-log.workspace                 = true
-pbr                           = "1.0"
-pin-project-lite.workspace    = true
-quickcheck.workspace          = true
-serde                         = { workspace = true, features = ["derive"] }
-serde_json.workspace          = true
-thiserror.workspace           = true
-tokio                         = { workspace = true, features = ["fs"] }
-tokio-util                    = { workspace = true, features = ["compat", "io-util"] }
-toml.workspace                = true
-url.workspace                 = true
+fvm_ipld_encoding.workspace = true
+hyper-rustls.workspace = true
+hyper.workspace = true
+libc = "0.2"
+log.workspace = true
+pbr = "1.0"
+pin-project-lite.workspace = true
+quickcheck.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs"] }
+tokio-util = { workspace = true, features = ["compat", "io-util"] }
+toml.workspace = true
+url.workspace = true
 
 [dev-dependencies]
-serde                = { workspace = true, features = ["derive"] }
-serde_derive         = "1.0"
+serde = { workspace = true, features = ["derive"] }
+serde_derive = "1.0"
 serde_json.workspace = true
-sha2                 = { workspace = true, default-features = false }
-tokio                = { workspace = true, features = ["macros", "rt", "fs"] }
+sha2 = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["macros", "rt", "fs"] }

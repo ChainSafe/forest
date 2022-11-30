@@ -20,7 +20,7 @@ install-lint-tools:
 
 install-doc-tools:
 	which mdbook || cargo quickinstall mdbook
-	which mdbook-linkcheck || cargo quickinstall mdbook
+	which mdbook-linkcheck || cargo quickinstall mdbook-linkcheck
 
 clean-all:
 	cargo clean

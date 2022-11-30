@@ -1,17 +1,17 @@
 [package]
-name    = "forest_networks"
+name = "forest_networks"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow.workspace             = true
+anyhow.workspace = true
 fil_actors_runtime.workspace = true
-forest_beacon.workspace      = true
-forest_json.workspace        = true
-fvm_shared                   = { workspace = true, default-features = false }
-serde                        = { workspace = true, features = ["derive"] }
-serde_json.workspace         = true
+forest_beacon.workspace = true
+forest_json.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 
 [dev-dependencies]
 toml = "0.5"
