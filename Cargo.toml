@@ -147,6 +147,8 @@ tower-http = "0.3"
 unsigned-varint = "0.7.1"
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
+indicatif = "0.17.2"
+console = "0.15.2"
 
 fil_actor_account_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_account_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }

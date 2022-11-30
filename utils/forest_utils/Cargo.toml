@@ -31,6 +31,8 @@ tokio = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["compat", "io-util"] }
 toml.workspace = true
 url.workspace = true
+indicatif.workspace = true
+console.workspace = true
 
 [dev-dependencies]
 serde = { workspace = true, features = ["derive"] }
