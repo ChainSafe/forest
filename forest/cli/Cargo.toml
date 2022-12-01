@@ -1,6 +1,6 @@
 [package]
 name = "forest-cli"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This crate contains all the subcommands except the daemon."
 edition = "2021"
