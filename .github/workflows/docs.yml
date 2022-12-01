@@ -21,7 +21,9 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
-        run: sudo make install-deps
+        run: |
+          # retrying this for a few times as it fails occasionally on CI runners
+          sudo make install-deps || sudo make install-deps || sudo make install-deps
       - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.5.4
         with:
