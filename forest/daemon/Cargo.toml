@@ -1,6 +1,6 @@
 [package]
 name = "forest-daemon"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
 edition = "2021"
