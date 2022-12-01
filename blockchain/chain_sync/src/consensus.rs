@@ -55,8 +55,7 @@ pub async fn collect_errs<E: 'static>(
 ) -> Result<(), NonEmpty<E>> {
     let mut errors = Vec::new();
     while let Some(result) = handles.join_next().await {
-        let result = result.unwrap().unwrap();
-        if let Err(e) = result {
+        if let Ok(Ok(Err(e))) = result {
             errors.push(e);
         }
     }
