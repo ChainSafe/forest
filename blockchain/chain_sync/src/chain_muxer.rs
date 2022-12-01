@@ -23,7 +23,6 @@ use forest_libp2p::{
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
-use futures::StreamExt;
 use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
@@ -833,7 +832,7 @@ where
                 }
                 Some(Ok(Err(e))) => {
                     error!("Following the network failed unexpectedly: {}", e);
-                    Err(e.into())
+                    Err(e)
                 }
                 // This arm is reliably unreachable because the JoinSet
                 // has two futures and we only resolve one before returning
