@@ -1,6 +1,6 @@
 ## Forest v0.6.0 (unreleased, scheduled for 2022-12-30)
 
-## Forest v0.5.0 (unreleased, scheduled for 2022-11-30)
+## Forest v0.5.0 (unreleased, scheduled for 2022-12-01)
 
 Notable updates:
 * Support for nv17.
