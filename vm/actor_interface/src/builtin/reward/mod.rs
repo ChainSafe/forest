@@ -36,7 +36,7 @@ pub fn is_v9_reward_cid(cid: &Cid) -> bool {
         // calibnet v9
         Cid::try_from("bafk2bzacebpptqhcw6mcwdj576dgpryapdd2zfexxvqzlh3aoc24mabwgmcss").unwrap(),
         // mainnet v9
-        Cid::try_from("bafk2bzacecmcagk32pzdzfg7piobzqhlgla37x3g7jjzyndlz7mqdno2zulfi").unwrap(),
+        Cid::try_from("bafk2bzacebezgbbmcm2gbcqwisus5fjvpj7hhmu5ubd37phuku3hmkfulxm2o").unwrap(),
     ];
     known_cids.contains(cid)
 }
