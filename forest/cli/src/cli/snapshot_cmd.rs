@@ -202,7 +202,7 @@ impl SnapshotCommands {
             }
             Self::Dir => {
                 let dir = default_snapshot_dir(&config);
-                println!("Default snapshot dir: {}", dir.display());
+                println!("{}", dir.display());
             }
             Self::List { snapshot_dir } => {
                 list(&config, snapshot_dir).unwrap();
