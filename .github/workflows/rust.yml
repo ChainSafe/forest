@@ -50,7 +50,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Apt Dependencies
         run: |
-          sudo make install-deps
+          # retrying this for a few times as it fails occasionally on CI runners
+          sudo make install-deps || sudo make install-deps || sudo make install-deps
           sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - uses: actions/cache@v3
         with:
