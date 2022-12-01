@@ -21,7 +21,11 @@ jobs:
         uses: actions/checkout@v3
       - name: Apt Dependencies
         if: startsWith(matrix.os, 'Ubuntu')
-        run: sudo make install-deps
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: sudo make install-deps
       - name: Homebrew Utils
         if: startsWith(matrix.os, 'macOS')
         run: |
