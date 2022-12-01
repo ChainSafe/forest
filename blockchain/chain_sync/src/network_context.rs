@@ -190,15 +190,13 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled().await;
-                let peer_manager = self.peer_manager.clone();
-                let network_send = self.network_send.clone();
                 let mut tasks = JoinSet::new();
                 for p in peers.into_iter() {
                     let ctl_tx = ctl_tx.clone();
                     let ctl_rx = ctl_rx.clone();
                     let res_tx = res_tx.clone();
-                    let peer_manager = peer_manager.clone();
-                    let network_send = network_send.clone();
+                    let peer_manager = self.peer_manager.clone();
+                    let network_send = self.network_send.clone();
                     let request = request.clone();
                     tasks.spawn(async move {
                         if ctl_tx.send_async(()).await.is_ok() {
