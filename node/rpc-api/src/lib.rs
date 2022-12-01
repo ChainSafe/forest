@@ -193,7 +193,7 @@ pub mod chain_api {
     pub type ChainGetMessageResult = MessageJson;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
-    pub type ChainExportParams = (ChainEpoch, i64, bool, PathBuf, TipsetKeysJson, bool);
+    pub type ChainExportParams = (ChainEpoch, i64, PathBuf, TipsetKeysJson, bool);
     pub type ChainExportResult = PathBuf;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";

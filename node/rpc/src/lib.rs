@@ -183,7 +183,7 @@ where
     let app = axum::Router::new()
         .route("/rpc/v0", get(rpc_ws_handler::<DB, B>))
         .route("/rpc/v0", post(rpc_http_handler::<DB, B>))
-        .layer(axum::Extension(rpc_server));
+        .with_state(rpc_server);
 
     info!("Ready for RPC connections");
     let server = axum::Server::from_tcp(rpc_endpoint)?.serve(app.into_make_service());

@@ -9,20 +9,31 @@ use crate::{
         compaction_style_from_str, compression_type_from_str, log_level_from_str, RocksDbConfig,
     },
     utils::bitswap_missing_blocks,
+    DBStatistics,
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
+use rocksdb::WriteOptions;
 pub use rocksdb::{
     BlockBasedOptions, Cache, CompactOptions, DBCompressionType, DataBlockIndexType, Options,
     WriteBatch, DB,
 };
 use std::{path::Path, sync::Arc};
 
+lazy_static::lazy_static! {
+    static ref WRITE_OPT_NO_WAL: WriteOptions = {
+        let mut opt = WriteOptions::default();
+        opt.disable_wal(true);
+        opt
+    };
+}
+
 /// `RocksDB` instance this satisfies the [Store] interface.
 #[derive(Clone)]
 pub struct RocksDb {
     pub db: Arc<DB>,
+    options: Options,
 }
 
 /// `RocksDb` is used as the KV store for Forest
@@ -91,7 +102,12 @@ impl RocksDb {
         let db_opts = Self::to_options(config);
         Ok(Self {
             db: Arc::new(DB::open(&db_opts, path)?),
+            options: db_opts,
         })
+    }
+
+    pub fn get_statistics(&self) -> Option<String> {
+        self.options.get_statistics()
     }
 }
 
@@ -108,7 +124,7 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        Ok(self.db.put(key, value)?)
+        Ok(self.db.put_opt(key, value, &WRITE_OPT_NO_WAL)?)
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>
@@ -137,7 +153,7 @@ impl Store for RocksDb {
         for (k, v) in values {
             batch.put(k, v);
         }
-        Ok(self.db.write(batch)?)
+        Ok(self.db.write_without_wal(batch)?)
     }
 
     fn flush(&self) -> Result<(), Error> {
@@ -147,12 +163,12 @@ impl Store for RocksDb {
 
 impl Blockstore for RocksDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.read(k.to_bytes()).map_err(|e| e.into())
+        self.read(k.to_bytes()).map_err(Into::into)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         metrics::BLOCK_SIZE_BYTES.observe(block.len() as f64);
-        self.write(k.to_bytes(), block).map_err(|e| e.into())
+        self.write(k.to_bytes(), block).map_err(Into::into)
     }
 
     fn put_many_keyed<D, I>(&self, blocks: I) -> anyhow::Result<()>
@@ -194,5 +210,11 @@ impl BitswapStore for RocksDb {
 
     fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
         bitswap_missing_blocks::<_, Self::Params>(self, cid)
+    }
+}
+
+impl DBStatistics for RocksDb {
+    fn get_statistics(&self) -> Option<String> {
+        self.options.get_statistics()
     }
 }

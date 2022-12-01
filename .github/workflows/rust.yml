@@ -49,14 +49,18 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
-        run: sudo make install-deps
+        run: |
+          sudo make install-deps
+          sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
           key: ${{ runner.os }}-lints-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
-      - run: make install-lint-tools
-        continue-on-error: true
+      - name: Install Lint tools
+        run: make install-lint-tools
+        env:
+          RUSTFLAGS: "-Cstrip=symbols"
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}

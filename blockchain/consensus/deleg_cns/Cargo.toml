@@ -1,31 +1,31 @@
 [package]
-name    = "forest_deleg_cns"
+name = "forest_deleg_cns"
 version = "0.2.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
-anyhow.workspace                 = true
-async-trait.workspace            = true
-cid.workspace                    = true
+anyhow.workspace = true
+async-trait.workspace = true
+cid.workspace = true
 forest_actor_interface.workspace = true
-forest_blocks.workspace          = true
-forest_chain.workspace           = true
-forest_chain_sync.workspace      = true
-forest_db.workspace              = true
-forest_encoding.workspace        = true
-forest_fil_types.workspace       = true
-forest_interpreter.workspace     = true
-forest_key_management.workspace  = true
-forest_networks.workspace        = true
-forest_state_manager.workspace   = true
-forest_utils.workspace           = true
-futures.workspace                = true
-fvm_ipld_blockstore.workspace    = true
-fvm_ipld_encoding.workspace      = true
-fvm_shared                       = { workspace = true, default-features = false }
-log.workspace                    = true
-nonempty.workspace               = true
-thiserror.workspace              = true
-tokio                            = { workspace = true, features = ["sync", "time"] }
-tokio-stream.workspace           = true
+forest_blocks.workspace = true
+forest_chain.workspace = true
+forest_chain_sync.workspace = true
+forest_db.workspace = true
+forest_encoding.workspace = true
+forest_fil_types.workspace = true
+forest_interpreter.workspace = true
+forest_key_management.workspace = true
+forest_networks.workspace = true
+forest_state_manager.workspace = true
+forest_utils.workspace = true
+futures.workspace = true
+fvm_ipld_blockstore.workspace = true
+fvm_ipld_encoding.workspace = true
+fvm_shared = { workspace = true, default-features = false }
+log.workspace = true
+nonempty.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+tokio-stream.workspace = true

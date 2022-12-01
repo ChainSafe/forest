@@ -50,45 +50,69 @@ impl LogValue {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct SnapshotFetchConfig {
-    pub mainnet: MainnetSnapshotFetchConfig,
-    pub calibnet: CalibnetSnapshotFetchConfig,
+    pub forest: ForestSnapshotFetchConfig,
+    pub filecoin: FilecoinSnapshotFetchConfig,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct MainnetSnapshotFetchConfig {
-    pub snapshot_url: Url,
+pub struct FilecoinSnapshotFetchConfig {
+    pub mainnet: Url,
+    pub calibnet: Url,
 }
 
-impl Default for MainnetSnapshotFetchConfig {
+impl Default for FilecoinSnapshotFetchConfig {
     fn default() -> Self {
         // unfallible unwrap as we know that the value is correct
         Self {
             /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
             /// `sha256sum` file with the same URL (but different extension).
-            snapshot_url: Url::try_from("https://fil-chain-snapshots-fallback.s3.amazonaws.com/mainnet/minimal_finality_stateroots_latest.car").unwrap(),
+            mainnet: Url::try_from("https://snapshots.mainnet.filops.net/minimal/latest").unwrap(),
+            /// Default `calibnet` snapshot URL. The assumption is that it will redirect once and will contain a
+            /// `sha256sum` file with the same URL (but different extension).
+            calibnet: Url::try_from("https://snapshots.calibrationnet.filops.net/minimal/latest")
+                .unwrap(),
         }
     }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
-pub struct CalibnetSnapshotFetchConfig {
+pub struct ForestSnapshotFetchConfig {
+    pub mainnet: ForestFetchConfig,
+    pub calibnet: ForestFetchConfig,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+pub struct ForestFetchConfig {
     pub snapshot_spaces_url: Url,
     pub bucket_name: String,
     pub region: String,
     pub path: String,
 }
 
-impl Default for CalibnetSnapshotFetchConfig {
+impl Default for ForestSnapshotFetchConfig {
     fn default() -> Self {
         // unfallible unwrap as we know that the value is correct
         Self {
-            snapshot_spaces_url: Url::try_from(
-                "https://forest-snapshots.fra1.digitaloceanspaces.com",
-            )
-            .unwrap(),
-            bucket_name: "forest-snapshots".to_string(),
-            region: "fra1".to_string(),
-            path: "calibnet/".to_string(),
+            // Forest does not support snapshot service for mainnet yet.
+            // TODO: Update config when mainnet snapshot service is available
+            mainnet: ForestFetchConfig {
+                snapshot_spaces_url: Url::try_from(
+                    "https://forest-snapshots.fra1.digitaloceanspaces.com",
+                )
+                .unwrap(),
+                bucket_name: "forest-snapshots".to_string(),
+                region: "fra1".to_string(),
+                path: "mainnet/".to_string(),
+            },
+            calibnet: ForestFetchConfig {
+                snapshot_spaces_url: Url::try_from(
+                    "https://forest-snapshots.fra1.digitaloceanspaces.com",
+                )
+                .unwrap(),
+                bucket_name: "forest-snapshots".to_string(),
+                region: "fra1".to_string(),
+                path: "calibnet/".to_string(),
+            },
         }
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name    = "forest_json"
+name = "forest_json"
 version = "0.2.0"
 edition = "2021"
 
@@ -27,10 +27,10 @@ num-bigint.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-arbitrary.workspace         = true
+arbitrary.workspace = true
 forest_test_utils.workspace = true
-fvm_shared                  = { workspace = true, features = ["arb"] }
-num-bigint                  = { workspace = true, features = ["quickcheck"] }
-quickcheck.workspace        = true
+fvm_shared = { workspace = true, features = ["arb"] }
+num-bigint = { workspace = true, features = ["quickcheck"] }
+quickcheck.workspace = true
 quickcheck_macros.workspace = true
-serde_json.workspace        = true
+serde_json.workspace = true
