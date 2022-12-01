@@ -1,4 +1,35 @@
-## Forest v0.5.0 (unreleased, scheduled for 2022-12-30)
+## Forest v0.6.0 (unreleased, scheduled for 2022-12-30)
+
+## Forest v0.5.0 (unreleased, scheduled for 2022-12-01)
+
+Notable updates:
+* Support for nv17.
+* Forest was split into two programs: a Filecoin node (forest), and a control
+  program (forest-cli).
+* Improved snapshot importing performance: ~75% reduction in snapshot import time.
+* Improved code building time: ~45% reduction in build time.
+* Code coverage increased from 32% to 63%.
+
+### Added
+* Support for nv17 on both calibnet and mainnet.
+* Experimental support for ParityDB.
+* Improved snapshot handling via the `forest-cli snapshot` commands.
+* Support using `aria2` for faster snapshot downloads.
+* Support for sending FIL.
+### Changed
+* Replace async_std with tokio.
+* Significantly improve tracked performance metrics.
+* Gracefully shutdown the database on sigterm and sighup.
+* Fix gas charging issue that caused state-root mismatches on mainnet.
+* Snapshots are automatically downloaded if the database is empty.
+* Improve error messages if a snapshot doesn't match the requested network.
+* Add `--color=[always;auto;never]` flag.
+### Removed
+* Fat snapshots (snapshots that contain all transaction receipts since genesis)
+  have been deprecated in favor of slim snapshots where receipts are downloaded
+  on demand.
+* All security advistory exceptions. Forest's dependencies are now free of known
+  vulnerabilities.
 
 ## Forest v0.4.1 (2022-10-04)
 
