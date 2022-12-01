@@ -6,12 +6,11 @@ use fil_actors_runtime::runtime::DomainSeparationTag;
 use forest_actor_interface::power;
 use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
-use forest_chain_sync::collect_errs;
+use forest_chain_sync::consensus::collect_errs;
 use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
 use forest_networks::{ChainConfig, Height};
 use forest_state_manager::StateManager;
-use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
@@ -21,6 +20,7 @@ use fvm_shared::version::NetworkVersion;
 use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
 use nonempty::NonEmpty;
 use std::sync::Arc;
+use tokio::task::JoinSet;
 
 use crate::{metrics, FilecoinConsensusError};
 
@@ -86,13 +86,13 @@ pub(crate) async fn validate_block<
         .map_err(to_errs)?;
 
     // Async validations
-    let validations = FuturesUnordered::new();
+    let mut validations = JoinSet::new();
 
     // Miner validations
     let v_state_manager = state_manager.clone();
     let v_base_tipset = base_tipset.clone();
     let v_header = header.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn(tokio::task::spawn_blocking(move || {
         validate_miner(
             v_state_manager.as_ref(),
             v_header.miner_address(),
@@ -106,7 +106,7 @@ pub(crate) async fn validate_block<
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_state_manager = Arc::clone(&state_manager);
     let v_lookback_state = lookback_state.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn(tokio::task::spawn_blocking(move || {
         validate_winner_election(
             v_block.header(),
             v_base_tipset.as_ref(),
@@ -123,7 +123,7 @@ pub(crate) async fn validate_block<
         let v_block = Arc::clone(&block);
         let parent_epoch = base_tipset.epoch();
         let v_prev_beacon = Arc::clone(&prev_beacon);
-        validations.push(tokio::task::spawn(async move {
+        validations.spawn(tokio::task::spawn(async move {
             v_block
                 .header()
                 .validate_block_drand(
@@ -142,7 +142,7 @@ pub(crate) async fn validate_block<
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_prev_beacon = Arc::clone(&prev_beacon);
     let v_state_manager = Arc::clone(&state_manager);
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn(tokio::task::spawn_blocking(move || {
         validate_ticket_election(
             v_block.header(),
             v_base_tipset.as_ref(),
@@ -155,7 +155,7 @@ pub(crate) async fn validate_block<
     // Winning PoSt proof validation
     let v_block = block.clone();
     let v_prev_beacon = Arc::clone(&prev_beacon);
-    validations.push(tokio::task::spawn_blocking(move || {
+    validations.spawn(tokio::task::spawn_blocking(move || {
         verify_winning_post_proof::<_, V>(
             &state_manager,
             win_p_nv,

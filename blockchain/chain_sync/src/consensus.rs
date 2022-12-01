@@ -6,7 +6,6 @@ use forest_chain::Scale;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
 use forest_message::SignedMessage;
 use forest_message_pool::MessagePool;
-use futures::stream::FuturesUnordered;
 use fvm_ipld_encoding::Cbor;
 use nonempty::NonEmpty;
 use std::borrow::Cow;
@@ -14,12 +13,11 @@ use std::{
     fmt::{Debug, Display},
     sync::Arc,
 };
-use tokio::task::JoinSet;
+use tokio::task::{JoinError, JoinSet};
 
 use forest_blocks::{Block, GossipBlock, Tipset};
 use forest_db::Store;
 use forest_state_manager::StateManager;
-use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation
@@ -49,14 +47,16 @@ pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
         DB: Blockstore + Store + Clone + Sync + Send + 'static;
 }
 
+type ValidationResult<E> = Result<(), E>;
+
 /// Helper function to collect errors from async validations.
-pub async fn collect_errs<E>(
-    mut handles: FuturesUnordered<tokio::task::JoinHandle<Result<(), E>>>,
+pub async fn collect_errs<E: 'static>(
+    mut handles: JoinSet<Result<ValidationResult<E>, JoinError>>,
 ) -> Result<(), NonEmpty<E>> {
     let mut errors = Vec::new();
-
-    while let Some(result) = handles.next().await {
-        if let Ok(Err(e)) = result {
+    while let Some(result) = handles.join_next().await {
+        let result = result.unwrap().unwrap();
+        if let Err(e) = result {
             errors.push(e);
         }
     }

@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+use tokio::task::JoinSet;
 
 use crate::bad_block_cache::BadBlockCache;
 use crate::consensus::{collect_errs, Consensus};
@@ -1282,21 +1283,22 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
         .map_err(|e| (*block_cid, e.into()))?;
 
     // Async validations
-    let validations = FuturesUnordered::new();
+    let mut validations = JoinSet::new();
 
     // Check block messages
-    validations.push(tokio::task::spawn(check_block_messages::<_, C>(
+    let check_block_msgs = tokio::task::spawn(check_block_messages(
         Arc::clone(&state_manager),
         Arc::clone(&block),
         Arc::clone(&base_tipset),
-    )));
+    ));
+    validations.spawn(check_block_msgs);
 
     // Base fee check
     let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_block_store = state_manager.blockstore().clone();
     let v_block = Arc::clone(&block);
-    validations.push(tokio::task::spawn_blocking(move || {
+    let base_fee_check = tokio::task::spawn_blocking(move || {
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
             .with_label_values(&[metrics::values::BASE_FEE_CHECK])
             .start_timer();
@@ -1315,13 +1317,15 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             )));
         }
         Ok(())
-    }));
+    });
+
+    validations.spawn(base_fee_check);
 
     // Parent weight calculation check
     let v_block_store = state_manager.blockstore().clone();
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
-    validations.push(tokio::task::spawn_blocking(move || {
+    let parent_wt_calc_check = tokio::task::spawn_blocking(move || {
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
             .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
             .start_timer();
@@ -1335,13 +1339,14 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             )));
         }
         Ok(())
-    }));
+    });
+    validations.spawn(parent_wt_calc_check);
 
     // State root and receipt root validations
     let v_state_manager = Arc::clone(&state_manager);
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_block = Arc::clone(&block);
-    validations.push(tokio::task::spawn(async move {
+    let state_root_recpt_root_validation = tokio::task::spawn(async move {
         let header = v_block.header();
         let (state_root, receipt_root) = v_state_manager
             .tipset_state(&v_base_tipset)
@@ -1375,20 +1380,22 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             )));
         }
         Ok(())
-    }));
+    });
+    validations.spawn(state_root_recpt_root_validation);
 
     // Block signature check
     let v_block = block.clone();
-    validations.push(tokio::task::spawn_blocking(move || {
+    let block_signature_check = tokio::task::spawn_blocking(move || {
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
             .with_label_values(&[metrics::values::BLOCK_SIGNATURE_CHECK])
             .start_timer();
         v_block.header().check_block_signature(&work_addr)?;
         Ok(())
-    }));
+    });
+    validations.spawn(block_signature_check);
 
     let v_block = block.clone();
-    validations.push(tokio::task::spawn(async move {
+    validations.spawn(tokio::task::spawn(async move {
         consensus
             .validate_block(state_manager, v_block)
             .map_err(|errs| {
