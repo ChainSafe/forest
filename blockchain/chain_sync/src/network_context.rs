@@ -28,6 +28,9 @@ use tokio::{task::JoinSet, time::timeout};
 // requests from slowing the node down. If increase, should create a countermeasure for this.
 const RPC_TIMEOUT: u64 = 5;
 
+/// Maximum number of concurrent chain exchange request being sent to the p2p network
+const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUEST: usize = 2;
+
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`BlockStore`] required to make
 /// network requests.
@@ -182,7 +185,7 @@ where
             .into_result()?,
             None => {
                 // Control max num of concurrent jobs
-                let (ctl_tx, ctl_rx) = flume::bounded(2);
+                let (ctl_tx, ctl_rx) = flume::bounded(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUEST);
                 let (res_tx, res_rx) = flume::bounded::<Vec<T>>(1);
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
@@ -232,6 +235,7 @@ where
                 tokio::select! {
                     r = res_rx.recv_async() => {
                         tasks.abort_all();
+                        log::debug!("Succeed: handle_chain_exchange_request");
                         r.map_err(|e| e.to_string())?
                     },
                     _ = wait_all(&mut tasks) => return Err("ChainExchange request failed for all top peers".into()),
@@ -257,7 +261,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        log::info!("Sending ChainExchange Request to {peer_id}");
+        log::debug!("Sending ChainExchange Request to {peer_id}");
 
         let req_pre_time = SystemTime::now();
 
@@ -301,14 +305,14 @@ where
                         peer_manager.log_failure(peer_id, res_duration).await;
                     }
                 }
-                log::info!("Failed: ChainExchange Request to {peer_id}");
+                log::debug!("Failed: ChainExchange Request to {peer_id}");
                 Err(format!("Internal libp2p error: {:?}", e))
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which will
                 // negatively score the peer, but not drop yet.
                 peer_manager.log_failure(peer_id, res_duration).await;
-                log::info!("Timeout: ChainExchange Request to {peer_id}");
+                log::debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }
         }
