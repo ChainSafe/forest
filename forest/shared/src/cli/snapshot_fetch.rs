@@ -5,7 +5,7 @@ use crate::cli::to_size_string;
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
-    io::{progress_bar::Units, ProgressBar, TempFile},
+    io::{ProgressBar, TempFile},
     net::{
         https_client,
         hyper::{self, client::connect::Connect, Body, Response},
@@ -20,7 +20,6 @@ use std::str::FromStr;
 use std::{
     path::{Path, PathBuf},
     process::Command,
-    time::Duration,
 };
 use time::{format_description, format_description::well_known::Iso8601, Date};
 use tokio::{
@@ -271,10 +270,10 @@ where
         to_size_string(&total_size.into())?
     );
 
-    let progress_bar = ProgressBar::new(total_size);
+    let mut progress_bar = ProgressBar::new(total_size);
     progress_bar.message("Downloading snapshot ");
-    progress_bar.set_max_refresh_rate(Some(Duration::from_millis(500)));
-    progress_bar.set_units(Units::Bytes);
+    progress_bar.set_max_refresh_rate_in_hz(2);
+    progress_bar.set_bytes();
 
     let snapshot_file_tmp = TempFile::new(snapshot_path.with_extension("car.tmp"));
     let file = File::create(snapshot_file_tmp.path()).await?;
