@@ -23,7 +23,6 @@ use forest_libp2p::{
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
-use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
@@ -34,6 +33,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
 use tokio::sync::RwLock;
+use tokio::task::{JoinError, JoinSet};
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -64,6 +64,8 @@ pub enum ChainMuxerError<C: Consensus> {
     Block(#[from] ForestBlockError),
     #[error("Following network unexpectedly failed: {0}")]
     NetworkFollowingFailure(String),
+    #[error("async task join failure: {0}")]
+    AsyncTaskJoinFailure(#[from] JoinError),
 }
 
 /// Structure that defines syncing configuration options
@@ -682,17 +684,17 @@ where
             }
         });
 
-        let mut tasks = FuturesUnordered::new();
-        tasks.push(tipset_range_syncer);
-        tasks.push(stream_processor);
+        let mut tasks = JoinSet::new();
+        tasks.spawn(tipset_range_syncer);
+        tasks.spawn(stream_processor);
 
         Box::pin(async move {
             // The stream processor will not return unless the p2p event stream is closed. In this case it will return with an error.
             // Only wait for one task to complete before returning to the caller
-            match tasks.next().await {
+            match tasks.join_next().await {
                 Some(Ok(_)) => Ok(()),
-                Some(Err(e)) => Err(e),
-                // This arm is reliably unreachable because the FuturesUnordered
+                Some(Err(e)) => Err(e.into()),
+                // This arm is reliably unreachable because the JoinSet
                 // has two futures and we only wait for one before returning
                 None => unreachable!(),
             }
@@ -805,17 +807,17 @@ where
             },
         );
 
-        let mut tasks = FuturesUnordered::new();
-        tasks.push(tipset_processor);
-        tasks.push(stream_processor);
+        let mut tasks = JoinSet::new();
+        tasks.spawn(tipset_processor);
+        tasks.spawn(stream_processor);
 
         Box::pin(async move {
             // Only wait for one of the tasks to complete before returning to the caller
-            match tasks.next().await {
+            match tasks.join_next().await {
                 // Either the TipsetProcessor or the StreamProcessor has returned.
                 // Both of these should be long running, so we have to return control
                 // back to caller in order to direct the next action.
-                Some(Ok(kind)) => {
+                Some(Ok(Ok(kind))) => {
                     // Log the expected return
                     match kind {
                         UnexpectedReturnKind::TipsetProcessor => {
@@ -826,10 +828,14 @@ where
                     }
                 }
                 Some(Err(e)) => {
-                    error!("Following the network failed unexpectedly: {}", e);
-                    Err(e)
+                    error!("async task join failure: {}", e);
+                    Err(e.into())
                 }
-                // This arm is reliably unreachable because the FuturesUnordered
+                Some(Ok(Err(e))) => {
+                    error!("Following the network failed unexpectedly: {}", e);
+                    Err(e.into())
+                }
+                // This arm is reliably unreachable because the JoinSet
                 // has two futures and we only resolve one before returning
                 None => unreachable!(),
             }
