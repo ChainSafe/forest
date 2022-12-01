@@ -3829,7 +3829,6 @@ dependencies = [
  "async-trait",
  "atty",
  "cid",
- "console",
  "const_format",
  "digest 0.10.6",
  "forest_encoding",
@@ -3839,9 +3838,9 @@ dependencies = [
  "fvm_ipld_encoding 0.2.2",
  "hyper",
  "hyper-rustls",
- "indicatif",
  "libc",
  "log",
+ "pbr",
  "pin-project-lite",
  "quickcheck",
  "serde",
@@ -4754,18 +4753,6 @@ dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
  "serde",
-]
-
-[[package]]
-name = "indicatif"
-version = "0.17.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4295cbb7573c16d310e99e713cf9e75101eb190ab31fccd35f2d2691b4352b19"
-dependencies = [
- "console",
- "number_prefix",
- "portable-atomic",
- "unicode-width",
 ]
 
 [[package]]
@@ -6197,12 +6184,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "number_prefix"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
-
-[[package]]
 name = "object"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6444,6 +6425,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
+name = "pbr"
+version = "1.0.4"
+source = "git+https://github.com/a8m/pb?rev=09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd#09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd"
+dependencies = [
+ "crossbeam-channel",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6589,12 +6580,6 @@ dependencies = [
  "opaque-debug 0.3.0",
  "universal-hash 0.4.1",
 ]
-
-[[package]]
-name = "portable-atomic"
-version = "0.3.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15eb2c6e362923af47e13c23ca5afb859e83d54452c55b0b9ac763b8f7c1ac16"
 
 [[package]]
 name = "positioned-io"

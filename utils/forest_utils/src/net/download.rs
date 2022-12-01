@@ -8,6 +8,7 @@ use futures::TryStreamExt;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 use thiserror::Error;
 use tokio::fs::File;
 use tokio::io::AsyncRead;
@@ -75,10 +76,10 @@ impl FetchProgress<DownloadStream> {
 
         let response = client.get(url.as_str().try_into()?).await?;
 
-        let mut pb = ProgressBar::new(total_size);
+        let pb = ProgressBar::new(total_size);
         pb.message("Downloading/Importing snapshot ");
-        pb.set_bytes();
-        pb.set_max_refresh_rate_in_hz(2);
+        pb.set_units(crate::io::progress_bar::Units::Bytes);
+        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         let map_err: fn(hyper::Error) -> futures::io::Error =
             |e| futures::io::Error::new(futures::io::ErrorKind::Other, e);
@@ -99,10 +100,10 @@ impl FetchProgress<BufReader<File>> {
     pub async fn fetch_from_file(file: File) -> anyhow::Result<Self> {
         let total_size = file.metadata().await?.len();
 
-        let mut pb = ProgressBar::new(total_size);
+        let pb = ProgressBar::new(total_size);
         pb.message("Importing snapshot ");
-        pb.set_bytes();
-        pb.set_max_refresh_rate_in_hz(2);
+        pb.set_units(crate::io::progress_bar::Units::Bytes);
+        pb.set_max_refresh_rate(Some(Duration::from_millis(500)));
 
         Ok(FetchProgress {
             progress_bar: pb,
