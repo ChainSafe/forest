@@ -62,8 +62,8 @@ pub(super) mod checkpoint_tipsets {
     type TipsetCheckpointsRegistry = HashMap<TipsetKeyHash, GenesisTipsetCids>;
     pub static CALIBNET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
         let mut map = HashMap::new();
-        const CALIBNET_CHECKPOINT_41000: TipsetKeyHash = "1a11a07d427348cc14eaa901de1ba9c6a4e18400bb557f5a0fabbcb22352319e31a7bc988a92525339f84275c0ef6dfbffcb50bb9d9843701875eecfa3ccb069";
-        add_calibnet!(map, CALIBNET_CHECKPOINT_41000);
+        const CALIBNET_CHECKPOINT_84000: TipsetKeyHash = "326a645e679bc590118c80778588ff8d4e4a13eb7db25fe7a2fc3fbdcd97cf751fc4ee6c11f9f2ee97717eb15cb98771b944581ef329cb0dc6802dc81190e017";
+        add_calibnet!(map, CALIBNET_CHECKPOINT_84000);
         map
     });
 
