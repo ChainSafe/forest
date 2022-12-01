@@ -6,3 +6,6 @@ pub(crate) mod parity;
 
 #[cfg(feature = "rocksdb")]
 pub(crate) mod rocks;
+
+#[cfg(feature = "lmdb")]
+pub(crate) mod lmdb;

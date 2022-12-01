@@ -14,6 +14,9 @@ pub mod rocks_config;
 #[cfg(feature = "paritydb")]
 pub mod parity_db;
 
+#[cfg(feature = "lmdb")]
+pub mod lmdb;
+
 pub use errors::Error;
 pub use memory::MemoryDB;
 

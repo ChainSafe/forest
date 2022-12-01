@@ -17,6 +17,9 @@ pub enum Error {
     #[cfg(feature = "paritydb")]
     #[error(transparent)]
     Database(#[from] parity_db::Error),
+    #[cfg(feature = "lmdb")]
+    #[error(transparent)]
+    Database(#[from] lmdb::Error),
     #[error(transparent)]
     Encoding(#[from] CborError),
     #[error("{0}")]
