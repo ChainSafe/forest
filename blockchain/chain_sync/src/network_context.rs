@@ -28,7 +28,7 @@ use tokio::{task::JoinSet, time::timeout};
 // requests from slowing the node down. If increase, should create a countermeasure for this.
 const RPC_TIMEOUT: u64 = 5;
 
-/// Maximum number of concurrent chain exchange request being sent to the p2p network
+/// Maximum number of concurrent chain exchange request being sent to the network
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUEST: usize = 2;
 
 /// Context used in chain sync to handle network requests.
