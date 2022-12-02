@@ -34,7 +34,11 @@ jobs:
           cache-key: ${{ runner.os }}-sccache-test-${{ hashFiles('rust-toolchain.toml') }}
           cache-update: ${{ github.event_name != 'pull_request' }}
       - name: Apt Dependencies
-        run: sudo make install-deps
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: sudo make install-deps
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-all
@@ -49,9 +53,13 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
-        run: |
-          sudo make install-deps
-          sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: |
+            sudo make install-deps
+            sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
       - uses: actions/cache@v3
         with:
           path: |
@@ -123,7 +131,11 @@ jobs:
         with:
           submodules: true
       - name: Apt Dependencies
-        run: sudo make install-deps
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: sudo make install-deps
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
