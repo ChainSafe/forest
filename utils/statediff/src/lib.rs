@@ -5,7 +5,6 @@ mod resolve;
 
 use cid::Cid;
 use colored::*;
-use difference::{Changeset, Difference};
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
@@ -94,10 +93,7 @@ fn try_print_actor_states<BS: Blockstore>(
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
                 let expected = expected_pp.split(",").collect::<Vec<&str>>();
                 let calculated = calc_pp.split(",").collect::<Vec<&str>>();
-                let diffs = TextDiff::from_slices(
-                    &expected,
-                    &calculated,
-                );
+                let diffs = TextDiff::from_slices(&expected, &calculated);
                 let stdout = stdout();
                 let mut handle = stdout.lock();
                 writeln!(handle, "Address {} changed: ", addr)?;
@@ -181,7 +177,9 @@ fn print_diffs(handle: &mut impl Write, diffs: TextDiff<str>) -> std::io::Result
         for change in diffs.iter_changes(op) {
             match change.tag() {
                 ChangeTag::Delete => writeln!(handle, "{}", format!("-{}", change.value()).red())?,
-                ChangeTag::Insert => writeln!(handle, "{}", format!("+{}", change.value()).green())?,
+                ChangeTag::Insert => {
+                    writeln!(handle, "{}", format!("+{}", change.value()).green())?
+                }
                 ChangeTag::Equal => writeln!(handle, " {}", change.value())?,
             };
         }
@@ -215,10 +213,7 @@ where
         let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
         let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
 
-        let diffs = TextDiff::from_lines(
-            &expected_json,
-            &actual_json,
-        );
+        let diffs = TextDiff::from_lines(&expected_json, &actual_json);
 
         // let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
         let stdout = stdout();
