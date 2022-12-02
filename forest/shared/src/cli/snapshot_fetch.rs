@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::Config;
-use crate::cli::to_size_string;
+use crate::cli::{cli_error_and_die, to_size_string};
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -113,9 +113,20 @@ pub fn is_car_or_tmp(path: &Path) -> bool {
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
-    server: &SnapshotServer,
+    provider: &Option<SnapshotServer>,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
+    let server = match provider {
+        Some(s) => s,
+        None => match config.chain.name.to_lowercase().as_str() {
+            "mainnet" => &SnapshotServer::Filecoin,
+            "calibnet" => &SnapshotServer::Forest,
+            _ => cli_error_and_die(
+                format!("Fetch not supported for chain {}", config.chain.name),
+                1,
+            ),
+        },
+    };
     match server {
         SnapshotServer::Forest => snapshot_fetch_forest(snapshot_out_dir, config, use_aria2).await,
         SnapshotServer::Filecoin => {
