@@ -48,7 +48,7 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
-        /// Fetch latest snapshot provided by `forest` | `filecoin`
+        /// Snapshot trusted source
         #[structopt(
             short,
             long,
