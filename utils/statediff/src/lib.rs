@@ -90,9 +90,10 @@ fn try_print_actor_states<BS: Blockstore>(
 
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
+                let comma = ",";
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let expected = expected_pp.split(",").collect::<Vec<&str>>();
-                let calculated = calc_pp.split(",").collect::<Vec<&str>>();
+                let expected = expected_pp.split(comma).collect::<Vec<&str>>();
+                let calculated = calc_pp.split(comma).collect::<Vec<&str>>();
                 let diffs = TextDiff::from_slices(&expected, &calculated);
                 let stdout = stdout();
                 let mut handle = stdout.lock();
