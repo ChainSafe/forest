@@ -18,7 +18,8 @@ use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigUint;
+use fvm_shared::econ::TokenAmount;
+use num_traits::Zero;
 
 /// Return the balance from `StateManager` for a given `Address`
 pub(crate) async fn wallet_balance<DB, B>(
@@ -45,9 +46,9 @@ where
         Ok(act) => {
             if let Some(actor) = act {
                 let actor_balance = actor.balance;
-                Ok(actor_balance.to_string())
+                Ok(actor_balance.atto().to_string())
             } else {
-                Ok(BigUint::default().to_string())
+                Ok(TokenAmount::zero().atto().to_string())
             }
         }
         Err(e) => Err(e.into()),
@@ -108,7 +109,7 @@ where
 pub(crate) async fn wallet_import<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<WalletImportParams>,
-) -> Result<WalletBalanceResult, JsonRpcError>
+) -> Result<WalletImportResult, JsonRpcError>
 where
     DB: Blockstore,
     B: Beacon,
