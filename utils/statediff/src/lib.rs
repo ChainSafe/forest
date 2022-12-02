@@ -92,16 +92,16 @@ fn try_print_actor_states<BS: Blockstore>(
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let diff = TextDiff::from_chars(
-                    &expected_pp,
-                    &calc_pp,
+                let expected = expected_pp.split(",").collect::<Vec<&str>>();
+                let calculated = calc_pp.split(",").collect::<Vec<&str>>();
+                let diffs = TextDiff::from_slices(
+                    &expected,
+                    &calculated,
                 );
-
-                // let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, ",");
                 let stdout = stdout();
                 let mut handle = stdout.lock();
                 writeln!(handle, "Address {} changed: ", addr)?;
-                print_diffs(&mut handle, &diff)?;
+                print_diffs(&mut handle, diffs)?;
             }
         } else {
             // Added actor, print out the json format actor state.
@@ -177,29 +177,15 @@ fn pp_actor_state(
 }
 
 fn print_diffs(handle: &mut impl Write, diffs: TextDiff<str>) -> std::io::Result<()> {
-    for change in diff.iter_all_changes() {
-        match change.tag() {
-            ChangeTag::Delete => writeln!(handle, "{}", format!("-{}", x).red())?,
-            ChangeTag::Insert => writeln!(handle, "{}", format!("+{}", x).green())?,
-            ChangeTag::Equal => writeln!(handle, " {}", x)?,
-        };
+    for op in diffs.ops() {
+        for change in diffs.iter_changes(op) {
+            match change.tag() {
+                ChangeTag::Delete => writeln!(handle, "{}", format!("-{}", change.value()).red())?,
+                ChangeTag::Insert => writeln!(handle, "{}", format!("+{}", change.value()).green())?,
+                ChangeTag::Equal => writeln!(handle, " {}", change.value())?,
+            };
+        }
     }
-    Ok(())
-}
-
-pub fn print_actor_diff<BS: Blockstore>(
-    bs: &BS,
-    expected: &ActorState,
-    actual: &ActorState,
-    depth: Option<u64>,
-) -> Result<(), anyhow::Error> {
-    let expected_pp = pp_actor_state(bs, expected, depth)?;
-    let actual_pp = pp_actor_state(bs, actual, depth)?;
-
-    let Changeset { diffs, .. } = Changeset::new(&expected_pp, &actual_pp, "\n");
-    let stdout = stdout();
-    let mut handle = stdout.lock();
-    print_diffs(&mut handle, &diffs)?;
     Ok(())
 }
 
@@ -229,10 +215,15 @@ where
         let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
         let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
 
-        let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
+        let diffs = TextDiff::from_lines(
+            &expected_json,
+            &actual_json,
+        );
+
+        // let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
         let stdout = stdout();
         let mut handle = stdout.lock();
-        print_diffs(&mut handle, &diffs)?
+        print_diffs(&mut handle, diffs)?
     }
 
     Ok(())
