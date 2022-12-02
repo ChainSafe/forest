@@ -14,6 +14,8 @@ use fvm_shared::address::Address;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
+use similar::ChangeTag;
+use similar::TextDiff;
 
 use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
@@ -90,11 +92,16 @@ fn try_print_actor_states<BS: Blockstore>(
         if let Some(other) = e_state.remove(&addr) {
             if &other != actor {
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, ",");
+                let diff = TextDiff::from_chars(
+                    &expected_pp,
+                    &calc_pp,
+                );
+
+                // let Changeset { diffs, .. } = Changeset::new(&expected_pp, &calc_pp, ",");
                 let stdout = stdout();
                 let mut handle = stdout.lock();
                 writeln!(handle, "Address {} changed: ", addr)?;
-                print_diffs(&mut handle, &diffs)?;
+                print_diffs(&mut handle, &diff)?;
             }
         } else {
             // Added actor, print out the json format actor state.
@@ -169,13 +176,13 @@ fn pp_actor_state(
     Ok(buffer)
 }
 
-fn print_diffs(handle: &mut impl Write, diffs: &[Difference]) -> std::io::Result<()> {
-    for diff in diffs.iter() {
-        match diff {
-            Difference::Same(x) => writeln!(handle, " {}", x)?,
-            Difference::Add(x) => writeln!(handle, "{}", format!("+{}", x).green())?,
-            Difference::Rem(x) => writeln!(handle, "{}", format!("-{}", x).red())?,
-        }
+fn print_diffs(handle: &mut impl Write, diffs: TextDiff<str>) -> std::io::Result<()> {
+    for change in diff.iter_all_changes() {
+        match change.tag() {
+            ChangeTag::Delete => writeln!(handle, "{}", format!("-{}", x).red())?,
+            ChangeTag::Insert => writeln!(handle, "{}", format!("+{}", x).green())?,
+            ChangeTag::Equal => writeln!(handle, " {}", x)?,
+        };
     }
     Ok(())
 }

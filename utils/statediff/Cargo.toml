@@ -9,6 +9,7 @@ anyhow.workspace = true
 cid.workspace = true
 colored = "2.0"
 difference = "2.0"
+similar = "2.2.1"
 directories.workspace = true
 fil_actor_account_v9.workspace = true
 fil_actor_cron_v9.workspace = true
