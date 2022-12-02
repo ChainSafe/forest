@@ -13,7 +13,6 @@ use crate::{
 use cid::Cid;
 use forest_encoding::blake2b_256;
 use libipld::store::StoreParams;
-use libp2p::request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig};
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
@@ -25,6 +24,10 @@ use libp2p::{
     Multiaddr,
 };
 use libp2p::{identify, ping};
+use libp2p::{
+    metrics::{Metrics, Recorder},
+    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
+};
 use libp2p_bitswap::{Bitswap, BitswapConfig, BitswapStore};
 use log::{debug, warn};
 use std::collections::{HashMap, HashSet};
@@ -40,6 +43,20 @@ pub(crate) struct ForestBehaviour<P: StoreParams> {
     pub(super) hello: RequestResponse<HelloCodec>,
     pub(super) chain_exchange: RequestResponse<ChainExchangeCodec>,
     pub(super) bitswap: Bitswap<P>,
+}
+
+impl<P> Recorder<ForestBehaviourEvent<P>> for Metrics
+where
+    P: StoreParams,
+{
+    fn record(&self, event: &ForestBehaviourEvent<P>) {
+        match event {
+            ForestBehaviourEvent::Gossipsub(e) => self.record(e),
+            ForestBehaviourEvent::Ping(ping_event) => self.record(ping_event),
+            ForestBehaviourEvent::Identify(id_event) => self.record(id_event),
+            _ => {}
+        }
+    }
 }
 
 impl<P: StoreParams> ForestBehaviour<P> {
