@@ -133,11 +133,19 @@ fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[cfg(feature = "lmdb")]
+fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
+    Ok(())
+}
+
 #[cfg(feature = "rocksdb")]
 type Db = forest_db::rocks::RocksDb;
 
 #[cfg(feature = "paritydb")]
 type Db = forest_db::parity_db::ParityDb;
+
+#[cfg(feature = "lmdb")]
+type Db = forest_db::lmdb::LMDb;
 
 fn main() {
     // Capture Cli inputs

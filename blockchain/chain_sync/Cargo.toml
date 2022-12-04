@@ -59,3 +59,4 @@ serde_json.workspace = true
 [features]
 rocksdb = ["forest_statediff/rocksdb"]
 paritydb = ["forest_statediff/paritydb"]
+lmdb = ["forest_statediff/lmdb"]

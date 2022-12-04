@@ -502,11 +502,23 @@ fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
     ParityDb::open(&config).expect("Opening ParityDb must succeed")
 }
 
+#[cfg(feature = "lmdb")]
+fn open_db(config: &Config) -> forest_db::lmdb::LMDb {
+    use forest_db::lmdb::*;
+    let config = LMDbConfig {
+        path: db_path(config),
+    };
+    LMDb::open(&config).expect("Opening LMDb must succeed")
+}
+
 #[cfg(feature = "rocksdb")]
 type Db = forest_db::rocks::RocksDb;
 
 #[cfg(feature = "paritydb")]
 type Db = forest_db::parity_db::ParityDb;
+
+#[cfg(feature = "lmdb")]
+type Db = forest_db::lmdb::LMDb;
 
 #[cfg(test)]
 mod test {

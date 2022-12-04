@@ -297,6 +297,12 @@ pub fn db_path(config: &Config) -> PathBuf {
     chain_path(config).join("paritydb")
 }
 
+#[cfg(feature = "lmdb")]
+/// Gets database directory
+pub fn db_path(config: &Config) -> PathBuf {
+    chain_path(config).join("lmdb")
+}
+
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(&config.chain.name)

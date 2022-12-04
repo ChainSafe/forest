@@ -53,6 +53,15 @@ fn open_db(chain_path: &Path) -> forest_db::parity_db::ParityDb {
     ParityDb::open(&config).expect("Opening ParityDb must succeed")
 }
 
+#[cfg(feature = "lmdb")]
+fn open_db(chain_path: &Path) -> forest_db::lmdb::LMDb {
+    use forest_db::lmdb::*;
+    let config = LMDbConfig {
+        path: chain_path.join("lmdb"),
+    };
+    LMDb::open(&config).expect("Opening LMDB must succeed")
+}
+
 /// statediff binary sub-commands available.
 #[derive(StructOpt)]
 #[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]

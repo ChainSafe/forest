@@ -79,3 +79,4 @@ tower-http = { workspace = true, features = ["fs"] }
 [features]
 rocksdb = []
 paritydb = []
+lmdb = []

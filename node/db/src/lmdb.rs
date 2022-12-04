@@ -32,11 +32,13 @@ impl LMDbConfig {
 
 impl LMDb {
     fn to_options(config: &LMDbConfig) -> Result<Environment, Error> {
-        let env_builder = Environment::new();
+        let mut env_builder = Environment::new();
+        env_builder.set_map_size(2e11 as usize); // Map size set to 200Gb
         env_builder.open(&config.path).map_err(Error::from)
     }
 
     pub fn open(config: &LMDbConfig) -> anyhow::Result<Self> {
+        std::fs::create_dir_all(&config.path)?;
         let env = Self::to_options(config)?;
         let db = env.open_db(None)?;
         Ok(Self {
@@ -52,9 +54,9 @@ impl Store for LMDb {
         K: AsRef<[u8]>,
     {
         let rtxn = self.env.begin_ro_txn()?;
-        Ok(Some(
-            lmdb::Transaction::get(&rtxn, *self.db, &key)?.to_vec(),
-        ))
+        Ok(lmdb::Transaction::get(&rtxn, *self.db, &key)
+            .ok()
+            .map(|data| data.to_vec()))
     }
 
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
