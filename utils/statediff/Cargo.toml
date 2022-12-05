@@ -8,7 +8,6 @@ edition = "2021"
 anyhow.workspace = true
 cid.workspace = true
 colored = "2.0"
-difference = "2.0"
 directories.workspace = true
 fil_actor_account_v9.workspace = true
 fil_actor_cron_v9.workspace = true
@@ -31,6 +30,7 @@ fvm_shared.workspace = true
 libipld-core.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+similar = "2.2.1"
 structopt.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
