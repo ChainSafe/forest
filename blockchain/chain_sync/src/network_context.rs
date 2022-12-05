@@ -286,7 +286,7 @@ where
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
                 peer_manager.log_success(peer_id, res_duration).await;
-                log::info!("Succeded: ChainExchange Request to {peer_id}");
+                log::debug!("Succeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {

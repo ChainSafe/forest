@@ -14,6 +14,8 @@ use forest_rpc_api::{
 };
 use fvm_ipld_blockstore::Blockstore;
 
+use std::str::FromStr;
+
 pub(crate) async fn net_addrs_listen<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
@@ -91,7 +93,7 @@ pub(crate) async fn net_disconnect<
     Params(params): Params<NetDisconnectParams>,
 ) -> Result<NetDisconnectResult, JsonRpcError> {
     let (id,) = params;
-    let peer_id = PeerId::from_bytes(id.as_bytes())?;
+    let peer_id = PeerId::from_str(&id)?;
 
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
