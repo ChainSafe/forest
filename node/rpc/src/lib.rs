@@ -121,9 +121,7 @@ where
             .with_method(WALLET_SIGN_MESSAGE, wallet_sign_message::<DB, B>)
             .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
             // State API
-            .with_method(STATE_MINER_SECTORS, state_miner_sectors::<DB, B>)
             .with_method(STATE_CALL, state_call::<DB, B>)
-            .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB, B>)
             .with_method(
                 STATE_SECTOR_PRECOMMIT_INFO,
                 state_sector_precommit_info::<DB, B>,
@@ -135,17 +133,12 @@ where
                 state_miner_proving_deadline::<DB, B>,
             )
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB, B>)
-            .with_method(STATE_ALL_MINER_FAULTS, state_all_miner_faults::<DB, B>)
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB, B>)
             .with_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
-            .with_method(STATE_GET_ACTOR, state_get_actor::<DB, B>)
-            .with_method(STATE_LIST_ACTORS, state_list_actors::<DB, B>)
-            .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB, B>)
-            .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB, B>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB, B>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
@@ -155,7 +148,6 @@ where
                 STATE_MINER_SECTOR_ALLOCATED,
                 state_miner_sector_allocated::<DB, B>,
             )
-            .with_method(STATE_MINER_POWER, state_miner_power::<DB, B>)
             .with_method(
                 STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
                 state_miner_pre_commit_deposit_for_power::<DB, B>,
@@ -164,7 +156,6 @@ where
                 STATE_MINER_INITIAL_PLEDGE_COLLATERAL,
                 state_miner_initial_pledge_collateral::<DB, B>,
             )
-            .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB, B, V>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB, B>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB, B>)

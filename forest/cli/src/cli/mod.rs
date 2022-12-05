@@ -37,7 +37,7 @@ pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_cli_shared::cli::{to_size_string, CliOpts};
+use forest_cli_shared::cli::CliOpts;
 use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
@@ -217,7 +217,7 @@ fn prompt_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use forest_cli_shared::cli::to_size_string;
     use fvm_shared::bigint::{BigInt, Zero};
 
     #[test]

@@ -74,18 +74,14 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet_api::WALLET_VERIFY, Access::Read);
 
     // State API
-    access.insert(state_api::STATE_MINER_SECTORS, Access::Read);
     access.insert(state_api::STATE_CALL, Access::Read);
-    access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
     access.insert(state_api::STATE_SECTOR_PRECOMMIT_INFO, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
     access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
     access.insert(state_api::STATE_MINER_INFO, Access::Read);
     access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
-    access.insert(state_api::STATE_ALL_MINER_FAULTS, Access::Read);
     access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state_api::STATE_MINER_PARTITIONS, Access::Read);
-    access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(
         state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
         Access::Read,
@@ -95,17 +91,12 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
         Access::Read,
     );
     access.insert(state_api::STATE_REPLAY, Access::Read);
-    access.insert(state_api::STATE_GET_ACTOR, Access::Read);
-    access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
-    access.insert(state_api::STATE_LOOKUP_ID, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_MINER_SECTOR_ALLOCATED, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
-    access.insert(state_api::MINER_GET_BASE_INFO, Access::Read);
-    access.insert(state_api::STATE_LIST_ACTORS, Access::Read);
     access.insert(state_api::MINER_CREATE_BLOCK, Access::Write);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
 
@@ -380,12 +371,9 @@ pub mod wallet_api {
 pub mod state_api {
     use std::collections::HashMap;
 
-    use crate::data_types::{
-        ActorStateJson, BlockTemplate, Deadline, Fault, MarketDeal, MessageLookup,
-        MiningBaseInfoJson, Partition,
-    };
+    use crate::data_types::{BlockTemplate, MarketDeal, MessageLookup, Partition};
     use forest_actor_interface::miner::{
-        MinerInfo, MinerPower, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
+        MinerInfo, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
     };
     use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
@@ -397,21 +385,12 @@ pub mod state_api {
     use forest_json::message_receipt::json::ReceiptJson;
     use forest_state_manager::{InvocResult, MarketBalance};
     use fvm_ipld_bitfield::json::BitFieldJson;
-    use fvm_shared::clock::ChainEpoch;
     use fvm_shared::sector::SectorNumber;
     use fvm_shared::version::NetworkVersion;
-
-    pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
-    pub type StateMinerSectorsParams = (AddressJson, BitFieldJson, TipsetKeysJson);
-    pub type StateMinerSectorsResult = Vec<SectorOnChainInfo>;
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
     pub type StateCallParams = (MessageJson, TipsetKeysJson);
     pub type StateCallResult = InvocResult;
-
-    pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
-    pub type StateMinerDeadlinesParams = (AddressJson, TipsetKeysJson);
-    pub type StateMinerDeadlinesResult = Vec<Deadline>;
 
     pub const STATE_SECTOR_PRECOMMIT_INFO: &str = "Filecoin.StateSectorPrecommitInfo";
     pub type StateSectorPrecommitInfoParams = (AddressJson, SectorNumber, TipsetKeysJson);
@@ -433,10 +412,6 @@ pub mod state_api {
     pub type StateMinerFaultsParams = (AddressJson, TipsetKeysJson);
     pub type StateMinerFaultsResult = BitFieldJson;
 
-    pub const STATE_ALL_MINER_FAULTS: &str = "Filecoin.StateAllMinerFaults";
-    pub type StateAllMinerFaultsParams = (ChainEpoch, TipsetKeysJson);
-    pub type StateAllMinerFaultsResult = Vec<Fault>;
-
     pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
     pub type StateMinerRecoveriesParams = (AddressJson, TipsetKeysJson);
     pub type StateMinerRecoveriesResult = BitFieldJson;
@@ -456,22 +431,6 @@ pub mod state_api {
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
     pub type StateNetworkVersionParams = (TipsetKeysJson,);
     pub type StateNetworkVersionResult = NetworkVersion;
-
-    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-    pub type StateGetActorParams = (AddressJson, TipsetKeysJson);
-    pub type StateGetActorResult = Option<ActorStateJson>;
-
-    pub const STATE_LIST_ACTORS: &str = "Filecoin.StateListActors";
-    pub type StateListActorsParams = (TipsetKeysJson,);
-    pub type StateListActorsResult = Vec<AddressJson>;
-
-    pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
-    pub type StateAccountKeyParams = (AddressJson, TipsetKeysJson);
-    pub type StateAccountKeyResult = Option<AddressJson>;
-
-    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupId";
-    pub type StateLookupIdParams = (AddressJson, TipsetKeysJson);
-    pub type StateLookupIdResult = Option<AddressJson>;
 
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub type StateMarketBalanceParams = (AddressJson, TipsetKeysJson);
@@ -497,10 +456,6 @@ pub mod state_api {
     pub type StateMinerSectorAllocatedParams = (AddressJson, u64, TipsetKeysJson);
     pub type StateMinerSectorAllocatedResult = bool;
 
-    pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
-    pub type StateMinerPowerParams = (Option<AddressJson>, TipsetKeysJson);
-    pub type StateMinerPowerResult = MinerPower;
-
     pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =
         "Filecoin.StateMinerPreCommitDepositForPower";
     pub type StateMinerPreCommitDepositForPowerParams =
@@ -512,10 +467,6 @@ pub mod state_api {
     pub type StateMinerInitialPledgeCollateralParams =
         (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
     pub type StateMinerInitialPledgeCollateralResult = String;
-
-    pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
-    pub type MinerGetBaseInfoParams = (AddressJson, ChainEpoch, TipsetKeysJson);
-    pub type MinerGetBaseInfoResult = Option<MiningBaseInfoJson>;
 }
 
 /// Gas API

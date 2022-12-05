@@ -4,13 +4,12 @@
 use forest_chain::Scale;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use cid::Cid;
 use forest_actor_interface::{
     market,
-    miner::{self, MinerPower, SectorOnChainInfo},
-    power::{self, Claim},
+    miner::{self, SectorOnChainInfo},
+    power::{self},
     reward,
 };
 use forest_beacon::{Beacon, BeaconEntry};
@@ -20,56 +19,28 @@ use forest_blocks::{
 };
 use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
-    Tipset,
 };
 use forest_db::Store;
-use forest_fil_types::verifier::{FullVerifier, ProofVerifier};
+use forest_fil_types::verifier::FullVerifier;
 use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
 use forest_networks::Height;
 use forest_rpc_api::{
-    data_types::{
-        ActorStateJson, Deadline, MarketDeal, MessageLookup, MiningBaseInfoJson, Partition,
-        RPCState,
-    },
+    data_types::{MarketDeal, MessageLookup, Partition, RPCState},
     state_api::*,
 };
-use forest_state_manager::{InvocResult, StateManager};
+use forest_state_manager::InvocResult;
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::PoStProof;
-use fvm_shared::{address::Address, bigint::BigInt};
 use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
-
-/// returns info about the given miner's sectors. If the filter bitfield is nil, all sectors are included.
-/// If the `filterOut` boolean is set to true, any sectors in the filter are excluded.
-/// If false, only those sectors in the filter are included.
-pub(crate) async fn state_miner_sectors<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerSectorsParams>,
-) -> Result<StateMinerSectorsResult, JsonRpcError> {
-    let (address, filter, key) = params;
-    let address = address.into();
-    let state_manager = &data.state_manager;
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    let filter = Some(&filter.0);
-    state_manager
-        .get_miner_sector_set::<FullVerifier>(&tipset, &address, filter)
-        .map_err(|e| e.into())
-}
 
 /// runs the given message and returns its result without any persisted changes.
 pub(crate) async fn state_call<
@@ -88,37 +59,6 @@ pub(crate) async fn state_call<
         .tipset_from_keys(&key.into())
         .await?;
     Ok(state_manager.call(&mut message, Some(tipset)).await?)
-}
-
-/// returns all the proving deadlines for the given miner
-pub(crate) async fn state_miner_deadlines<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerDeadlinesParams>,
-) -> anyhow::Result<StateMinerDeadlinesResult, JsonRpcError> {
-    let (actor, key) = params;
-    let actor = actor.into();
-    let mas = data
-        .state_manager
-        .chain_store()
-        .miner_load_actor_tsk(&actor, &key.into())
-        .await
-        .map_err(|e| format!("Could not load miner {:?}", e))?;
-
-    let policy = &data.state_manager.chain_config().policy;
-    let num_deadlines = policy.wpost_period_deadlines;
-    let mut out = Vec::with_capacity(num_deadlines as usize);
-    mas.for_each_deadline(policy, data.state_manager.blockstore(), |_, dl| {
-        out.push(Deadline {
-            post_submissions: dl.partitions_posted().clone().into(),
-            disputable_proof_count: dl.disputable_proof_count(data.state_manager.blockstore())?,
-        });
-        Ok(())
-    })?;
-
-    Ok(out)
 }
 
 /// returns the `PreCommit` info for the specified miner's sector
@@ -237,42 +177,6 @@ pub(crate) async fn state_miner_faults<
         .map_err(|e| e.into())
 }
 
-/// returns all non-expired Faults that occur within look-back epochs of the given tipset
-pub(crate) async fn state_all_miner_faults<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    _data: Data<RPCState<DB, B>>,
-    Params(_params): Params<StateAllMinerFaultsParams>,
-) -> Result<StateAllMinerFaultsResult, JsonRpcError> {
-    // FIXME
-    Err(JsonRpcError::internal("fixme"))
-
-    // let state_manager = &data.state_manager;
-    // let (look_back, end_tsk) = params;
-    // let tipset = data.state_manager.chain_store().tipset_from_keys( &end_tsk).await?;
-    // let cut_off = tipset.epoch() - look_back;
-    // let miners = state_manager.list_miner_actors(&tipset)?;
-    // let mut all_faults = Vec::new();
-    // for m in miners {
-    //     let miner_actor_state: State = state_manager
-    //         .load_actor_state(&m, &tipset.parent_state())
-    //         .map_err(|e| e.to_string())?;
-    //     let block_store = state_manager.blockstore();
-
-    //     miner_actor_state.for_each_fault_epoch(block_store, |fault_start: i64, _| {
-    //         if fault_start >= cut_off {
-    //             all_faults.push(Fault {
-    //                 miner: *m,
-    //                 fault: fault_start,
-    //             })
-    //         }
-    //         Ok(())
-    //     })?;
-    // }
-    // Ok(all_faults)
-}
-
 /// returns a bitfield indicating the recovering sectors of the given miner
 pub(crate) async fn state_miner_recoveries<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
@@ -383,98 +287,6 @@ pub(crate) async fn state_get_network_version<
     let (TipsetKeysJson(tsk),) = params;
     let ts = data.chain_store.tipset_from_keys(&tsk).await?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
-}
-
-/// returns the indicated actor's nonce and balance.
-pub(crate) async fn state_get_actor<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateGetActorParams>,
-) -> Result<StateGetActorResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    let state = state_for_ts(state_manager, tipset).await?;
-    Ok(state.get_actor(&actor)?.map(ActorStateJson::from))
-}
-
-/// returns addresses of all actors on the network by tipset
-pub(crate) async fn state_list_actors<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateListActorsParams>,
-) -> Result<StateListActorsResult, JsonRpcError> {
-    let (tipset,) = params;
-
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tipset.into())
-        .await?;
-
-    let addresses = data.state_manager.list_miner_actors(&tipset)?;
-
-    let addresses_json = addresses
-        .iter()
-        .map(|addr| AddressJson(addr.to_owned()))
-        .collect();
-
-    Ok(addresses_json)
-}
-
-/// returns the public key address of the given ID address
-pub(crate) async fn state_account_key<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateAccountKeyParams>,
-) -> Result<StateAccountKeyResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    let state = state_for_ts(state_manager, tipset).await?;
-    let address =
-        forest_interpreter::resolve_to_key_addr(&state, state_manager.blockstore(), &actor)?;
-    Ok(Some(address.into()))
-}
-/// retrieves the ID address of the given address
-pub(crate) async fn state_lookup_id<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateLookupIdParams>,
-) -> Result<StateLookupIdResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (address, key) = params;
-    let address = address.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    let state = state_for_ts::<DB>(state_manager, tipset).await?;
-    let lookup_result = state.lookup_id(&address)?;
-
-    match lookup_result {
-        Some(actor_id) => Ok(Some(AddressJson(Address::new_id(actor_id)))),
-        None => Ok(None),
-    }
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage Market
@@ -722,44 +534,6 @@ pub(crate) async fn state_miner_sector_allocated<
     Ok(allocated_sectors)
 }
 
-pub(crate) async fn state_miner_power<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerPowerParams>,
-) -> Result<StateMinerPowerResult, JsonRpcError> {
-    let (address_opt, TipsetKeysJson(tipset_keys)) = params;
-
-    let ts = data.chain_store.tipset_from_keys(&tipset_keys).await?;
-
-    let address = match address_opt {
-        Some(addr) => {
-            let address = addr.0;
-            Some(address)
-        }
-        None => None,
-    };
-
-    let mp = data
-        .state_manager
-        .get_power(ts.parent_state(), address.as_ref())?;
-
-    if let Some((miner_power, total_power)) = mp {
-        Ok(MinerPower {
-            miner_power,
-            total_power,
-            has_min_power: true,
-        })
-    } else {
-        Ok(MinerPower {
-            miner_power: Claim::default(),
-            total_power: Claim::default(),
-            has_min_power: false,
-        })
-    }
-}
-
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
@@ -850,37 +624,4 @@ pub(crate) async fn state_miner_initial_pledge_collateral<
 
     let ret: BigInt = (initial_pledge.atto() * 110) / 100;
     Ok(ret.to_string())
-}
-
-/// returns the indicated actor's nonce and balance.
-pub(crate) async fn miner_get_base_info<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-    V: ProofVerifier,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<MinerGetBaseInfoParams>,
-) -> Result<MinerGetBaseInfoResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (actor, round, key) = params;
-    let info = state_manager
-        .miner_get_base_info::<V, B>(&data.beacon, &key.into(), round, actor.into())
-        .await?
-        .map(MiningBaseInfoJson::from);
-
-    Ok(info)
-}
-
-/// returns a state tree given a tipset
-async fn state_for_ts<DB>(
-    state_manager: &Arc<StateManager<DB>>,
-    ts: Arc<Tipset>,
-) -> Result<StateTree<&DB>, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-{
-    let block_store = state_manager.blockstore();
-    let (st, _) = state_manager.tipset_state(&ts).await?;
-    let state_tree = StateTree::new_from_root(block_store, &st)?;
-    Ok(state_tree)
 }
