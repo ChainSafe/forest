@@ -143,7 +143,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let db = open_db(&config);
 
-    let mut services = JoinSet::new();
+    let mut services: JoinSet<Result<(), String>> = JoinSet::new();
 
     {
         // Start Prometheus server port
@@ -169,6 +169,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             {
                 error!("Failed to initiate prometheus server: {e}");
             }
+            Ok(())
         });
     }
 
@@ -306,6 +307,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async {
         chain_muxer.await;
+        Ok(())
     });
 
     // Start services
@@ -337,6 +339,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
                 FOREST_VERSION_STRING.as_str(),
             )
             .await;
+            Ok(())
         });
     } else {
         debug!("RPC disabled.");
@@ -379,6 +382,15 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
+
+    while let Some(res) = services.join_next().await {
+        if let Ok(res_inner) = res {
+            if let Err(error_message) = res_inner {
+                let msg = format!("services failure {}", error_message);
+                cli_error_and_die(msg, 1);
+            }
+        }
+    }
 
     let keystore_write = tokio::task::spawn(async move {
         keystore.read().await.flush().unwrap();

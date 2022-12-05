@@ -216,7 +216,7 @@ where
     }
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
-    pub async fn run(mut self) {
+    pub async fn run(mut self) -> Result<(), String> {
         info!("Running libp2p service");
         Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr).unwrap();
         // Bootstrap with Kademlia
@@ -258,7 +258,7 @@ where
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
                     },
-                    None => { break; },
+                    None => { break Ok(()); },
                     _ => { },
                 },
                 rpc_message = network_stream.next() => match rpc_message {
@@ -272,7 +272,7 @@ where
                             &mut cx_request_table,
                             &mut outgoing_bitswap_query_ids).await;
                     }
-                    None => { break; }
+                    None => { break Ok(()); }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.

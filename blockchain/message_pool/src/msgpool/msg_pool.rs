@@ -162,7 +162,7 @@ where
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-        services: &mut JoinSet<()>,
+        services: &mut JoinSet<Result<(), String>>,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -228,7 +228,7 @@ where
                                 vec![tipset.as_ref().clone()],
                             ),
                         };
-                        head_change(
+                        let res = head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),
                             repub_trigger.clone(),
@@ -238,14 +238,19 @@ where
                             rev,
                             app,
                         )
-                        .await
-                        .unwrap_or_else(|err| warn!("Error changing head: {:?}", err));
+                        .await.map_err(|err| err.to_string());
+
+                        if let Err(err) = res {
+                            let error_message = format!("Error changing head: {:?}", err);
+                            warn!("{}", error_message);
+                            break Err(error_message);
+                        }
                     }
                     Err(RecvError::Lagged(e)) => {
                         warn!("Head change subscriber lagged: skipping {} events", e);
                     }
                     Err(RecvError::Closed) => {
-                        break;
+                        break Ok::<(), String>(());
                     }
                 }
             }
