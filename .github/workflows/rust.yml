@@ -161,6 +161,7 @@ jobs:
       - name: Validate checkpoint tipset hashes
         run: forest-cli chain validate-tipset-checkpoints
       - name: wait for sync and check health
+        timeout-minutes: 30
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
