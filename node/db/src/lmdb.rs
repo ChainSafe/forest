@@ -7,6 +7,7 @@ use crate::{DBStatistics, Store};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
+use lmdb::WriteFlags;
 use lmdb::{Database, Environment, EnvironmentFlags, Transaction};
 use std::path::Path;
 use std::path::PathBuf;
@@ -68,7 +69,23 @@ impl Store for LMDb {
         V: AsRef<[u8]>,
     {
         let mut rwtxn = self.env.begin_rw_txn()?;
-        rwtxn.put(*self.db, &key, &value, lmdb::WriteFlags::empty())?;
+        let mut flags = WriteFlags::default();
+        flags.set(WriteFlags::APPEND_DUP, true);
+        rwtxn.put(*self.db, &key, &value, flags)?;
+        Transaction::commit(rwtxn).map_err(Error::from)
+    }
+
+    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        let mut rwtxn = self.env.begin_rw_txn()?;
+        let mut flags = WriteFlags::default();
+        flags.set(WriteFlags::APPEND_DUP, true);
+        values
+            .iter()
+            .for_each(|(key, value)| rwtxn.put(*self.db, &key, &value, flags).unwrap());
         Transaction::commit(rwtxn).map_err(Error::from)
     }
 
