@@ -75,13 +75,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
-    access.insert(state_api::STATE_SECTOR_PRECOMMIT_INFO, Access::Read);
-    access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
-    access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
     access.insert(state_api::STATE_MINER_INFO, Access::Read);
-    access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
-    access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
-    access.insert(state_api::STATE_MINER_PARTITIONS, Access::Read);
     access.insert(
         state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
         Access::Read,
@@ -371,54 +365,25 @@ pub mod wallet_api {
 pub mod state_api {
     use std::collections::HashMap;
 
-    use crate::data_types::{BlockTemplate, MarketDeal, MessageLookup, Partition};
-    use forest_actor_interface::miner::{
-        MinerInfo, SectorOnChainInfo, SectorPreCommitInfo, SectorPreCommitOnChainInfo,
-    };
+    use crate::data_types::{BlockTemplate, MarketDeal, MessageLookup};
+    use forest_actor_interface::miner::{MinerInfo, SectorPreCommitInfo};
     use forest_blocks::{
         gossip_block::json::GossipBlockJson as BlockMsgJson, tipset_keys_json::TipsetKeysJson,
     };
-    use forest_fil_types::deadlines::DeadlineInfo;
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
     use forest_json::message::json::MessageJson;
     use forest_json::message_receipt::json::ReceiptJson;
     use forest_state_manager::{InvocResult, MarketBalance};
-    use fvm_ipld_bitfield::json::BitFieldJson;
-    use fvm_shared::sector::SectorNumber;
     use fvm_shared::version::NetworkVersion;
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
     pub type StateCallParams = (MessageJson, TipsetKeysJson);
     pub type StateCallResult = InvocResult;
 
-    pub const STATE_SECTOR_PRECOMMIT_INFO: &str = "Filecoin.StateSectorPrecommitInfo";
-    pub type StateSectorPrecommitInfoParams = (AddressJson, SectorNumber, TipsetKeysJson);
-    pub type StateSectorPrecommitInfoResult = SectorPreCommitOnChainInfo;
-
     pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
     pub type StateMinerInfoParams = (AddressJson, TipsetKeysJson);
     pub type StateMinerInfoResult = MinerInfo;
-
-    pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
-    pub type StateSectorGetInfoParams = (AddressJson, SectorNumber, TipsetKeysJson);
-    pub type StateSectorGetInfoResult = Option<SectorOnChainInfo>;
-
-    pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
-    pub type StateMinerProvingDeadlineParams = (AddressJson, TipsetKeysJson);
-    pub type StateMinerProvingDeadlineResult = DeadlineInfo;
-
-    pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
-    pub type StateMinerFaultsParams = (AddressJson, TipsetKeysJson);
-    pub type StateMinerFaultsResult = BitFieldJson;
-
-    pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
-    pub type StateMinerRecoveriesParams = (AddressJson, TipsetKeysJson);
-    pub type StateMinerRecoveriesResult = BitFieldJson;
-
-    pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
-    pub type StateMinerPartitionsParams = (AddressJson, u64, TipsetKeysJson);
-    pub type StateMinerPartitionsResult = Vec<Partition>;
 
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
     pub type StateReplayParams = (CidJson, TipsetKeysJson);

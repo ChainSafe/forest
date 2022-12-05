@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 63
+- Forest method count: 57
 - Lotus method count: 173
-- API coverage: 36.42%
+- API coverage: 32.95%
 
 ## Forest-only Methods
 
@@ -23,7 +23,6 @@ These methods exist in Forest only and cannot be compared:
 - `Filecoin.NetAddrsListen`
 - `Filecoin.NetPeers`
 - `Filecoin.StateGetReceipt`
-- `Filecoin.StateSectorPrecommitInfo`
 - `Filecoin.Version`
 
 ## Type Mismatches
@@ -202,14 +201,14 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.StateMinerActiveSectors`                   | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerAvailableBalance`                | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerDeadlines`                       | `-` | `-` |
-|   ✔️    | `Filecoin.StateMinerFaults`                          | `(AddressJson, TipsetKeysJson)` | `BitFieldJson` |
+|   ❌    | `Filecoin.StateMinerFaults`                          | `-` | `-` |
 |   ✔️    | `Filecoin.StateMinerInfo`                            | `(AddressJson, TipsetKeysJson)` | `MinerInfo` |
 |   ✔️    | `Filecoin.StateMinerInitialPledgeCollateral`         | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
-|   ✔️    | `Filecoin.StateMinerPartitions`                      | `(AddressJson, u64, TipsetKeysJson)` | `Vec<Partition>` |
+|   ❌    | `Filecoin.StateMinerPartitions`                      | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerPower`                           | `-` | `-` |
 |   ✔️    | `Filecoin.StateMinerPreCommitDepositForPower`        | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
-|   ✔️    | `Filecoin.StateMinerProvingDeadline`                 | `(AddressJson, TipsetKeysJson)` | `DeadlineInfo` |
-|   ✔️    | `Filecoin.StateMinerRecoveries`                      | `(AddressJson, TipsetKeysJson)` | `BitFieldJson` |
+|   ❌    | `Filecoin.StateMinerProvingDeadline`                 | `-` | `-` |
+|   ❌    | `Filecoin.StateMinerRecoveries`                      | `-` | `-` |
 |   ✔️    | `Filecoin.StateMinerSectorAllocated`                 | `(AddressJson, u64, TipsetKeysJson)` | `bool` |
 |   ❌    | `Filecoin.StateMinerSectorCount`                     | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerSectors`                         | `-` | `-` |
@@ -219,7 +218,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ✔️    | `Filecoin.StateReplay`                               | `(CidJson, TipsetKeysJson)` | `InvocResult` |
 |   ❌    | `Filecoin.StateSearchMsg`                            | `-` | `-` |
 |   ❌    | `Filecoin.StateSectorExpiration`                     | `-` | `-` |
-|   ✔️    | `Filecoin.StateSectorGetInfo`                        | `(AddressJson, SectorNumber, TipsetKeysJson)` | `Option<SectorOnChainInfo>` |
+|   ❌    | `Filecoin.StateSectorGetInfo`                        | `-` | `-` |
 |   ❌    | `Filecoin.StateSectorPartition`                      | `-` | `-` |
 |   ❌    | `Filecoin.StateSectorPreCommitInfo`                  | `-` | `-` |
 |   ❌    | `Filecoin.StateVMCirculatingSupplyInternal`          | `-` | `-` |

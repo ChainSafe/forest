@@ -122,19 +122,7 @@ where
             .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
             // State API
             .with_method(STATE_CALL, state_call::<DB, B>)
-            .with_method(
-                STATE_SECTOR_PRECOMMIT_INFO,
-                state_sector_precommit_info::<DB, B>,
-            )
             .with_method(STATE_MINER_INFO, state_miner_info::<DB, B>)
-            .with_method(STATE_SECTOR_GET_INFO, state_sector_info::<DB, B>)
-            .with_method(
-                STATE_MINER_PROVING_DEADLINE,
-                state_miner_proving_deadline::<DB, B>,
-            )
-            .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB, B>)
-            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB, B>)
-            .with_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)

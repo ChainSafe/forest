@@ -6,12 +6,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
 
 use cid::Cid;
-use forest_actor_interface::{
-    market,
-    miner::{self, SectorOnChainInfo},
-    power::{self},
-    reward,
-};
+use forest_actor_interface::{market, miner, power, reward};
 use forest_beacon::{Beacon, BeaconEntry};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
@@ -21,14 +16,13 @@ use forest_blocks::{
     gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
 };
 use forest_db::Store;
-use forest_fil_types::verifier::FullVerifier;
 use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_message::signed_message::SignedMessage;
 use forest_networks::Height;
 use forest_rpc_api::{
-    data_types::{MarketDeal, MessageLookup, Partition, RPCState},
+    data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
 };
 use forest_state_manager::InvocResult;
@@ -61,27 +55,6 @@ pub(crate) async fn state_call<
     Ok(state_manager.call(&mut message, Some(tipset)).await?)
 }
 
-/// returns the `PreCommit` info for the specified miner's sector
-pub(crate) async fn state_sector_precommit_info<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateSectorPrecommitInfoParams>,
-) -> Result<StateSectorPrecommitInfoResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (address, sector_number, key) = params;
-    let address = address.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.0)
-        .await?;
-    state_manager
-        .precommit_info::<FullVerifier>(&address, &sector_number, &tipset)
-        .map_err(|e| e.into())
-}
-
 /// `StateMinerInfo` returns info about the indicated miner
 pub async fn state_miner_info<DB: Blockstore + Store + Clone + Send + Sync + 'static, B: Beacon>(
     data: Data<RPCState<DB, B>>,
@@ -105,132 +78,6 @@ pub async fn state_miner_info<DB: Blockstore + Store + Clone + Send + Sync + 'st
         .map_err(|e| format!("Could not get info {:?}", e))?;
 
     Ok(miner_info)
-}
-
-/// returns the on-chain info for the specified miner's sector
-pub async fn state_sector_info<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateSectorGetInfoParams>,
-) -> Result<StateSectorGetInfoResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (address, sector_number, key) = params;
-    let address = address.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    state_manager
-        .miner_sector_info::<FullVerifier>(&address, sector_number, &tipset)
-        .map_err(|e| e.into())
-        .map(|e| e.map(SectorOnChainInfo::from))
-}
-
-/// calculates the deadline at some epoch for a proving period
-/// and returns the deadline-related calculations.
-pub(crate) async fn state_miner_proving_deadline<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerProvingDeadlineParams>,
-) -> Result<StateMinerProvingDeadlineResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (AddressJson(addr), key) = params;
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-
-    let actor = state_manager
-        .get_actor(&addr, *tipset.parent_state())?
-        .ok_or_else(|| format!("Address {} not found", addr))?;
-
-    let mas = miner::State::load(state_manager.blockstore(), &actor)?;
-
-    Ok(mas.deadline_info(tipset.epoch()).next_not_elapsed())
-}
-
-/// returns a single non-expired Faults that occur within look-back epochs of the given tipset
-pub(crate) async fn state_miner_faults<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerFaultsParams>,
-) -> Result<StateMinerFaultsResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    state_manager
-        .get_miner_faults::<FullVerifier>(&tipset, &actor)
-        .map(|s| s.into())
-        .map_err(|e| e.into())
-}
-
-/// returns a bitfield indicating the recovering sectors of the given miner
-pub(crate) async fn state_miner_recoveries<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerRecoveriesParams>,
-) -> Result<StateMinerRecoveriesResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let (actor, key) = params;
-    let actor = actor.into();
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
-    state_manager
-        .get_miner_recoveries::<FullVerifier>(&tipset, &actor)
-        .map(|s| s.into())
-        .map_err(|e| e.into())
-}
-
-/// returns a bitfield indicating the recovering sectors of the given miner
-pub(crate) async fn state_miner_partitions<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerPartitionsParams>,
-) -> anyhow::Result<StateMinerPartitionsResult, JsonRpcError> {
-    let (actor, dl_idx, key) = params;
-    let actor = actor.into();
-    let db = &data.state_manager.chain_store().db;
-    let mas = data
-        .state_manager
-        .chain_store()
-        .miner_load_actor_tsk(&actor, &key.into())
-        .await
-        .map_err(|e| format!("Could not load miner {:?}", e))?;
-    let policy = &data.state_manager.chain_config().policy;
-    let dl = mas.load_deadline(policy, db, dl_idx)?;
-    let mut out = Vec::new();
-    dl.for_each(db, |_, part| {
-        out.push(Partition {
-            all_sectors: part.all_sectors().clone().into(),
-            faulty_sectors: part.faulty_sectors().clone().into(),
-            recovering_sectors: part.recovering_sectors().clone().into(),
-            live_sectors: part.live_sectors().into(),
-            active_sectors: part.active_sectors().into(),
-        });
-        Ok(())
-    })?;
-
-    Ok(out)
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
