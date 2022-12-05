@@ -216,7 +216,6 @@ where
 
         let diffs = TextDiff::from_lines(&expected_json, &actual_json);
 
-        // let Changeset { diffs, .. } = Changeset::new(&expected_json, &actual_json, "\n");
         let stdout = stdout();
         let mut handle = stdout.lock();
         print_diffs(&mut handle, diffs)?
