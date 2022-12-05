@@ -7,7 +7,7 @@ use crate::{DBStatistics, Store};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
-use lmdb::{Database, Environment, Transaction};
+use lmdb::{Database, Environment, EnvironmentFlags, Transaction};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -33,6 +33,9 @@ impl LMDbConfig {
 impl LMDb {
     fn to_options(config: &LMDbConfig) -> Result<Environment, Error> {
         let mut env_builder = Environment::new();
+        env_builder.set_flags(EnvironmentFlags::MAP_ASYNC);
+        env_builder.set_flags(EnvironmentFlags::NO_READAHEAD);
+        env_builder.set_flags(EnvironmentFlags::NO_MEM_INIT);
         env_builder.set_map_size(2e11 as usize); // Map size set to 200Gb
         env_builder.open(&config.path).map_err(Error::from)
     }
