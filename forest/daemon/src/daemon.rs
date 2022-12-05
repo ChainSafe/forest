@@ -383,6 +383,10 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
 
+    let keystore_write = tokio::task::spawn(async move {
+        keystore.read().await.flush().unwrap();
+    });
+
     while let Some(res) = services.join_next().await {
         if let Ok(res_inner) = res {
             if let Err(error_message) = res_inner {
@@ -392,9 +396,6 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         }
     }
 
-    let keystore_write = tokio::task::spawn(async move {
-        keystore.read().await.flush().unwrap();
-    });
 
     // Cancel all async services
     services.shutdown().await;
