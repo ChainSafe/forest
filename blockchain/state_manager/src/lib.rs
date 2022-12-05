@@ -39,7 +39,6 @@ use fvm_shared::randomness::Randomness;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
-use log::{debug, error, info, trace, warn};
 use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
@@ -49,6 +48,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
 use tokio::sync::RwLock;
+use tracing::{debug, error, info, trace, warn};
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
@@ -351,7 +351,7 @@ where
                 let mut vm = create_vm(parent_state, epoch_i)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                    log::error!("Beginning of epoch cron failed to run: {}", e);
+                    error!("Beginning of epoch cron failed to run: {}", e);
                 }
 
                 parent_state = vm.flush()?;

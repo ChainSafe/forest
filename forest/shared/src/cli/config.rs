@@ -17,6 +17,17 @@ pub struct LogConfig {
     pub filters: Vec<LogValue>,
 }
 
+impl LogConfig {
+    pub(crate) fn to_filter_string(&self) -> String {
+        let filters: Vec<_> = self
+            .filters
+            .iter()
+            .map(|f| format!("{}={}", f.module, f.level))
+            .collect();
+        filters.join(",")
+    }
+}
+
 impl Default for LogConfig {
     fn default() -> Self {
         Self {
@@ -169,6 +180,7 @@ mod test {
         net::{Ipv4Addr, SocketAddr},
         path::PathBuf,
     };
+    use tracing_subscriber::EnvFilter;
 
     /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
     /// Debug)
@@ -261,5 +273,13 @@ mod test {
                 .expect("configuration empty"),
             '['
         )
+    }
+
+    #[test]
+    fn test_default_log_filters() {
+        let config = LogConfig::default();
+        EnvFilter::builder()
+            .parse(config.to_filter_string())
+            .unwrap();
     }
 }

@@ -3,8 +3,8 @@
 
 use crate::cli::{CliOpts, LogConfig};
 use atty::Stream;
-use pretty_env_logger::env_logger::WriteStyle;
 use std::str::FromStr;
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,6 +12,16 @@ pub enum LoggingColor {
     Always,
     Auto,
     Never,
+}
+
+impl LoggingColor {
+    fn coloring_enabled(&self) -> bool {
+        match self {
+            LoggingColor::Auto => atty::is(Stream::Stdout),
+            LoggingColor::Always => true,
+            LoggingColor::Never => false,
+        }
+    }
 }
 
 impl FromStr for LoggingColor {
@@ -29,38 +39,15 @@ impl FromStr for LoggingColor {
     }
 }
 
-impl From<LoggingColor> for WriteStyle {
-    fn from(color: LoggingColor) -> WriteStyle {
-        match color {
-            LoggingColor::Always => WriteStyle::Always,
-            LoggingColor::Auto => {
-                if atty::is(Stream::Stdout) {
-                    WriteStyle::Always
-                } else {
-                    WriteStyle::Never
-                }
-            }
-            LoggingColor::Never => WriteStyle::Never,
-        }
-    }
-}
-
 pub fn setup_logger(
     log_config: &LogConfig,
     opts: &CliOpts,
 ) -> (Option<tracing_loki::BackgroundTask>,) {
-    let env_filter = tracing_subscriber::filter::EnvFilter::builder().parse_lossy(
+    let env_filter = EnvFilter::builder().parse_lossy(
         [
             "info".into(),
-            {
-                let filters: Vec<_> = log_config
-                    .filters
-                    .iter()
-                    .map(|f| format!("{}={}", f.module, f.level))
-                    .collect();
-                filters.join(",")
-            },
-            std::env::var(tracing_subscriber::filter::EnvFilter::DEFAULT_ENV).unwrap_or_default(),
+            log_config.to_filter_string(),
+            std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_default(),
         ]
         .join(","),
     );
@@ -94,7 +81,7 @@ pub fn setup_logger(
         .map_err(|e| format!("Unable to create loki layer: {e}"))
         .unwrap();
         loki_task = Some(task);
-        Some(layer.with_filter(tracing_subscriber::filter::LevelFilter::TRACE))
+        Some(layer.with_filter(LevelFilter::TRACE))
     } else {
         None
     };
@@ -104,7 +91,7 @@ pub fn setup_logger(
         .with(tracing_loki)
         .with(
             tracing_subscriber::fmt::Layer::new()
-                .with_ansi(opts.color != LoggingColor::Never)
+                .with_ansi(opts.color.coloring_enabled())
                 .with_filter(env_filter),
         )
         .init();
