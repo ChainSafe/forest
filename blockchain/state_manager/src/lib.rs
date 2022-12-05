@@ -9,7 +9,6 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use anyhow::Context;
-use async_log::span;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
@@ -381,67 +380,68 @@ where
     /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
     /// not to be computed twice.
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        span!("tipset_state", {
-            // Get entry in cache, if it exists.
-            // Arc is cloned here to avoid holding the entire cache lock until function ends.
-            // (tasks should be able to compute different tipset state's in parallel)
-            //
-            // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
-            // mutex until the value is updated, which task `B` will await.
-            //
-            // If two tasks are computing different tipset states, they will only block computation
-            // when accessing/initializing the entry in cache, not during the whole tipset calc.
+        tracing::info_span!("tipset_state")
+            .in_scope(|| async {
+                // Get entry in cache, if it exists.
+                // Arc is cloned here to avoid holding the entire cache lock until function ends.
+                // (tasks should be able to compute different tipset state's in parallel)
+                //
+                // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
+                // mutex until the value is updated, which task `B` will await.
+                //
+                // If two tasks are computing different tipset states, they will only block computation
+                // when accessing/initializing the entry in cache, not during the whole tipset calc.
 
-            // first try reading cache
-            if let Some(entry) = self.cache.write().await.get(tipset.key()) {
-                trace!("hit cache for tipset {:?}", tipset.cids());
-                forest_metrics::metrics::LRU_CACHE_HIT
+                // first try reading cache
+                if let Some(entry) = self.cache.write().await.get(tipset.key()) {
+                    trace!("hit cache for tipset {:?}", tipset.cids());
+                    forest_metrics::metrics::LRU_CACHE_HIT
+                        .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                        .inc();
+                    return Ok(*entry.wait());
+                }
+
+                // write an empty `OnceCell` when cache not hit
+                let cache_entry = Arc::new(once_cell::sync::OnceCell::new());
+                {
+                    self.cache
+                        .write()
+                        .await
+                        .push(tipset.key().clone(), cache_entry.clone());
+                }
+
+                // Entry does not have state computed yet, this task will fill entry if successful.
+                debug!("calculating tipset state {:?}", tipset.cids());
+
+                let cid_pair = if tipset.epoch() == 0 {
+                    // NB: This is here because the process that executes blocks requires that the
+                    // block miner reference a valid miner in the state tree. Unless we create some
+                    // magical genesis miner, this won't work properly, so we short circuit here
+                    // This avoids the question of 'who gets paid the genesis block reward'
+                    let message_receipts = tipset.blocks().first().ok_or_else(|| {
+                        Error::Other("Could not get message receipts".to_string())
+                    })?;
+
+                    (*tipset.parent_state(), *message_receipts.message_receipts())
+                } else {
+                    // generic constants are not implemented yet this is a lowcost method for now
+                    let no_func =
+                        None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
+                    let ts_state = self.compute_tipset_state(tipset, no_func).await?;
+                    debug!("completed tipset state calculation {:?}", tipset.cids());
+                    ts_state
+                };
+
+                // Fill entry with calculated cid pair
+                if let Err(e) = cache_entry.set(cid_pair) {
+                    error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
+                }
+                forest_metrics::metrics::LRU_CACHE_MISS
                     .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
                     .inc();
-                return Ok(*entry.wait());
-            }
-
-            // write an empty `OnceCell` when cache not hit
-            let cache_entry = Arc::new(once_cell::sync::OnceCell::new());
-            {
-                self.cache
-                    .write()
-                    .await
-                    .push(tipset.key().clone(), cache_entry.clone());
-            }
-
-            // Entry does not have state computed yet, this task will fill entry if successful.
-            debug!("calculating tipset state {:?}", tipset.cids());
-
-            let cid_pair = if tipset.epoch() == 0 {
-                // NB: This is here because the process that executes blocks requires that the
-                // block miner reference a valid miner in the state tree. Unless we create some
-                // magical genesis miner, this won't work properly, so we short circuit here
-                // This avoids the question of 'who gets paid the genesis block reward'
-                let message_receipts = tipset
-                    .blocks()
-                    .first()
-                    .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-
-                (*tipset.parent_state(), *message_receipts.message_receipts())
-            } else {
-                // generic constants are not implemented yet this is a lowcost method for now
-                let no_func =
-                    None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-                let ts_state = self.compute_tipset_state(tipset, no_func).await?;
-                debug!("completed tipset state calculation {:?}", tipset.cids());
-                ts_state
-            };
-
-            // Fill entry with calculated cid pair
-            if let Err(e) = cache_entry.set(cid_pair) {
-                error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
-            }
-            forest_metrics::metrics::LRU_CACHE_MISS
-                .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-                .inc();
-            Ok(cid_pair)
-        })
+                Ok(cid_pair)
+            })
+            .await
     }
 
     fn call_raw(
@@ -450,7 +450,7 @@ where
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult {
-        span!("state_call_raw", {
+        tracing::info_span!("state_call_raw").in_scope(|| {
             let bstate = tipset.parent_state();
             let bheight = tipset.epoch();
             let store = self.blockstore().clone();
@@ -811,69 +811,71 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        span!("compute_tipset_state", {
-            let block_headers = tipset.blocks();
-            let first_block = block_headers
-                .first()
-                .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
+        tracing::info_span!("compute_tipset_state")
+            .in_scope(|| async {
+                let block_headers = tipset.blocks();
+                let first_block = block_headers.first().ok_or_else(|| {
+                    Error::Other("Empty tipset in compute_tipset_state".to_string())
+                })?;
 
-            let check_for_duplicates = |s: &BlockHeader| {
-                block_headers
-                    .iter()
-                    .filter(|val| val.miner_address() == s.miner_address())
-                    .take(2)
-                    .count()
-            };
-            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
-                // Duplicate Miner found
-                return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
-            }
+                let check_for_duplicates = |s: &BlockHeader| {
+                    block_headers
+                        .iter()
+                        .filter(|val| val.miner_address() == s.miner_address())
+                        .take(2)
+                        .count()
+                };
+                if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
+                    // Duplicate Miner found
+                    return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
+                }
 
-            let parent_epoch = if first_block.epoch() > 0 {
-                let parent_cid = first_block
-                    .parents()
-                    .cids()
-                    .get(0)
-                    .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
-                let parent: BlockHeader = self
-                    .blockstore()
-                    .get_obj(parent_cid)?
-                    .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
-                parent.epoch()
-            } else {
-                Default::default()
-            };
+                let parent_epoch = if first_block.epoch() > 0 {
+                    let parent_cid = first_block
+                        .parents()
+                        .cids()
+                        .get(0)
+                        .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
+                    let parent: BlockHeader =
+                        self.blockstore().get_obj(parent_cid)?.ok_or_else(|| {
+                            format!("Could not find parent block with cid {parent_cid}")
+                        })?;
+                    parent.epoch()
+                } else {
+                    Default::default()
+                };
 
-            let async_handle = tokio::runtime::Handle::current();
-            let tipset_keys =
-                TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = self.chain_rand(tipset_keys, async_handle);
-            let base_fee = first_block.parent_base_fee().clone();
+                let async_handle = tokio::runtime::Handle::current();
+                let tipset_keys =
+                    TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
+                let chain_rand = self.chain_rand(tipset_keys, async_handle);
+                let base_fee = first_block.parent_base_fee().clone();
 
-            let blocks = self
-                .chain_store()
-                .block_msgs_for_tipset(tipset)
-                .map_err(|e| Error::Other(e.to_string()))?;
+                let blocks = self
+                    .chain_store()
+                    .block_msgs_for_tipset(tipset)
+                    .map_err(|e| Error::Other(e.to_string()))?;
 
-            let sm = Arc::clone(self);
-            let sr = *first_block.state_root();
-            let epoch = first_block.epoch();
-            let ts_cloned = Arc::clone(tipset);
-            tokio::task::spawn_blocking(move || {
-                Ok(sm.apply_blocks(
-                    parent_epoch,
-                    &sr,
-                    &blocks,
-                    epoch,
-                    chain_rand,
-                    base_fee,
-                    callback,
-                    &ts_cloned,
-                )?)
+                let sm = Arc::clone(self);
+                let sr = *first_block.state_root();
+                let epoch = first_block.epoch();
+                let ts_cloned = Arc::clone(tipset);
+                tokio::task::spawn_blocking(move || {
+                    Ok(sm.apply_blocks(
+                        parent_epoch,
+                        &sr,
+                        &blocks,
+                        epoch,
+                        chain_rand,
+                        base_fee,
+                        callback,
+                        &ts_cloned,
+                    )?)
+                })
+                .await
+                .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
             })
             .await
-            .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
-        })
     }
 
     /// Check if tipset had executed the message, by loading the receipt based on the index of

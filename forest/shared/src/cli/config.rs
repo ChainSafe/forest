@@ -26,8 +26,9 @@ impl Default for LogConfig {
                 LogValue::new("storage_proofs_core", LevelFilter::Warn),
                 LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
                 LogValue::new("axum", LevelFilter::Warn),
-                LogValue::new("libp2p_bitswap", LevelFilter::Warn),
+                LogValue::new("libp2p_bitswap", LevelFilter::Off),
                 LogValue::new("rpc", LevelFilter::Error),
+                LogValue::new("tracing_loki", LevelFilter::Off),
             ],
         }
     }

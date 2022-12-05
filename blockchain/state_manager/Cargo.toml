@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-async-log.workspace = true
 blake2b_simd.workspace = true
 byteorder.workspace = true
 cid.workspace = true
@@ -43,6 +42,7 @@ prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
+tracing.workspace = true
 
 [features]
 default = []
