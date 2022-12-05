@@ -13,6 +13,7 @@ base64.workspace = true
 byte-unit = "4.0"
 chrono.workspace = true
 cid.workspace = true
+console-subscriber.workspace = true
 directories.workspace = true
 fil_actor_miner_v8.workspace = true
 forest_actor_interface.workspace = true
@@ -41,6 +42,7 @@ fvm.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+gethostname.workspace = true
 git-version.workspace = true
 hex.workspace = true
 jsonrpc-v2.workspace = true
@@ -64,6 +66,9 @@ tempfile.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
+tracing-loki.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 url.workspace = true
 which.workspace = true
 

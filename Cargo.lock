@@ -2803,7 +2803,6 @@ dependencies = [
  "base64",
  "chrono",
  "cid",
- "console-subscriber",
  "ctrlc",
  "daemonize-me",
  "dialoguer",
@@ -2869,9 +2868,6 @@ dependencies = [
  "time",
  "tokio",
  "toml",
- "tracing",
- "tracing-loki",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -3086,6 +3082,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "cid",
+ "console-subscriber",
  "directories",
  "fil_actor_miner_v8",
  "forest_actor_interface",
@@ -3114,6 +3111,7 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
+ "gethostname",
  "git-version",
  "hex",
  "http",
@@ -3142,6 +3140,9 @@ dependencies = [
  "tokio",
  "toml",
  "tower-http",
+ "tracing",
+ "tracing-loki",
+ "tracing-subscriber",
  "url",
  "which",
 ]
@@ -4292,6 +4293,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "gethostname"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a329e22866dd78b35d2c639a4a23d7b950aeae300dfd79f4fb19f74055c2404"
+dependencies = [
+ "libc",
+ "windows 0.43.0",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4735,7 +4746,7 @@ dependencies = [
  "rtnetlink",
  "system-configuration",
  "tokio",
- "windows",
+ "windows 0.34.0",
 ]
 
 [[package]]
@@ -7718,9 +7729,9 @@ checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
 
 [[package]]
 name = "serde"
-version = "1.0.148"
+version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e53f64bb4ba0191d6d0676e1b141ca55047d83b74f5607e6d8eb88126c52c2dc"
+checksum = "256b9932320c590e707b94576e3cc1f7c9024d0ee6612dfbcf1cb106cbe8e055"
 dependencies = [
  "serde_derive",
 ]
@@ -7757,9 +7768,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.148"
+version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a55492425aa53521babf6137309e7d34c20bbfbbfcfe2c7f3a047fd1f6b92c0c"
+checksum = "b4eae9b04cbffdfd550eb462ed33bc6a1b68c935127d008b27444d08380f94e4"
 dependencies = [
  "proc-macro2 1.0.47",
  "quote 1.0.21",
@@ -9763,7 +9774,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b7b128a98c1cfa201b09eb49ba285887deb3cbe7466a98850eb1adabb452be5"
 dependencies = [
- "windows",
+ "windows 0.34.0",
 ]
 
 [[package]]
@@ -9808,6 +9819,21 @@ dependencies = [
  "windows_i686_msvc 0.34.0",
  "windows_x86_64_gnu 0.34.0",
  "windows_x86_64_msvc 0.34.0",
+]
+
+[[package]]
+name = "windows"
+version = "0.43.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04662ed0e3e5630dfa9b26e4cb823b817f1a9addda855d973a9458c236556244"
+dependencies = [
+ "windows_aarch64_gnullvm",
+ "windows_aarch64_msvc 0.42.0",
+ "windows_i686_gnu 0.42.0",
+ "windows_i686_msvc 0.42.0",
+ "windows_x86_64_gnu 0.42.0",
+ "windows_x86_64_gnullvm",
+ "windows_x86_64_msvc 0.42.0",
 ]
 
 [[package]]
