@@ -379,18 +379,20 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
-    select! {
-        option = services.join_next().fuse() => {
-            if let Some(res) = option {
-                if let Ok(res_inner) = res {
-                    if let Err(error_message) = res_inner {
-                        let msg = format!("services failure: {}", error_message);
-                        cli_error_and_die(msg, 1);
+    loop {
+        select! {
+            option = services.join_next().fuse() => {
+                if let Some(res) = option {
+                    if let Ok(res_inner) = res {
+                        if let Err(error_message) = res_inner {
+                            let msg = format!("services failure: {}", error_message);
+                            cli_error_and_die(msg, 1);
+                        }
                     }
                 }
-            }
-        },
-        _ = ctrlc_oneshot => {},
+            },
+            _ = ctrlc_oneshot => break,
+        }
     }
 
     let keystore_write = tokio::task::spawn(async move {
