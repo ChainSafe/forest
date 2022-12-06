@@ -384,7 +384,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
                     if let Ok(res_inner) = res {
                         if let Err(error_message) = res_inner {
                             let msg = format!("services failure: {}", error_message);
-                            cli_error_and_die(msg, 1);
+                            error!("{}", msg);
+                            break
                         }
                     }
                 }
