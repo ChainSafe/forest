@@ -63,6 +63,21 @@ impl Store for LMDb {
             .map(|data| data.to_vec()))
     }
 
+    fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let rtxn = self.env.begin_ro_txn()?;
+        Ok(keys
+            .iter()
+            .map(|key| {
+                lmdb::Transaction::get(&rtxn, *self.db, &key)
+                    .ok()
+                    .map(|data| data.to_vec())
+            })
+            .collect())
+    }
+
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
