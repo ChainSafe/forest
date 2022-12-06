@@ -11,7 +11,6 @@ mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
-mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
 mod send_cmd;
@@ -24,7 +23,6 @@ pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub(super) use self::db_cmd::DBCommands;
 pub(super) use self::fetch_params_cmd::FetchCommands;
-pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
 pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::send_cmd::SendCommand;
@@ -75,9 +73,6 @@ pub enum Subcommand {
 
     /// Manage RPC permissions
     Auth(AuthCommands),
-
-    /// Work with blockchain genesis
-    Genesis(GenesisCommands),
 
     /// Manage P2P network
     Net(NetCommands),

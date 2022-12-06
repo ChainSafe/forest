@@ -16,9 +16,6 @@ pub(super) async fn process(command: Subcommand, config: Config) {
         Subcommand::Auth(cmd) => {
             cmd.run(config).await;
         }
-        Subcommand::Genesis(cmd) => {
-            cmd.run().await;
-        }
         Subcommand::Net(cmd) => {
             cmd.run(config).await;
         }
