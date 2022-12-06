@@ -1,37 +1,26 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_chain::Scale;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
 
 use cid::Cid;
-use forest_actor_interface::{market, miner, power, reward};
-use forest_beacon::{Beacon, BeaconEntry};
-use forest_blocks::{
-    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
-    tipset_keys_json::TipsetKeysJson,
-};
-use forest_blocks::{
-    gossip_block::json::GossipBlockJson as BlockMsgJson, BlockHeader, GossipBlock as BlockMsg,
-};
+use forest_actor_interface::{market, power, reward};
+use forest_beacon::Beacon;
+use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_db::Store;
 use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
-use forest_message::signed_message::SignedMessage;
-use forest_networks::Height;
 use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
 };
 use forest_state_manager::InvocResult;
-use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
-use fvm_shared::sector::PoStProof;
 use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
@@ -53,31 +42,6 @@ pub(crate) async fn state_call<
         .tipset_from_keys(&key.into())
         .await?;
     Ok(state_manager.call(&mut message, Some(tipset)).await?)
-}
-
-/// `StateMinerInfo` returns info about the indicated miner
-pub async fn state_miner_info<DB: Blockstore + Store + Clone + Send + Sync + 'static, B: Beacon>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerInfoParams>,
-) -> Result<StateMinerInfoResult, JsonRpcError> {
-    let state_manager = &data.state_manager;
-    let store = state_manager.blockstore();
-    let (AddressJson(addr), TipsetKeysJson(key)) = params;
-
-    let ts = data.chain_store.tipset_from_keys(&key).await?;
-    let actor = data
-        .state_manager
-        .get_actor(&addr, *ts.parent_state())
-        .map_err(|e| format!("Could not load miner {}: {:?}", addr, e))?
-        .ok_or_else(|| format!("miner {} does not exist", addr))?;
-
-    let miner_state = miner::State::load(store, &actor)?;
-
-    let miner_info = miner_state
-        .info(store)
-        .map_err(|e| format!("Could not get info {:?}", e))?;
-
-    Ok(miner_info)
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
@@ -242,143 +206,6 @@ pub(crate) async fn state_wait_msg<
         message: CidJson(cid),
         return_dec: IpldJson(ipld),
     })
-}
-
-pub(crate) async fn miner_create_block<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-    S: Scale,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<MinerCreateBlockParams>,
-) -> Result<MinerCreateBlockResult, JsonRpcError> {
-    let params = params.0;
-    let AddressJson(miner) = params.miner;
-    let TipsetKeysJson(parents) = params.parents;
-    let TicketJson(ticket) = params.ticket;
-    let ElectionProofJson(eproof) = params.eproof;
-    let beacon_values: Vec<BeaconEntry> = params.beacon_values.into_iter().map(|b| b.0).collect();
-    let messages: Vec<SignedMessage> = params.messages.into_iter().map(|m| m.0).collect();
-    let epoch = params.epoch;
-    let timestamp = params.timestamp;
-    let winning_post_proof: Vec<PoStProof> = params
-        .winning_post_proof
-        .into_iter()
-        .map(|wpp| wpp.0)
-        .collect();
-
-    let pts = data.chain_store.tipset_from_keys(&parents).await?;
-    let (st, recpts) = data.state_manager.tipset_state(&pts).await?;
-    let (_, lbst) = data
-        .state_manager
-        .get_lookback_tipset_for_round(pts.clone(), epoch)
-        .await?;
-    let worker = data.state_manager.get_miner_work_addr(lbst, &miner)?;
-
-    let persisted = forest_chain::persist_block_messages(
-        data.chain_store.blockstore(),
-        messages.iter().collect(),
-    )?;
-
-    let pweight = S::weight(data.chain_store.blockstore(), pts.as_ref())?;
-    let smoke_height = data.state_manager.chain_config().epoch(Height::Smoke);
-    let base_fee =
-        forest_chain::compute_base_fee(data.chain_store.blockstore(), pts.as_ref(), smoke_height)?;
-
-    let mut next = BlockHeader::builder()
-        .messages(persisted.msg_cid)
-        .bls_aggregate(Some(persisted.bls_agg))
-        .miner_address(miner)
-        .weight(pweight)
-        .parent_base_fee(base_fee)
-        .parents(parents)
-        .ticket(Some(ticket))
-        .election_proof(Some(eproof))
-        .beacon_entries(beacon_values)
-        .epoch(epoch)
-        .timestamp(timestamp)
-        .winning_post_proof(winning_post_proof)
-        .state_root(st)
-        .message_receipts(recpts)
-        .signature(None)
-        .build()?;
-
-    let key = forest_key_management::find_key(&worker, &*data.keystore.as_ref().read().await)?;
-    let sig = forest_key_management::sign(
-        *key.key_info.key_type(),
-        key.key_info.private_key(),
-        &next.cid().to_bytes(),
-    )?;
-    next.signature = Some(sig);
-
-    Ok(BlockMsgJson(BlockMsg {
-        header: next,
-        bls_messages: persisted.bls_cids,
-        secpk_messages: persisted.secp_cids,
-    }))
-}
-
-pub(crate) async fn state_miner_sector_allocated<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerSectorAllocatedParams>,
-) -> Result<StateMinerSectorAllocatedResult, JsonRpcError> {
-    let (AddressJson(maddr), sector_num, TipsetKeysJson(tsk)) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-
-    let actor = data
-        .state_manager
-        .get_actor(&maddr, *ts.parent_state())?
-        .ok_or(format!("Miner actor {} could not be resolved", maddr))?;
-    let allocated_sectors = match miner::State::load(data.state_manager.blockstore(), &actor)? {
-        // miner::State::V0(m) => data
-        //     .chain_store
-        //     .db
-        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
-        //     .ok_or("allocated sectors bitfield not found")?
-        //     .get(sector_num as usize),
-        // miner::State::V2(m) => data
-        //     .chain_store
-        //     .db
-        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
-        //     .ok_or("allocated sectors bitfield not found")?
-        //     .get(sector_num as usize),
-        // miner::State::V3(m) => data
-        //     .chain_store
-        //     .db
-        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
-        //     .ok_or("allocated sectors bitfield not found")?
-        //     .get(sector_num as usize),
-        // miner::State::V4(m) => data
-        //     .chain_store
-        //     .db
-        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
-        //     .ok_or("allocated sectors bitfield not found")?
-        //     .get(sector_num as usize),
-        // miner::State::V5(m) => data
-        //     .chain_store
-        //     .db
-        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
-        //     .ok_or("allocated sectors bitfield not found")?
-        //     .get(sector_num as usize),
-        // miner::State::V6(m) => data
-        //     .chain_store
-        //     .db
-        //     .get::<bitfield::BitField>(&m.allocated_sectors)?
-        //     .ok_or("allocated sectors bitfield not found")?
-        //     .get(sector_num as usize),
-        miner::State::V8(m) => data
-            .chain_store
-            .db
-            .get_obj::<fvm_ipld_bitfield::BitField>(&m.allocated_sectors)?
-            .ok_or("allocated sectors bitfield not found")?
-            .get(sector_num),
-        _ => panic!("state_miner_sector_allocated disabled"),
-    };
-
-    Ok(allocated_sectors)
 }
 
 pub(crate) async fn state_miner_pre_commit_deposit_for_power<

@@ -72,7 +72,6 @@ where
                 chain_get_tipset_by_height::<DB, B>,
             )
             .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB, B>)
-            .with_method(CHAIN_TIPSET_WEIGHT, chain_tipset_weight::<DB, B>)
             .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB, B>)
             .with_method(CHAIN_GET_TIPSET_HASH, chain_get_tipset_hash::<DB, B>)
             .with_method(
@@ -80,12 +79,6 @@ where
                 chain_validate_tipset_checkpoints::<DB, B>,
             )
             .with_method(CHAIN_HEAD, chain_head::<DB, B>)
-            // XXX: CHAIN_HEAD_SUBSCRIPTION disabled since it is unsed
-            // .with_method(CHAIN_HEAD_SUBSCRIPTION, chain_head_subscription::<DB, B>)
-            // * Filecoin.ChainNotify is handled specifically in middleware for streaming
-            // XXX: CHAIN_NOTIFY disabled since it is unsed
-            // .with_method(CHAIN_NOTIFY, chain_notify::<DB, B>)
-            // Tracking issue for unused RPC endpoints: https://github.com/ChainSafe/forest/issues/1976
             .with_method(
                 CHAIN_GET_RANDOMNESS_FROM_TICKETS,
                 chain_get_randomness_from_tickets::<DB, B>,
@@ -97,17 +90,13 @@ where
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
             .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB, B>)
             // Message Pool API
-            .with_method(MPOOL_ESTIMATE_GAS_PRICE, estimate_gas_premium::<DB, B>)
-            .with_method(MPOOL_GET_NONCE, mpool_get_sequence::<DB, B>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB, B>)
             .with_method(MPOOL_PUSH, mpool_push::<DB, B>)
             .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB, B>)
-            .with_method(MPOOL_SELECT, mpool_select::<DB, B>)
             // Sync API
             .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB, B>)
             .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB, B>)
             .with_method(SYNC_STATE, sync_state::<DB, B>)
-            .with_method(SYNC_SUBMIT_BLOCK, sync_submit_block::<DB, B>)
             // Wallet API
             .with_method(WALLET_BALANCE, wallet_balance::<DB, B>)
             .with_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB, B>)
@@ -122,7 +111,6 @@ where
             .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
             // State API
             .with_method(STATE_CALL, state_call::<DB, B>)
-            .with_method(STATE_MINER_INFO, state_miner_info::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
@@ -131,11 +119,6 @@ where
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB, B>)
-            .with_method(MINER_CREATE_BLOCK, miner_create_block::<DB, B, S>)
-            .with_method(
-                STATE_MINER_SECTOR_ALLOCATED,
-                state_miner_sector_allocated::<DB, B>,
-            )
             .with_method(
                 STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
                 state_miner_pre_commit_deposit_for_power::<DB, B>,
