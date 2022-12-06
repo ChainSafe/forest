@@ -102,7 +102,7 @@ impl Proposer for DelegatedProposer {
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
         submitter: SyncGossipSubmitter,
-        services: &mut JoinSet<()>,
+        services: &mut JoinSet<Result<(), String>>,
     ) -> anyhow::Result<()>
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
@@ -110,7 +110,11 @@ impl Proposer for DelegatedProposer {
     {
         services.spawn(async move {
             if let Err(e) = self.run(state_manager, mpool.as_ref(), &submitter).await {
-                error!("block proposal stopped: {}", e)
+                let error_message = format!("block proposal stopped: {}", e);
+                error!("{}", error_message);
+                Err(error_message)
+            } else {
+                Ok(())
             }
         });
         Ok(())

@@ -145,9 +145,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let mut services: JoinSet<Result<(), String>> = JoinSet::new();
 
-    services.spawn(async move {
-        ctrlc_oneshot.await.map_err(|err| err.to_string())
-    });
+    services.spawn(async move { ctrlc_oneshot.await.map_err(|err| err.to_string()) });
 
     {
         // Start Prometheus server port
@@ -326,7 +324,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            let _ = start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
+            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -342,8 +340,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
             )
-            .await;
-            Ok(())
+            .await
+            .map_err(|err| format!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");

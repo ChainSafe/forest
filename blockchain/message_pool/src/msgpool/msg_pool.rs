@@ -238,7 +238,8 @@ where
                             rev,
                             app,
                         )
-                        .await.map_err(|err| err.to_string());
+                        .await
+                        .map_err(|err| err.to_string());
 
                         if let Err(err) = res {
                             let error_message = format!("Error changing head: {:?}", err);
