@@ -59,7 +59,7 @@ fn unblock_parent_process() {
 
 /// Starts daemon process
 pub(super) async fn start(config: Config, detached: bool) -> Db {
-    let mut ctrlc_oneshot = set_sigint_handler();
+    let ctrlc_oneshot = set_sigint_handler();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -144,6 +144,10 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     let db = open_db(&config);
 
     let mut services: JoinSet<Result<(), String>> = JoinSet::new();
+
+    services.spawn(async move {
+        ctrlc_oneshot.await.map_err(|err| err.to_string())
+    });
 
     {
         // Start Prometheus server port
@@ -364,11 +368,6 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
-        _ = ctrlc_oneshot => {
-            // Cancel all async services
-            services.shutdown().await;
-            return db;
-        },
     }
 
     // Halt
@@ -385,12 +384,12 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             if let Err(error_message) = res_inner {
                 let msg = format!("services failure: {}", error_message);
                 cli_error_and_die(msg, 1);
+            } else {
+                // meaning ctrc-c
+                break;
             }
         }
     }
-
-    // Block until ctrl-c is hit
-    ctrlc_oneshot.await.unwrap();
 
     let keystore_write = tokio::task::spawn(async move {
         keystore.read().await.flush().unwrap();
