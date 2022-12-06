@@ -146,30 +146,30 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     let mut services = JoinSet::new();
 
     {
-        // Start Prometheus server port
-        let prometheus_listener =
-            TcpListener::bind(config.client.metrics_address).unwrap_or_else(|_| {
-                cli_error_and_die(
-                    format!("could not bind to {}", config.client.metrics_address),
-                    1,
-                )
-            });
-        info!(
-            "Prometheus server started at {}",
-            config.client.metrics_address
-        );
-        let db_directory = db_path(&config)
-            .into_os_string()
-            .into_string()
-            .expect("Failed converting the path to db");
-        let db = db.clone();
-        services.spawn(async {
-            if let Err(e) =
-                forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
-            {
-                error!("Failed to initiate prometheus server: {e}");
-            }
-        });
+        // // Start Prometheus server port
+        // let prometheus_listener =
+        //     TcpListener::bind(config.client.metrics_address).unwrap_or_else(|_| {
+        //         cli_error_and_die(
+        //             format!("could not bind to {}", config.client.metrics_address),
+        //             1,
+        //         )
+        //     });
+        // info!(
+        //     "Prometheus server started at {}",
+        //     config.client.metrics_address
+        // );
+        // let db_directory = db_path(&config)
+        //     .into_os_string()
+        //     .into_string()
+        //     .expect("Failed converting the path to db");
+        // let db = db.clone();
+        // services.spawn(async {
+        //     if let Err(e) =
+        //         forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
+        //     {
+        //         error!("Failed to initiate prometheus server: {e}");
+        //     }
+        // });
     }
 
     // Initialize ChainStore
