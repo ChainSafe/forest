@@ -60,11 +60,7 @@ jobs:
           command: |
             sudo make install-deps
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-          key: ${{ runner.os }}-lints-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
+      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install Lint tools
         run: make install-lint-tools
         env:
@@ -161,6 +157,7 @@ jobs:
       - name: Validate checkpoint tipset hashes
         run: forest-cli chain validate-tipset-checkpoints
       - name: wait for sync and check health
+        timeout-minutes: 30
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
