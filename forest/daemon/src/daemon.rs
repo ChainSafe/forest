@@ -307,10 +307,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    services.spawn(async {
-        chain_muxer.await;
-        Ok(())
-    });
+    services.spawn(async { Err(chain_muxer.await.to_string()) });
 
     // Start services
     if config.client.enable_rpc {
