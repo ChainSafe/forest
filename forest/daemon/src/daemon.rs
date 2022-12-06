@@ -377,7 +377,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
-    loop {
+    while services.len() > 0 {
         select! {
             option = services.join_next().fuse() => {
                 if let Some(res) = option {
