@@ -380,22 +380,21 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
+    while let Some(res) = services.join_next().await {
+        if let Ok(res_inner) = res {
+            if let Err(error_message) = res_inner {
+                let msg = format!("services failure: {}", error_message);
+                cli_error_and_die(msg, 1);
+            }
+        }
+    }
+
     // Block until ctrl-c is hit
     ctrlc_oneshot.await.unwrap();
 
     let keystore_write = tokio::task::spawn(async move {
         keystore.read().await.flush().unwrap();
     });
-
-    while let Some(res) = services.join_next().await {
-        if let Ok(res_inner) = res {
-            if let Err(error_message) = res_inner {
-                let msg = format!("services failure {}", error_message);
-                cli_error_and_die(msg, 1);
-            }
-        }
-    }
-
 
     // Cancel all async services
     services.shutdown().await;
