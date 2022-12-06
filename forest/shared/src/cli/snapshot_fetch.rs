@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::Config;
-use crate::cli::to_size_string;
+use crate::cli::{cli_error_and_die, to_size_string};
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -44,8 +44,7 @@ impl FromStr for SnapshotServer {
             "forest" => Ok(SnapshotServer::Forest),
             "filecoin" => Ok(SnapshotServer::Filecoin),
             _ => bail!(
-                "Failed to fetch snapshot from: {}, Must be one of `forest`|`filecoin`.",
-                provider
+                "Failed to fetch snapshot from: {provider}, Must be one of `forest`|`filecoin`."
             ),
         }
     }
@@ -67,31 +66,40 @@ pub struct SnapshotStore {
 impl SnapshotStore {
     pub fn new(config: &Config, snapshot_dir: &PathBuf) -> SnapshotStore {
         let mut snapshots = Vec::new();
+        let pattern = Regex::new(
+            r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car(.tmp|.aria2)?$",
+        ).unwrap();
         if let Ok(dir) = std::fs::read_dir(snapshot_dir) {
             dir.flatten()
-            .map(|entry| entry.path())
-            .filter(|p| is_car_or_tmp(p))
-            .for_each(|path|
-                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                    let pattern = Regex::new(
-                        r"^([^_]+?)_snapshot_(?P<network>[^_]+?)_(?P<date>\d{4}-\d{2}-\d{2})_height_(?P<height>\d+).car(.tmp|.aria2)?$",
-                    ).unwrap();
-                    if let Some(captures) = pattern.captures(filename) {
-                        let network: String = captures.name("network").unwrap().as_str().into();
-                        if network == config.chain.name {
-                            let date = Date::parse(captures.name("date").unwrap().as_str(), &Iso8601::DEFAULT).unwrap();
-                            let height = captures.name("height").unwrap().as_str().parse::<i64>().unwrap();
-                            let snapshot = SnapshotInfo {
-                                network,
-                                date,
-                                height,
-                                path,
-                            };
-                            snapshots.push(snapshot);
+                .map(|entry| entry.path())
+                .filter(|p| is_car_or_tmp(p))
+                .for_each(|path| {
+                    if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                        if let Some(captures) = pattern.captures(filename) {
+                            let network: String = captures.name("network").unwrap().as_str().into();
+                            if network == config.chain.name {
+                                let date = Date::parse(
+                                    captures.name("date").unwrap().as_str(),
+                                    &Iso8601::DEFAULT,
+                                )
+                                .unwrap();
+                                let height = captures
+                                    .name("height")
+                                    .unwrap()
+                                    .as_str()
+                                    .parse::<i64>()
+                                    .unwrap();
+                                let snapshot = SnapshotInfo {
+                                    network,
+                                    date,
+                                    height,
+                                    path,
+                                };
+                                snapshots.push(snapshot);
+                            }
                         }
                     }
-                }
-            );
+                });
         }
         SnapshotStore { snapshots }
     }
@@ -113,9 +121,20 @@ pub fn is_car_or_tmp(path: &Path) -> bool {
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
-    server: &SnapshotServer,
+    provider: &Option<SnapshotServer>,
     use_aria2: bool,
 ) -> anyhow::Result<PathBuf> {
+    let server = match provider {
+        Some(s) => s,
+        None => match config.chain.name.to_lowercase().as_str() {
+            "mainnet" => &SnapshotServer::Filecoin,
+            "calibnet" => &SnapshotServer::Forest,
+            _ => cli_error_and_die(
+                format!("Fetch not supported for chain {}", config.chain.name),
+                1,
+            ),
+        },
+    };
     match server {
         SnapshotServer::Forest => snapshot_fetch_forest(snapshot_out_dir, config, use_aria2).await,
         SnapshotServer::Filecoin => {
