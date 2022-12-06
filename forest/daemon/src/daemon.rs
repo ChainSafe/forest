@@ -145,8 +145,6 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let mut services: JoinSet<Result<(), String>> = JoinSet::new();
 
-    // services.spawn(async move { ctrlc_oneshot.await.map_err(|err| err.to_string()) });
-
     {
         // Start Prometheus server port
         let prometheus_listener =
