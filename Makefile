@@ -14,15 +14,15 @@ install-deps:
 
 install-lint-tools:
 	cargo install cargo-quickinstall
-	which taplo || cargo quickinstall taplo-cli
-	which cargo-audit || cargo quickinstall cargo-audit
-	which cargo-spellcheck || cargo quickinstall cargo-spellcheck
-	which cargo-udeps || cargo quickinstall cargo-udeps
+	cargo quickinstall taplo-cli
+	cargo quickinstall cargo-audit
+	cargo quickinstall cargo-spellcheck
+	cargo quickinstall cargo-udeps
 
 install-doc-tools:
 	cargo install cargo-quickinstall
-	which mdbook || cargo quickinstall mdbook
-	which mdbook-linkcheck || cargo quickinstall mdbook-linkcheck
+	cargo quickinstall mdbook
+	cargo quickinstall mdbook-linkcheck
 
 clean-all:
 	cargo clean
