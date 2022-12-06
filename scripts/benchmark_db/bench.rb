@@ -170,7 +170,7 @@ class Benchmark
     config_path = "#{TEMP_DIR}/#{@name}.toml"
 
     line = syscall('./target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
-    match = line.match(/Database size\: (.+)/)
+    match = line.match(/Database size: (.+)/)
     match[1]
   end
 
