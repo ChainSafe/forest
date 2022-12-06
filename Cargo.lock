@@ -150,9 +150,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.2"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf6ccdb167abbf410dcb915cabd428929d7f6a04980b54a11f26a39f1c7f7107"
+checksum = "464b3811b747f8f7ebc8849c9c728c39f6ac98a055edad93baf9eb330e3f8f9d"
 dependencies = [
  "cfg-if 1.0.0",
  "getrandom 0.2.8",
@@ -2716,8 +2716,10 @@ dependencies = [
  "assert_cmd",
  "base64",
  "cid",
+ "dialoguer",
  "directories",
  "fil_actor_miner_v8",
+ "forest-daemon",
  "forest_actor_interface",
  "forest_auth",
  "forest_beacon",
@@ -2726,9 +2728,12 @@ dependencies = [
  "forest_chain_sync",
  "forest_cli_shared",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_fil_types",
+ "forest_genesis",
  "forest_interpreter",
+ "forest_ipld",
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
@@ -2743,6 +2748,7 @@ dependencies = [
  "fs_extra",
  "futures",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
@@ -2900,7 +2906,7 @@ dependencies = [
 name = "forest_beacon"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.1",
  "anyhow",
  "async-trait",
  "base64",
@@ -3292,7 +3298,7 @@ dependencies = [
 name = "forest_interpreter"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.1",
  "anyhow",
  "byteorder",
  "cid",
@@ -3400,7 +3406,7 @@ dependencies = [
 name = "forest_legacy_ipld_amt"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.1",
  "anyhow",
  "cid",
  "forest_db",

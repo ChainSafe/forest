@@ -4,15 +4,26 @@
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
-use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use dialoguer::{theme::ColorfulTheme, Confirm};
+use forest_blocks::{tipset_keys_json::TipsetKeysJson, BlockHeader, Tipset, TipsetKeys};
+use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
+
+use forest_db::{rocks::RocksDb, Store};
+use forest_genesis::{load_and_retrieve_header, read_genesis_header};
+use forest_ipld::recurse_links;
 use forest_rpc_client::chain_ops::*;
-use std::{collections::HashMap, fs, path::PathBuf};
+use forest_state_manager::StateManager;
+use forest_utils::net::FetchProgress;
+use fvm_ipld_encoding::Cbor;
+use fvm_shared::clock::ChainEpoch;
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use time::OffsetDateTime;
+use tokio::fs::File;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -110,6 +121,14 @@ pub enum SnapshotCommands {
         /// Answer yes to all forest-cli yes/no questions without prompting
         #[structopt(long)]
         force: bool,
+    },
+    /// Validates the snapshot.
+    Validate {
+        /// Number of block headers to validate from the tip
+        #[structopt(long)]
+        validate_height: i64,
+        /// Path to snapshot file. Uses the most recent from /tmp/snapshots by default if not provided.
+        snapshot: PathBuf,
     },
 }
 
@@ -215,6 +234,13 @@ impl SnapshotCommands {
                 snapshot_dir,
                 force,
             } => clean(&config, snapshot_dir, *force),
+            Self::Validate {
+                validate_height,
+                snapshot,
+            } => {
+                validate(&config, validate_height, snapshot).await?;
+                Ok(())
+            }
         }
     }
 }
@@ -319,6 +345,123 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     for snapshot_path in snapshots_to_delete {
         delete_snapshot(&snapshot_path);
     }
+
+    Ok(())
+}
+
+async fn validate(
+    config: &Config,
+    validate_height: &i64,
+    snapshot: &PathBuf,
+) -> anyhow::Result<()> {
+    // 0. TODO: Prompt user of additional disk space usage.
+    let confirm = Confirm::with_theme(&ColorfulTheme::default())
+        .with_prompt(format!(
+            "This will result in using approximately {} MB of data. Proceed?",
+            std::fs::metadata(snapshot).unwrap().len() / (1024 * 1024)
+        ))
+        .default(false)
+        .interact()
+        .unwrap_or_default();
+
+    if confirm {
+        // clear temp db if exists
+        let tmp_db_path = PathBuf::from("/tmp/validate_snapshot");
+        let _ = std::fs::remove_dir_all(&tmp_db_path);
+
+        let db_path = tmp_db_path.join(&config.chain.name);
+        // 1. load car into a temporary database
+        let db = forest_db::rocks::RocksDb::open(db_path, &config.rocks_db)
+            .expect("Opening RocksDB must succeed");
+
+        let chain_store = Arc::new(ChainStore::new(db).await);
+
+        let genesis = read_genesis_header(
+            config.client.genesis_file.as_ref(),
+            config.chain.genesis_bytes(),
+            &chain_store,
+        )
+        .await
+        .unwrap();
+        let genesis_header = &genesis.blocks()[0];
+        chain_store.set_genesis(genesis_header).unwrap();
+
+        let sm = StateManager::new(
+            Arc::clone(&chain_store),
+            Arc::clone(&config.chain),
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )
+        .await
+        .unwrap();
+
+        let state_manager = Arc::new(sm);
+
+        let cids = {
+            let file = File::open(&snapshot).await?;
+            let reader = FetchProgress::fetch_from_file(file).await?;
+            load_and_retrieve_header(state_manager.blockstore(), reader, false).await?
+        };
+
+        let ts = state_manager
+            .chain_store()
+            .tipset_from_keys(&TipsetKeys::new(cids))
+            .await?;
+
+        let snapshot_head_epoch = ts.epoch();
+
+        state_manager.blockstore().flush()?;
+
+        validate_links_and_genesis_traversal(ts, &state_manager.blockstore(), *validate_height)
+            .await
+            .expect(&format!(
+                "failed validating ipld links and genesis traversal from  snapshot at height: {}",
+                &snapshot_head_epoch
+            ));
+    }
+
+    Ok(())
+}
+
+async fn validate_links_and_genesis_traversal<DB>(
+    ts: Arc<Tipset>,
+    db: &DB,
+    upto: ChainEpoch,
+) -> anyhow::Result<()>
+where
+    DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync + Clone,
+{
+    let mut genesis_reachable = false;
+    let mut seen = std::collections::HashSet::<Cid>::new();
+    let upto = ts.epoch() - upto;
+
+    println!("validating ipld links upto: {}", upto);
+
+    let mut ts = ts.parents().cids()[0];
+
+    loop {
+        let data = db.get(&ts).unwrap().unwrap();
+        let h = BlockHeader::unmarshal_cbor(&data).unwrap();
+
+        if h.epoch() == 0 {
+            genesis_reachable = true;
+            break;
+        }
+
+        if h.epoch() > upto {
+            let mut assert_cid_exists = |cid: Cid| async move {
+                let data = db.get(&cid);
+                data.transpose().unwrap()
+            };
+
+            let result = recurse_links(&mut seen, *h.state_root(), &mut assert_cid_exists).await;
+            assert!(result.is_ok());
+        }
+
+        let parents = h.parents();
+        ts = parents.cids()[0];
+    }
+
+    assert!(genesis_reachable, "could not reach genesis from snapshot");
 
     Ok(())
 }
