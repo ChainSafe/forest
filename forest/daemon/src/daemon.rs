@@ -378,19 +378,25 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     services.spawn(p2p_service.run());
 
     loop {
-        select! {
-            option = services.join_next().fuse() => {
-                if let Some(res) = option {
-                    if let Ok(res_inner) = res {
-                        if let Err(error_message) = res_inner {
-                            let msg = format!("services failure: {}", error_message);
-                            error!("{}", msg);
-                            break
+        if services.len() > 0 {
+            select! {
+                option = services.join_next().fuse() => {
+                    if let Some(res) = option {
+                        if let Ok(res_inner) = res {
+                            if let Err(error_message) = res_inner {
+                                let msg = format!("services failure: {}", error_message);
+                                error!("{}", msg);
+                                break
+                            }
                         }
                     }
-                }
-            },
-            _ = ctrlc_oneshot => break,
+                },
+                _ = ctrlc_oneshot => break,
+            }
+        } else {
+            select! {
+                _ = ctrlc_oneshot => break,
+            }
         }
     }
 
