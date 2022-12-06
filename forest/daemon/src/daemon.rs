@@ -59,7 +59,7 @@ fn unblock_parent_process() {
 
 /// Starts daemon process
 pub(super) async fn start(config: Config, detached: bool) -> Db {
-    let ctrlc_oneshot = set_sigint_handler();
+    let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -145,7 +145,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let mut services: JoinSet<Result<(), String>> = JoinSet::new();
 
-    services.spawn(async move { ctrlc_oneshot.await.map_err(|err| err.to_string()) });
+    // services.spawn(async move { ctrlc_oneshot.await.map_err(|err| err.to_string()) });
 
     {
         // Start Prometheus server port
@@ -363,6 +363,11 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
+        _ = ctrlc_oneshot => {
+            // Cancel all async services
+            services.shutdown().await;
+            return db;
+        },
     }
 
     // Halt
@@ -374,16 +379,18 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
-    while let Some(res) = services.join_next().await {
-        if let Ok(res_inner) = res {
-            if let Err(error_message) = res_inner {
-                let msg = format!("services failure: {}", error_message);
-                cli_error_and_die(msg, 1);
-            } else {
-                // meaning ctrc-c
-                break;
+    select! {
+        option = services.join_next().fuse() => {
+            if let Some(res) = option {
+                if let Ok(res_inner) = res {
+                    if let Err(error_message) = res_inner {
+                        let msg = format!("services failure: {}", error_message);
+                        cli_error_and_die(msg, 1);
+                    }
+                }
             }
-        }
+        },
+        _ = ctrlc_oneshot => {},
     }
 
     let keystore_write = tokio::task::spawn(async move {
