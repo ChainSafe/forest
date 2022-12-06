@@ -148,7 +148,7 @@ jobs:
       - name: fetch params
         run: forest-cli fetch-params --keys
       - name: download snapshot
-        run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
+        run: forest-cli --chain calibnet snapshot fetch --provider filecoin --aria2 -s $SNAPSHOT_DIRECTORY
       - name: import snapshot and run Forest
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
