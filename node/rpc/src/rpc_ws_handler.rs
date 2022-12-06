@@ -37,17 +37,13 @@ where
         .await
         .map_err(|(_, e)| anyhow::Error::msg(e))?;
 
-    match call_method {
-        _ => {
-            info!("RPC WS called method: {}", call_method);
-            let response = call_rpc_str(rpc_server.clone(), rpc_call).await?;
-            ws_sender
-                .write()
-                .await
-                .send(Message::Text(response))
-                .await?;
-        }
-    }
+    info!("RPC WS called method: {}", call_method);
+    let response = call_rpc_str(rpc_server.clone(), rpc_call).await?;
+    ws_sender
+        .write()
+        .await
+        .send(Message::Text(response))
+        .await?;
 
     Ok(())
 }
