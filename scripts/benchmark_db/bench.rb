@@ -58,7 +58,8 @@ end
 def db_dir
   config = default_config
   data_dir = config.dig('client', 'data_dir')
-  db = config.key?('rocks_db') ? 'rocksdb' : 'paritydb'
+  # TODO: Fix db selection from config
+  db = config.key?('rocks_db') ? 'rocksdb' : 'lmdb'
 
   "#{data_dir}/mainnet/#{db}"
 end
@@ -267,6 +268,13 @@ class ParityDbBenchmark < Benchmark
   end
 end
 
+# Benchmark class for LMDb
+class LMDbBenchmark < Benchmark
+  def build_command
+    ['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,lmdb']
+  end
+end
+
 def run_benchmarks(benchmarks, options)
   bench_metrics = {}
   benchmarks.each do |bench|
@@ -284,7 +292,8 @@ end
 BENCHMARKS = [
   Benchmark.new(name: 'baseline'),
   Benchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
-  ParityDbBenchmark.new(name: 'paritydb')
+  ParityDbBenchmark.new(name: 'paritydb'),
+  LMDbBenchmark.new(name: 'lmdb')
 ].freeze
 
 options = {
