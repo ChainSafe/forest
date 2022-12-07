@@ -258,7 +258,7 @@ where
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
                     },
-                    None => { break },
+                    None => { break; },
                     _ => { },
                 },
                 rpc_message = network_stream.next() => match rpc_message {
@@ -272,7 +272,7 @@ where
                             &mut cx_request_table,
                             &mut outgoing_bitswap_query_ids).await;
                     }
-                    None => { break }
+                    None => { break; }
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
