@@ -109,16 +109,11 @@ impl Proposer for DelegatedProposer {
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         services.spawn(async move {
-            if let Err(e) = self.run(state_manager, mpool.as_ref(), &submitter).await {
-                Err(anyhow::anyhow!(
-                    "{}",
-                    format!("block proposal stopped: {}", e)
-                ))
-            } else {
-                Ok(())
-            }
+            self.run(state_manager, mpool.as_ref(), &submitter)
+                .await
+                .map_err(|e| anyhow::anyhow!("block proposal stopped: {}", e))
         });
-        Ok(())
+        anyhow::Ok(())
     }
 }
 

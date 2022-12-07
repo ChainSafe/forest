@@ -30,7 +30,6 @@ use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use std::net::TcpListener;
-use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
@@ -168,9 +167,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
                 .await
-                .map_err(|e| {
-                    anyhow::anyhow!("{}", format!("Failed to initiate prometheus server: {e}"))
-                })
+                .map_err(|e| anyhow::anyhow!("Failed to initiate prometheus server: {e}"))
         });
     }
 
@@ -380,8 +377,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     select! {
         err = propagate_error(&mut services).fuse() => {
-            let msg = format!("services failure: {}", err);
-            error!("{}", msg);
+            error!("services failure: {}", err);
         },
         _ = ctrlc_oneshot => {}
     }
@@ -408,7 +404,7 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
             },
         }
     }
-    sleep(Duration::new(3200000000, 0));
+    tokio::time::sleep(Duration::new(3200000000, 0)).await;
     anyhow::Error::msg(
         "More than 100 years have passed, all services are down and Forest was still running",
     )

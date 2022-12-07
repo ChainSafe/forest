@@ -228,7 +228,7 @@ where
                                 vec![tipset.as_ref().clone()],
                             ),
                         };
-                        let res = head_change(
+                        head_change(
                             api.as_ref(),
                             bls_sig_cache.as_ref(),
                             repub_trigger.clone(),
@@ -239,20 +239,13 @@ where
                             app,
                         )
                         .await
-                        .map_err(|err| err.to_string());
-
-                        if let Err(err) = res {
-                            break Err(anyhow::anyhow!(
-                                "{}",
-                                format!("Error changing head: {:?}", err)
-                            ));
-                        }
+                        .map_err(|err| anyhow::anyhow!("Error changing head: {:?}", err))?;
                     }
                     Err(RecvError::Lagged(e)) => {
                         warn!("Head change subscriber lagged: skipping {} events", e);
                     }
                     Err(RecvError::Closed) => {
-                        break Ok::<(), anyhow::Error>(());
+                        break Ok(());
                     }
                 }
             }
