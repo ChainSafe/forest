@@ -29,7 +29,9 @@ use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
+use std::time::Duration;
 use std::net::TcpListener;
+use std::thread::sleep;
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 
@@ -381,27 +383,12 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
-    // in case any services are running wait for them
-    // either to finish executing
-    // either to finish with an error and proceed to graceful shutdown
-    // or CTRL-C to be pressed and proceed to graceful shutdown
-    while !services.is_empty() {
-        select! {
-            option = services.join_next().fuse() => {
-                if let Some(Ok(Err(error_message))) = option {
-                    let msg = format!("services failure: {}", error_message);
-                    error!("{}", msg);
-                    break
-                }
-            },
-            _ = ctrlc_oneshot => break
-        }
-    }
-
-    // needed in the situation in which all services ended
-    // prematurely without any errors
-    if services.is_empty() {
-        ctrlc_oneshot.await.unwrap();
+    select! {
+        err = propagate_error(&mut services).fuse() => {
+            let msg = format!("services failure: {}", err);
+            error!("{}", msg);
+        },
+        _ = ctrlc_oneshot => {}
     }
 
     let keystore_write = tokio::task::spawn(async move {
@@ -414,6 +401,22 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     keystore_write.await.expect("keystore write failed");
 
     db
+}
+
+async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> anyhow::Error {
+    while !services.is_empty() {
+        select! {
+            option = services.join_next().fuse() => {
+                if let Some(Ok(Err(error_message))) = option {
+                    return error_message
+                } else {
+                    continue
+                }
+            },
+        }
+    }
+    sleep(Duration::new(3200000000, 0));
+    anyhow::Error::msg("More than 100 years have passed, all services are down and Forest was still running")
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
