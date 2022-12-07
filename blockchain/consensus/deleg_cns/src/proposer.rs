@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use core::time::Duration;
 use futures::StreamExt;
@@ -111,7 +111,7 @@ impl Proposer for DelegatedProposer {
         services.spawn(async move {
             self.run(state_manager, mpool.as_ref(), &submitter)
                 .await
-                .map_err(|e| anyhow::anyhow!("block proposal stopped: {}", e))
+                .context("block proposal stopped")
         });
         anyhow::Ok(())
     }

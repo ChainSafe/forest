@@ -145,7 +145,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let db = open_db(&config);
 
-    let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
+    let mut services = JoinSet::new();
 
     {
         // Start Prometheus server port
@@ -376,6 +376,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
+    // blocking until any of the services returns an error,
+    // or CTRL-C is pressed
     select! {
         err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
         _ = ctrlc_oneshot => {}
@@ -393,6 +395,9 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     db
 }
 
+// returns the first error with which any of the services end
+// in case all services finished without an error sleeps for more than 2 years
+// and then returns with an error
 async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> anyhow::Error {
     while !services.is_empty() {
         select! {
