@@ -143,7 +143,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let db = open_db(&config);
 
-    let mut services: JoinSet<Result<(), String>> = JoinSet::new();
+    let mut services: JoinSet<Result<(), anyhow::Error>> = JoinSet::new();
 
     {
         // Start Prometheus server port
@@ -167,9 +167,13 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             if let Err(e) =
                 forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
             {
-                error!("Failed to initiate prometheus server: {e}");
+                Err(anyhow::anyhow!(
+                    "{}",
+                    format!("Failed to initiate prometheus server: {e}")
+                ))
+            } else {
+                Ok(())
             }
-            Ok(())
         });
     }
 
@@ -305,7 +309,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    services.spawn(async { Err(chain_muxer.await.to_string()) });
+    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
     // Start services
     if config.client.enable_rpc {
@@ -336,7 +340,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
                 FOREST_VERSION_STRING.as_str(),
             )
             .await
-            .map_err(|err| format!("{:?}", serde_json::to_string(&err)))
+            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");
@@ -377,7 +381,11 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
-    loop {
+    // in case any services are running wait for them
+    // either to finish executing
+    // either to finish with an error and proceed to graceful shutdown
+    // or CTRL-C to be pressed and proceed to graceful shutdown
+    while !services.is_empty() {
         select! {
             option = services.join_next().fuse() => {
                 if let Some(Ok(Err(error_message))) = option {
@@ -386,10 +394,14 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
                     break
                 }
             },
-            complete => select! {
-                _ = ctrlc_oneshot => break
-            },
+            _ = ctrlc_oneshot => break
         }
+    }
+
+    // needed in the situation in which all services ended 
+    // prematurely without any errors
+    if services.is_empty() {
+        ctrlc_oneshot.await.unwrap();
     }
 
     let keystore_write = tokio::task::spawn(async move {

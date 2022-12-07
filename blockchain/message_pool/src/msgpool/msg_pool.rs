@@ -162,7 +162,7 @@ where
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-        services: &mut JoinSet<Result<(), String>>,
+        services: &mut JoinSet<Result<(), anyhow::Error>>,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,
@@ -242,16 +242,17 @@ where
                         .map_err(|err| err.to_string());
 
                         if let Err(err) = res {
-                            let error_message = format!("Error changing head: {:?}", err);
-                            warn!("{}", error_message);
-                            break Err(error_message);
+                            break Err(anyhow::anyhow!(
+                                "{}",
+                                format!("Error changing head: {:?}", err)
+                            ));
                         }
                     }
                     Err(RecvError::Lagged(e)) => {
                         warn!("Head change subscriber lagged: skipping {} events", e);
                     }
                     Err(RecvError::Closed) => {
-                        break Ok::<(), String>(());
+                        break Ok::<(), anyhow::Error>(());
                     }
                 }
             }

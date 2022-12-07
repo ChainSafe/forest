@@ -111,7 +111,7 @@ pub trait Proposer {
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
         submitter: SyncGossipSubmitter,
-        services: &mut JoinSet<Result<(), String>>,
+        services: &mut JoinSet<Result<(), anyhow::Error>>,
     ) -> anyhow::Result<()>
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,

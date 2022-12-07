@@ -693,7 +693,9 @@ mod test_selection {
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
-    async fn make_test_mpool(joinset: &mut JoinSet<Result<(), String>>) -> MessagePool<TestApi> {
+    async fn make_test_mpool(
+        joinset: &mut JoinSet<Result<(), anyhow::Error>>,
+    ) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
         MessagePool::new(
