@@ -29,9 +29,9 @@ use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use std::time::Duration;
 use std::net::TcpListener;
 use std::thread::sleep;
+use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 
@@ -416,7 +416,9 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
         }
     }
     sleep(Duration::new(3200000000, 0));
-    anyhow::Error::msg("More than 100 years have passed, all services are down and Forest was still running")
+    anyhow::Error::msg(
+        "More than 100 years have passed, all services are down and Forest was still running",
+    )
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
