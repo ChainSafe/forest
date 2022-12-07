@@ -1163,11 +1163,14 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     debug!("Tipset keys: {:?}", full_tipset_key.cids);
 
     for b in blocks {
-        let validation_fn = tokio::task::Builder::new().name("validate-block").spawn(validate_block::<_, C>(
-            consensus.clone(),
-            state_manager.clone(),
-            Arc::new(b),
-        )).expect("spawn must succeed");
+        let validation_fn = tokio::task::Builder::new()
+            .name("validate-block")
+            .spawn(validate_block::<_, C>(
+                consensus.clone(),
+                state_manager.clone(),
+                Arc::new(b),
+            ))
+            .expect("spawn must succeed");
         validations.push(validation_fn);
     }
 
@@ -1286,11 +1289,16 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let validations = FuturesUnordered::new();
 
     // Check block messages
-    validations.push(tokio::task::Builder::new().name("chk-blk-msgs").spawn(check_block_messages::<_, C>(
-        Arc::clone(&state_manager),
-        Arc::clone(&block),
-        Arc::clone(&base_tipset),
-    )).expect("spawn must succeed"));
+    validations.push(
+        tokio::task::Builder::new()
+            .name("chk-blk-msgs")
+            .spawn(check_block_messages::<_, C>(
+                Arc::clone(&state_manager),
+                Arc::clone(&block),
+                Arc::clone(&base_tipset),
+            ))
+            .expect("spawn must succeed"),
+    );
 
     // Base fee check
     let smoke_height = state_manager.chain_config().epoch(Height::Smoke);
@@ -1342,41 +1350,50 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_state_manager = Arc::clone(&state_manager);
     let v_base_tipset = Arc::clone(&base_tipset);
     let v_block = Arc::clone(&block);
-    validations.push(tokio::task::Builder::new().name("tipset-state").spawn(async move {
-        let header = v_block.header();
-        let (state_root, receipt_root) = v_state_manager
-            .tipset_state(&v_base_tipset)
-            .await
-            .map_err(|e| {
-                TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {}", e))
-            })?;
+    let v_height = v_block.header.epoch();
+    validations.push(
+        tokio::task::Builder::new()
+            .name(&format!("{v_height}-tipset-state"))
+            .spawn(async move {
+                let header = v_block.header();
+                let (state_root, receipt_root) = v_state_manager
+                    .tipset_state(&v_base_tipset)
+                    .await
+                    .map_err(|e| {
+                        TipsetRangeSyncerError::Calculation(format!(
+                            "Failed to calculate state: {}",
+                            e
+                        ))
+                    })?;
 
-        if &state_root != header.state_root() {
-            if let Err(err) = forest_statediff::print_state_diff(
-                v_state_manager.blockstore(),
-                &state_root,
-                header.state_root(),
-                Some(1),
-            ) {
-                eprintln!("Failed to print state-diff: {}", err);
-            }
+                if &state_root != header.state_root() {
+                    if let Err(err) = forest_statediff::print_state_diff(
+                        v_state_manager.blockstore(),
+                        &state_root,
+                        header.state_root(),
+                        Some(1),
+                    ) {
+                        eprintln!("Failed to print state-diff: {}", err);
+                    }
 
-            return Err(TipsetRangeSyncerError::<C>::Validation(format!(
+                    return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),
                 state_root,
             )));
-        }
+                }
 
-        if &receipt_root != header.message_receipts() {
-            return Err(TipsetRangeSyncerError::<C>::Validation(format!(
+                if &receipt_root != header.message_receipts() {
+                    return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent receipt root did not match computed root: {} (header), {} (computed)",
                 header.message_receipts(),
                 receipt_root
             )));
-        }
-        Ok(())
-    }).expect("spawn must succeed"));
+                }
+                Ok(())
+            })
+            .expect("spawn must succeed"),
+    );
 
     // Block signature check
     let v_block = block.clone();
@@ -1405,10 +1422,18 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             .await
     }));
 
+    let cid = block.header().cid().to_string();
+    let suffix = &cid[cid.len() - 4..];
+    info!(
+        "Collecting validations errors {}.{}",
+        block.header().epoch(),
+        suffix
+    );
     // Collect the errors from the async validations
     if let Err(errs) = collect_errs(validations).await {
         return Err((*block_cid, TipsetRangeSyncerError::<C>::concat(errs)));
     }
+    info!("Collected {}.{}", block.header().epoch(), suffix);
 
     chain_store
         .mark_block_as_validated(block_cid)

@@ -386,7 +386,7 @@ where
             //
             // If two tasks are computing different tipset states, they will only block computation
             // when accessing/initializing the entry in cache, not during the whole tipset calc.
-            
+
             let cache_entry: Arc<_> = self
                 .cache
                 .write()
@@ -801,55 +801,57 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        span!("compute_tipset_state", {
-            let block_headers = tipset.blocks();
-            let first_block = block_headers
-                .first()
-                .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
+        //span!("compute_tipset_state", {
+        let block_headers = tipset.blocks();
+        let first_block = block_headers
+            .first()
+            .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
 
-            let check_for_duplicates = |s: &BlockHeader| {
-                block_headers
-                    .iter()
-                    .filter(|val| val.miner_address() == s.miner_address())
-                    .take(2)
-                    .count()
-            };
-            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
-                // Duplicate Miner found
-                return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
-            }
+        let check_for_duplicates = |s: &BlockHeader| {
+            block_headers
+                .iter()
+                .filter(|val| val.miner_address() == s.miner_address())
+                .take(2)
+                .count()
+        };
+        if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
+            // Duplicate Miner found
+            return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
+        }
 
-            let parent_epoch = if first_block.epoch() > 0 {
-                let parent_cid = first_block
-                    .parents()
-                    .cids()
-                    .get(0)
-                    .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
-                let parent: BlockHeader = self
-                    .blockstore()
-                    .get_obj(parent_cid)?
-                    .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
-                parent.epoch()
-            } else {
-                Default::default()
-            };
+        let parent_epoch = if first_block.epoch() > 0 {
+            let parent_cid = first_block
+                .parents()
+                .cids()
+                .get(0)
+                .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
+            let parent: BlockHeader = self
+                .blockstore()
+                .get_obj(parent_cid)?
+                .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
+            parent.epoch()
+        } else {
+            Default::default()
+        };
 
-            let async_handle = tokio::runtime::Handle::current();
-            let tipset_keys =
-                TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = self.chain_rand(tipset_keys, async_handle);
-            let base_fee = first_block.parent_base_fee().clone();
+        let async_handle = tokio::runtime::Handle::current();
+        let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
+        let chain_rand = self.chain_rand(tipset_keys, async_handle);
+        let base_fee = first_block.parent_base_fee().clone();
 
-            let blocks = self
-                .chain_store()
-                .block_msgs_for_tipset(tipset)
-                .map_err(|e| Error::Other(e.to_string()))?;
+        let blocks = self
+            .chain_store()
+            .block_msgs_for_tipset(tipset)
+            .map_err(|e| Error::Other(e.to_string()))?;
 
-            let sm = Arc::clone(self);
-            let sr = *first_block.state_root();
-            let epoch = first_block.epoch();
-            let ts_cloned = Arc::clone(tipset);
-            tokio::task::Builder::new().name("apply-blocks").spawn_blocking(move || {
+        let sm = Arc::clone(self);
+        let sr = *first_block.state_root();
+        let epoch = first_block.epoch();
+        let ts_cloned = Arc::clone(tipset);
+        // TODO: handle blocking pool shutting down errors
+        tokio::task::Builder::new()
+            .name(&format!("{epoch}-apply-blocks"))
+            .spawn_blocking(move || {
                 Ok(sm.apply_blocks(
                     parent_epoch,
                     &sr,
@@ -860,10 +862,11 @@ where
                     callback,
                     &ts_cloned,
                 )?)
-            }).expect("spawn_blocking must suceeed")
+            })
+            .expect("spawn_blocking must suceed")
             .await
             .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
-        })
+        //})
     }
 
     /// Check if tipset had executed the message, by loading the receipt based on the index of
