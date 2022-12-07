@@ -408,9 +408,9 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
             },
         }
     }
-    tokio::time::sleep(Duration::new(3200000000, 0)).await;
+    tokio::time::sleep(Duration::new(64000000, 0)).await;
     anyhow::Error::msg(
-        "More than 100 years have passed, all services are down and Forest was still running",
+        "More than 2 years have passed, all services are down and Forest was still running",
     )
 }
 
