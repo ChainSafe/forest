@@ -216,7 +216,7 @@ where
     }
 
     /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
-    pub async fn run(mut self) -> Result<(), anyhow::Error> {
+    pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
         Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr)?;
         // Bootstrap with Kademlia

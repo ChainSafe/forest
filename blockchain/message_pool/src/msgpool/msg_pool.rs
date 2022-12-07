@@ -16,6 +16,7 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
+use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
@@ -239,7 +240,7 @@ where
                             app,
                         )
                         .await
-                        .map_err(|err| anyhow::anyhow!("Error changing head: {:?}", err))?;
+                        .context("Error changing head")?;
                     }
                     Err(RecvError::Lagged(e)) => {
                         warn!("Head change subscriber lagged: skipping {} events", e);

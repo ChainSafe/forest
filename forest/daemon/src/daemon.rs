@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
+use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
@@ -144,7 +145,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let db = open_db(&config);
 
-    let mut services: JoinSet<Result<(), anyhow::Error>> = JoinSet::new();
+    let mut services: JoinSet<anyhow::Result<()>> = JoinSet::new();
 
     {
         // Start Prometheus server port
@@ -167,7 +168,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to initiate prometheus server: {e}"))
+                .context("Failed to initiate prometheus server")
         });
     }
 
@@ -376,9 +377,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     services.spawn(p2p_service.run());
 
     select! {
-        err = propagate_error(&mut services).fuse() => {
-            error!("services failure: {}", err);
-        },
+        err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
         _ = ctrlc_oneshot => {}
     }
 
