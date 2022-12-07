@@ -398,7 +398,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         }
     }
 
-    // needed in the situation in which all services ended 
+    // needed in the situation in which all services ended
     // prematurely without any errors
     if services.is_empty() {
         ctrlc_oneshot.await.unwrap();
