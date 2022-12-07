@@ -166,16 +166,11 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             .expect("Failed converting the path to db");
         let db = db.clone();
         services.spawn(async {
-            if let Err(e) =
-                forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
-            {
-                Err(anyhow::anyhow!(
-                    "{}",
-                    format!("Failed to initiate prometheus server: {e}")
-                ))
-            } else {
-                Ok(())
-            }
+            forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
+                .await
+                .map_err(|e| {
+                    anyhow::anyhow!("{}", format!("Failed to initiate prometheus server: {e}"))
+                })
         });
     }
 
