@@ -228,9 +228,12 @@ where
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
             IntervalStream::new(tokio::time::interval(Duration::from_secs(15))).fuse();
+        let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
+        let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
-        let (mut hello_request_table, mut cx_request_table, mut outgoing_bitswap_query_ids) =
-            (HashMap::new(), HashMap::new(), HashMap::new());
+        let mut hello_request_table = HashMap::new();
+        let mut cx_request_table = HashMap::new();
+        let mut outgoing_bitswap_query_ids = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         let mut libp2p_registry = Default::default();
@@ -252,8 +255,8 @@ where
                             &mut cx_request_table,
                             &mut outgoing_bitswap_query_ids,
                             cx_response_tx.clone(),
-                            &format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name),
-                            &format!("{}/{}", PUBSUB_MSG_STR, self.network_name),).await;
+                            &pubsub_block_str,
+                            &pubsub_msg_str,).await;
                     },
                     None => { break Ok(()); },
                     _ => { },
