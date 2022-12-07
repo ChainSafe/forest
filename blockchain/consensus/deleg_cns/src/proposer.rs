@@ -102,7 +102,7 @@ impl Proposer for DelegatedProposer {
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
         submitter: SyncGossipSubmitter,
-        services: &mut JoinSet<Result<(), anyhow::Error>>,
+        services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,

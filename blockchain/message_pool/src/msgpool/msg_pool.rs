@@ -162,7 +162,7 @@ where
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
         chain_config: Arc<ChainConfig>,
-        services: &mut JoinSet<Result<(), anyhow::Error>>,
+        services: &mut JoinSet<anyhow::Result<()>>,
     ) -> Result<MessagePool<T>, Error>
     where
         T: Provider,

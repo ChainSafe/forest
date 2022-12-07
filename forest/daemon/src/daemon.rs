@@ -404,8 +404,6 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
             option = services.join_next().fuse() => {
                 if let Some(Ok(Err(error_message))) = option {
                     return error_message
-                } else {
-                    continue
                 }
             },
         }
