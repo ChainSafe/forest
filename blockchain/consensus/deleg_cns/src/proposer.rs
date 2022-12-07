@@ -113,7 +113,7 @@ impl Proposer for DelegatedProposer {
                 .await
                 .context("block proposal stopped")
         });
-        anyhow::Ok(())
+        Ok(())
     }
 }
 
