@@ -18,5 +18,6 @@ pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Resu
         Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()).await,
         Subcommand::Send(cmd) => cmd.run(config).await,
         Subcommand::DB(cmd) => cmd.run(&config).await,
+        Subcommand::Snapshot(cmd) => cmd.run(config).await,
     }
 }
