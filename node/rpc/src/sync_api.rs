@@ -2,21 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_beacon::Beacon;
-use forest_blocks::gossip_block::json::GossipBlockJson;
-use forest_blocks::Tipset;
 use forest_chain_sync::SyncState;
-use forest_db::Store;
 use forest_json::cid::CidJson;
-use forest_libp2p::{NetworkMessage, Topic, PUBSUB_BLOCK_STR};
-use forest_message::SignedMessage;
 use forest_rpc_api::data_types::{RPCState, RPCSyncState};
 use forest_rpc_api::sync_api::*;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
-use fvm_shared::message::Message;
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Checks if a given block is marked as bad.
@@ -66,48 +58,6 @@ where
     Ok(RPCSyncState { active_syncs })
 }
 
-/// Submits block to be sent through `gossipsub`.
-pub(crate) async fn sync_submit_block<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params((GossipBlockJson(blk),)): Params<SyncSubmitBlockParams>,
-) -> Result<SyncSubmitBlockResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let bls_msgs: Vec<Message> =
-        forest_chain::messages_from_cids(data.state_manager.blockstore(), &blk.bls_messages)?;
-    let secp_msgs: Vec<SignedMessage> =
-        forest_chain::messages_from_cids(data.state_manager.blockstore(), &blk.secpk_messages)?;
-    let sm_root = forest_chain_sync::TipsetValidator::compute_msg_root(
-        data.state_manager.blockstore(),
-        &bls_msgs[..],
-        &secp_msgs,
-    )?;
-    if blk.header.messages() != &sm_root {
-        return Err(format!(
-            "Block message root does not match the computed: Actual: {}, Computed: {}",
-            blk.header.messages(),
-            sm_root,
-        )
-        .into());
-    }
-
-    forest_chain::persist_objects(data.state_manager.blockstore(), &bls_msgs)?;
-    forest_chain::persist_objects(data.state_manager.blockstore(), &secp_msgs)?;
-
-    let ts = Arc::new(Tipset::new(vec![blk.header.clone()])?);
-    data.new_mined_block_tx.send_async(ts).await?;
-    // TODO validate by constructing full block and validate (cids of messages could be invalid)
-    data.network_send
-        .send_async(NetworkMessage::PubsubMessage {
-            topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, data.network_name)),
-            message: blk.marshal_cbor().map_err(|e| e.to_string())?,
-        })
-        .await?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,6 +71,7 @@ mod tests {
     use forest_message_pool::{MessagePool, MpoolRpcProvider};
     use forest_networks::ChainConfig;
     use forest_state_manager::StateManager;
+    use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use serde_json::from_str;
     use std::{sync::Arc, time::Duration};

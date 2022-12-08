@@ -247,62 +247,6 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-// XXX: Disable 'chain_head_subscription' because it is unused.
-// pub(crate) async fn chain_head_subscription<DB, B>(
-//     data: Data<RPCState<DB, B>>,
-// ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
-// where
-//     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-//     B: Beacon + Send + Sync + 'static,
-// {
-//     let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
-//     Ok(subscription_id)
-// }
-
-// XXX: Disable 'chain_notify' because it is unused.
-// pub(crate) async fn chain_notify<DB, B>(
-//     data: Data<RPCState<DB, B>>,
-//     id: Id,
-// ) -> Result<ChainNotifyResult, JsonRpcError>
-// where
-//     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-//     B: Beacon + Send + Sync + 'static,
-// {
-//     if let Id::Num(id) = id {
-//         debug!("Requested ChainNotify from id: {}", id);
-
-//         let event = data
-//             .state_manager
-//             .chain_store()
-//             .next_head_change(&id)
-//             .await
-//             .unwrap();
-
-//         debug!("Responding to ChainNotify from id: {}", id);
-
-//         Ok((id, vec![HeadChangeJson::from(event)]))
-//     } else {
-//         Err(get_error_obj(-32600, "Invalid request".to_owned()))
-//     }
-// }
-
-pub(crate) async fn chain_tipset_weight<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainTipSetWeightParams>,
-) -> Result<ChainTipSetWeightResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (tsk,) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk.into())
-        .await?;
-    Ok(ts.weight().to_str_radix(10))
-}
-
 pub(crate) async fn chain_get_block<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetBlockParams>,
