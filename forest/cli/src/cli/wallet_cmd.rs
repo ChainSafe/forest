@@ -95,19 +95,22 @@ impl WalletCommands {
                 let response = wallet_new((signature_type_json,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                Ok(println!("{}", response))
+                println!("{}", response);
+                Ok(())
             }
             Self::Balance { address } => {
                 let response = wallet_balance((address.to_string(),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                Ok(println!("{}", response))
+                println!("{}", response);
+                Ok(())
             }
             Self::Default => {
                 let response = wallet_default_address(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                Ok(println!("{}", response))
+                println!("{}", response);
+                Ok(())
             }
             Self::Export { address } => {
                 let response = wallet_export((address.to_string(),), &config.client.rpc_token)
@@ -115,13 +118,15 @@ impl WalletCommands {
                     .map_err(handle_rpc_err)?;
 
                 let encoded_key = serde_json::to_string(&response)?;
-                Ok(println!("{}", hex::encode(encoded_key)))
+                println!("{}", hex::encode(encoded_key));
+                Ok(())
             }
             Self::Has { key } => {
                 let response = wallet_has((key.to_string(),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                Ok(println!("{}", response))
+                println!("{}", response);
+                Ok(())
             }
             Self::Import { path } => {
                 let key = match path {
@@ -160,7 +165,8 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                Ok(println!("{}", key))
+                println!("{}", key);
+                Ok(())
             }
             Self::List => {
                 let response = wallet_list(&config.client.rpc_token)
@@ -241,7 +247,8 @@ impl WalletCommands {
                 )
                 .await
                 .map_err(handle_rpc_err)?;
-                Ok(println!("{}", hex::encode(response.0.bytes())))
+                println!("{}", hex::encode(response.0.bytes()));
+                Ok(())
             }
             Self::Verify {
                 message,
@@ -267,7 +274,8 @@ impl WalletCommands {
                 .await
                 .map_err(handle_rpc_err)?;
 
-                Ok(println!("{}", response))
+                println!("{}", response);
+                Ok(())
             }
         }
     }

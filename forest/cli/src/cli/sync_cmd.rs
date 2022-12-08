@@ -146,7 +146,8 @@ impl SyncCommands {
                 sync_mark_bad((CidJson(cid),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                Ok(println!("OK"))
+                println!("OK");
+                Ok(())
             }
         }
     }

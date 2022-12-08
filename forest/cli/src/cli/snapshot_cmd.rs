@@ -174,10 +174,8 @@ impl SnapshotCommands {
                     .map_err(handle_rpc_err)
                     .unwrap();
 
-                Ok(println!(
-                    "Export completed. Snapshot located at {}",
-                    out.display()
-                ))
+                println!("Export completed. Snapshot located at {}", out.display());
+                Ok(())
             }
             Self::Fetch {
                 snapshot_dir,
@@ -188,16 +186,17 @@ impl SnapshotCommands {
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
                 match snapshot_fetch(&snapshot_dir, &config, provider, *use_aria2).await {
-                    Ok(out) => Ok(println!(
-                        "Snapshot successfully downloaded at {}",
-                        out.display()
-                    )),
+                    Ok(out) => {
+                        println!("Snapshot successfully downloaded at {}", out.display());
+                        Ok(())
+                    }
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
             }
             Self::Dir => {
                 let dir = default_snapshot_dir(&config);
-                Ok(println!("{}", dir.display()))
+                println!("{}", dir.display());
+                Ok(())
             }
             Self::List { snapshot_dir } => list(&config, snapshot_dir),
             Self::Remove {

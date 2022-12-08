@@ -28,7 +28,8 @@ impl DBCommands {
                 let dir = db_path(config);
                 println!("Database path: {}", dir.display());
                 let size = fs_extra::dir::get_size(dir).unwrap_or_default();
-                Ok(println!("Database size: {}", size.human_count_bytes()))
+                println!("Database size: {}", size.human_count_bytes());
+                Ok(())
             }
             Self::Clean { force } => {
                 let dir = db_path(config);
@@ -45,7 +46,10 @@ impl DBCommands {
                     return Ok(());
                 }
                 match fs_extra::dir::remove(&dir) {
-                    Ok(_) => Ok(println!("Deleted {}", dir.display())),
+                    Ok(_) => {
+                        println!("Deleted {}", dir.display());
+                        Ok(())
+                    }
                     Err(err) => {
                         error!("{err}");
                         Ok(())

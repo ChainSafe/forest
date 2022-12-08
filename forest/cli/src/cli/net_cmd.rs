@@ -104,13 +104,19 @@ impl NetCommands {
                 };
 
                 match net_connect((addr_info,), &config.client.rpc_token).await {
-                    Ok(_) => Ok(println!("connect {}: success", id)),
+                    Ok(_) => {
+                        println!("connect {}: success", id);
+                        Ok(())
+                    }
                     Err(e) => handle_rpc_err(e),
                 }
             }
             Self::Disconnect { id } => {
                 match net_disconnect((id.to_owned(),), &config.client.rpc_token).await {
-                    Ok(_) => Ok(println!("disconnect {}: success", id)),
+                    Ok(_) => {
+                        println!("disconnect {}: success", id);
+                        Ok(())
+                    }
                     Err(e) => handle_rpc_err(e),
                 }
             }
