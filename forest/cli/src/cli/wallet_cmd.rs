@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Config;
+use anyhow::Context;
 use forest_json::address::json::AddressJson;
 use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use forest_key_management::json::KeyInfoJson;
@@ -236,7 +237,9 @@ impl WalletCommands {
 
                 let address = address_result.unwrap();
 
-                let message = hex::decode(message).unwrap();
+                let message = hex::decode(message)
+                    .context("Message has to be a hex string")
+                    .unwrap();
                 let message = base64::encode(message);
 
                 let response = wallet_sign(
@@ -253,7 +256,9 @@ impl WalletCommands {
                 address,
                 signature,
             } => {
-                let sig_bytes = hex::decode(signature).unwrap();
+                let sig_bytes = hex::decode(signature)
+                    .context("Signature has to be a hex string")
+                    .unwrap();
                 let signature = match address.chars().nth(1).unwrap() {
                     '1' => Signature::new_secp256k1(sig_bytes),
                     '3' => Signature::new_bls(sig_bytes),
