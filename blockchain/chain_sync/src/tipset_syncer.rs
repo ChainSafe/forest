@@ -1164,7 +1164,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
 
     for b in blocks {
         let validation_fn = tokio::task::Builder::new()
-            .name("validate-block")
+            .name(&format!("{epoch}-validate-block"))
             .spawn(validate_block::<_, C>(
                 consensus.clone(),
                 state_manager.clone(),
