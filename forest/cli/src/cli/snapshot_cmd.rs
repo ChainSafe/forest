@@ -48,7 +48,7 @@ pub enum SnapshotCommands {
         /// in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
-        /// Fetch latest snapshot provided by `forest` | `filecoin`
+        /// Snapshot trusted source
         #[structopt(
             short,
             long,
@@ -184,18 +184,7 @@ impl SnapshotCommands {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                let server = match provider {
-                    Some(s) => s,
-                    None => match config.chain.name.to_lowercase().as_str() {
-                        "mainnet" => &SnapshotServer::Filecoin,
-                        "calibnet" => &SnapshotServer::Forest,
-                        _ => cli_error_and_die(
-                            format!("Fetch not supported for chain {}", config.chain.name),
-                            1,
-                        ),
-                    },
-                };
-                match snapshot_fetch(&snapshot_dir, &config, server, *use_aria2).await {
+                match snapshot_fetch(&snapshot_dir, &config, provider, *use_aria2).await {
                     Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }

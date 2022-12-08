@@ -10,7 +10,7 @@ use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_cli_shared::cli::{
     cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
-    Config, SnapshotServer, FOREST_VERSION_STRING,
+    Config, FOREST_VERSION_STRING,
 };
 use forest_db::Store;
 use forest_fil_types::verifier::FullVerifier;
@@ -418,13 +418,7 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
 async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = match snapshot_fetch(
-            &snapshot_path,
-            &config,
-            &SnapshotServer::Filecoin,
-            is_aria2_installed(),
-        )
-        .await
+        let path = match snapshot_fetch(&snapshot_path, &config, &None, is_aria2_installed()).await
         {
             Ok(path) => path,
             Err(err) => cli_error_and_die(err.to_string(), 1),
