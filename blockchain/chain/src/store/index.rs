@@ -155,6 +155,24 @@ impl<BS: Blockstore> ChainIndex<BS> {
         tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk).await
     }
 
+    pub(crate) async fn get_tipset_by_height_2(
+        &self,
+        from: Arc<Tipset>,
+        to: ChainEpoch,
+    ) -> Result<Arc<Tipset>, Error> {
+        //println!("get_tipset_by_height_2 from {} to {}", from.epoch(), to);
+        let mut curr = from.clone();
+        loop {
+            //println!("curr @{}", curr.epoch());
+            if curr.epoch() == to {
+                println!("found");
+                return Ok(from);
+            }
+            let tsk = curr.parents();
+            curr = crate::tipset_from_keys_2(&self.db, tsk).await?;
+        }
+    }
+
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
     /// from the `blockstore`.
     pub(crate) async fn get_tipset_by_height(
