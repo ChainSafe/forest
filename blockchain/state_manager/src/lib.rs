@@ -849,23 +849,39 @@ where
         let epoch = first_block.epoch();
         let ts_cloned = Arc::clone(tipset);
         // TODO: handle blocking pool shutting down errors
-        tokio::task::Builder::new()
-            .name(&format!("{epoch}-apply-blocks"))
-            .spawn_blocking(move || {
-                Ok(sm.apply_blocks(
-                    parent_epoch,
-                    &sr,
-                    &blocks,
-                    epoch,
-                    chain_rand,
-                    base_fee,
-                    callback,
-                    &ts_cloned,
-                )?)
-            })
-            .expect("spawn_blocking must suceed")
-            .await
-            .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
+        // info!("Spawning {epoch}-apply-blocks");
+        // let x = tokio::task::Builder::new()
+        //     .name(&format!("{epoch}-apply-blocks"))
+        //     .spawn_blocking(move || {
+        //         Ok(sm.apply_blocks(
+        //             parent_epoch,
+        //             &sr,
+        //             &blocks,
+        //             epoch,
+        //             chain_rand,
+        //             base_fee,
+        //             callback,
+        //             &ts_cloned,
+        //         )?)
+        //     })
+        //     .expect("spawn_blocking must suceed")
+        //     .await
+        //     .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?;
+        // info!("Computed {epoch}-apply-blocks");
+
+        info!("Start {epoch}-apply-blocks");
+        let result = sm.apply_blocks(
+            parent_epoch,
+            &sr,
+            &blocks,
+            epoch,
+            chain_rand,
+            base_fee,
+            callback,
+            &ts_cloned,
+        ).map_err(|e| Error::Other(format!("failed to apply blocks: {e}")));
+        info!("End {epoch}-apply-blocks");
+        result
         //})
     }
 
