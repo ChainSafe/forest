@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_beacon::Beacon;
-use forest_rpc_api::{
-    auth_api::*, chain_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP,
-};
+use forest_rpc_api::{auth_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP};
 use fvm_ipld_blockstore::Blockstore;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use log::{debug, error};
@@ -37,7 +35,7 @@ pub fn get_error_str(code: i64, message: String) -> String {
     }
 }
 
-const STREAMING_METHODS: [&str; 2] = [CHAIN_HEAD_SUBSCRIPTION, CHAIN_NOTIFY];
+const STREAMING_METHODS: [&str; 0] = [];
 
 pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)

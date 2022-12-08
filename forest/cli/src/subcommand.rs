@@ -10,7 +10,6 @@ pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Resu
         Subcommand::Fetch(cmd) => cmd.run(config).await,
         Subcommand::Chain(cmd) => cmd.run(config).await,
         Subcommand::Auth(cmd) => cmd.run(config).await,
-        Subcommand::Genesis(cmd) => cmd.run().await,
         Subcommand::Net(cmd) => cmd.run(config).await,
         Subcommand::Wallet(cmd) => cmd.run(config).await,
         Subcommand::Sync(cmd) => cmd.run(config).await,
@@ -18,7 +17,6 @@ pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Resu
         Subcommand::State(cmd) => cmd.run(config).await,
         Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()).await,
         Subcommand::Send(cmd) => cmd.run(config).await,
-        Subcommand::Snapshot(cmd) => cmd.run(config).await,
         Subcommand::DB(cmd) => cmd.run(&config).await,
     }
 }
