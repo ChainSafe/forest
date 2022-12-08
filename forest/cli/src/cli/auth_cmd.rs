@@ -37,17 +37,18 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm } => {
-                let perm: String = perm.parse().unwrap();
-                let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
+                let perm: String = perm.parse()?;
+                let perms = process_perms(perm).map_err(handle_rpc_err)?;
                 let token_exp = config.client.token_exp;
                 let auth_params = AuthNewParams { perms, token_exp };
                 print_rpc_res_bytes(auth_new(auth_params, &config.client.rpc_token).await);
+                Ok(())
             }
             Self::ApiInfo { perm } => {
-                let perm: String = perm.parse().unwrap();
+                let perm: String = perm.parse()?;
                 let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
                 let token_exp = config.client.token_exp;
                 let auth_params = AuthNewParams { perms, token_exp };
@@ -67,6 +68,7 @@ impl AuthCommands {
                     }
                     Err(e) => handle_rpc_err(e),
                 };
+                Ok(())
             }
         }
     }

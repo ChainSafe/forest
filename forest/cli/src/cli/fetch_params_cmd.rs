@@ -24,7 +24,7 @@ pub struct FetchCommands {
 }
 
 impl FetchCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         let sizes = if self.all {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
@@ -39,9 +39,7 @@ impl FetchCommands {
             );
         };
 
-        get_params_default(&config.client.data_dir, sizes)
-            .await
-            .unwrap();
+        get_params_default(&config.client.data_dir, sizes).await
     }
 }
 

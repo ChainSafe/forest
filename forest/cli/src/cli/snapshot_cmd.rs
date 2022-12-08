@@ -114,7 +114,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 tipset,
@@ -174,7 +174,10 @@ impl SnapshotCommands {
                     .map_err(handle_rpc_err)
                     .unwrap();
 
-                println!("Export completed. Snapshot located at {}", out.display());
+                Ok(println!(
+                    "Export completed. Snapshot located at {}",
+                    out.display()
+                ))
             }
             Self::Fetch {
                 snapshot_dir,
@@ -185,35 +188,39 @@ impl SnapshotCommands {
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
                 match snapshot_fetch(&snapshot_dir, &config, provider, *use_aria2).await {
-                    Ok(out) => println!("Snapshot successfully downloaded at {}", out.display()),
+                    Ok(out) => Ok(println!(
+                        "Snapshot successfully downloaded at {}",
+                        out.display()
+                    )),
                     Err(e) => cli_error_and_die(format!("Failed fetching the snapshot: {e}"), 1),
                 }
             }
             Self::Dir => {
                 let dir = default_snapshot_dir(&config);
-                println!("{}", dir.display());
+                Ok(println!("{}", dir.display()))
             }
-            Self::List { snapshot_dir } => {
-                list(&config, snapshot_dir).unwrap();
-            }
+            Self::List { snapshot_dir } => list(&config, snapshot_dir),
             Self::Remove {
                 filename,
                 snapshot_dir,
                 force,
             } => {
                 remove(&config, filename, snapshot_dir, *force);
+                Ok(())
             }
             Self::Prune {
                 snapshot_dir,
                 force,
             } => {
                 prune(&config, snapshot_dir, *force);
+                Ok(())
             }
             Self::Clean {
                 snapshot_dir,
                 force,
             } => {
-                clean(&config, snapshot_dir, *force).unwrap();
+                clean(&config, snapshot_dir, *force)?;
+                Ok(())
             }
         }
     }

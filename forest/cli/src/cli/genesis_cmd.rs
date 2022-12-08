@@ -37,7 +37,7 @@ pub enum GenesisCommands {
 }
 
 impl GenesisCommands {
-    pub async fn run(&self) {
+    pub async fn run(&self) -> anyhow::Result<()> {
         match self {
             Self::NewTemplate {
                 network_name,
@@ -58,6 +58,7 @@ impl GenesisCommands {
                         warn!("Can not write to a file, error: {}", err);
                     }
                 }
+                Ok(())
             }
             Self::AddMiner {
                 genesis_path,
@@ -66,6 +67,7 @@ impl GenesisCommands {
                 if let Err(err) = add_miner(genesis_path.to_string(), preseal_path.to_string()) {
                     warn!("Cannot add miner(s), error: {}", err);
                 };
+                Ok(())
             }
         }
     }

@@ -82,7 +82,7 @@ pub enum WalletCommands {
 }
 
 impl WalletCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
@@ -94,39 +94,34 @@ impl WalletCommands {
 
                 let response = wallet_new((signature_type_json,), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
-                println!("{}", response);
+                    .map_err(handle_rpc_err)?;
+                Ok(println!("{}", response))
             }
             Self::Balance { address } => {
                 let response = wallet_balance((address.to_string(),), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
-                println!("{}", response);
+                    .map_err(handle_rpc_err)?;
+                Ok(println!("{}", response))
             }
             Self::Default => {
                 let response = wallet_default_address(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
-                println!("{}", response);
+                    .map_err(handle_rpc_err)?;
+                Ok(println!("{}", response))
             }
             Self::Export { address } => {
                 let response = wallet_export((address.to_string(),), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
-                let encoded_key = serde_json::to_string(&response).unwrap();
-                println!("{}", hex::encode(encoded_key))
+                let encoded_key = serde_json::to_string(&response)?;
+                Ok(println!("{}", hex::encode(encoded_key)))
             }
             Self::Has { key } => {
                 let response = wallet_has((key.to_string(),), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
-                println!("{}", response);
+                    .map_err(handle_rpc_err)?;
+                Ok(println!("{}", response))
             }
             Self::Import { path } => {
                 let key = match path {
@@ -163,10 +158,9 @@ impl WalletCommands {
 
                 let key = wallet_import(vec![KeyInfoJson(key.0)], &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
-                println!("{}", key);
+                Ok(println!("{}", key))
             }
             Self::List => {
                 let response = wallet_list(&config.client.rpc_token)
@@ -212,6 +206,7 @@ impl WalletCommands {
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_int:.6} FIL");
                 }
+                Ok(())
             }
             Self::SetDefault { key } => {
                 let key_parse_result = Address::from_str(key);
@@ -225,8 +220,8 @@ impl WalletCommands {
                 let key_json = AddressJson(key);
                 wallet_set_default((key_json,), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
+                Ok(())
             }
             Self::Sign { address, message } => {
                 let address_result = Address::from_str(address);
@@ -237,9 +232,7 @@ impl WalletCommands {
 
                 let address = address_result.unwrap();
 
-                let message = hex::decode(message)
-                    .context("Message has to be a hex string")
-                    .unwrap();
+                let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = base64::encode(message);
 
                 let response = wallet_sign(
@@ -247,18 +240,16 @@ impl WalletCommands {
                     &config.client.rpc_token,
                 )
                 .await
-                .map_err(handle_rpc_err)
-                .unwrap();
-                println!("{}", hex::encode(response.0.bytes()));
+                .map_err(handle_rpc_err)?;
+                Ok(println!("{}", hex::encode(response.0.bytes())))
             }
             Self::Verify {
                 message,
                 address,
                 signature,
             } => {
-                let sig_bytes = hex::decode(signature)
-                    .context("Signature has to be a hex string")
-                    .unwrap();
+                let sig_bytes =
+                    hex::decode(signature).context("Signature has to be a hex string")?;
                 let signature = match address.chars().nth(1).unwrap() {
                     '1' => Signature::new_secp256k1(sig_bytes),
                     '3' => Signature::new_bls(sig_bytes),
@@ -274,11 +265,10 @@ impl WalletCommands {
                     &config.client.rpc_token,
                 )
                 .await
-                .map_err(handle_rpc_err)
-                .unwrap();
+                .map_err(handle_rpc_err)?;
 
-                println!("{}", response);
+                Ok(println!("{}", response))
             }
-        };
+        }
     }
 }

@@ -30,7 +30,7 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Listen => match net_addrs_listen((), &config.client.rpc_token).await {
                 Ok(info) => {
@@ -41,6 +41,7 @@ impl NetCommands {
                         .collect();
 
                     print_stdout(addresses.join("\n"));
+                    Ok(())
                 }
                 Err(e) => handle_rpc_err(e),
             },
@@ -71,6 +72,7 @@ impl NetCommands {
                         .collect();
 
                     print_stdout(output.join("\n"));
+                    Ok(())
                 }
                 Err(e) => handle_rpc_err(e),
             },
@@ -102,17 +104,13 @@ impl NetCommands {
                 };
 
                 match net_connect((addr_info,), &config.client.rpc_token).await {
-                    Ok(_) => {
-                        println!("connect {}: success", id);
-                    }
+                    Ok(_) => Ok(println!("connect {}: success", id)),
                     Err(e) => handle_rpc_err(e),
                 }
             }
             Self::Disconnect { id } => {
                 match net_disconnect((id.to_owned(),), &config.client.rpc_token).await {
-                    Ok(_) => {
-                        println!("disconnect {}: success", id);
-                    }
+                    Ok(_) => Ok(println!("disconnect {}: success", id)),
                     Err(e) => handle_rpc_err(e),
                 }
             }

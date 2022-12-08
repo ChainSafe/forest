@@ -48,19 +48,22 @@ pub enum ChainCommands {
 }
 
 impl ChainCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res_pretty(
                     chain_get_block((CidJson(cid),), &config.client.rpc_token).await,
                 );
+                Ok(())
             }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await);
+                Ok(())
             }
             Self::Head => {
                 print_rpc_res_cids(chain_head(&config.client.rpc_token).await);
+                Ok(())
             }
             Self::TipsetHash { cids } => {
                 use forest_blocks::tipset_keys_json::TipsetKeysJson;
@@ -77,20 +80,24 @@ impl ChainCommands {
                         .await
                         .map(|s| format!("blake2b hash: {s}")),
                 );
+                Ok(())
             }
             Self::ValidateTipsetCheckpoints => {
                 let result = chain_validate_tipset_checkpoints((), &config.client.rpc_token).await;
                 print_rpc_res(result);
+                Ok(())
             }
             Self::Message { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res_pretty(
                     chain_get_message((CidJson(cid),), &config.client.rpc_token).await,
                 );
+                Ok(())
             }
             Self::ReadObj { cid } => {
                 let cid: Cid = cid.parse().unwrap();
                 print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await);
+                Ok(())
             }
         }
     }

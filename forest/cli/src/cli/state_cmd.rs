@@ -62,15 +62,14 @@ pub enum StateCommands {
 }
 
 impl StateCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Power { miner_address } => {
                 let miner_address = miner_address.to_owned();
 
                 let tipset = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
                 let tipset_keys_json = TipsetKeysJson(tipset.0.key().to_owned());
 
                 let address = Address::from_str(&miner_address).unwrap_or_else(|_| {
@@ -82,8 +81,7 @@ impl StateCommands {
                     &config.client.rpc_token,
                 )
                 .await
-                .map_err(handle_rpc_err)
-                .unwrap()
+                .map_err(handle_rpc_err)?
                 {
                     Some(actor_json) => {
                         let actor_state: ActorState = actor_json.into();
@@ -111,8 +109,7 @@ impl StateCommands {
 
                 let power = state_miner_power(params, &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let mp = power.miner_power;
                 let tp = power.total_power;
@@ -127,6 +124,7 @@ impl StateCommands {
                         .unwrap_or_else(|e| cli_error_and_die(e.to_string(), 1)),
                     (&mp.quality_adj_power * 100) / &tp.quality_adj_power
                 );
+                Ok(())
             }
             Self::GetActor { address } => {
                 let address = Address::from_str(&address.clone()).unwrap_or_else(|_| {
@@ -138,8 +136,7 @@ impl StateCommands {
 
                 let TipsetJson(tipset) = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
@@ -147,8 +144,7 @@ impl StateCommands {
 
                 let actor = state_get_actor(params, &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 if let Some(state) = actor {
                     let a: ActorState = state.into();
@@ -160,23 +156,23 @@ impl StateCommands {
                 } else {
                     println!("No information for actor found")
                 }
+                Ok(())
             }
             Self::ListMiners => {
                 let TipsetJson(tipset) = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
 
                 let actors = state_list_actors((tsk,), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 for a in actors {
                     let AddressJson(addr) = a;
                     println!("{}", addr);
                 }
+                Ok(())
             }
             Self::Lookup { reverse, address } => {
                 let address = Address::from_str(address).unwrap_or_else(|_| {
@@ -185,8 +181,7 @@ impl StateCommands {
 
                 let tipset = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let TipsetJson(ts) = tipset;
 
@@ -195,8 +190,7 @@ impl StateCommands {
                 if !reverse {
                     match state_lookup(params, &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)
-                        .unwrap()
+                        .map_err(handle_rpc_err)?
                     {
                         Some(AddressJson(addr)) => println!("{}", addr),
                         None => println!("No address found"),
@@ -204,8 +198,7 @@ impl StateCommands {
                 } else {
                     match state_account_key(params, &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)
-                        .unwrap()
+                        .map_err(handle_rpc_err)?
                     {
                         Some(AddressJson(addr)) => {
                             println!("{}", addr)
@@ -213,6 +206,7 @@ impl StateCommands {
                         None => println!("Nothing found"),
                     };
                 }
+                Ok(())
             }
             Self::VestingTable { address } => {
                 let address = Address::from_str(address).unwrap_or_else(|_| {
@@ -221,16 +215,14 @@ impl StateCommands {
 
                 let TipsetJson(tipset) = chain_head(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let tsk = TipsetKeysJson(tipset.key().to_owned());
                 let params = (AddressJson(address), tsk);
 
                 let actor_state: ActorState = state_get_actor(params, &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap()
+                    .map_err(handle_rpc_err)?
                     .expect("ActorState empty")
                     .into();
 
@@ -262,6 +254,7 @@ impl StateCommands {
                 for entry in schedule.entries {
                     println!("Epoch: {}     FIL: {:.3}", entry.epoch, &entry.amount);
                 }
+                Ok(())
             }
         }
     }
