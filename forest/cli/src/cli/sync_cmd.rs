@@ -129,7 +129,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::CheckBad { cid } => {
-                let cid: Cid = cid.parse().unwrap();
+                let cid: Cid = cid.parse()?;
                 let response = sync_check_bad((CidJson(cid),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -142,7 +142,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::MarkBad { cid } => {
-                let cid: Cid = cid.parse().unwrap();
+                let cid: Cid = cid.parse()?;
                 sync_mark_bad((CidJson(cid),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;

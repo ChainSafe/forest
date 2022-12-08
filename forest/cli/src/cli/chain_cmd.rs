@@ -51,7 +51,7 @@ impl ChainCommands {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => {
-                let cid: Cid = cid.parse().unwrap();
+                let cid: Cid = cid.parse()?;
                 print_rpc_res_pretty(
                     chain_get_block((CidJson(cid),), &config.client.rpc_token).await,
                 );
@@ -88,14 +88,14 @@ impl ChainCommands {
                 Ok(())
             }
             Self::Message { cid } => {
-                let cid: Cid = cid.parse().unwrap();
+                let cid: Cid = cid.parse()?;
                 print_rpc_res_pretty(
                     chain_get_message((CidJson(cid),), &config.client.rpc_token).await,
                 );
                 Ok(())
             }
             Self::ReadObj { cid } => {
-                let cid: Cid = cid.parse().unwrap();
+                let cid: Cid = cid.parse()?;
                 print_rpc_res(chain_read_obj((CidJson(cid),), &config.client.rpc_token).await);
                 Ok(())
             }

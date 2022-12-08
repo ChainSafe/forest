@@ -49,7 +49,7 @@ impl AuthCommands {
             }
             Self::ApiInfo { perm } => {
                 let perm: String = perm.parse()?;
-                let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
+                let perms = process_perms(perm).map_err(handle_rpc_err)?;
                 let token_exp = config.client.token_exp;
                 let auth_params = AuthNewParams { perms, token_exp };
                 match auth_new(auth_params, &config.client.rpc_token).await {
