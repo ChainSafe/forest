@@ -60,11 +60,7 @@ jobs:
           command: |
             sudo make install-deps
             sudo apt-get install -y libclang-dev # required dep for cargo-spellcheck
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-          key: ${{ runner.os }}-lints-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
+      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install Lint tools
         run: make install-lint-tools
         env:
@@ -152,7 +148,7 @@ jobs:
       - name: fetch params
         run: forest-cli fetch-params --keys
       - name: download snapshot
-        run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
+        run: forest-cli --chain calibnet snapshot fetch --provider filecoin --aria2 -s $SNAPSHOT_DIRECTORY
       - name: import snapshot and run Forest
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
