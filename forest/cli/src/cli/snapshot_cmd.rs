@@ -218,10 +218,7 @@ impl SnapshotCommands {
             Self::Clean {
                 snapshot_dir,
                 force,
-            } => {
-                clean(&config, snapshot_dir, *force)?;
-                Ok(())
-            }
+            } => clean(&config, snapshot_dir, *force),
         }
     }
 }

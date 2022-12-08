@@ -42,7 +42,7 @@ mod tests {
             .await
             .unwrap();
 
-        let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer())?)
+        let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");
 
         assert!(expected_config == actual_config);
