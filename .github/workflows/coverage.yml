@@ -36,7 +36,7 @@ jobs:
       - name: Generate code coverage
         run: |
           cargo llvm-cov --workspace --no-report --features slow_tests
-          cargo llvm-cov --no-report run --bin=forest-cli -- --chain calibnet snapshot fetch -s .
+          cargo llvm-cov --no-report run --bin=forest-cli -- --chain calibnet snapshot fetch --provider filecoin -s .
           cargo llvm-cov --no-report run --bin=forest -- --chain calibnet --encrypt-keystore false --import-snapshot *.car --detach
           cargo llvm-cov --no-report run --bin=forest-cli -- sync wait
           cargo llvm-cov --no-report run --bin=forest-cli -- snapshot export
