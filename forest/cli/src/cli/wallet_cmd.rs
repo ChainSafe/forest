@@ -8,7 +8,7 @@ use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJ
 use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
 use forest_utils::io::read_file_to_string;
-use fvm_shared::address::Address;
+use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
@@ -256,13 +256,13 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let signature = match address.chars().nth(1).unwrap() {
-                    '1' => Signature::new_secp256k1(sig_bytes),
-                    '3' => Signature::new_bls(sig_bytes),
-                    _ => cli_error_and_die("Invalid signature (must be bls or secp256k1)", 1),
+                let address = Address::from_str(address)?;
+                let signature = match address.protocol() {
+                    Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
+                    Protocol::BLS => Signature::new_bls(sig_bytes),
+                    _ => anyhow::bail!("Invalid signature (must be bls or secp256k1)"),
                 };
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
-                let address = Address::from_str(address)?;
 
                 let response = wallet_verify(
                     (AddressJson(address), msg, SignatureJson(signature)),
