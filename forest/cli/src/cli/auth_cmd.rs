@@ -60,9 +60,7 @@ impl AuthCommands {
                 addr.push(Protocol::Http);
                 println!(
                     "FULLNODE_API_INFO=\"{}:{}\"",
-                    String::from_utf8(token)
-                        .map_err(|e| handle_rpc_err(e.into()))
-                        .unwrap(),
+                    String::from_utf8(token).map_err(|e| handle_rpc_err(e.into()))?,
                     addr
                 );
                 Ok(())

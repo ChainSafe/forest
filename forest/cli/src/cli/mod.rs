@@ -36,11 +36,9 @@ use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::cli::CliOpts;
-use http::StatusCode;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
-use std::borrow::Cow;
 use std::io::{self, Write};
 use structopt::StructOpt;
 
@@ -103,25 +101,6 @@ pub enum Subcommand {
 
 /// Pretty-print a JSON-RPC error and exit
 pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
-    let (code, message) = match e {
-        JsonRpcError::Full {
-            code, ref message, ..
-        } => (code, Cow::from(message)),
-        JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
-    };
-
-    // we sometimes get negative errors, e.g. -32602 INVALID_PARAMS from `jsonrpc`.
-    // It's a bit of a workaround to preserve partially the value but still try to fit into u16.
-    let code = code.abs().clamp(0, u16::MAX.into()) as u16;
-
-    match StatusCode::from_u16(code) {
-        Ok(reason) => {
-            error!("JSON RPC Error: Code: {reason} Message: {message}")
-        }
-        Err(_) => {
-            error!("JSON RPC Error: Code: {code} Message: {message}")
-        }
-    };
     match serde_json::to_string(&e) {
         Ok(err_msg) => anyhow::Error::msg(err_msg),
         Err(err) => err.into(),
@@ -152,7 +131,7 @@ pub(super) fn print_rpc_res_pretty<T: Serialize>(
     res: Result<T, JsonRpcError>,
 ) -> anyhow::Result<()> {
     let obj = res.map_err(handle_rpc_err)?;
-    println!("{}", serde_json::to_string_pretty(&obj).unwrap());
+    println!("{}", serde_json::to_string_pretty(&obj)?);
     Ok(())
 }
 

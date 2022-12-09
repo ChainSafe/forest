@@ -80,7 +80,7 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes()).unwrap();
+                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes())?;
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {

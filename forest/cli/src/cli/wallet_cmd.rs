@@ -148,9 +148,9 @@ impl WalletCommands {
                     cli_error_and_die("Key must be hex encoded", 1);
                 }
 
-                let decoded_key = decoded_key_result.unwrap();
+                let decoded_key = decoded_key_result?;
 
-                let key_str = str::from_utf8(&decoded_key).unwrap();
+                let key_str = str::from_utf8(&decoded_key)?;
 
                 let key_result: Result<KeyInfoJson, serde_json::error::Error> =
                     serde_json::from_str(key_str);
@@ -159,7 +159,7 @@ impl WalletCommands {
                     cli_error_and_die(format!("{key} is not a valid key to import"), 1);
                 }
 
-                let key = key_result.unwrap();
+                let key = key_result?;
 
                 let key = wallet_import(vec![KeyInfoJson(key.0)], &config.client.rpc_token)
                     .await
@@ -171,8 +171,7 @@ impl WalletCommands {
             Self::List => {
                 let response = wallet_list(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let default = match wallet_default_address(&config.client.rpc_token).await {
                     Ok(addr) => addr,
@@ -221,7 +220,7 @@ impl WalletCommands {
                     cli_error_and_die("Error parsing address. Verify that the address exists and is in the keystore", 1);
                 }
 
-                let key = key_parse_result.unwrap();
+                let key = key_parse_result?;
 
                 let key_json = AddressJson(key);
                 wallet_set_default((key_json,), &config.client.rpc_token)
@@ -236,7 +235,7 @@ impl WalletCommands {
                     cli_error_and_die(format!("{address} is not a valid address"), 1);
                 }
 
-                let address = address_result.unwrap();
+                let address = address_result?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = base64::encode(message);

@@ -136,8 +136,7 @@ impl SnapshotCommands {
                 let day_string = format!("{:02}", now.day());
                 let chain_name = chain_get_name(&config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let vars = HashMap::from([
                     ("year".to_string(), year.to_string()),
@@ -168,11 +167,9 @@ impl SnapshotCommands {
                     *skip_checksum,
                 );
 
-                // infallible unwrap
                 let out = chain_export(params, &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 println!("Export completed. Snapshot located at {}", out.display());
                 Ok(())
