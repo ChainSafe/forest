@@ -178,7 +178,7 @@ impl WalletCommands {
                     Ok(addr) => addr,
                     Err(err) => {
                         println!("Failed get the wallet default address");
-                        handle_rpc_err(err);
+                        return Err(handle_rpc_err(err));
                     }
                 };
 
@@ -195,7 +195,7 @@ impl WalletCommands {
                             Ok(balance) => balance,
                             Err(err) => {
                                 println!("Failed loading the wallet balance");
-                                handle_rpc_err(err);
+                                return Err(handle_rpc_err(err));
                             }
                         };
 

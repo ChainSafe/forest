@@ -42,7 +42,6 @@ use log::error;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::io::{self, Write};
-use std::process;
 use structopt::StructOpt;
 
 /// CLI structure generated when interacting with Forest binary
@@ -103,9 +102,11 @@ pub enum Subcommand {
 }
 
 /// Pretty-print a JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
+pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
     let (code, message) = match e {
-        JsonRpcError::Full { code, message, .. } => (code, Cow::from(message)),
+        JsonRpcError::Full {
+            code, ref message, ..
+        } => (code, Cow::from(message)),
         JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
     };
 
@@ -121,10 +122,10 @@ pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
             error!("JSON RPC Error: Code: {code} Message: {message}")
         }
     };
-
-    // fail-safe in case the `code` from `JsonRpcError` is zero. We still want to quit the process
-    // with an error because, well, an error occurred if we are here.
-    process::exit(code.max(1) as i32);
+    match serde_json::to_string(&e) {
+        Ok(err_msg) => anyhow::Error::msg(err_msg),
+        Err(err) => err.into(),
+    }
 }
 
 /// Format a vector to a prettified string
@@ -140,51 +141,54 @@ pub(super) fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 }
 
 /// Prints a plain HTTP JSON-RPC response result
-pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) {
-    match res {
-        Ok(obj) => println!("{}", &obj),
-        Err(err) => handle_rpc_err(err),
-    };
+pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) -> anyhow::Result<()> {
+    let obj = res.map_err(handle_rpc_err)?;
+    println!("{}", &obj);
+    Ok(())
 }
 
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_pretty<T: Serialize>(res: Result<T, JsonRpcError>) {
-    match res {
-        Ok(obj) => println!("{}", serde_json::to_string_pretty(&obj).unwrap()),
-        Err(err) => handle_rpc_err(err),
-    };
+pub(super) fn print_rpc_res_pretty<T: Serialize>(
+    res: Result<T, JsonRpcError>,
+) -> anyhow::Result<()> {
+    let obj = res.map_err(handle_rpc_err)?;
+    println!("{}", serde_json::to_string_pretty(&obj).unwrap());
+    Ok(())
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) {
+pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) -> anyhow::Result<()> {
     match res {
-        Ok(tipset) => println!(
-            "{}",
-            serde_json::to_string_pretty(
-                &tipset
-                    .0
-                    .cids()
-                    .iter()
-                    .map(|cid: &Cid| cid.to_string())
-                    .collect::<Vec<_>>()
-            )
-            .unwrap()
-        ),
-        Err(err) => handle_rpc_err(err),
-    };
+        Ok(tipset) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(
+                    &tipset
+                        .0
+                        .cids()
+                        .iter()
+                        .map(|cid: &Cid| cid.to_string())
+                        .collect::<Vec<_>>()
+                )?
+            );
+            Ok(())
+        }
+        Err(err) => Err(handle_rpc_err(err)),
+    }
 }
 
 /// Prints a bytes HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) {
+pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) -> anyhow::Result<()> {
     match res {
-        Ok(obj) => println!(
-            "{}",
-            String::from_utf8(obj)
-                .map_err(|e| handle_rpc_err(e.into()))
-                .unwrap()
-        ),
-        Err(err) => handle_rpc_err(err),
-    };
+        Ok(obj) => {
+            println!(
+                "{}",
+                String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
+            );
+            Ok(())
+        }
+        Err(err) => Err(handle_rpc_err(err)),
+    }
 }
 
 /// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
