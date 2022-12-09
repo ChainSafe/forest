@@ -237,7 +237,7 @@ impl WalletCommands {
 
                 let address = address_result?;
 
-                let message = hex::decode(message).context("Message has to be a hex string")?;
+                let message = hex::decode(message)?;
                 let message = base64::encode(message);
 
                 let response = wallet_sign(
@@ -261,13 +261,10 @@ impl WalletCommands {
                     '3' => Signature::new_bls(sig_bytes),
                     _ => cli_error_and_die("Invalid signature (must be bls or secp256k1)", 1),
                 };
+                let msg = hex::decode(message).context("Message has to be a hex string")?;
 
                 let response = wallet_verify(
-                    (
-                        address.to_string(),
-                        message.to_string(),
-                        SignatureJson(signature),
-                    ),
+                    (address.to_string(), msg, SignatureJson(signature)),
                     &config.client.rpc_token,
                 )
                 .await
