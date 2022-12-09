@@ -158,37 +158,29 @@ pub(super) fn print_rpc_res_pretty<T: Serialize>(
 
 /// Prints a tipset from a HTTP JSON-RPC response result
 pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) -> anyhow::Result<()> {
-    match res {
-        Ok(tipset) => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(
-                    &tipset
-                        .0
-                        .cids()
-                        .iter()
-                        .map(|cid: &Cid| cid.to_string())
-                        .collect::<Vec<_>>()
-                )?
-            );
-            Ok(())
-        }
-        Err(err) => Err(handle_rpc_err(err)),
-    }
+    let tipset = res.map_err(handle_rpc_err)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(
+            &tipset
+                .0
+                .cids()
+                .iter()
+                .map(|cid: &Cid| cid.to_string())
+                .collect::<Vec<_>>()
+        )?
+    );
+    Ok(())
 }
 
 /// Prints a bytes HTTP JSON-RPC response result
 pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) -> anyhow::Result<()> {
-    match res {
-        Ok(obj) => {
-            println!(
-                "{}",
-                String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
-            );
-            Ok(())
-        }
-        Err(err) => Err(handle_rpc_err(err)),
-    }
+    let obj = res.map_err(handle_rpc_err)?;
+    println!(
+        "{}",
+        String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
+    );
+    Ok(())
 }
 
 /// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
