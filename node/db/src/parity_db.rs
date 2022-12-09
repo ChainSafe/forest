@@ -4,13 +4,13 @@
 use super::errors::Error;
 use crate::utils::bitswap_missing_blocks;
 use crate::{DBStatistics, Store};
+use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
-use parity_db::Db;
-use parity_db::Options;
+use parity_db::{CompressionType, Db, Options};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -19,40 +19,55 @@ pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
 }
 
+/// `ParityDb` configuration exposed in Forest.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct ParityDbConfig {
-    pub path: PathBuf,
-    pub columns: u8,
+    pub stats: bool,
+    pub compression: String,
 }
 
-impl ParityDbConfig {
-    pub fn from_path(path: &Path) -> Self {
+impl Default for ParityDbConfig {
+    fn default() -> Self {
         Self {
-            path: path.to_path_buf(),
-            columns: 1,
+            stats: false,
+            compression: "lz4".into(),
         }
+    }
+}
+
+/// Converts string to a compression `ParityDb` variant.
+fn compression_from_str(s: &str) -> anyhow::Result<CompressionType> {
+    match s.to_lowercase().as_str() {
+        "none" => Ok(CompressionType::NoCompression),
+        "lz4" => Ok(CompressionType::Lz4),
+        "snappy" => Ok(CompressionType::Snappy),
+        _ => Err(anyhow!("invalid compression option")),
     }
 }
 
 impl ParityDb {
-    fn to_options(config: &ParityDbConfig) -> Options {
-        Options {
-            path: config.path.to_owned(),
+    fn to_options(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Options> {
+        const COLUMNS: usize = 1;
+        let compression = compression_from_str(&config.compression)?;
+        Ok(Options {
+            path,
             sync_wal: true,
             sync_data: true,
-            stats: true,
+            stats: config.stats,
             salt: None,
-            columns: (0..config.columns)
+            columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
-                    compression: parity_db::CompressionType::Lz4,
+                    compression,
                     ..Default::default()
                 })
                 .collect(),
             compression_threshold: HashMap::new(),
-        }
+        })
     }
 
-    pub fn open(config: &ParityDbConfig) -> anyhow::Result<Self> {
-        let opts = Self::to_options(config);
+    pub fn open(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Self> {
+        let opts = Self::to_options(path, config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
         })

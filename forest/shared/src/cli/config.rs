@@ -149,6 +149,8 @@ pub struct Config {
     pub client: Client,
     #[cfg(feature = "rocksdb")]
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
+    #[cfg(feature = "paritydb")]
+    pub parity_db: forest_db::parity_db::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
