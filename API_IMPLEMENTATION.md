@@ -45,7 +45,6 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 | `Filecoin.WalletNew`                                 | `0` | `SignatureTypeJson` | `KeyType`
 | `Filecoin.WalletSignMessage`                         | `0` | `String` | `Address`
 | `Filecoin.WalletSignMessage`                         | `1` | `MessageJson` | `UnsignedMessageJson`
-| `Filecoin.WalletVerify`                              | `0` | `String` | `Address`
 
 ### Results Mismatches
 
@@ -239,7 +238,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ✔️    | `Filecoin.WalletSign`                                | `(AddressJson, Vec<u8>)` | `SignatureJson` |
 |   ✔️    | `Filecoin.WalletSignMessage`                         | `(String, MessageJson)` | `SignedMessageJson` |
 |   ❌    | `Filecoin.WalletValidateAddress`                     | `-` | `-` |
-|   ✔️    | `Filecoin.WalletVerify`                              | `(String, Vec<u8>, SignatureJson)` | `bool` |
+|   ✔️    | `Filecoin.WalletVerify`                              | `(AddressJson, Vec<u8>, SignatureJson)` | `bool` |
 
 ## Help & Contributions
 
