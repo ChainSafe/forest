@@ -237,7 +237,7 @@ impl WalletCommands {
 
                 let address = address_result?;
 
-                let message = hex::decode(message)?;
+                let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = base64::encode(message);
 
                 let response = wallet_sign(
