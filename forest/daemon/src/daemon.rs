@@ -438,11 +438,12 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
             } else {
                 cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
             }
-        },
-        Err(_) => { std::mem::drop(should_download);
-            cli_error_and_die("Error getting input.", 1); },
+        }
+        Err(_) => {
+            std::mem::drop(should_download);
+            cli_error_and_die("Error getting input.", 1);
+        }
     }
-    
 }
 
 async fn sync_from_snapshot<DB>(config: &Config, state_manager: &Arc<StateManager<DB>>)
