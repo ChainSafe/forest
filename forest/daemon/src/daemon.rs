@@ -408,10 +408,12 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
             },
         }
     }
-    tokio::time::sleep(Duration::new(64000000, 0)).await;
-    anyhow::Error::msg(
-        "More than 2 years have passed, all services are down and Forest was still running",
-    )
+    // In case all services are down without errors we are still willing 
+    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep`` has 
+    // a limit of approximately 2.2 years we have to loop
+    loop {
+        tokio::time::sleep(Duration::new(64000000, 0)).await;
+    }
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
