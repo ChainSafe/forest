@@ -36,6 +36,7 @@ pub fn set_sigint_handler() -> Receiver<()> {
         if prev == 0 {
             warn!("Got interrupt, shutting down...");
             let mut stdout = std::io::stdout();
+            #[allow(clippy::question_mark)]
             execute!(&mut stdout, anes::ShowCursor).unwrap();
             // Send sig int in channel to blocking task
             if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {

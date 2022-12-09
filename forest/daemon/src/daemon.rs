@@ -433,7 +433,7 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
 
     match should_download {
         Ok(result) => {
-            if result == true {
+            if result {
                 true
             } else {
                 cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
