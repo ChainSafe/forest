@@ -169,3 +169,27 @@ impl BitswapStore for ParityDb {
 }
 
 impl DBStatistics for ParityDb {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parity_db::CompressionType;
+
+    #[test]
+    fn compression_from_str_test() {
+        let test_cases = vec![
+            ("lz4", Ok(CompressionType::Lz4)),
+            ("SNAPPY", Ok(CompressionType::Snappy)),
+            ("none", Ok(CompressionType::NoCompression)),
+            ("cthulhu", Err(anyhow!("some error message"))),
+        ];
+        for (input, expected) in test_cases {
+            let actual = compression_from_str(input);
+            if let Ok(compression) = actual {
+                assert_eq!(expected.unwrap(), compression);
+            } else {
+                assert!(expected.is_err());
+            }
+        }
+    }
+}

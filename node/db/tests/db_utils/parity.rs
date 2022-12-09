@@ -20,10 +20,8 @@ impl TempParityDB {
             .expect("Failed to create temporary path for db.");
         let path = dir.path().join("paritydb");
 
-        let config = ParityDbConfig::from_path(&path);
-
         TempParityDB {
-            db: ParityDb::open(&config).unwrap(),
+            db: ParityDb::open(path, &ParityDbConfig::default()).unwrap(),
             _dir: dir,
         }
     }
