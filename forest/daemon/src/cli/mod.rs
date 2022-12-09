@@ -9,6 +9,8 @@ use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use structopt::StructOpt;
+use anes::execute;
+use std::io::Write;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]
@@ -33,6 +35,8 @@ pub fn set_sigint_handler() -> Receiver<()> {
         let prev = running.fetch_add(1, Ordering::SeqCst);
         if prev == 0 {
             warn!("Got interrupt, shutting down...");
+            let mut stdout = std::io::stdout();
+            execute!(&mut stdout, anes::ShowCursor).unwrap();
             // Send sig int in channel to blocking task
             if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
                 ctrlc_send.send(()).expect("Error sending ctrl-c message");
