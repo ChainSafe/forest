@@ -71,13 +71,6 @@ pub struct ChainStore<DB> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
 
-    // XXX: 'subscriptions' disabled since it is unused.
-    // /// Tracks head change subscription channels
-    // subscriptions: Arc<LockfreeMap<i64, Option<Receiver<HeadChange>>>>,
-
-    // XXX: 'subscriptions_count' disabled since it is unused.
-    // /// Keeps track of how many subscriptions there are in order to auto-increment the subscription ID
-    // subscriptions_count: AtomicCell<usize>,
     /// key-value `datastore`.
     pub db: DB,
 
@@ -505,7 +498,6 @@ where
         &self,
         tipset: &Tipset,
         recent_roots: ChainEpoch,
-        skip_old_msgs: bool,
         writer: W,
     ) -> Result<digest::Output<D>, Error>
     where
@@ -540,25 +532,19 @@ where
         info!("chain export started");
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
-        Self::walk_snapshot(tipset, recent_roots, skip_old_msgs, |cid| {
+        Self::walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
-                let block = self.blockstore().get(&cid)?.ok_or_else(|| {
-                    if skip_old_msgs {
-                        Error::Other("Cid {cid} not found in blockstore".to_string())
-                    } else {
-                        Error::Other("Cid {cid} not found in blockstore. \
-                                        Exporting a full snapshot is only possible when the node is initialised with a full one. \
-                                        Consider exporting a lightweight snapshot, e.g. skip the old messages.".to_string())
-                    }
-                })?;
+                let block = self
+                    .blockstore()
+                    .get(&cid)?
+                    .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
 
-                tx_clone
-                    .send_async((cid, block.clone()))
-                    .await?;
+                tx_clone.send_async((cid, block.clone())).await?;
                 Ok(block)
             }
-        }).await?;
+        })
+        .await?;
 
         // Drop sender, to close the channel to write task, which will end when finished writing
         drop(tx);
@@ -577,96 +563,11 @@ where
         Ok(digest)
     }
 
-    // XXX: 'sub_head_changes' disabled since it is unsed.
-    // /// Subscribes to head changes. This function will send the current tipset through a channel,
-    // /// start a task that listens to each head change event and forwards into the channel,
-    // /// then returns an id corresponding to the receiver of this channel from the function.
-    // /// This function is not blocking on events, and does not stall publishing events as it will
-    // /// skip over lagged events.
-    // pub async fn sub_head_changes(&self) -> i64 {
-    //     let (tx, rx) = channel::bounded(16);
-    //     let mut subscriber = self.publisher.subscribe();
-
-    //     debug!("Reading subscription length");
-    //     let sub_id = self.subscriptions_count.load() as i64 + 1;
-
-    //     debug!("Incrementing subscriptions count");
-    //     self.subscriptions_count.fetch_add(1);
-
-    //     debug!("Writing subscription receiver");
-    //     self.subscriptions.insert(sub_id, Some(rx));
-
-    //     debug!("Subscription ID {} created", sub_id);
-
-    //     // Send current heaviest tipset into receiver as first event.
-    //     if let Some(ts) = self.heaviest_tipset().await {
-    //         debug!("Tipset published");
-    //         tx.send(HeadChange::Current(ts))
-    //             .await
-    //             .expect("Receiver guaranteed to not drop by now")
-    //     }
-
-    //     let subscriptions = self.subscriptions.clone();
-    //     debug!("Spawning subscription task");
-
-    //     task::spawn(async move {
-    //         loop {
-    //             match subscriber.recv().await {
-    //                 Ok(change) => {
-    //                     debug!("Received head changes for subscription ID: {}", sub_id);
-    //                     if tx.send(change).await.is_err() {
-    //                         // Subscriber dropped, no need to keep task alive
-    //                         subscriptions.insert(sub_id, None);
-    //                         break;
-    //                     }
-    //                 }
-    //                 Err(RecvError::Lagged(_)) => {
-    //                     // Can keep polling, as long as receiver is not dropped
-    //                     warn!("Subscriber lagged, ignored head change events");
-    //                 }
-    //                 // This can only happen if chain store is dropped, but fine to exit silently
-    //                 // if this ever does happen.
-    //                 Err(RecvError::Closed) => break,
-    //             }
-    //         }
-    //     });
-
-    //     debug!("Returning subscription ID {}", sub_id);
-    //     sub_id
-    // }
-
-    // XXX: 'next_head_change' disabled since it is unsed.
-    // pub async fn next_head_change(&self, sub_id: &i64) -> Option<HeadChange> {
-    //     debug!(
-    //         "Getting subscription receiver for subscription ID: {}",
-    //         sub_id
-    //     );
-    //     if let Some(sub) = self.subscriptions.get(sub_id) {
-    //         if let Some(rx) = sub.val() {
-    //             debug!("Polling receiver for subscription ID: {}", sub_id);
-    //             match rx.recv().await {
-    //                 Ok(head_change) => {
-    //                     debug!("Got head change for subscription ID: {}", sub_id);
-    //                     Some(head_change)
-    //                 }
-    //                 Err(_) => None,
-    //             }
-    //         } else {
-    //             warn!("A subscription with this ID no longer exists");
-    //             None
-    //         }
-    //     } else {
-    //         warn!("No subscription with this ID");
-    //         None
-    //     }
-    // }
-
     /// Walks over tipset and state data and loads all blocks not yet seen.
     /// This is tracked based on the callback function loading blocks.
     async fn walk_snapshot<F, T>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
-        skip_old_msgs: bool,
         mut load_block: F,
     ) -> Result<(), Error>
     where
@@ -694,7 +595,7 @@ where
                 }
             }
 
-            if !skip_old_msgs || h.epoch() > incl_roots_epoch {
+            if h.epoch() > incl_roots_epoch {
                 recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
             }
 

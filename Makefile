@@ -13,7 +13,16 @@ install-deps:
 	apt-get install --no-install-recommends -y build-essential clang protobuf-compiler ocl-icd-opencl-dev aria2 cmake
 
 install-lint-tools:
-	RUSTFLAGS="-Cstrip=symbols" cargo install --locked taplo-cli cargo-audit cargo-spellcheck cargo-udeps
+	cargo install cargo-quickinstall
+	cargo quickinstall taplo-cli
+	cargo quickinstall cargo-audit
+	cargo quickinstall cargo-spellcheck
+	cargo quickinstall cargo-udeps
+
+install-doc-tools:
+	cargo install cargo-quickinstall
+	cargo quickinstall mdbook
+	cargo quickinstall mdbook-linkcheck
 
 clean-all:
 	cargo clean

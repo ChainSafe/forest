@@ -11,8 +11,8 @@ use jsonrpc_v2::RequestObject as JsonRpcRequestObject;
 
 pub async fn rpc_http_handler<DB, B>(
     headers: HeaderMap,
+    axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
     axum::Json(rpc_call): axum::Json<JsonRpcRequestObject>,
-    axum::Extension(rpc_server): axum::Extension<JsonRpcServerState>,
 ) -> impl IntoResponse
 where
     DB: Blockstore + Send + Sync + 'static,

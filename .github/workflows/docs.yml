@@ -21,23 +21,22 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v3
       - name: Apt Dependencies
-        run: sudo make install-deps
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: sudo make install-deps
       - name: Link Checker (Repo)
         uses: lycheeverse/lychee-action@v1.5.4
         with:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-          key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
+      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install MDBook
-        run: cargo install mdbook mdbook-linkcheck --locked
+        run: make install-doc-tools
         env:
           RUSTFLAGS: "-Cstrip=symbols"
-        continue-on-error: true
       - name: Setup sccache
         uses: hanabi1224/sccache-action@v1.2.0
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}

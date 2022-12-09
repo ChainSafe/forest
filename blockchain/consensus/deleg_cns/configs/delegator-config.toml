@@ -1,6 +1,6 @@
 [chain]
-name             = "devnet"
-bootstrap_peers  = []
+name = "devnet"
+bootstrap_peers = []
 block_delay_secs = 30
 
 version_schedule = [{ height = "Skyr", version = "V16" }]
@@ -34,13 +34,13 @@ listening_multiaddr = "/ip4/0.0.0.0/tcp/2341"
 bootstrap_peers = ["/ip4/127.0.0.1/tcp/2340/p2p/12D3KooWNEmsCbySkVBbZhX12kxommT3uFcNnoBS4Z8PN79r4aKi"]
 
 [client]
-data_dir   = "/tmp/forest-delegator-data-dir"
+data_dir = "/tmp/forest-delegator-data-dir"
 enable_rpc = false
 # Ports altered from the proposer so the nodes can run side by side.
-rpc_port        = 1235
+rpc_port = 1235
 metrics_address = "127.0.0.1:6117"
-rpc_address     = "127.0.0.1:1235"
+rpc_address = "127.0.0.1:1235"
 
 [sync]
 tipset_sample_size = 1
-req_window         = 100
+req_window = 100

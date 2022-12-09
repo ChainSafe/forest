@@ -183,17 +183,11 @@ where
             .with_max_established_outgoing(Some(config.target_peer_count))
             .with_max_established_per_peer(Some(5));
 
-        let mut swarm = SwarmBuilder::new(
+        let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
             ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()).await,
             peer_id,
         )
-        // We want the connection background tasks to be spawned
-        // onto the tokio runtime.
-        // <https://github.com/libp2p/rust-libp2p/discussions/2592>
-        .executor(Box::new(|fut| {
-            tokio::spawn(fut);
-        }))
         .connection_limits(limits)
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .connection_event_buffer_size(64)
@@ -250,9 +244,9 @@ where
                 swarm_event = swarm_stream.next() => match swarm_event {
                     // outbound events
                     Some(SwarmEvent::Behaviour(event)) => {
+                        metrics.record(&event);
                         handle_forest_behaviour_event(
                             swarm_stream.get_mut(),
-                            &metrics,
                             event,
                             &self.cs,
                             &self.genesis_cid,
@@ -418,7 +412,6 @@ async fn handle_network_message<P: StoreParams>(
 #[allow(clippy::too_many_arguments)]
 async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     swarm: &mut Swarm<ForestBehaviour<P>>,
-    metrics: &Metrics,
     event: ForestBehaviourEvent<P>,
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
@@ -461,7 +454,6 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
             }
         },
         ForestBehaviourEvent::Gossipsub(e) => {
-            metrics.record(&e);
             if let GossipsubEvent::Message {
                 propagation_source: source,
                 message,
@@ -651,38 +643,35 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
                 },
             }
         }
-        ForestBehaviourEvent::Ping(ping_event) => {
-            metrics.record(&ping_event);
-            match ping_event.result {
-                Ok(ping::Success::Ping { rtt }) => {
-                    trace!(
-                        "PingSuccess::Ping rtt to {} is {} ms",
-                        ping_event.peer.to_base58(),
-                        rtt.as_millis()
-                    );
-                }
-                Ok(ping::Success::Pong) => {
-                    trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
-                }
-                Err(ping::Failure::Other { error }) => {
-                    warn!(
-                        "PingFailure::Other {}: {}",
-                        ping_event.peer.to_base58(),
-                        error
-                    );
-                }
-                Err(err) => {
-                    let err = err.to_string();
-                    let peer = ping_event.peer.to_base58();
-                    warn!("{err}: {peer}",);
-                    if err.contains("protocol not supported") {
-                        warn!("Banning peer {peer} due to protocol error");
-                        swarm.ban_peer_id(ping_event.peer);
-                    }
+        ForestBehaviourEvent::Ping(ping_event) => match ping_event.result {
+            Ok(ping::Success::Ping { rtt }) => {
+                trace!(
+                    "PingSuccess::Ping rtt to {} is {} ms",
+                    ping_event.peer.to_base58(),
+                    rtt.as_millis()
+                );
+            }
+            Ok(ping::Success::Pong) => {
+                trace!("PingSuccess::Pong from {}", ping_event.peer.to_base58());
+            }
+            Err(ping::Failure::Other { error }) => {
+                warn!(
+                    "PingFailure::Other {}: {}",
+                    ping_event.peer.to_base58(),
+                    error
+                );
+            }
+            Err(err) => {
+                let err = err.to_string();
+                let peer = ping_event.peer.to_base58();
+                warn!("{err}: {peer}",);
+                if err.contains("protocol not supported") {
+                    warn!("Banning peer {peer} due to protocol error");
+                    swarm.ban_peer_id(ping_event.peer);
                 }
             }
-        }
-        ForestBehaviourEvent::Identify(id_event) => metrics.record(&id_event),
+        },
+        ForestBehaviourEvent::Identify(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => match ce_event {
             RequestResponseEvent::Message { peer, message } => match message {
                 RequestResponseMessage::Request {
@@ -776,7 +765,7 @@ async fn emit_event(sender: &flume::Sender<NetworkEvent>, event: NetworkEvent) {
 /// Builds the transport stack that libp2p will communicate over.
 pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
-        || libp2p::tcp::TokioTcpTransport::new(libp2p::tcp::GenTcpConfig::new().nodelay(true));
+        || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
     let transport = libp2p::dns::TokioDnsConfig::system(tcp_transport()).unwrap();
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
