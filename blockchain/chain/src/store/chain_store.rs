@@ -204,14 +204,7 @@ where
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset().await.unwrap());
         }
-        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
-    }
-
-    pub async fn tipset_from_keys_2(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        if tsk.cids().is_empty() {
-            return Ok(self.heaviest_tipset().await.unwrap());
-        }
-        tipset_from_keys_2(self.blockstore(), tsk).await
+        tipset_from_keys(self.blockstore(), tsk).await
     }
 
     /// Returns Tipset key hash from key-value store from provided CIDs
@@ -306,44 +299,6 @@ where
             Ok(lbts)
         } else {
             self.tipset_from_keys(lbts.parents()).await
-        }
-    }
-
-    pub async fn tipset_by_height_2(
-        &self,
-        height: ChainEpoch,
-        ts: Arc<Tipset>,
-        prev: bool,
-    ) -> Result<Arc<Tipset>, Error> {
-        if height > ts.epoch() {
-            return Err(Error::Other(
-                "searching for tipset that has a height less than starting point".to_owned(),
-            ));
-        }
-        if height == ts.epoch() {
-            return Ok(ts.clone());
-        }
-
-        let mut lbts = self
-            .chain_index
-            .get_tipset_by_height_2(ts.clone(), height)
-            .await?;
-
-        if lbts.epoch() < height {
-            warn!(
-                "chain index returned the wrong tipset at height {}, using slow retrieval",
-                height
-            );
-            lbts = self
-                .chain_index
-                .get_tipset_by_height_without_cache(ts, height)
-                .await?;
-        }
-
-        if lbts.epoch() == height || !prev {
-            Ok(lbts)
-        } else {
-            self.tipset_from_keys_2(lbts.parents()).await
         }
     }
 
@@ -752,43 +707,13 @@ where
 
 pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
 
-pub(crate) async fn tipset_from_keys_2<BS>(
-    store: &BS,
-    tsk: &TipsetKeys,
-) -> Result<Arc<Tipset>, Error>
-where
-    BS: Blockstore,
-{
-    let block_headers: Vec<BlockHeader> = tsk
-        .cids()
-        .iter()
-        .map(|c| {
-            store
-                .get_obj(c)
-                .map_err(|e| Error::Other(e.to_string()))?
-                .ok_or_else(|| Error::NotFound(String::from("Key for header")))
-        })
-        .collect::<Result<_, Error>>()?;
-    let ts = Arc::new(Tipset::new(block_headers)?);
-    Ok(ts)
-}
-
-/// Loads a tipset from memory given the tipset keys and cache.
 pub(crate) async fn tipset_from_keys<BS>(
-    cache: &TipsetCache,
     store: &BS,
     tsk: &TipsetKeys,
 ) -> Result<Arc<Tipset>, Error>
 where
     BS: Blockstore,
 {
-    if let Some(ts) = cache.write().await.get(tsk) {
-        metrics::LRU_CACHE_HIT
-            .with_label_values(&[metrics::values::TIPSET])
-            .inc();
-        return Ok(ts.clone());
-    }
-
     let block_headers: Vec<BlockHeader> = tsk
         .cids()
         .iter()
@@ -799,13 +724,9 @@ where
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
         .collect::<Result<_, Error>>()?;
-
+    
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
-    cache.write().await.put(tsk.clone(), ts.clone());
-    metrics::LRU_CACHE_MISS
-        .with_label_values(&[metrics::values::TIPSET])
-        .inc();
     Ok(ts)
 }
 

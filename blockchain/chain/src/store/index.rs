@@ -152,25 +152,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
     }
 
     pub async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk).await
-    }
-
-    pub(crate) async fn get_tipset_by_height_2(
-        &self,
-        from: Arc<Tipset>,
-        to: ChainEpoch,
-    ) -> Result<Arc<Tipset>, Error> {
-        //println!("get_tipset_by_height_2 from {} to {}", from.epoch(), to);
-        let mut curr = from.clone();
-        loop {
-            //println!("curr @{}", curr.epoch());
-            if curr.epoch() == to {
-                println!("found");
-                return Ok(from);
-            }
-            let tsk = curr.parents();
-            curr = crate::tipset_from_keys_2(&self.db, tsk).await?;
-        }
+        tipset_from_keys(&self.db, tsk).await
     }
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
@@ -183,36 +165,23 @@ impl<BS: Blockstore> ChainIndex<BS> {
         if from.epoch() - to <= SKIP_LENGTH {
             return self.walk_back(from, to).await;
         }
-        let total_size = from.epoch() - to;
-        let pb = ProgressBar::new(total_size as u64);
-        pb.message("Scanning blockchain ");
-        pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+        // let total_size = from.epoch() - to;
+        // let pb = ProgressBar::new(total_size as u64);
+        // pb.message("Scanning blockchain ");
+        // pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
-        let rounded = self.round_down(from).await?;
-
-        let mut cur = rounded.key().clone();
-        const MAX_COUNT: usize = 100;
-        let mut counter = 0;
+        let mut cur = from.key().clone();
+        // const MAX_COUNT: usize = 100;
+        // let mut counter = 0;
         loop {
-            let entry = self.skip_cache.write().await.get(&cur).cloned();
-            let lbe = if let Some(cached) = entry {
-                metrics::LRU_CACHE_HIT
-                    .with_label_values(&[metrics::values::SKIP])
-                    .inc();
-                cached
-            } else {
-                metrics::LRU_CACHE_MISS
-                    .with_label_values(&[metrics::values::SKIP])
-                    .inc();
-                self.fill_cache(std::mem::take(&mut cur)).await?
-            };
+            let lbe = self.fill_cache_2(std::mem::take(&mut cur)).await?;
 
             if let Some(genesis_tipset_keys) =
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
             {
                 if to == 0 {
                     let tipset =
-                        tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
+                        tipset_from_keys(&self.db, &genesis_tipset_keys).await?;
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
@@ -226,20 +195,20 @@ impl<BS: Blockstore> ChainIndex<BS> {
             } else if to > lbe.target_height {
                 return self.walk_back(lbe.tipset.clone(), to).await;
             }
-            let to_be_done = lbe.tipset.epoch() - to;
-            // Don't show the progress bar if we're doing less than 10_000 units of work.
-            if total_size > 10_000 {
-                pb.set((total_size - to_be_done) as u64);
-            }
+            // let to_be_done = lbe.tipset.epoch() - to;
+            // // Don't show the progress bar if we're doing less than 10_000 units of work.
+            // if total_size > 10_000 {
+            //     pb.set((total_size - to_be_done) as u64);
+            // }
 
             cur = lbe.target.clone();
 
-            if counter == MAX_COUNT {
-                counter = 0;
-                tokio::task::yield_now().await;
-            } else {
-                counter += 1;
-            }
+            // if counter == MAX_COUNT {
+            //     counter = 0;
+            //     tokio::task::yield_now().await;
+            // } else {
+            //     counter += 1;
+            // }
         }
     }
 
@@ -284,6 +253,39 @@ impl<BS: Blockstore> ChainIndex<BS> {
         });
 
         self.skip_cache.write().await.put(tsk.clone(), lbe.clone());
+        Ok(lbe)
+    }
+
+    /// Fills cache with look-back entry, and returns inserted entry.
+    async fn fill_cache_2(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
+        let tipset = self.load_tipset(&tsk).await?;
+
+        if tipset.epoch() == 0 {
+            return Ok(Arc::new(LookbackEntry {
+                tipset,
+                parent_height: 0,
+                target_height: Default::default(),
+                target: Default::default(),
+            }));
+        }
+
+        let parent = self.load_tipset(tipset.parents()).await?;
+        let r_height = self.round_height(tipset.epoch()) - SKIP_LENGTH;
+
+        let parent_epoch = parent.epoch();
+        let skip_target = if parent.epoch() < r_height {
+            parent
+        } else {
+            self.walk_back(parent, r_height).await?
+        };
+
+        let lbe = Arc::new(LookbackEntry {
+            tipset,
+            parent_height: parent_epoch,
+            target_height: skip_target.epoch(),
+            target: skip_target.key().clone(),
+        });
+
         Ok(lbe)
     }
 
