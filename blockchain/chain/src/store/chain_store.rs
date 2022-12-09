@@ -595,6 +595,10 @@ where
                 }
             }
 
+            if h.epoch() > incl_roots_epoch {
+                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
+            }
+
             if h.epoch() > 0 {
                 for p in h.parents().cids() {
                     blocks_to_walk.push_back(*p);
