@@ -408,8 +408,8 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
             },
         }
     }
-    // In case all services are down without errors we are still willing 
-    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep`` has 
+    // In case all services are down without errors we are still willing
+    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
     // a limit of approximately 2.2 years we have to loop
     loop {
         tokio::time::sleep(Duration::new(64000000, 0)).await;
