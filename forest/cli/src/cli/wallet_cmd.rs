@@ -51,7 +51,12 @@ pub enum WalletCommands {
         path: Option<String>,
     },
     /// List addresses of the wallet
-    List,
+    List {
+        #[structopt(short, long)]
+        exact_balance: bool,
+        #[structopt(short, long)]
+        fixed_unit: bool,
+    },
     /// Set the default wallet address
     SetDefault {
         /// The given key to set to the default address
@@ -167,7 +172,7 @@ impl WalletCommands {
 
                 println!("{}", key);
             }
-            Self::List => {
+            Self::List { exact_balance, fixed_unit } => {
                 let response = wallet_list(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
@@ -198,7 +203,7 @@ impl WalletCommands {
                             }
                         };
 
-                    let balance_int = match balance_string.parse::<BigInt>() {
+                    let mut balance_int = match balance_string.parse::<BigInt>() {
                         Ok(balance) => TokenAmount::from_atto(balance),
                         Err(err) => {
                             println!(
@@ -208,8 +213,41 @@ impl WalletCommands {
                             continue;
                         }
                     };
-
-                    println!("{addr:41}  {default_address_mark:7}  {balance_int:.6} FIL");
+                    if *fixed_unit {
+                        if *exact_balance {
+                            println!("{addr:41}  {default_address_mark:7}  {balance_int:.} FIL");
+                        } else {
+                            println!("{addr:41}  {default_address_mark:7}  ~{balance_int} FIL");
+                        }
+                    } else {
+                        let mut prefix = "FIL";
+                        let atto = balance_int.atto();
+                        if *atto < BigInt::from(1000) {
+                            prefix = "atto FIL";
+                            balance_int *= BigInt::from(1000000000000000000i64);
+                        } else if *atto < BigInt::from(1000000) {
+                            prefix = "femto FIL";
+                            balance_int *= BigInt::from(1000000000000000i64);
+                        } else if *atto < BigInt::from(1000000000) {
+                            prefix = "pico FIL";
+                            balance_int *= BigInt::from(1000000000000i64);
+                        } else if *atto < BigInt::from(1000000000000i64) {
+                            prefix = "nano FIL";
+                            balance_int *= BigInt::from(1000000000);
+                        } else if *atto < BigInt::from(1000000000000000i64) {
+                            prefix = "micro FIL";
+                            balance_int *= BigInt::from(1000000);
+                        } else if *atto < BigInt::from(1000000000000000000i64) {
+                            prefix = "milli FIL";
+                            balance_int *= BigInt::from(1000);
+                        }
+                        if *exact_balance {
+                            println!("{addr:41}  {default_address_mark:7}  {balance_int} {prefix}");
+                        } else {
+                            println!("{addr:41}  {default_address_mark:7}  ~{balance_int:.4} {prefix}");
+                        }
+                    }
+                    
                 }
             }
             Self::SetDefault { key } => {
