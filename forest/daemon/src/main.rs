@@ -4,11 +4,12 @@
 mod cli;
 mod daemon;
 
+use anyhow::Context;
 use cli::Cli;
 
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{check_for_unknown_keys, cli_error_and_die, Config, ConfigPath, DaemonConfig, LogConfig},
+    cli::{check_for_unknown_keys, cli_error_and_die, Config, ConfigPath, DaemonConfig},
     logger,
 };
 use forest_db::Store;
@@ -96,7 +97,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 }
 
 #[cfg(feature = "rocksdb")]
-fn check_for_low_fd(config: &Config) -> Result<(), anyhow::Error> {
+fn check_for_low_fd(config: &Config) -> anyhow::Result<()> {
     use rlimit::{getrlimit, Resource};
     // Conservative estimate of how many FD we will need to run a Forest node
     const MAINNET_CHAIN_SIZE: u64 = 1000_u64.pow(4); // 1TB
@@ -139,93 +140,73 @@ type Db = forest_db::rocks::RocksDb;
 #[cfg(feature = "paritydb")]
 type Db = forest_db::parity_db::ParityDb;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::from_args();
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
-    match opts.to_config() {
-        Ok((cfg, path)) => {
-            logger::setup_logger(&cfg.log, opts.color.into());
-            ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
+    let (cfg, path) = opts.to_config().context("Error parsing config:")?;
+    logger::setup_logger(&cfg.log, opts.color.into());
+    ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
 
-            if let Some(path) = &path {
-                match path {
-                    ConfigPath::Env(path) => {
-                        info!("FOREST_CONFIG_PATH loaded: {}", path.display())
-                    }
-                    ConfigPath::Project(path) => {
-                        info!("Project config loaded: {}", path.display())
-                    }
-                    _ => (),
-                }
-                check_for_unknown_keys(path.to_path_buf(), &cfg);
-            } else {
-                info!("Using default {} config", cfg.chain.name);
+    if let Some(path) = &path {
+        match path {
+            ConfigPath::Env(path) => {
+                info!("FOREST_CONFIG_PATH loaded: {}", path.display())
             }
-            match cmd {
-                Some(_) => {
-                    warn!("All subcommands have been moved to forest-cli tool");
-                }
-                None => {
-                    if let Err(e) = check_for_low_fd(&cfg) {
-                        cli_error_and_die(format!("Error checking low fd: {e}"), 1);
-                    }
-                    if opts.detach {
-                        create_ipc_lock();
-                        info!(
-                            "Redirecting stdout and stderr to files {} and {}.",
-                            cfg.daemon.stdout.display(),
-                            cfg.daemon.stderr.display()
-                        );
-                        let result = build_daemon(&cfg.daemon)
-                            .unwrap_or_else(|e| {
-                                cli_error_and_die(
-                                    format!("Error building daemon. Error was: {e}"),
-                                    1,
-                                )
-                            })
-                            .start();
-                        match result {
-                            Ok(_) => info!("Process detached"),
-                            Err(e) => {
-                                cli_error_and_die(
-                                    format!("Error when detaching. Error was: {e}"),
-                                    1,
-                                );
-                            }
-                        }
-                    }
-
-                    let rt = Runtime::new().unwrap();
-                    if opts.tokio_console {
-                        console_subscriber::init();
-                    }
-
-                    let db: Db = rt.block_on(daemon::start(cfg, opts.detach));
-
-                    info!("Shutting down tokio...");
-                    rt.shutdown_timeout(Duration::from_secs(10));
-
-                    if let Err(e) = db.flush() {
-                        error!("Error flushing db: {e}");
-                    }
-                    let db_weak_ref = Arc::downgrade(&db.db);
-                    drop(db);
-
-                    if db_weak_ref.strong_count() != 0 {
-                        error!(
-                            "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-                            db_weak_ref.strong_count()
-                        );
-                    }
-                    info!("Forest finish shutdown");
-                }
+            ConfigPath::Project(path) => {
+                info!("Project config loaded: {}", path.display())
             }
+            _ => (),
         }
-        Err(e) => {
-            logger::setup_logger(&LogConfig::default(), opts.color.into());
-            cli_error_and_die(format!("Error parsing config: {e}"), 1);
+        check_for_unknown_keys(path.to_path_buf(), &cfg);
+    } else {
+        info!("Using default {} config", cfg.chain.name);
+    }
+    match cmd {
+        Some(_) => {
+            warn!("All subcommands have been moved to forest-cli tool");
+        }
+        None => {
+            check_for_low_fd(&cfg).context("Error checking low fd")?;
+            if opts.detach {
+                create_ipc_lock();
+                info!(
+                    "Redirecting stdout and stderr to files {} and {}.",
+                    cfg.daemon.stdout.display(),
+                    cfg.daemon.stderr.display()
+                );
+                let result = build_daemon(&cfg.daemon)
+                    .context("Error building daemon.")?
+                    .start();
+                result.context("Error when detaching.")?;
+                info!("Process detached");
+            }
+
+            let rt = Runtime::new()?;
+            if opts.tokio_console {
+                console_subscriber::init();
+            }
+
+            let db: Db = rt.block_on(daemon::start(cfg, opts.detach))?;
+
+            info!("Shutting down tokio...");
+            rt.shutdown_timeout(Duration::from_secs(10));
+
+            if let Err(e) = db.flush() {
+                error!("Error flushing db: {e}");
+            }
+            let db_weak_ref = Arc::downgrade(&db.db);
+            drop(db);
+
+            if db_weak_ref.strong_count() != 0 {
+                error!(
+                    "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
+                    db_weak_ref.strong_count()
+                );
+            }
+            info!("Forest finish shutdown");
         }
     };
+    Ok(())
 }
