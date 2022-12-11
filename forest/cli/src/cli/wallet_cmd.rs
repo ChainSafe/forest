@@ -172,7 +172,10 @@ impl WalletCommands {
 
                 println!("{}", key);
             }
-            Self::List { exact_balance, fixed_unit } => {
+            Self::List {
+                exact_balance,
+                fixed_unit,
+            } => {
                 let response = wallet_list(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)
@@ -213,41 +216,43 @@ impl WalletCommands {
                             continue;
                         }
                     };
-                    if *fixed_unit {
+                    let mut unit = "FIL";
+                    let (balance_string, symbol) = if *fixed_unit {
                         if *exact_balance {
-                            println!("{addr:41}  {default_address_mark:7}  {balance_int:.} FIL");
+                            formatring_vars(format!("{balance_int}"), format!("{balance_int}"))
                         } else {
-                            println!("{addr:41}  {default_address_mark:7}  ~{balance_int} FIL");
+                            formatring_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
                         }
                     } else {
-                        let mut prefix = "FIL";
                         let atto = balance_int.atto();
                         if *atto < BigInt::from(1000) {
-                            prefix = "atto FIL";
+                            unit = "atto FIL";
                             balance_int *= BigInt::from(1000000000000000000i64);
                         } else if *atto < BigInt::from(1000000) {
-                            prefix = "femto FIL";
+                            unit = "femto FIL";
                             balance_int *= BigInt::from(1000000000000000i64);
                         } else if *atto < BigInt::from(1000000000) {
-                            prefix = "pico FIL";
+                            unit = "pico FIL";
                             balance_int *= BigInt::from(1000000000000i64);
                         } else if *atto < BigInt::from(1000000000000i64) {
-                            prefix = "nano FIL";
+                            unit = "nano FIL";
                             balance_int *= BigInt::from(1000000000);
                         } else if *atto < BigInt::from(1000000000000000i64) {
-                            prefix = "micro FIL";
+                            unit = "micro FIL";
                             balance_int *= BigInt::from(1000000);
                         } else if *atto < BigInt::from(1000000000000000000i64) {
-                            prefix = "milli FIL";
+                            unit = "milli FIL";
                             balance_int *= BigInt::from(1000);
                         }
                         if *exact_balance {
-                            println!("{addr:41}  {default_address_mark:7}  {balance_int} {prefix}");
+                            formatring_vars(format!("{balance_int}"), format!("{balance_int}"))
                         } else {
-                            println!("{addr:41}  {default_address_mark:7}  ~{balance_int:.4} {prefix}");
+                            formatring_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
                         }
-                    }
-                    
+                    };
+                    println!(
+                        "{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}"
+                    );
                 }
             }
             Self::SetDefault { key } => {
@@ -313,5 +318,37 @@ impl WalletCommands {
                 println!("{}", response);
             }
         };
+    }
+}
+
+fn formatring_vars(balance_string: String, balance_exact: String) -> (String, String) {
+    if balance_exact.len() <= balance_string.len() {
+        let res = if balance_exact.ends_with(".0") {
+            //unfallible unwrap
+            balance_exact.strip_suffix(".0").unwrap().to_string()
+        } else {
+            balance_exact
+        };
+        (res, "".to_string())
+    } else {
+        let res = if balance_string.ends_with(".0") {
+            //unfallible unwrap
+            balance_string.strip_suffix(".0").unwrap().to_string()
+        } else if balance_string.ends_with('.') {
+            //unfallible unwrap
+            balance_string.strip_suffix('.').unwrap().to_string()
+        } else if balance_string.ends_with("0000") {
+            //unfallible unwrap
+            balance_string.strip_suffix("0000").unwrap().to_string()
+        } else if balance_string.ends_with("000") {
+            //unfallible unwrap
+            balance_string.strip_suffix("000").unwrap().to_string()
+        } else if balance_string.ends_with("00") {
+            //unfallible unwrap
+            balance_string.strip_suffix("00").unwrap().to_string()
+        } else {
+            balance_string
+        };
+        (res, "~".to_string())
     }
 }
