@@ -167,14 +167,8 @@ impl ChainConfig {
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {
         match self.name.as_ref() {
-            "mainnet" => {
-                use mainnet::DEFAULT_GENESIS;
-                Some(DEFAULT_GENESIS)
-            }
-            "calibnet" => {
-                use calibnet::DEFAULT_GENESIS;
-                Some(DEFAULT_GENESIS)
-            }
+            "mainnet" => Some(mainnet::DEFAULT_GENESIS),
+            "calibnet" => Some(calibnet::DEFAULT_GENESIS),
             _ => None,
         }
     }
