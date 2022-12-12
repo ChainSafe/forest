@@ -66,10 +66,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // State API
     access.insert(state_api::STATE_CALL, Access::Read);
-    access.insert(
-        state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
-        Access::Read,
-    );
     access.insert(state_api::STATE_REPLAY, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
@@ -306,7 +302,6 @@ pub mod state_api {
     use std::collections::HashMap;
 
     use crate::data_types::{MarketDeal, MessageLookup};
-    use forest_actor_interface::miner::SectorPreCommitInfo;
     use forest_blocks::tipset_keys_json::TipsetKeysJson;
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
@@ -346,12 +341,6 @@ pub mod state_api {
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub type StateWaitMsgParams = (CidJson, i64);
     pub type StateWaitMsgResult = MessageLookup;
-
-    pub const STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER: &str =
-        "Filecoin.StateMinerPreCommitDepositForPower";
-    pub type StateMinerPreCommitDepositForPowerParams =
-        (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
-    pub type StateMinerPreCommitDepositForPowerResult = String;
 }
 
 /// Gas API

@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 47
+- Forest method count: 46
 - Lotus method count: 173
-- API coverage: 27.17%
+- API coverage: 26.59%
 
 ## Forest-only Methods
 
@@ -57,7 +57,6 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 | `Filecoin.GasEstimateFeeCap`                         | `String` | `BigInt`
 | `Filecoin.GasEstimateGasPremium`                     | `String` | `BigInt`
 | `Filecoin.GasEstimateMessageGas`                     | `MessageJson` | `UnsignedMessageJson`
-| `Filecoin.StateMinerPreCommitDepositForPower`        | `String` | `BigInt`
 | `Filecoin.StateNetworkName`                          | `String` | `dNetworkName`
 | `Filecoin.WalletBalance`                             | `String` | `BigInt`
 | `Filecoin.WalletDefaultAddress`                      | `String` | `Address`
@@ -199,7 +198,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.StateMinerInitialPledgeCollateral`         | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerPartitions`                      | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerPower`                           | `-` | `-` |
-|   ✔️    | `Filecoin.StateMinerPreCommitDepositForPower`        | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
+|   ❌    | `Filecoin.StateMinerPreCommitDepositForPower`        | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerProvingDeadline`                 | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerRecoveries`                      | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerSectorAllocated`                 | `-` | `-` |
