@@ -432,7 +432,6 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
         config.client.download_snapshot
     };
 
-    // Match statement to properly handle comfirmation prompt results, including the case of an error (e.g., an interrupt).
     if should_download {
         true
     } else {
