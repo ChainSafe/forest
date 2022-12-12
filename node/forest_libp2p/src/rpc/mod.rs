@@ -1,20 +1,19 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod decoder;
+use decoder::DagCborDecodingReader;
+
 use async_trait::async_trait;
-use asynchronous_codec::FramedRead;
-use forest_encoding::de::DeserializeOwned;
 use futures::prelude::*;
-use fvm_ipld_encoding::to_vec;
 use libp2p::core::ProtocolName;
 use libp2p::request_response::OutboundFailure;
 use libp2p::request_response::RequestResponseCodec;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;
 use std::marker::PhantomData;
-
-mod cbor_codec;
-use cbor_codec::Decoder;
+use std::time::Duration;
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy [`RequestResponseCodec`]
 /// for Hello and `ChainExchange` protocols without duplication.
@@ -84,15 +83,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut reader = FramedRead::new(io, Decoder::<RQ>::new());
-        // Expect only one request
-        let req = reader
-            .next()
-            .await
-            .transpose()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "read_request returned none"))?;
-        Ok(req)
+        read_and_decode(io).await
     }
 
     async fn read_response<T>(
@@ -103,15 +94,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        let mut reader = FramedRead::new(io, Decoder::<RS>::new());
-        // Expect only one response
-        let resp = reader
-            .next()
-            .await
-            .transpose()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "read_response returned none"))?;
-        Ok(resp)
+        read_and_decode(io).await
     }
 
     async fn write_request<T>(
@@ -123,14 +106,7 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        // TODO: Use FramedWrite to stream write. Dilemma right now is if we should fork the cbor codec so we can replace serde_cbor to our fork of serde_cbor
-
-        io.write_all(
-            &to_vec(&req).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
-        io.close().await?;
-        Ok(())
+        encode_and_write(io, req).await
     }
 
     async fn write_response<T>(
@@ -142,12 +118,40 @@ where
     where
         T: AsyncWrite + Unpin + Send,
     {
-        // TODO: Use FramedWrite to stream write. Dilemma right now is if we should fork the cbor codec so we can replace serde_cbor to our fork of serde_cbor
-        io.write_all(
-            &to_vec(&res).map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?,
-        )
-        .await?;
-        io.close().await?;
-        Ok(())
+        encode_and_write(io, res).await
     }
+}
+
+async fn read_and_decode<IO, T>(io: &mut IO) -> io::Result<T>
+where
+    IO: AsyncRead + Unpin,
+    T: serde::de::DeserializeOwned,
+{
+    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
+    const TIMEOUT: Duration = Duration::from_secs(30);
+
+    // Currently the protocol does not send length encoded message,
+    // and we use `decode-success-with-no-trailing-data` to detect end of frame
+    // just like what `FramedRead` does, so it's possible to cause deadlock at `io.poll_ready`
+    // Adding timeout here to mitigate the issue
+    match tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await {
+        Ok(r) => r,
+        Err(_) => {
+            let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
+            log::warn!("{err}");
+            Err(err)
+        }
+    }
+}
+
+async fn encode_and_write<IO, T>(io: &mut IO, data: T) -> io::Result<()>
+where
+    IO: AsyncWrite + Unpin,
+    T: serde::Serialize,
+{
+    let bytes = fvm_ipld_encoding::to_vec(&data)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    io.write_all(&bytes).await?;
+    io.close().await?;
+    Ok(())
 }
