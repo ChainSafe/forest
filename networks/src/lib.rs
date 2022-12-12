@@ -99,7 +99,7 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct ChainConfig {
     pub name: String,
@@ -110,71 +110,6 @@ pub struct ChainConfig {
     #[serde(default = "default_policy")]
     #[serde(with = "serde_policy")]
     pub policy: Policy,
-}
-
-// FIXME: remove this trait once builtin-actors Policy have it
-// https://github.com/filecoin-project/builtin-actors/pull/497
-impl PartialEq for ChainConfig {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.bootstrap_peers == other.bootstrap_peers
-            && self.block_delay_secs == other.block_delay_secs
-            && sort_by_epoch(&self.height_infos) == sort_by_epoch(&other.height_infos)
-            && (self.policy.max_aggregated_sectors == other.policy.max_aggregated_sectors
-                && self.policy.min_aggregated_sectors == other.policy.min_aggregated_sectors
-                && self.policy.max_aggregated_proof_size == other.policy.max_aggregated_proof_size
-                && self.policy.max_replica_update_proof_size
-                    == other.policy.max_replica_update_proof_size
-                && self.policy.pre_commit_sector_batch_max_size
-                    == other.policy.pre_commit_sector_batch_max_size
-                && self.policy.prove_replica_updates_max_size
-                    == other.policy.prove_replica_updates_max_size
-                && self.policy.expired_pre_commit_clean_up_delay
-                    == other.policy.expired_pre_commit_clean_up_delay
-                && self.policy.wpost_proving_period == other.policy.wpost_proving_period
-                && self.policy.wpost_challenge_window == other.policy.wpost_challenge_window
-                && self.policy.wpost_period_deadlines == other.policy.wpost_period_deadlines
-                && self.policy.wpost_max_chain_commit_age
-                    == other.policy.wpost_max_chain_commit_age
-                && self.policy.wpost_dispute_window == other.policy.wpost_dispute_window
-                && self.policy.sectors_max == other.policy.sectors_max
-                && self.policy.max_partitions_per_deadline
-                    == other.policy.max_partitions_per_deadline
-                && self.policy.max_control_addresses == other.policy.max_control_addresses
-                && self.policy.max_peer_id_length == other.policy.max_peer_id_length
-                && self.policy.max_multiaddr_data == other.policy.max_multiaddr_data
-                && self.policy.addressed_partitions_max == other.policy.addressed_partitions_max
-                && self.policy.declarations_max == other.policy.declarations_max
-                && self.policy.addressed_sectors_max == other.policy.addressed_sectors_max
-                && self.policy.max_pre_commit_randomness_lookback
-                    == other.policy.max_pre_commit_randomness_lookback
-                && self.policy.pre_commit_challenge_delay
-                    == other.policy.pre_commit_challenge_delay
-                && self.policy.wpost_challenge_lookback == other.policy.wpost_challenge_lookback
-                && self.policy.fault_declaration_cutoff == other.policy.fault_declaration_cutoff
-                && self.policy.fault_max_age == other.policy.fault_max_age
-                && self.policy.worker_key_change_delay == other.policy.worker_key_change_delay
-                && self.policy.min_sector_expiration == other.policy.min_sector_expiration
-                && self.policy.max_sector_expiration_extension
-                    == other.policy.max_sector_expiration_extension
-                && self.policy.deal_limit_denominator == other.policy.deal_limit_denominator
-                && self.policy.consensus_fault_ineligibility_duration
-                    == other.policy.consensus_fault_ineligibility_duration
-                && self.policy.new_sectors_per_period_max
-                    == other.policy.new_sectors_per_period_max
-                && self.policy.chain_finality == other.policy.chain_finality
-                && self.policy.valid_post_proof_type == other.policy.valid_post_proof_type
-                && self.policy.valid_pre_commit_proof_type
-                    == other.policy.valid_pre_commit_proof_type
-                && self.policy.minimum_verified_allocation_size
-                    == other.policy.minimum_verified_allocation_size
-                && self.policy.deal_updates_interval == other.policy.deal_updates_interval
-                && self.policy.prov_collateral_percent_supply_num
-                    == other.policy.prov_collateral_percent_supply_num
-                && self.policy.prov_collateral_percent_supply_denom
-                    == other.policy.prov_collateral_percent_supply_denom
-                && self.policy.minimum_consensus_power == other.policy.minimum_consensus_power)
-    }
 }
 
 impl ChainConfig {
@@ -232,14 +167,8 @@ impl ChainConfig {
 
     pub fn genesis_bytes(&self) -> Option<&[u8]> {
         match self.name.as_ref() {
-            "mainnet" => {
-                use mainnet::DEFAULT_GENESIS;
-                Some(DEFAULT_GENESIS)
-            }
-            "calibnet" => {
-                use calibnet::DEFAULT_GENESIS;
-                Some(DEFAULT_GENESIS)
-            }
+            "mainnet" => Some(mainnet::DEFAULT_GENESIS),
+            "calibnet" => Some(calibnet::DEFAULT_GENESIS),
             _ => None,
         }
     }

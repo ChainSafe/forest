@@ -8,7 +8,7 @@ use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
-use forest_actor_interface::{miner, EPOCHS_IN_DAY};
+use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
@@ -465,32 +465,11 @@ where
             .collect()
     }
 
-    async fn parent_state_tsk(&self, key: &TipsetKeys) -> anyhow::Result<StateTree<&DB>, Error> {
-        let ts = self.tipset_from_keys(key).await?;
-        StateTree::new_from_root(self.blockstore(), ts.parent_state())
-            .map_err(|e| Error::Other(format!("Could not get actor state {:?}", e)))
-    }
-
     /// Retrieves ordered valid messages from a `Tipset`. This will only include messages that will
     /// be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = self.block_msgs_for_tipset(ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
-    }
-
-    /// get miner state given address and tipsetkeys
-    pub async fn miner_load_actor_tsk(
-        &self,
-        address: &Address,
-        tsk: &TipsetKeys,
-    ) -> anyhow::Result<miner::State> {
-        let state = self.parent_state_tsk(tsk).await?;
-        let actor = state
-            .get_actor(address)
-            .map_err(|_| Error::Other("Failure getting actor".to_string()))?
-            .ok_or_else(|| Error::Other("Could not init State Tree".to_string()))?;
-
-        miner::State::load(self.blockstore(), &actor)
     }
 
     /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.

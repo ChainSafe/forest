@@ -54,7 +54,7 @@ pub struct CliOpts {
     /// Allow MDNS (default: false)
     #[structopt(long)]
     pub mdns: Option<bool>,
-    /// Validate snapshot at given EPOCH
+    /// Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s)
     #[structopt(long)]
     pub height: Option<i64>,
     /// Import a snapshot from a local CAR file or URL
