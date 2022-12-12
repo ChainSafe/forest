@@ -178,6 +178,11 @@ where
     sm.blockstore().flush()?;
 
     if let Some(height) = validate_height {
+        let height = if height > 0 {
+            height
+        } else {
+            ts.epoch() + height
+        };
         info!("Validating imported chain from height: {}", height);
         sm.validate_chain::<V>(ts.clone(), height).await?;
     }
