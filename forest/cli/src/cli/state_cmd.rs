@@ -22,7 +22,8 @@ struct VestingScheduleEntry {
 pub enum StateCommands {}
 
 impl StateCommands {
-    pub async fn run(&self, _config: Config) {
+    pub async fn run(&self, _config: Config) -> anyhow::Result<()> {
         // match self {}
+        Ok(())
     }
 }

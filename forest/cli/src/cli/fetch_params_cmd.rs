@@ -24,11 +24,11 @@ pub struct FetchCommands {
 }
 
 impl FetchCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         let sizes = if self.all {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
-            let sector_size = ram_to_int(size).unwrap();
+            let sector_size = ram_to_int(size)?;
             SectorSizeOpt::Size(sector_size)
         } else if self.keys {
             SectorSizeOpt::Keys
@@ -39,14 +39,12 @@ impl FetchCommands {
             );
         };
 
-        get_params_default(&config.client.data_dir, sizes)
-            .await
-            .unwrap();
+        get_params_default(&config.client.data_dir, sizes).await
     }
 }
 
 /// Converts a human readable string to a `u64` size.
-fn ram_to_int(size: &str) -> Result<SectorSize, String> {
+fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
     // * there is no library to do this, but if other sector sizes are supported in future
     // this should probably be changed to parse from string to `SectorSize`
     let mut trimmed = size.trim_end_matches('B');
@@ -58,10 +56,10 @@ fn ram_to_int(size: &str) -> Result<SectorSize, String> {
         "536870912" | "512Mi" | "512mi" => Ok(SectorSize::_512MiB),
         "34359738368" | "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
         "68719476736" | "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
-        _ => Err(format!(
+        _ => Err(anyhow::Error::msg(format!(
             "Failed to parse: {}. Must be a valid sector size",
             size
-        )),
+        ))),
     }
 }
 
