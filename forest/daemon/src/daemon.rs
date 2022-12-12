@@ -427,22 +427,16 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
                 )
                 .default(false)
                 .interact()
+                .unwrap_or_default()
     } else {
-        Ok(config.client.download_snapshot)
+        config.client.download_snapshot
     };
 
     // Match statement to properly handle comfirmation prompt results, including the case of an error (e.g., an interrupt).
-    match should_download {
-        Ok(result) => {
-            if result {
-                true
-            } else {
-                cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
-            }
-        }
-        Err(_) => {
-            cli_error_and_die("Error getting input.", 1);
-        }
+    if should_download {
+        true
+    } else {
+        cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
     }
 }
 
