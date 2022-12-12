@@ -23,7 +23,6 @@ fil_actors_runtime.workspace = true
 anyhow.workspace = true
 cid.workspace = true
 forest_encoding.workspace = true
-forest_fil_types.workspace = true
 forest_json.workspace = true
 forest_utils.workspace = true
 fvm.workspace = true

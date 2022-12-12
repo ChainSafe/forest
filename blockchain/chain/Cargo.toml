@@ -19,7 +19,6 @@ forest_blocks.workspace = true
 forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_encoding.workspace = true
-forest_fil_types.workspace = true
 forest_interpreter.workspace = true
 forest_ipld.workspace = true
 forest_legacy_ipld_amt.workspace = true
