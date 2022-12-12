@@ -2876,7 +2876,6 @@ dependencies = [
  "fil_actor_reward_v9",
  "fil_actors_runtime_v9",
  "forest_encoding",
- "forest_fil_types",
  "forest_json",
  "forest_utils",
  "fvm",
@@ -2975,7 +2974,6 @@ dependencies = [
  "forest_crypto",
  "forest_db",
  "forest_encoding",
- "forest_fil_types",
  "forest_interpreter",
  "forest_ipld",
  "forest_legacy_ipld_amt",
@@ -3252,8 +3250,6 @@ dependencies = [
  "base64",
  "cid",
  "filecoin-proofs-api",
- "forest_json",
- "forest_utils",
  "fvm_ipld_encoding 0.2.2",
  "fvm_shared",
  "num-derive",
@@ -3261,7 +3257,6 @@ dependencies = [
  "quickcheck",
  "serde",
  "serde_json",
- "time",
 ]
 
 [[package]]
@@ -3310,7 +3305,6 @@ dependencies = [
  "forest_blocks",
  "forest_crypto",
  "forest_encoding",
- "forest_fil_types",
  "forest_message",
  "forest_networks",
  "forest_utils",

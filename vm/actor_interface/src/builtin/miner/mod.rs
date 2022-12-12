@@ -3,7 +3,6 @@
 
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
-use forest_fil_types::deadlines::DeadlineInfo;
 use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::json::go_vec_visitor;
@@ -182,14 +181,6 @@ impl State {
         match self {
             State::V8(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
             State::V9(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-        }
-    }
-
-    /// Loads deadline at index for a miner's state
-    pub fn deadline_info(&self, _epoch: ChainEpoch) -> DeadlineInfo {
-        match self {
-            State::V8(_st) => todo!(),
-            State::V9(_st) => todo!(),
         }
     }
 
