@@ -10,7 +10,6 @@ use forest_blocks::{
 use forest_db::Store;
 use forest_json::cid::CidJson;
 use forest_json::message::json::MessageJson;
-use forest_networks::Height;
 use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -312,46 +311,6 @@ where
         .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
         .await?;
     Ok("Ok".to_string())
-}
-
-pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainGetRandomnessFromTicketsParams>,
-) -> Result<ChainGetRandomnessFromTicketsResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
-    let entropy = entropy.unwrap_or_default();
-    let hyperdrive_height = data.state_manager.chain_config().epoch(Height::Hyperdrive);
-    Ok(data
-        .state_manager
-        .get_chain_randomness(
-            &tsk,
-            pers,
-            epoch,
-            &base64::decode(entropy)?,
-            epoch <= hyperdrive_height,
-        )
-        .await?)
-}
-
-pub(crate) async fn chain_get_randomness_from_beacon<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainGetRandomnessFromBeaconParams>,
-) -> Result<ChainGetRandomnessFromBeaconResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
-    let entropy = entropy.unwrap_or_default();
-
-    Ok(data
-        .state_manager
-        .get_beacon_randomness(&tsk, pers, epoch, &base64::decode(entropy)?)
-        .await?)
 }
 
 pub(crate) async fn chain_get_name<DB, B>(

@@ -39,8 +39,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_HASH, Access::Read);
     access.insert(chain_api::CHAIN_VALIDATE_TIPSET_CHECKPOINTS, Access::Read);
-    access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
-    access.insert(chain_api::CHAIN_GET_RANDOMNESS_FROM_BEACON, Access::Read);
     access.insert(chain_api::CHAIN_GET_NAME, Access::Read);
 
     // Message Pool API
@@ -70,10 +68,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_CALL, Access::Read);
     access.insert(
         state_api::STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
-        Access::Read,
-    );
-    access.insert(
-        state_api::STATE_MINER_INITIAL_PLEDGE_COLLATERAL,
         Access::Read,
     );
     access.insert(state_api::STATE_REPLAY, Access::Read);
@@ -209,15 +203,6 @@ pub mod chain_api {
     pub const CHAIN_VALIDATE_TIPSET_CHECKPOINTS: &str = "Filecoin.ChainValidateTipSetCheckpoints";
     pub type ChainValidateTipSetCheckpointsParams = ();
     pub type ChainValidateTipSetCheckpointsResult = String;
-
-    pub const CHAIN_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.ChainGetRandomnessFromTickets";
-    pub type ChainGetRandomnessFromTicketsParams =
-        (TipsetKeysJson, i64, ChainEpoch, Option<String>);
-    pub type ChainGetRandomnessFromTicketsResult = [u8; 32];
-
-    pub const CHAIN_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.ChainGetRandomnessFromBeacon";
-    pub type ChainGetRandomnessFromBeaconParams = (TipsetKeysJson, i64, ChainEpoch, Option<String>);
-    pub type ChainGetRandomnessFromBeaconResult = [u8; 32];
 
     pub const CHAIN_GET_NAME: &str = "Filecoin.ChainGetName";
     pub type ChainGetNameParams = ();
@@ -367,12 +352,6 @@ pub mod state_api {
     pub type StateMinerPreCommitDepositForPowerParams =
         (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
     pub type StateMinerPreCommitDepositForPowerResult = String;
-
-    pub const STATE_MINER_INITIAL_PLEDGE_COLLATERAL: &str =
-        "Filecoin.StateMinerInitialPledgeCollateral";
-    pub type StateMinerInitialPledgeCollateralParams =
-        (AddressJson, SectorPreCommitInfo, TipsetKeysJson);
-    pub type StateMinerInitialPledgeCollateralResult = String;
 }
 
 /// Gas API
