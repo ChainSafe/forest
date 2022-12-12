@@ -431,6 +431,7 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
         Ok(config.client.download_snapshot)
     };
 
+    // Match statement to properly handle comfirmation prompt results, including the case of an error (e.g., an interrupt).
     match should_download {
         Ok(result) => {
             if result {
@@ -440,6 +441,7 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
             }
         }
         Err(_) => {
+            // This drop statement is required to allow `cli_error_and_die` to take over in case of an error.
             std::mem::drop(should_download);
             cli_error_and_die("Error getting input.", 1);
         }
