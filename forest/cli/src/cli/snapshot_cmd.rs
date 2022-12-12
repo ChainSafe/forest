@@ -381,7 +381,6 @@ async fn validate(
         .await
         .unwrap();
         let genesis_header = &genesis.blocks()[0];
-        // let genesis_h = genesis_header.clone();
         chain_store.set_genesis(genesis_header).unwrap();
 
         let cids = {
@@ -392,8 +391,6 @@ async fn validate(
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids)).await?;
 
-        let snapshot_head_epoch = ts.epoch();
-
         validate_links_and_genesis_traversal(
             &chain_store,
             ts,
@@ -401,11 +398,7 @@ async fn validate(
             *validate_height,
             &genesis,
         )
-        .await
-        .expect(&format!(
-            "failed validating ipld links and genesis traversal from snapshot at height: {}",
-            &snapshot_head_epoch
-        ));
+        .await?;
     }
 
     Ok(())
@@ -459,10 +452,10 @@ where
         if height > upto {
             let mut assert_cid_exists = |cid: Cid| async move {
                 let data = db.get(&cid);
-                data.transpose().expect(&format!(
+                data.transpose().ok_or(anyhow::anyhow!(
                     "could not find data for cids in tipset at height: {}",
                     height
-                ))
+                ))?
             };
 
             for h in tipset.blocks() {
