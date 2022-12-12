@@ -271,9 +271,8 @@ where
     DB: Blockstore,
     B: Beacon,
 {
-    let (addr_str, msg_str, SignatureJson(sig)) = params;
-    let address = Address::from_str(&addr_str)?;
-    let msg = hex::decode(msg_str)?;
+    let (addr, msg, SignatureJson(sig)) = params;
+    let address = addr.0;
 
     let ret = sig.verify(&msg, &address).is_ok();
     Ok(ret)

@@ -32,11 +32,7 @@ jobs:
           args: --verbose --no-progress 'README.md'
           # Fail action on broken links
           fail: true
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-          key: ${{ runner.os }}-docs-cargo-bin-${{ hashFiles('rust-toolchain.toml') }}
+      - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
       - name: Install MDBook
         run: make install-doc-tools
         env:
