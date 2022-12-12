@@ -441,8 +441,6 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
             }
         }
         Err(_) => {
-            // This drop statement is required to allow `cli_error_and_die` to take over in case of an error.
-            std::mem::drop(should_download);
             cli_error_and_die("Error getting input.", 1);
         }
     }
