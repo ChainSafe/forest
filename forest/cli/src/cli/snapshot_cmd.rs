@@ -386,7 +386,7 @@ async fn validate(
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
-            load_car(&chain_store.db, reader.compat()).await?
+            load_car(chain_store.blockstore(), reader.compat()).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids)).await?;
@@ -394,7 +394,7 @@ async fn validate(
         validate_links_and_genesis_traversal(
             &chain_store,
             ts,
-            &chain_store.db,
+            chain_store.blockstore(),
             *validate_height,
             &genesis,
         )
@@ -412,7 +412,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     genesis_tipset: &Tipset,
 ) -> anyhow::Result<()>
 where
-    DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync + Clone,
+    DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
     let mut seen = std::collections::HashSet::<Cid>::new();
     let upto = ts.epoch() - upto;
@@ -430,7 +430,7 @@ where
     let mut iteration_guard = ts.epoch() + 1;
     let genesis_reachable = loop {
         if iteration_guard <= 0 {
-            break false;
+            bail!("could not reach genesis from snapshot");
         }
 
         let tipset = chain_store.tipset_from_keys(&tsk).await?;
@@ -452,10 +452,10 @@ where
         if height > upto {
             let mut assert_cid_exists = |cid: Cid| async move {
                 let data = db.get(&cid);
-                data.transpose().ok_or(anyhow::anyhow!(
+                data?.ok_or(anyhow::anyhow!(
                     "could not find data for cids in tipset at height: {}",
                     height
-                ))?
+                ))
             };
 
             for h in tipset.blocks() {
