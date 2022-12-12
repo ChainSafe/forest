@@ -6,7 +6,6 @@ use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::net::FetchProgress;
@@ -124,7 +123,7 @@ where
 
 /// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
 /// state and instead accept the largest height as genesis.
-pub async fn import_chain<V: ProofVerifier, DB>(
+pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
     validate_height: Option<i64>,
@@ -184,7 +183,7 @@ where
             (ts.epoch() + height).max(0)
         };
         info!("Validating imported chain from height: {}", height);
-        sm.validate_chain::<V>(ts.clone(), height).await?;
+        sm.validate_chain(ts.clone(), height).await?;
     }
 
     info!("Accepting {:?} as new head.", ts.cids());

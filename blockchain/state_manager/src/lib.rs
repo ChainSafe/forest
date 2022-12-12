@@ -18,7 +18,6 @@ use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
@@ -1134,7 +1133,7 @@ where
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
     }
 
-    pub async fn validate_chain<V: ProofVerifier>(
+    pub async fn validate_chain(
         self: &Arc<Self>,
         mut ts: Arc<Tipset>,
         height: i64,
