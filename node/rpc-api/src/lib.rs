@@ -312,7 +312,7 @@ pub mod wallet_api {
     pub type WalletSignMessageResult = SignedMessageJson;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (String, String, SignatureJson);
+    pub type WalletVerifyParams = (AddressJson, Vec<u8>, SignatureJson);
     pub type WalletVerifyResult = bool;
 }
 
