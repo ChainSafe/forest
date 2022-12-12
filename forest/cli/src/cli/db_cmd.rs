@@ -20,7 +20,7 @@ pub enum DBCommands {
 }
 
 impl DBCommands {
-    pub async fn run(&self, config: &Config) {
+    pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
             Self::Stats => {
                 use human_repr::HumanCount;
@@ -29,6 +29,7 @@ impl DBCommands {
                 println!("Database path: {}", dir.display());
                 let size = fs_extra::dir::get_size(dir).unwrap_or_default();
                 println!("Database size: {}", size.human_count_bytes());
+                Ok(())
             }
             Self::Clean { force } => {
                 let dir = db_path(config);
@@ -37,19 +38,21 @@ impl DBCommands {
                         "Aborted. Database path {} is not a valid directory",
                         dir.display()
                     );
-                    return;
+                    return Ok(());
                 }
                 println!("Deleting {}", dir.display());
                 if !force && !prompt_confirm() {
                     println!("Aborted.");
-                    return;
+                    return Ok(());
                 }
                 match fs_extra::dir::remove(&dir) {
                     Ok(_) => {
                         println!("Deleted {}", dir.display());
+                        Ok(())
                     }
                     Err(err) => {
                         error!("{err}");
+                        Ok(())
                     }
                 }
             }
