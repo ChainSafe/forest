@@ -1290,6 +1290,12 @@ where
         mut ts: Arc<Tipset>,
         height: i64,
     ) -> Result<(), anyhow::Error> {
+        if height > ts.epoch() {
+            anyhow::bail!(
+                "height {height} cannot be greater than tipset epoch {}",
+                ts.epoch()
+            );
+        }
         let mut ts_chain = Vec::<Arc<Tipset>>::new();
         while ts.epoch() != height {
             let next = self.cs.tipset_from_keys(ts.parents()).await?;
