@@ -12,7 +12,6 @@ cid.workspace = true
 dialoguer.workspace = true
 directories.workspace = true
 fil_actor_miner_v8.workspace = true
-forest-daemon = { path = "../daemon" }
 forest_actor_interface.workspace = true
 forest_auth.workspace = true
 forest_beacon.workspace = true

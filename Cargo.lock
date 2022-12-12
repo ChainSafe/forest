@@ -2719,7 +2719,6 @@ dependencies = [
  "dialoguer",
  "directories",
  "fil_actor_miner_v8",
- "forest-daemon",
  "forest_actor_interface",
  "forest_auth",
  "forest_beacon",

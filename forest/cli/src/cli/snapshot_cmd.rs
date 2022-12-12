@@ -21,6 +21,7 @@ use fvm_shared::clock::ChainEpoch;
 use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
+use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -356,19 +357,17 @@ async fn validate(
     let confirm = Confirm::with_theme(&ColorfulTheme::default())
         .with_prompt(format!(
             "This will result in using approximately {} MB of data. Proceed?",
-            std::fs::metadata(snapshot).unwrap().len() / (1024 * 1024)
+            std::fs::metadata(snapshot)?.len() / (1024 * 1024)
         ))
         .default(false)
         .interact()
         .unwrap_or_default();
 
     if confirm {
-        // clear temp db if exists
-        let tmp_db_path = PathBuf::from("/tmp/validate_snapshot");
-        let _ = std::fs::remove_dir_all(&tmp_db_path);
+        let tmp_db_path = TempDir::new()?;
 
-        let db_path = tmp_db_path.join(&config.chain.name);
-        // 1. load car into a temporary database
+        let db_path = tmp_db_path.path().join(&config.chain.name);
+
         let db = forest_db::rocks::RocksDb::open(db_path, &config.rocks_db)
             .expect("Opening RocksDB must succeed");
 
@@ -382,6 +381,7 @@ async fn validate(
         .await
         .unwrap();
         let genesis_header = &genesis.blocks()[0];
+        // let genesis_h = genesis_header.clone();
         chain_store.set_genesis(genesis_header).unwrap();
 
         let cids = {
@@ -394,17 +394,18 @@ async fn validate(
 
         let snapshot_head_epoch = ts.epoch();
 
-        chain_store.db.flush()?;
-
-        validate_links_and_genesis_traversal(&chain_store, ts, &chain_store.db, *validate_height)
-            .await
-            .expect(&format!(
-                "failed validating ipld links and genesis traversal from  snapshot at height: {}",
-                &snapshot_head_epoch
-            ));
-
-        // clear temp db path contents
-        let _ = std::fs::remove_dir_all(&tmp_db_path);
+        validate_links_and_genesis_traversal(
+            &chain_store,
+            ts,
+            &chain_store.db,
+            *validate_height,
+            &genesis,
+        )
+        .await
+        .expect(&format!(
+            "failed validating ipld links and genesis traversal from snapshot at height: {}",
+            &snapshot_head_epoch
+        ));
     }
 
     Ok(())
@@ -415,6 +416,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     ts: Arc<Tipset>,
     db: &DB,
     upto: ChainEpoch,
+    genesis_tipset: &Tipset,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync + Clone,
@@ -428,14 +430,30 @@ where
         ts.epoch()
     );
 
-    let mut ts = ts.parents().clone();
+    let mut tsk = ts.parents().clone();
 
-    loop {
-        let h = chain_store.tipset_from_keys(&ts).await?;
-        let height = h.epoch();
+    // Security: Recursive snapshots are difficult to create but not impossible. This
+    // limits the amount of recursion we do.
+    let mut iteration_guard = ts.epoch() + 1;
+    let genesis_reachable = loop {
+        if iteration_guard <= 0 {
+            break false;
+        }
+
+        let tipset = chain_store.tipset_from_keys(&tsk).await?;
+        if iteration_guard - tipset.epoch() < 1 {
+            bail!(
+                "tipset iteration didn't make progress backwards, possible recursion in snapshot."
+            );
+        }
+        let height = tipset.epoch();
 
         if height == 0 {
-            break;
+            if tipset.as_ref() != genesis_tipset {
+                bail!("could not reach genesis from snapshot, genesis tipset in snapshot doesn't match the reference");
+            }
+
+            break true;
         }
 
         if height > upto {
@@ -447,19 +465,18 @@ where
                 ))
             };
 
-            recurse_links(
-                &mut seen,
-                *h.blocks()[0].state_root(),
-                &mut assert_cid_exists,
-            )
-            .await?;
+            for h in tipset.blocks() {
+                recurse_links(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
+            }
         }
 
-        let header = h.blocks();
-        ts = header[0].parents().clone();
+        tsk = tipset.parents().clone();
+        iteration_guard -= 1;
     };
 
-    println!("genesis is reachable");
+    if genesis_reachable {
+        println!("genesis is reachable and valid.");
+    }
 
     println!("ok");
 
