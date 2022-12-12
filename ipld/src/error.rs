@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::error::Error as CborError;
 use serde::ser;
 use std::fmt;
 use thiserror::Error;
@@ -22,11 +21,5 @@ pub enum Error {
 impl ser::Error for Error {
     fn custom<T: fmt::Display>(msg: T) -> Error {
         Error::Encoding(msg.to_string())
-    }
-}
-
-impl From<CborError> for Error {
-    fn from(e: CborError) -> Error {
-        Error::Encoding(e.to_string())
     }
 }
