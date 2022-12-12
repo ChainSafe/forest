@@ -24,7 +24,7 @@ pub async fn consensus<DB, MP>(
     _keystore: &Arc<RwLock<KeyStore>>,
     _mpool: &Arc<MP>,
     _submitter: SyncGossipSubmitter,
-    _services: &mut JoinSet<()>,
+    _services: &mut JoinSet<anyhow::Result<()>>,
 ) -> anyhow::Result<FullConsensus>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
