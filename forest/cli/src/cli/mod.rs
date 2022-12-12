@@ -11,7 +11,6 @@ mod chain_cmd;
 mod config_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
-mod genesis_cmd;
 mod mpool_cmd;
 mod net_cmd;
 mod send_cmd;
@@ -24,7 +23,6 @@ pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub(super) use self::db_cmd::DBCommands;
 pub(super) use self::fetch_params_cmd::FetchCommands;
-pub(super) use self::genesis_cmd::GenesisCommands;
 pub(super) use self::mpool_cmd::MpoolCommands;
 pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::send_cmd::SendCommand;
@@ -37,14 +35,11 @@ pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_cli_shared::cli::{to_size_string, CliOpts};
-use http::StatusCode;
+use forest_cli_shared::cli::CliOpts;
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
-use std::borrow::Cow;
 use std::io::{self, Write};
-use std::process;
 use structopt::StructOpt;
 
 /// CLI structure generated when interacting with Forest binary
@@ -76,9 +71,6 @@ pub enum Subcommand {
     /// Manage RPC permissions
     Auth(AuthCommands),
 
-    /// Work with blockchain genesis
-    Genesis(GenesisCommands),
-
     /// Manage P2P network
     Net(NetCommands),
 
@@ -108,28 +100,11 @@ pub enum Subcommand {
 }
 
 /// Pretty-print a JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) -> ! {
-    let (code, message) = match e {
-        JsonRpcError::Full { code, message, .. } => (code, Cow::from(message)),
-        JsonRpcError::Provided { code, message } => (code, Cow::from(message)),
-    };
-
-    // we sometimes get negative errors, e.g. -32602 INVALID_PARAMS from `jsonrpc`.
-    // It's a bit of a workaround to preserve partially the value but still try to fit into u16.
-    let code = code.abs().clamp(0, u16::MAX.into()) as u16;
-
-    match StatusCode::from_u16(code) {
-        Ok(reason) => {
-            error!("JSON RPC Error: Code: {reason} Message: {message}")
-        }
-        Err(_) => {
-            error!("JSON RPC Error: Code: {code} Message: {message}")
-        }
-    };
-
-    // fail-safe in case the `code` from `JsonRpcError` is zero. We still want to quit the process
-    // with an error because, well, an error occurred if we are here.
-    process::exit(code.max(1) as i32);
+pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
+    match serde_json::to_string(&e) {
+        Ok(err_msg) => anyhow::Error::msg(err_msg),
+        Err(err) => err.into(),
+    }
 }
 
 /// Format a vector to a prettified string
@@ -145,51 +120,46 @@ pub(super) fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 }
 
 /// Prints a plain HTTP JSON-RPC response result
-pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) {
-    match res {
-        Ok(obj) => println!("{}", &obj),
-        Err(err) => handle_rpc_err(err),
-    };
+pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) -> anyhow::Result<()> {
+    let obj = res.map_err(handle_rpc_err)?;
+    println!("{}", &obj);
+    Ok(())
 }
 
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_pretty<T: Serialize>(res: Result<T, JsonRpcError>) {
-    match res {
-        Ok(obj) => println!("{}", serde_json::to_string_pretty(&obj).unwrap()),
-        Err(err) => handle_rpc_err(err),
-    };
+pub(super) fn print_rpc_res_pretty<T: Serialize>(
+    res: Result<T, JsonRpcError>,
+) -> anyhow::Result<()> {
+    let obj = res.map_err(handle_rpc_err)?;
+    println!("{}", serde_json::to_string_pretty(&obj)?);
+    Ok(())
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) {
-    match res {
-        Ok(tipset) => println!(
-            "{}",
-            serde_json::to_string_pretty(
-                &tipset
-                    .0
-                    .cids()
-                    .iter()
-                    .map(|cid: &Cid| cid.to_string())
-                    .collect::<Vec<_>>()
-            )
-            .unwrap()
-        ),
-        Err(err) => handle_rpc_err(err),
-    };
+pub(super) fn print_rpc_res_cids(res: Result<TipsetJson, JsonRpcError>) -> anyhow::Result<()> {
+    let tipset = res.map_err(handle_rpc_err)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(
+            &tipset
+                .0
+                .cids()
+                .iter()
+                .map(|cid: &Cid| cid.to_string())
+                .collect::<Vec<_>>()
+        )?
+    );
+    Ok(())
 }
 
 /// Prints a bytes HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) {
-    match res {
-        Ok(obj) => println!(
-            "{}",
-            String::from_utf8(obj)
-                .map_err(|e| handle_rpc_err(e.into()))
-                .unwrap()
-        ),
-        Err(err) => handle_rpc_err(err),
-    };
+pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) -> anyhow::Result<()> {
+    let obj = res.map_err(handle_rpc_err)?;
+    println!(
+        "{}",
+        String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
+    );
+    Ok(())
 }
 
 /// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
@@ -217,7 +187,7 @@ fn prompt_confirm() -> bool {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use forest_cli_shared::cli::to_size_string;
     use fvm_shared::bigint::{BigInt, Zero};
 
     #[test]

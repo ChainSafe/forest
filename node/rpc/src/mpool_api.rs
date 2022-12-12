@@ -13,43 +13,10 @@ use forest_rpc_api::data_types::RPCState;
 use forest_rpc_api::mpool_api::*;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::{Address, Protocol};
+use fvm_shared::address::Protocol;
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::str::FromStr;
 use std::{collections::HashSet, convert::TryFrom};
-
-/// Estimate the gas price for an Address
-pub(crate) async fn estimate_gas_premium<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<MpoolEstimateGasPriceParams>,
-) -> Result<MpoolEstimateGasPriceResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (nblocks, sender_str, gas_limit, tsk) = params;
-    let sender = Address::from_str(&sender_str)?;
-    let price = data
-        .mpool
-        .estimate_gas_premium(nblocks, sender, gas_limit, tsk)?;
-    Ok(price.to_string())
-}
-
-/// get the sequence of given address in `mpool`
-pub(crate) async fn mpool_get_sequence<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<MpoolGetNonceParams>,
-) -> Result<MpoolGetNonceResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (addr_str,) = params;
-    let address = Address::from_str(&addr_str)?;
-    let sequence = data.mpool.get_sequence(&address).await?;
-    Ok(sequence)
-}
 
 /// Return `Vec` of pending messages in `mpool`
 pub(crate) async fn mpool_pending<DB, B>(
@@ -187,25 +154,4 @@ where
     data.mpool.as_ref().push(smsg.clone()).await?;
 
     Ok(SignedMessageJson(smsg))
-}
-
-pub(crate) async fn mpool_select<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<MpoolSelectParams>,
-) -> Result<MpoolSelectResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (tsk, q) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk.into()).await?;
-
-    Ok(data
-        .mpool
-        .select_messages(ts.as_ref(), q)
-        .await
-        .map_err(|e| format!("Failed to select messages: {:?}", e))?
-        .into_iter()
-        .map(|e| e.into())
-        .collect())
 }

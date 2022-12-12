@@ -30,50 +30,48 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
-            Self::Listen => match net_addrs_listen((), &config.client.rpc_token).await {
-                Ok(info) => {
-                    let addresses: Vec<String> = info
-                        .addrs
-                        .iter()
-                        .map(|addr| format!("{}/p2p/{}", addr, info.id))
-                        .collect();
-
-                    print_stdout(addresses.join("\n"));
-                }
-                Err(e) => handle_rpc_err(e),
-            },
-            Self::Peers => match net_peers((), &config.client.rpc_token).await {
-                Ok(addrs) => {
-                    let output: Vec<String> = addrs
-                        .into_iter()
-                        .filter_map(|info| {
-                            let addresses: Vec<String> = info
-                                .addrs
-                                .into_iter()
-                                .filter(|addr| match addr.iter().next().unwrap() {
-                                    Protocol::Ip4(ip_addr) => !ip_addr.is_loopback(),
-                                    Protocol::Ip6(ip_addr) => !ip_addr.is_loopback(),
-                                    _ => true,
-                                })
-                                .map(|addr| addr.to_string())
-                                .collect::<HashSet<_>>()
-                                .into_iter()
-                                .collect();
-
-                            if addresses.is_empty() {
-                                return None;
-                            }
-
-                            Some(format!("{}, [{}]", info.id, addresses.join(", ")))
-                        })
-                        .collect();
-
-                    print_stdout(output.join("\n"));
-                }
-                Err(e) => handle_rpc_err(e),
-            },
+            Self::Listen => {
+                let info = net_addrs_listen((), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                let addresses: Vec<String> = info
+                    .addrs
+                    .iter()
+                    .map(|addr| format!("{}/p2p/{}", addr, info.id))
+                    .collect();
+                print_stdout(addresses.join("\n"));
+                Ok(())
+            }
+            Self::Peers => {
+                let addrs = net_peers((), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                let output: Vec<String> = addrs
+                    .into_iter()
+                    .filter_map(|info| {
+                        let addresses: Vec<String> = info
+                            .addrs
+                            .into_iter()
+                            .filter(|addr| match addr.iter().next().unwrap() {
+                                Protocol::Ip4(ip_addr) => !ip_addr.is_loopback(),
+                                Protocol::Ip6(ip_addr) => !ip_addr.is_loopback(),
+                                _ => true,
+                            })
+                            .map(|addr| addr.to_string())
+                            .collect::<HashSet<_>>()
+                            .into_iter()
+                            .collect();
+                        if addresses.is_empty() {
+                            return None;
+                        }
+                        Some(format!("{}, [{}]", info.id, addresses.join(", ")))
+                    })
+                    .collect();
+                print_stdout(output.join("\n"));
+                Ok(())
+            }
             Self::Connect { address } => {
                 let addr: Multiaddr = address
                     .parse()
@@ -101,20 +99,18 @@ impl NetCommands {
                     addrs,
                 };
 
-                match net_connect((addr_info,), &config.client.rpc_token).await {
-                    Ok(_) => {
-                        println!("connect {}: success", id);
-                    }
-                    Err(e) => handle_rpc_err(e),
-                }
+                net_connect((addr_info,), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                println!("connect {}: success", id);
+                Ok(())
             }
             Self::Disconnect { id } => {
-                match net_disconnect((id.to_owned(),), &config.client.rpc_token).await {
-                    Ok(_) => {
-                        println!("disconnect {}: success", id);
-                    }
-                    Err(e) => handle_rpc_err(e),
-                }
+                net_disconnect((id.to_owned(),), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                println!("disconnect {}: success", id);
+                Ok(())
             }
         }
     }
