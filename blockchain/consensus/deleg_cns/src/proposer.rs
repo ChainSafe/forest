@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use core::time::Duration;
 use futures::StreamExt;
@@ -102,16 +102,16 @@ impl Proposer for DelegatedProposer {
         state_manager: Arc<StateManager<DB>>,
         mpool: Arc<MP>,
         submitter: SyncGossipSubmitter,
-        services: &mut JoinSet<()>,
+        services: &mut JoinSet<anyhow::Result<()>>,
     ) -> anyhow::Result<()>
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
         MP: MessagePoolApi + Send + Sync + 'static,
     {
         services.spawn(async move {
-            if let Err(e) = self.run(state_manager, mpool.as_ref(), &submitter).await {
-                error!("block proposal stopped: {}", e)
-            }
+            self.run(state_manager, mpool.as_ref(), &submitter)
+                .await
+                .context("block proposal stopped")
         });
         Ok(())
     }

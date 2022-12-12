@@ -4,20 +4,15 @@
 use crate::errors::*;
 use crate::StateManager;
 use cid::Cid;
-use forest_actor_interface::{
-    miner::{self, MinerInfo, Partition, SectorOnChainInfo, SectorPreCommitOnChainInfo},
-    power,
-};
-use forest_blocks::Tipset;
+use forest_actor_interface::miner;
 use forest_db::Store;
 use forest_fil_types::verifier::ProofVerifier;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
-use fvm_shared::sector::{RegisteredSealProof, SectorInfo, SectorNumber};
+use fvm_shared::sector::{RegisteredSealProof, SectorInfo};
 use fvm_shared::version::NetworkVersion;
-use serde::Serialize;
 
 impl<DB> StateManager<DB>
 where
@@ -112,159 +107,4 @@ where
 
         Ok(out)
     }
-
-    /// Loads sectors for miner at given [Address].
-    pub fn get_miner_sector_set<V>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-        filter: Option<&BitField>,
-    ) -> anyhow::Result<Vec<SectorOnChainInfo>, Error>
-    where
-        V: ProofVerifier,
-    {
-        let actor = self
-            .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-
-        Ok(mas.load_sectors(self.blockstore(), filter)?)
-    }
-
-    /// Returns miner's sector info for a given index.
-    pub fn miner_sector_info<V>(
-        &self,
-        address: &Address,
-        sector_number: SectorNumber,
-        tipset: &Tipset,
-    ) -> anyhow::Result<Option<SectorOnChainInfo>, Error>
-    where
-        V: ProofVerifier,
-    {
-        let actor = self
-            .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-        Ok(mas.get_sector(self.blockstore(), sector_number)?)
-    }
-
-    /// Returns the pre-committed sector info for a miner's sector.
-    pub fn precommit_info<V>(
-        &self,
-        address: &Address,
-        sector_number: &SectorNumber,
-        tipset: &Tipset,
-    ) -> anyhow::Result<SectorPreCommitOnChainInfo, Error>
-    where
-        V: ProofVerifier,
-    {
-        let actor = self
-            .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-        let precommit_info = mas.get_precommitted_sector(self.blockstore(), *sector_number)?;
-        precommit_info.ok_or_else(|| Error::Other("precommit not found".to_string()))
-    }
-
-    /// Returns miner info at the given [`Tipset`]'s state.
-    pub fn get_miner_info<V>(&self, tipset: &Tipset, address: &Address) -> anyhow::Result<MinerInfo>
-    where
-        V: ProofVerifier,
-    {
-        let actor = self
-            .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-        let info = mas.info(self.blockstore())?;
-        Ok(info)
-    }
-
-    fn for_each_deadline_partition<V, F>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-        mut cb: F,
-    ) -> Result<(), anyhow::Error>
-    where
-        F: FnMut(&Partition) -> Result<(), anyhow::Error>,
-
-        V: ProofVerifier,
-    {
-        let store = self.blockstore();
-
-        let actor = self
-            .get_actor(address, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor address could not be resolved".to_string()))?;
-        let mas = miner::State::load(self.blockstore(), &actor)?;
-
-        mas.for_each_deadline(&self.chain_config.policy, store, |_, deadline| {
-            deadline.for_each(store, |_, partition: miner::Partition| {
-                cb(&partition)?;
-                Ok(())
-            })?;
-            Ok(())
-        })?;
-
-        Ok(())
-    }
-
-    /// Returns a `BitField` of all miner's faulty sectors.
-    pub fn get_miner_faults<V>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-    ) -> Result<BitField, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
-        let mut out = BitField::new();
-
-        self.for_each_deadline_partition::<V, _>(tipset, address, |part| {
-            out |= part.faulty_sectors();
-            Ok(())
-        })?;
-
-        Ok(out)
-    }
-
-    /// Returns `BitField` of miner's recovering sectors.
-    pub fn get_miner_recoveries<V>(
-        &self,
-        tipset: &Tipset,
-        address: &Address,
-    ) -> Result<BitField, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
-        let mut out = BitField::new();
-
-        self.for_each_deadline_partition::<V, _>(tipset, address, |part| {
-            out |= part.recovering_sectors();
-            Ok(())
-        })?;
-
-        Ok(out)
-    }
-
-    /// Lists all miners that exist in the power actor state at given [`Tipset`].
-    pub fn list_miner_actors(&self, tipset: &Tipset) -> anyhow::Result<Vec<Address>, Error> {
-        let actor = self
-            .get_actor(
-                &forest_actor_interface::power::ADDRESS,
-                *tipset.parent_state(),
-            )?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let power_actor_state = power::State::load(self.blockstore(), &actor)?;
-
-        let miners = power_actor_state.list_all_miners(self.blockstore())?;
-
-        Ok(miners)
-    }
-}
-
-/// JSON serialization formatted Deadline information.
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Deadline {
-    pub post_submissions: BitField,
 }

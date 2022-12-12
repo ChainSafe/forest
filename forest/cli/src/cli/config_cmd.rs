@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cli::Config;
+use anyhow::Context;
 use std::io::Write;
 use structopt::StructOpt;
 
@@ -12,17 +13,15 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub async fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) {
+    pub async fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
         match self {
-            Self::Dump => {
-                writeln!(
-                    sink,
-                    "{}",
-                    toml::to_string(config)
-                        .expect("Could not convert configuration to TOML format")
-                )
-                .expect("Failed to write the configuration");
-            }
+            Self::Dump => writeln!(
+                sink,
+                "{}",
+                toml::to_string(config)
+                    .context("Could not convert configuration to TOML format")?
+            )
+            .context("Failed to write the configuration"),
         }
     }
 }
@@ -36,7 +35,10 @@ mod tests {
         let expected_config = Config::default();
         let mut sink = std::io::BufWriter::new(Vec::new());
 
-        ConfigCommands::Dump.run(&expected_config, &mut sink).await;
+        ConfigCommands::Dump
+            .run(&expected_config, &mut sink)
+            .await
+            .unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");

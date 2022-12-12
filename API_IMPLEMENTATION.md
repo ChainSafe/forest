@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 48
+- Forest method count: 46
 - Lotus method count: 173
-- API coverage: 27.75%
+- API coverage: 26.59%
 
 ## Forest-only Methods
 
@@ -45,8 +45,6 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 | `Filecoin.WalletNew`                                 | `0` | `SignatureTypeJson` | `KeyType`
 | `Filecoin.WalletSignMessage`                         | `0` | `String` | `Address`
 | `Filecoin.WalletSignMessage`                         | `1` | `MessageJson` | `UnsignedMessageJson`
-| `Filecoin.WalletVerify`                              | `0` | `String` | `Address`
-| `Filecoin.WalletVerify`                              | `1` | `String` | `Vec<u8>`
 
 ### Results Mismatches
 
@@ -57,8 +55,6 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 | `Filecoin.GasEstimateFeeCap`                         | `String` | `BigInt`
 | `Filecoin.GasEstimateGasPremium`                     | `String` | `BigInt`
 | `Filecoin.GasEstimateMessageGas`                     | `MessageJson` | `UnsignedMessageJson`
-| `Filecoin.StateMinerInitialPledgeCollateral`         | `String` | `BigInt`
-| `Filecoin.StateMinerPreCommitDepositForPower`        | `String` | `BigInt`
 | `Filecoin.StateNetworkName`                          | `String` | `dNetworkName`
 | `Filecoin.WalletBalance`                             | `String` | `BigInt`
 | `Filecoin.WalletDefaultAddress`                      | `String` | `Address`
@@ -197,10 +193,10 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ❌    | `Filecoin.StateMinerDeadlines`                       | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerFaults`                          | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerInfo`                            | `-` | `-` |
-|   ✔️    | `Filecoin.StateMinerInitialPledgeCollateral`         | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
+|   ❌    | `Filecoin.StateMinerInitialPledgeCollateral`         | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerPartitions`                      | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerPower`                           | `-` | `-` |
-|   ✔️    | `Filecoin.StateMinerPreCommitDepositForPower`        | `(AddressJson, SectorPreCommitInfo, TipsetKeysJson)` | `String` |
+|   ❌    | `Filecoin.StateMinerPreCommitDepositForPower`        | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerProvingDeadline`                 | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerRecoveries`                      | `-` | `-` |
 |   ❌    | `Filecoin.StateMinerSectorAllocated`                 | `-` | `-` |
@@ -240,7 +236,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ✔️    | `Filecoin.WalletSign`                                | `(AddressJson, Vec<u8>)` | `SignatureJson` |
 |   ✔️    | `Filecoin.WalletSignMessage`                         | `(String, MessageJson)` | `SignedMessageJson` |
 |   ❌    | `Filecoin.WalletValidateAddress`                     | `-` | `-` |
-|   ✔️    | `Filecoin.WalletVerify`                              | `(String, String, SignatureJson)` | `bool` |
+|   ✔️    | `Filecoin.WalletVerify`                              | `(AddressJson, Vec<u8>, SignatureJson)` | `bool` |
 
 ## Help & Contributions
 

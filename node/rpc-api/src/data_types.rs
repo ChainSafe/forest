@@ -3,7 +3,6 @@
 
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
-use forest_beacon::BeaconEntry;
 use forest_beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
 use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
@@ -15,7 +14,7 @@ use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_json::message_receipt::json::ReceiptJson;
-use forest_json::sector::json::{PoStProofJson, SectorInfoJson};
+use forest_json::sector::json::PoStProofJson;
 use forest_json::signed_message::json::SignedMessageJson;
 use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
@@ -23,7 +22,7 @@ pub use forest_libp2p::{Multiaddr, Protocol};
 use forest_libp2p::{Multihash, NetworkMessage};
 use forest_message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
-use forest_state_manager::{MiningBaseInfo, StateManager};
+use forest_state_manager::StateManager;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_ipld_blockstore::Blockstore;
@@ -31,7 +30,6 @@ use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
-use fvm_shared::sector::{SectorSize, StoragePower};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -187,45 +185,6 @@ pub struct BlockTemplate {
     pub timestamp: u64,
     #[serde(rename = "WinningPoStProof")]
     pub winning_post_proof: Vec<PoStProofJson>,
-}
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct MiningBaseInfoJson {
-    #[serde(with = "forest_json::bigint::json::option")]
-    pub miner_power: Option<StoragePower>,
-    #[serde(with = "forest_json::bigint::json::option")]
-    pub network_power: Option<StoragePower>,
-    pub sectors: Vec<SectorInfoJson>,
-    #[serde(with = "forest_json::address::json")]
-    pub worker_key: Address,
-    pub sector_size: SectorSize,
-    #[serde(with = "forest_beacon::json")]
-    pub prev_beacon_entry: BeaconEntry,
-    pub beacon_entries: Vec<BeaconEntryJson>,
-    pub eligible_for_mining: bool,
-}
-
-impl From<MiningBaseInfo> for MiningBaseInfoJson {
-    fn from(info: MiningBaseInfo) -> Self {
-        Self {
-            miner_power: info.miner_power,
-            network_power: info.network_power,
-            sectors: info
-                .sectors
-                .into_iter()
-                .map(From::from)
-                .collect::<Vec<SectorInfoJson>>(),
-            worker_key: info.worker_key,
-            sector_size: info.sector_size,
-            prev_beacon_entry: info.prev_beacon_entry,
-            beacon_entries: info
-                .beacon_entries
-                .into_iter()
-                .map(BeaconEntryJson)
-                .collect::<Vec<BeaconEntryJson>>(),
-            eligible_for_mining: info.eligible_for_mining,
-        }
-    }
 }
 
 // Net API
