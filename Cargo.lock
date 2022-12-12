@@ -2775,6 +2775,7 @@ dependencies = [
  "ticker",
  "time",
  "tokio",
+ "tokio-util",
  "toml",
  "url",
 ]
