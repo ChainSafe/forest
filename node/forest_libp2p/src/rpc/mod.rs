@@ -128,18 +128,13 @@ where
     T: serde::de::DeserializeOwned,
 {
     const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
-    const TIMEOUT_SECS: u64 = 30;
+    const TIMEOUT: Duration = Duration::from_secs(TIMEOUT_SECS);
 
     // Currently the protocol does not send length encoded message,
     // and we use `decode-success-with-no-trailing-data` to detect end of frame
     // just like what `FramedRead` does, so it's possible to cause deadlock at `io.poll_ready`
     // Adding timeout here to mitigate the issue
-    match tokio::time::timeout(
-        Duration::from_secs(TIMEOUT_SECS),
-        DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED),
-    )
-    .await
-    {
+    match tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await {
         Ok(r) => r,
         Err(_) => {
             let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");

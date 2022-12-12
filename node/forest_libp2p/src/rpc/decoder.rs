@@ -61,7 +61,7 @@ where
                     ),
                 )));
             }
-            self.bytes.extend_from_slice(&buf[..n]);
+            self.bytes.extend_from_slice(&buf[..n.min(buf.len())]);
             // This is what `FramedRead` does internally
             // Assuming io will be re-used to send new messages.
             //
