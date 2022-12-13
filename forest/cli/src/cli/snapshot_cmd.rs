@@ -11,7 +11,7 @@ use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 
-use forest_db::{rocks::RocksDb, Store};
+use forest_db::Store;
 use forest_genesis::read_genesis_header;
 use forest_ipld::recurse_links;
 use forest_rpc_client::chain_ops::*;
@@ -356,8 +356,8 @@ async fn validate(
     snapshot: &PathBuf,
     force: bool,
 ) -> anyhow::Result<()> {
-    let confirm = if !force {
-        atty::is(atty::Stream::Stdin)
+    let confirm = force
+        || atty::is(atty::Stream::Stdin)
             && Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(format!(
                     "This will result in using approximately {} MB of data. Proceed?",
@@ -365,18 +365,14 @@ async fn validate(
                 ))
                 .default(false)
                 .interact()
-                .unwrap_or_default()
-    } else {
-        true
-    };
+                .unwrap_or_default();
 
     if confirm {
         let tmp_db_path = TempDir::new()?;
 
         let db_path = tmp_db_path.path().join(&config.chain.name);
 
-        #[cfg(feature = "rocksdb")]
-        let db = RocksDb::open(db_path, &config.rocks_db)?;
+        let db = forest_db::rocks::RocksDb::open(db_path, &config.rocks_db)?;
 
         let chain_store = Arc::new(ChainStore::new(db).await);
 
