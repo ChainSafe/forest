@@ -10,6 +10,7 @@ name = "forest"
 path = "src/main.rs"
 
 [dependencies]
+anes = "0.1.6"
 anyhow.workspace = true
 atty.workspace = true
 base64.workspace = true
