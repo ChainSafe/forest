@@ -160,9 +160,9 @@ pub struct Libp2pService<DB, P: StoreParams> {
     swarm: Swarm<ForestBehaviour<P>>,
     cs: Arc<ChainStore<DB>>,
     network_receiver_in: flume::Receiver<NetworkMessage>,
-    network_sender_in: flume::Sender<NetworkMessage>,
+    network_sender_in: Sender<NetworkMessage>,
     network_receiver_out: flume::Receiver<NetworkEvent>,
-    network_sender_out: flume::Sender<NetworkEvent>,
+    network_sender_out: Sender<NetworkEvent>,
     network_name: String,
     genesis_cid: Cid,
 }
@@ -298,7 +298,7 @@ where
     }
 
     /// Returns a sender which allows sending messages to the libp2p service.
-    pub fn network_sender(&self) -> flume::Sender<NetworkMessage> {
+    pub fn network_sender(&self) -> Sender<NetworkMessage> {
         self.network_sender_in.clone()
     }
 
@@ -311,7 +311,7 @@ where
 async fn handle_network_message<P: StoreParams>(
     swarm: &mut Swarm<ForestBehaviour<P>>,
     message: NetworkMessage,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
     hello_request_table: &mut HelloRequestTable,
     cx_request_table: &mut CxRequestTable,
     outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
@@ -413,7 +413,7 @@ async fn handle_network_message<P: StoreParams>(
 async fn handle_discovery_event<P: StoreParams>(
     discovery_out: DiscoveryOut,
     swarm: &mut Swarm<ForestBehaviour<P>>,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
 ) {
     let behaviour = swarm.behaviour_mut();
     match discovery_out {
@@ -436,7 +436,7 @@ async fn handle_discovery_event<P: StoreParams>(
 
 async fn handle_gossip_event(
     e: GossipsubEvent,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) {
@@ -491,7 +491,7 @@ async fn handle_hello_event<P: StoreParams>(
     rr_event: RequestResponseEvent<HelloRequest, HelloResponse, HelloResponse>,
     swarm: &mut Swarm<ForestBehaviour<P>>,
     genesis_cid: &Cid,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
     hello_request_table: &mut HelloRequestTable,
 ) {
     let behaviour = swarm.behaviour_mut();
@@ -600,7 +600,7 @@ async fn handle_hello_event<P: StoreParams>(
 
 async fn handle_bitswap_event(
     bs_event: BitswapEvent,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
     outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
 ) {
     let get_prefix = |query_id: &libp2p_bitswap::QueryId| {
@@ -677,7 +677,7 @@ fn handle_ping_event<P: StoreParams>(
 async fn handle_chain_exchange_event<DB, P: StoreParams>(
     ce_event: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>,
     db: &Arc<ChainStore<DB>>,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
     cx_request_table: &mut CxRequestTable,
     cx_response_tx: Sender<(
         RequestId,
@@ -778,7 +778,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     event: ForestBehaviourEvent<P>,
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
-    network_sender_out: &flume::Sender<NetworkEvent>,
+    network_sender_out: &Sender<NetworkEvent>,
     hello_request_table: &mut HelloRequestTable,
     cx_request_table: &mut CxRequestTable,
     outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
@@ -827,7 +827,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     }
 }
 
-async fn emit_event(sender: &flume::Sender<NetworkEvent>, event: NetworkEvent) {
+async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
