@@ -66,40 +66,6 @@ impl State {
         Err(anyhow::anyhow!("Unknown init actor code {}", actor.code))
     }
 
-    /// Allocates a new ID address and stores a mapping of the argument address to it.
-    /// Returns the newly-allocated address.
-    pub fn map_address_to_new_id<BS: Blockstore>(
-        &mut self,
-        store: &BS,
-        addr: &Address,
-    ) -> anyhow::Result<Address> {
-        match self {
-            State::V8(st) => Ok(Address::new_id(st.map_address_to_new_id(&store, addr)?)),
-            State::V9(st) => Ok(Address::new_id(st.map_address_to_new_id(&store, addr)?)),
-        }
-    }
-
-    /// Resolves an address to an ID-address, if possible.
-    /// If the provided address is an ID address, it is returned as-is.
-    /// This means that mapped ID-addresses (which should only appear as values, not keys) and
-    /// singleton actor addresses (which are not in the map) pass through unchanged.
-    ///
-    /// Returns an ID-address and `true` if the address was already an ID-address or was resolved
-    /// in the mapping.
-    /// Returns an undefined address and `false` if the address was not an ID-address and not found
-    /// in the mapping.
-    /// Returns an error only if state was inconsistent.
-    pub fn resolve_address<BS: Blockstore>(
-        &self,
-        store: &BS,
-        addr: &Address,
-    ) -> anyhow::Result<Option<Address>> {
-        match self {
-            State::V8(st) => st.resolve_address(&store, addr),
-            State::V9(st) => Ok(st.resolve_address(&store, addr)?),
-        }
-    }
-
     pub fn into_network_name(self) -> String {
         match self {
             State::V8(st) => st.network_name,

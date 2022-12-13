@@ -12,9 +12,9 @@ use anyhow::Context;
 use async_log::span;
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actors_runtime::runtime::{DomainSeparationTag, Policy};
+use fil_actors_runtime::runtime::Policy;
 use forest_actor_interface::*;
-use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, DrandBeacon, IGNORE_DRAND_VAR};
+use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
@@ -36,9 +36,7 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
-use fvm_shared::randomness::Randomness;
 use fvm_shared::receipt::Receipt;
-use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, trace, warn};
 use lru::LruCache;
@@ -48,7 +46,7 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tokio::runtime::Handle;
-use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
 
@@ -91,7 +89,6 @@ pub struct StateManager<DB> {
     /// The calculated state is wrapped in a mutex to avoid duplicate computation
     /// of the state/receipt root.
     cache: RwLock<LruCache<TipsetKeys, Arc<once_cell::sync::OnceCell<CidPair>>>>,
-    publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
@@ -118,7 +115,6 @@ where
         Ok(Self {
             cs,
             cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
-            publisher: None,
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
@@ -154,64 +150,6 @@ where
     /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
-    }
-
-    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
-    /// Entropy from the latest beacon entry.
-    pub async fn get_beacon_randomness(
-        &self,
-        blocks: &TipsetKeys,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = self.chain_rand(blocks.to_owned(), tokio::runtime::Handle::current());
-        match self.get_network_version(round) {
-            NetworkVersion::V16 | NetworkVersion::V15 | NetworkVersion::V14 => {
-                chain_rand
-                    .get_beacon_randomness_v3(blocks, pers, round, entropy)
-                    .await
-            }
-            NetworkVersion::V13 => {
-                chain_rand
-                    .get_beacon_randomness_v2(blocks, pers, round, entropy)
-                    .await
-            }
-            NetworkVersion::V0
-            | NetworkVersion::V1
-            | NetworkVersion::V2
-            | NetworkVersion::V3
-            | NetworkVersion::V4
-            | NetworkVersion::V5
-            | NetworkVersion::V6
-            | NetworkVersion::V7
-            | NetworkVersion::V8
-            | NetworkVersion::V9
-            | NetworkVersion::V10
-            | NetworkVersion::V11
-            | NetworkVersion::V12 => {
-                chain_rand
-                    .get_beacon_randomness_v1(blocks, pers, round, entropy)
-                    .await
-            }
-            _ => panic!("Unsupported network version"),
-        }
-    }
-
-    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
-    /// Entropy from the ticket chain.
-    pub async fn get_chain_randomness(
-        &self,
-        blocks: &TipsetKeys,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-        lookback: bool,
-    ) -> anyhow::Result<[u8; 32]> {
-        let chain_rand = self.chain_rand(blocks.to_owned(), tokio::runtime::Handle::current());
-        chain_rand
-            .get_chain_randomness(blocks, pers, round, entropy, lookback)
-            .await
     }
 
     // This function used to do this: Returns the network name from the init actor state.
@@ -295,11 +233,6 @@ where
         }
 
         Ok(None)
-    }
-
-    /// Subscribes to the [`HeadChange`]s observed by the state manager.
-    pub fn get_subscriber(&self) -> Option<Subscriber<HeadChange>> {
-        self.publisher.as_ref().map(|p| p.subscribe())
     }
 
     /// Performs the state transition for the tipset and applies all unique messages in all blocks.
@@ -716,90 +649,6 @@ where
         }
 
         Ok(true)
-    }
-
-    /// Gets a miner's base info from state, based on the address provided.
-    pub async fn miner_get_base_info<V: ProofVerifier, B: Beacon>(
-        self: &Arc<Self>,
-        beacon: &BeaconSchedule<B>,
-        key: &TipsetKeys,
-        round: ChainEpoch,
-        address: Address,
-    ) -> Result<Option<MiningBaseInfo>, anyhow::Error> {
-        let tipset = self.cs.tipset_from_keys(key).await?;
-        let prev = match self.cs.latest_beacon_entry(&tipset).await {
-            Ok(prev) => prev,
-            Err(err) => {
-                if std::env::var(IGNORE_DRAND_VAR)
-                    .map(|e| e != "1")
-                    .unwrap_or(true)
-                {
-                    anyhow::bail!("failed to get latest beacon entry: {:?}", err);
-                }
-                forest_beacon::BeaconEntry::default()
-            }
-        };
-        let entries = beacon
-            .beacon_entries_for_block(
-                self.get_network_version(round),
-                round,
-                tipset.epoch(),
-                &prev,
-            )
-            .await?;
-        let rbase = entries.iter().last().unwrap_or(&prev);
-        let (lbts, lbst) = self
-            .get_lookback_tipset_for_round(tipset.clone(), round)
-            .await?;
-
-        let actor = self
-            .get_actor(&address, lbst)?
-            .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-        let miner_state = miner::State::load(self.blockstore(), &actor)?;
-
-        let buf = address.marshal_cbor()?;
-        let prand = chain_rand::draw_randomness(
-            rbase.data(),
-            DomainSeparationTag::WinningPoStChallengeSeed as i64,
-            round,
-            &buf,
-        )?;
-
-        let nv = self.get_network_version(tipset.epoch());
-        let sectors = self.get_sectors_for_winning_post::<V>(
-            &lbst,
-            nv,
-            &address,
-            Randomness(prand.to_vec()),
-        )?;
-
-        if sectors.is_empty() {
-            return Ok(None);
-        }
-
-        let (mpow, tpow) = self
-            .get_power(&lbst, Some(&address))?
-            .ok_or_else(|| Error::State(format!("failed to load power for address {}", address)))?;
-
-        let info = miner_state.info(self.blockstore())?;
-
-        let (st, _) = self.tipset_state(&lbts).await?;
-        let state = StateTree::new_from_root(self.blockstore(), &st)?;
-
-        let worker_key = resolve_to_key_addr(&state, self.blockstore(), &info.worker())?;
-
-        let eligible = self.eligible_to_mine(&address, tipset.as_ref(), &lbts)?;
-
-        Ok(Some(MiningBaseInfo {
-            miner_power: Some(mpow.quality_adj_power),
-            network_power: Some(tpow.quality_adj_power),
-            sectors,
-            worker_key,
-            sector_size: info.sector_size(),
-            prev_beacon_entry: prev,
-            beacon_entries: entries,
-            eligible_for_mining: eligible,
-        }))
     }
 
     /// Performs a state transition, and returns the state and receipt root of the transition.
@@ -1342,28 +1191,6 @@ where
         Ok(())
     }
 
-    /// Retrieves total circulating supply on the network.
-    pub fn get_circulating_supply(
-        self: &Arc<Self>,
-        height: ChainEpoch,
-        db: &DB,
-        root: &Cid,
-    ) -> Result<TokenAmount, anyhow::Error> {
-        self.genesis_info.get_circulating_supply(height, db, root)
-    }
-
-    /// Return the state of Market Actor.
-    pub fn get_market_state(&self, ts: &Tipset) -> anyhow::Result<market::State> {
-        let actor = self
-            .get_actor(&forest_actor_interface::market::ADDRESS, *ts.parent_state())?
-            .ok_or_else(|| {
-                Error::State("Market actor address could not be resolved".to_string())
-            })?;
-
-        let market_state = market::State::load(self.blockstore(), &actor)?;
-        Ok(market_state)
-    }
-
     fn chain_rand(
         &self,
         blocks: TipsetKeys,
@@ -1377,20 +1204,6 @@ where
             async_handle,
         )
     }
-}
-
-/// Base miner info needed for the RPC API.
-// * There is not a great reason this is a separate type from the one on the RPC.
-// * This should probably be removed in the future, but is a convenience to keep for now.
-pub struct MiningBaseInfo {
-    pub miner_power: Option<StoragePower>,
-    pub network_power: Option<StoragePower>,
-    pub sectors: Vec<SectorInfo>,
-    pub worker_key: Address,
-    pub sector_size: SectorSize,
-    pub prev_beacon_entry: BeaconEntry,
-    pub beacon_entries: Vec<BeaconEntry>,
-    pub eligible_for_mining: bool,
 }
 
 fn chain_epoch_root<DB>(
