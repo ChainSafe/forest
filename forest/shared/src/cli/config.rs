@@ -19,12 +19,11 @@ pub struct LogConfig {
 
 impl LogConfig {
     pub(crate) fn to_filter_string(&self) -> String {
-        let filters: Vec<_> = self
-            .filters
+        self.filters
             .iter()
             .map(|f| format!("{}={}", f.module, f.level))
-            .collect();
-        filters.join(",")
+            .collect::<Vec<_>>()
+            .join(",")
     }
 }
 
