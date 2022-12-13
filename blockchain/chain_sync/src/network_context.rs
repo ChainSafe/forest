@@ -21,7 +21,7 @@ use log::{debug, trace, warn};
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use tokio::{task::JoinSet, time::timeout};
+use tokio::{sync::RwLock, task::JoinSet, time::timeout};
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
@@ -173,6 +173,8 @@ where
         };
 
         let global_pre_time = SystemTime::now();
+        let network_failures = Arc::new(RwLock::new(0));
+        let lookup_failures = Arc::new(RwLock::new(0));
         let chain_exchange_result = match peer_id {
             // Specific peer is given to send request, send specifically to that peer.
             Some(id) => Self::chain_exchange_request(
@@ -199,6 +201,8 @@ where
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
+                    let network_failures = network_failures.clone();
+                    let lookup_failures = lookup_failures.clone();
                     tasks.spawn(async move {
                         if n_task_control_tx.send_async(()).await.is_ok() {
                             match Self::chain_exchange_request(
@@ -215,12 +219,14 @@ where
                                             _ = result_tx.send_async(r).await;
                                         }
                                         Err(e) => {
+                                            *(lookup_failures.write().await) += 1;
                                             _ = n_task_control_rx.recv_async().await;
                                             debug!("Failed chain_exchange response: {e}");
                                         }
                                     }
                                 }
                                 Err(e) => {
+                                    *(network_failures.write().await) += 1;
                                     _ = n_task_control_rx.recv_async().await;
                                     debug!(
                                         "Failed chain_exchange request to peer {peer_id:?}: {e}"
@@ -241,7 +247,7 @@ where
                         log::debug!("Succeed: handle_chain_exchange_request");
                         result.map_err(|e| e.to_string())?
                     },
-                    _ = wait_all(&mut tasks) => return Err("ChainExchange request failed for all top peers".into()),
+                    _ = wait_all(&mut tasks) => return Err(format!("ChainExchange request failed for all top peers. {} network failures, {} lookup failures", network_failures.read().await, lookup_failures.read().await)),
                 }
             }
         };
