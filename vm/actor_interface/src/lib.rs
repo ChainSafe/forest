@@ -1,10 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod adt;
 mod builtin;
 
-pub use self::adt::*;
 pub use self::builtin::*;
 use fvm_shared::state::StateTreeVersion;
 use fvm_shared::version::NetworkVersion;

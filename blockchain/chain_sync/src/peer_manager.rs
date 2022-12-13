@@ -10,7 +10,6 @@ use forest_blocks::Tipset;
 use forest_libp2p::PeerId;
 use log::{debug, trace};
 use rand::seq::SliceRandom;
-use smallvec::SmallVec;
 use tokio::sync::RwLock;
 
 use crate::metrics;
@@ -18,7 +17,7 @@ use crate::metrics;
 const NEW_PEER_MUL: f64 = 0.9;
 
 /// Defines max number of peers to send each chain exchange request to.
-pub(crate) const SHUFFLE_PEERS_PREFIX: usize = 16;
+pub(crate) const SHUFFLE_PEERS_PREFIX: usize = 100;
 
 /// Local duration multiplier, affects duration delta change.
 const LOCAL_INV_ALPHA: u32 = 5;
@@ -115,8 +114,8 @@ impl PeerManager {
 
     /// Return shuffled slice of ordered peers from the peer manager. Ordering is based
     /// on failure rate and latency of the peer.
-    pub async fn top_peers_shuffled(&self) -> SmallVec<[PeerId; SHUFFLE_PEERS_PREFIX]> {
-        let mut peers: SmallVec<_> = self
+    pub async fn top_peers_shuffled(&self) -> Vec<PeerId> {
+        let mut peers: Vec<_> = self
             .sorted_peers()
             .await
             .into_iter()
@@ -124,7 +123,7 @@ impl PeerManager {
             .collect();
 
         // Shuffle top peers, to avoid sending all requests to same predictable peer.
-        peers.shuffle(&mut rand::thread_rng());
+        peers.shuffle(&mut rand::rngs::OsRng);
 
         peers
     }
