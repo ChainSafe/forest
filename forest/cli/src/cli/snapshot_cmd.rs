@@ -11,7 +11,7 @@ use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 
-use forest_db::Store;
+use forest_db::{rocks::RocksDb, Store};
 use forest_genesis::read_genesis_header;
 use forest_ipld::recurse_links;
 use forest_rpc_client::chain_ops::*;
@@ -125,10 +125,13 @@ pub enum SnapshotCommands {
     /// Validates the snapshot.
     Validate {
         /// Number of block headers to validate from the tip
-        #[structopt(long)]
-        validate_height: i64,
+        #[structopt(long, default_value = "2000")]
+        recent_stateroots: i64,
         /// Path to snapshot file
         snapshot: PathBuf,
+        /// Force validation and answers yes to all prompts.
+        #[structopt(long)]
+        force: bool,
     },
 }
 
@@ -235,10 +238,11 @@ impl SnapshotCommands {
                 force,
             } => clean(&config, snapshot_dir, *force),
             Self::Validate {
-                validate_height,
+                recent_stateroots,
                 snapshot,
+                force,
             } => {
-                validate(&config, validate_height, snapshot).await?;
+                validate(&config, recent_stateroots, snapshot, *force).await?;
                 Ok(())
             }
         }
@@ -351,25 +355,29 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
 
 async fn validate(
     config: &Config,
-    validate_height: &i64,
+    recent_stateroots: &i64,
     snapshot: &PathBuf,
+    force: bool,
 ) -> anyhow::Result<()> {
-    let confirm = Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt(format!(
-            "This will result in using approximately {} MB of data. Proceed?",
-            std::fs::metadata(snapshot)?.len() / (1024 * 1024)
-        ))
-        .default(false)
-        .interact()
-        .unwrap_or_default();
+    let confirm = if !force {
+        Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt(format!(
+                "This will result in using approximately {} MB of data. Proceed?",
+                std::fs::metadata(snapshot)?.len() / (1024 * 1024)
+            ))
+            .default(false)
+            .interact()
+            .unwrap_or_default()
+    } else {
+        true
+    };
 
     if confirm {
         let tmp_db_path = TempDir::new()?;
 
         let db_path = tmp_db_path.path().join(&config.chain.name);
 
-        let db = forest_db::rocks::RocksDb::open(db_path, &config.rocks_db)
-            .expect("Opening RocksDB must succeed");
+        let db = RocksDb::open(db_path, &config.rocks_db)?;
 
         let chain_store = Arc::new(ChainStore::new(db).await);
 
@@ -378,10 +386,7 @@ async fn validate(
             config.chain.genesis_bytes(),
             &chain_store,
         )
-        .await
-        .unwrap();
-        let genesis_header = &genesis.blocks()[0];
-        chain_store.set_genesis(genesis_header).unwrap();
+        .await?;
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
@@ -395,7 +400,7 @@ async fn validate(
             &chain_store,
             ts,
             chain_store.blockstore(),
-            *validate_height,
+            *recent_stateroots,
             &genesis,
         )
         .await?;
@@ -408,70 +413,67 @@ async fn validate_links_and_genesis_traversal<DB>(
     chain_store: &ChainStore<DB>,
     ts: Arc<Tipset>,
     db: &DB,
-    upto: ChainEpoch,
+    recent_stateroots: ChainEpoch,
     genesis_tipset: &Tipset,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
     let mut seen = std::collections::HashSet::<Cid>::new();
-    let upto = ts.epoch() - upto;
-
-    println!(
-        "validating cids from snapshot in db: {} <- {} ...",
-        upto,
-        ts.epoch()
-    );
+    let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();
-
     // Security: Recursive snapshots are difficult to create but not impossible. This
     // limits the amount of recursion we do.
-    let mut iteration_guard = ts.epoch() + 1;
-    let genesis_reachable = loop {
-        if iteration_guard <= 0 {
+    let mut prev_epoch = ts.epoch();
+
+    let total_size = recent_stateroots;
+    let pb = forest_utils::io::ProgressBar::new(total_size as u64);
+    pb.message("Validating cids from snapshot in db ");
+    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+
+    loop {
+        if prev_epoch <= 0 {
             bail!("could not reach genesis from snapshot");
         }
 
         let tipset = chain_store.tipset_from_keys(&tsk).await?;
-        if iteration_guard - tipset.epoch() < 1 {
+        if tipset.epoch() >= prev_epoch {
             bail!(
-                "tipset iteration didn't make progress backwards, possible recursion in snapshot."
+                "tipset iteration didn't make progress backwards current epoch: {} previous_epoch: {}, possible recursion in snapshot.", tipset.epoch(), prev_epoch
             );
         }
         let height = tipset.epoch();
-
         if height == 0 {
             if tipset.as_ref() != genesis_tipset {
                 bail!("could not reach genesis from snapshot, genesis tipset in snapshot doesn't match the reference");
             }
 
-            break true;
+            break;
         }
-
         if height > upto {
             let mut assert_cid_exists = |cid: Cid| async move {
-                let data = db.get(&cid);
-                data?.ok_or(anyhow::anyhow!(
-                    "could not find data for cids in tipset at height: {}",
-                    height
-                ))
+                let data = db.get(&cid)?;
+                data.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "could not find data for cids in tipset at height: {}",
+                        height
+                    )
+                })
             };
 
             for h in tipset.blocks() {
                 recurse_links(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
+                recurse_links(&mut seen, *h.messages(), &mut assert_cid_exists).await?;
             }
         }
 
         tsk = tipset.parents().clone();
-        iteration_guard -= 1;
-    };
-
-    if genesis_reachable {
-        println!("genesis is reachable and valid.");
+        prev_epoch = tipset.epoch();
+        pb.set((ts.epoch() - tipset.epoch()) as u64);
     }
 
-    println!("ok");
+    pb.finish_println("snapshot is valid");
 
     Ok(())
 }

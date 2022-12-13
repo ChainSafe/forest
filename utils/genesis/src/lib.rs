@@ -193,7 +193,7 @@ where
 }
 
 /// Loads car file into database, and returns the block header CIDs from the CAR header.
-pub async fn load_and_retrieve_header<DB, R>(
+async fn load_and_retrieve_header<DB, R>(
     store: &DB,
     reader: FetchProgress<R>,
     skip_load: bool,

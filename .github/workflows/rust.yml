@@ -165,6 +165,9 @@ jobs:
         run: |
           forest-cli snapshot export
           sha256sum -c *.sha256sum
+      - name: validate snapshot
+        run: |
+          forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --recent-stateroots 2000 --force
       - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
