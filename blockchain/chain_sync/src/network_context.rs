@@ -29,7 +29,7 @@ use tokio::{task::JoinSet, time::timeout};
 const RPC_TIMEOUT: u64 = 5;
 
 /// Maximum number of concurrent chain exchange request being sent to the network
-const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUEST: usize = 2;
+const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`BlockStore`] required to make
@@ -173,7 +173,7 @@ where
         };
 
         let global_pre_time = SystemTime::now();
-        let bs_res = match peer_id {
+        let chain_exchange_result = match peer_id {
             // Specific peer is given to send request, send specifically to that peer.
             Some(id) => Self::chain_exchange_request(
                 self.peer_manager.clone(),
@@ -185,41 +185,46 @@ where
             .into_result()?,
             None => {
                 // Control max num of concurrent jobs
-                let (ctl_tx, ctl_rx) = flume::bounded(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUEST);
-                let (res_tx, res_rx) = flume::bounded::<Vec<T>>(1);
+                let (n_task_control_tx, n_task_control_rx) =
+                    flume::bounded(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
+                let (result_tx, result_rx) = flume::bounded::<Vec<T>>(1);
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled().await;
                 let mut tasks = JoinSet::new();
-                for p in peers.into_iter() {
-                    let ctl_tx = ctl_tx.clone();
-                    let ctl_rx = ctl_rx.clone();
-                    let res_tx = res_tx.clone();
+                for peer_id in peers.into_iter() {
+                    let n_task_control_tx = n_task_control_tx.clone();
+                    let n_task_control_rx = n_task_control_rx.clone();
+                    let result_tx = result_tx.clone();
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
                     tasks.spawn(async move {
-                        if ctl_tx.send_async(()).await.is_ok() {
+                        if n_task_control_tx.send_async(()).await.is_ok() {
                             match Self::chain_exchange_request(
                                 peer_manager,
                                 network_send,
-                                p,
+                                peer_id,
                                 request,
                             )
                             .await
                             {
-                                Ok(bs_res) => match bs_res.into_result() {
-                                    Ok(r) => {
-                                        _ = res_tx.send_async(r).await;
+                                Ok(chain_exchange_result) => {
+                                    match chain_exchange_result.into_result() {
+                                        Ok(r) => {
+                                            _ = result_tx.send_async(r).await;
+                                        }
+                                        Err(e) => {
+                                            _ = n_task_control_rx.recv_async().await;
+                                            debug!("Failed chain_exchange response: {e}");
+                                        }
                                     }
-                                    Err(e) => {
-                                        _ = ctl_rx.recv_async().await;
-                                        debug!("Failed chain_exchange response: {e}");
-                                    }
-                                },
+                                }
                                 Err(e) => {
-                                    _ = ctl_rx.recv_async().await;
-                                    debug!("Failed chain_exchange request to peer {p:?}: {e}");
+                                    _ = n_task_control_rx.recv_async().await;
+                                    debug!(
+                                        "Failed chain_exchange request to peer {peer_id:?}: {e}"
+                                    );
                                 }
                             }
                         }
@@ -231,10 +236,10 @@ where
                 }
 
                 tokio::select! {
-                    r = res_rx.recv_async() => {
+                    result = result_rx.recv_async() => {
                         tasks.abort_all();
                         log::debug!("Succeed: handle_chain_exchange_request");
-                        r.map_err(|e| e.to_string())?
+                        result.map_err(|e| e.to_string())?
                     },
                     _ = wait_all(&mut tasks) => return Err("ChainExchange request failed for all top peers".into()),
                 }
@@ -249,7 +254,7 @@ where
             }
         }
 
-        Ok(bs_res)
+        Ok(chain_exchange_result)
     }
 
     /// Send a `chain_exchange` request to the network and await response.
