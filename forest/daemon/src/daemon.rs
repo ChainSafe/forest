@@ -396,27 +396,6 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
     }
 }
 
-// returns the first error with which any of the services end
-// in case all services finished without an error sleeps for more than 2 years
-// and then returns with an error
-async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> anyhow::Error {
-    while !services.is_empty() {
-        select! {
-            option = services.join_next().fuse() => {
-                if let Some(Ok(Err(error_message))) = option {
-                    return error_message
-                }
-            },
-        }
-    }
-    // In case all services are down without errors we are still willing
-    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
-    // a limit of approximately 2.2 years we have to loop
-    loop {
-        tokio::time::sleep(Duration::new(64000000, 0)).await;
-    }
-}
-
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
 async fn maybe_fetch_snapshot(
     should_fetch_snapshot: bool,
