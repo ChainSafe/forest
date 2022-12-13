@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+atty = "0.2"
 base64.workspace = true
 cid.workspace = true
 dialoguer.workspace = true
@@ -68,7 +69,6 @@ tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
 url.workspace = true
-atty = "0.2"
 
 [dev-dependencies]
 assert_cmd.workspace = true

@@ -428,7 +428,7 @@ where
     // limits the amount of recursion we do.
     let mut prev_epoch = ts.epoch();
 
-    let total_size = recent_stateroots;
+    let total_size = ts.epoch();
     let pb = forest_utils::io::ProgressBar::new(total_size as u64);
     pb.message("Validating cids from snapshot in db ");
     pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
