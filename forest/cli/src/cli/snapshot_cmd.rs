@@ -241,10 +241,7 @@ impl SnapshotCommands {
                 recent_stateroots,
                 snapshot,
                 force,
-            } => {
-                validate(&config, recent_stateroots, snapshot, *force).await?;
-                Ok(())
-            }
+            } => validate(&config, recent_stateroots, snapshot, *force).await,
         }
     }
 }
@@ -378,6 +375,7 @@ async fn validate(
 
         let db_path = tmp_db_path.path().join(&config.chain.name);
 
+        #[cfg(feature = "rocksdb")]
         let db = RocksDb::open(db_path, &config.rocks_db)?;
 
         let chain_store = Arc::new(ChainStore::new(db).await);
@@ -403,6 +401,7 @@ async fn validate(
             chain_store.blockstore(),
             *recent_stateroots,
             &genesis,
+            &config.chain.name,
         )
         .await?;
     }
@@ -416,6 +415,7 @@ async fn validate_links_and_genesis_traversal<DB>(
     db: &DB,
     recent_stateroots: ChainEpoch,
     genesis_tipset: &Tipset,
+    network: &str,
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
@@ -424,30 +424,28 @@ where
     let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();
-    // Security: Recursive snapshots are difficult to create but not impossible. This
-    // limits the amount of recursion we do.
-    let mut prev_epoch = ts.epoch();
 
     let total_size = ts.epoch();
     let pb = forest_utils::io::ProgressBar::new(total_size as u64);
-    pb.message("Validating tipsets");
+    pb.message("Validating tipsets: ");
     pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
+    // Security: Recursive snapshots are difficult to create but not impossible. This
+    // limits the amount of recursion we do.
+    let mut prev_epoch = ts.epoch();
     loop {
         if prev_epoch <= 0 {
-            bail!("could not reach genesis from snapshot");
+            bail!("Broken invariant: no genesis tipset in snapshot.");
         }
 
         let tipset = chain_store.tipset_from_keys(&tsk).await?;
-        if tipset.epoch() >= prev_epoch {
-            bail!(
-                "tipset iteration didn't make progress backwards current epoch: {} previous_epoch: {}, possible recursion in snapshot.", tipset.epoch(), prev_epoch
-            );
-        }
         let height = tipset.epoch();
+        if height >= prev_epoch {
+            bail!("Broken tipset invariant: parent epoch larger than current epoch at: {height}");
+        }
         if height == 0 {
             if tipset.as_ref() != genesis_tipset {
-                bail!("could not reach genesis from snapshot, genesis tipset in snapshot doesn't match the reference");
+                bail!("Invalid genesis tipset. Snapshot isn't valid for {network}. It may be valid for another network.");
             }
 
             break;
@@ -469,7 +467,8 @@ where
         pb.set((ts.epoch() - tipset.epoch()) as u64);
     }
 
-    pb.finish_println("snapshot is valid");
+    pb.finish();
+    println!("Snapshot is valid");
 
     Ok(())
 }
