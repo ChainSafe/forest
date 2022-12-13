@@ -17,8 +17,8 @@ use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
 use forest_key_management::{KeyStore, KeyStoreConfig};
+use forest_libp2p::PeerId;
 use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
-use forest_libp2p::{Multiaddr, PeerId};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -220,15 +220,15 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers: anyhow::Result<Vec<Multiaddr>> = config
+        let bootstrap_peers = config
             .chain
             .bootstrap_peers
             .iter()
-            .map(|node| node.parse::<Multiaddr>().map_err(Into::into))
-            .collect();
+            .map(|node| node.parse())
+            .collect::<Result<_, _>>()?;
         Config {
             network: Libp2pConfig {
-                bootstrap_peers: bootstrap_peers?,
+                bootstrap_peers,
                 ..config.network
             },
             ..config
