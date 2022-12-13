@@ -58,6 +58,12 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
+type HelloRequestTable =
+    HashMap<RequestId, OneShotSender<Result<HelloResponse, RequestResponseError>>>;
+
+type CxRequestTable =
+    HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>;
+
 /// Events emitted by this Service.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
@@ -306,14 +312,8 @@ async fn handle_network_message<P: StoreParams>(
     swarm: &mut Swarm<ForestBehaviour<P>>,
     message: NetworkMessage,
     network_sender_out: &flume::Sender<NetworkEvent>,
-    hello_request_table: &mut HashMap<
-        RequestId,
-        futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
-    >,
-    cx_request_table: &mut HashMap<
-        RequestId,
-        futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
-    >,
+    hello_request_table: &mut HelloRequestTable,
+    cx_request_table: &mut CxRequestTable,
     outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
 ) {
     match message {
@@ -492,10 +492,7 @@ async fn handle_hello_event<P: StoreParams>(
     swarm: &mut Swarm<ForestBehaviour<P>>,
     genesis_cid: &Cid,
     network_sender_out: &flume::Sender<NetworkEvent>,
-    hello_request_table: &mut HashMap<
-        RequestId,
-        futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
-    >,
+    hello_request_table: &mut HelloRequestTable,
 ) {
     let behaviour = swarm.behaviour_mut();
     match rr_event {
@@ -681,10 +678,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
     ce_event: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>,
     db: &Arc<ChainStore<DB>>,
     network_sender_out: &flume::Sender<NetworkEvent>,
-    cx_request_table: &mut HashMap<
-        RequestId,
-        futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
-    >,
+    cx_request_table: &mut CxRequestTable,
     cx_response_tx: Sender<(
         RequestId,
         ResponseChannel<ChainExchangeResponse>,
@@ -785,14 +779,8 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
     network_sender_out: &flume::Sender<NetworkEvent>,
-    hello_request_table: &mut HashMap<
-        RequestId,
-        futures::channel::oneshot::Sender<Result<HelloResponse, RequestResponseError>>,
-    >,
-    cx_request_table: &mut HashMap<
-        RequestId,
-        futures::channel::oneshot::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
-    >,
+    hello_request_table: &mut HelloRequestTable,
+    cx_request_table: &mut CxRequestTable,
     outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
     cx_response_tx: Sender<(
         RequestId,
