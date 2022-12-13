@@ -455,12 +455,7 @@ where
         if height > upto {
             let mut assert_cid_exists = |cid: Cid| async move {
                 let data = db.get(&cid)?;
-                data.ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "could not find data for cids in tipset at height: {}",
-                        height
-                    )
-                })
+                data.ok_or_else(|| anyhow::anyhow!("Broken IPLD link at epoch: {height}"))
             };
 
             for h in tipset.blocks() {
