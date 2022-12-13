@@ -214,12 +214,12 @@ where
                                     }
                                     Err(e) => {
                                         _ = ctl_rx.recv_async().await;
-                                        debug!("Failed chain_exchange response: {}", e);
+                                        debug!("Failed chain_exchange response: {e}");
                                     }
                                 },
                                 Err(e) => {
                                     _ = ctl_rx.recv_async().await;
-                                    debug!("Failed chain_exchange request to peer {:?}: {}", p, e);
+                                    debug!("Failed chain_exchange request to peer {p:?}: {e}");
                                 }
                             }
                         }
