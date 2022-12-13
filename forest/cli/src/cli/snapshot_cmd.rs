@@ -360,14 +360,15 @@ async fn validate(
     force: bool,
 ) -> anyhow::Result<()> {
     let confirm = if !force {
-        Confirm::with_theme(&ColorfulTheme::default())
-            .with_prompt(format!(
-                "This will result in using approximately {} MB of data. Proceed?",
-                std::fs::metadata(snapshot)?.len() / (1024 * 1024)
-            ))
-            .default(false)
-            .interact()
-            .unwrap_or_default()
+        atty::is(atty::Stream::Stdin)
+            && Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(format!(
+                    "This will result in using approximately {} MB of data. Proceed?",
+                    std::fs::metadata(snapshot)?.len() / (1024 * 1024)
+                ))
+                .default(false)
+                .interact()
+                .unwrap_or_default()
     } else {
         true
     };
