@@ -151,7 +151,7 @@ jobs:
         run: forest-cli --chain calibnet snapshot fetch --aria2 -s $SNAPSHOT_DIRECTORY
       - name: import snapshot and run Forest
         run: |
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --import-snapshot $SNAPSHOT_DIRECTORY/*.car
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
           forest-cli --chain calibnet db stats
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
       - name: Validate checkpoint tipset hashes
