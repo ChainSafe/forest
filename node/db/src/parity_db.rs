@@ -37,7 +37,7 @@ impl Default for ParityDbConfig {
 }
 
 /// Converts string to a compression `ParityDb` variant.
-fn compression_from_str(s: &str) -> anyhow::Result<CompressionType> {
+fn compression_type_from_str(s: &str) -> anyhow::Result<CompressionType> {
     match s.to_lowercase().as_str() {
         "none" => Ok(CompressionType::NoCompression),
         "lz4" => Ok(CompressionType::Lz4),
@@ -49,7 +49,7 @@ fn compression_from_str(s: &str) -> anyhow::Result<CompressionType> {
 impl ParityDb {
     fn to_options(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Options> {
         const COLUMNS: usize = 1;
-        let compression = compression_from_str(&config.compression)?;
+        let compression = compression_type_from_str(&config.compression)?;
         Ok(Options {
             path,
             sync_wal: true,
@@ -176,7 +176,7 @@ mod test {
     use parity_db::CompressionType;
 
     #[test]
-    fn compression_from_str_test() {
+    fn compression_type_from_str_test() {
         let test_cases = vec![
             ("lz4", Ok(CompressionType::Lz4)),
             ("SNAPPY", Ok(CompressionType::Snappy)),
@@ -184,7 +184,7 @@ mod test {
             ("cthulhu", Err(anyhow!("some error message"))),
         ];
         for (input, expected) in test_cases {
-            let actual = compression_from_str(input);
+            let actual = compression_type_from_str(input);
             if let Ok(compression) = actual {
                 assert_eq!(expected.unwrap(), compression);
             } else {
