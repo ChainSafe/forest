@@ -31,6 +31,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute labels
+        id: labels
+        run: |
+          echo "${{ github.ref_name }}
+          echo "${{ github.head_ref }}
+          echo "${{ github.event.repository.updated_at }}"
+
       - name: Build image and push to GitHub Container Registry
         if: github.ref_type == 'tag'
         uses: docker/build-push-action@v3
@@ -38,19 +45,7 @@ jobs:
           context: .
           tags: |
             ghcr.io/chainsafe/forest:latest
-            ghcr.io/chainsafe/forest:${{ github.ref_name }}
-            ghcr.io/chainsafe/forest:${{ github.head_ref }}
-          # build on feature branches, push only on main branch
-          push: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build image and push to GitHub Container Registry
-        if: github.ref_type == 'branch'
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          tags: |
-            ghcr.io/chainsafe/forest:latest
-            ghcr.io/chainsafe/forest:${{ github.head_ref }}
+            ghcr.io/chainsafe/forest:${{ steps.labels.outputs.TAG }}"
           # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
 
