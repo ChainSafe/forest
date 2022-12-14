@@ -77,7 +77,6 @@ where
 
         let rand_ts = self
             .cs
-            //.tipset_by_height_2(search_height, ts, lookback)
             .tipset_by_height(search_height, ts, lookback)
             .await?;
 
@@ -221,7 +220,6 @@ where
         let search_height = if round < 0 { 0 } else { round };
 
         self.cs
-            //.tipset_by_height_2(search_height, ts, lookback)
             .tipset_by_height(search_height, ts, lookback)
             .await
             .map_err(|e| e.into())
