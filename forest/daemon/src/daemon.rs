@@ -77,16 +77,9 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
             let gen_keypair = ed25519::Keypair::generate();
             // Save Ed25519 keypair to file
             // TODO rename old file to keypair.old(?)
-            match write_to_file(&gen_keypair.encode(), &path, "keypair") {
-                Ok(file) => {
-                    // Restrict permissions on files containing private keys
-                    #[cfg(unix)]
-                    forest_utils::io::set_user_perm(&file)?;
-                }
-                Err(e) => {
-                    anyhow::bail!("Could not write keystore to disk! Error: {e}");
-                }
-            };
+            let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
+            // Restrict permissions on files containing private keys
+            forest_utils::io::set_user_perm(&file)?;
             Ok(Keypair::Ed25519(gen_keypair))
         }
     }?;
