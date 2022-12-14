@@ -26,8 +26,8 @@ use tokio::{task::JoinSet, time::timeout};
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
 // requests from slowing the node down. If increase, should create a countermeasure for this.
-const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
-const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(30);
+const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
+const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Maximum number of concurrent chain exchange request being sent to the network
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
