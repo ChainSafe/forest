@@ -67,7 +67,6 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        //let ts = self.cs.tipset_from_keys_2(blocks).await?;
         let ts = self.cs.tipset_from_keys(blocks).await?;
 
         if round > ts.epoch() {
@@ -197,7 +196,6 @@ where
                 }
             }
 
-            //rand_ts = self.cs.tipset_from_keys_2(rand_ts.parents()).await?;
             rand_ts = self.cs.tipset_from_keys(rand_ts.parents()).await?;
         }
 
@@ -214,7 +212,6 @@ where
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<Arc<Tipset>> {
-        //let ts = self.cs.tipset_from_keys_2(blocks).await?;
         let ts = self.cs.tipset_from_keys(blocks).await?;
 
         if round > ts.epoch() {
@@ -242,14 +239,10 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         {
-            // println!("get_chain_randomness");
             let guard = self.async_handle.enter();
-            let res = futures::executor::block_on(
+            futures::executor::block_on(
                 self.get_chain_randomness_v2(&self.blks, pers, round, entropy),
-            );
-            drop(guard);
-            // println!("get_chain_randomness end");
-            res
+            )
         }
     }
 
@@ -260,14 +253,10 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         {
-            // println!("get_beacon_randomness");
             let guard = self.async_handle.enter();
-            let res = futures::executor::block_on(
+            futures::executor::block_on(
                 self.get_beacon_randomness_v3(&self.blks, pers, round, entropy),
-            );
-            drop(guard);
-            // println!("get_beacon_randomness end");
-            res
+            )
         }
     }
 }

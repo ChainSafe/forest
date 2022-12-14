@@ -165,10 +165,10 @@ impl<BS: Blockstore> ChainIndex<BS> {
         if from.epoch() - to <= SKIP_LENGTH {
             return self.walk_back(from, to).await;
         }
-        // let total_size = from.epoch() - to;
-        // let pb = ProgressBar::new(total_size as u64);
-        // pb.message("Scanning blockchain ");
-        // pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+        let total_size = from.epoch() - to;
+        let pb = ProgressBar::new(total_size as u64);
+        pb.message("Scanning blockchain ");
+        pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
         let mut cur = from.key().clone();
         // const MAX_COUNT: usize = 100;
@@ -194,11 +194,11 @@ impl<BS: Blockstore> ChainIndex<BS> {
             } else if to > lbe.target_height {
                 return self.walk_back(lbe.tipset.clone(), to).await;
             }
-            // let to_be_done = lbe.tipset.epoch() - to;
-            // // Don't show the progress bar if we're doing less than 10_000 units of work.
-            // if total_size > 10_000 {
-            //     pb.set((total_size - to_be_done) as u64);
-            // }
+            let to_be_done = lbe.tipset.epoch() - to;
+            // Don't show the progress bar if we're doing less than 10_000 units of work.
+            if total_size > 10_000 {
+                pb.set((total_size - to_be_done) as u64);
+            }
 
             cur = lbe.target.clone();
 
