@@ -74,6 +74,7 @@ pub enum NetworkEvent {
     },
     HelloRequestInbound {
         source: PeerId,
+        request: HelloRequest,
     },
     HelloResponseOutbound {
         source: PeerId,
@@ -504,7 +505,10 @@ async fn handle_hello_event<P: StoreParams>(
             } => {
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::HelloRequestInbound { source: peer },
+                    NetworkEvent::HelloRequestInbound {
+                        source: peer,
+                        request: request.clone(),
+                    },
                 )
                 .await;
 

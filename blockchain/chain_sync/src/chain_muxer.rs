@@ -363,10 +363,13 @@ where
         block_delay: u64,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError<C>> {
         let (tipset, source) = match event {
-            NetworkEvent::HelloRequestInbound { .. } => {
+            NetworkEvent::HelloRequestInbound { source, request } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_REQUEST_INBOUND])
                     .inc();
+                metrics::PEER_TIPSET_EPOCH
+                    .with_label_values(&[source.to_string().as_str()])
+                    .set(request.heaviest_tipset_height);
                 return Ok(None);
             }
             NetworkEvent::HelloResponseOutbound { request, source } => {
@@ -516,6 +519,9 @@ where
             .peer_manager()
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
             .await;
+        metrics::PEER_TIPSET_EPOCH
+            .with_label_values(&[source.to_string().as_str()])
+            .set(tipset.epoch());
 
         Ok(Some((tipset, source)))
     }
