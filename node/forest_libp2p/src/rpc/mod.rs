@@ -127,7 +127,7 @@ where
     IO: AsyncRead + Unpin,
     T: serde::de::DeserializeOwned,
 {
-    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
+    const MAX_BYTES_ALLOWED: usize = 20 * 1024 * 1024; // messages over 20MB are likely malicious
     const TIMEOUT: Duration = Duration::from_secs(30);
 
     // Currently the protocol does not send length encoded message,

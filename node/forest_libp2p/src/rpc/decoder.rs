@@ -3,6 +3,7 @@
 
 use bytes::BytesMut;
 use futures::prelude::*;
+use log::warn;
 use pin_project_lite::pin_project;
 use std::io;
 use std::marker::PhantomData;
@@ -54,13 +55,15 @@ where
             }
             self.bytes_read += n;
             if self.max_bytes_allowed > 0 && self.bytes_read > self.max_bytes_allowed {
-                return Poll::Ready(Err(io::Error::new(
+                let err = io::Error::new(
                     io::ErrorKind::Other,
                     format!(
                         "Buffer size exceeds the maximum allowed {}B",
                         self.max_bytes_allowed,
                     ),
-                )));
+                );
+                warn!("{err}");
+                return Poll::Ready(Err(err));
             }
             self.bytes.extend_from_slice(&buf[..n.min(buf.len())]);
             // This is what `FramedRead` does internally
