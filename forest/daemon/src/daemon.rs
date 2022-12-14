@@ -52,11 +52,16 @@ use forest_fil_cns::composition as cns;
 use forest_deleg_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
-    let shmem = super::ipc_shmem_conf().open().context("open must succeed")?;
-    let (event, _) =
-        unsafe { Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::Error::msg(format!("{}", err)))}?;
+    let shmem = super::ipc_shmem_conf()
+        .open()
+        .context("open must succeed")?;
+    let (event, _) = unsafe {
+        Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::Error::msg(format!("{}", err)))
+    }?;
 
-    Ok(event.set(EventState::Signaled).map_err(|err| anyhow::Error::msg(format!("{}", err)))?)
+    event
+        .set(EventState::Signaled)
+        .map_err(|err| anyhow::Error::msg(format!("{}", err)))
 }
 
 /// Starts daemon process
@@ -72,22 +77,23 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let net_keypair = match get_keypair(&path.join("keypair")) {
         Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
         None => {
-                let gen_keypair = ed25519::Keypair::generate();
-                // Save Ed25519 keypair to file
-                // TODO rename old file to keypair.old(?)
-                match write_to_file(&gen_keypair.encode(), &path, "keypair") {
-                    Ok(file) => {
-                        // Restrict permissions on files containing private keys
-                        #[cfg(unix)]
-                        forest_utils::io::set_user_perm(&file).context("Set user perms on unix systems")?;
-                    }
-                    Err(e) => {
-                        info!("Could not write keystore to disk!");
-                        trace!("Error {:?}", e);
-                    }
-                };
-                Ok(Keypair::Ed25519(gen_keypair))
-        },
+            let gen_keypair = ed25519::Keypair::generate();
+            // Save Ed25519 keypair to file
+            // TODO rename old file to keypair.old(?)
+            match write_to_file(&gen_keypair.encode(), &path, "keypair") {
+                Ok(file) => {
+                    // Restrict permissions on files containing private keys
+                    #[cfg(unix)]
+                    forest_utils::io::set_user_perm(&file)
+                        .context("Set user perms on unix systems")?;
+                }
+                Err(e) => {
+                    info!("Could not write keystore to disk!");
+                    trace!("Error {:?}", e);
+                }
+            };
+            Ok(Keypair::Ed25519(gen_keypair))
+        }
     }?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
@@ -99,7 +105,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
             print!("Enter the keystore passphrase: ");
             std::io::stdout().flush()?;
 
-            let passphrase = read_password().context("Error reading passphrase")?;
+            let passphrase = read_password()?;
 
             let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
@@ -150,15 +156,17 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     {
         // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
-            .context("could not bind to metrics address")?;
+        let prometheus_listener = TcpListener::bind(config.client.metrics_address).context(
+            format!("could not bind to {}", config.client.metrics_address),
+        )?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
         let db_directory = db_path(&config)
             .into_os_string()
-            .into_string().map_err(|err| anyhow::Error::msg(format!("{:?}", err)))?;
+            .into_string()
+            .map_err(|err| anyhow::Error::msg(format!("{:?}", err)))?;
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -489,8 +497,8 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 
 #[cfg(feature = "rocksdb")]
 fn open_db(config: &Config) -> anyhow::Result<forest_db::rocks::RocksDb> {
-    Ok(forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
-        .context("Opening RocksDB must succeed")?)
+    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
+        .context("Opening RocksDB must succeed")
 }
 
 #[cfg(feature = "paritydb")]
@@ -500,7 +508,7 @@ fn open_db(config: &Config) -> anyhow::Result<forest_db::parity_db::ParityDb> {
         path: db_path(config),
         columns: 1,
     };
-    Ok(ParityDb::open(&config).context("Opening ParityDb must succeed")?)
+    ParityDb::open(&config).context("Opening ParityDb must succeed")
 }
 
 #[cfg(feature = "rocksdb")]
