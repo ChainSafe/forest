@@ -26,7 +26,8 @@ use tokio::{task::JoinSet, time::timeout};
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
 // requests from slowing the node down. If increase, should create a countermeasure for this.
-const RPC_TIMEOUT: u64 = 5;
+const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
+const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Maximum number of concurrent chain exchange request being sent to the network
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
@@ -136,7 +137,7 @@ where
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-        let res = timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res = timeout(BITSWAP_TIMEOUT, rx).await;
         match res {
             Ok(Ok(())) => {
                 match self.db.get_obj(&content) {
@@ -289,7 +290,7 @@ where
 
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures this.
-        let res = timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res = timeout(CHAIN_EXCHANGE_TIMEOUT, rx).await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();
