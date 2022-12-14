@@ -71,7 +71,7 @@ lint: license clean
 	taplo fmt --check
 	taplo lint
 	cargo clippy --all-targets -- -D warnings
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,rocksdb,instrumented_kernel -- -D warnings
+	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings
 
 # Formats Rust and TOML files
 fmt:
