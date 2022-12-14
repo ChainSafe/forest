@@ -97,7 +97,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
             print!("Enter the keystore passphrase: ");
             std::io::stdout().flush()?;
 
-            let passphrase = read_password().expect("Error reading passphrase");
+            let passphrase = read_password().context("Error reading passphrase")?;
 
             let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
@@ -297,8 +297,11 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = std::net::TcpListener::bind(config.client.rpc_address)
-            .context("could not bind to rpc address")?;
+        let rpc_listen =
+            std::net::TcpListener::bind(config.client.rpc_address).context(format!(
+                "could not bind to rpc address {}",
+                config.client.rpc_address
+            ))?;
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);

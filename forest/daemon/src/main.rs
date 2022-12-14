@@ -50,14 +50,15 @@ fn ipc_shmem_conf() -> ShmemConf {
 }
 
 // Initiate an Event object in shared memory.
-fn create_ipc_lock() {
-    let mut shmem = ipc_shmem_conf().create().expect("create must succeed");
+fn create_ipc_lock() -> anyhow::Result<()> {
+    let mut shmem = ipc_shmem_conf().create().context("create must succeed")?;
     // The shared memory object will not be deleted when 'shmem' is dropped
     // because we're not the owner.
     shmem.set_owner(false);
     unsafe {
         Event::new(shmem.as_ptr(), true).expect("new must succeed");
     }
+    Ok(())
 }
 
 fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
@@ -170,7 +171,7 @@ fn main() -> anyhow::Result<()> {
         None => {
             check_for_low_fd(&cfg).context("Error checking low fd")?;
             if opts.detach {
-                create_ipc_lock();
+                create_ipc_lock()?;
                 info!(
                     "Redirecting stdout and stderr to files {} and {}.",
                     cfg.daemon.stdout.display(),
@@ -193,9 +194,7 @@ fn main() -> anyhow::Result<()> {
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs(10));
 
-            if let Err(e) = db.flush() {
-                error!("Error flushing db: {e}");
-            }
+            db.flush().context("Error flushing db")?;
             let db_weak_ref = Arc::downgrade(&db.db);
             drop(db);
 
