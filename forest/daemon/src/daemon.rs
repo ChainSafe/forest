@@ -27,7 +27,7 @@ use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::version::NetworkVersion;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use std::net::TcpListener;
@@ -52,16 +52,13 @@ use forest_fil_cns::composition as cns;
 use forest_deleg_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
-    let shmem = super::ipc_shmem_conf()
-        .open()
-        .context("open must succeed")?;
-    let (event, _) = unsafe {
-        Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::Error::msg(format!("{}", err)))
-    }?;
+    let shmem = super::ipc_shmem_conf().open()?;
+    let (event, _) =
+        unsafe { Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::anyhow!("{err}")) }?;
 
     event
         .set(EventState::Signaled)
-        .map_err(|err| anyhow::Error::msg(format!("{}", err)))
+        .map_err(|err| anyhow::anyhow!("{err}"))
 }
 
 /// Starts daemon process
@@ -84,12 +81,10 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
                 Ok(file) => {
                     // Restrict permissions on files containing private keys
                     #[cfg(unix)]
-                    forest_utils::io::set_user_perm(&file)
-                        .context("Set user perms on unix systems")?;
+                    forest_utils::io::set_user_perm(&file)?;
                 }
                 Err(e) => {
-                    info!("Could not write keystore to disk!");
-                    trace!("Error {:?}", e);
+                    anyhow::bail!("Could not write keystore to disk! Error: {e}");
                 }
             };
             Ok(Keypair::Ed25519(gen_keypair))
