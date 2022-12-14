@@ -42,7 +42,8 @@ where
     type Output = io::Result<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        let mut buf = [0u8; 1024];
+        // https://github.com/mxinden/asynchronous-codec/blob/master/src/framed_read.rs#L161
+        let mut buf = [0u8; 8 * 1024];
         loop {
             let n = std::task::ready!(Pin::new(&mut self.io).poll_read(cx, &mut buf))?;
             // Terminated

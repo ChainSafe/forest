@@ -248,7 +248,7 @@ where
                         log::debug!("Succeed: handle_chain_exchange_request");
                         result.map_err(|e| e.to_string())?
                     },
-                    _ = wait_all(&mut tasks) => return Err(format!("ChainExchange request failed for all top peers. {} network failures, {} lookup failures", network_failures.load(Ordering::Relaxed), lookup_failures.load(Ordering::Relaxed))),
+                    _ = wait_all(&mut tasks) => return Err(format!("ChainExchange request failed for all top peers. {} network failures, {} lookup failures, request:\n{request:?}", network_failures.load(Ordering::Relaxed), lookup_failures.load(Ordering::Relaxed))),
                 }
             }
         };
