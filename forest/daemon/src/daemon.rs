@@ -51,12 +51,12 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
-fn unblock_parent_process() {
-    let shmem = super::ipc_shmem_conf().open().expect("open must succeed");
+fn unblock_parent_process() -> anyhow::Result<()> {
+    let shmem = super::ipc_shmem_conf().open().context("open must succeed")?;
     let (event, _) =
-        unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
+        unsafe { Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::Error::msg(format!("{}", err)))}?;
 
-    event.set(EventState::Signaled).expect("set must succeed");
+    Ok(event.set(EventState::Signaled).map_err(|err| anyhow::Error::msg(format!("{}", err)))?)
 }
 
 /// Starts daemon process
@@ -69,24 +69,26 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     );
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
-    let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
-        // Keypair not found, generate and save generated keypair
-        let gen_keypair = ed25519::Keypair::generate();
-        // Save Ed25519 keypair to file
-        // TODO rename old file to keypair.old(?)
-        match write_to_file(&gen_keypair.encode(), &path, "keypair") {
-            Ok(file) => {
-                // Restrict permissions on files containing private keys
-                #[cfg(unix)]
-                forest_utils::io::set_user_perm(&file).expect("Set user perms on unix systems");
-            }
-            Err(e) => {
-                info!("Could not write keystore to disk!");
-                trace!("Error {:?}", e);
-            }
-        };
-        Keypair::Ed25519(gen_keypair)
-    });
+    let net_keypair = match get_keypair(&path.join("keypair")) {
+        Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
+        None => {
+                let gen_keypair = ed25519::Keypair::generate();
+                // Save Ed25519 keypair to file
+                // TODO rename old file to keypair.old(?)
+                match write_to_file(&gen_keypair.encode(), &path, "keypair") {
+                    Ok(file) => {
+                        // Restrict permissions on files containing private keys
+                        #[cfg(unix)]
+                        forest_utils::io::set_user_perm(&file).context("Set user perms on unix systems")?;
+                    }
+                    Err(e) => {
+                        info!("Could not write keystore to disk!");
+                        trace!("Error {:?}", e);
+                    }
+                };
+                Ok(Keypair::Ed25519(gen_keypair))
+        },
+    }?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
     // Useful if others want to use this node to bootstrap from.
@@ -127,7 +129,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(
             &config.client.data_dir,
         )))
-        .expect("Error initializing keystore")
+        .context("Error initializing keystore")?
     };
 
     if ks.get(JWT_IDENTIFIER).is_err() {
@@ -142,7 +144,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = open_db(&config);
+    let db = open_db(&config)?;
 
     let mut services = JoinSet::new();
 
@@ -156,8 +158,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         );
         let db_directory = db_path(&config)
             .into_os_string()
-            .into_string()
-            .expect("Failed converting the path to db");
+            .into_string().map_err(|err| anyhow::Error::msg(format!("{:?}", err)))?;
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -289,7 +290,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         tipset_stream,
         config.sync.clone(),
     )
-    .expect("Instantiating the ChainMuxer must succeed");
+    .context("Instantiating the ChainMuxer must succeed")?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
@@ -332,7 +333,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         debug!("RPC disabled.");
     };
     if detached {
-        unblock_parent_process();
+        unblock_parent_process()?;
     }
 
     // Fetch and ensure verification keys are downloaded
@@ -487,19 +488,19 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 }
 
 #[cfg(feature = "rocksdb")]
-fn open_db(config: &Config) -> forest_db::rocks::RocksDb {
-    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
-        .expect("Opening RocksDB must succeed")
+fn open_db(config: &Config) -> anyhow::Result<forest_db::rocks::RocksDb> {
+    Ok(forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
+        .context("Opening RocksDB must succeed")?)
 }
 
 #[cfg(feature = "paritydb")]
-fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
+fn open_db(config: &Config) -> anyhow::Result<forest_db::parity_db::ParityDb> {
     use forest_db::parity_db::*;
     let config = ParityDbConfig {
         path: db_path(config),
         columns: 1,
     };
-    ParityDb::open(&config).expect("Opening ParityDb must succeed")
+    Ok(ParityDb::open(&config).context("Opening ParityDb must succeed")?)
 }
 
 #[cfg(feature = "rocksdb")]

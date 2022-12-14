@@ -55,9 +55,7 @@ fn create_ipc_lock() -> anyhow::Result<()> {
     // The shared memory object will not be deleted when 'shmem' is dropped
     // because we're not the owner.
     shmem.set_owner(false);
-    unsafe {
-        Event::new(shmem.as_ptr(), true).expect("new must succeed");
-    }
+    unsafe { Event::new(shmem.as_ptr(), true).map_err(|err| anyhow::Error::msg(format!("{}", err)))}?;
     Ok(())
 }
 
