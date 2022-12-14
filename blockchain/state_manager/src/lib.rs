@@ -45,13 +45,93 @@ use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
+
+// Various structures for implementing a tipset cache
+
+struct TipsetCacheInner {
+    values: HashMap<TipsetKeys, CidPair>,
+    pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
+}
+
+impl Default for TipsetCacheInner {
+    fn default() -> Self {
+        Self {
+            values: HashMap::new(),
+            pending: Vec::with_capacity(8),
+        }
+    }
+}
+
+struct TipsetCache {
+    cache: Arc<std::sync::Mutex<TipsetCacheInner>>,
+}
+
+pub enum State<V> {
+    Done(V),
+    Busy(Arc<tokio::sync::Mutex<()>>),
+}
+
+impl TipsetCache {
+    pub fn new() -> Self {
+        Self {
+            cache: Arc::new(Mutex::new(TipsetCacheInner::default())),
+        }
+    }
+
+    fn with_inner<F, T>(&self, func: F) -> T
+    where
+        F: FnOnce(&mut TipsetCacheInner) -> T,
+    {
+        let mut lock = self.cache.lock().unwrap();
+        func(&mut lock)
+    }
+
+    pub fn get_state(&self, key: TipsetKeys) -> State<CidPair> {
+        self.with_inner(|inner| match inner.values.get_key_value(&key) {
+            Some((_, v)) => State::Done(v.clone()),
+            None => {
+                for (v, l) in inner.pending.iter() {
+                    if v == &key {
+                        return State::Busy(l.clone());
+                    }
+                }
+                let option = inner
+                    .pending
+                    .iter()
+                    .find(|(k, _l)| k == &key)
+                    .map(|(_k, l)| l);
+                match option {
+                    Some(lock) => State::Busy(lock.clone()),
+                    None => {
+                        let lock = Arc::new(TokioMutex::new(()));
+                        inner.pending.push((key, lock.clone()));
+                        State::Busy(lock)
+                    }
+                }
+            }
+        })
+    }
+
+    pub fn get(&self, key: TipsetKeys) -> Option<CidPair> {
+        self.with_inner(|inner| inner.values.get(&key).map(|v| v.clone()))
+    }
+
+    pub fn insert(&self, key: TipsetKeys, value: CidPair) {
+        self.with_inner(|inner| {
+            inner.values.insert(key.clone(), value.clone());
+            inner.pending.retain(|(k, _)| k != &key);
+        });
+    }
+}
 
 /// Type to represent invocation of state call results.
 #[derive(Serialize, Deserialize)]
@@ -83,9 +163,7 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
-    /// The calculated state is wrapped in a mutex to avoid duplicate computation
-    /// of the state/receipt root.
-    cache: RwLock<HashMap<TipsetKeys, Arc<RwLock<Option<CidPair>>>>>,
+    cache: TipsetCache,
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
@@ -112,7 +190,7 @@ where
 
         Ok(Self {
             cs,
-            cache: RwLock::new(HashMap::new()),
+            cache: TipsetCache::new(),
             publisher: None,
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
@@ -372,66 +450,47 @@ where
         Ok((state_root, receipt_root))
     }
 
-    /// Returns the pair of (parent state root, message receipt root). This will either be cached
-    /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
-    /// not to be computed twice.
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        span!("tipset_state", {
-            // Get entry in cache, if it exists.
-            // Arc is cloned here to avoid holding the entire cache lock until function ends.
-            // (tasks should be able to compute different tipset state's in parallel)
-            //
-            // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
-            // mutex until the value is updated, which task `B` will await.
-            //
-            // If two tasks are computing different tipset states, they will only block computation
-            // when accessing/initializing the entry in cache, not during the whole tipset calc.
+        let key = tipset.key().clone();
+        let state = self.cache.get_state(key.clone());
+        match state {
+            State::Done(v) => Ok(v),
+            State::Busy(x) => {
+                let _guard = x.lock().await;
+                match self.cache.get(key.clone()) {
+                    Some(v) => {
+                        // Someone else computed the pending task
+                        Ok(v)
+                    }
+                    None => {
+                        // Entry does not have state computed yet, this task will fill entry if successful.
+                        let cid_pair = if tipset.epoch() == 0 {
+                            // NB: This is here because the process that executes blocks requires that the
+                            // block miner reference a valid miner in the state tree. Unless we create some
+                            // magical genesis miner, this won't work properly, so we short circuit here
+                            // This avoids the question of 'who gets paid the genesis block reward'
+                            let message_receipts = tipset.blocks().first().ok_or_else(|| {
+                                Error::Other("Could not get message receipts".to_string())
+                            })?;
 
-            let cache_entry: Arc<_> = self
-                .cache
-                .write()
-                .await
-                .entry(tipset.key().clone())
-                .or_default()
-                // Clone Arc to drop lock of cache
-                .clone();
+                            (*tipset.parent_state(), *message_receipts.message_receipts())
+                        } else {
+                            // generic constants are not implemented yet this is a lowcost method for now
+                            let no_func = None::<
+                                fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
+                            >;
+                            let ts_state = self.compute_tipset_state(tipset, no_func).await?;
+                            debug!("Completed tipset state calculation {:?}", tipset.cids());
+                            ts_state
+                        };
 
-            // Try to lock cache entry to ensure task is first to compute state.
-            // If another task has the lock, it will overwrite the state before releasing lock.
-            let mut entry_lock = cache_entry.write().await;
-            if let Some(ref entry) = *entry_lock {
-                // Entry had successfully populated state, return Cid and drop lock
-                trace!("hit cache for tipset {:?}", tipset.cids());
-                return Ok(*entry);
+                        // Write back to cache, release lock and return value
+                        self.cache.insert(key, cid_pair.clone());
+                        Ok(cid_pair)
+                    }
+                }
             }
-
-            // Entry does not have state computed yet, this task will fill entry if successful.
-            debug!("calculating tipset state {:?}", tipset.cids());
-
-            let cid_pair = if tipset.epoch() == 0 {
-                // NB: This is here because the process that executes blocks requires that the
-                // block miner reference a valid miner in the state tree. Unless we create some
-                // magical genesis miner, this won't work properly, so we short circuit here
-                // This avoids the question of 'who gets paid the genesis block reward'
-                let message_receipts = tipset
-                    .blocks()
-                    .first()
-                    .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-
-                (*tipset.parent_state(), *message_receipts.message_receipts())
-            } else {
-                // generic constants are not implemented yet this is a lowcost method for now
-                let no_func =
-                    None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-                let ts_state = self.compute_tipset_state(tipset, no_func).await?;
-                debug!("completed tipset state calculation {:?}", tipset.cids());
-                ts_state
-            };
-
-            // Fill entry with calculated cid pair
-            *entry_lock = Some(cid_pair);
-            Ok(cid_pair)
-        })
+        }
     }
 
     fn call_raw(
@@ -865,9 +924,8 @@ where
                 )?)
             })
             .expect("spawn_blocking must suceed");
-        
-        let result =
-            handle
+
+        let result = handle
             .await
             .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?;
         info!("Computed {epoch}-apply-blocks");

@@ -707,10 +707,7 @@ where
 
 pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
 
-pub(crate) async fn tipset_from_keys<BS>(
-    store: &BS,
-    tsk: &TipsetKeys,
-) -> Result<Arc<Tipset>, Error>
+pub(crate) async fn tipset_from_keys<BS>(store: &BS, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>
 where
     BS: Blockstore,
 {
@@ -724,7 +721,7 @@ where
                 .ok_or_else(|| Error::NotFound(String::from("Key for header")))
         })
         .collect::<Result<_, Error>>()?;
-    
+
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
     Ok(ts)

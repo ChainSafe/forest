@@ -180,8 +180,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
             {
                 if to == 0 {
-                    let tipset =
-                        tipset_from_keys(&self.db, &genesis_tipset_keys).await?;
+                    let tipset = tipset_from_keys(&self.db, &genesis_tipset_keys).await?;
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
