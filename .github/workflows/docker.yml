@@ -34,9 +34,9 @@ jobs:
       - name: Compute labels
         id: labels
         run: |
-          echo "${{ github.ref_name }}
-          echo "${{ github.head_ref }}
-          echo "${{ github.event.repository.updated_at }}"
+          echo "${{ github.ref_name }} | sed 's/\//_/g'
+          echo "${{ github.head_ref }} | sed 's/\//_/g'
+          echo "${{ github.event.repository.updated_at }}" | head -c 10
 
       - name: Build image and push to GitHub Container Registry
         if: github.ref_type == 'tag'
