@@ -239,10 +239,10 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         {
-            let guard = self.async_handle.enter();
-            futures::executor::block_on(
-                self.get_chain_randomness_v2(&self.blks, pers, round, entropy),
-            )
+            tokio::task::block_in_place(move || {
+                self.async_handle
+                    .block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
+            })
         }
     }
 
@@ -253,10 +253,10 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         {
-            let guard = self.async_handle.enter();
-            futures::executor::block_on(
-                self.get_beacon_randomness_v3(&self.blks, pers, round, entropy),
-            )
+            tokio::task::block_in_place(move || {
+                self.async_handle
+                    .block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
+            })
         }
     }
 }
