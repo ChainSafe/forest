@@ -242,13 +242,28 @@ where
                     while tasks.join_next().await.is_some() {}
                 }
 
+                let make_failure_message = || {
+                    let mut message = String::new();
+                    message.push_str("ChainExchange request failed for all top peers. ");
+                    message.push_str(&format!(
+                        "{} network failures, ",
+                        network_failures.load(Ordering::Relaxed)
+                    ));
+                    message.push_str(&format!(
+                        "{} lookup failures, ",
+                        lookup_failures.load(Ordering::Relaxed)
+                    ));
+                    message.push_str(&format!("request:\n{request:?}",));
+                    message
+                };
+
                 tokio::select! {
                     result = result_rx.recv_async() => {
                         tasks.abort_all();
                         log::debug!("Succeed: handle_chain_exchange_request");
                         result.map_err(|e| e.to_string())?
                     },
-                    _ = wait_all(&mut tasks) => return Err(format!("ChainExchange request failed for all top peers. {} network failures, {} lookup failures, request:\n{request:?}", network_failures.load(Ordering::Relaxed), lookup_failures.load(Ordering::Relaxed))),
+                    _ = wait_all(&mut tasks) => return Err(make_failure_message()),
                 }
             }
         };
