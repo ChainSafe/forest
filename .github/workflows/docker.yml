@@ -33,7 +33,6 @@ jobs:
 
       - name: Build image and push to GitHub Container Registry
         if: github.ref_type == 'tag'
-        id: docker_build
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -46,7 +45,6 @@ jobs:
 
       - name: Build image and push to GitHub Container Registry
         if: github.ref_type == 'branch'
-        id: docker_build
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -55,9 +53,6 @@ jobs:
             ghcr.io/chainsafe/forest:${{ github.head_ref }}
           # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
 
       - name: List docker images
         run: docker image ls
