@@ -134,8 +134,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         warn!("Warning: Keystore encryption disabled!");
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(
             &config.client.data_dir,
-        )))
-        .context("Error initializing keystore")?
+        )))?
     };
 
     if ks.get(JWT_IDENTIFIER).is_err() {
@@ -163,10 +162,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = db_path(&config)
-            .into_os_string()
-            .into_string()
-            .map_err(|err| anyhow::Error::msg(format!("{:?}", err)))?;
+        let db_directory = db_path(&config);
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -297,8 +293,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync.clone(),
-    )
-    .context("Instantiating the ChainMuxer must succeed")?;
+    )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
@@ -497,8 +492,7 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 
 #[cfg(feature = "rocksdb")]
 fn open_db(config: &Config) -> anyhow::Result<forest_db::rocks::RocksDb> {
-    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
-        .context("Opening RocksDB must succeed")
+    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db).map_err(Into::into)
 }
 
 #[cfg(feature = "paritydb")]
@@ -508,7 +502,7 @@ fn open_db(config: &Config) -> anyhow::Result<forest_db::parity_db::ParityDb> {
         path: db_path(config),
         columns: 1,
     };
-    ParityDb::open(&config).context("Opening ParityDb must succeed")
+    ParityDb::open(&config)
 }
 
 #[cfg(feature = "rocksdb")]

@@ -51,13 +51,11 @@ fn ipc_shmem_conf() -> ShmemConf {
 
 // Initiate an Event object in shared memory.
 fn create_ipc_lock() -> anyhow::Result<()> {
-    let mut shmem = ipc_shmem_conf().create().context("create must succeed")?;
+    let mut shmem = ipc_shmem_conf().create()?;
     // The shared memory object will not be deleted when 'shmem' is dropped
     // because we're not the owner.
     shmem.set_owner(false);
-    unsafe {
-        Event::new(shmem.as_ptr(), true).map_err(|err| anyhow::Error::msg(format!("{}", err)))
-    }?;
+    unsafe { Event::new(shmem.as_ptr(), true).map_err(|err| anyhow::anyhow!("{err}")) }?;
     Ok(())
 }
 
@@ -177,10 +175,7 @@ fn main() -> anyhow::Result<()> {
                     cfg.daemon.stdout.display(),
                     cfg.daemon.stderr.display()
                 );
-                let result = build_daemon(&cfg.daemon)
-                    .context("Error building daemon.")?
-                    .start();
-                result.context("Error when detaching.")?;
+                build_daemon(&cfg.daemon)?.start()?;
                 info!("Process detached");
             }
 
@@ -194,7 +189,7 @@ fn main() -> anyhow::Result<()> {
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs(10));
 
-            db.flush().context("Error flushing db")?;
+            db.flush()?;
             let db_weak_ref = Arc::downgrade(&db.db);
             drop(db);
 
