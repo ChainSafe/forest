@@ -909,7 +909,6 @@ where
             let epoch = first_block.epoch();
             let ts_cloned = Arc::clone(tipset);
             // TODO: handle blocking pool shutting down errors
-            info!("Spawning {epoch}-apply-blocks");
             let handle = tokio::task::Builder::new()
                 .name(&format!("{epoch}-apply-blocks"))
                 .spawn_blocking(move || {
@@ -924,13 +923,11 @@ where
                         &ts_cloned,
                     )?)
                 })
-                .expect("spawn_blocking must suceed");
+                .expect("spawn_blocking must succeed");
 
-            let result = handle
+            handle
                 .await
-                .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?;
-            info!("Computed {epoch}-apply-blocks");
-            result
+                .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
         })
     }
 
