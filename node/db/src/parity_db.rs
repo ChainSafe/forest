@@ -177,7 +177,7 @@ mod test {
 
     #[test]
     fn compression_type_from_str_test() {
-        let test_cases = vec![
+        let test_cases = [
             ("lz4", Ok(CompressionType::Lz4)),
             ("SNAPPY", Ok(CompressionType::Snappy)),
             ("none", Ok(CompressionType::NoCompression)),
