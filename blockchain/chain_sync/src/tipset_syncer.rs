@@ -1422,18 +1422,10 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             .await
     }));
 
-    let cid = block.header().cid().to_string();
-    let suffix = &cid[cid.len() - 4..];
-    info!(
-        "Collecting validations errors {}.{}",
-        block.header().epoch(),
-        suffix
-    );
     // Collect the errors from the async validations
     if let Err(errs) = collect_errs(validations).await {
         return Err((*block_cid, TipsetRangeSyncerError::<C>::concat(errs)));
     }
-    info!("Collected {}.{}", block.header().epoch(), suffix);
 
     chain_store
         .mark_block_as_validated(block_cid)
