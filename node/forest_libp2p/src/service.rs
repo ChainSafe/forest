@@ -74,6 +74,7 @@ pub enum NetworkEvent {
     },
     HelloRequestInbound {
         source: PeerId,
+        request: HelloRequest,
     },
     HelloResponseOutbound {
         source: PeerId,
@@ -504,7 +505,10 @@ async fn handle_hello_event<P: StoreParams>(
             } => {
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::HelloRequestInbound { source: peer },
+                    NetworkEvent::HelloRequestInbound {
+                        source: peer,
+                        request: request.clone(),
+                    },
                 )
                 .await;
 
@@ -556,7 +560,7 @@ async fn handle_hello_event<P: StoreParams>(
                 // Send the sucessful response through channel out.
                 if let Some(tx) = hello_request_table.remove(&request_id) {
                     if tx.send(Ok(response)).is_err() {
-                        warn!("RPCResponse receive timed out");
+                        warn!("Fail to send Hello response");
                     } else {
                         emit_event(
                             network_sender_out,
@@ -725,7 +729,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
                         if tx.send(Ok(response)).is_err() {
-                            warn!("RPCResponse receive timed out")
+                            warn!("Fail to send ChainExchange response")
                         }
                     } else {
                         warn!("RPCResponse receive failed: channel not found");
