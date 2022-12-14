@@ -174,7 +174,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
         // const MAX_COUNT: usize = 100;
         // let mut counter = 0;
         loop {
-            let lbe = self.fill_cache_2(std::mem::take(&mut cur)).await?;
+            let lbe = self.fill_cache(std::mem::take(&mut cur)).await?;
 
             if let Some(genesis_tipset_keys) =
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
@@ -223,40 +223,6 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
     /// Fills cache with look-back entry, and returns inserted entry.
     async fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
-        let tipset = self.load_tipset(&tsk).await?;
-
-        if tipset.epoch() == 0 {
-            return Ok(Arc::new(LookbackEntry {
-                tipset,
-                parent_height: 0,
-                target_height: Default::default(),
-                target: Default::default(),
-            }));
-        }
-
-        let parent = self.load_tipset(tipset.parents()).await?;
-        let r_height = self.round_height(tipset.epoch()) - SKIP_LENGTH;
-
-        let parent_epoch = parent.epoch();
-        let skip_target = if parent.epoch() < r_height {
-            parent
-        } else {
-            self.walk_back(parent, r_height).await?
-        };
-
-        let lbe = Arc::new(LookbackEntry {
-            tipset,
-            parent_height: parent_epoch,
-            target_height: skip_target.epoch(),
-            target: skip_target.key().clone(),
-        });
-
-        self.skip_cache.write().await.put(tsk.clone(), lbe.clone());
-        Ok(lbe)
-    }
-
-    /// Fills cache with look-back entry, and returns inserted entry.
-    async fn fill_cache_2(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
         let tipset = self.load_tipset(&tsk).await?;
 
         if tipset.epoch() == 0 {
