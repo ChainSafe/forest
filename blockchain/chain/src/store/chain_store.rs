@@ -103,7 +103,7 @@ where
         DB: Clone,
     {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
             // subscriptions: Default::default(),
@@ -204,7 +204,7 @@ where
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset().await.unwrap());
         }
-        tipset_from_keys(self.blockstore(), tsk).await
+        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
     }
 
     /// Returns Tipset key hash from key-value store from provided CIDs
@@ -705,12 +705,16 @@ where
     }
 }
 
-pub(crate) type TipsetCache = RwLock<LruCache<TipsetKeys, Arc<Tipset>>>;
+pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
-pub(crate) async fn tipset_from_keys<BS>(store: &BS, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>
+pub(crate) async fn tipset_from_keys<BS>(cache: &TipsetCache, store: &BS, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>
 where
     BS: Blockstore,
 {
+    if let Some(ts) = cache.lock().await.get(tsk) {
+        return Ok(ts.clone());
+    }
+
     let block_headers: Vec<BlockHeader> = tsk
         .cids()
         .iter()
@@ -724,6 +728,7 @@ where
 
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
+    cache.lock().await.put(tsk.clone(), ts.clone());
     Ok(ts)
 }
 

@@ -152,7 +152,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
     }
 
     pub async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        tipset_from_keys(&self.db, tsk).await
+        tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk).await
     }
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
@@ -180,7 +180,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
             {
                 if to == 0 {
-                    let tipset = tipset_from_keys(&self.db, &genesis_tipset_keys).await?;
+                    let tipset = tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
