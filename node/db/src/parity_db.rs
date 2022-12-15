@@ -19,6 +19,7 @@ pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct ParityDbConfig {
     pub path: PathBuf,
     pub columns: u8,
@@ -28,6 +29,15 @@ impl ParityDbConfig {
     pub fn from_path(path: &Path) -> Self {
         Self {
             path: path.to_path_buf(),
+            columns: 1,
+        }
+    }
+}
+
+impl Default for ParityDbConfig {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::from("/tmp/paritydb"),
             columns: 1,
         }
     }

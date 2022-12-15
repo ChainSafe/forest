@@ -144,12 +144,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = forest_cli_shared::open_db(
-        &db_path(&config),
-        #[cfg(feature = "rocksdb")]
-        &config,
-    )
-    .expect("failed opening database");
+    let db =
+        forest_cli_shared::open_db(&db_path(&config), &config).expect("failed opening database");
 
     let mut services = JoinSet::new();
 

@@ -159,7 +159,9 @@ impl Default for DaemonConfig {
 pub struct Config {
     pub client: Client,
     #[cfg(feature = "rocksdb")]
-    pub rocks_db: forest_db::rocks_config::RocksDbConfig,
+    pub db: forest_db::rocks_config::RocksDbConfig,
+    #[cfg(feature = "paritydb")]
+    pub db: forest_db::parity_db::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
@@ -187,7 +189,9 @@ mod test {
     struct ConfigPartial {
         client: Client,
         #[cfg(feature = "rocksdb")]
-        rocks_db: forest_db::rocks_config::RocksDbConfig,
+        db: forest_db::rocks_config::RocksDbConfig,
+        #[cfg(feature = "paritydb")]
+        db: forest_db::parity_db::ParityDbConfig,
         network: forest_libp2p::Libp2pConfig,
         sync: forest_chain_sync::SyncConfig,
     }
@@ -197,7 +201,9 @@ mod test {
             Config {
                 client: val.client,
                 #[cfg(feature = "rocksdb")]
-                rocks_db: val.rocks_db,
+                db: val.db,
+                #[cfg(feature = "paritydb")]
+                db: val.db,
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
@@ -230,7 +236,7 @@ mod test {
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 #[cfg(feature = "rocksdb")]
-                rocks_db: forest_db::rocks_config::RocksDbConfig {
+                db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
                     write_buffer_size: usize::arbitrary(g),
@@ -243,6 +249,11 @@ mod test {
                     log_level: String::arbitrary(g),
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
+                },
+                #[cfg(feature = "paritydb")]
+                db: forest_db::parity_db::ParityDbConfig {
+                    path: PathBuf::arbitrary(g),
+                    columns: u8::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
