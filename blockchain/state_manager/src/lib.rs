@@ -95,25 +95,25 @@ impl TipsetCache {
         func(&mut lock)
     }
 
-    pub fn get_state(&self, key: TipsetKeys) -> State<CidPair> {
+    pub fn get_state(&self, key: &TipsetKeys) -> State<CidPair> {
         self.with_inner(|inner| match inner.values.get_key_value(&key) {
             Some((_, v)) => State::Done(v.clone()),
             None => {
                 for (v, l) in inner.pending.iter() {
-                    if v == &key {
+                    if v == key {
                         return State::Busy(l.clone());
                     }
                 }
                 let option = inner
                     .pending
                     .iter()
-                    .find(|(k, _l)| k == &key)
+                    .find(|(k, _l)| k == key)
                     .map(|(_k, l)| l);
                 match option {
                     Some(lock) => State::Busy(lock.clone()),
                     None => {
                         let lock = Arc::new(TokioMutex::new(()));
-                        inner.pending.push((key, lock.clone()));
+                        inner.pending.push((key.clone(), lock.clone()));
                         State::Busy(lock)
                     }
                 }
@@ -121,8 +121,8 @@ impl TipsetCache {
         })
     }
 
-    pub fn get(&self, key: TipsetKeys) -> Option<CidPair> {
-        self.with_inner(|inner| inner.values.get(&key).map(|v| v.clone()))
+    pub fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
+        self.with_inner(|inner| inner.values.get(key).map(|v| v.clone()))
     }
 
     pub fn insert(&self, key: TipsetKeys, value: CidPair) {
@@ -451,13 +451,13 @@ where
     }
 
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        let key = tipset.key().clone();
-        let state = self.cache.get_state(key.clone());
+        let key = tipset.key();
+        let state = self.cache.get_state(key);
         match state {
             State::Done(v) => Ok(v),
             State::Busy(x) => {
                 let _guard = x.lock().await;
-                match self.cache.get(key.clone()) {
+                match self.cache.get(key) {
                     Some(v) => {
                         // Someone else computed the pending task
                         Ok(v)
@@ -485,7 +485,7 @@ where
                         };
 
                         // Write back to cache, release lock and return value
-                        self.cache.insert(key, cid_pair.clone());
+                        self.cache.insert(key.clone(), cid_pair.clone());
                         Ok(cid_pair)
                     }
                 }
