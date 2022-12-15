@@ -34,9 +34,15 @@ jobs:
       - name: Compute labels
         id: labels
         run: |
-          echo "${{ github.ref_name }} | sed 's/\//_/g'
-          echo "${{ github.head_ref }} | sed 's/\//_/g'
-          echo "${{ github.event.repository.updated_at }}" | head -c 10
+          set -o xtrace
+
+          echo "${{ github.ref_name }}" | sed 's/\//_/g'
+
+          echo "${{ github.ref_type }}" | sed 's/\//_/g'
+
+          DATE=$(echo "${{ github.event.repository.updated_at }}" | head -c 10)
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build image and push to GitHub Container Registry
         if: github.ref_type == 'tag'
