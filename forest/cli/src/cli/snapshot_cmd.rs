@@ -241,13 +241,7 @@ impl SnapshotCommands {
                 recent_stateroots,
                 snapshot,
                 force,
-            } => {
-                if cfg!(feature = "rocksdb") {
-                    validate(&config, recent_stateroots, snapshot, *force).await
-                } else {
-                    bail!("Snapshot validation needs a database. Please compile forest with supported database features: paritydb");
-                }
-            }
+            } => validate(&config, recent_stateroots, snapshot, *force).await,
         }
     }
 }
