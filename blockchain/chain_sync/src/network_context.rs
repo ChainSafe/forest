@@ -18,15 +18,16 @@ use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, trace, warn};
-use std::convert::TryFrom;
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 use std::time::{Duration, SystemTime};
+use std::{convert::TryFrom, sync::atomic::AtomicU64};
 use tokio::{task::JoinSet, time::timeout};
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
 // requests from slowing the node down. If increase, should create a countermeasure for this.
-const RPC_TIMEOUT: u64 = 5;
+const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
+const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Maximum number of concurrent chain exchange request being sent to the network
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
@@ -136,7 +137,7 @@ where
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-        let res = timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res = timeout(BITSWAP_TIMEOUT, rx).await;
         match res {
             Ok(Ok(())) => {
                 match self.db.get_obj(&content) {
@@ -173,6 +174,8 @@ where
         };
 
         let global_pre_time = SystemTime::now();
+        let network_failures = Arc::new(AtomicU64::new(0));
+        let lookup_failures = Arc::new(AtomicU64::new(0));
         let chain_exchange_result = match peer_id {
             // Specific peer is given to send request, send specifically to that peer.
             Some(id) => Self::chain_exchange_request(
@@ -199,6 +202,8 @@ where
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
+                    let network_failures = network_failures.clone();
+                    let lookup_failures = lookup_failures.clone();
                     tasks.spawn(async move {
                         if n_task_control_tx.send_async(()).await.is_ok() {
                             match Self::chain_exchange_request(
@@ -215,12 +220,14 @@ where
                                             _ = result_tx.send_async(r).await;
                                         }
                                         Err(e) => {
+                                            lookup_failures.fetch_add(1, Ordering::Relaxed);
                                             _ = n_task_control_rx.recv_async().await;
                                             debug!("Failed chain_exchange response: {e}");
                                         }
                                     }
                                 }
                                 Err(e) => {
+                                    network_failures.fetch_add(1, Ordering::Relaxed);
                                     _ = n_task_control_rx.recv_async().await;
                                     debug!(
                                         "Failed chain_exchange request to peer {peer_id:?}: {e}"
@@ -235,13 +242,28 @@ where
                     while tasks.join_next().await.is_some() {}
                 }
 
+                let make_failure_message = || {
+                    let mut message = String::new();
+                    message.push_str("ChainExchange request failed for all top peers. ");
+                    message.push_str(&format!(
+                        "{} network failures, ",
+                        network_failures.load(Ordering::Relaxed)
+                    ));
+                    message.push_str(&format!(
+                        "{} lookup failures, ",
+                        lookup_failures.load(Ordering::Relaxed)
+                    ));
+                    message.push_str(&format!("request:\n{request:?}",));
+                    message
+                };
+
                 tokio::select! {
                     result = result_rx.recv_async() => {
                         tasks.abort_all();
                         log::debug!("Succeed: handle_chain_exchange_request");
                         result.map_err(|e| e.to_string())?
                     },
-                    _ = wait_all(&mut tasks) => return Err("ChainExchange request failed for all top peers".into()),
+                    _ = wait_all(&mut tasks) => return Err(make_failure_message()),
                 }
             }
         };
@@ -283,7 +305,7 @@ where
 
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures this.
-        let res = timeout(Duration::from_secs(RPC_TIMEOUT), rx).await;
+        let res = timeout(CHAIN_EXCHANGE_TIMEOUT, rx).await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();
