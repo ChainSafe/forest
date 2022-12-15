@@ -252,7 +252,7 @@ mod test {
                 },
                 #[cfg(feature = "paritydb")]
                 db: forest_db::parity_db::ParityDbConfig {
-                    path: PathBuf::arbitrary(g),
+                    path: Option::arbitrary(g),
                     columns: u8::arbitrary(g),
                 },
                 network: Libp2pConfig {
