@@ -1249,7 +1249,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
         return Ok(block);
     }
 
-    // let _timer = metrics::BLOCK_VALIDATION_TIME.start_timer();
+    let _timer = metrics::BLOCK_VALIDATION_TIME.start_timer();
 
     let header = block.header();
 
@@ -1306,9 +1306,9 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_block_store = state_manager.blockstore().clone();
     let v_block = Arc::clone(&block);
     validations.push(tokio::task::spawn_blocking(move || {
-        // let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
-        //     .with_label_values(&[metrics::values::BASE_FEE_CHECK])
-        //     .start_timer();
+        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
+            .with_label_values(&[metrics::values::BASE_FEE_CHECK])
+            .start_timer();
         let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetRangeSyncerError::<C>::Validation(format!(
@@ -1331,9 +1331,9 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(tokio::task::spawn_blocking(move || {
-        // let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
-        //     .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
-        //     .start_timer();
+        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
+            .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
+            .start_timer();
         let calc_weight = C::weight(&v_block_store, &v_base_tipset).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
         })?;
@@ -1398,9 +1398,9 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     // Block signature check
     let v_block = block.clone();
     validations.push(tokio::task::spawn_blocking(move || {
-        // let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
-        //     .with_label_values(&[metrics::values::BLOCK_SIGNATURE_CHECK])
-        //     .start_timer();
+        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
+            .with_label_values(&[metrics::values::BLOCK_SIGNATURE_CHECK])
+            .start_timer();
         v_block.header().check_block_signature(&work_addr)?;
         Ok(())
     }));

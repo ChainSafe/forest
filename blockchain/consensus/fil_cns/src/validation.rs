@@ -44,7 +44,7 @@ pub(crate) async fn validate_block<
     beacon_schedule: Arc<BeaconSchedule<B>>,
     block: Arc<Block>,
 ) -> Result<(), NonEmpty<FilecoinConsensusError>> {
-    // let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TIME.start_timer();
+    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TIME.start_timer();
 
     let chain_store = state_manager.chain_store().clone();
     let header = block.header();
@@ -210,9 +210,9 @@ fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
     miner_addr: &Address,
     tipset_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    // let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-    //     .with_label_values(&[metrics::values::VALIDATE_MINER])
-    //     .start_timer();
+    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .with_label_values(&[metrics::values::VALIDATE_MINER])
+        .start_timer();
 
     let actor = state_manager
         .get_actor(&power::ADDRESS, *tipset_state)?
@@ -237,9 +237,9 @@ fn validate_winner_election<DB: Blockstore + Store + Clone + Sync + Send + 'stat
     work_addr: &Address,
     state_manager: &StateManager<DB>,
 ) -> Result<(), FilecoinConsensusError> {
-    // let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-    //     .with_label_values(&[metrics::values::VALIDATE_WINNER_ELECTION])
-    //     .start_timer();
+    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .with_label_values(&[metrics::values::VALIDATE_WINNER_ELECTION])
+        .start_timer();
 
     // Safe to unwrap because checked to `Some` in sanity check
     let election_proof = header.election_proof().as_ref().unwrap();
@@ -293,9 +293,9 @@ fn validate_ticket_election(
     work_addr: &Address,
     chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
-    // let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-    //     .with_label_values(&[metrics::values::VALIDATE_TICKET_ELECTION])
-    //     .start_timer();
+    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .with_label_values(&[metrics::values::VALIDATE_TICKET_ELECTION])
+        .start_timer();
 
     let mut miner_address_buf = header.miner_address().marshal_cbor()?;
     let smoke_height = chain_config.epoch(Height::Smoke);
@@ -348,9 +348,9 @@ fn verify_winning_post_proof<
     prev_beacon_entry: &BeaconEntry,
     lookback_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    // let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-    //     .with_label_values(&[metrics::values::VERIFY_WINNING_POST_PROOF])
-    //     .start_timer();
+    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .with_label_values(&[metrics::values::VERIFY_WINNING_POST_PROOF])
+        .start_timer();
 
     if cfg!(feature = "insecure_post") {
         let wpp = header.winning_post_proof();
