@@ -140,6 +140,11 @@ where
 // 3. close response stream, which sends `FIN` header over `yamux` protocol
 // and we call `io.ReadToEnd` after `FIN` is sent, it will not deadlock
 //
+// Note: `FIN` - Performs a half-close of a stream. May be sent with a data message or window update.
+// See <https://github.com/libp2p/go-yamux/blob/master/spec.md#flag-field>
+//
+// `io` is essentially [yamux::Stream](https://docs.rs/yamux/0.11.0/yamux/struct.Stream.html)
+//
 async fn read_request_and_decode<IO, T>(io: &mut IO) -> io::Result<T>
 where
     IO: AsyncRead + Unpin,
