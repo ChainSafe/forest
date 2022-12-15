@@ -707,7 +707,11 @@ where
 
 pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
-pub(crate) async fn tipset_from_keys<BS>(cache: &TipsetCache, store: &BS, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>
+pub(crate) async fn tipset_from_keys<BS>(
+    cache: &TipsetCache,
+    store: &BS,
+    tsk: &TipsetKeys,
+) -> Result<Arc<Tipset>, Error>
 where
     BS: Blockstore,
 {
