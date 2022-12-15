@@ -150,9 +150,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "464b3811b747f8f7ebc8849c9c728c39f6ac98a055edad93baf9eb330e3f8f9d"
+checksum = "bf6ccdb167abbf410dcb915cabd428929d7f6a04980b54a11f26a39f1c7f7107"
 dependencies = [
  "cfg-if 1.0.0",
  "getrandom 0.2.8",
@@ -2907,7 +2907,7 @@ dependencies = [
 name = "forest_beacon"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.1",
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "base64",
@@ -3299,7 +3299,7 @@ dependencies = [
 name = "forest_interpreter"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.1",
+ "ahash 0.8.2",
  "anyhow",
  "byteorder",
  "cid",
@@ -3407,7 +3407,7 @@ dependencies = [
 name = "forest_legacy_ipld_amt"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.1",
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "forest_db",

@@ -375,10 +375,8 @@ async fn validate(
 
     if confirm {
         let tmp_db_path = TempDir::new()?;
-
         let db_path = tmp_db_path.path().join(&config.chain.name);
-
-        let db = open_db(
+        let db = forest_cli_shared::open_db(
             &db_path,
             #[cfg(feature = "rocksdb")]
             config,
@@ -489,27 +487,5 @@ fn delete_snapshot(snapshot_path: &PathBuf) {
                 println!("Deleted {}", path.display());
             }
         }
-    }
-}
-
-#[cfg(feature = "rocksdb")]
-type Database = forest_db::rocks::RocksDb;
-
-#[cfg(feature = "paritydb")]
-type Database = forest_db::parity_db::ParityDb;
-
-fn open_db(
-    path: &std::path::Path,
-    #[cfg(feature = "rocksdb")] config: &Config,
-) -> Result<Database, anyhow::Error> {
-    #[cfg(feature = "rocksdb")]
-    {
-        forest_db::rocks::RocksDb::open(path, &config.rocks_db)
-            .map_err(|e| anyhow::anyhow!("failed to open db: {}", e))
-    }
-    #[cfg(feature = "paritydb")]
-    {
-        let paritydb_config = forest_db::parity_db::ParityDbConfig::from_path(path);
-        forest_db::parity_db::ParityDb::open(&paritydb_config)
     }
 }
