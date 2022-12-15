@@ -3,6 +3,8 @@ name: Build and publish Forest Docker image
 on:
   push:
     branches: [main]
+    tags:
+    - '*'
   pull_request:
 
 jobs:
@@ -36,7 +38,8 @@ jobs:
         run: |
           set -o xtrace
 
-          echo "${{ github.ref_name }}" | sed 's/\//_/g'
+          REF=$(echo "${{ github.ref_name }}" | sed 's/\//_/g')
+          echo "ref=$REF" >> $GITHUB_OUTPUT
 
           echo "${{ github.ref_type }}" | sed 's/\//_/g'
 
@@ -45,13 +48,13 @@ jobs:
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Build image and push to GitHub Container Registry
-        if: github.ref_type == 'tag'
         uses: docker/build-push-action@v3
         with:
           context: .
           tags: |
             ghcr.io/chainsafe/forest:latest
-            ghcr.io/chainsafe/forest:${{ steps.labels.outputs.TAG }}"
+            ghcr.io/chainsafe/forest:${{ steps.labels.outputs.date }}-${{ steps.labels.outputs.sha_short }}
+            ghcr.io/chainsafe/forest:${{ steps.labels.outputs.ref }}
           # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
 
