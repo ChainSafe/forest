@@ -36,7 +36,6 @@ libp2p = { workspace = true, default-features = false, features = [
   "yamux",
   "tcp",
   "dns",
-  "mplex",
   "request-response",
   "metrics",
   "tokio",
