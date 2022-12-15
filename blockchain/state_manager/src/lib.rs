@@ -57,12 +57,12 @@ type CidPair = (Cid, Cid);
 
 // Various structures for implementing a tipset cache
 
-struct TipsetCacheInner {
+struct TipsetStateCacheInner {
     values: HashMap<TipsetKeys, CidPair>,
     pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
 }
 
-impl Default for TipsetCacheInner {
+impl Default for TipsetStateCacheInner {
     fn default() -> Self {
         Self {
             values: HashMap::new(),
@@ -71,37 +71,37 @@ impl Default for TipsetCacheInner {
     }
 }
 
-struct TipsetCache {
-    cache: Arc<std::sync::Mutex<TipsetCacheInner>>,
+struct TipsetStateCache {
+    cache: Arc<std::sync::Mutex<TipsetStateCacheInner>>,
 }
 
-pub enum State<V> {
-    Done(V),
+pub enum Status {
+    Done(CidPair),
     Busy(Arc<tokio::sync::Mutex<()>>),
 }
 
-impl TipsetCache {
+impl TipsetStateCache {
     pub fn new() -> Self {
         Self {
-            cache: Arc::new(Mutex::new(TipsetCacheInner::default())),
+            cache: Arc::new(Mutex::new(TipsetStateCacheInner::default())),
         }
     }
 
     fn with_inner<F, T>(&self, func: F) -> T
     where
-        F: FnOnce(&mut TipsetCacheInner) -> T,
+        F: FnOnce(&mut TipsetStateCacheInner) -> T,
     {
         let mut lock = self.cache.lock().unwrap();
         func(&mut lock)
     }
 
-    pub fn get_state(&self, key: &TipsetKeys) -> State<CidPair> {
+    pub fn get_status(&self, key: &TipsetKeys) -> Status {
         self.with_inner(|inner| match inner.values.get_key_value(&key) {
-            Some((_, v)) => State::Done(v.clone()),
+            Some((_, v)) => Status::Done(v.clone()),
             None => {
                 for (v, l) in inner.pending.iter() {
                     if v == key {
-                        return State::Busy(l.clone());
+                        return Status::Busy(l.clone());
                     }
                 }
                 let option = inner
@@ -110,11 +110,11 @@ impl TipsetCache {
                     .find(|(k, _l)| k == key)
                     .map(|(_k, l)| l);
                 match option {
-                    Some(lock) => State::Busy(lock.clone()),
+                    Some(lock) => Status::Busy(lock.clone()),
                     None => {
                         let lock = Arc::new(TokioMutex::new(()));
                         inner.pending.push((key.clone(), lock.clone()));
-                        State::Busy(lock)
+                        Status::Busy(lock)
                     }
                 }
             }
@@ -163,7 +163,7 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
-    cache: TipsetCache,
+    cache: TipsetStateCache,
     publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
@@ -190,7 +190,7 @@ where
 
         Ok(Self {
             cs,
-            cache: TipsetCache::new(),
+            cache: TipsetStateCache::new(),
             publisher: None,
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
@@ -452,10 +452,10 @@ where
 
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
         let key = tipset.key();
-        let state = self.cache.get_state(key);
-        match state {
-            State::Done(v) => Ok(v),
-            State::Busy(x) => {
+        let status = self.cache.get_status(key);
+        match status {
+            Status::Done(v) => Ok(v),
+            Status::Busy(x) => {
                 let _guard = x.lock().await;
                 match self.cache.get(key) {
                     Some(v) => {
