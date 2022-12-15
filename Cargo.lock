@@ -2856,7 +2856,6 @@ dependencies = [
  "quickcheck",
  "rand 0.8.5",
  "raw_sync",
- "rlimit",
  "rpassword",
  "serde",
  "serde_json",
@@ -7195,15 +7194,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd124222d17ad93a644ed9d011a40f4fb64aa54275c08cc216524a9ea82fb09f"
 dependencies = [
  "digest 0.10.6",
-]
-
-[[package]]
-name = "rlimit"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7278a1ec8bfd4a4e07515c589f5ff7b309a373f987393aef44813d9dcf87aa3"
-dependencies = [
- "libc",
 ]
 
 [[package]]

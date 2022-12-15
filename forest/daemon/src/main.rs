@@ -8,7 +8,7 @@ use cli::Cli;
 
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
-    cli::{check_for_unknown_keys, cli_error_and_die, Config, ConfigPath, DaemonConfig, LogConfig},
+    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig, LogConfig},
     logger,
 };
 use forest_db::Store;
@@ -96,44 +96,6 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 }
 
 #[cfg(feature = "rocksdb")]
-fn check_for_low_fd(config: &Config) -> Result<(), anyhow::Error> {
-    use rlimit::{getrlimit, Resource};
-    // Conservative estimate of how many FD we will need to run a Forest node
-    const MAINNET_CHAIN_SIZE: u64 = 1000_u64.pow(4); // 1TB
-    const ANOTHER_CHAIN_SIZE: u64 = 100 * 1000_u64.pow(3); // 100GB
-    const TARGET_FILE_SIZE_BASE: u64 = 64 * 1024 * 1024; // 64MB
-    const ADDITIONAL_FDS: u64 = 16;
-
-    let db_fd_count = if config.rocks_db.max_open_files.is_negative() {
-        let chain_size = if config.chain.name == "mainnet" {
-            MAINNET_CHAIN_SIZE
-        } else {
-            ANOTHER_CHAIN_SIZE
-        };
-        // We ignore rocksdb compression here and assume default target_file_size_base
-        if config.rocks_db.compaction_style == "none" {
-            chain_size / config.rocks_db.write_buffer_size as u64
-        } else {
-            chain_size / TARGET_FILE_SIZE_BASE
-        }
-    } else {
-        config.rocks_db.max_open_files as u64
-    };
-    let estimate = db_fd_count + config.network.target_peer_count as u64 + ADDITIONAL_FDS;
-    let (fd_limit, _) = getrlimit(Resource::NOFILE)?;
-    if fd_limit < estimate {
-        let rounded_estimate = estimate.next_power_of_two();
-        anyhow::bail!("Open-file limit is too low. Suggesting `ulimit -n {rounded_estimate}`");
-    }
-
-    Ok(())
-}
-#[cfg(feature = "paritydb")]
-fn check_for_low_fd(_config: &Config) -> Result<(), anyhow::Error> {
-    Ok(())
-}
-
-#[cfg(feature = "rocksdb")]
 type Db = forest_db::rocks::RocksDb;
 
 #[cfg(feature = "paritydb")]
@@ -168,9 +130,6 @@ fn main() {
                     warn!("All subcommands have been moved to forest-cli tool");
                 }
                 None => {
-                    if let Err(e) = check_for_low_fd(&cfg) {
-                        cli_error_and_die(format!("Error checking low fd: {e}"), 1);
-                    }
                     if opts.detach {
                         create_ipc_lock();
                         info!(

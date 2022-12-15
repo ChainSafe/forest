@@ -69,7 +69,6 @@ num-traits.workspace = true
 pretty_env_logger.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 raw_sync = "0.1"
-rlimit = "0.8"
 rpassword.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
