@@ -168,10 +168,9 @@ jobs:
       - name: validate snapshot
         run: |
           set +e
-          mainnet_with_calibnet_snapshot_should_fail=$(forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force)
-          if [ "$?" -eq 0 ]; then echo "calibnet snapshot validation on mainnet should fail" exit 1; else 
-            forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
-          fi
+          forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && 
+          { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
+          forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
           set -e
       - name: print forest logs
         run: |
