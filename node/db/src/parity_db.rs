@@ -21,32 +21,19 @@ pub struct ParityDb {
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct ParityDbConfig {
-    pub path: Option<PathBuf>,
     pub columns: u8,
-}
-
-impl ParityDbConfig {
-    pub fn from_path(path: &Path) -> Self {
-        Self {
-            path: Some(path.to_path_buf()),
-            columns: 1,
-        }
-    }
 }
 
 impl Default for ParityDbConfig {
     fn default() -> Self {
-        Self {
-            path: None,
-            columns: 1,
-        }
+        Self { columns: 1 }
     }
 }
 
 impl ParityDb {
     fn to_options(config: &ParityDbConfig) -> Options {
         Options {
-            path: config.path.clone().unwrap_or_default(),
+            path: PathBuf::new(),
             sync_wal: true,
             sync_data: true,
             stats: true,
@@ -61,10 +48,11 @@ impl ParityDb {
         }
     }
 
-    pub fn open(config: &ParityDbConfig) -> anyhow::Result<Self> {
-        let opts = Self::to_options(config);
+    pub fn open(path: &Path, config: &ParityDbConfig) -> Result<Self, Error> {
+        let mut db_opts = Self::to_options(config);
+        db_opts.path = path.to_path_buf();
         Ok(Self {
-            db: Arc::new(Db::open_or_create(&opts)?),
+            db: Arc::new(Db::open_or_create(&db_opts)?),
         })
     }
 }

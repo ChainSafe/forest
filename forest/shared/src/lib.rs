@@ -29,16 +29,16 @@ pub fn db_path(config: &crate::cli::Config) -> PathBuf {
     chain_path(config).join("paritydb")
 }
 
-pub fn open_db(path: &std::path::Path, config: &cli::Config) -> Result<Db, anyhow::Error> {
+pub fn open_db(path: &std::path::Path, config: &cli::Config) -> Result<Db, forest_db::Error> {
     #[cfg(feature = "rocksdb")]
     {
         forest_db::rocks::RocksDb::open(path, &config.db)
-            .map_err(|e| anyhow::anyhow!("failed to open db: {}", e))
     }
     #[cfg(feature = "paritydb")]
     {
-        let mut paritydb_config = forest_db::parity_db::ParityDbConfig::from_path(path);
-        paritydb_config.columns = config.db.columns;
-        forest_db::parity_db::ParityDb::open(&paritydb_config)
+        let paritydb_config = forest_db::parity_db::ParityDbConfig {
+            columns: config.db.columns,
+        };
+        forest_db::parity_db::ParityDb::open(path, &paritydb_config)
     }
 }
