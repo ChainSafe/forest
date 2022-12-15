@@ -18,14 +18,13 @@ use log::{error, info, warn};
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
-use structopt::StructOpt;
-use tempfile::{Builder, TempPath};
-use tokio::runtime::Runtime;
-
 use std::fs::File;
 use std::process;
 use std::sync::Arc;
 use std::time::Duration;
+use structopt::StructOpt;
+use tempfile::{Builder, TempPath};
+use tokio::runtime::Runtime;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
@@ -108,7 +107,7 @@ fn main() {
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
         Ok((cfg, path)) => {
-            logger::setup_logger(&cfg.log, opts.color.into());
+            let (loki_task, ..) = logger::setup_logger(&cfg.log, &opts);
             ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
 
             if let Some(path) = &path {
@@ -157,10 +156,9 @@ fn main() {
                     }
 
                     let rt = Runtime::new().unwrap();
-                    if opts.tokio_console {
-                        console_subscriber::init();
+                    if let Some(loki_task) = loki_task {
+                        rt.spawn(loki_task);
                     }
-
                     let db: Db = rt.block_on(daemon::start(cfg, opts.detach));
 
                     info!("Shutting down tokio...");
@@ -183,7 +181,7 @@ fn main() {
             }
         }
         Err(e) => {
-            logger::setup_logger(&LogConfig::default(), opts.color.into());
+            logger::setup_logger(&LogConfig::default(), &opts);
             cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     };

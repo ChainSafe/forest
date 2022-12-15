@@ -17,12 +17,12 @@ async fn main() -> anyhow::Result<()> {
 
     match opts.to_config() {
         Ok((cfg, _)) => {
-            logger::setup_logger(&cfg.log, opts.color.into());
+            logger::setup_logger(&cfg.log, &opts);
             ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
             subcommand::process(cmd, cfg).await
         }
         Err(e) => {
-            logger::setup_logger(&LogConfig::default(), opts.color.into());
+            logger::setup_logger(&LogConfig::default(), &opts);
             cli_error_and_die(format!("Error parsing config: {e}"), 1);
         }
     }
