@@ -36,13 +36,8 @@ jobs:
       - name: Compute labels
         id: labels
         run: |
-          set -o xtrace
-
           REF=$(echo "${{ github.ref_name }}" | sed 's/\//_/g')
           echo "ref=$REF" >> $GITHUB_OUTPUT
-
-          echo "${{ github.ref_type }}" | sed 's/\//_/g'
-
           DATE=$(echo "${{ github.event.repository.updated_at }}" | head -c 10)
           echo "date=$DATE" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
