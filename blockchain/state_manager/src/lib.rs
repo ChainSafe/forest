@@ -60,7 +60,7 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
-// Various structures for implementing a tipset cache
+// Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
     values: LruCache<TipsetKeys, CidPair>,
@@ -398,7 +398,7 @@ where
         R: Rand + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
-        // let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
+        let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
         let db = self.blockstore().clone();
 
@@ -455,6 +455,9 @@ where
         Ok((state_root, receipt_root))
     }
 
+    /// Returns the pair of (parent state root, message receipt root). This will either be cached
+    /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
+    /// not to be computed twice.
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
         let key = tipset.key();
         let status = self.cache.get_status(key);
