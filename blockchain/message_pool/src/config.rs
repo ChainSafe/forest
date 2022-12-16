@@ -52,8 +52,7 @@ impl MpoolConfig {
         // Validate if parameters are valid
         if replace_by_fee_ratio < REPLACE_BY_FEE_RATIO {
             return Err(format!(
-                "replace_by_fee_ratio:{} is less than required: {}",
-                replace_by_fee_ratio, REPLACE_BY_FEE_RATIO
+                "replace_by_fee_ratio:{replace_by_fee_ratio} is less than required: {REPLACE_BY_FEE_RATIO}"
             ));
         }
         if gas_limit_overestimation < 1.0 {

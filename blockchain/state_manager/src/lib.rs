@@ -219,7 +219,7 @@ where
         if let Some(maddr) = addr {
             let m_pow = spas
                 .miner_power(self.blockstore(), maddr)?
-                .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
+                .ok_or_else(|| Error::State(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config.policy,
@@ -491,7 +491,7 @@ where
         }
         let from_actor = vm
             .get_actor(message.from())
-            .map_err(|e| Error::Other(format!("Could not get actor from state: {}", e)))?
+            .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
         message.set_sequence(from_actor.sequence);
 
@@ -530,8 +530,7 @@ where
         if let Err(error_message) = result {
             if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
-                    "unexpected error during execution : {:}",
-                    error_message
+                    "unexpected error during execution : {error_message:}"
                 )));
             }
         }
@@ -565,7 +564,7 @@ where
             let (st, _) = self
                 .tipset_state(&tipset)
                 .await
-                .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
+                .map_err(|e| Error::Other(format!("Could execute tipset_state {e:?}")))?;
             return Ok((tipset, st));
         }
 
@@ -573,7 +572,7 @@ where
             .cs
             .tipset_by_height(lbr + 1, tipset.clone(), false)
             .await
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
@@ -587,7 +586,7 @@ where
             .cs
             .tipset_from_keys(next_ts.parents())
             .await
-            .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
 
@@ -671,7 +670,7 @@ where
         };
         if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
             // Duplicate Miner found
-            return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
+            return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
         }
 
         let parent_epoch = if first_block.epoch() > 0 {
@@ -805,8 +804,7 @@ where
             .await
             .map_err(|err| {
                 Err(Error::Other(format!(
-                    "failed to load tipset during msg wait searchback: {:}",
-                    err
+                    "failed to load tipset during msg wait searchback: {err:}"
                 )))
             })?;
         let r = self
@@ -857,7 +855,7 @@ where
         }
         let cid = m
             .cid()
-            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not convert message to cid {e:?}")))?;
         let message_var = (m.from(), &cid, &m.sequence());
         let maybe_tuple = self.search_back_for_message(tipset, message_var).await?;
         let message_receipt = maybe_tuple
@@ -882,7 +880,7 @@ where
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = forest_chain::get_chain_message(self.blockstore(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
+            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (message.from(), &message.sequence());
         let current_tipset = self.cs.heaviest_tipset().await.unwrap();
@@ -899,7 +897,7 @@ where
         let sm_cloned = Arc::clone(self);
         let cid = message
             .cid()
-            .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not get cid from message {e:?}")))?;
 
         let cid_for_task = cid;
         let address_for_task = *message.from();
@@ -914,7 +912,7 @@ where
                 .await?;
             sender
                 .send(())
-                .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
+                .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
             Ok::<_, Error>(back_tuple)
         });
 
@@ -1022,7 +1020,7 @@ where
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
         let state = StateTree::new_from_root(db, &state_cid)?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
-            .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
+            .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
         match kaddr.into_payload() {
             Payload::BLS(key) => Ok(key),
@@ -1073,7 +1071,7 @@ where
 
         let new_addr = self
             .lookup_id(addr, ts)?
-            .ok_or_else(|| Error::State(format!("Failed to resolve address {}", addr)))?;
+            .ok_or_else(|| Error::State(format!("Failed to resolve address {addr}")))?;
 
         let out = MarketBalance {
             escrow: {

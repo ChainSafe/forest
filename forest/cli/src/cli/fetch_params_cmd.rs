@@ -57,8 +57,7 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
         "34359738368" | "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
         "68719476736" | "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
         _ => Err(anyhow::Error::msg(format!(
-            "Failed to parse: {}. Must be a valid sector size",
-            size
+            "Failed to parse: {size}. Must be a valid sector size"
         ))),
     }
 }

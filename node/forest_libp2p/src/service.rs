@@ -202,7 +202,7 @@ where
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
-            let t = Topic::new(format!("{}/{}", topic, network_name));
+            let t = Topic::new(format!("{topic}/{network_name}"));
             swarm.behaviour_mut().subscribe(&t).unwrap();
         }
 

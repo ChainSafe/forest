@@ -31,7 +31,7 @@ pub fn get_error_res(code: i64, message: String) -> jsonrpc_v2::ResponseObject {
 pub fn get_error_str(code: i64, message: String) -> String {
     match serde_json::to_string(&get_error_res(code, message)) {
         Ok(err_str) => err_str,
-        Err(err) => format!("Failed to serialize error data. Error was: {}", err),
+        Err(err) => format!("Failed to serialize error data. Error was: {err}"),
     }
 }
 
@@ -135,8 +135,7 @@ where
                     }
                     jsonrpc_v2::Error::Full { code, message, .. } => {
                         let msg = format!(
-                            "Unknown error after making RPC call. Code: {}. Error: {:?} ",
-                            code, message
+                            "Unknown error after making RPC call. Code: {code}. Error: {message:?} "
                         );
                         error!("RPC call error: {}", msg);
                         anyhow::bail!(msg)
