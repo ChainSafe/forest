@@ -165,7 +165,6 @@ pub struct StateManager<DB> {
 
     /// This is a cache which indexes tipsets to their calculated state.
     cache: TipsetStateCache,
-    publisher: Option<Publisher<HeadChange>>,
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
@@ -192,7 +191,6 @@ where
         Ok(Self {
             cs,
             cache: TipsetStateCache::new(),
-            publisher: None,
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
