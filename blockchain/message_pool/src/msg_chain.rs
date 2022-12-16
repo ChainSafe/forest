@@ -123,12 +123,8 @@ impl Chains {
 
     /// Retrieves the `msg` chain node at the given index
     pub(crate) fn get_mut_at(&mut self, i: usize) -> Option<&mut MsgChainNode> {
-        if i < self.key_vec.len() {
-            let key = self.key_vec[i];
-            self.get_mut(key)
-        } else {
-            None
-        }
+        let key = self.key_vec.get(i)?;
+        self.get_mut(*key)
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
@@ -143,17 +139,12 @@ impl Chains {
 
     // Retrieves the node key at the given index
     pub(crate) fn get_key_at(&self, i: usize) -> Option<NodeKey> {
-        if i < self.key_vec.len() {
-            Some(self.key_vec[i])
-        } else {
-            None
-        }
+        self.key_vec.get(i).copied()
     }
 
     /// Retrieves the `msg` chain node at the given index
     pub(crate) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
-        let key = self.key_vec[i];
-        self.map.get(key)
+        self.map.get(self.get_key_at(i)?)
     }
 
     /// Retrieves the amount of items.
