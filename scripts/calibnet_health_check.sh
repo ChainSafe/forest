@@ -16,10 +16,7 @@ forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
 forest-cli chain validate-tipset-checkpoints
 
 # wait for sync and check health
-sleep 30m
-forest-cli sync wait
-forest-cli --chain calibnet db stats
-
+timeout 30m forest-cli sync wait && forest-cli --chain calibnet db stats
 # Export snapshot
 forest-cli snapshot export
 
