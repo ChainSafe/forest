@@ -8,7 +8,7 @@ use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use forest_db::DBStatistics;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
-use std::{collections::HashMap, net::TcpListener};
+use std::{collections::HashMap, net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
 
 lazy_static::lazy_static! {
@@ -21,7 +21,7 @@ pub async fn add_metrics_registry(name: String, registry: prometheus_client::reg
 
 pub async fn init_prometheus<DB>(
     prometheus_listener: TcpListener,
-    db_directory: String,
+    db_directory: PathBuf,
     db: DB,
 ) -> anyhow::Result<()>
 where
