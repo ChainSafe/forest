@@ -11,7 +11,6 @@ use parity_db::Db;
 use parity_db::Options;
 use std::collections::HashMap;
 use std::path::Path;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -31,9 +30,9 @@ impl Default for ParityDbConfig {
 }
 
 impl ParityDb {
-    fn to_options(config: &ParityDbConfig) -> Options {
+    fn to_options(path: &Path, config: &ParityDbConfig) -> Options {
         Options {
-            path: PathBuf::new(),
+            path: path.to_path_buf(),
             sync_wal: true,
             sync_data: true,
             stats: true,
@@ -49,8 +48,7 @@ impl ParityDb {
     }
 
     pub fn open(path: &Path, config: &ParityDbConfig) -> Result<Self, Error> {
-        let mut db_opts = Self::to_options(config);
-        db_opts.path = path.to_path_buf();
+        let db_opts = Self::to_options(path, config);
         Ok(Self {
             db: Arc::new(Db::open_or_create(&db_opts)?),
         })
