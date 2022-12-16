@@ -100,12 +100,12 @@ fn check_ipld(ipld: &Ipld, value: &IpldValue) -> bool {
         (&Ipld::Map(_), &Map) => true,
         (&Ipld::List(_), &List) => true,
         (&Ipld::Null, &Null) => true,
-        (&Ipld::Bool(ref a), &Bool(ref b)) => a == b,
-        (&Ipld::Integer(ref a), &Integer(ref b)) => a == b,
-        (&Ipld::Float(ref a), &Float(ref b)) => a == b,
-        (&Ipld::String(ref a), &String(ref b)) => a == b,
-        (&Ipld::Bytes(ref a), &Bytes(ref b)) => a == b,
-        (&Ipld::Link(ref a), &Link(ref b)) => a == b,
+        (Ipld::Bool(a), Bool(b)) => a == b,
+        (Ipld::Integer(a), Integer(b)) => a == b,
+        (Ipld::Float(a), Float(b)) => a == b,
+        (Ipld::String(a), String(b)) => a == b,
+        (Ipld::Bytes(a), Bytes(b)) => a == b,
+        (Ipld::Link(a), Link(b)) => a == b,
         _ => false,
     }
 }
@@ -189,7 +189,7 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
             },
         )
         .await
-        .map_err(|e| format!("({}) failed, reason: {}", description, e))?;
+        .map_err(|e| format!("({description}) failed, reason: {e}"))?;
 
     // Ensure all expected traversals were checked
     let current_idx = index.into_inner();

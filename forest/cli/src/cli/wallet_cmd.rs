@@ -95,21 +95,21 @@ impl WalletCommands {
                 let response = wallet_new((signature_type_json,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("{}", response);
+                println!("{response}");
                 Ok(())
             }
             Self::Balance { address } => {
                 let response = wallet_balance((address.to_string(),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("{}", response);
+                println!("{response}");
                 Ok(())
             }
             Self::Default => {
                 let response = wallet_default_address(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("{}", response);
+                println!("{response}");
                 Ok(())
             }
             Self::Export { address } => {
@@ -125,7 +125,7 @@ impl WalletCommands {
                 let response = wallet_has((key.to_string(),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("{}", response);
+                println!("{response}");
                 Ok(())
             }
             Self::Import { path } => {
@@ -165,7 +165,7 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                println!("{}", key);
+                println!("{key}");
                 Ok(())
             }
             Self::List => {
@@ -202,8 +202,7 @@ impl WalletCommands {
                         Ok(balance) => TokenAmount::from_atto(balance),
                         Err(err) => {
                             println!(
-                                "Couldn't convert balance {} to TokenAmount: {}",
-                                balance_string, err
+                                "Couldn't convert balance {balance_string} to TokenAmount: {err}"
                             );
                             continue;
                         }
@@ -271,7 +270,7 @@ impl WalletCommands {
                 .await
                 .map_err(handle_rpc_err)?;
 
-                println!("{}", response);
+                println!("{response}");
                 Ok(())
             }
         }

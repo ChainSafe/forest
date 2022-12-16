@@ -75,7 +75,7 @@ fn map_lotus_type(lotus_param: &str) -> String {
 
     if param.starts_with("[]") {
         param = param.replace("[]", "");
-        param = format!("Vec<{}>", param);
+        param = format!("Vec<{param}>");
     }
 
     if param.starts_with("map[string]") {
@@ -150,7 +150,7 @@ fn run() -> Result<Metrics, anyhow::Error> {
     api_lib.read_to_string(&mut api_lib_content)?;
 
     let ast = syn::parse_file(&api_lib_content)?;
-    let out = format!("{:#?}", ast);
+    let out = format!("{ast:#?}");
 
     let mut ast_file = File::create(FOREST_RPC_API_AST_PATH).expect("Create static/ast.ron failed");
     ast_file
@@ -338,12 +338,10 @@ fn main() {
             let mut method_table = vec![];
 
             method_table.push(format!(
-                "| Present | {}{} | {} | {} |",
-                method_header, method_pad_space, params_header, result_header,
+                "| Present | {method_header}{method_pad_space} | {params_header} | {result_header} |",
             ));
             method_table.push(format!(
-                "| ------- | {} | {} | {}",
-                method_pad_dash, params_pad_dash, result_pad_dash
+                "| ------- | {method_pad_dash} | {params_pad_dash} | {result_pad_dash}"
             ));
 
             for (lotus_name, lotus_method) in lotus_rpc.iter() {
@@ -404,7 +402,7 @@ fn main() {
 
             let forest_only_methods_list = forest_only_methods
                 .iter()
-                .map(|method| format!("- `{method}`", method = method))
+                .map(|method| format!("- `{method}`"))
                 .collect::<Vec<String>>();
 
             let report = format!(
@@ -508,8 +506,7 @@ Feel free to reach out in #fil-forest-help in the [Filecoin Slack](https://docs.
         }
         Err(err) => {
             println!(
-                "cargo:warning=Error parsing Lotus OpenRPC file, skipping... Error was: {}",
-                err
+                "cargo:warning=Error parsing Lotus OpenRPC file, skipping... Error was: {err}"
             );
         }
     }
