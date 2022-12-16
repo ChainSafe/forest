@@ -44,7 +44,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::runtime::Handle;
-use tokio::sync::broadcast::{error::RecvError, Receiver as Subscriber, Sender as Publisher};
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, trace, warn};
