@@ -8,10 +8,8 @@ edition = "2021"
 anyhow.workspace = true
 fil_actors_runtime.workspace = true
 forest_beacon.workspace = true
-forest_json.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
 
 [dev-dependencies]
 toml = "0.5"
