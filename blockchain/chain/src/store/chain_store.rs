@@ -707,6 +707,7 @@ where
 
 pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
+/// Loads a tipset from memory given the tipset keys and cache.
 pub(crate) async fn tipset_from_keys<BS>(
     cache: &TipsetCache,
     store: &BS,
@@ -716,6 +717,9 @@ where
     BS: Blockstore,
 {
     if let Some(ts) = cache.lock().await.get(tsk) {
+        metrics::LRU_CACHE_HIT
+             .with_label_values(&[metrics::values::TIPSET])
+             .inc();
         return Ok(ts.clone());
     }
 
@@ -733,6 +737,9 @@ where
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
     cache.lock().await.put(tsk.clone(), ts.clone());
+    metrics::LRU_CACHE_MISS
+         .with_label_values(&[metrics::values::TIPSET])
+         .inc();
     Ok(ts)
 }
 

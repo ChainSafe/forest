@@ -908,26 +908,20 @@ where
             let sr = *first_block.state_root();
             let epoch = first_block.epoch();
             let ts_cloned = Arc::clone(tipset);
-            // TODO: handle blocking pool shutting down errors
-            let handle = tokio::task::Builder::new()
-                .name(&format!("{epoch}-apply-blocks"))
-                .spawn_blocking(move || {
-                    Ok(sm.apply_blocks(
-                        parent_epoch,
-                        &sr,
-                        &blocks,
-                        epoch,
-                        chain_rand,
-                        base_fee,
-                        callback,
-                        &ts_cloned,
-                    )?)
-                })
-                .expect("spawn_blocking must succeed");
-
-            handle
-                .await
-                .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
+            tokio::task::spawn_blocking(move || {
+                Ok(sm.apply_blocks(
+                    parent_epoch,
+                    &sr,
+                    &blocks,
+                    epoch,
+                    chain_rand,
+                    base_fee,
+                    callback,
+                    &ts_cloned,
+                )?)
+            })
+            .await
+            .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
         })
     }
 
