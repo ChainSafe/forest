@@ -102,14 +102,14 @@ impl NetCommands {
                 net_connect((addr_info,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("connect {}: success", id);
+                println!("connect {id}: success");
                 Ok(())
             }
             Self::Disconnect { id } => {
                 net_disconnect((id.to_owned(),), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                println!("disconnect {}: success", id);
+                println!("disconnect {id}: success");
                 Ok(())
             }
         }

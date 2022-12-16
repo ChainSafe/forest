@@ -254,8 +254,7 @@ where
             let found = self.delete(i)?.is_none();
             if strict && found {
                 return Err(Error::Other(format!(
-                    "no such index {} in Amt for batch delete",
-                    i
+                    "no such index {i} in Amt for batch delete"
                 )));
             }
             modified |= found;

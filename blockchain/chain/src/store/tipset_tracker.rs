@@ -80,10 +80,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                     .ok()
                     .flatten()
                     .ok_or_else(|| {
-                        Error::Other(format!(
-                            "failed to load block ({}) for tipset expansion",
-                            cid
-                        ))
+                        Error::Other(format!("failed to load block ({cid}) for tipset expansion"))
                     })?;
 
                 if h.parents() == headers[0].parents() {

@@ -2,6 +2,7 @@
 #
 # # Processes
 # - Prometheus server
+# - Loki server
 # - Grafana server
 
 version: "3.8"
@@ -13,11 +14,11 @@ services:
   prometheus:
     image: prom/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus/
@@ -25,10 +26,17 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
 
+  loki:
+    image: grafana/loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+
   grafana:
     image: grafana/grafana
     depends_on:
       - prometheus
+      - loki
     volumes:
       - ./grafana/provisioning/:/etc/grafana/provisioning
       - ./grafana/dashboards/:/etc/grafana/provisioning/dashboard-definitions

@@ -403,8 +403,7 @@ pub mod de_network_version {
             "v16" => Ok(NetworkVersion::V16),
             "v17" => Ok(NetworkVersion::V17),
             _ => Err(de::Error::custom(&format!(
-                "Invalid network version: {}",
-                version
+                "Invalid network version: {version}"
             ))),
         }
     }

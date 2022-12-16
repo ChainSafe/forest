@@ -97,7 +97,7 @@ where
         let mb = m.marshal_cbor()?;
         network_sender
             .send_async(NetworkMessage::PubsubMessage {
-                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
+                topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
                 message: mb,
             })
             .await
