@@ -46,11 +46,9 @@ fn open_db(chain_path: &Path) -> forest_db::rocks::RocksDb {
 #[cfg(feature = "paritydb")]
 fn open_db(chain_path: &Path) -> forest_db::parity_db::ParityDb {
     use forest_db::parity_db::*;
-    let config = ParityDbConfig {
-        path: chain_path.join("paritydb"),
-        columns: 1,
-    };
-    ParityDb::open(&config).expect("Opening ParityDb must succeed")
+    use forest_db::parity_db_config::*;
+    ParityDb::open(chain_path.join("paritydb"), &ParityDbConfig::default())
+        .expect("Opening ParityDb must succeed")
 }
 
 /// statediff binary sub-commands available.
