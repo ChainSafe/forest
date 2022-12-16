@@ -3,19 +3,13 @@
 
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
-use forest_beacon::{json::BeaconEntryJson, Beacon, BeaconSchedule};
-use forest_blocks::{
-    election_proof::json::ElectionProofJson, ticket::json::TicketJson,
-    tipset_keys_json::TipsetKeysJson, Tipset,
-};
+use forest_beacon::{Beacon, BeaconSchedule};
+use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
 use forest_chain::ChainStore;
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
-use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_json::message_receipt::json::ReceiptJson;
-use forest_json::sector::json::PoStProofJson;
-use forest_json::signed_message::json::SignedMessageJson;
 use forest_json::token_amount::json;
 use forest_key_management::KeyStore;
 pub use forest_libp2p::{Multiaddr, Protocol};
@@ -94,21 +88,6 @@ pub struct MessageLookup {
     pub height: i64,
     pub message: CidJson,
     pub return_dec: IpldJson,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct BlockTemplate {
-    pub miner: AddressJson,
-    pub parents: TipsetKeysJson,
-    pub ticket: TicketJson,
-    pub eproof: ElectionProofJson,
-    pub beacon_values: Vec<BeaconEntryJson>,
-    pub messages: Vec<SignedMessageJson>,
-    pub epoch: i64,
-    pub timestamp: u64,
-    #[serde(rename = "WinningPoStProof")]
-    pub winning_post_proof: Vec<PoStProofJson>,
 }
 
 // Net API
