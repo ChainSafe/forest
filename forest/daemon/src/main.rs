@@ -107,7 +107,7 @@ fn main() {
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
     match opts.to_config() {
         Ok((cfg, path)) => {
-            let (loki_task, _file_logger_worker_guard) = logger::setup_logger(&cfg.log, &opts);
+            let (loki_task,) = logger::setup_logger(&cfg.log, &opts);
             ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
 
             if let Some(path) = &path {

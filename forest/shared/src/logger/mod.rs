@@ -4,7 +4,6 @@
 use crate::cli::{CliOpts, LogConfig};
 use atty::Stream;
 use std::str::FromStr;
-use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
 
@@ -43,9 +42,8 @@ impl FromStr for LoggingColor {
 pub fn setup_logger(
     log_config: &LogConfig,
     opts: &CliOpts,
-) -> (Option<tracing_loki::BackgroundTask>, Option<WorkerGuard>) {
+) -> (Option<tracing_loki::BackgroundTask>,) {
     let mut loki_task = None;
-    let mut file_logger_worker_guard = None;
     let tracing_tokio_console = if opts.tokio_console {
         Some(
             console_subscriber::ConsoleLayer::builder()
@@ -78,37 +76,14 @@ pub fn setup_logger(
     } else {
         None
     };
-    // Only used for detached mode
-    let tracing_rolling_file_blocking = if let Some(log_dir) = &opts.log_dir {
-        if opts.detach {
-            let file_appender = tracing_appender::rolling::hourly(log_dir, "forest.log");
-            Some(
-                tracing_subscriber::fmt::Layer::new()
-                    .with_ansi(false)
-                    .with_writer(file_appender)
-                    .with_filter(build_env_filter(log_config)),
-            )
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    // Only used for non-detached mode
-    let tracing_rolling_file_non_blocking = if let Some(log_dir) = &opts.log_dir {
-        if opts.detach {
-            None
-        } else {
-            let file_appender = tracing_appender::rolling::hourly(log_dir, "forest.log");
-            let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-            file_logger_worker_guard = Some(guard);
-            Some(
-                tracing_subscriber::fmt::Layer::new()
-                    .with_ansi(false)
-                    .with_writer(non_blocking)
-                    .with_filter(build_env_filter(log_config)),
-            )
-        }
+    let tracing_rolling_file = if let Some(log_dir) = &opts.log_dir {
+        let file_appender = tracing_appender::rolling::hourly(log_dir, "forest.log");
+        Some(
+            tracing_subscriber::fmt::Layer::new()
+                .with_ansi(false)
+                .with_writer(file_appender)
+                .with_filter(build_env_filter(log_config)),
+        )
     } else {
         None
     };
@@ -116,15 +91,14 @@ pub fn setup_logger(
     tracing_subscriber::registry()
         .with(tracing_tokio_console)
         .with(tracing_loki)
-        .with(tracing_rolling_file_blocking)
-        .with(tracing_rolling_file_non_blocking)
+        .with(tracing_rolling_file)
         .with(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(opts.color.coloring_enabled())
                 .with_filter(build_env_filter(log_config)),
         )
         .init();
-    (loki_task, file_logger_worker_guard)
+    (loki_task,)
 }
 
 fn build_env_filter(log_config: &LogConfig) -> EnvFilter {
