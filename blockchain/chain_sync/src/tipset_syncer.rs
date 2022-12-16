@@ -1115,7 +1115,7 @@ async fn sync_messages_check_state<
     while let Ok(full_tipset) = r.recv_async().await {
         let current_epoch = full_tipset.epoch();
         {
-            let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
+            let _timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
             validate_tipset::<_, C>(
                 consensus.clone(),
                 state_manager.clone(),
