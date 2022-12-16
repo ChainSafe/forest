@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::Config;
-use crate::cli::{cli_error_and_die, to_size_string};
+use crate::cli::to_size_string;
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -129,10 +129,7 @@ pub async fn snapshot_fetch(
         None => match config.chain.name.to_lowercase().as_str() {
             "mainnet" => &SnapshotServer::Filecoin,
             "calibnet" => &SnapshotServer::Forest,
-            _ => cli_error_and_die(
-                format!("Fetch not supported for chain {}", config.chain.name),
-                1,
-            ),
+            _ => anyhow::bail!("Fetch not supported for chain {}", config.chain.name),
         },
     };
     match server {
