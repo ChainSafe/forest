@@ -29,7 +29,7 @@ impl ChainCommand {
         let blockstore = open_db(&chain_path);
 
         if let Err(err) = print_state_diff(&blockstore, &self.pre, &self.post, self.depth) {
-            eprintln!("Failed to print state diff: {}", err);
+            eprintln!("Failed to print state diff: {err}");
         }
     }
 }

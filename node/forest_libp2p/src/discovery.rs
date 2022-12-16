@@ -104,7 +104,7 @@ impl<'a> DiscoveryConfig<'a> {
         // Kademlia config
         let store = MemoryStore::new(local_peer_id.to_owned());
         let mut kad_config = KademliaConfig::default();
-        let network = format!("/fil/kad/{}/kad/1.0.0", network_name);
+        let network = format!("/fil/kad/{network_name}/kad/1.0.0");
         kad_config.set_protocol_names(vec![Cow::Owned(network.as_bytes().to_vec())]);
 
         // TODO this parsing should probably be done when parsing config, not initializing node
