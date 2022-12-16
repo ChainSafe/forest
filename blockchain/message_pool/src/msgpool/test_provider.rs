@@ -186,7 +186,7 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
-    let fmt_str = format!("===={}=====", ticket_sequence);
+    let fmt_str = format!("===={ticket_sequence}=====");
     let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
     let election_proof = ElectionProof {
         win_count: 0,
@@ -209,7 +209,7 @@ pub fn mock_block_with_epoch(epoch: i64, weight: u64, ticket_sequence: u64) -> B
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
-    let fmt_str = format!("===={}=====", ticket_sequence);
+    let fmt_str = format!("===={ticket_sequence}=====");
     let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
     let election_proof = ElectionProof {
         win_count: 0,
@@ -236,7 +236,7 @@ pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u
 
     let mut weight_inc = BigInt::from(weight);
     weight_inc = parents.blocks()[0].weight() + weight_inc;
-    let fmt_str = format!("===={}=====", ticket_sequence);
+    let fmt_str = format!("===={ticket_sequence}=====");
     let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
     let election_proof = ElectionProof {
         win_count: 0,

@@ -31,7 +31,7 @@ impl PartialEq for Error {
             (&Database(_), &Database(_)) => true,
             #[cfg(feature = "paritydb")]
             (&Database(_), &Database(_)) => true,
-            (&Other(ref a), &Other(ref b)) => a == b,
+            (Other(a), Other(b)) => a == b,
             _ => false,
         }
     }
