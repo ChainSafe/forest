@@ -427,7 +427,7 @@ mod test {
         let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
-        let fmt_str = format!("===={}=====", ticket_sequence);
+        let fmt_str = format!("===={ticket_sequence}=====");
         let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
         let election_proof = ElectionProof {
             win_count: 0,

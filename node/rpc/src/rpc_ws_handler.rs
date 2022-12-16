@@ -103,7 +103,7 @@ async fn rpc_ws_handler_inner<DB, B>(
                                     debug!("WS RPC task success.");
                                 }
                                 Err(e) => {
-                                    let msg = format!("WS RPC task error: {}", e);
+                                    let msg = format!("WS RPC task error: {e}");
                                     error!("{}", msg);
                                     task_ws_sender
                                         .write()
@@ -116,7 +116,7 @@ async fn rpc_ws_handler_inner<DB, B>(
                         });
                     }
                     Err(e) => {
-                        let msg = format!("Error deserializing WS request payload: {}", e);
+                        let msg = format!("Error deserializing WS request payload: {e}");
                         error!("{}", msg);
                         if let Err(e) = task_ws_sender
                             .write()

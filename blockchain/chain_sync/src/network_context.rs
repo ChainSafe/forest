@@ -142,15 +142,15 @@ where
             Ok(Ok(())) => {
                 match self.db.get_obj(&content) {
                     Ok(Some(b)) => Ok(b),
-                    Ok(None) => Err(format!("Bitswap response successful for: {:?}, but can't find it in the database", content)),
-                    Err(e) => Err(format!("Bitswap response successful for: {:?}, but can't retreive it from the database: {}", content, e)),
+                    Ok(None) => Err(format!("Bitswap response successful for: {content:?}, but can't find it in the database")),
+                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retreive it from the database: {e}")),
                 }
             }
             Err(_e) => {
-               Err(format!("Bitswap get for {:?} timed out", content))
+               Err(format!("Bitswap get for {content:?} timed out"))
             }
             Ok(Err(e)) => {
-                Err(format!("Bitswap get for {:?} failed: {}", content, e))
+                Err(format!("Bitswap get for {content:?} failed: {e}"))
             }
         }
     }
@@ -331,7 +331,7 @@ where
                     }
                 }
                 log::debug!("Failed: ChainExchange Request to {peer_id}");
-                Err(format!("Internal libp2p error: {:?}", e))
+                Err(format!("Internal libp2p error: {e:?}"))
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which will

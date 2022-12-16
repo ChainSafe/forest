@@ -328,8 +328,7 @@ where
 
         if !hashes.is_empty() {
             return Err(Error::Other(format!(
-                "Found tipset hash(es) on {network} that are no longer valid: {:?}",
-                hashes
+                "Found tipset hash(es) on {network} that are no longer valid: {hashes:?}"
             )));
         }
 
@@ -690,8 +689,7 @@ where
         Ok((bls_cids, secpk_cids))
     } else {
         Err(Error::UndefinedKey(format!(
-            "no msg root with cid {}",
-            msg_cid
+            "no msg root with cid {msg_cid}"
         )))
     }
 }
