@@ -160,7 +160,6 @@ pub struct Config {
     pub client: Client,
     #[cfg(feature = "rocksdb")]
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
-    #[cfg(feature = "paritydb")]
     pub parity_db: forest_db::parity_db::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
@@ -190,7 +189,6 @@ mod test {
         client: Client,
         #[cfg(feature = "rocksdb")]
         rocks_db: forest_db::rocks_config::RocksDbConfig,
-        #[cfg(feature = "paritydb")]
         parity_db: forest_db::parity_db::ParityDbConfig,
         network: forest_libp2p::Libp2pConfig,
         sync: forest_chain_sync::SyncConfig,
@@ -202,7 +200,6 @@ mod test {
                 client: val.client,
                 #[cfg(feature = "rocksdb")]
                 rocks_db: val.rocks_db,
-                #[cfg(feature = "paritydb")]
                 parity_db: val.parity_db,
                 network: val.network,
                 sync: val.sync,
@@ -250,7 +247,6 @@ mod test {
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
                 },
-                #[cfg(feature = "paritydb")]
                 parity_db: forest_db::parity_db::ParityDbConfig {
                     stats: bool::arbitrary(g),
                     compression: String::arbitrary(g),
