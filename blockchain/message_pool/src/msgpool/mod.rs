@@ -342,8 +342,6 @@ pub mod tests {
     use std::time::Duration;
     use test_provider::*;
     use tokio::task::JoinSet;
-    #[cfg(feature = "slow_tests")]
-    use tokio::time::sleep;
 
     pub fn create_smsg(
         to: &Address,
