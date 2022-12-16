@@ -153,7 +153,7 @@ jobs:
         run: |
           forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --halt-after-import --height=-200 --import-snapshot $SNAPSHOT_DIRECTORY/*.car
           forest-cli --chain calibnet db stats
-          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
+          forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --log-dir log --detach
       - name: Validate checkpoint tipset hashes
         run: forest-cli chain validate-tipset-checkpoints
       - name: wait for sync and check health
@@ -172,6 +172,10 @@ jobs:
           echo "--- Forest STDOUT ---"; cat forest.out
           echo "--- Forest STDERR ---"; cat forest.err
           echo "--- Forest Prometheus metrics ---"; cat metrics.log
+      - name: print forest log files
+        run: |
+          ls -hl log
+          cat log/*
 
   dependencies-duplicate-check:
     name: Check cargo files for duplicates

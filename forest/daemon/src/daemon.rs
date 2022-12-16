@@ -9,8 +9,8 @@ use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
 use forest_cli_shared::cli::{
-    cli_error_and_die, db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
-    Config, FOREST_VERSION_STRING,
+    db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+    FOREST_VERSION_STRING,
 };
 use forest_db::Store;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -26,7 +26,7 @@ use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::version::NetworkVersion;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use std::net::TcpListener;
@@ -50,16 +50,18 @@ use forest_fil_cns::composition as cns;
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
 
-fn unblock_parent_process() {
-    let shmem = super::ipc_shmem_conf().open().expect("open must succeed");
+fn unblock_parent_process() -> anyhow::Result<()> {
+    let shmem = super::ipc_shmem_conf().open()?;
     let (event, _) =
-        unsafe { Event::from_existing(shmem.as_ptr()).expect("from_existing must succeed") };
+        unsafe { Event::from_existing(shmem.as_ptr()).map_err(|err| anyhow::anyhow!("{err}")) }?;
 
-    event.set(EventState::Signaled).expect("set must succeed");
+    event
+        .set(EventState::Signaled)
+        .map_err(|err| anyhow::anyhow!("{err}"))
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) -> Db {
+pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -68,24 +70,18 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     );
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
-    let net_keypair = get_keypair(&path.join("keypair")).unwrap_or_else(|| {
-        // Keypair not found, generate and save generated keypair
-        let gen_keypair = ed25519::Keypair::generate();
-        // Save Ed25519 keypair to file
-        // TODO rename old file to keypair.old(?)
-        match write_to_file(&gen_keypair.encode(), &path, "keypair") {
-            Ok(file) => {
-                // Restrict permissions on files containing private keys
-                #[cfg(unix)]
-                forest_utils::io::set_user_perm(&file).expect("Set user perms on unix systems");
-            }
-            Err(e) => {
-                info!("Could not write keystore to disk!");
-                trace!("Error {:?}", e);
-            }
-        };
-        Keypair::Ed25519(gen_keypair)
-    });
+    let net_keypair = match get_keypair(&path.join("keypair")) {
+        Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
+        None => {
+            let gen_keypair = ed25519::Keypair::generate();
+            // Save Ed25519 keypair to file
+            // TODO rename old file to keypair.old(?)
+            let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
+            // Restrict permissions on files containing private keys
+            forest_utils::io::set_user_perm(&file)?;
+            Ok(Keypair::Ed25519(gen_keypair))
+        }
+    }?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
     // Useful if others want to use this node to bootstrap from.
@@ -94,16 +90,16 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     let mut ks = if config.client.encrypt_keystore {
         loop {
             print!("Enter the keystore passphrase: ");
-            std::io::stdout().flush().unwrap();
+            std::io::stdout().flush()?;
 
-            let passphrase = read_password().expect("Error reading passphrase");
+            let passphrase = read_password()?;
 
             let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
             if !data_dir.exists() {
                 print!("Confirm passphrase: ");
-                std::io::stdout().flush().unwrap();
+                std::io::stdout().flush()?;
 
-                if passphrase != read_password().unwrap() {
+                if passphrase != read_password()? {
                     error!("Passphrases do not match. Please retry.");
                     continue;
                 }
@@ -125,44 +121,35 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         warn!("Warning: Keystore encryption disabled!");
         KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(
             &config.client.data_dir,
-        )))
-        .expect("Error initializing keystore")
+        )))?
     };
 
     if ks.get(JWT_IDENTIFIER).is_err() {
-        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())
-            .unwrap();
+        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
     }
 
     // Print admin token
-    let ki = ks.get(JWT_IDENTIFIER).unwrap();
+    let ki = ks.get(JWT_IDENTIFIER)?;
     let token_exp = config.client.token_exp;
-    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp).unwrap();
+    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
     info!("Admin token: {}", token);
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = open_db(&config);
+    let db = open_db(&config)?;
 
     let mut services = JoinSet::new();
 
     {
         // Start Prometheus server port
-        let prometheus_listener =
-            TcpListener::bind(config.client.metrics_address).unwrap_or_else(|_| {
-                cli_error_and_die(
-                    format!("could not bind to {}", config.client.metrics_address),
-                    1,
-                )
-            });
+        let prometheus_listener = TcpListener::bind(config.client.metrics_address).context(
+            format!("could not bind to {}", config.client.metrics_address),
+        )?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = db_path(&config)
-            .into_os_string()
-            .into_string()
-            .expect("Failed converting the path to db");
+        let db_directory = db_path(&config);
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -183,21 +170,20 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         config.chain.genesis_bytes(),
         &chain_store,
     )
-    .await
-    .unwrap();
+    .await?;
     let genesis_header = &genesis.blocks()[0];
-    chain_store.set_genesis(genesis_header).unwrap();
+    chain_store.set_genesis(genesis_header)?;
 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
     let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
-        None => prompt_snapshot_or_die(&config).await,
+        None => prompt_snapshot_or_die(&config).await?,
         Some(tipset) => {
             let epoch = tipset.epoch();
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
-                prompt_snapshot_or_die(&config).await
+                prompt_snapshot_or_die(&config).await?
             } else {
                 false
             }
@@ -214,14 +200,11 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         Arc::clone(&config.chain),
         reward_calc,
     )
-    .await
-    .unwrap();
+    .await?;
 
     let state_manager = Arc::new(sm);
 
-    let network_name = get_network_name_from_genesis(&genesis, &state_manager)
-        .await
-        .unwrap();
+    let network_name = get_network_name_from_genesis(&genesis, &state_manager).await?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
@@ -233,8 +216,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             .chain
             .bootstrap_peers
             .iter()
-            .map(|node| node.parse().unwrap())
-            .collect();
+            .map(|node| node.parse())
+            .collect::<Result<_, _>>()?;
         Config {
             network: Libp2pConfig {
                 bootstrap_peers,
@@ -266,12 +249,11 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         provider,
         network_name.clone(),
         network_send.clone(),
-        MpoolConfig::load_config(&db).unwrap(),
+        MpoolConfig::load_config(&db)?,
         Arc::clone(state_manager.chain_config()),
         &mut services,
     )
-    .await
-    .unwrap();
+    .await?;
 
     let mpool = Arc::new(mpool);
 
@@ -283,9 +265,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     );
 
     // Initialize Consensus. Mining may or may not happen, depending on type.
-    let consensus = cns::consensus(&state_manager, &keystore, &mpool, submitter, &mut services)
-        .await
-        .unwrap();
+    let consensus =
+        cns::consensus(&state_manager, &keystore, &mpool, submitter, &mut services).await?;
 
     // Initialize ChainMuxer
     let chain_muxer_tipset_sink = tipset_sink.clone();
@@ -299,8 +280,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync.clone(),
-    )
-    .expect("Instantiating the ChainMuxer must succeed");
+    )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
@@ -308,8 +288,11 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = std::net::TcpListener::bind(config.client.rpc_address)
-            .unwrap_or_else(|_| cli_error_and_die("could not bind to {rpc_address}", 1));
+        let rpc_listen =
+            std::net::TcpListener::bind(config.client.rpc_address).context(format!(
+                "could not bind to rpc address {}",
+                config.client.rpc_address
+            ))?;
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
@@ -340,7 +323,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         debug!("RPC disabled.");
     };
     if detached {
-        unblock_parent_process();
+        unblock_parent_process()?;
     }
 
     // Fetch and ensure verification keys are downloaded
@@ -350,19 +333,17 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         };
         set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
-        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys)
-            .await
-            .unwrap();
+        get_params_default(&config.client.data_dir, SectorSizeOpt::Keys).await?;
     }
 
-    let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await;
+    let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
     select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
         _ = ctrlc_oneshot => {
             // Cancel all async services
             services.shutdown().await;
-            return db;
+            return Ok(db);
         },
     }
 
@@ -370,7 +351,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     if config.client.halt_after_import {
         // Cancel all async services
         services.shutdown().await;
-        return db;
+        return Ok(db);
     }
 
     services.spawn(p2p_service.run());
@@ -382,16 +363,10 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         _ = ctrlc_oneshot => {}
     }
 
-    let keystore_write = tokio::task::spawn(async move {
-        keystore.read().await.flush().unwrap();
-    });
-
     // Cancel all async services
     services.shutdown().await;
 
-    keystore_write.await.expect("keystore write failed");
-
-    db
+    Ok(db)
 }
 
 // returns the first error with which any of the services end
@@ -416,32 +391,31 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
-async fn maybe_fetch_snapshot(should_fetch_snapshot: bool, config: Config) -> Config {
+async fn maybe_fetch_snapshot(
+    should_fetch_snapshot: bool,
+    config: Config,
+) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = match snapshot_fetch(&snapshot_path, &config, &None, is_aria2_installed()).await
-        {
-            Ok(path) => path,
-            Err(err) => cli_error_and_die(err.to_string(), 1),
-        };
-        Config {
+        let path = snapshot_fetch(&snapshot_path, &config, &None, is_aria2_installed()).await?;
+        Ok(Config {
             client: Client {
                 snapshot_path: Some(path),
                 snapshot: true,
                 ..config.client
             },
             ..config
-        }
+        })
     } else {
-        config
+        Ok(config)
     }
 }
 
 /// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
 /// exits the process.
-async fn prompt_snapshot_or_die(config: &Config) -> bool {
+async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
-        return false;
+        return Ok(false);
     }
     let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
         Confirm::with_theme(&ColorfulTheme::default())
@@ -456,9 +430,9 @@ async fn prompt_snapshot_or_die(config: &Config) -> bool {
     };
 
     if should_download {
-        true
+        Ok(true)
     } else {
-        cli_error_and_die("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically", 1);
+        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically");
     }
 }
 
@@ -504,15 +478,14 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 }
 
 #[cfg(feature = "rocksdb")]
-fn open_db(config: &Config) -> forest_db::rocks::RocksDb {
-    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db)
-        .expect("Opening RocksDB must succeed")
+fn open_db(config: &Config) -> anyhow::Result<forest_db::rocks::RocksDb> {
+    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db).map_err(Into::into)
 }
 
 #[cfg(feature = "paritydb")]
-fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
+fn open_db(config: &Config) -> anyhow::Result<forest_db::parity_db::ParityDb> {
     use forest_db::parity_db::*;
-    ParityDb::open(db_path(config), &config.parity_db).expect("Opening ParityDb must succeed")
+    ParityDb::open(db_path(config), &config.parity_db)
 }
 
 #[cfg(feature = "rocksdb")]
