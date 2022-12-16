@@ -79,10 +79,10 @@ pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     let mut psp_topics = HashMap::new();
 
     // msg topic
-    let msg_topic = IdentTopic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name));
+    let msg_topic = IdentTopic::new(format!("{PUBSUB_MSG_STR}/{network_name}"));
     psp_topics.insert(msg_topic.hash(), build_msg_topic_config());
     // block topic
-    let block_topic = IdentTopic::new(format!("{}/{}", PUBSUB_BLOCK_STR, network_name));
+    let block_topic = IdentTopic::new(format!("{PUBSUB_BLOCK_STR}/{network_name}"));
     psp_topics.insert(block_topic.hash(), build_block_topic_config());
 
     PeerScoreParams {

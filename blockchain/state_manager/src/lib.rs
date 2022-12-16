@@ -9,7 +9,6 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use anyhow::Context;
-use async_log::span;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
@@ -37,7 +36,6 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
-use log::{debug, error, info, trace, warn};
 use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
@@ -47,6 +45,7 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::RwLock;
+use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
@@ -219,7 +218,7 @@ where
         if let Some(maddr) = addr {
             let m_pow = spas
                 .miner_power(self.blockstore(), maddr)?
-                .ok_or_else(|| Error::State(format!("Miner for address {} not found", maddr)))?;
+                .ok_or_else(|| Error::State(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
                 &self.chain_config.policy,
@@ -284,7 +283,7 @@ where
                 let mut vm = create_vm(parent_state, epoch_i)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                    log::error!("Beginning of epoch cron failed to run: {}", e);
+                    error!("Beginning of epoch cron failed to run: {}", e);
                 }
 
                 parent_state = vm.flush()?;
@@ -312,122 +311,119 @@ where
     /// Returns the pair of (parent state root, message receipt root). This will either be cached
     /// or will be calculated and fill the cache. Tipset state for a given tipset is guaranteed
     /// not to be computed twice.
+    #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        span!("tipset_state", {
-            // Get entry in cache, if it exists.
-            // Arc is cloned here to avoid holding the entire cache lock until function ends.
-            // (tasks should be able to compute different tipset state's in parallel)
-            //
-            // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
-            // mutex until the value is updated, which task `B` will await.
-            //
-            // If two tasks are computing different tipset states, they will only block computation
-            // when accessing/initializing the entry in cache, not during the whole tipset calc.
+        // Get entry in cache, if it exists.
+        // Arc is cloned here to avoid holding the entire cache lock until function ends.
+        // (tasks should be able to compute different tipset state's in parallel)
+        //
+        // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
+        // mutex until the value is updated, which task `B` will await.
+        //
+        // If two tasks are computing different tipset states, they will only block computation
+        // when accessing/initializing the entry in cache, not during the whole tipset calc.
 
-            // first try reading cache
-            if let Some(entry) = self.cache.write().await.get(tipset.key()) {
-                trace!("hit cache for tipset {:?}", tipset.cids());
-                forest_metrics::metrics::LRU_CACHE_HIT
-                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-                    .inc();
-                return Ok(*entry.wait());
-            }
-
-            // write an empty `OnceCell` when cache not hit
-            let cache_entry = Arc::new(once_cell::sync::OnceCell::new());
-            {
-                self.cache
-                    .write()
-                    .await
-                    .push(tipset.key().clone(), cache_entry.clone());
-            }
-
-            // Entry does not have state computed yet, this task will fill entry if successful.
-            debug!("calculating tipset state {:?}", tipset.cids());
-
-            let cid_pair = if tipset.epoch() == 0 {
-                // NB: This is here because the process that executes blocks requires that the
-                // block miner reference a valid miner in the state tree. Unless we create some
-                // magical genesis miner, this won't work properly, so we short circuit here
-                // This avoids the question of 'who gets paid the genesis block reward'
-                let message_receipts = tipset
-                    .blocks()
-                    .first()
-                    .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-
-                (*tipset.parent_state(), *message_receipts.message_receipts())
-            } else {
-                // generic constants are not implemented yet this is a lowcost method for now
-                let no_func =
-                    None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-                let ts_state = self.compute_tipset_state(tipset, no_func).await?;
-                debug!("completed tipset state calculation {:?}", tipset.cids());
-                ts_state
-            };
-
-            // Fill entry with calculated cid pair
-            if let Err(e) = cache_entry.set(cid_pair) {
-                error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
-            }
-            forest_metrics::metrics::LRU_CACHE_MISS
+        // first try reading cache
+        if let Some(entry) = self.cache.write().await.get(tipset.key()) {
+            trace!("hit cache for tipset {:?}", tipset.cids());
+            forest_metrics::metrics::LRU_CACHE_HIT
                 .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
                 .inc();
-            Ok(cid_pair)
-        })
+            return Ok(*entry.wait());
+        }
+
+        // write an empty `OnceCell` when cache not hit
+        let cache_entry = Arc::new(once_cell::sync::OnceCell::new());
+        {
+            self.cache
+                .write()
+                .await
+                .push(tipset.key().clone(), cache_entry.clone());
+        }
+
+        // Entry does not have state computed yet, this task will fill entry if successful.
+        debug!("calculating tipset state {:?}", tipset.cids());
+
+        let cid_pair = if tipset.epoch() == 0 {
+            // NB: This is here because the process that executes blocks requires that the
+            // block miner reference a valid miner in the state tree. Unless we create some
+            // magical genesis miner, this won't work properly, so we short circuit here
+            // This avoids the question of 'who gets paid the genesis block reward'
+            let message_receipts = tipset
+                .blocks()
+                .first()
+                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
+
+            (*tipset.parent_state(), *message_receipts.message_receipts())
+        } else {
+            // generic constants are not implemented yet this is a lowcost method for now
+            let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
+            let ts_state = self.compute_tipset_state(tipset, no_func).await?;
+            debug!("completed tipset state calculation {:?}", tipset.cids());
+            ts_state
+        };
+
+        // Fill entry with calculated cid pair
+        if let Err(e) = cache_entry.set(cid_pair) {
+            error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
+        }
+        forest_metrics::metrics::LRU_CACHE_MISS
+            .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+            .inc();
+        Ok(cid_pair)
     }
 
+    #[instrument(skip(self, rand))]
     fn call_raw(
         self: &Arc<Self>,
         msg: &mut Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> StateCallResult {
-        span!("state_call_raw", {
-            let bstate = tipset.parent_state();
-            let bheight = tipset.epoch();
-            let store = self.blockstore().clone();
-            let mut vm = VM::new(
-                *bstate,
-                store,
-                bheight,
-                rand,
-                TokenAmount::zero(),
-                self.genesis_info
-                    .get_circulating_supply(bheight, self.blockstore(), bstate)?,
-                self.reward_calc.clone(),
-                chain_epoch_root(
-                    Arc::clone(self),
-                    Arc::clone(tipset),
-                    tokio::runtime::Handle::current(),
-                ),
-                &self.engine,
-                Arc::clone(self.chain_config()),
-            )?;
+        let bstate = tipset.parent_state();
+        let bheight = tipset.epoch();
+        let store = self.blockstore().clone();
+        let mut vm = VM::new(
+            *bstate,
+            store,
+            bheight,
+            rand,
+            TokenAmount::zero(),
+            self.genesis_info
+                .get_circulating_supply(bheight, self.blockstore(), bstate)?,
+            self.reward_calc.clone(),
+            chain_epoch_root(
+                Arc::clone(self),
+                Arc::clone(tipset),
+                tokio::runtime::Handle::current(),
+            ),
+            &self.engine,
+            Arc::clone(self.chain_config()),
+        )?;
 
-            if msg.gas_limit == 0 {
-                msg.gas_limit = 10000000000;
-            }
+        if msg.gas_limit == 0 {
+            msg.gas_limit = 10000000000;
+        }
 
-            let actor = self
-                .get_actor(&msg.from, *bstate)?
-                .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-            msg.sequence = actor.sequence;
-            let apply_ret = vm.apply_implicit_message(msg)?;
-            trace!(
-                "gas limit {:},gas premium{:?},value {:?}",
-                msg.gas_limit,
-                msg.gas_premium,
-                msg.value
-            );
-            if let Some(err) = &apply_ret.failure_info {
-                warn!("chain call failed: {:?}", err);
-            }
+        let actor = self
+            .get_actor(&msg.from, *bstate)?
+            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
+        msg.sequence = actor.sequence;
+        let apply_ret = vm.apply_implicit_message(msg)?;
+        trace!(
+            "gas limit {:},gas premium{:?},value {:?}",
+            msg.gas_limit,
+            msg.gas_premium,
+            msg.value
+        );
+        if let Some(err) = &apply_ret.failure_info {
+            warn!("chain call failed: {:?}", err);
+        }
 
-            Ok(InvocResult {
-                msg: msg.clone(),
-                msg_rct: Some(apply_ret.msg_receipt.clone()),
-                error: apply_ret.failure_info.map(|e| e.to_string()),
-            })
+        Ok(InvocResult {
+            msg: msg.clone(),
+            msg_rct: Some(apply_ret.msg_receipt.clone()),
+            error: apply_ret.failure_info.map(|e| e.to_string()),
         })
     }
 
@@ -494,7 +490,7 @@ where
         }
         let from_actor = vm
             .get_actor(message.from())
-            .map_err(|e| Error::Other(format!("Could not get actor from state: {}", e)))?
+            .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
         message.set_sequence(from_actor.sequence);
 
@@ -533,8 +529,7 @@ where
         if let Err(error_message) = result {
             if error_message.to_string() != ERROR_MSG {
                 return Err(Error::Other(format!(
-                    "unexpected error during execution : {:}",
-                    error_message
+                    "unexpected error during execution : {error_message:}"
                 )));
             }
         }
@@ -568,7 +563,7 @@ where
             let (st, _) = self
                 .tipset_state(&tipset)
                 .await
-                .map_err(|e| Error::Other(format!("Could execute tipset_state {:?}", e)))?;
+                .map_err(|e| Error::Other(format!("Could execute tipset_state {e:?}")))?;
             return Ok((tipset, st));
         }
 
@@ -576,7 +571,7 @@ where
             .cs
             .tipset_by_height(lbr + 1, tipset.clone(), false)
             .await
-            .map_err(|e| Error::Other(format!("Could not get tipset by height {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
                 "failed to find non-null tipset {:?} {} which is known to exist, found {:?} {}",
@@ -590,7 +585,7 @@ where
             .cs
             .tipset_from_keys(next_ts.parents())
             .await
-            .map_err(|e| Error::Other(format!("Could not get tipset from keys {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
 
@@ -651,6 +646,7 @@ where
     }
 
     /// Performs a state transition, and returns the state and receipt root of the transition.
+    #[instrument(skip(self, callback))]
     pub async fn compute_tipset_state<CB: 'static>(
         self: &Arc<Self>,
         tipset: &Arc<Tipset>,
@@ -659,69 +655,66 @@ where
     where
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error> + Send,
     {
-        span!("compute_tipset_state", {
-            let block_headers = tipset.blocks();
-            let first_block = block_headers
-                .first()
-                .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
+        let block_headers = tipset.blocks();
+        let first_block = block_headers
+            .first()
+            .ok_or_else(|| Error::Other("Empty tipset in compute_tipset_state".to_string()))?;
 
-            let check_for_duplicates = |s: &BlockHeader| {
-                block_headers
-                    .iter()
-                    .filter(|val| val.miner_address() == s.miner_address())
-                    .take(2)
-                    .count()
-            };
-            if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
-                // Duplicate Miner found
-                return Err(Error::Other(format!("duplicate miner in a tipset ({})", a)));
-            }
+        let check_for_duplicates = |s: &BlockHeader| {
+            block_headers
+                .iter()
+                .filter(|val| val.miner_address() == s.miner_address())
+                .take(2)
+                .count()
+        };
+        if let Some(a) = block_headers.iter().find(|s| check_for_duplicates(s) > 1) {
+            // Duplicate Miner found
+            return Err(Error::Other(format!("duplicate miner in a tipset ({a})")));
+        }
 
-            let parent_epoch = if first_block.epoch() > 0 {
-                let parent_cid = first_block
-                    .parents()
-                    .cids()
-                    .get(0)
-                    .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
-                let parent: BlockHeader = self
-                    .blockstore()
-                    .get_obj(parent_cid)?
-                    .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
-                parent.epoch()
-            } else {
-                Default::default()
-            };
+        let parent_epoch = if first_block.epoch() > 0 {
+            let parent_cid = first_block
+                .parents()
+                .cids()
+                .get(0)
+                .ok_or_else(|| Error::Other("block must have parents".to_string()))?;
+            let parent: BlockHeader = self
+                .blockstore()
+                .get_obj(parent_cid)?
+                .ok_or_else(|| format!("Could not find parent block with cid {parent_cid}"))?;
+            parent.epoch()
+        } else {
+            Default::default()
+        };
 
-            let async_handle = tokio::runtime::Handle::current();
-            let tipset_keys =
-                TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-            let chain_rand = self.chain_rand(tipset_keys, async_handle);
-            let base_fee = first_block.parent_base_fee().clone();
+        let async_handle = tokio::runtime::Handle::current();
+        let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
+        let chain_rand = self.chain_rand(tipset_keys, async_handle);
+        let base_fee = first_block.parent_base_fee().clone();
 
-            let blocks = self
-                .chain_store()
-                .block_msgs_for_tipset(tipset)
-                .map_err(|e| Error::Other(e.to_string()))?;
+        let blocks = self
+            .chain_store()
+            .block_msgs_for_tipset(tipset)
+            .map_err(|e| Error::Other(e.to_string()))?;
 
-            let sm = Arc::clone(self);
-            let sr = *first_block.state_root();
-            let epoch = first_block.epoch();
-            let ts_cloned = Arc::clone(tipset);
-            tokio::task::spawn_blocking(move || {
-                Ok(sm.apply_blocks(
-                    parent_epoch,
-                    &sr,
-                    &blocks,
-                    epoch,
-                    chain_rand,
-                    base_fee,
-                    callback,
-                    &ts_cloned,
-                )?)
-            })
-            .await
-            .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
+        let sm = Arc::clone(self);
+        let sr = *first_block.state_root();
+        let epoch = first_block.epoch();
+        let ts_cloned = Arc::clone(tipset);
+        tokio::task::spawn_blocking(move || {
+            Ok(sm.apply_blocks(
+                parent_epoch,
+                &sr,
+                &blocks,
+                epoch,
+                chain_rand,
+                base_fee,
+                callback,
+                &ts_cloned,
+            )?)
         })
+        .await
+        .map_err(|e| Error::Other(format!("failed to apply blocks: {e}")))?
     }
 
     /// Check if tipset had executed the message, by loading the receipt based on the index of
@@ -810,8 +803,7 @@ where
             .await
             .map_err(|err| {
                 Err(Error::Other(format!(
-                    "failed to load tipset during msg wait searchback: {:}",
-                    err
+                    "failed to load tipset during msg wait searchback: {err:}"
                 )))
             })?;
         let r = self
@@ -862,7 +854,7 @@ where
         }
         let cid = m
             .cid()
-            .map_err(|e| Error::Other(format!("Could not convert message to cid {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not convert message to cid {e:?}")))?;
         let message_var = (m.from(), &cid, &m.sequence());
         let maybe_tuple = self.search_back_for_message(tipset, message_var).await?;
         let message_receipt = maybe_tuple
@@ -887,7 +879,7 @@ where
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
         let message = forest_chain::get_chain_message(self.blockstore(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {:}", err)))?;
+            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (message.from(), &message.sequence());
         let current_tipset = self.cs.heaviest_tipset().await.unwrap();
@@ -904,7 +896,7 @@ where
         let sm_cloned = Arc::clone(self);
         let cid = message
             .cid()
-            .map_err(|e| Error::Other(format!("Could not get cid from message {:?}", e)))?;
+            .map_err(|e| Error::Other(format!("Could not get cid from message {e:?}")))?;
 
         let cid_for_task = cid;
         let address_for_task = *message.from();
@@ -919,7 +911,7 @@ where
                 .await?;
             sender
                 .send(())
-                .map_err(|e| Error::Other(format!("Could not send to channel {:?}", e)))?;
+                .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
             Ok::<_, Error>(back_tuple)
         });
 
@@ -1027,7 +1019,7 @@ where
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
         let state = StateTree::new_from_root(db, &state_cid)?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
-            .map_err(|e| format!("Failed to resolve key address, error: {}", e))?;
+            .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
         match kaddr.into_payload() {
             Payload::BLS(key) => Ok(key),
@@ -1078,7 +1070,7 @@ where
 
         let new_addr = self
             .lookup_id(addr, ts)?
-            .ok_or_else(|| Error::State(format!("Failed to resolve address {}", addr)))?;
+            .ok_or_else(|| Error::State(format!("Failed to resolve address {addr}")))?;
 
         let out = MarketBalance {
             escrow: {
