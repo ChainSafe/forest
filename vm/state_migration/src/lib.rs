@@ -90,7 +90,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         );
 
         let pool = rayon::ThreadPoolBuilder::new()
-            .thread_name(|id| format!("nv12 migration thread: {}", id))
+            .thread_name(|id| format!("nv12 migration thread: {id}"))
             .num_threads(cpus)
             .build()
             .map_err(MigrationError::ThreadPoolCreation)?;
@@ -127,13 +127,12 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
 
                         let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
                             panic!(
-                                "failed executing job for address: {}, Reason: {}",
-                                address, e
+                                "failed executing job for address: {address}, Reason: {e}"
                             )
                         });
 
                         job_tx.send(job_output).unwrap_or_else(|_| {
-                            panic!("failed sending job output for address: {}", address)
+                            panic!("failed sending job output for address: {address}")
                         });
                     });
                 }
@@ -149,8 +148,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     .set_actor(&address, actor_state)
                     .unwrap_or_else(|e| {
                         panic!(
-                            "Failed setting new actor state at given address: {}, Reason: {}",
-                            address, e
+                            "Failed setting new actor state at given address: {address}, Reason: {e}"
                         )
                     });
             }

@@ -117,8 +117,8 @@ impl SyncCommands {
                 let height_diff = base_height - target_height;
 
                 println!("sync status:");
-                println!("Base:\t{}", base_cids);
-                println!("Target:\t{} ({})", target_cids, target_height);
+                println!("Base:\t{base_cids}");
+                println!("Target:\t{target_cids} ({target_height})");
                 println!("Height diff:\t{}", height_diff.abs());
                 println!("Stage:\t{}", state.stage());
                 println!("Height:\t{}", state.epoch());
@@ -135,7 +135,7 @@ impl SyncCommands {
                     .map_err(handle_rpc_err)?;
 
                 if response.is_empty() {
-                    println!("Block \"{}\" is not marked as a bad block", cid);
+                    println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
                     println!("response");
                 }
