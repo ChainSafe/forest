@@ -8,7 +8,7 @@ use forest_blocks::{
     election_proof::json::ElectionProofJson, ticket::json::TicketJson,
     tipset_keys_json::TipsetKeysJson, Tipset,
 };
-use forest_chain::{headchange_json::SubscriptionHeadChange, ChainStore};
+use forest_chain::ChainStore;
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;
 use forest_json::address::json::AddressJson;
@@ -34,14 +34,6 @@ use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-// RPC State
-#[derive(Serialize)]
-pub struct StreamingData<'a> {
-    pub json_rpc: &'a str,
-    pub method: &'a str,
-    pub params: SubscriptionHeadChange,
-}
 
 /// This is where you store persistent data, or at least access to stateful data.
 pub struct RPCState<DB, B>
