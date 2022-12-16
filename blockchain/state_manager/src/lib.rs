@@ -98,7 +98,7 @@ impl TipsetStateCache {
 
     pub fn get_status(&self, key: &TipsetKeys) -> Status {
         self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => Status::Done(v.clone()),
+            Some(v) => Status::Done(*v),
             None => {
                 for (v, l) in inner.pending.iter() {
                     if v == key {
@@ -123,12 +123,12 @@ impl TipsetStateCache {
     }
 
     pub fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
-        self.with_inner(|inner| inner.values.get(key).map(|v| v.clone()))
+        self.with_inner(|inner| inner.values.get(key).copied())
     }
 
     pub fn insert(&self, key: TipsetKeys, value: CidPair) {
         self.with_inner(|inner| {
-            inner.values.put(key.clone(), value.clone());
+            inner.values.put(key.clone(), value);
             inner.pending.retain(|(k, _)| k != &key);
         });
     }
@@ -426,7 +426,7 @@ where
                         };
 
                         // Write back to cache, release lock and return value
-                        self.cache.insert(key.clone(), cid_pair.clone());
+                        self.cache.insert(key.clone(), cid_pair);
                         Ok(cid_pair)
                     }
                 }
