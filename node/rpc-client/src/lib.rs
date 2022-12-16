@@ -188,8 +188,7 @@ where
         Ok(r) => r,
         Err(e) => {
             let err = format!(
-                "Parse Error: Response from RPC endpoint could not be parsed. Error was: {}",
-                e
+                "Parse Error: Response from RPC endpoint could not be parsed. Error was: {e}"
             );
             error!("{}", &err);
             return Err(err.into());

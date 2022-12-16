@@ -127,7 +127,9 @@ where
     IO: AsyncRead + Unpin,
     T: serde::de::DeserializeOwned,
 {
-    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
+    // FIXME: investigate the best value here, 2MB is not enough for mainnet epoch 2419928
+    // Issue: https://github.com/ChainSafe/forest/issues/2362
+    const MAX_BYTES_ALLOWED: usize = 200 * 1024 * 1024; // messages over 200MB are likely malicious
     const TIMEOUT: Duration = Duration::from_secs(30);
 
     // Currently the protocol does not send length encoded message,

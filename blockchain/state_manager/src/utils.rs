@@ -6,7 +6,7 @@ use crate::StateManager;
 use cid::Cid;
 use forest_actor_interface::miner;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
+use forest_fil_types::verifier::generate_winning_post_sector_challenge;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
@@ -19,16 +19,13 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     /// Retrieves and generates a vector of sector info for the winning `PoSt` verification.
-    pub fn get_sectors_for_winning_post<V>(
+    pub fn get_sectors_for_winning_post(
         &self,
         st: &Cid,
         nv: NetworkVersion,
         miner_address: &Address,
         rand: Randomness,
-    ) -> Result<Vec<SectorInfo>, anyhow::Error>
-    where
-        V: ProofVerifier,
-    {
+    ) -> Result<Vec<SectorInfo>, anyhow::Error> {
         let store = self.blockstore();
 
         let actor = self
@@ -79,7 +76,7 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids = V::generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
+        let ids = generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
 
         let mut iter = proving_sectors.iter();
 
