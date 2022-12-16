@@ -13,7 +13,6 @@ use forest_cli_shared::cli::{
     Config, FOREST_VERSION_STRING,
 };
 use forest_db::Store;
-use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
 use forest_key_management::{KeyStore, KeyStoreConfig};
@@ -318,7 +317,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
+            start_rpc::<_, _, cns::FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -475,7 +474,7 @@ where
             Some(0)
         };
 
-        match import_chain::<FullVerifier, _>(
+        match import_chain::<_>(
             state_manager,
             &path.display().to_string(),
             validate_height,
@@ -580,7 +579,7 @@ mod test {
             )
             .await?,
         );
-        import_chain::<FullVerifier, _>(&sm, file_path, None, false).await?;
+        import_chain::<_>(&sm, file_path, None, false).await?;
         Ok(())
     }
 

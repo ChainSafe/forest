@@ -8,7 +8,7 @@ use forest_beacon::{Beacon, BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_chain_sync::collect_errs;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
+use forest_fil_types::verifier::verify_winning_post;
 use forest_networks::{ChainConfig, Height};
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
@@ -38,7 +38,6 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 pub(crate) async fn validate_block<
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
     B: Beacon,
-    V: ProofVerifier,
 >(
     state_manager: Arc<StateManager<DB>>,
     beacon_schedule: Arc<BeaconSchedule<B>>,
@@ -156,7 +155,7 @@ pub(crate) async fn validate_block<
     let v_block = block.clone();
     let v_prev_beacon = Arc::clone(&prev_beacon);
     validations.push(tokio::task::spawn_blocking(move || {
-        verify_winning_post_proof::<_, V>(
+        verify_winning_post_proof::<_>(
             &state_manager,
             win_p_nv,
             v_block.header(),
@@ -338,10 +337,7 @@ fn verify_election_post_vrf(
     verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
 }
 
-fn verify_winning_post_proof<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    V: ProofVerifier,
->(
+fn verify_winning_post_proof<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
     header: &BlockHeader,
@@ -390,7 +386,7 @@ fn verify_winning_post_proof<
     })?;
 
     let sectors = state_manager
-        .get_sectors_for_winning_post::<V>(
+        .get_sectors_for_winning_post(
             lookback_state,
             network_version,
             header.miner_address(),
@@ -398,7 +394,7 @@ fn verify_winning_post_proof<
         )
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
-    V::verify_winning_post(
+    verify_winning_post(
         Randomness(rand.to_vec()),
         header.winning_post_proof(),
         &sectors,
