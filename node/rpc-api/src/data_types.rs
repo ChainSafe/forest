@@ -23,11 +23,7 @@ use forest_libp2p::{Multihash, NetworkMessage};
 use forest_message::signed_message::SignedMessage;
 use forest_message_pool::{MessagePool, MpoolRpcProvider};
 use forest_state_manager::StateManager;
-use fvm::state_tree::ActorState;
-use fvm_ipld_bitfield::json::BitFieldJson;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
@@ -80,70 +76,6 @@ pub struct BlockMessages {
 pub struct MessageSendSpec {
     #[serde(with = "json")]
     max_fee: TokenAmount,
-}
-
-// State API
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Deadline {
-    pub post_submissions: BitFieldJson,
-    pub disputable_proof_count: usize,
-}
-
-#[derive(Serialize)]
-pub struct Fault {
-    miner: Address,
-    epoch: ChainEpoch,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Partition {
-    pub all_sectors: BitFieldJson,
-    pub faulty_sectors: BitFieldJson,
-    pub recovering_sectors: BitFieldJson,
-    pub live_sectors: BitFieldJson,
-    pub active_sectors: BitFieldJson,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ActorStateJson {
-    #[serde(with = "forest_json::cid")]
-    code: Cid,
-    #[serde(with = "forest_json::cid")]
-    head: Cid,
-    nonce: u64,
-    #[serde(with = "json")]
-    balance: TokenAmount,
-}
-
-impl ActorStateJson {
-    pub fn nonce(&self) -> u64 {
-        self.nonce
-    }
-}
-
-impl From<ActorStateJson> for ActorState {
-    fn from(a: ActorStateJson) -> Self {
-        Self {
-            code: a.code,
-            state: a.head,
-            sequence: a.nonce,
-            balance: a.balance,
-        }
-    }
-}
-
-impl From<ActorState> for ActorStateJson {
-    fn from(a: ActorState) -> Self {
-        Self {
-            code: a.code,
-            head: a.state,
-            nonce: a.sequence,
-            balance: a.balance,
-        }
-    }
 }
 
 #[derive(Serialize)]
