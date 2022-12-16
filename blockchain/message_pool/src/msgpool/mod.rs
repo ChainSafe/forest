@@ -339,7 +339,7 @@ pub mod tests {
     #[cfg(feature = "slow_tests")]
     use std::borrow::BorrowMut;
     #[cfg(feature = "slow_tests")]
-    use std::thread::sleep;
+    use tokio::time::sleep;
     #[cfg(feature = "slow_tests")]
     use std::time::Duration;
     use test_provider::*;
