@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::Result;
-use cid::Cid;
 use forest_beacon::Beacon;
 use forest_blocks::{
     header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
@@ -10,9 +9,7 @@ use forest_blocks::{
 };
 use forest_db::Store;
 use forest_json::cid::CidJson;
-use forest_json::message;
 use forest_json::message::json::MessageJson;
-use forest_networks::Height;
 use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -20,11 +17,10 @@ use forest_rpc_api::{
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::AsyncWriterWithChecksum;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::message::Message as FVMMessage;
+use fvm_shared::message::Message;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
-use serde::{Deserialize, Serialize};
 use sha2::{digest::Output, Sha256};
 use std::{
     path::{Path, PathBuf},
@@ -32,15 +28,6 @@ use std::{
 };
 use tokio::io::AsyncWriteExt;
 use tokio::{fs::File, io::BufWriter};
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub(crate) struct Message {
-    #[serde(with = "forest_json::cid")]
-    cid: Cid,
-    #[serde(with = "message::json")]
-    message: FVMMessage,
-}
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -51,7 +38,7 @@ where
     B: Beacon,
 {
     let (CidJson(msg_cid),) = params;
-    let ret: FVMMessage = data
+    let ret: Message = data
         .state_manager
         .blockstore()
         .get_obj(&msg_cid)?
@@ -72,8 +59,7 @@ where
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
     if recent_roots < chain_finality {
         Err(&format!(
-            "recent-stateroots must be greater than {}",
-            chain_finality
+            "recent-stateroots must be greater than {chain_finality}"
         ))?;
     }
 
@@ -247,62 +233,6 @@ where
     Ok(TipsetJson(heaviest))
 }
 
-// XXX: Disable 'chain_head_subscription' because it is unused.
-// pub(crate) async fn chain_head_subscription<DB, B>(
-//     data: Data<RPCState<DB, B>>,
-// ) -> Result<ChainHeadSubscriptionResult, JsonRpcError>
-// where
-//     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-//     B: Beacon + Send + Sync + 'static,
-// {
-//     let subscription_id = data.state_manager.chain_store().sub_head_changes().await;
-//     Ok(subscription_id)
-// }
-
-// XXX: Disable 'chain_notify' because it is unused.
-// pub(crate) async fn chain_notify<DB, B>(
-//     data: Data<RPCState<DB, B>>,
-//     id: Id,
-// ) -> Result<ChainNotifyResult, JsonRpcError>
-// where
-//     DB: Blockstore + Store + Clone + Send + Sync + 'static,
-//     B: Beacon + Send + Sync + 'static,
-// {
-//     if let Id::Num(id) = id {
-//         debug!("Requested ChainNotify from id: {}", id);
-
-//         let event = data
-//             .state_manager
-//             .chain_store()
-//             .next_head_change(&id)
-//             .await
-//             .unwrap();
-
-//         debug!("Responding to ChainNotify from id: {}", id);
-
-//         Ok((id, vec![HeadChangeJson::from(event)]))
-//     } else {
-//         Err(get_error_obj(-32600, "Invalid request".to_owned()))
-//     }
-// }
-
-pub(crate) async fn chain_tipset_weight<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainTipSetWeightParams>,
-) -> Result<ChainTipSetWeightResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (tsk,) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk.into())
-        .await?;
-    Ok(ts.weight().to_str_radix(10))
-}
-
 pub(crate) async fn chain_get_block<DB, B>(
     data: Data<RPCState<DB, B>>,
     Params(params): Params<ChainGetBlockParams>,
@@ -380,46 +310,6 @@ where
         .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
         .await?;
     Ok("Ok".to_string())
-}
-
-pub(crate) async fn chain_get_randomness_from_tickets<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainGetRandomnessFromTicketsParams>,
-) -> Result<ChainGetRandomnessFromTicketsResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
-    let entropy = entropy.unwrap_or_default();
-    let hyperdrive_height = data.state_manager.chain_config().epoch(Height::Hyperdrive);
-    Ok(data
-        .state_manager
-        .get_chain_randomness(
-            &tsk,
-            pers,
-            epoch,
-            &base64::decode(entropy)?,
-            epoch <= hyperdrive_height,
-        )
-        .await?)
-}
-
-pub(crate) async fn chain_get_randomness_from_beacon<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainGetRandomnessFromBeaconParams>,
-) -> Result<ChainGetRandomnessFromBeaconResult, JsonRpcError>
-where
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
-{
-    let (TipsetKeysJson(tsk), pers, epoch, entropy) = params;
-    let entropy = entropy.unwrap_or_default();
-
-    Ok(data
-        .state_manager
-        .get_beacon_randomness(&tsk, pers, epoch, &base64::decode(entropy)?)
-        .await?)
 }
 
 pub(crate) async fn chain_get_name<DB, B>(

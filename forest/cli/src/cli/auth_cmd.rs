@@ -37,36 +37,33 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm } => {
-                let perm: String = perm.parse().unwrap();
-                let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
+                let perm: String = perm.parse()?;
+                let perms = process_perms(perm).map_err(handle_rpc_err)?;
                 let token_exp = config.client.token_exp;
                 let auth_params = AuthNewParams { perms, token_exp };
-                print_rpc_res_bytes(auth_new(auth_params, &config.client.rpc_token).await);
+                print_rpc_res_bytes(auth_new(auth_params, &config.client.rpc_token).await)
             }
             Self::ApiInfo { perm } => {
-                let perm: String = perm.parse().unwrap();
-                let perms = process_perms(perm).map_err(handle_rpc_err).unwrap();
+                let perm: String = perm.parse()?;
+                let perms = process_perms(perm).map_err(handle_rpc_err)?;
                 let token_exp = config.client.token_exp;
                 let auth_params = AuthNewParams { perms, token_exp };
-                match auth_new(auth_params, &config.client.rpc_token).await {
-                    Ok(token) => {
-                        let mut addr = Multiaddr::empty();
-                        addr.push(config.client.rpc_address.ip().into());
-                        addr.push(Protocol::Tcp(config.client.rpc_address.port()));
-                        addr.push(Protocol::Http);
-                        println!(
-                            "FULLNODE_API_INFO=\"{}:{}\"",
-                            String::from_utf8(token)
-                                .map_err(|e| handle_rpc_err(e.into()))
-                                .unwrap(),
-                            addr
-                        );
-                    }
-                    Err(e) => handle_rpc_err(e),
-                };
+                let token = auth_new(auth_params, &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                let mut addr = Multiaddr::empty();
+                addr.push(config.client.rpc_address.ip().into());
+                addr.push(Protocol::Tcp(config.client.rpc_address.port()));
+                addr.push(Protocol::Http);
+                println!(
+                    "FULLNODE_API_INFO=\"{}:{}\"",
+                    String::from_utf8(token).map_err(|e| handle_rpc_err(e.into()))?,
+                    addr
+                );
+                Ok(())
             }
         }
     }

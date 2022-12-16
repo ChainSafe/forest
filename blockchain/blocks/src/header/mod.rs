@@ -346,7 +346,7 @@ impl BlockHeader {
 
         signature
             .verify(&self.to_signing_bytes(), addr)
-            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
+            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {e}")))?;
 
         // Set validated cache to true
         let _ = self.is_validated.set(true);
@@ -445,8 +445,7 @@ impl BlockHeader {
                 .map_err(|e| Error::Validation(e.to_string()))?
             {
                 return Err(Error::Validation(format!(
-                    "beacon entry was invalid: curr:{:?}, prev: {:?}",
-                    curr, prev
+                    "beacon entry was invalid: curr:{curr:?}, prev: {prev:?}"
                 )));
             }
             prev = curr;

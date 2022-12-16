@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
+use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
@@ -12,7 +13,6 @@ use forest_cli_shared::cli::{
     Config, FOREST_VERSION_STRING,
 };
 use forest_db::Store;
-use forest_fil_types::verifier::FullVerifier;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
 use forest_key_management::{KeyStore, KeyStoreConfig};
@@ -30,6 +30,7 @@ use log::{debug, error, info, trace, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
 use std::net::TcpListener;
+use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 
@@ -164,11 +165,9 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
             .expect("Failed converting the path to db");
         let db = db.clone();
         services.spawn(async {
-            if let Err(e) =
-                forest_metrics::init_prometheus(prometheus_listener, db_directory, db).await
-            {
-                error!("Failed to initiate prometheus server: {e}");
-            }
+            forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
+                .await
+                .context("Failed to initiate prometheus server")
         });
     }
 
@@ -304,9 +303,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     .expect("Instantiating the ChainMuxer must succeed");
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    services.spawn(async {
-        chain_muxer.await;
-    });
+    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
     // Start services
     if config.client.enable_rpc {
@@ -320,7 +317,7 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
-            let _ = start_rpc::<_, _, FullVerifier, cns::FullConsensus>(
+            start_rpc::<_, _, cns::FullConsensus>(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
@@ -336,7 +333,8 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
             )
-            .await;
+            .await
+            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");
@@ -377,8 +375,12 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
 
     services.spawn(p2p_service.run());
 
-    // Block until ctrl-c is hit
-    ctrlc_oneshot.await.unwrap();
+    // blocking until any of the services returns an error,
+    // or CTRL-C is pressed
+    select! {
+        err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
+        _ = ctrlc_oneshot => {}
+    }
 
     let keystore_write = tokio::task::spawn(async move {
         keystore.read().await.flush().unwrap();
@@ -390,6 +392,27 @@ pub(super) async fn start(config: Config, detached: bool) -> Db {
     keystore_write.await.expect("keystore write failed");
 
     db
+}
+
+// returns the first error with which any of the services end
+// in case all services finished without an error sleeps for more than 2 years
+// and then returns with an error
+async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> anyhow::Error {
+    while !services.is_empty() {
+        select! {
+            option = services.join_next().fuse() => {
+                if let Some(Ok(Err(error_message))) = option {
+                    return error_message
+                }
+            },
+        }
+    }
+    // In case all services are down without errors we are still willing
+    // to wait indefinitely for CTRL-C signal. As `tokio::time::sleep` has
+    // a limit of approximately 2.2 years we have to loop
+    loop {
+        tokio::time::sleep(Duration::new(64000000, 0)).await;
+    }
 }
 
 /// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
@@ -451,7 +474,7 @@ where
             Some(0)
         };
 
-        match import_chain::<FullVerifier, _>(
+        match import_chain::<_>(
             state_manager,
             &path.display().to_string(),
             validate_height,
@@ -489,11 +512,7 @@ fn open_db(config: &Config) -> forest_db::rocks::RocksDb {
 #[cfg(feature = "paritydb")]
 fn open_db(config: &Config) -> forest_db::parity_db::ParityDb {
     use forest_db::parity_db::*;
-    let config = ParityDbConfig {
-        path: db_path(config),
-        columns: 1,
-    };
-    ParityDb::open(&config).expect("Opening ParityDb must succeed")
+    ParityDb::open(db_path(config), &config.parity_db).expect("Opening ParityDb must succeed")
 }
 
 #[cfg(feature = "rocksdb")]
@@ -556,7 +575,7 @@ mod test {
             )
             .await?,
         );
-        import_chain::<FullVerifier, _>(&sm, file_path, None, false).await?;
+        import_chain::<_>(&sm, file_path, None, false).await?;
         Ok(())
     }
 

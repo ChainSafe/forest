@@ -1,14 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::FilterEstimate;
 use cid::Cid;
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
-use fvm_shared::sector::StoragePower;
 use serde::Serialize;
 
 use anyhow::Context;
@@ -74,50 +72,6 @@ impl State {
         match self {
             State::V8(st) => st.into_total_storage_power_reward(),
             State::V9(st) => st.into_total_storage_power_reward(),
-        }
-    }
-
-    pub fn pre_commit_deposit_for_power(
-        &self,
-        network_qa_power: FilterEstimate,
-        sector_weight: &StoragePower,
-    ) -> TokenAmount {
-        match self {
-            State::V8(st) => fil_actor_miner_v8::pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &network_qa_power,
-                sector_weight,
-            ),
-            State::V9(st) => fil_actor_miner_v9::pre_commit_deposit_for_power(
-                &st.this_epoch_reward_smoothed,
-                &network_qa_power,
-                sector_weight,
-            ),
-        }
-    }
-
-    pub fn initial_pledge_for_power(
-        &self,
-        sector_weight: &StoragePower,
-        _network_total_pledge: &TokenAmount,
-        network_qa_power: FilterEstimate,
-        circ_supply: &TokenAmount,
-    ) -> TokenAmount {
-        match self {
-            State::V8(st) => fil_actor_miner_v8::initial_pledge_for_power(
-                sector_weight,
-                &st.this_epoch_baseline_power,
-                &st.this_epoch_reward_smoothed,
-                &network_qa_power,
-                circ_supply,
-            ),
-            State::V9(st) => fil_actor_miner_v9::initial_pledge_for_power(
-                sector_weight,
-                &st.this_epoch_baseline_power,
-                &st.this_epoch_reward_smoothed,
-                &network_qa_power,
-                circ_supply,
-            ),
         }
     }
 }

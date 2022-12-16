@@ -40,7 +40,7 @@ pub enum SyncCommands {
 }
 
 impl SyncCommands {
-    pub async fn run(&self, config: Config) {
+    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
                 let watch = *watch;
@@ -51,8 +51,7 @@ impl SyncCommands {
                 for _ in ticker {
                     let response = sync_status((), &config.client.rpc_token)
                         .await
-                        .map_err(handle_rpc_err)
-                        .unwrap();
+                        .map_err(handle_rpc_err)?;
                     let state = &response.active_syncs[0];
 
                     let target_height = if let Some(tipset) = state.target() {
@@ -81,7 +80,7 @@ impl SyncCommands {
                     );
 
                     for _ in 0..2 {
-                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes()).unwrap();
+                        stdout.write_all("\r\x1b[2K\x1b[A".as_bytes())?;
                     }
 
                     if state.stage() == SyncStage::Complete && !watch {
@@ -89,12 +88,12 @@ impl SyncCommands {
                         break;
                     };
                 }
+                Ok(())
             }
             Self::Status => {
                 let response = sync_status((), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 let state = &response.active_syncs[0];
                 let base = state.base();
@@ -118,8 +117,8 @@ impl SyncCommands {
                 let height_diff = base_height - target_height;
 
                 println!("sync status:");
-                println!("Base:\t{}", base_cids);
-                println!("Target:\t{} ({})", target_cids, target_height);
+                println!("Base:\t{base_cids}");
+                println!("Target:\t{target_cids} ({target_height})");
                 println!("Height diff:\t{}", height_diff.abs());
                 println!("Stage:\t{}", state.stage());
                 println!("Height:\t{}", state.epoch());
@@ -127,26 +126,28 @@ impl SyncCommands {
                 if let Some(duration) = elapsed_time {
                     println!("Elapsed time:\t{}s", duration.whole_seconds());
                 }
+                Ok(())
             }
             Self::CheckBad { cid } => {
-                let cid: Cid = cid.parse().unwrap();
+                let cid: Cid = cid.parse()?;
                 let response = sync_check_bad((CidJson(cid),), &config.client.rpc_token)
                     .await
-                    .map_err(handle_rpc_err)
-                    .unwrap();
+                    .map_err(handle_rpc_err)?;
 
                 if response.is_empty() {
-                    println!("Block \"{}\" is not marked as a bad block", cid);
+                    println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
                     println!("response");
                 }
+                Ok(())
             }
             Self::MarkBad { cid } => {
-                let cid: Cid = cid.parse().unwrap();
-                match sync_mark_bad((CidJson(cid),), &config.client.rpc_token).await {
-                    Ok(()) => println!("OK"),
-                    Err(error) => handle_rpc_err(error),
-                }
+                let cid: Cid = cid.parse()?;
+                sync_mark_bad((CidJson(cid),), &config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
+                println!("OK");
+                Ok(())
             }
         }
     }

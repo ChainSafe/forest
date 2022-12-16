@@ -3,7 +3,7 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use std::fmt::Debug;
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 use thiserror::Error;
 
 use forest_beacon::{Beacon, BeaconSchedule};
@@ -12,7 +12,6 @@ use forest_chain::Weight;
 use forest_chain::{Error as ChainStoreError, Scale};
 use forest_chain_sync::Consensus;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
@@ -68,36 +67,30 @@ pub enum FilecoinConsensusError {
     ForestEncoding(#[from] ForestEncodingError),
 }
 
-pub struct FilecoinConsensus<B, V> {
+pub struct FilecoinConsensus<B> {
     /// `Drand` randomness beacon
     ///
     /// NOTE: The `StateManager` makes available a beacon as well,
     /// but it potentially has a different type.
     /// Not sure where this is utilized.
     beacon: Arc<BeaconSchedule<B>>,
-    /// Proof verification implementation.
-    verifier: PhantomData<V>,
 }
 
-impl<B, V> FilecoinConsensus<B, V> {
+impl<B> FilecoinConsensus<B> {
     pub fn new(beacon: Arc<BeaconSchedule<B>>) -> Self {
-        Self {
-            beacon,
-            verifier: PhantomData,
-        }
+        Self { beacon }
     }
 }
 
-impl<B, V> Debug for FilecoinConsensus<B, V> {
+impl<B> Debug for FilecoinConsensus<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FilecoinConsensus")
             .field("beacon", &self.beacon.0.len())
-            .field("verifier", &self.verifier)
             .finish()
     }
 }
 
-impl<B, V> Scale for FilecoinConsensus<B, V> {
+impl<B> Scale for FilecoinConsensus<B> {
     fn weight<DB>(db: &DB, ts: &Tipset) -> Result<Weight, anyhow::Error>
     where
         DB: Blockstore,
@@ -107,10 +100,9 @@ impl<B, V> Scale for FilecoinConsensus<B, V> {
 }
 
 #[async_trait]
-impl<B, V> Consensus for FilecoinConsensus<B, V>
+impl<B> Consensus for FilecoinConsensus<B>
 where
     B: Beacon + Unpin,
-    V: ProofVerifier + Unpin,
 {
     type Error = FilecoinConsensusError;
 
@@ -122,6 +114,6 @@ where
     where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
-        validation::validate_block::<_, _, V>(state_manager, self.beacon.clone(), block).await
+        validation::validate_block::<_, _>(state_manager, self.beacon.clone(), block).await
     }
 }

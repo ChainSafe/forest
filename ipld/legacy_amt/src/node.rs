@@ -49,8 +49,8 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (&Link::Cid { cid: ref a, .. }, &Link::Cid { cid: ref b, .. }) => a == b,
-            (&Link::Dirty(ref a), &Link::Dirty(ref b)) => a == b,
+            (Link::Cid { cid: a, .. }, Link::Cid { cid: b, .. }) => a == b,
+            (Link::Dirty(a), Link::Dirty(b)) => a == b,
             _ => false,
         }
     }

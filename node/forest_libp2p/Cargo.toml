@@ -7,11 +7,10 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
-asynchronous-codec = "0.6"
 bytes.workspace = true
 cid = { workspace = true, default-features = false, features = ["std"] }
 flume.workspace = true
-fnv = "1.0"
+fnv.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
@@ -46,6 +45,7 @@ libp2p = { workspace = true, default-features = false, features = [
 libp2p-bitswap.workspace = true
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
@@ -61,4 +61,5 @@ forest_db.workspace = true
 forest_genesis = { workspace = true, features = ["testing"] }
 quickcheck.workspace = true
 quickcheck_macros.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }
 tokio-util = { workspace = true, features = ["compat"] }

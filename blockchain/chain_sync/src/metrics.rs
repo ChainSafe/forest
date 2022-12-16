@@ -3,7 +3,10 @@
 
 use lazy_static::lazy_static;
 use prometheus::{
-    core::{AtomicU64, GenericCounter, GenericCounterVec, GenericGauge, Opts},
+    core::{
+        AtomicI64, AtomicU64, GenericCounter, GenericCounterVec, GenericGauge, GenericGaugeVec,
+        Opts,
+    },
     Histogram, HistogramOpts, HistogramVec,
 };
 
@@ -154,16 +157,26 @@ lazy_static! {
     };
     pub static ref LAST_VALIDATED_TIPSET_EPOCH: Box<GenericGauge<AtomicU64>> = {
         let last_validated_tipset_epoch = Box::new(
-            GenericGauge::<AtomicU64>::new(
-                "last_validated_tipset_epoch",
-                "Last validated tipset epoch",
-            )
-            .expect("Defining the last_validated_tipset_epoch metric must succeed"),
+            GenericGauge::new("last_validated_tipset_epoch", "Last validated tipset epoch")
+                .expect("Defining the last_validated_tipset_epoch metric must succeed"),
         );
         prometheus::default_registry()
             .register(last_validated_tipset_epoch.clone())
             .expect("Registering the last_validated_tipset_epoch metric with the metrics registry must succeed");
         last_validated_tipset_epoch
+    };
+    pub static ref PEER_TIPSET_EPOCH: Box<GenericGaugeVec<AtomicI64>> = {
+        let peer_tipset_epoch = Box::new(
+            GenericGaugeVec::new(
+                Opts::new("peer_tipset_epoch", "peer tipset epoch"),
+                &["PEER"],
+            )
+            .expect("Defining the peer_tipset_epoch metric must succeed"),
+        );
+        prometheus::default_registry()
+            .register(peer_tipset_epoch.clone())
+            .expect("Registering the last_validated_tipset_epoch metric with the metrics registry must succeed");
+        peer_tipset_epoch
     };
     pub static ref NETWORK_HEAD_EVALUATION_ERRORS: Box<GenericCounter<AtomicU64>> = {
         let network_head_evaluation_errors = Box::new(
