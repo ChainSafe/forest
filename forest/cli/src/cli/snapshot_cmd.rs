@@ -428,15 +428,18 @@ where
     // limits the amount of recursion we do.
     let mut prev_epoch = ts.epoch();
     loop {
+        // if we reach 0 here, it means parent traversal didn't end up reaching genesis properly, bail with error.
         if prev_epoch <= 0 {
             bail!("Broken invariant: no genesis tipset in snapshot.");
         }
 
         let tipset = chain_store.tipset_from_keys(&tsk).await?;
         let height = tipset.epoch();
+        // if parent tipset epoch is smaller than child, bail with error.
         if height >= prev_epoch {
             bail!("Broken tipset invariant: parent epoch larger than current epoch at: {height}");
         }
+        // genesis is reachable, break with success
         if height == 0 {
             if tipset.as_ref() != genesis_tipset {
                 bail!("Invalid genesis tipset. Snapshot isn't valid for {network}. It may be valid for another network.");
@@ -444,6 +447,7 @@ where
 
             break;
         }
+        // check for ipld links backwards till `upto`
         if height > upto {
             let mut assert_cid_exists = |cid: Cid| async move {
                 let data = db.get(&cid)?;
