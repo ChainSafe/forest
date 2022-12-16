@@ -485,11 +485,7 @@ fn open_db(config: &Config) -> anyhow::Result<forest_db::rocks::RocksDb> {
 #[cfg(feature = "paritydb")]
 fn open_db(config: &Config) -> anyhow::Result<forest_db::parity_db::ParityDb> {
     use forest_db::parity_db::*;
-    let config = ParityDbConfig {
-        path: db_path(config),
-        columns: 1,
-    };
-    ParityDb::open(&config)
+    ParityDb::open(db_path(config), &config.parity_db).expect("Opening ParityDb must succeed")
 }
 
 #[cfg(feature = "rocksdb")]

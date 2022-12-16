@@ -3,7 +3,8 @@
 
 use std::ops::Deref;
 
-use forest_db::parity_db::{ParityDb, ParityDbConfig};
+use forest_db::parity_db::ParityDb;
+use forest_db::parity_db_config::ParityDbConfig;
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {
@@ -20,10 +21,8 @@ impl TempParityDB {
             .expect("Failed to create temporary path for db.");
         let path = dir.path().join("paritydb");
 
-        let config = ParityDbConfig::from_path(&path);
-
         TempParityDB {
-            db: ParityDb::open(&config).unwrap(),
+            db: ParityDb::open(path, &ParityDbConfig::default()).unwrap(),
             _dir: dir,
         }
     }
