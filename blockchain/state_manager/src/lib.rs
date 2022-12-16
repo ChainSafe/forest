@@ -41,9 +41,11 @@ use fvm_shared::receipt::Receipt;
 use fvm_shared::sector::{SectorInfo, SectorSize, StoragePower};
 use fvm_shared::version::NetworkVersion;
 use log::{debug, info, trace, warn};
+use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::runtime::Handle;
@@ -52,20 +54,23 @@ use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock;
 use vm_circ_supply::GenesisInfo;
 
+const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
+    forest_utils::const_option!(NonZeroUsize::new(1024));
+
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
 
 // Various structures for implementing a tipset cache
 
 struct TipsetStateCacheInner {
-    values: HashMap<TipsetKeys, CidPair>,
+    values: LruCache<TipsetKeys, CidPair>,
     pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
 }
 
 impl Default for TipsetStateCacheInner {
     fn default() -> Self {
         Self {
-            values: HashMap::new(),
+            values: LruCache::new(DEFAULT_TIPSET_CACHE_SIZE),
             pending: Vec::with_capacity(8),
         }
     }
@@ -96,8 +101,8 @@ impl TipsetStateCache {
     }
 
     pub fn get_status(&self, key: &TipsetKeys) -> Status {
-        self.with_inner(|inner| match inner.values.get_key_value(&key) {
-            Some((_, v)) => Status::Done(v.clone()),
+        self.with_inner(|inner| match inner.values.get(key) {
+            Some(v) => Status::Done(v.clone()),
             None => {
                 for (v, l) in inner.pending.iter() {
                     if v == key {
@@ -127,7 +132,7 @@ impl TipsetStateCache {
 
     pub fn insert(&self, key: TipsetKeys, value: CidPair) {
         self.with_inner(|inner| {
-            inner.values.insert(key.clone(), value.clone());
+            inner.values.put(key.clone(), value.clone());
             inner.pending.retain(|(k, _)| k != &key);
         });
     }
@@ -457,6 +462,7 @@ where
             Status::Done(v) => Ok(v),
             Status::Busy(x) => {
                 let _guard = x.lock().await;
+                // Maybe peeking the cache would be better here
                 match self.cache.get(key) {
                     Some(v) => {
                         // Someone else computed the pending task
