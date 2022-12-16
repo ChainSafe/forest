@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
+use crate::parity_db_config::ParityDbConfig;
 use crate::utils::bitswap_missing_blocks;
 use crate::{DBStatistics, Store};
 use anyhow::anyhow;
@@ -9,7 +10,6 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
 use parity_db::{CompressionType, Db, Options};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -17,23 +17,6 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
-}
-
-/// `ParityDb` configuration exposed in Forest.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(default)]
-pub struct ParityDbConfig {
-    pub stats: bool,
-    pub compression: String,
-}
-
-impl Default for ParityDbConfig {
-    fn default() -> Self {
-        Self {
-            stats: false,
-            compression: "lz4".into(),
-        }
-    }
 }
 
 /// Converts string to a compression `ParityDb` variant.

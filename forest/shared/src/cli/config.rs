@@ -158,9 +158,8 @@ impl Default for DaemonConfig {
 #[serde(default)]
 pub struct Config {
     pub client: Client,
-    #[cfg(feature = "rocksdb")]
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
-    pub parity_db: forest_db::parity_db::ParityDbConfig,
+    pub parity_db: forest_db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
@@ -187,9 +186,8 @@ mod test {
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
-        #[cfg(feature = "rocksdb")]
         rocks_db: forest_db::rocks_config::RocksDbConfig,
-        parity_db: forest_db::parity_db::ParityDbConfig,
+        parity_db: forest_db::parity_db_config::ParityDbConfig,
         network: forest_libp2p::Libp2pConfig,
         sync: forest_chain_sync::SyncConfig,
     }
@@ -198,7 +196,6 @@ mod test {
         fn from(val: ConfigPartial) -> Self {
             Config {
                 client: val.client,
-                #[cfg(feature = "rocksdb")]
                 rocks_db: val.rocks_db,
                 parity_db: val.parity_db,
                 network: val.network,
@@ -232,7 +229,6 @@ mod test {
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
-                #[cfg(feature = "rocksdb")]
                 rocks_db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
@@ -247,7 +243,7 @@ mod test {
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
                 },
-                parity_db: forest_db::parity_db::ParityDbConfig {
+                parity_db: forest_db::parity_db_config::ParityDbConfig {
                     stats: bool::arbitrary(g),
                     compression: String::arbitrary(g),
                 },
