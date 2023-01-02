@@ -3,18 +3,18 @@
 
 use crate::{tipset_from_keys, Error, TipsetCache};
 use forest_blocks::{Tipset, TipsetKeys};
-// use forest_metrics::metrics;
+use forest_metrics::metrics;
 use forest_utils::io::ProgressBar;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
-// use lru::LruCache;
+use lru::LruCache;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
-// use std::num::NonZeroUsize;
-// use tokio::sync::RwLock;
+use tokio::sync::RwLock;
 
-// const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
-//     forest_utils::const_option!(NonZeroUsize::new(32 << 10));
+const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
+    forest_utils::const_option!(NonZeroUsize::new(32 << 10));
 
 /// Configuration which sets the length of tipsets to skip in between each cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
@@ -133,8 +133,8 @@ pub(crate) struct LookbackEntry {
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can be used to look-back
 /// at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
-    // /// Cache of look-back entries to speed up lookup.
-    // skip_cache: RwLock<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
+    /// Cache of look-back entries to speed up lookup.
+    skip_cache: RwLock<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
 
@@ -145,7 +145,7 @@ pub(crate) struct ChainIndex<BS> {
 impl<BS: Blockstore> ChainIndex<BS> {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
-            // skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
+            skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
             db,
         }
@@ -170,11 +170,25 @@ impl<BS: Blockstore> ChainIndex<BS> {
         pb.message("Scanning blockchain ");
         pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
-        let mut cur = from.key().clone();
+        let rounded = self.round_down(from).await?;
+
+        let mut cur = rounded.key().clone();
+
         // const MAX_COUNT: usize = 100;
         // let mut counter = 0;
         loop {
-            let lbe = self.fill_cache(std::mem::take(&mut cur)).await?;
+            let entry = self.skip_cache.write().await.get(&cur).cloned();
+            let lbe = if let Some(cached) = entry {
+                metrics::LRU_CACHE_HIT
+                    .with_label_values(&[metrics::values::SKIP])
+                    .inc();
+                cached
+            } else {
+                metrics::LRU_CACHE_MISS
+                    .with_label_values(&[metrics::values::SKIP])
+                    .inc();
+                self.fill_cache(std::mem::take(&mut cur)).await?
+            };
 
             if let Some(genesis_tipset_keys) =
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
@@ -252,6 +266,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             target: skip_target.key().clone(),
         });
 
+        self.skip_cache.write().await.put(tsk.clone(), lbe.clone());
         Ok(lbe)
     }
 
@@ -260,12 +275,12 @@ impl<BS: Blockstore> ChainIndex<BS> {
         (height / SKIP_LENGTH) * SKIP_LENGTH
     }
 
-    // /// Gets the closest rounded sparse index and returns the loaded tipset at that index.
-    // async fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
-    //     let target = self.round_height(ts.epoch());
+    /// Gets the closest rounded sparse index and returns the loaded tipset at that index.
+    async fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
+        let target = self.round_height(ts.epoch());
 
-    //     self.walk_back(ts, target).await
-    // }
+        self.walk_back(ts, target).await
+    }
 
     /// Load parent tipsets until the `to` [`ChainEpoch`].
     async fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
