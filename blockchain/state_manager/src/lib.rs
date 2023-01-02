@@ -394,12 +394,22 @@ where
         let key = tipset.key();
         let status = self.cache.get_status(key);
         match status {
-            Status::Done(v) => Ok(v),
+            Status::Done(v) => {
+                forest_metrics::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                    .inc();
+                Ok(v)
+            }
             Status::Busy(x) => {
                 let _guard = x.lock().await;
                 // Maybe peeking the cache would be better here
                 match self.cache.get(key) {
                     Some(v) => {
+                        forest_metrics::metrics::LRU_CACHE_HIT
+                            .with_label_values(&[
+                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                            ])
+                            .inc();
                         // Someone else computed the pending task
                         Ok(v)
                     }
@@ -427,6 +437,11 @@ where
 
                         // Write back to cache, release lock and return value
                         self.cache.insert(key.clone(), cid_pair);
+                        forest_metrics::metrics::LRU_CACHE_MISS
+                            .with_label_values(&[
+                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                            ])
+                            .inc();
                         Ok(cid_pair)
                     }
                 }
