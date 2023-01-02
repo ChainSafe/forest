@@ -143,6 +143,7 @@ tokio-util = "0.7.0"
 toml = "0.5"
 tower-http = "0.3"
 tracing = "0.1"
+tracing-appender = "0.2"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = "0.7.1"
