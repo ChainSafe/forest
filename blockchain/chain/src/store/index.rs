@@ -174,8 +174,8 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
         let mut cur = rounded.key().clone();
 
-        // const MAX_COUNT: usize = 100;
-        // let mut counter = 0;
+        const MAX_COUNT: usize = 100;
+        let mut counter = 0;
         loop {
             let entry = self.skip_cache.write().await.get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
@@ -217,12 +217,12 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
             cur = lbe.target.clone();
 
-            // if counter == MAX_COUNT {
-            //     counter = 0;
-            //     tokio::task::yield_now().await;
-            // } else {
-            //     counter += 1;
-            // }
+            if counter == MAX_COUNT {
+                counter = 0;
+                tokio::task::yield_now().await;
+            } else {
+                counter += 1;
+            }
         }
     }
 
