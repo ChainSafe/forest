@@ -77,6 +77,6 @@ rand.workspace = true
 
 [features]
 default = ["rocksdb"]
-rocksdb = ["forest_cli_shared/rocksdb"]
-paritydb = ["forest_cli_shared/paritydb"]
+rocksdb = ["forest_cli_shared/rocksdb", "forest_db/rocksdb"]
+paritydb = ["forest_cli_shared/paritydb", "forest_db/paritydb"]
 slow_tests = []
