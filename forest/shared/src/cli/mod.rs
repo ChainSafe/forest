@@ -109,13 +109,11 @@ pub struct CliOpts {
     /// Endpoint of `grafana loki`
     #[structopt(long, default_value = "http://127.0.0.1:3100")]
     pub loki_endpoint: String,
-    // env_logger-0.7 can only redirect to stderr or stdout. Version 0.9 can redirect to a file.
-    // However, we cannot upgrade to version 0.9 because pretty_env_logger depends on version 0.7
-    // and hasn't been updated in quite a while. See https://github.com/seanmonstar/pretty-env-logger/issues/52
-    // #[structopt(
-    //     help = "Specify a filename into which logging should be appended"
-    // )]
-    // pub log_file: Option<PathBuf>,
+    #[structopt(
+        long,
+        help = "Specify a directory into which rolling log files should be appended"
+    )]
+    pub log_dir: Option<PathBuf>,
 }
 
 impl CliOpts {

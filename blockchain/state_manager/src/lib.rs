@@ -17,7 +17,6 @@ use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{ChainStore, HeadChange};
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_interpreter::{resolve_to_key_addr, BlockMessages, RewardCalc, VM};
 use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
@@ -1126,7 +1125,7 @@ where
         ps.miner_nominal_power_meets_consensus_minimum(policy, self.blockstore(), addr)
     }
 
-    pub async fn validate_chain<V: ProofVerifier>(
+    pub async fn validate_chain(
         self: &Arc<Self>,
         mut ts: Arc<Tipset>,
         height: i64,
@@ -1148,14 +1147,6 @@ where
         let mut last_receipt = *ts_chain.last().unwrap().blocks()[0].message_receipts();
         for ts in ts_chain.iter().rev() {
             if ts.parent_state() != &last_state {
-                forest_statediff::print_state_diff(
-                    self.blockstore(),
-                    &last_state,
-                    ts.parent_state(),
-                    Some(1),
-                )
-                .unwrap();
-
                 anyhow::bail!(
                     "Tipset chain has state mismatch at height: {}, {} != {}, \
                         receipts mismatched: {}",

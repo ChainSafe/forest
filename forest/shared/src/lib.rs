@@ -28,16 +28,19 @@ pub fn db_path(config: &crate::cli::Config) -> PathBuf {
     }
 }
 
-pub fn open_db(path: &std::path::Path, config: &cli::Config) -> Result<Db, forest_db::Error> {
-    #[cfg(feature = "rocksdb")]
-    {
-        forest_db::rocks::RocksDb::open(path, &config.db)
-    }
-    #[cfg(feature = "paritydb")]
-    {
-        let paritydb_config = forest_db::parity_db::ParityDbConfig {
-            columns: config.db.columns,
-        };
-        forest_db::parity_db::ParityDb::open(path, &paritydb_config)
-    }
+#[cfg(feature = "rocksdb")]
+pub fn open_db(
+    path: &std::path::Path,
+    config: &cli::Config,
+) -> anyhow::Result<forest_db::rocks::RocksDb> {
+    forest_db::rocks::RocksDb::open(path, &config.rocks_db).map_err(Into::into)
+}
+
+#[cfg(feature = "paritydb")]
+pub fn open_db(
+    path: &std::path::Path,
+    config: &cli::Config,
+) -> anyhow::Result<forest_db::parity_db::ParityDb> {
+    use forest_db::parity_db::*;
+    ParityDb::open(path.to_owned(), &config.parity_db)
 }
