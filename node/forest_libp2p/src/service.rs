@@ -713,7 +713,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                             channel,
                             make_chain_exchange_response(db.as_ref(), &request).await,
                         )) {
-                            warn!("Failed to send ChainExchangeResponse: {e:?}");
+                            debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
                     });
                 }

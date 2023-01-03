@@ -1147,14 +1147,6 @@ where
         let mut last_receipt = *ts_chain.last().unwrap().blocks()[0].message_receipts();
         for ts in ts_chain.iter().rev() {
             if ts.parent_state() != &last_state {
-                forest_statediff::print_state_diff(
-                    self.blockstore(),
-                    &last_state,
-                    ts.parent_state(),
-                    Some(1),
-                )
-                .unwrap();
-
                 anyhow::bail!(
                     "Tipset chain has state mismatch at height: {}, {} != {}, \
                         receipts mismatched: {}",
