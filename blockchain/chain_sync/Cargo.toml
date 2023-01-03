@@ -54,3 +54,7 @@ fvm_ipld_car.workspace = true
 hex.workspace = true
 quickcheck_macros.workspace = true
 serde_json.workspace = true
+
+[features]
+rocksdb = []
+paritydb = []
