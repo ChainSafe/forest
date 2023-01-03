@@ -4,7 +4,7 @@
 use super::errors::Error;
 use crate::parity_db_config::ParityDbConfig;
 use crate::utils::bitswap_missing_blocks;
-use crate::{DBStatistics, Store};
+use crate::{CidCompat, DBStatistics, Store};
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -132,21 +132,27 @@ impl Blockstore for ParityDb {
 impl BitswapStore for ParityDb {
     /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
     /// under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
+    type Params = libp2p_bitswap::libipld::DefaultParams;
 
-    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+    fn contains(&mut self, cid: &libp2p_bitswap::libipld::Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        Blockstore::get(self, cid)
+    fn get(&mut self, cid: &libp2p_bitswap::libipld::Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        Blockstore::get(self, &cid.compat())
     }
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
-        self.put_keyed(block.cid(), block.data())
+    fn insert(
+        &mut self,
+        block: &libp2p_bitswap::libipld::Block<Self::Params>,
+    ) -> anyhow::Result<()> {
+        self.put_keyed(&block.cid().compat(), block.data())
     }
 
-    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
+    fn missing_blocks(
+        &mut self,
+        cid: &libp2p_bitswap::libipld::Cid,
+    ) -> anyhow::Result<Vec<libp2p_bitswap::libipld::Cid>> {
         bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }

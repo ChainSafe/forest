@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::bitswap_missing_blocks;
+use crate::CidCompat;
 
 use super::{Error, Store};
 use anyhow::Result;
@@ -76,21 +77,24 @@ impl Blockstore for MemoryDB {
 }
 
 impl BitswapStore for MemoryDB {
-    type Params = libipld::DefaultParams;
+    type Params = libp2p_bitswap::libipld::DefaultParams;
 
-    fn contains(&mut self, cid: &Cid) -> Result<bool> {
+    fn contains(&mut self, cid: &libp2p_bitswap::libipld::Cid) -> Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> Result<Option<Vec<u8>>> {
-        Blockstore::get(self, cid)
+    fn get(&mut self, cid: &libp2p_bitswap::libipld::Cid) -> Result<Option<Vec<u8>>> {
+        Blockstore::get(self, &cid.compat())
     }
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> Result<()> {
-        self.put_keyed(block.cid(), block.data())
+    fn insert(&mut self, block: &libp2p_bitswap::libipld::Block<Self::Params>) -> Result<()> {
+        self.put_keyed(&block.cid().compat(), block.data())
     }
 
-    fn missing_blocks(&mut self, cid: &Cid) -> Result<Vec<Cid>> {
+    fn missing_blocks(
+        &mut self,
+        cid: &libp2p_bitswap::libipld::Cid,
+    ) -> Result<Vec<libp2p_bitswap::libipld::Cid>> {
         bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }

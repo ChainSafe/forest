@@ -11,8 +11,8 @@ use crate::{
     hello::{HelloCodec, HelloProtocolName},
 };
 use cid::Cid;
+use forest_db::CidCompatBitswap;
 use forest_encoding::blake2b_256;
-use libipld::store::StoreParams;
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
@@ -28,6 +28,7 @@ use libp2p::{
     metrics::{Metrics, Recorder},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
 };
+use libp2p_bitswap::libipld::store::StoreParams;
 use libp2p_bitswap::{Bitswap, BitswapConfig, BitswapStore};
 use log::{debug, warn};
 use std::collections::{HashMap, HashSet};
@@ -88,7 +89,13 @@ impl<P: StoreParams> ForestBehaviour<P> {
             )
             .unwrap();
 
-        let bitswap = Bitswap::new(BitswapConfig::new(), db);
+        let bitswap = Bitswap::new(
+            BitswapConfig {
+                compat_protocol_name: b"/chain/ipfs/bitswap/1.2.0",
+                ..Default::default()
+            },
+            db,
+        );
         if let Err(err) = bitswap.register_metrics(prometheus::default_registry()) {
             warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
         }
@@ -155,7 +162,9 @@ impl<P: StoreParams> ForestBehaviour<P> {
     pub fn want_block(&mut self, cid: Cid) -> anyhow::Result<libp2p_bitswap::QueryId> {
         debug!("want {}", cid.to_string());
         let peers = self.discovery.peers().iter().cloned().collect();
-        let query_id = self.bitswap.sync(cid, peers, [cid].into_iter());
+        let query_id = self
+            .bitswap
+            .sync(cid.compat(), peers, [cid.compat()].into_iter());
         Ok(query_id)
     }
 }

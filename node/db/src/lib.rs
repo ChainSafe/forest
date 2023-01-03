@@ -134,3 +134,45 @@ pub trait DBStatistics {
         None
     }
 }
+
+// FIXME: We should propose `cid@0.9` upgrade to `fvm_ipld_blockstore` to match `libp2p_bitswap`
+/// Temporary workaround for `cid` version mismatch in upstream `libp2p_bitswap` and `fvm_ipld_blockstore` crates
+pub(crate) trait CidCompat {
+    fn compat(&self) -> libipld::Cid;
+}
+
+impl CidCompat for libp2p_bitswap::libipld::Cid {
+    fn compat(&self) -> libipld::Cid {
+        libipld::Cid::read_bytes(self.to_bytes().as_slice()).expect("Infallible")
+    }
+}
+
+/// Temporary workaround for `cid` version mismatch in upstream `libp2p_bitswap` and `fvm_ipld_blockstore` crates
+pub trait CidCompatBitswap {
+    fn compat(&self) -> libp2p_bitswap::libipld::Cid;
+}
+
+impl CidCompatBitswap for libipld::Cid {
+    fn compat(&self) -> libp2p_bitswap::libipld::Cid {
+        libp2p_bitswap::libipld::Cid::read_bytes(self.to_bytes().as_slice()).expect("Infallible")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use multihash::MultihashDigest;
+    use rand::{rngs::OsRng, RngCore};
+
+    #[test]
+    fn test_cid_compat_roundtrip() {
+        const DAG_CBOR: u64 = 0x71;
+
+        let mut bytes = [0; 1024];
+        OsRng.fill_bytes(&mut bytes);
+        let cid = libipld::Cid::new_v1(DAG_CBOR, multihash::Code::Blake2b256.digest(&bytes));
+
+        assert_eq!(cid.to_string(), cid.compat().to_string());
+        assert_eq!(cid.compat().to_string(), cid.compat().compat().to_string());
+    }
+}

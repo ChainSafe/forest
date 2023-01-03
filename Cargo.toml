@@ -100,12 +100,13 @@ libipld = { version = "0.14", default-features = false, features = ["dag-cbor", 
 libipld-core = "0.14"
 libipld-macro = "0.14"
 libp2p = { version = "0.50", default-features = false }
-libp2p-bitswap.branch = "forest-libp2p@0.50"
-libp2p-bitswap.features = ["compat"]
-libp2p-bitswap.git = "https://github.com/hanabi1224/libp2p-bitswap"
+# FIXME: use `crate.io` version once changes are merged and released
+libp2p-bitswap = { git = "https://github.com/ipfs-rust/libp2p-bitswap", rev = "refs/pull/42/head", features = [
+  "compat",
+] }
 libsecp256k1 = "0.7"
 log = "0.4"
-lru = "0.8"
+lru = "0.9"
 multibase = "0.9"
 multihash = "0.16"
 nonempty = "0.8.0"

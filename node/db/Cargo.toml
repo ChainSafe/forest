@@ -37,4 +37,6 @@ serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 
 [dev-dependencies]
+multihash.workspace = true
+rand.workspace = true
 tempfile.workspace = true
