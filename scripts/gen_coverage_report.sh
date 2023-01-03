@@ -66,9 +66,3 @@ timeout 15 killall --wait --signal SIGINT forest
 cargo llvm-cov report --lcov --output-path lcov.info
 
 echo "Coverage data collected. You can view the report by running: genhtml lcov.info --output-directory=html"
-
-# basic: 67.2% 14795 of 22009 lines
-
-# with sleep: 67.2% (14800 of 22009 lines)
-
-# with validated checkpoints: 67.3% (14807 of 22009 lines)
