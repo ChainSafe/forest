@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::Mutex as StdMutex;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::Mutex as TokioMutex;
@@ -73,18 +73,18 @@ impl Default for TipsetStateCacheInner {
 }
 
 struct TipsetStateCache {
-    cache: Arc<std::sync::Mutex<TipsetStateCacheInner>>,
+    cache: Arc<StdMutex<TipsetStateCacheInner>>,
 }
 
 pub enum Status {
     Done(CidPair),
-    Empty(Arc<tokio::sync::Mutex<()>>),
+    Empty(Arc<TokioMutex<()>>),
 }
 
 impl TipsetStateCache {
     pub fn new() -> Self {
         Self {
-            cache: Arc::new(Mutex::new(TipsetStateCacheInner::default())),
+            cache: Arc::new(StdMutex::new(TipsetStateCacheInner::default())),
         }
     }
 
