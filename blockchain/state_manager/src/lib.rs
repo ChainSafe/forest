@@ -100,22 +100,17 @@ impl TipsetStateCache {
         self.with_inner(|inner| match inner.values.get(key) {
             Some(v) => Status::Done(*v),
             None => {
-                for (v, l) in inner.pending.iter() {
-                    if v == key {
-                        return Status::Empty(l.clone());
-                    }
-                }
                 let option = inner
                     .pending
                     .iter()
-                    .find(|(k, _l)| k == key)
-                    .map(|(_k, l)| l);
+                    .find(|(k, _)| k == key)
+                    .map(|(_, mutex)| mutex);
                 match option {
-                    Some(lock) => Status::Empty(lock.clone()),
+                    Some(mutex) => Status::Empty(mutex.clone()),
                     None => {
-                        let lock = Arc::new(TokioMutex::new(()));
-                        inner.pending.push((key.clone(), lock.clone()));
-                        Status::Empty(lock)
+                        let mutex = Arc::new(TokioMutex::new(()));
+                        inner.pending.push((key.clone(), mutex.clone()));
+                        Status::Empty(mutex)
                     }
                 }
             }
