@@ -78,7 +78,7 @@ struct TipsetStateCache {
 
 pub enum Status {
     Done(CidPair),
-    Busy(Arc<tokio::sync::Mutex<()>>),
+    Empty(Arc<tokio::sync::Mutex<()>>),
 }
 
 impl TipsetStateCache {
@@ -102,7 +102,7 @@ impl TipsetStateCache {
             None => {
                 for (v, l) in inner.pending.iter() {
                     if v == key {
-                        return Status::Busy(l.clone());
+                        return Status::Empty(l.clone());
                     }
                 }
                 let option = inner
@@ -111,11 +111,11 @@ impl TipsetStateCache {
                     .find(|(k, _l)| k == key)
                     .map(|(_k, l)| l);
                 match option {
-                    Some(lock) => Status::Busy(lock.clone()),
+                    Some(lock) => Status::Empty(lock.clone()),
                     None => {
                         let lock = Arc::new(TokioMutex::new(()));
                         inner.pending.push((key.clone(), lock.clone()));
-                        Status::Busy(lock)
+                        Status::Empty(lock)
                     }
                 }
             }
@@ -400,21 +400,20 @@ where
                     .inc();
                 Ok(v)
             }
-            Status::Busy(x) => {
+            Status::Empty(x) => {
                 let _guard = x.lock().await;
-                // Maybe peeking the cache would be better here
                 match self.cache.get(key) {
                     Some(v) => {
+                        // While locking someone else computed the pending task
                         forest_metrics::metrics::LRU_CACHE_HIT
                             .with_label_values(&[
                                 forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
                             ])
                             .inc();
-                        // Someone else computed the pending task
                         Ok(v)
                     }
                     None => {
-                        // Entry does not have state computed yet, this task will fill entry if successful.
+                        // Entry does not have state computed yet, this task will fill entry if successful
                         let cid_pair = if tipset.epoch() == 0 {
                             // NB: This is here because the process that executes blocks requires that the
                             // block miner reference a valid miner in the state tree. Unless we create some
