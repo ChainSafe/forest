@@ -128,8 +128,8 @@ impl TipsetStateCache {
 
     pub fn insert(&self, key: TipsetKeys, value: CidPair) {
         self.with_inner(|inner| {
-            inner.values.put(key.clone(), value);
             inner.pending.retain(|(k, _)| k != &key);
+            inner.values.put(key, value);
         });
     }
 }
