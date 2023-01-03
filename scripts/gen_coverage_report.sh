@@ -17,6 +17,7 @@ cargo llvm-cov --workspace clean
 cargo llvm-cov --workspace --no-report --features slow_tests
 cargo llvm-cov --no-report run --bin=forest-cli -- --chain calibnet db clean --force
 cargo llvm-cov --no-report run --bin=forest-cli -- --chain calibnet snapshot fetch -s .
+# SC2012 says to use 'find' instead of 'ls' but I don't know how to do that.
 # shellcheck disable=SC2012
 cargo llvm-cov --no-report run --bin=forest -- --chain calibnet --encrypt-keystore false --import-snapshot "$(ls -1t ./*.car | head -n 1)" --height=-200 --detach
 cargo llvm-cov --no-report run --bin=forest-cli -- sync wait
