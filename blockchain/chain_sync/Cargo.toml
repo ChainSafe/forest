@@ -24,7 +24,6 @@ forest_message = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace = true
 forest_networks.workspace = true
 forest_state_manager.workspace = true
-forest_statediff.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
@@ -55,7 +54,3 @@ fvm_ipld_car.workspace = true
 hex.workspace = true
 quickcheck_macros.workspace = true
 serde_json.workspace = true
-
-[features]
-rocksdb = ["forest_statediff/rocksdb"]
-paritydb = ["forest_statediff/paritydb"]
