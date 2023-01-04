@@ -181,7 +181,8 @@ impl WalletCommands {
                 Ok(())
             }
             Self::SetDefault { key } => {
-                let key = Address::from_str(key)?;
+                let key =
+                    Address::from_str(key).with_context(|| format!("Invalid address: {key}"))?;
 
                 let key_json = AddressJson(key);
                 wallet_set_default((key_json,), &config.client.rpc_token)
@@ -190,7 +191,8 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Sign { address, message } => {
-                let address = Address::from_str(address)?;
+                let address = Address::from_str(address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = base64::encode(message);
@@ -211,7 +213,8 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let address = Address::from_str(address)?;
+                let address = Address::from_str(address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
                 let signature = match address.protocol() {
                     Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
                     Protocol::BLS => Signature::new_bls(sig_bytes),
