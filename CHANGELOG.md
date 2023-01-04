@@ -34,13 +34,8 @@ Notable updates:
 * Multiple CI improvements.
 
 ### Removed
-* All calls to `forest_statediff` in daemon.
-* `std sleep` and cargo check for slow tests.
-* Unused `ProofVerifier` trait.
 * RocksDB check for low file descriptor limit.
-* Miner-specific dead code.
 * Unused RPC endpoints.
-* `funty` crate patch.
 
 ## Forest v0.5.1 (2022-12-01)
 
