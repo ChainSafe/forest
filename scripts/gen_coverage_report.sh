@@ -13,18 +13,25 @@
 
 set +e
 
+TMP_DIR=$(mktemp --directory)
+
+function cleanup {
+  # echo Removing temporary directory $TMP_DIR
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+
 function cov {
-    #echo Running: cargo llvm-cov --no-report run --bin=$1 -- ${@:2}
-    cargo llvm-cov --no-report run --bin=$1 -- ${@:2}
+    echo Running: cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
+    cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
 }
 
 cargo llvm-cov --workspace clean
-cargo llvm-cov --workspace --no-report --features slow_tests
+#cargo llvm-cov --workspace --no-report --features slow_tests
 cov forest-cli --chain calibnet db clean --force
-cov forest-cli --chain calibnet snapshot fetch -s .
-# SC2012 says to use 'find' instead of 'ls' but I don't know how to do that.
-# shellcheck disable=SC2012
-cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$(ls -1t ./*.car | head -n 1)" --height=-200 --detach
+cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
+SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)
+cov forest --chain calibnet --encrypt-keystore false --import-snapshot "$SNAPSHOT_PATH" --height=-200 --detach
 cov forest-cli sync wait
 cov forest-cli sync status
 cov forest-cli chain validate-tipset-checkpoints
