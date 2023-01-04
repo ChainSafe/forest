@@ -1,4 +1,46 @@
-## Forest v0.6.0 (unreleased, scheduled for 2022-12-30)
+## Forest v0.6.0 (2023-01-04)
+
+Notable updates:
+* Added support for the new Protocol Labs snapshot service.
+* Implemented a database benchmarking script to quantify baseline performance against ParityDb.
+* Several improvements to logging (including integration with Grafana Loki) and error handling.
+
+### Added
+* New daemon option flag `—log-dir` for log file support.
+* New ParityDb section in configuration (including statistics and compression settings).
+* Integration with Grafana Loki for more advanced log filtering and summarization.
+* Peer tipset epoch now in metrics.
+* DB benchmark script.
+
+### Changed
+* Improved error handling in daemon.
+* Now using builtin actors `serde` for `Policy` instead of custom `serde_policy` module.
+* Implemented proper tagging strategy for Docker images.
+* Restored link to [deps.rs](https://deps.rs/).
+* Upgraded toolchain channel to `nightly-2022-12-15`.
+* Migrated logging infrastructure from `log` to `tracing`.
+* Fixed sync issues: relaxed chain exchange message size limit, improved chain exchange failure error messages, reduced chain exchange batch size for message lookup to reduce bundled message size, implemented feature to send chain exchange requests in parallel, and increased `SHUFFLE_PEERS_PREFIX` value.
+* Restored lost cursor caused by keyboard interrupt during active snapshot download prompt.
+* Upgraded `serde_ipld_dagcbor`.
+* Allow `—height` flag to take relative offsets for validating the tipsets in a snapshot.
+* Propagate fatal errors from background tasks.
+* Improved error messages when signing and verifying messages.
+* Fixed issue with invalid snapshot exports.
+* Updated `snapshot fetch` subcommands to support the new Protocol Labs snapshot service.
+* Improved caching of cargo-installed bins.
+* Replaced unmaintained `difference` with `similar`.
+* Fixed RPC `net disconnect` endpoint.
+* Corrected RPC serialization of FIL balances.
+* Multiple CI improvements.
+
+### Removed
+* All calls to `forest_statediff` in daemon.
+* `std sleep` and cargo check for slow tests.
+* Unused `ProofVerifier` trait.
+* RocksDB check for low file descriptor limit.
+* Miner-specific dead code.
+* Unused RPC endpoints.
+* `funty` crate patch.
 
 ## Forest v0.5.1 (2022-12-01)
 
