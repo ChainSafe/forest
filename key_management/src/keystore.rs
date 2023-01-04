@@ -334,7 +334,7 @@ impl KeyStore {
                     Some(encrypted_keystore) => {
                         // Flush For EncryptedKeyStore
                         let data = serde_ipld_dagcbor::to_vec(&self.key_info).map_err(|e| {
-                            Error::Other(format!("failed to serialize and write key info: {}", e))
+                            Error::Other(format!("failed to serialize and write key info: {e}"))
                         })?;
 
                         let encrypted_data =
@@ -359,7 +359,7 @@ impl KeyStore {
 
                         // Flush for PersistentKeyStore
                         serde_json::to_writer_pretty(writer, &key_info).map_err(|e| {
-                            Error::Other(format!("failed to serialize and write key info: {}", e))
+                            Error::Other(format!("failed to serialize and write key info: {e}"))
                         })?;
 
                         Ok(())

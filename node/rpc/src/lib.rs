@@ -22,7 +22,6 @@ use axum::routing::{get, post};
 use forest_beacon::Beacon;
 use forest_chain::Scale;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_rpc_api::data_types::RPCState;
 use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, gas_api::*, mpool_api::*, net_api::*,
@@ -34,7 +33,7 @@ use log::info;
 use std::net::TcpListener;
 use std::sync::Arc;
 
-pub async fn start_rpc<DB, B, V, S>(
+pub async fn start_rpc<DB, B, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
@@ -42,7 +41,6 @@ pub async fn start_rpc<DB, B, V, S>(
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
-    V: ProofVerifier,
     S: Scale + 'static,
 {
     use auth_api::*;
@@ -79,14 +77,6 @@ where
                 chain_validate_tipset_checkpoints::<DB, B>,
             )
             .with_method(CHAIN_HEAD, chain_head::<DB, B>)
-            .with_method(
-                CHAIN_GET_RANDOMNESS_FROM_TICKETS,
-                chain_get_randomness_from_tickets::<DB, B>,
-            )
-            .with_method(
-                CHAIN_GET_RANDOMNESS_FROM_BEACON,
-                chain_get_randomness_from_beacon::<DB, B>,
-            )
             .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB, B>)
             .with_method(CHAIN_GET_NAME, chain_api::chain_get_name::<DB, B>)
             // Message Pool API
@@ -119,14 +109,6 @@ where
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB, B>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB, B>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB, B>)
-            .with_method(
-                STATE_MINER_PRE_COMMIT_DEPOSIT_FOR_POWER,
-                state_miner_pre_commit_deposit_for_power::<DB, B>,
-            )
-            .with_method(
-                STATE_MINER_INITIAL_PLEDGE_COLLATERAL,
-                state_miner_initial_pledge_collateral::<DB, B>,
-            )
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB, B>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB, B>)

@@ -97,7 +97,7 @@ where
         let mb = m.marshal_cbor()?;
         network_sender
             .send_async(NetworkMessage::PubsubMessage {
-                topic: Topic::new(format!("{}/{}", PUBSUB_MSG_STR, network_name)),
+                topic: Topic::new(format!("{PUBSUB_MSG_STR}/{network_name}")),
                 message: mb,
             })
             .await
@@ -338,8 +338,6 @@ pub mod tests {
     use num_traits::Zero;
     #[cfg(feature = "slow_tests")]
     use std::borrow::BorrowMut;
-    #[cfg(feature = "slow_tests")]
-    use std::thread::sleep;
     #[cfg(feature = "slow_tests")]
     use std::time::Duration;
     use test_provider::*;

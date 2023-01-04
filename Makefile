@@ -105,6 +105,7 @@ test:
 	cargo nextest run -p forest_message --features blst --no-default-features
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
+	cargo check --tests --features slow_tests
 
 test-slow:
 	cargo nextest run -p forest_message_pool --features slow_tests

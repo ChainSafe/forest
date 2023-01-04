@@ -5,22 +5,18 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::collections::HashMap;
 
 use cid::Cid;
-use forest_actor_interface::{market, power, reward};
+use forest_actor_interface::market;
 use forest_beacon::Beacon;
 use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_db::Store;
 use forest_ipld::json::IpldJson;
-use forest_json::address::json::AddressJson;
 use forest_json::cid::CidJson;
 use forest_rpc_api::{
     data_types::{MarketDeal, MessageLookup, RPCState},
     state_api::*,
 };
 use forest_state_manager::InvocResult;
-use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::econ::TokenAmount;
 use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
@@ -206,96 +202,4 @@ pub(crate) async fn state_wait_msg<
         message: CidJson(cid),
         return_dec: IpldJson(ipld),
     })
-}
-
-pub(crate) async fn state_miner_pre_commit_deposit_for_power<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerPreCommitDepositForPowerParams>,
-) -> Result<StateMinerPreCommitDepositForPowerResult, JsonRpcError> {
-    let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let (state, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(&data.chain_store.db, &state)?;
-    let ssize = pci.seal_proof.sector_size()?;
-
-    let actor = state
-        .get_actor(&market::ADDRESS)?
-        .ok_or("couldnt load market actor")?;
-    let (w, vw) = market::State::load(data.state_manager.blockstore(), &actor)?
-        .verify_deals_for_activation(
-            data.state_manager.blockstore(),
-            &pci.deal_ids,
-            &maddr,
-            pci.expiration,
-            ts.epoch(),
-        )?;
-    let duration = pci.expiration - ts.epoch();
-    let sector_weight = fil_actor_miner_v8::qa_power_for_weight(ssize, duration, &w, &vw);
-
-    let actor = state
-        .get_actor(&power::ADDRESS)?
-        .ok_or("couldnt load power actor")?;
-    let power_smoothed =
-        power::State::load(data.state_manager.blockstore(), &actor)?.total_power_smoothed();
-
-    let reward_actor = state
-        .get_actor(&reward::ADDRESS)?
-        .ok_or("couldnt load reward actor")?;
-    let deposit = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-        .pre_commit_deposit_for_power(power_smoothed, &sector_weight);
-
-    let ret: TokenAmount = (deposit * 110).div_floor(100);
-    Ok(ret.to_string())
-}
-
-pub(crate) async fn state_miner_initial_pledge_collateral<
-    DB: Blockstore + Store + Clone + Send + Sync + 'static,
-    B: Beacon,
->(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<StateMinerInitialPledgeCollateralParams>,
-) -> Result<StateMinerInitialPledgeCollateralResult, JsonRpcError> {
-    let (AddressJson(maddr), pci, TipsetKeysJson(tsk)) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
-    let (root_cid, _) = data.state_manager.tipset_state(&ts).await?;
-    let state = StateTree::new_from_root(&data.chain_store.db, &root_cid)?;
-    let ssize = pci.seal_proof.sector_size()?;
-
-    let actor = state
-        .get_actor(&market::ADDRESS)?
-        .ok_or("couldnt load market actor")?;
-    let (w, vw) = market::State::load(data.state_manager.blockstore(), &actor)?
-        .verify_deals_for_activation(
-            data.state_manager.blockstore(),
-            &pci.deal_ids,
-            &maddr,
-            pci.expiration,
-            ts.epoch(),
-        )?;
-    let duration = pci.expiration - ts.epoch();
-    let sector_weight = fil_actor_miner_v8::qa_power_for_weight(ssize, duration, &w, &vw);
-
-    let actor = state
-        .get_actor(&power::ADDRESS)?
-        .ok_or("couldnt load power actor")?;
-    let power_state = power::State::load(data.state_manager.blockstore(), &actor)?;
-    let power_smoothed = power_state.total_power_smoothed();
-    let total_locked = power_state.total_locked();
-
-    let circ_supply =
-        data.state_manager
-            .get_circulating_supply(ts.epoch(), &data.chain_store.db, &root_cid)?;
-
-    let reward_actor = state
-        .get_actor(&reward::ADDRESS)?
-        .ok_or("couldnt load reward actor")?;
-
-    let initial_pledge = reward::State::load(data.state_manager.blockstore(), &reward_actor)?
-        .initial_pledge_for_power(&sector_weight, &total_locked, power_smoothed, &circ_supply);
-
-    let ret: BigInt = (initial_pledge.atto() * 110) / 100;
-    Ok(ret.to_string())
 }

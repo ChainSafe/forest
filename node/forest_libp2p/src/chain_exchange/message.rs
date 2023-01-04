@@ -244,8 +244,7 @@ fn fts_from_bundle_parts(
             let message_count = bls_msg_includes[i].len() + secp_msg_includes[i].len();
             if message_count > BLOCK_MESSAGE_LIMIT {
                 return Err(format!(
-                    "Block {} in bundle has too many messages ({} > {})",
-                    i, message_count, BLOCK_MESSAGE_LIMIT
+                    "Block {i} in bundle has too many messages ({message_count} > {BLOCK_MESSAGE_LIMIT})"
                 ));
             }
             let bls_messages = values_from_indexes(&bls_msg_includes[i], bls_msgs)?;

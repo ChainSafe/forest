@@ -3,6 +3,8 @@ name: Build and publish Forest Docker image
 on:
   push:
     branches: [main]
+    tags:
+    - '*'
   pull_request:
 
 jobs:
@@ -31,17 +33,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute labels
+        id: labels
+        run: |
+          # We would like to tag docker images with three labels:
+          #  - latest
+          #  - {git tag}, eg v0.5.0
+          #  - {date-sha}, eg 2022-12-15-6a935b9ee
+
+          # github context: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+
+          # If the workflow is triggered by a tag, use it as a label. Otherwise add a superfluous `latest` label.
+          if [ ${{ github.ref_type == 'tag' }} ]
+          then
+            REF=$(echo "${{ github.ref_name }}" | sed 's/\//_/g')
+          else
+            REF=latest
+          fi
+
+          # Date format is ISO 8601, eg 2022-01-26T19:14:43Z.
+          # Taking the first 10 characters yields: 2022-01-26
+          DATE=$(echo "${{ github.event.repository.updated_at }}" | head -c 10)
+
+          echo "ref=$REF" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Build image and push to GitHub Container Registry
         uses: docker/build-push-action@v3
         with:
           context: .
           tags: |
             ghcr.io/chainsafe/forest:latest
+            ghcr.io/chainsafe/forest:${{ steps.labels.outputs.date }}-${{ steps.labels.outputs.sha_short }}
+            ghcr.io/chainsafe/forest:${{ steps.labels.outputs.ref }}
           # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
 
       - name: List docker images
         run: docker image ls

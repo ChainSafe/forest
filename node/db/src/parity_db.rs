@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
+use crate::parity_db_config::ParityDbConfig;
 use crate::utils::bitswap_missing_blocks;
 use crate::{DBStatistics, Store};
+use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
-use parity_db::Db;
-use parity_db::Options;
+use parity_db::{CompressionType, Db, Options};
 use std::collections::HashMap;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -19,40 +19,38 @@ pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
 }
 
-pub struct ParityDbConfig {
-    pub path: PathBuf,
-    pub columns: u8,
-}
-
-impl ParityDbConfig {
-    pub fn from_path(path: &Path) -> Self {
-        Self {
-            path: path.to_path_buf(),
-            columns: 1,
-        }
+/// Converts string to a compression `ParityDb` variant.
+fn compression_type_from_str(s: &str) -> anyhow::Result<CompressionType> {
+    match s.to_lowercase().as_str() {
+        "none" => Ok(CompressionType::NoCompression),
+        "lz4" => Ok(CompressionType::Lz4),
+        "snappy" => Ok(CompressionType::Snappy),
+        _ => Err(anyhow!("invalid compression option")),
     }
 }
 
 impl ParityDb {
-    fn to_options(config: &ParityDbConfig) -> Options {
-        Options {
-            path: config.path.to_owned(),
+    fn to_options(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Options> {
+        const COLUMNS: usize = 1;
+        let compression = compression_type_from_str(&config.compression)?;
+        Ok(Options {
+            path,
             sync_wal: true,
             sync_data: true,
-            stats: true,
+            stats: config.stats,
             salt: None,
-            columns: (0..config.columns)
+            columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
-                    compression: parity_db::CompressionType::Lz4,
+                    compression,
                     ..Default::default()
                 })
                 .collect(),
             compression_threshold: HashMap::new(),
-        }
+        })
     }
 
-    pub fn open(config: &ParityDbConfig) -> anyhow::Result<Self> {
-        let opts = Self::to_options(config);
+    pub fn open(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Self> {
+        let opts = Self::to_options(path, config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
         })
@@ -154,3 +152,27 @@ impl BitswapStore for ParityDb {
 }
 
 impl DBStatistics for ParityDb {}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use parity_db::CompressionType;
+
+    #[test]
+    fn compression_type_from_str_test() {
+        let test_cases = [
+            ("lz4", Ok(CompressionType::Lz4)),
+            ("SNAPPY", Ok(CompressionType::Snappy)),
+            ("none", Ok(CompressionType::NoCompression)),
+            ("cthulhu", Err(anyhow!("some error message"))),
+        ];
+        for (input, expected) in test_cases {
+            let actual = compression_type_from_str(input);
+            if let Ok(compression) = actual {
+                assert_eq!(expected.unwrap(), compression);
+            } else {
+                assert!(expected.is_err());
+            }
+        }
+    }
+}

@@ -17,6 +17,16 @@ pub struct LogConfig {
     pub filters: Vec<LogValue>,
 }
 
+impl LogConfig {
+    pub(crate) fn to_filter_string(&self) -> String {
+        self.filters
+            .iter()
+            .map(|f| format!("{}={}", f.module, f.level))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+}
+
 impl Default for LogConfig {
     fn default() -> Self {
         Self {
@@ -26,8 +36,9 @@ impl Default for LogConfig {
                 LogValue::new("storage_proofs_core", LevelFilter::Warn),
                 LogValue::new("bellperson::groth16::aggregate::verify", LevelFilter::Warn),
                 LogValue::new("axum", LevelFilter::Warn),
-                LogValue::new("libp2p_bitswap", LevelFilter::Warn),
+                LogValue::new("libp2p_bitswap", LevelFilter::Off),
                 LogValue::new("rpc", LevelFilter::Error),
+                LogValue::new("tracing_loki", LevelFilter::Off),
             ],
         }
     }
@@ -147,8 +158,8 @@ impl Default for DaemonConfig {
 #[serde(default)]
 pub struct Config {
     pub client: Client,
-    #[cfg(feature = "rocksdb")]
     pub rocks_db: forest_db::rocks_config::RocksDbConfig,
+    pub parity_db: forest_db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub chain: Arc<ChainConfig>,
@@ -168,14 +179,15 @@ mod test {
         net::{Ipv4Addr, SocketAddr},
         path::PathBuf,
     };
+    use tracing_subscriber::EnvFilter;
 
     /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
     /// Debug)
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
-        #[cfg(feature = "rocksdb")]
         rocks_db: forest_db::rocks_config::RocksDbConfig,
+        parity_db: forest_db::parity_db_config::ParityDbConfig,
         network: forest_libp2p::Libp2pConfig,
         sync: forest_chain_sync::SyncConfig,
     }
@@ -184,8 +196,8 @@ mod test {
         fn from(val: ConfigPartial) -> Self {
             Config {
                 client: val.client,
-                #[cfg(feature = "rocksdb")]
                 rocks_db: val.rocks_db,
+                parity_db: val.parity_db,
                 network: val.network,
                 sync: val.sync,
                 chain: Arc::new(ChainConfig::default()),
@@ -217,7 +229,6 @@ mod test {
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
-                #[cfg(feature = "rocksdb")]
                 rocks_db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
@@ -231,6 +242,10 @@ mod test {
                     log_level: String::arbitrary(g),
                     optimize_filters_for_hits: bool::arbitrary(g),
                     optimize_for_point_lookup: i32::arbitrary(g),
+                },
+                parity_db: forest_db::parity_db_config::ParityDbConfig {
+                    stats: bool::arbitrary(g),
+                    compression: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
@@ -260,5 +275,13 @@ mod test {
                 .expect("configuration empty"),
             '['
         )
+    }
+
+    #[test]
+    fn test_default_log_filters() {
+        let config = LogConfig::default();
+        EnvFilter::builder()
+            .parse(config.to_filter_string())
+            .unwrap();
     }
 }

@@ -1076,7 +1076,7 @@ async fn sync_messages_check_state<
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     // Sync the messages for one or many tipsets @ a time
-    const REQUEST_WINDOW: usize = 8;
+    const REQUEST_WINDOW: usize = 4;
 
     let task_chainstore = chainstore.clone();
 
@@ -1303,16 +1303,12 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             .start_timer();
         let base_fee = forest_chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
-                TipsetRangeSyncerError::<C>::Validation(format!(
-                    "Could not compute base fee: {}",
-                    e
-                ))
+                TipsetRangeSyncerError::<C>::Validation(format!("Could not compute base fee: {e}"))
             })?;
         let parent_base_fee = v_block.header.parent_base_fee();
         if &base_fee != parent_base_fee {
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
-                "base fee doesn't match: {} (header), {} (computed)",
-                parent_base_fee, base_fee
+                "base fee doesn't match: {parent_base_fee} (header), {base_fee} (computed)"
             )));
         }
         Ok(())
@@ -1327,12 +1323,11 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
             .start_timer();
         let calc_weight = C::weight(&v_block_store, &v_base_tipset).map_err(|e| {
-            TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {}", e))
+            TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {e}"))
         })?;
         if weight != calc_weight {
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
-                "Parent weight doesn't match: {} (header), {} (computed)",
-                weight, calc_weight
+                "Parent weight doesn't match: {weight} (header), {calc_weight} (computed)"
             )));
         }
         Ok(())
@@ -1348,19 +1343,10 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             .tipset_state(&v_base_tipset)
             .await
             .map_err(|e| {
-                TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {}", e))
+                TipsetRangeSyncerError::Calculation(format!("Failed to calculate state: {e}"))
             })?;
 
         if &state_root != header.state_root() {
-            if let Err(err) = forest_statediff::print_state_diff(
-                v_state_manager.blockstore(),
-                &state_root,
-                header.state_root(),
-                Some(1),
-            ) {
-                eprintln!("Failed to print state-diff: {}", err);
-            }
-
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "Parent state root did not match computed state: {} (header), {} (computed)",
                 header.state_root(),
@@ -1416,8 +1402,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
             (
                 *block_cid,
                 TipsetRangeSyncerError::<C>::Validation(format!(
-                    "failed to mark block {} as validated {}",
-                    block_cid, e
+                    "failed to mark block {block_cid} as validated {e}"
                 )),
             )
         })?;
@@ -1474,8 +1459,8 @@ async fn check_block_messages<
             sig,
         ) {
             return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(
-                format!("{:?}", sig),
-                format!("{:?}", cids),
+                format!("{sig:?}"),
+                format!("{cids:?}"),
             ));
         }
     } else {
@@ -1533,13 +1518,10 @@ async fn check_block_messages<
     let (state_root, _) = state_manager
         .tipset_state(&base_tipset)
         .await
-        .map_err(|e| {
-            TipsetRangeSyncerError::Calculation(format!("Could not update state: {}", e))
-        })?;
+        .map_err(|e| TipsetRangeSyncerError::Calculation(format!("Could not update state: {e}")))?;
     let tree = StateTree::new_from_root(block_store, &state_root).map_err(|e| {
         TipsetRangeSyncerError::Calculation(format!(
-            "Could not load from new state root in state manager: {}",
-            e
+            "Could not load from new state root in state manager: {e}"
         ))
     })?;
 
@@ -1547,8 +1529,7 @@ async fn check_block_messages<
     for (i, msg) in block.bls_msgs().iter().enumerate() {
         check_msg(msg, &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::<C>::Validation(format!(
-                "Block had invalid BLS message at index {}: {}",
-                i, e
+                "Block had invalid BLS message at index {i}: {e}"
             ))
         })?;
     }
@@ -1557,8 +1538,7 @@ async fn check_block_messages<
     for (i, msg) in block.secp_msgs().iter().enumerate() {
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::<C>::Validation(format!(
-                "block had an invalid secp message at index {}: {}",
-                i, e
+                "block had an invalid secp message at index {i}: {e}"
             ))
         })?;
         // Resolve key address for signature verification
@@ -1579,7 +1559,7 @@ async fn check_block_messages<
     if block.header().messages() != &msg_root {
         return Err(TipsetRangeSyncerError::BlockMessageRootInvalid(
             format!("{:?}", block.header().messages()),
-            format!("{:?}", msg_root),
+            format!("{msg_root:?}"),
         ));
     }
 
@@ -1636,7 +1616,7 @@ async fn validate_tipset_against_cache<C: Consensus>(
         if let Some(reason) = bad_block_cache.get(cid).await {
             for block_cid in descendant_blocks {
                 bad_block_cache
-                    .put(*block_cid, format!("chain contained {}", cid))
+                    .put(*block_cid, format!("chain contained {cid}"))
                     .await;
             }
             return Err(TipsetRangeSyncerError::TipsetRangeWithBadBlock(
@@ -1663,7 +1643,7 @@ mod test {
         let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
-        let fmt_str = format!("===={}=====", ticket_sequence);
+        let fmt_str = format!("===={ticket_sequence}=====");
         let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
         let election_proof = ElectionProof {
             win_count: 0,

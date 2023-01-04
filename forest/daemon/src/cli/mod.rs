@@ -1,10 +1,12 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anes::execute;
 use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};
 use std::cell::RefCell;
+use std::io::Write;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -33,6 +35,9 @@ pub fn set_sigint_handler() -> Receiver<()> {
         let prev = running.fetch_add(1, Ordering::SeqCst);
         if prev == 0 {
             warn!("Got interrupt, shutting down...");
+            let mut stdout = std::io::stdout();
+            #[allow(clippy::question_mark)]
+            execute!(&mut stdout, anes::ShowCursor).unwrap();
             // Send sig int in channel to blocking task
             if let Some(ctrlc_send) = ctrlc_send_c.try_borrow_mut().unwrap().take() {
                 ctrlc_send.send(()).expect("Error sending ctrl-c message");
