@@ -6,7 +6,7 @@ Notable updates:
 * Several improvements to logging (including integration with Grafana Loki) and error handling.
 
 ### Added
-* New daemon option flag `—log-dir` for log file support.
+* New daemon option flag `-—log-dir` for log file support.
 * New ParityDb section in configuration (including statistics and compression settings).
 * Integration with Grafana Loki for more advanced log filtering and summarization.
 * Peer tipset epoch now in metrics.
@@ -22,7 +22,7 @@ Notable updates:
 * Fixed sync issues: relaxed chain exchange message size limit, improved chain exchange failure error messages, reduced chain exchange batch size for message lookup to reduce bundled message size, implemented feature to send chain exchange requests in parallel, and increased `SHUFFLE_PEERS_PREFIX` value.
 * Restored lost cursor caused by keyboard interrupt during active snapshot download prompt.
 * Upgraded `serde_ipld_dagcbor`.
-* Allow `—height` flag to take relative offsets for validating the tipsets in a snapshot.
+* Allow `-—height` flag to take relative offsets for validating the tipsets in a snapshot.
 * Propagate fatal errors from background tasks.
 * Improved error messages when signing and verifying messages.
 * Fixed issue with invalid snapshot exports.
