@@ -35,13 +35,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: |
-          cargo llvm-cov --workspace --no-report --features slow_tests
-          cargo llvm-cov --no-report run --bin=forest-cli -- --chain calibnet snapshot fetch -s .
-          cargo llvm-cov --no-report run --bin=forest -- --chain calibnet --encrypt-keystore false --import-snapshot *.car --height=-200 --detach
-          cargo llvm-cov --no-report run --bin=forest-cli -- sync wait
-          cargo llvm-cov --no-report run --bin=forest-cli -- snapshot export
-          timeout 5 killall --wait --signal SIGINT forest
-          cargo llvm-cov report --lcov --output-path lcov.info
+          ./scripts/gen_coverage_report.sh
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"

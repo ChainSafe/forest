@@ -92,18 +92,6 @@ where
         )
     }
 
-    /// network version 0-12
-    pub async fn get_chain_randomness_v1(
-        &self,
-        blocks: &TipsetKeys,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_chain_randomness(blocks, pers, round, entropy, true)
-            .await
-    }
-
     /// network version 13 onward
     pub async fn get_chain_randomness_v2(
         &self,
@@ -113,18 +101,6 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness(blocks, pers, round, entropy, false)
-            .await
-    }
-
-    /// network version 0-12; with look-back
-    pub async fn get_beacon_randomness_v1(
-        &self,
-        blocks: &TipsetKeys,
-        pers: i64,
-        round: ChainEpoch,
-        entropy: &[u8],
-    ) -> anyhow::Result<[u8; 32]> {
-        self.get_beacon_randomness(blocks, pers, round, entropy, true)
             .await
     }
 
