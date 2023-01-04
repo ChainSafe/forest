@@ -2,7 +2,6 @@
 
 Notable updates:
 * Added support for the new Protocol Labs snapshot service.
-* Implemented a database benchmarking script to quantify baseline performance against ParityDb.
 * Several improvements to logging (including integration with Grafana Loki) and error handling.
 
 ### Added
@@ -10,28 +9,20 @@ Notable updates:
 * New ParityDb section in configuration (including statistics and compression settings).
 * Integration with Grafana Loki for more advanced log filtering and summarization.
 * Peer tipset epoch now in metrics.
-* DB benchmark script.
 
 ### Changed
-* Improved error handling in daemon.
-* Now using builtin actors `serde` for `Policy` instead of custom `serde_policy` module.
+* Several improvements to error handling.
 * Implemented proper tagging strategy for Docker images.
 * Restored link to [deps.rs](https://deps.rs/).
 * Upgraded toolchain channel to `nightly-2022-12-15`.
 * Migrated logging infrastructure from `log` to `tracing`.
-* Fixed sync issues: relaxed chain exchange message size limit, improved chain exchange failure error messages, reduced chain exchange batch size for message lookup to reduce bundled message size, implemented feature to send chain exchange requests in parallel, and increased `SHUFFLE_PEERS_PREFIX` value.
-* Restored lost cursor caused by keyboard interrupt during active snapshot download prompt.
-* Upgraded `serde_ipld_dagcbor`.
+* Fixed bug triggered by large network messages.
+* Fixed bug where cursor would be hidden after keyboard interrupt.
 * Allow `-—height` flag to take relative offsets for validating the tipsets in a snapshot.
-* Propagate fatal errors from background tasks.
-* Improved error messages when signing and verifying messages.
 * Fixed issue with invalid snapshot exports.
 * Updated `snapshot fetch` subcommands to support the new Protocol Labs snapshot service.
-* Improved caching of cargo-installed bins.
-* Replaced unmaintained `difference` with `similar`.
-* Fixed RPC `net disconnect` endpoint.
-* Corrected RPC serialization of FIL balances.
-* Multiple CI improvements.
+* Fixed RPC `net disconnect` endpoint (a bug was returning a JSON RPC error when running `forest-cli net disconnect` and preventing proper peer disconnection).
+* Corrected RPC serialization of FIL balances (a bug was preventing display of floating point balance using `forest-cli wallet list`).
 
 ### Removed
 * RocksDB check for low file descriptor limit.
