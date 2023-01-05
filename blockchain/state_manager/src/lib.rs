@@ -96,9 +96,9 @@ impl TipsetStateCache {
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, cb: F) -> anyhow::Result<CidPair>
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, compute: F) -> anyhow::Result<CidPair>
     where
-        F: Fn(TipsetKeys) -> Fut,
+        F: Fn() -> Fut,
         Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
     {
         let status = self.with_inner(|inner| match inner.values.get(key) {
@@ -130,7 +130,11 @@ impl TipsetStateCache {
                     }
                     None => {
                         // Entry does not have state computed yet, compute value and fill the cache
-                        cb(key.clone()).await
+                        let cid_pair = compute().await?;
+
+                        // Write back to cache, release lock and return value
+                        self.insert(key.clone(), cid_pair);
+                        Ok(cid_pair)
                     }
                 }
             }
@@ -410,7 +414,7 @@ where
         let key = tipset.key();
         let result = self
             .cache
-            .get_or_else(key, |key| async move {
+            .get_or_else(key, || async move {
                 //cache_miss = true;
                 let cid_pair = if tipset.epoch() == 0 {
                     // NB: This is here because the process that executes blocks requires that the
@@ -431,8 +435,6 @@ where
                     ts_state
                 };
 
-                // Write back to cache, release lock and return value
-                self.cache.insert(key.clone(), cid_pair);
                 Ok(cid_pair)
             })
             .await;
