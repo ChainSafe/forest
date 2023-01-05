@@ -44,9 +44,10 @@ pub fn open_db(
 #[cfg(feature = "paritydb")]
 pub fn open_db(
     path: &std::path::Path,
-    config: &Option<cli::Config>,
+    config: Option<&cli::Config>,
 ) -> anyhow::Result<forest_db::parity_db::ParityDb> {
     use forest_db::parity_db::*;
+    use forest_db::parity_db_config::*;
     if let Some(config) = config {
         ParityDb::open(path.to_owned(), &config.parity_db)
     } else {
