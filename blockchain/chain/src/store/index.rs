@@ -135,6 +135,7 @@ pub(crate) struct LookbackEntry {
 pub(crate) struct ChainIndex<BS> {
     /// Cache of look-back entries to speed up lookup.
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
+
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
 
