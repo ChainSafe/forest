@@ -341,11 +341,6 @@ where
         Ok(())
     }
 
-    /// Add a `SignedMessage` without doing any of the checks.
-    pub async fn add_skip_checks(&mut self, m: SignedMessage) -> Result<(), Error> {
-        self.add_helper(m).await
-    }
-
     /// Verify the message signature. first check if it has already been verified and put into
     /// cache. If it has not, then manually verify it then put it into cache for future use.
     async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
