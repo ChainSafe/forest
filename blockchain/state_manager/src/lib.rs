@@ -76,7 +76,7 @@ struct TipsetStateCache {
     cache: Arc<StdMutex<TipsetStateCacheInner>>,
 }
 
-pub enum Status {
+enum Status {
     Done(CidPair),
     Empty(Arc<TokioMutex<()>>),
 }
@@ -96,8 +96,12 @@ impl TipsetStateCache {
         func(&mut lock)
     }
 
-    pub fn get_status(&self, key: &TipsetKeys) -> Status {
-        self.with_inner(|inner| match inner.values.get(key) {
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, cb: F) -> anyhow::Result<CidPair>
+    where
+        F: Fn(TipsetKeys) -> Fut,
+        Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
+    {
+        let status = self.with_inner(|inner| match inner.values.get(key) {
             Some(v) => Status::Done(*v),
             None => {
                 let option = inner
@@ -114,7 +118,23 @@ impl TipsetStateCache {
                     }
                 }
             }
-        })
+        });
+        match status {
+            Status::Done(x) => Ok(x),
+            Status::Empty(mtx) => {
+                let _guard = mtx.lock().await;
+                match self.get(key) {
+                    Some(v) => {
+                        // While locking someone else computed the pending task
+                        Ok(v)
+                    }
+                    None => {
+                        // Entry does not have state computed yet, compute value and fill the cache
+                        cb(key.clone()).await
+                    }
+                }
+            }
+        }
     }
 
     pub fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
@@ -386,61 +406,47 @@ where
     /// not to be computed twice.
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
+        //let mut cache_miss = false;
         let key = tipset.key();
-        let status = self.cache.get_status(key);
-        match status {
-            Status::Done(v) => {
-                forest_metrics::metrics::LRU_CACHE_HIT
-                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-                    .inc();
-                Ok(v)
-            }
-            Status::Empty(x) => {
-                let _guard = x.lock().await;
-                match self.cache.get(key) {
-                    Some(v) => {
-                        // While locking someone else computed the pending task
-                        forest_metrics::metrics::LRU_CACHE_HIT
-                            .with_label_values(&[
-                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
-                            ])
-                            .inc();
-                        Ok(v)
-                    }
-                    None => {
-                        // Entry does not have state computed yet, this task will fill entry if successful
-                        let cid_pair = if tipset.epoch() == 0 {
-                            // NB: This is here because the process that executes blocks requires that the
-                            // block miner reference a valid miner in the state tree. Unless we create some
-                            // magical genesis miner, this won't work properly, so we short circuit here
-                            // This avoids the question of 'who gets paid the genesis block reward'
-                            let message_receipts = tipset.blocks().first().ok_or_else(|| {
-                                Error::Other("Could not get message receipts".to_string())
-                            })?;
+        let result = self
+            .cache
+            .get_or_else(key, |key| async move {
+                //cache_miss = true;
+                let cid_pair = if tipset.epoch() == 0 {
+                    // NB: This is here because the process that executes blocks requires that the
+                    // block miner reference a valid miner in the state tree. Unless we create some
+                    // magical genesis miner, this won't work properly, so we short circuit here
+                    // This avoids the question of 'who gets paid the genesis block reward'
+                    let message_receipts = tipset.blocks().first().ok_or_else(|| {
+                        Error::Other("Could not get message receipts".to_string())
+                    })?;
 
-                            (*tipset.parent_state(), *message_receipts.message_receipts())
-                        } else {
-                            // generic constants are not implemented yet this is a lowcost method for now
-                            let no_func = None::<
-                                fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
-                            >;
-                            let ts_state = self.compute_tipset_state(tipset, no_func).await?;
-                            debug!("Completed tipset state calculation {:?}", tipset.cids());
-                            ts_state
-                        };
+                    (*tipset.parent_state(), *message_receipts.message_receipts())
+                } else {
+                    // generic constants are not implemented yet this is a lowcost method for now
+                    let no_func =
+                        None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
+                    let ts_state = self.compute_tipset_state(tipset, no_func).await?;
+                    debug!("Completed tipset state calculation {:?}", tipset.cids());
+                    ts_state
+                };
 
-                        // Write back to cache, release lock and return value
-                        self.cache.insert(key.clone(), cid_pair);
-                        forest_metrics::metrics::LRU_CACHE_MISS
-                            .with_label_values(&[
-                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
-                            ])
-                            .inc();
-                        Ok(cid_pair)
-                    }
-                }
-            }
-        }
+                // Write back to cache, release lock and return value
+                self.cache.insert(key.clone(), cid_pair);
+                Ok(cid_pair)
+            })
+            .await;
+
+        // if cache_miss {
+        //     forest_metrics::metrics::LRU_CACHE_MISS
+        //         .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+        //         .inc();
+        // } else {
+        //     forest_metrics::metrics::LRU_CACHE_HIT
+        //         .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+        //         .inc();
+        // }
+        result
     }
 
     #[instrument(skip(self, rand))]
