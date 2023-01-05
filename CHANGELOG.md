@@ -5,7 +5,7 @@ Notable updates:
 * Several improvements to logging (including integration with Grafana Loki) and error handling.
 
 ### Added
-* New daemon option flag `-—log-dir` for log file support.
+* New daemon option flag `--log-dir` for log file support.
 * New ParityDb section in configuration (including statistics and compression settings).
 * Integration with Grafana Loki for more advanced log filtering and summarization.
 * Peer tipset epoch now in metrics.
