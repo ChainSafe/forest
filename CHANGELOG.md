@@ -13,13 +13,12 @@ Notable updates:
 ### Changed
 * Several improvements to error handling.
 * Docker images are now tagged with version (eg `0.6.0`) and date (eg `2023-01-05-commit_hash`).
-* Restored link to [deps.rs](https://deps.rs/).
 * Upgraded toolchain channel to `nightly-2022-12-15`.
 * Migrated logging infrastructure from `log` to `tracing`.
 * Fixed bug triggered by large network messages.
 * Fixed bug where cursor would be hidden after keyboard interrupt.
 * Allow `-—height` flag to take relative offsets for validating the tipsets in a snapshot.
-* Fixed issue with invalid snapshot exports.
+* Fixed issue with invalid snapshot exports; messages were accidentally removed from snapshots, making them invalid.
 * Updated `snapshot fetch` subcommands to support the new Protocol Labs snapshot service.
 * Fixed RPC `net disconnect` endpoint (a bug was returning a JSON RPC error when running `forest-cli net disconnect` and preventing proper peer disconnection).
 * Corrected RPC serialization of FIL balances (a bug was preventing display of floating point balance using `forest-cli wallet list`).
