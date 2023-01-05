@@ -12,7 +12,7 @@ Notable updates:
 
 ### Changed
 * Several improvements to error handling.
-* Implemented proper tagging strategy for Docker images.
+* Docker images are now tagged with version (eg `0.6.0`) and date (eg `2023-01-05-commit_hash`).
 * Restored link to [deps.rs](https://deps.rs/).
 * Upgraded toolchain channel to `nightly-2022-12-15`.
 * Migrated logging infrastructure from `log` to `tracing`.
