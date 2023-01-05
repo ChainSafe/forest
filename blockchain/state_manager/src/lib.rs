@@ -120,16 +120,29 @@ impl TipsetStateCache {
             }
         });
         match status {
-            Status::Done(x) => Ok(x),
+            Status::Done(x) => {
+                forest_metrics::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                    .inc();
+                Ok(x)
+            },
             Status::Empty(mtx) => {
                 let _guard = mtx.lock().await;
                 match self.get(key) {
                     Some(v) => {
                         // While locking someone else computed the pending task
+                        forest_metrics::metrics::LRU_CACHE_HIT
+                            .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                            .inc();
+
                         Ok(v)
                     }
                     None => {
                         // Entry does not have state computed yet, compute value and fill the cache
+                        forest_metrics::metrics::LRU_CACHE_MISS
+                            .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                            .inc();
+
                         let cid_pair = compute().await?;
 
                         // Write back to cache, release lock and return value
@@ -141,11 +154,11 @@ impl TipsetStateCache {
         }
     }
 
-    pub fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
+    fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
         self.with_inner(|inner| inner.values.get(key).copied())
     }
 
-    pub fn insert(&self, key: TipsetKeys, value: CidPair) {
+    fn insert(&self, key: TipsetKeys, value: CidPair) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -410,12 +423,10 @@ where
     /// not to be computed twice.
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        //let mut cache_miss = false;
         let key = tipset.key();
         let result = self
             .cache
             .get_or_else(key, || async move {
-                //cache_miss = true;
                 let cid_pair = if tipset.epoch() == 0 {
                     // NB: This is here because the process that executes blocks requires that the
                     // block miner reference a valid miner in the state tree. Unless we create some
@@ -439,15 +450,6 @@ where
             })
             .await;
 
-        // if cache_miss {
-        //     forest_metrics::metrics::LRU_CACHE_MISS
-        //         .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-        //         .inc();
-        // } else {
-        //     forest_metrics::metrics::LRU_CACHE_HIT
-        //         .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-        //         .inc();
-        // }
         result
     }
 
