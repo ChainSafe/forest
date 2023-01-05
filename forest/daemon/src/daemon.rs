@@ -12,6 +12,7 @@ use forest_cli_shared::cli::{
     db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
     FOREST_VERSION_STRING,
 };
+use forest_cli_shared::{open_db, Db};
 use forest_db::Store;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
@@ -136,7 +137,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = open_db(&config)?;
+    let db = open_db(&db_path(&config), &config)?;
 
     let mut services = JoinSet::new();
 
@@ -476,23 +477,6 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
         _ => internal_network_name,
     }
 }
-
-#[cfg(feature = "rocksdb")]
-fn open_db(config: &Config) -> anyhow::Result<forest_db::rocks::RocksDb> {
-    forest_db::rocks::RocksDb::open(db_path(config), &config.rocks_db).map_err(Into::into)
-}
-
-#[cfg(feature = "paritydb")]
-fn open_db(config: &Config) -> anyhow::Result<forest_db::parity_db::ParityDb> {
-    use forest_db::parity_db::*;
-    ParityDb::open(db_path(config), &config.parity_db)
-}
-
-#[cfg(feature = "rocksdb")]
-type Db = forest_db::rocks::RocksDb;
-
-#[cfg(feature = "paritydb")]
-type Db = forest_db::parity_db::ParityDb;
 
 #[cfg(test)]
 mod test {

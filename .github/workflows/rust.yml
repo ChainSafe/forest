@@ -165,6 +165,11 @@ jobs:
         run: |
           forest-cli snapshot export
           sha256sum -c *.sha256sum
+      - name: validate snapshot
+        run: |
+          forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && 
+          { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
+          forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
       - name: print forest logs
         run: |
           wget -O metrics.log http://localhost:6116/metrics
