@@ -137,7 +137,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = open_db(&db_path(&config), &config)?;
+    let db = open_db(&db_path(&config), Some(&config))?;
 
     let mut services = JoinSet::new();
 

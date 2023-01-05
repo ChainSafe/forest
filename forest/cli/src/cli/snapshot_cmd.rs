@@ -370,7 +370,7 @@ async fn validate(
     if confirm {
         let tmp_db_path = TempDir::new()?;
         let db_path = tmp_db_path.path().join(&config.chain.name);
-        let db = forest_cli_shared::open_db(&db_path, config)?;
+        let db = forest_cli_shared::open_db(&db_path, Some(config))?;
 
         let chain_store = Arc::new(ChainStore::new(db).await);
 

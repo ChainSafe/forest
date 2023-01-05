@@ -3759,6 +3759,7 @@ dependencies = [
  "fil_actor_power_v9",
  "fil_actor_reward_v9",
  "fil_actor_system_v9",
+ "forest_cli_shared",
  "forest_db",
  "forest_ipld",
  "forest_json",

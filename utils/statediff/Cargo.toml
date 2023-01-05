@@ -18,6 +18,7 @@ fil_actor_multisig_v9.workspace = true
 fil_actor_power_v9.workspace = true
 fil_actor_reward_v9.workspace = true
 fil_actor_system_v9.workspace = true
+forest_cli_shared.workspace = true
 forest_db.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
