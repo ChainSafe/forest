@@ -952,8 +952,8 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
 
-    #[tokio::test]
-    async fn genesis_test() {
+    #[test]
+    fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
         let cs = ChainStore::new(db);
@@ -972,8 +972,8 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
-    #[tokio::test]
-    async fn block_validation_cache_basic() {
+    #[test]
+    fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
         let cs = ChainStore::new(db);
