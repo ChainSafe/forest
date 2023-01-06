@@ -1,4 +1,40 @@
-## Forest v0.6.0 (unreleased, scheduled for 2022-12-30)
+## Forest v0.6.0 (2023-01-06)
+
+Notable updates:
+* Added support for the new Protocol Labs snapshot service.
+* Several improvements to logging (including integration with Grafana Loki) and
+  error handling.
+
+### Added
+* New daemon option flag `--log-dir` for log file support.
+* New ParityDb section in configuration (including statistics and compression
+  settings).
+* Integration with Grafana Loki for more advanced log filtering and
+  summarization.
+* Peer tipset epoch now in metrics.
+
+### Changed
+* Several improvements to error handling.
+* Docker images are now tagged with version (eg `0.6.0`) and date (eg
+  `2023-01-05-commit_hash`).
+* Upgraded toolchain channel to `nightly-2022-12-15`.
+* Migrated logging infrastructure from `log` to `tracing`.
+* Fixed bug triggered by large network messages.
+* Fixed bug where cursor would be hidden after keyboard interrupt.
+* Allow `-—height` flag to take relative offsets for validating the tipsets in a
+  snapshot.
+* Fixed issue with invalid snapshot exports; messages were accidentally removed
+  from snapshots, making them invalid.
+* Updated `snapshot fetch` subcommands to support the new Protocol Labs snapshot
+  service.
+* Fixed RPC `net disconnect` endpoint (a bug was returning a JSON RPC error when
+  running `forest-cli net disconnect` and preventing proper peer disconnection).
+* Corrected RPC serialization of FIL balances (a bug was preventing display of
+  floating point balance using `forest-cli wallet list`).
+
+### Removed
+* RocksDB check for low file descriptor limit.
+* Unused RPC endpoints.
 
 ## Forest v0.5.1 (2022-12-01)
 
