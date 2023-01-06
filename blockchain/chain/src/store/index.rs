@@ -9,9 +9,9 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use lru::LruCache;
+use parking_lot::Mutex as StdMutex;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
     forest_utils::const_option!(NonZeroUsize::new(32 << 10));
@@ -134,7 +134,7 @@ pub(crate) struct LookbackEntry {
 /// at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
     /// Cache of look-back entries to speed up lookup.
-    skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
+    skip_cache: StdMutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
@@ -146,7 +146,7 @@ pub(crate) struct ChainIndex<BS> {
 impl<BS: Blockstore> ChainIndex<BS> {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
-            skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
+            skip_cache: StdMutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
             db,
         }
@@ -158,27 +158,27 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
     /// from the `blockstore`.
-    pub(crate) async fn get_tipset_by_height(
+    pub(crate) fn get_tipset_by_height(
         &self,
         from: Arc<Tipset>,
         to: ChainEpoch,
     ) -> Result<Arc<Tipset>, Error> {
         if from.epoch() - to <= SKIP_LENGTH {
-            return self.walk_back(from, to).await;
+            return self.walk_back(from, to);
         }
         let total_size = from.epoch() - to;
         let pb = ProgressBar::new(total_size as u64);
         pb.message("Scanning blockchain ");
         pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
-        let rounded = self.round_down(from).await?;
+        let rounded = self.round_down(from)?;
 
         let mut cur = rounded.key().clone();
 
         const MAX_COUNT: usize = 100;
         let mut counter = 0;
         loop {
-            let entry = self.skip_cache.lock().await.get(&cur).cloned();
+            let entry = self.skip_cache.lock().get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
                 metrics::LRU_CACHE_HIT
                     .with_label_values(&[metrics::values::SKIP])
@@ -188,7 +188,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 metrics::LRU_CACHE_MISS
                     .with_label_values(&[metrics::values::SKIP])
                     .inc();
-                self.fill_cache(std::mem::take(&mut cur)).await?
+                self.fill_cache(std::mem::take(&mut cur))?
             };
 
             if let Some(genesis_tipset_keys) =
@@ -207,7 +207,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             if lbe.tipset.epoch() == to || lbe.parent_height < to {
                 return Ok(lbe.tipset.clone());
             } else if to > lbe.target_height {
-                return self.walk_back(lbe.tipset.clone(), to).await;
+                return self.walk_back(lbe.tipset.clone(), to);
             }
             let to_be_done = lbe.tipset.epoch() - to;
             // Don't show the progress bar if we're doing less than 10_000 units of work.
@@ -219,7 +219,6 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
             if counter == MAX_COUNT {
                 counter = 0;
-                tokio::task::yield_now().await;
             } else {
                 counter += 1;
             }
@@ -228,16 +227,16 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
     /// Walks back from the tipset, ignoring the cached entries.
     /// This should only be used when the cache is checked to be invalidated.
-    pub(crate) async fn get_tipset_by_height_without_cache(
+    pub(crate) fn get_tipset_by_height_without_cache(
         &self,
         from: Arc<Tipset>,
         to: ChainEpoch,
     ) -> Result<Arc<Tipset>, Error> {
-        self.walk_back(from, to).await
+        self.walk_back(from, to)
     }
 
     /// Fills cache with look-back entry, and returns inserted entry.
-    async fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
+    fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
         let tipset = self.load_tipset(&tsk)?;
 
         if tipset.epoch() == 0 {
@@ -256,7 +255,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
         let skip_target = if parent.epoch() < r_height {
             parent
         } else {
-            self.walk_back(parent, r_height).await?
+            self.walk_back(parent, r_height)?
         };
 
         let lbe = Arc::new(LookbackEntry {
@@ -266,7 +265,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             target: skip_target.key().clone(),
         });
 
-        self.skip_cache.lock().await.put(tsk.clone(), lbe.clone());
+        self.skip_cache.lock().put(tsk.clone(), lbe.clone());
         Ok(lbe)
     }
 
@@ -276,14 +275,14 @@ impl<BS: Blockstore> ChainIndex<BS> {
     }
 
     /// Gets the closest rounded sparse index and returns the loaded tipset at that index.
-    async fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
+    fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
         let target = self.round_height(ts.epoch());
 
-        self.walk_back(ts, target).await
+        self.walk_back(ts, target)
     }
 
     /// Load parent tipsets until the `to` [`ChainEpoch`].
-    async fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
+    fn walk_back(&self, from: Arc<Tipset>, to: ChainEpoch) -> Result<Arc<Tipset>, Error> {
         if to > from.epoch() {
             return Err(Error::Other(
                 "Looking for tipset with height greater than start point".to_string(),

@@ -272,10 +272,7 @@ where
             return Ok(ts.clone());
         }
 
-        let mut lbts = self
-            .chain_index
-            .get_tipset_by_height(ts.clone(), height)
-            .await?;
+        let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
 
         if lbts.epoch() < height {
             warn!(
@@ -284,8 +281,7 @@ where
             );
             lbts = self
                 .chain_index
-                .get_tipset_by_height_without_cache(ts, height)
-                .await?;
+                .get_tipset_by_height_without_cache(ts, height)?;
         }
 
         if lbts.epoch() == height || !prev {
