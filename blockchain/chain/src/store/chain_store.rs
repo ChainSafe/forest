@@ -131,13 +131,13 @@ where
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid headers.
-    pub async fn add_to_tipset_tracker(&self, header: &BlockHeader) {
-        self.tipset_tracker.add(header).await;
+    pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
+        self.tipset_tracker.add(header);
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset with other
     /// compatible tracked headers.
-    pub async fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
+    pub fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
     where
         S: Scale,
     {
@@ -147,14 +147,14 @@ where
         persist_objects(self.blockstore(), ts.blocks())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
-        let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
+        let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
         self.update_heaviest::<S>(Arc::new(expanded))?;
         Ok(())
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using the tipset tracker.
-    async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
-        self.tipset_tracker.expand(header).await
+    fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
+        self.tipset_tracker.expand(header)
     }
 
     /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.

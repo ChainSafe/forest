@@ -827,7 +827,7 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
             current_head.epoch(),
             proposed_head.key()
         );
-        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head).await {
+        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head) {
             error!(
                 "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
                 proposed_head.epoch(),
@@ -999,7 +999,7 @@ fn sync_tipset<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consen
 
         // Add the tipset to the store. The tipset will be expanded with other blocks with
         // the same [epoch, parents] before updating the heaviest Tipset in the store.
-        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head).await {
+        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head) {
             error!(
                 "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
                 proposed_head.epoch(),
@@ -1173,7 +1173,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     while let Some(result) = validations.next().await {
         match result? {
             Ok(block) => {
-                chainstore.add_to_tipset_tracker(block.header()).await;
+                chainstore.add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
                 warn!(
