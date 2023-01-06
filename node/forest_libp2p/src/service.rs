@@ -385,7 +385,13 @@ async fn handle_network_message<P: StoreParams>(
                 .behaviour_mut()
                 .chain_exchange
                 .send_request(&peer_id, request);
+            let capacity0 = hello_request_table.capacity();
             cx_request_table.insert(request_id, response_channel);
+            let capacity1 = hello_request_table.capacity();
+            let delta = capacity1 as i64 - capacity0 as i64;
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                .inc_by(delta);
             emit_event(
                 network_sender_out,
                 NetworkEvent::ChainExchangeRequestOutbound { request_id },
@@ -790,7 +796,13 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                         NetworkEvent::ChainExchangeResponseInbound { request_id },
                     )
                     .await;
+                    let capacity0 = cx_request_table.capacity();
                     let tx = cx_request_table.remove(&request_id);
+                    let capacity1 = cx_request_table.capacity();
+                    let delta = capacity1 as i64 - capacity0 as i64;
+                    metrics::NETWORK_CONTAINER_CAPACITIES
+                        .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                        .inc_by(delta);
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
                         if tx.send(Ok(response)).is_err() {
@@ -812,7 +824,13 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                 peer, request_id, error
             );
 
+            let capacity0 = cx_request_table.capacity();
             let tx = cx_request_table.remove(&request_id);
+            let capacity1 = cx_request_table.capacity();
+            let delta = capacity1 as i64 - capacity0 as i64;
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                .inc_by(delta);
 
             // Send error through channel out.
             if let Some(tx) = tx {
