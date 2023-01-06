@@ -202,7 +202,7 @@ where
     }
 
     /// Returns Tipset key hash from key-value store from provided CIDs
-    pub async fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
+    pub fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
         checkpoint_tipsets::tipset_hash(tsk)
     }
 

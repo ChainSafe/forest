@@ -267,11 +267,7 @@ where
     B: Beacon,
 {
     let (TipsetKeysJson(tsk),) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_hash_from_keys(&tsk)
-        .await;
+    let ts = data.state_manager.chain_store().tipset_hash_from_keys(&tsk);
     Ok(ts)
 }
 
