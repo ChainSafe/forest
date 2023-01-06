@@ -428,8 +428,7 @@ where
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
         let key = tipset.key();
-        let result = self
-            .cache
+        self.cache
             .get_or_else(key, || async move {
                 let cid_pair = if tipset.epoch() == 0 {
                     // NB: This is here because the process that executes blocks requires that the
@@ -452,9 +451,7 @@ where
 
                 Ok(cid_pair)
             })
-            .await;
-
-        result
+            .await
     }
 
     #[instrument(skip(self, rand))]
