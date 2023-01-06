@@ -36,7 +36,7 @@ log.workspace = true
 lru.workspace = true
 num-traits.workspace = true
 once_cell.workspace = true
-parking_lot = "0.12"
+parking_lot.workspace = true
 prometheus = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
