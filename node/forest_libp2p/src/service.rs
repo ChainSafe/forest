@@ -384,7 +384,7 @@ async fn handle_network_message<P: StoreParams>(
             cx_request_table.insert(request_id, response_channel);
             metrics::NETWORK_CONTAINER_CAPACITIES
                 .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                .set(hello_request_table.capacity() as u64);
+                .set(cx_request_table.capacity() as u64);
             emit_event(
                 network_sender_out,
                 NetworkEvent::ChainExchangeRequestOutbound { request_id },
@@ -399,7 +399,7 @@ async fn handle_network_message<P: StoreParams>(
                 outgoing_bitswap_query_ids.insert(query_id, cid);
                 metrics::NETWORK_CONTAINER_CAPACITIES
                     .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                    .set(hello_request_table.capacity() as u64);
+                    .set(outgoing_bitswap_query_ids.capacity() as u64);
                 emit_event(
                     network_sender_out,
                     NetworkEvent::BitswapRequestOutbound { query_id, cid },
