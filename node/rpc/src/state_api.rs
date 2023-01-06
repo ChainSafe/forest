@@ -76,7 +76,6 @@ pub(crate) async fn state_network_name<
     let heaviest_tipset = state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("Heaviest Tipset not found in state_network_name")?;
 
     state_manager

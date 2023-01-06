@@ -178,7 +178,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
-    let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
+    let should_fetch_snapshot = match chain_store.heaviest_tipset() {
         None => prompt_snapshot_or_die(&config).await?,
         Some(tipset) => {
             let epoch = tipset.epoch();

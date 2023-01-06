@@ -228,7 +228,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
 }
@@ -298,7 +297,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or_else(|| forest_chain::Error::NotFound("heaviest tipset".to_string()))?;
     let ts = data
         .state_manager

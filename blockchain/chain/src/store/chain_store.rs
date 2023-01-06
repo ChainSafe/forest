@@ -148,7 +148,7 @@ where
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
-        self.update_heaviest::<S>(Arc::new(expanded)).await?;
+        self.update_heaviest::<S>(Arc::new(expanded))?;
         Ok(())
     }
 
@@ -178,7 +178,7 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset.
-    pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+    pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         // TODO: Figure out how to remove optional and return something everytime.
         self.heaviest.lock().clone()
     }
@@ -196,7 +196,7 @@ where
     /// Returns Tipset from key-value store from provided CIDs
     pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
-            return Ok(self.heaviest_tipset().await.unwrap());
+            return Ok(self.heaviest_tipset().unwrap());
         }
         tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
     }
@@ -207,7 +207,7 @@ where
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
+    fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
     where
         S: Scale,
     {

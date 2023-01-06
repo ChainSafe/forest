@@ -519,7 +519,6 @@ where
         } else {
             self.cs
                 .heaviest_tipset()
-                .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
@@ -539,7 +538,6 @@ where
         } else {
             self.cs
                 .heaviest_tipset()
-                .await
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
         let (st, _) = self
@@ -963,7 +961,7 @@ where
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (message.from(), &message.sequence());
-        let current_tipset = self.cs.heaviest_tipset().await.unwrap();
+        let current_tipset = self.cs.heaviest_tipset().unwrap();
         let maybe_message_reciept = self
             .tipset_executed_message(&current_tipset, msg_cid, message_var)
             .await?;
@@ -1115,7 +1113,6 @@ where
         let ts = self
             .cs
             .heaviest_tipset()
-            .await
             .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
         let cid = ts.parent_state();
         self.get_balance(addr, *cid)

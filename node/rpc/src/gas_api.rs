@@ -35,12 +35,10 @@ where
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
-    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
-        .await
-        .map(|n| TokenAmount::to_string(&n))
+    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
 
-async fn estimate_fee_cap<DB, B>(
+fn estimate_fee_cap<DB, B>(
     data: &Data<RPCState<DB, B>>,
     msg: Message,
     max_queue_blks: i64,
@@ -54,7 +52,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("can't find heaviest tipset")?;
 
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
@@ -108,7 +105,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("cant get heaviest tipset")?;
 
     for _ in 0..(nblocksincl * 2) {
@@ -207,7 +203,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("cant find the current heaviest tipset")?;
     let from_a = data
         .state_manager
@@ -275,7 +270,7 @@ where
         msg.gas_premium = gp;
     }
     if msg.gas_fee_cap.is_zero() {
-        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk).await?;
+        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
         msg.gas_fee_cap = gfp;
     }
     // TODO: Cap Gas Fee https://github.com/ChainSafe/forest/issues/901

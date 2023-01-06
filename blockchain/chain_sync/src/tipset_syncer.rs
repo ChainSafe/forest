@@ -302,7 +302,7 @@ where
         Box::pin(async move {
             // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
-            let current_head = chain_store.heaviest_tipset().await.unwrap();
+            let current_head = chain_store.heaviest_tipset().unwrap();
             // Unwrapping is safe here because we assume that the
             // tipset group contains at least one tipset
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();

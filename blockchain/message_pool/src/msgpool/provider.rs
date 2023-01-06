@@ -77,7 +77,7 @@ where
     }
 
     async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        self.sm.chain_store().heaviest_tipset().await
+        self.sm.chain_store().heaviest_tipset()
     }
 
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error> {

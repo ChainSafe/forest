@@ -117,7 +117,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = data
         .state_manager
