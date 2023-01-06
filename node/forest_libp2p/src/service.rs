@@ -362,7 +362,14 @@ async fn handle_network_message<P: StoreParams>(
             response_channel,
         } => {
             let request_id = swarm.behaviour_mut().hello.send_request(&peer_id, request);
+            let capacity0 = hello_request_table.capacity();
             hello_request_table.insert(request_id, response_channel);
+            let capacity1 = hello_request_table.capacity();
+            let delta = capacity1 as i64 - capacity0 as i64;
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                .inc_by(delta);
+
             emit_event(
                 network_sender_out,
                 NetworkEvent::HelloRequestOutbound { request_id },
@@ -598,6 +605,7 @@ async fn handle_hello_event<P: StoreParams>(
                 response,
             } => {
                 // Send the sucessful response through channel out.
+                let capacity0 = hello_request_table.capacity();
                 if let Some(tx) = hello_request_table.remove(&request_id) {
                     if tx.send(Ok(response)).is_err() {
                         warn!("Fail to send Hello response");
@@ -611,6 +619,11 @@ async fn handle_hello_event<P: StoreParams>(
                 } else {
                     warn!("RPCResponse receive failed: channel not found");
                 };
+                let capacity1 = hello_request_table.capacity();
+                let delta = capacity1 as i64 - capacity0 as i64;
+                metrics::NETWORK_CONTAINER_CAPACITIES
+                    .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                    .inc_by(delta);
             }
         },
         RequestResponseEvent::OutboundFailure {
@@ -624,12 +637,18 @@ async fn handle_hello_event<P: StoreParams>(
             );
 
             // Send error through channel out.
+            let capacity0 = hello_request_table.capacity();
             let tx = hello_request_table.remove(&request_id);
             if let Some(tx) = tx {
                 if tx.send(Err(error.into())).is_err() {
                     warn!("RPCResponse receive failed");
                 }
             }
+            let capacity1 = hello_request_table.capacity();
+            let delta = capacity1 as i64 - capacity0 as i64;
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                .inc_by(delta);
         }
         RequestResponseEvent::InboundFailure {
             peer,
