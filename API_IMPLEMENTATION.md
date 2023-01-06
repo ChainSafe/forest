@@ -2,9 +2,9 @@
 
 ## Stats
 
-- Forest method count: 46
+- Forest method count: 45
 - Lotus method count: 173
-- API coverage: 26.59%
+- API coverage: 26.01%
 
 ## Forest-only Methods
 
@@ -43,8 +43,6 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 | `Filecoin.WalletExport`                              | `0` | `String` | `Address`
 | `Filecoin.WalletHas`                                 | `0` | `String` | `Address`
 | `Filecoin.WalletNew`                                 | `0` | `SignatureTypeJson` | `KeyType`
-| `Filecoin.WalletSignMessage`                         | `0` | `String` | `Address`
-| `Filecoin.WalletSignMessage`                         | `1` | `MessageJson` | `UnsignedMessageJson`
 
 ### Results Mismatches
 
@@ -234,7 +232,7 @@ Some methods contain possible inconsistencies between Forest and Lotus.
 |   ✔️    | `Filecoin.WalletNew`                                 | `(SignatureTypeJson)` | `String` |
 |   ❌    | `Filecoin.WalletSetDefault`                          | `-` | `-` |
 |   ✔️    | `Filecoin.WalletSign`                                | `(AddressJson, Vec<u8>)` | `SignatureJson` |
-|   ✔️    | `Filecoin.WalletSignMessage`                         | `(String, MessageJson)` | `SignedMessageJson` |
+|   ❌    | `Filecoin.WalletSignMessage`                         | `-` | `-` |
 |   ❌    | `Filecoin.WalletValidateAddress`                     | `-` | `-` |
 |   ✔️    | `Filecoin.WalletVerify`                              | `(AddressJson, Vec<u8>, SignatureJson)` | `bool` |
 

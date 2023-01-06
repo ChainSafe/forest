@@ -19,7 +19,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-use super::{cli_error_and_die, handle_rpc_err};
+use super::handle_rpc_err;
 
 #[derive(Debug, StructOpt)]
 pub enum WalletCommands {
@@ -130,36 +130,21 @@ impl WalletCommands {
             }
             Self::Import { path } => {
                 let key = match path {
-                    Some(path) => match read_file_to_string(&PathBuf::from(path)) {
-                        Ok(key) => key,
-                        _ => cli_error_and_die(format!("{path} is not a valid path"), 1),
-                    },
+                    Some(path) => read_file_to_string(&PathBuf::from(path))?,
                     _ => {
                         println!("Enter the private key: ");
-                        read_password().expect("Error reading private key")
+                        read_password()?
                     }
                 };
 
                 let key = key.trim();
 
-                let decoded_key_result = hex::decode(key);
-
-                if decoded_key_result.is_err() {
-                    cli_error_and_die("Key must be hex encoded", 1);
-                }
-
-                let decoded_key = decoded_key_result?;
+                let decoded_key = hex::decode(key).context("Key must be hex encoded")?;
 
                 let key_str = str::from_utf8(&decoded_key)?;
 
-                let key_result: Result<KeyInfoJson, serde_json::error::Error> =
-                    serde_json::from_str(key_str);
-
-                if key_result.is_err() {
-                    cli_error_and_die(format!("{key} is not a valid key to import"), 1);
-                }
-
-                let key = key_result?;
+                let key: KeyInfoJson =
+                    serde_json::from_str(key_str).context("invalid key format")?;
 
                 let key = wallet_import(vec![KeyInfoJson(key.0)], &config.client.rpc_token)
                     .await
@@ -173,13 +158,9 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let default = match wallet_default_address(&config.client.rpc_token).await {
-                    Ok(addr) => addr,
-                    Err(err) => {
-                        println!("Failed get the wallet default address");
-                        return Err(handle_rpc_err(err));
-                    }
-                };
+                let default = wallet_default_address(&config.client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)?;
 
                 let (title_address, title_default_mark, title_balance) =
                     ("Address", "Default", "Balance");
@@ -189,37 +170,19 @@ impl WalletCommands {
                     let addr = address.0.to_string();
                     let default_address_mark = if addr == default { "X" } else { "" };
 
-                    let balance_string =
-                        match wallet_balance((addr.clone(),), &config.client.rpc_token).await {
-                            Ok(balance) => balance,
-                            Err(err) => {
-                                println!("Failed loading the wallet balance");
-                                return Err(handle_rpc_err(err));
-                            }
-                        };
+                    let balance_string = wallet_balance((addr.clone(),), &config.client.rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)?;
 
-                    let balance_int = match balance_string.parse::<BigInt>() {
-                        Ok(balance) => TokenAmount::from_atto(balance),
-                        Err(err) => {
-                            println!(
-                                "Couldn't convert balance {balance_string} to TokenAmount: {err}"
-                            );
-                            continue;
-                        }
-                    };
+                    let balance_int = TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_int:.6} FIL");
                 }
                 Ok(())
             }
             Self::SetDefault { key } => {
-                let key_parse_result = Address::from_str(key);
-
-                if key_parse_result.is_err() {
-                    cli_error_and_die("Error parsing address. Verify that the address exists and is in the keystore", 1);
-                }
-
-                let key = key_parse_result?;
+                let key =
+                    Address::from_str(key).with_context(|| format!("Invalid address: {key}"))?;
 
                 let key_json = AddressJson(key);
                 wallet_set_default((key_json,), &config.client.rpc_token)
@@ -228,13 +191,8 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Sign { address, message } => {
-                let address_result = Address::from_str(address);
-
-                if address_result.is_err() {
-                    cli_error_and_die(format!("{address} is not a valid address"), 1);
-                }
-
-                let address = address_result?;
+                let address = Address::from_str(address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = base64::encode(message);
@@ -255,7 +213,8 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let address = Address::from_str(address)?;
+                let address = Address::from_str(address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
                 let signature = match address.protocol() {
                     Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
                     Protocol::BLS => Signature::new_bls(sig_bytes),
