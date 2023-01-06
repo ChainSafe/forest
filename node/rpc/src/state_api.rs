@@ -36,7 +36,7 @@ pub(crate) async fn state_call<
         .state_manager
         .chain_store()
         .tipset_from_keys(&key.into())?;
-    Ok(state_manager.call(&mut message, Some(tipset)).await?)
+    Ok(state_manager.call(&mut message, Some(tipset))?)
 }
 
 /// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
@@ -165,8 +165,7 @@ pub(crate) async fn state_get_receipt<
         .chain_store()
         .tipset_from_keys(&key.into())?;
     state_manager
-        .get_receipt(&tipset, cid)
-        .await
+        .get_receipt(tipset, cid)
         .map(|s| s.into())
         .map_err(|e| e.into())
 }
