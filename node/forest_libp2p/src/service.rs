@@ -55,25 +55,27 @@ mod metrics {
     use lazy_static::lazy_static;
     use prometheus::core::{AtomicI64, GenericCounterVec, Opts};
     lazy_static! {
-        pub static ref BITSWAP_HASHMAP_CAPACITIES: Box<GenericCounterVec<AtomicI64>> = {
-            let bitswap_hashmap_capacities = Box::new(
+        pub static ref NETWORK_CONTAINER_CAPACITIES: Box<GenericCounterVec<AtomicI64>> = {
+            let network_container_capacities = Box::new(
                 GenericCounterVec::<AtomicI64>::new(
                     Opts::new(
-                        "bitswap_hashmap_capacities",
-                        "Capacity for each bitswap hashmap",
+                        "network_container_capacities",
+                        "Capacity for each container",
                     ),
                     &[labels::KIND],
                 )
-                .expect("Defining the bitswap_hashmap_capacities metric must succeed"),
+                .expect("Defining the network_container_capacities metric must succeed"),
             );
-            prometheus::default_registry().register(bitswap_hashmap_capacities.clone()).expect(
-                "Registering the bitswap_hashmap_capacities metric with the metrics registry must succeed"
+            prometheus::default_registry().register(network_container_capacities.clone()).expect(
+                "Registering the network_container_capacities metric with the metrics registry must succeed"
             );
-            bitswap_hashmap_capacities
+            network_container_capacities
         };
     }
 
     pub mod values {
+        pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
+        pub const CX_REQUEST_TABLE: &str = "cx_request_table";
         pub const BITSWAP_OUTGOING_QUERY_IDS: &str = "bitswap_out_query_ids";
     }
 
@@ -392,7 +394,7 @@ async fn handle_network_message<P: StoreParams>(
                 outgoing_bitswap_query_ids.insert(query_id, cid);
                 let capacity1 = outgoing_bitswap_query_ids.capacity();
                 let delta = capacity1 as i64 - capacity0 as i64;
-                metrics::BITSWAP_HASHMAP_CAPACITIES
+                metrics::NETWORK_CONTAINER_CAPACITIES
                     .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
                     .inc_by(delta);
 
@@ -671,7 +673,7 @@ async fn handle_bitswap_event(
                 }
                 let capacity1 = outgoing_bitswap_query_ids.capacity();
                 let delta = capacity1 as i64 - capacity0 as i64;
-                metrics::BITSWAP_HASHMAP_CAPACITIES
+                metrics::NETWORK_CONTAINER_CAPACITIES
                     .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
                     .inc_by(delta);
             }
