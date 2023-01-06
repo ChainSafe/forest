@@ -151,10 +151,7 @@ where
     let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
 
     if !skip_load {
-        let gb = sm
-            .chain_store()
-            .tipset_by_height(0, ts.clone(), true)
-            .await?;
+        let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
         if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {

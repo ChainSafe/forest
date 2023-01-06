@@ -69,7 +69,7 @@ where
 
     let head = data.chain_store.tipset_from_keys(&tsk)?;
 
-    let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
+    let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
     match data
         .chain_store
@@ -195,8 +195,7 @@ where
     let tss = data
         .state_manager
         .chain_store()
-        .tipset_by_height(height, ts, true)
-        .await?;
+        .tipset_by_height(height, ts, true)?;
     Ok(TipsetJson(tss))
 }
 

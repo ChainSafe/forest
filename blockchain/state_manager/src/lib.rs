@@ -521,7 +521,7 @@ where
                 .heaviest_tipset()
                 .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
         };
-        let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
+        let chain_rand = self.chain_rand(ts.key().to_owned());
         self.call_raw(message, chain_rand, &ts)
     }
 
@@ -544,7 +544,7 @@ where
             .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
+        let chain_rand = self.chain_rand(ts.key().to_owned());
 
         let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
@@ -649,7 +649,6 @@ where
         let next_ts = self
             .cs
             .tipset_by_height(lbr + 1, tipset.clone(), false)
-            .await
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
@@ -765,9 +764,8 @@ where
             Default::default()
         };
 
-        let async_handle = tokio::runtime::Handle::current();
         let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-        let chain_rand = self.chain_rand(tipset_keys, async_handle);
+        let chain_rand = self.chain_rand(tipset_keys);
         let base_fee = first_block.parent_base_fee().clone();
 
         let blocks = self
@@ -1246,17 +1244,12 @@ where
         Ok(())
     }
 
-    fn chain_rand(
-        &self,
-        blocks: TipsetKeys,
-        async_handle: tokio::runtime::Handle,
-    ) -> ChainRand<DB> {
+    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config.clone(),
             blocks,
             self.cs.clone(),
             self.beacon.clone(),
-            async_handle,
         )
     }
 }

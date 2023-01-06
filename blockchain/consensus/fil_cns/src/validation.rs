@@ -73,7 +73,6 @@ pub(crate) async fn validate_block<
 
     let prev_beacon = chain_store
         .latest_beacon_entry(&base_tipset)
-        .await
         .map(Arc::new)
         .map_err(to_errs)?;
 

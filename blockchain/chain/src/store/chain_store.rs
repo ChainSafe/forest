@@ -257,7 +257,7 @@ where
     /// - If `prev` is `false`, the tipset following the null round is returned.
     ///
     /// Returns `None` if the tipset provided was the tipset at the given height.
-    pub async fn tipset_by_height(
+    pub fn tipset_by_height(
         &self,
         height: ChainEpoch,
         ts: Arc<Tipset>,
@@ -339,7 +339,7 @@ where
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub async fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
+    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
             let cbe = ts.min_ticket_block().beacon_entries();
             if let Some(entry) = cbe.last() {
