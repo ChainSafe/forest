@@ -4,15 +4,26 @@
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use anyhow::bail;
-use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use dialoguer::{theme::ColorfulTheme, Confirm};
+use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
+use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
+
+use forest_db::Store;
+use forest_genesis::read_genesis_header;
+use forest_ipld::recurse_links;
 use forest_rpc_client::chain_ops::*;
-use std::{collections::HashMap, fs, path::PathBuf};
+use forest_utils::net::FetchProgress;
+use fvm_ipld_car::load_car;
+use fvm_shared::clock::ChainEpoch;
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
+use tempfile::TempDir;
 use time::OffsetDateTime;
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -108,6 +119,17 @@ pub enum SnapshotCommands {
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
+        #[structopt(long)]
+        force: bool,
+    },
+    /// Validates the snapshot.
+    Validate {
+        /// Number of block headers to validate from the tip
+        #[structopt(long, default_value = "2000")]
+        recent_stateroots: i64,
+        /// Path to snapshot file
+        snapshot: PathBuf,
+        /// Force validation and answers yes to all prompts.
         #[structopt(long)]
         force: bool,
     },
@@ -215,6 +237,11 @@ impl SnapshotCommands {
                 snapshot_dir,
                 force,
             } => clean(&config, snapshot_dir, *force),
+            Self::Validate {
+                recent_stateroots,
+                snapshot,
+                force,
+            } => validate(&config, recent_stateroots, snapshot, *force).await,
         }
     }
 }
@@ -319,6 +346,127 @@ fn clean(config: &Config, snapshot_dir: &Option<PathBuf>, force: bool) -> anyhow
     for snapshot_path in snapshots_to_delete {
         delete_snapshot(&snapshot_path);
     }
+
+    Ok(())
+}
+
+async fn validate(
+    config: &Config,
+    recent_stateroots: &i64,
+    snapshot: &PathBuf,
+    force: bool,
+) -> anyhow::Result<()> {
+    let confirm = force
+        || atty::is(atty::Stream::Stdin)
+            && Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(format!(
+                    "This will result in using approximately {} MB of data. Proceed?",
+                    std::fs::metadata(snapshot)?.len() / (1024 * 1024)
+                ))
+                .default(false)
+                .interact()
+                .unwrap_or_default();
+
+    if confirm {
+        let tmp_db_path = TempDir::new()?;
+        let db_path = tmp_db_path.path().join(&config.chain.name);
+        let db = forest_cli_shared::open_db(&db_path, config)?;
+
+        let chain_store = Arc::new(ChainStore::new(db).await);
+
+        let genesis = read_genesis_header(
+            config.client.genesis_file.as_ref(),
+            config.chain.genesis_bytes(),
+            &chain_store,
+        )
+        .await?;
+
+        let cids = {
+            let file = tokio::fs::File::open(&snapshot).await?;
+            let reader = FetchProgress::fetch_from_file(file).await?;
+            load_car(chain_store.blockstore(), reader.compat()).await?
+        };
+
+        let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids)).await?;
+
+        validate_links_and_genesis_traversal(
+            &chain_store,
+            ts,
+            chain_store.blockstore(),
+            *recent_stateroots,
+            &genesis,
+            &config.chain.name,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+async fn validate_links_and_genesis_traversal<DB>(
+    chain_store: &ChainStore<DB>,
+    ts: Arc<Tipset>,
+    db: &DB,
+    recent_stateroots: ChainEpoch,
+    genesis_tipset: &Tipset,
+    network: &str,
+) -> anyhow::Result<()>
+where
+    DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
+{
+    let mut seen = std::collections::HashSet::<Cid>::new();
+    let upto = ts.epoch() - recent_stateroots;
+
+    let mut tsk = ts.parents().clone();
+
+    let total_size = ts.epoch();
+    let pb = forest_utils::io::ProgressBar::new(total_size as u64);
+    pb.message("Validating tipsets: ");
+    pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
+
+    // Security: Recursive snapshots are difficult to create but not impossible. This
+    // limits the amount of recursion we do.
+    let mut prev_epoch = ts.epoch();
+    loop {
+        // if we reach 0 here, it means parent traversal didn't end up reaching genesis properly, bail with error.
+        if prev_epoch <= 0 {
+            bail!("Broken invariant: no genesis tipset in snapshot.");
+        }
+
+        let tipset = chain_store.tipset_from_keys(&tsk).await?;
+        let height = tipset.epoch();
+        // if parent tipset epoch is smaller than child, bail with error.
+        if height >= prev_epoch {
+            bail!("Broken tipset invariant: parent epoch larger than current epoch at: {height}");
+        }
+        // genesis is reachable, break with success
+        if height == 0 {
+            if tipset.as_ref() != genesis_tipset {
+                bail!("Invalid genesis tipset. Snapshot isn't valid for {network}. It may be valid for another network.");
+            }
+
+            break;
+        }
+        // check for ipld links backwards till `upto`
+        if height > upto {
+            let mut assert_cid_exists = |cid: Cid| async move {
+                let data = db.get(&cid)?;
+                data.ok_or_else(|| anyhow::anyhow!("Broken IPLD link at epoch: {height}"))
+            };
+
+            for h in tipset.blocks() {
+                recurse_links(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
+                recurse_links(&mut seen, *h.messages(), &mut assert_cid_exists).await?;
+            }
+        }
+
+        tsk = tipset.parents().clone();
+        prev_epoch = tipset.epoch();
+        pb.set((ts.epoch() - tipset.epoch()) as u64);
+    }
+
+    pb.finish();
+    println!("Snapshot is valid");
 
     Ok(())
 }

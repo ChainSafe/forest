@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+atty = "0.2"
 base64.workspace = true
 cid.workspace = true
+dialoguer.workspace = true
 directories.workspace = true
 fil_actor_miner_v8.workspace = true
 forest_actor_interface.workspace = true
@@ -19,9 +21,12 @@ forest_chain.workspace = true
 forest_chain_sync.workspace = true
 forest_cli_shared.workspace = true
 forest_crypto.workspace = true
+forest_db = { workspace = true }
 forest_encoding.workspace = true
 forest_fil_types.workspace = true
+forest_genesis.workspace = true
 forest_interpreter.workspace = true
+forest_ipld.workspace = true
 forest_json.workspace = true
 forest_key_management.workspace = true
 forest_libp2p.workspace = true
@@ -36,6 +41,7 @@ forest_utils.workspace = true
 fs_extra.workspace = true
 futures.workspace = true
 fvm.workspace = true
+fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
@@ -60,6 +66,7 @@ tempfile.workspace = true
 ticker = "0.1"
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
+tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
 url.workspace = true
 
@@ -70,6 +77,6 @@ rand.workspace = true
 
 [features]
 default = ["rocksdb"]
-rocksdb = ["forest_cli_shared/rocksdb"]
-paritydb = ["forest_cli_shared/paritydb"]
+rocksdb = ["forest_cli_shared/rocksdb", "forest_db/rocksdb"]
+paritydb = ["forest_cli_shared/paritydb", "forest_db/paritydb"]
 slow_tests = []

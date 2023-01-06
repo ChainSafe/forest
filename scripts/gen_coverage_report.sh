@@ -22,12 +22,12 @@ function cleanup {
 trap cleanup EXIT
 
 function cov {
-    echo Running: cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
+    # echo Running: cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
     cargo llvm-cov --no-report run --bin="$1" -- "${@:2}"
 }
 
 cargo llvm-cov --workspace clean
-#cargo llvm-cov --workspace --no-report --features slow_tests
+cargo llvm-cov --workspace --no-report --features slow_tests
 cov forest-cli --chain calibnet db clean --force
 cov forest-cli --chain calibnet snapshot fetch --aria2 -s "$TMP_DIR"
 SNAPSHOT_PATH=$(find "$TMP_DIR" -name \*.car | head -n 1)

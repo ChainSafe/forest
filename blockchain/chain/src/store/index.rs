@@ -9,8 +9,9 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use lru::LruCache;
-use std::{num::NonZeroUsize, sync::Arc};
-use tokio::sync::RwLock;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
     forest_utils::const_option!(NonZeroUsize::new(32 << 10));
@@ -133,7 +134,7 @@ pub(crate) struct LookbackEntry {
 /// at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
     /// Cache of look-back entries to speed up lookup.
-    skip_cache: RwLock<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
+    skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
@@ -145,7 +146,7 @@ pub(crate) struct ChainIndex<BS> {
 impl<BS: Blockstore> ChainIndex<BS> {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
-            skip_cache: RwLock::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
+            skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
             db,
         }
@@ -173,10 +174,11 @@ impl<BS: Blockstore> ChainIndex<BS> {
         let rounded = self.round_down(from).await?;
 
         let mut cur = rounded.key().clone();
+
         const MAX_COUNT: usize = 100;
         let mut counter = 0;
         loop {
-            let entry = self.skip_cache.write().await.get(&cur).cloned();
+            let entry = self.skip_cache.lock().await.get(&cur).cloned();
             let lbe = if let Some(cached) = entry {
                 metrics::LRU_CACHE_HIT
                     .with_label_values(&[metrics::values::SKIP])
@@ -265,7 +267,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             target: skip_target.key().clone(),
         });
 
-        self.skip_cache.write().await.put(tsk.clone(), lbe.clone());
+        self.skip_cache.lock().await.put(tsk.clone(), lbe.clone());
         Ok(lbe)
     }
 

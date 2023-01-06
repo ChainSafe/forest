@@ -42,8 +42,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use std::sync::Mutex as StdMutex;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
@@ -53,6 +55,120 @@ const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
 
 /// Intermediary for retrieving state objects and updating actor states.
 type CidPair = (Cid, Cid);
+
+// Various structures for implementing the tipset state cache
+
+struct TipsetStateCacheInner {
+    values: LruCache<TipsetKeys, CidPair>,
+    pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
+}
+
+impl Default for TipsetStateCacheInner {
+    fn default() -> Self {
+        Self {
+            values: LruCache::new(DEFAULT_TIPSET_CACHE_SIZE),
+            pending: Vec::with_capacity(8),
+        }
+    }
+}
+
+struct TipsetStateCache {
+    cache: Arc<StdMutex<TipsetStateCacheInner>>,
+}
+
+enum Status {
+    Done(CidPair),
+    Empty(Arc<TokioMutex<()>>),
+}
+
+impl TipsetStateCache {
+    pub fn new() -> Self {
+        Self {
+            cache: Arc::new(StdMutex::new(TipsetStateCacheInner::default())),
+        }
+    }
+
+    fn with_inner<F, T>(&self, func: F) -> T
+    where
+        F: FnOnce(&mut TipsetStateCacheInner) -> T,
+    {
+        let mut lock = self.cache.lock().unwrap();
+        func(&mut lock)
+    }
+
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, compute: F) -> anyhow::Result<CidPair>
+    where
+        F: Fn() -> Fut,
+        Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
+    {
+        let status = self.with_inner(|inner| match inner.values.get(key) {
+            Some(v) => Status::Done(*v),
+            None => {
+                let option = inner
+                    .pending
+                    .iter()
+                    .find(|(k, _)| k == key)
+                    .map(|(_, mutex)| mutex);
+                match option {
+                    Some(mutex) => Status::Empty(mutex.clone()),
+                    None => {
+                        let mutex = Arc::new(TokioMutex::new(()));
+                        inner.pending.push((key.clone(), mutex.clone()));
+                        Status::Empty(mutex)
+                    }
+                }
+            }
+        });
+        match status {
+            Status::Done(x) => {
+                forest_metrics::metrics::LRU_CACHE_HIT
+                    .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                    .inc();
+                Ok(x)
+            }
+            Status::Empty(mtx) => {
+                let _guard = mtx.lock().await;
+                match self.get(key) {
+                    Some(v) => {
+                        // While locking someone else computed the pending task
+                        forest_metrics::metrics::LRU_CACHE_HIT
+                            .with_label_values(&[
+                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                            ])
+                            .inc();
+
+                        Ok(v)
+                    }
+                    None => {
+                        // Entry does not have state computed yet, compute value and fill the cache
+                        forest_metrics::metrics::LRU_CACHE_MISS
+                            .with_label_values(&[
+                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                            ])
+                            .inc();
+
+                        let cid_pair = compute().await?;
+
+                        // Write back to cache, release lock and return value
+                        self.insert(key.clone(), cid_pair);
+                        Ok(cid_pair)
+                    }
+                }
+            }
+        }
+    }
+
+    fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
+        self.with_inner(|inner| inner.values.get(key).copied())
+    }
+
+    fn insert(&self, key: TipsetKeys, value: CidPair) {
+        self.with_inner(|inner| {
+            inner.pending.retain(|(k, _)| k != &key);
+            inner.values.put(key, value);
+        });
+    }
+}
 
 /// Type to represent invocation of state call results.
 #[derive(Serialize, Deserialize)]
@@ -84,9 +200,7 @@ pub struct StateManager<DB> {
     cs: Arc<ChainStore<DB>>,
 
     /// This is a cache which indexes tipsets to their calculated state.
-    /// The calculated state is wrapped in a mutex to avoid duplicate computation
-    /// of the state/receipt root.
-    cache: RwLock<LruCache<TipsetKeys, Arc<once_cell::sync::OnceCell<CidPair>>>>,
+    cache: TipsetStateCache,
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
@@ -112,7 +226,7 @@ where
 
         Ok(Self {
             cs,
-            cache: RwLock::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)),
+            cache: TipsetStateCache::new(),
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
@@ -313,64 +427,31 @@ where
     /// not to be computed twice.
     #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
-        // Get entry in cache, if it exists.
-        // Arc is cloned here to avoid holding the entire cache lock until function ends.
-        // (tasks should be able to compute different tipset state's in parallel)
-        //
-        // In the case of task `A` computing the same tipset as task `B`, `A` will hold the
-        // mutex until the value is updated, which task `B` will await.
-        //
-        // If two tasks are computing different tipset states, they will only block computation
-        // when accessing/initializing the entry in cache, not during the whole tipset calc.
+        let key = tipset.key();
+        self.cache
+            .get_or_else(key, || async move {
+                let cid_pair = if tipset.epoch() == 0 {
+                    // NB: This is here because the process that executes blocks requires that the
+                    // block miner reference a valid miner in the state tree. Unless we create some
+                    // magical genesis miner, this won't work properly, so we short circuit here
+                    // This avoids the question of 'who gets paid the genesis block reward'
+                    let message_receipts = tipset.blocks().first().ok_or_else(|| {
+                        Error::Other("Could not get message receipts".to_string())
+                    })?;
 
-        // first try reading cache
-        if let Some(entry) = self.cache.write().await.get(tipset.key()) {
-            trace!("hit cache for tipset {:?}", tipset.cids());
-            forest_metrics::metrics::LRU_CACHE_HIT
-                .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-                .inc();
-            return Ok(*entry.wait());
-        }
+                    (*tipset.parent_state(), *message_receipts.message_receipts())
+                } else {
+                    // generic constants are not implemented yet this is a lowcost method for now
+                    let no_func =
+                        None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
+                    let ts_state = self.compute_tipset_state(tipset, no_func).await?;
+                    debug!("Completed tipset state calculation {:?}", tipset.cids());
+                    ts_state
+                };
 
-        // write an empty `OnceCell` when cache not hit
-        let cache_entry = Arc::new(once_cell::sync::OnceCell::new());
-        {
-            self.cache
-                .write()
-                .await
-                .push(tipset.key().clone(), cache_entry.clone());
-        }
-
-        // Entry does not have state computed yet, this task will fill entry if successful.
-        debug!("calculating tipset state {:?}", tipset.cids());
-
-        let cid_pair = if tipset.epoch() == 0 {
-            // NB: This is here because the process that executes blocks requires that the
-            // block miner reference a valid miner in the state tree. Unless we create some
-            // magical genesis miner, this won't work properly, so we short circuit here
-            // This avoids the question of 'who gets paid the genesis block reward'
-            let message_receipts = tipset
-                .blocks()
-                .first()
-                .ok_or_else(|| Error::Other("Could not get message receipts".to_string()))?;
-
-            (*tipset.parent_state(), *message_receipts.message_receipts())
-        } else {
-            // generic constants are not implemented yet this is a lowcost method for now
-            let no_func = None::<fn(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>>;
-            let ts_state = self.compute_tipset_state(tipset, no_func).await?;
-            debug!("completed tipset state calculation {:?}", tipset.cids());
-            ts_state
-        };
-
-        // Fill entry with calculated cid pair
-        if let Err(e) = cache_entry.set(cid_pair) {
-            error!("Fail to set tipset_state cache: {}, {}", e.0, e.1);
-        }
-        forest_metrics::metrics::LRU_CACHE_MISS
-            .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
-            .inc();
-        Ok(cid_pair)
+                Ok(cid_pair)
+            })
+            .await
     }
 
     #[instrument(skip(self, rand))]
