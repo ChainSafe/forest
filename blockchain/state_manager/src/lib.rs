@@ -125,14 +125,16 @@ impl TipsetStateCache {
                     .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
                     .inc();
                 Ok(x)
-            },
+            }
             Status::Empty(mtx) => {
                 let _guard = mtx.lock().await;
                 match self.get(key) {
                     Some(v) => {
                         // While locking someone else computed the pending task
                         forest_metrics::metrics::LRU_CACHE_HIT
-                            .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                            .with_label_values(&[
+                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                            ])
                             .inc();
 
                         Ok(v)
@@ -140,7 +142,9 @@ impl TipsetStateCache {
                     None => {
                         // Entry does not have state computed yet, compute value and fill the cache
                         forest_metrics::metrics::LRU_CACHE_MISS
-                            .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                            .with_label_values(&[
+                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
+                            ])
                             .inc();
 
                         let cid_pair = compute().await?;
