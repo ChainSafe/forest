@@ -1114,18 +1114,19 @@ async fn sync_messages_check_state<
     // Validation loop
     while let Ok(full_tipset) = r.recv_async().await {
         let current_epoch = full_tipset.epoch();
-        let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
-        validate_tipset::<_, C>(
-            consensus.clone(),
-            state_manager.clone(),
-            &chainstore,
-            bad_block_cache,
-            full_tipset,
-            genesis,
-            invalid_block_strategy,
-        )
-        .await?;
-        timer.observe_duration();
+        {
+            let _timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
+            validate_tipset::<_, C>(
+                consensus.clone(),
+                state_manager.clone(),
+                &chainstore,
+                bad_block_cache,
+                full_tipset,
+                genesis,
+                invalid_block_strategy,
+            )
+            .await?;
+        }
         tracker.write().await.set_epoch(current_epoch);
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
