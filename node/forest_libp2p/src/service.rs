@@ -53,11 +53,11 @@ use tokio_stream::wrappers::IntervalStream;
 
 mod metrics {
     use lazy_static::lazy_static;
-    use prometheus::core::{AtomicI64, GenericCounterVec, Opts};
+    use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
     lazy_static! {
-        pub static ref NETWORK_CONTAINER_CAPACITIES: Box<GenericCounterVec<AtomicI64>> = {
+        pub static ref NETWORK_CONTAINER_CAPACITIES: Box<GenericGaugeVec<AtomicU64>> = {
             let network_container_capacities = Box::new(
-                GenericCounterVec::<AtomicI64>::new(
+                GenericGaugeVec::<AtomicU64>::new(
                     Opts::new(
                         "network_container_capacities",
                         "Capacity for each container",
@@ -362,14 +362,10 @@ async fn handle_network_message<P: StoreParams>(
             response_channel,
         } => {
             let request_id = swarm.behaviour_mut().hello.send_request(&peer_id, request);
-            let capacity0 = hello_request_table.capacity();
             hello_request_table.insert(request_id, response_channel);
-            let capacity1 = hello_request_table.capacity();
-            let delta = capacity1 as i64 - capacity0 as i64;
             metrics::NETWORK_CONTAINER_CAPACITIES
                 .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                .inc_by(delta);
-
+                .set(hello_request_table.capacity() as u64);
             emit_event(
                 network_sender_out,
                 NetworkEvent::HelloRequestOutbound { request_id },
@@ -385,13 +381,10 @@ async fn handle_network_message<P: StoreParams>(
                 .behaviour_mut()
                 .chain_exchange
                 .send_request(&peer_id, request);
-            let capacity0 = hello_request_table.capacity();
             cx_request_table.insert(request_id, response_channel);
-            let capacity1 = hello_request_table.capacity();
-            let delta = capacity1 as i64 - capacity0 as i64;
             metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                .inc_by(delta);
+                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                .set(hello_request_table.capacity() as u64);
             emit_event(
                 network_sender_out,
                 NetworkEvent::ChainExchangeRequestOutbound { request_id },
@@ -403,14 +396,10 @@ async fn handle_network_message<P: StoreParams>(
             response_channel: _,
         } => match swarm.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
-                let capacity0 = outgoing_bitswap_query_ids.capacity();
                 outgoing_bitswap_query_ids.insert(query_id, cid);
-                let capacity1 = outgoing_bitswap_query_ids.capacity();
-                let delta = capacity1 as i64 - capacity0 as i64;
                 metrics::NETWORK_CONTAINER_CAPACITIES
                     .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                    .inc_by(delta);
-
+                    .set(hello_request_table.capacity() as u64);
                 emit_event(
                     network_sender_out,
                     NetworkEvent::BitswapRequestOutbound { query_id, cid },
@@ -611,7 +600,6 @@ async fn handle_hello_event<P: StoreParams>(
                 response,
             } => {
                 // Send the sucessful response through channel out.
-                let capacity0 = hello_request_table.capacity();
                 if let Some(tx) = hello_request_table.remove(&request_id) {
                     if tx.send(Ok(response)).is_err() {
                         warn!("Fail to send Hello response");
@@ -625,11 +613,9 @@ async fn handle_hello_event<P: StoreParams>(
                 } else {
                     warn!("RPCResponse receive failed: channel not found");
                 };
-                let capacity1 = hello_request_table.capacity();
-                let delta = capacity1 as i64 - capacity0 as i64;
                 metrics::NETWORK_CONTAINER_CAPACITIES
                     .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                    .inc_by(delta);
+                    .set(hello_request_table.capacity() as u64);
             }
         },
         RequestResponseEvent::OutboundFailure {
@@ -643,18 +629,15 @@ async fn handle_hello_event<P: StoreParams>(
             );
 
             // Send error through channel out.
-            let capacity0 = hello_request_table.capacity();
             let tx = hello_request_table.remove(&request_id);
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                .set(hello_request_table.capacity() as u64);
             if let Some(tx) = tx {
                 if tx.send(Err(error.into())).is_err() {
                     warn!("RPCResponse receive failed");
                 }
             }
-            let capacity1 = hello_request_table.capacity();
-            let delta = capacity1 as i64 - capacity0 as i64;
-            metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                .inc_by(delta);
         }
         RequestResponseEvent::InboundFailure {
             peer,
@@ -688,7 +671,6 @@ async fn handle_bitswap_event(
             Ok(()) => {
                 let prefix = get_prefix(&query_id);
                 debug!("{prefix} bitswap query {query_id} completed successfully");
-                let capacity0 = outgoing_bitswap_query_ids.capacity();
                 if let Some(cid) = outgoing_bitswap_query_ids.remove(&query_id) {
                     emit_event(
                         network_sender_out,
@@ -696,11 +678,9 @@ async fn handle_bitswap_event(
                     )
                     .await;
                 }
-                let capacity1 = outgoing_bitswap_query_ids.capacity();
-                let delta = capacity1 as i64 - capacity0 as i64;
                 metrics::NETWORK_CONTAINER_CAPACITIES
                     .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                    .inc_by(delta);
+                    .set(outgoing_bitswap_query_ids.capacity() as u64);
             }
             Err(err) => {
                 let prefix = get_prefix(&query_id);
@@ -796,13 +776,10 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                         NetworkEvent::ChainExchangeResponseInbound { request_id },
                     )
                     .await;
-                    let capacity0 = cx_request_table.capacity();
                     let tx = cx_request_table.remove(&request_id);
-                    let capacity1 = cx_request_table.capacity();
-                    let delta = capacity1 as i64 - capacity0 as i64;
                     metrics::NETWORK_CONTAINER_CAPACITIES
                         .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                        .inc_by(delta);
+                        .set(cx_request_table.capacity() as u64);
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
                         if tx.send(Ok(response)).is_err() {
@@ -824,13 +801,10 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                 peer, request_id, error
             );
 
-            let capacity0 = cx_request_table.capacity();
             let tx = cx_request_table.remove(&request_id);
-            let capacity1 = cx_request_table.capacity();
-            let delta = capacity1 as i64 - capacity0 as i64;
             metrics::NETWORK_CONTAINER_CAPACITIES
                 .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                .inc_by(delta);
+                .set(cx_request_table.capacity() as u64);
 
             // Send error through channel out.
             if let Some(tx) = tx {
