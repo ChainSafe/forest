@@ -97,7 +97,6 @@ where
             .with_method(WALLET_NEW, wallet_new::<DB, B>)
             .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB, B>)
             .with_method(WALLET_SIGN, wallet_sign::<DB, B>)
-            .with_method(WALLET_SIGN_MESSAGE, wallet_sign_message::<DB, B>)
             .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
             // State API
             .with_method(STATE_CALL, state_call::<DB, B>)

@@ -18,7 +18,7 @@ chrono.workspace = true
 cid.workspace = true
 ctrlc = { version = "3.2", features = ["termination"] }
 daemonize-me = "2.0"
-dialoguer = "0.10.2"
+dialoguer.workspace = true
 directories.workspace = true
 fil_actor_miner_v8.workspace = true
 flume.workspace = true

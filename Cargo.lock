@@ -2727,8 +2727,10 @@ version = "0.5.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
+ "atty",
  "base64",
  "cid 0.8.6",
+ "dialoguer",
  "directories",
  "fil_actor_miner_v8",
  "forest_actor_interface",
@@ -2739,9 +2741,12 @@ dependencies = [
  "forest_chain_sync",
  "forest_cli_shared",
  "forest_crypto",
+ "forest_db",
  "forest_encoding",
  "forest_fil_types",
+ "forest_genesis",
  "forest_interpreter",
+ "forest_ipld",
  "forest_json",
  "forest_key_management",
  "forest_libp2p",
@@ -2756,6 +2761,7 @@ dependencies = [
  "fs_extra",
  "futures",
  "fvm",
+ "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
@@ -2782,6 +2788,7 @@ dependencies = [
  "ticker",
  "time",
  "tokio",
+ "tokio-util",
  "toml",
  "url",
 ]
@@ -6769,9 +6776,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.1.22"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c8992a85d8e93a28bdf76137db888d3874e3b230dee5ed8bebac4c9f7617773"
+checksum = "e97e3215779627f01ee256d2fad52f3d95e8e1c11e9fc6fd08f7cd455d5d5c78"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -8648,9 +8655,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.23.0"
+version = "1.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab6d665857cc6ca78d6e80303a02cea7a7851e85dfbd77cbdc09bd129f1ef46"
+checksum = "1d9f76183f91ecfb55e1d7d5602bd1d979e38a3a522fe900241cf195624d67ae"
 dependencies = [
  "autocfg",
  "bytes 1.3.0",

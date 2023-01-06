@@ -9,12 +9,11 @@ mod utils;
 #[cfg(feature = "rocksdb")]
 pub mod rocks;
 
-pub mod rocks_config;
-
 #[cfg(feature = "paritydb")]
 pub mod parity_db;
 
 pub mod parity_db_config;
+pub mod rocks_config;
 
 pub use errors::Error;
 pub use memory::MemoryDB;

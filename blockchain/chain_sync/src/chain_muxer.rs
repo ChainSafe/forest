@@ -75,15 +75,6 @@ pub struct SyncConfig {
     pub tipset_sample_size: usize,
 }
 
-impl SyncConfig {
-    pub fn new(req_window: i64, tipset_sample_size: usize) -> Self {
-        Self {
-            req_window,
-            tipset_sample_size,
-        }
-    }
-}
-
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {

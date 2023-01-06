@@ -5,7 +5,6 @@ use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
 use forest_utils::db::BlockstoreExt;
-use forest_utils::json::go_vec_visitor;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
@@ -163,27 +162,6 @@ impl State {
         }
     }
 
-    /// Gets pre-committed on chain info
-    pub fn get_precommitted_sector<BS: Blockstore>(
-        &self,
-        _store: &BS,
-        _sector_num: SectorNumber,
-    ) -> anyhow::Result<Option<SectorPreCommitOnChainInfo>> {
-        unimplemented!()
-    }
-
-    /// Loads a specific sector number
-    pub fn get_sector<BS: Blockstore>(
-        &self,
-        store: &BS,
-        sector_num: u64,
-    ) -> anyhow::Result<Option<SectorOnChainInfo>> {
-        match self {
-            State::V8(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-            State::V9(st) => Ok(st.get_sector(store, sector_num)?.map(From::from)),
-        }
-    }
-
     /// Gets fee debt of miner state
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
@@ -302,28 +280,6 @@ impl Deadline {
             }),
         }
     }
-
-    pub fn disputable_proof_count<BS: Blockstore>(&self, store: &BS) -> anyhow::Result<usize> {
-        Ok(match self {
-            Deadline::V8(dl) => dl
-                .optimistic_proofs_snapshot_amt(&store)?
-                .count()
-                .try_into()
-                .unwrap(),
-            Deadline::V9(dl) => dl
-                .optimistic_proofs_snapshot_amt(&store)?
-                .count()
-                .try_into()
-                .unwrap(),
-        })
-    }
-
-    pub fn partitions_posted(&self) -> &BitField {
-        match self {
-            Deadline::V8(dl) => &dl.partitions_posted,
-            Deadline::V9(dl) => &dl.partitions_posted,
-        }
-    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -344,12 +300,6 @@ impl Partition<'_> {
         match self {
             Partition::V8(dl) => &dl.faults,
             Partition::V9(dl) => &dl.faults,
-        }
-    }
-    pub fn recovering_sectors(&self) -> &BitField {
-        match self {
-            Partition::V8(dl) => &dl.recoveries,
-            Partition::V9(dl) => &dl.recoveries,
         }
     }
     pub fn live_sectors(&self) -> BitField {
@@ -443,39 +393,4 @@ impl From<fil_actor_miner_v9::SectorOnChainInfo> for SectorOnChainInfo {
             expected_storage_pledge: info.expected_storage_pledge,
         }
     }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct SectorPreCommitOnChainInfo {
-    pub info: SectorPreCommitInfo,
-    #[serde(with = "forest_json::token_amount::json")]
-    pub pre_commit_deposit: TokenAmount,
-    pub pre_commit_epoch: ChainEpoch,
-    /// Integral of active deals over sector lifetime, 0 if `CommittedCapacity` sector
-    #[serde(with = "json")]
-    pub deal_weight: BigInt,
-    /// Integral of active verified deals over sector lifetime
-    #[serde(with = "json")]
-    pub verified_deal_weight: BigInt,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct SectorPreCommitInfo {
-    pub seal_proof: RegisteredSealProof,
-    pub sector_number: SectorNumber,
-    /// `CommR`
-    #[serde(with = "forest_json::cid", rename = "SealedCID")]
-    pub sealed_cid: Cid,
-    pub seal_rand_epoch: ChainEpoch,
-    #[serde(with = "go_vec_visitor", rename = "DealIDs")]
-    pub deal_ids: Vec<DealID>,
-    pub expiration: ChainEpoch,
-    /// Whether to replace a "committed capacity" no-deal sector (requires non-empty `DealIDs`)
-    pub replace_capacity: bool,
-    /// The committed capacity sector to replace, and its deadline/partition location
-    pub replace_sector_deadline: u64,
-    pub replace_sector_partition: u64,
-    pub replace_sector_number: SectorNumber,
 }
