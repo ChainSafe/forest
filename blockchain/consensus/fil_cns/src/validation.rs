@@ -52,7 +52,6 @@ pub(crate) async fn validate_block<
 
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
-        .await
         .map_err(to_errs)?;
 
     block_timestamp_checks(

@@ -35,8 +35,7 @@ pub(crate) async fn state_call<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
+        .tipset_from_keys(&key.into())?;
     Ok(state_manager.call(&mut message, Some(tipset)).await?)
 }
 
@@ -54,8 +53,7 @@ pub(crate) async fn state_replay<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
+        .tipset_from_keys(&key.into())?;
     let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -91,7 +89,7 @@ pub(crate) async fn state_get_network_version<
     Params(params): Params<StateNetworkVersionParams>,
 ) -> Result<StateNetworkVersionResult, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    let ts = data.chain_store.tipset_from_keys(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
@@ -108,8 +106,7 @@ pub(crate) async fn state_market_balance<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
+        .tipset_from_keys(&key.into())?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -123,7 +120,7 @@ pub(crate) async fn state_market_deals<
     Params(params): Params<StateMarketDealsParams>,
 ) -> Result<StateMarketDealsResult, JsonRpcError> {
     let (TipsetKeysJson(tsk),) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk).await?;
+    let ts = data.chain_store.tipset_from_keys(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&market::ADDRESS, *ts.parent_state())?
@@ -166,8 +163,7 @@ pub(crate) async fn state_get_receipt<
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key.into())
-        .await?;
+        .tipset_from_keys(&key.into())?;
     state_manager
         .get_receipt(&tipset, cid)
         .await

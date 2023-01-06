@@ -91,7 +91,7 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db.clone()).await);
+        let cs_arc = Arc::new(ChainStore::new(db.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)

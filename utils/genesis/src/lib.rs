@@ -148,10 +148,7 @@ where
     };
 
     info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
-    let ts = sm
-        .chain_store()
-        .tipset_from_keys(&TipsetKeys::new(cids))
-        .await?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
 
     if !skip_load {
         let gb = sm

@@ -67,7 +67,7 @@ where
     let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
     let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
-    let head = data.chain_store.tipset_from_keys(&tsk).await?;
+    let head = data.chain_store.tipset_from_keys(&tsk)?;
 
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
 
@@ -191,11 +191,7 @@ where
     B: Beacon,
 {
     let (height, tsk) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk)
-        .await?;
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
@@ -258,11 +254,7 @@ where
     B: Beacon,
 {
     let (TipsetKeysJson(tsk),) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk)
-        .await?;
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok(TipsetJson(ts))
 }
 
@@ -301,12 +293,10 @@ where
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(tipset.key())
-        .await?;
+        .tipset_from_keys(tipset.key())?;
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
-        .await?;
+        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())?;
     Ok("Ok".to_string())
 }
 

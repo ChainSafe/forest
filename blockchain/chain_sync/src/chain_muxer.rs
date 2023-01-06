@@ -221,7 +221,7 @@ where
     ) -> Result<FullTipset, ChainMuxerError<C>> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
+        let ts = chain_store.tipset_from_keys(&tipset_keys)?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =

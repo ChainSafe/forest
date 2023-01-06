@@ -160,7 +160,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()).await);
+    let chain_store = Arc::new(ChainStore::new(db.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -517,7 +517,7 @@ mod test {
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db).await);
+        let cs = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)

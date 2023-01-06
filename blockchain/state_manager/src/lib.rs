@@ -663,7 +663,6 @@ where
         let lbts = self
             .cs
             .tipset_from_keys(next_ts.parents())
-            .await
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
@@ -811,7 +810,6 @@ where
         let pts = self
             .cs
             .tipset_from_keys(tipset.parents())
-            .await
             .map_err(|err| Error::Other(err.to_string()))?;
         let messages = self
             .cs
@@ -876,15 +874,11 @@ where
             }
         }
 
-        let tipset = self
-            .cs
-            .tipset_from_keys(current.parents())
-            .await
-            .map_err(|err| {
-                Err(Error::Other(format!(
-                    "failed to load tipset during msg wait searchback: {err:}"
-                )))
-            })?;
+        let tipset = self.cs.tipset_from_keys(current.parents()).map_err(|err| {
+            Err(Error::Other(format!(
+                "failed to load tipset during msg wait searchback: {err:}"
+            )))
+        })?;
         let r = self
             .tipset_executed_message(
                 &tipset,
@@ -1216,7 +1210,7 @@ where
         }
         let mut ts_chain = Vec::<Arc<Tipset>>::new();
         while ts.epoch() != height {
-            let next = self.cs.tipset_from_keys(ts.parents()).await?;
+            let next = self.cs.tipset_from_keys(ts.parents())?;
             ts_chain.push(std::mem::replace(&mut ts, next));
         }
         ts_chain.push(ts);

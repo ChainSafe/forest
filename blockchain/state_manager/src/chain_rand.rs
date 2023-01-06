@@ -67,7 +67,7 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let ts = self.cs.tipset_from_keys(blocks).await?;
+        let ts = self.cs.tipset_from_keys(blocks)?;
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");
@@ -171,7 +171,7 @@ where
                 }
             }
 
-            rand_ts = self.cs.tipset_from_keys(rand_ts.parents()).await?;
+            rand_ts = self.cs.tipset_from_keys(rand_ts.parents())?;
         }
 
         bail!(
@@ -187,7 +187,7 @@ where
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<Arc<Tipset>> {
-        let ts = self.cs.tipset_from_keys(blocks).await?;
+        let ts = self.cs.tipset_from_keys(blocks)?;
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");

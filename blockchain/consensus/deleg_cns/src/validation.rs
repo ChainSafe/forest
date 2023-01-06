@@ -29,7 +29,7 @@ pub(crate) async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send 
 
     block_sanity_checks(header)?;
 
-    let base_tipset = chain_store.tipset_from_keys(header.parents()).await?;
+    let base_tipset = chain_store.tipset_from_keys(header.parents())?;
 
     block_timestamp_checks(
         header,

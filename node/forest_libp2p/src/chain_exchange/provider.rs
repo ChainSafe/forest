@@ -28,10 +28,7 @@ where
 
     loop {
         let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs
-            .tipset_from_keys(&TipsetKeys::new(curr_tipset_cids))
-            .await
-        {
+        let tipset = match cs.tipset_from_keys(&TipsetKeys::new(curr_tipset_cids)) {
             Ok(tipset) => tipset,
             Err(err) => {
                 debug!("Cannot get tipset from keys: {}", err);
@@ -171,7 +168,7 @@ mod tests {
         let (cids, db) = populate_db().await;
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db).await,
+            &ChainStore::new(db),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

@@ -92,7 +92,7 @@ impl<DB> ChainStore<DB>
 where
     DB: Blockstore + Store + Send + Sync,
 {
-    pub async fn new(db: DB) -> Self
+    pub fn new(db: DB) -> Self
     where
         DB: Clone,
     {
@@ -110,7 +110,7 @@ where
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = cs.load_heaviest_tipset().await;
+        let _ = cs.load_heaviest_tipset();
 
         cs
     }
@@ -158,9 +158,9 @@ where
     }
 
     /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.
-    async fn load_heaviest_tipset(&self) -> Result<(), Error> {
+    fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
-            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
+            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?)?,
             None => {
                 warn!("No previous chain state found");
                 return Err(Error::Other("No chain state found".to_owned()));
@@ -194,7 +194,7 @@ where
     }
 
     /// Returns Tipset from key-value store from provided CIDs
-    pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset().unwrap());
         }
@@ -291,11 +291,11 @@ where
         if lbts.epoch() == height || !prev {
             Ok(lbts)
         } else {
-            self.tipset_from_keys(lbts.parents()).await
+            self.tipset_from_keys(lbts.parents())
         }
     }
 
-    pub async fn validate_tipset_checkpoints(
+    pub fn validate_tipset_checkpoints(
         &self,
         from: Arc<Tipset>,
         network: String,
@@ -360,10 +360,10 @@ where
         if let Some(entry) = check_for_beacon_entry(ts)? {
             return Ok(entry);
         }
-        let mut cur = self.tipset_from_keys(ts.parents()).await?;
+        let mut cur = self.tipset_from_keys(ts.parents())?;
         for i in 1..20 {
             if i != 1 {
-                cur = self.tipset_from_keys(cur.parents()).await?;
+                cur = self.tipset_from_keys(cur.parents())?;
             }
             if let Some(entry) = check_for_beacon_entry(&cur)? {
                 return Ok(entry);
@@ -956,7 +956,7 @@ mod tests {
     async fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db).await;
+        let cs = ChainStore::new(db);
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -976,7 +976,7 @@ mod tests {
     async fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db).await;
+        let cs = ChainStore::new(db);
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

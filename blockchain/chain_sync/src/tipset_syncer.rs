@@ -881,7 +881,7 @@ async fn sync_headers_in_reverse<
             break;
         }
         // Attempt to load the parent tipset from local store
-        if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()).await {
+        if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()) {
             parent_blocks.extend_from_slice(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
@@ -921,8 +921,7 @@ async fn sync_headers_in_reverse<
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
-        let mut potential_common_ancestor =
-            chain_store.tipset_from_keys(current_head.parents()).await?;
+        let mut potential_common_ancestor = chain_store.tipset_from_keys(current_head.parents())?;
         let mut i = 0;
         let mut fork_length = 1;
         while i < fork_tipsets.len() {
@@ -956,9 +955,8 @@ async fn sync_headers_in_reverse<
                 if i == (fork_tipsets.len() - 1) {
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
                 }
-                potential_common_ancestor = chain_store
-                    .tipset_from_keys(potential_common_ancestor.parents())
-                    .await?;
+                potential_common_ancestor =
+                    chain_store.tipset_from_keys(potential_common_ancestor.parents())?;
             }
         }
     }
@@ -1257,7 +1255,6 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
 
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
-        .await
         // The parent tipset will always be there when calling validate_block
         // as part of the sync_tipset_range flow because all of the headers in the range
         // have been committed to the store. When validate_block is called from sync_tipset
