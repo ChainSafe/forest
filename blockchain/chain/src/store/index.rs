@@ -265,7 +265,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             target: skip_target.key().clone(),
         });
 
-        self.skip_cache.lock().put(tsk.clone(), lbe.clone());
+        self.skip_cache.lock().put(tsk, lbe.clone());
         Ok(lbe)
     }
 

@@ -269,7 +269,7 @@ where
             ));
         }
         if height == ts.epoch() {
-            return Ok(ts.clone());
+            return Ok(ts);
         }
 
         let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
