@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use url::Url;
 
+use crate::DbConfig;
+
 use super::client::Client;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
@@ -166,6 +168,18 @@ pub struct Config {
     pub daemon: DaemonConfig,
     pub log: LogConfig,
     pub snapshot_fetch: SnapshotFetchConfig,
+}
+
+impl Config {
+    #[cfg(feature = "rocksdb")]
+    pub fn db_config(&self) -> &DbConfig {
+        &self.rocks_db
+    }
+
+    #[cfg(feature = "paritydb")]
+    pub fn db_config(&self) -> &DbConfig {
+        &self.parity_db
+    }
 }
 
 #[cfg(test)]

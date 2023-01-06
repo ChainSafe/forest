@@ -1,9 +1,9 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
+use forest_cli_shared::db_path;
 use forest_cli_shared::open_db;
-use std::path::Path;
-use std::path::PathBuf;
+use forest_cli_shared::DbConfig;
 use structopt::StructOpt;
 
 use cid::Cid;
@@ -28,22 +28,12 @@ impl ChainCommand {
     pub async fn run(&self) {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let chain_path = dir.data_dir().join(&self.chain);
-        let blockstore = open_db(&chain_path_suffix(&chain_path), None).unwrap();
+        let blockstore = open_db(&db_path(&chain_path), &DbConfig::default()).unwrap();
 
         if let Err(err) = print_state_diff(&blockstore, &self.pre, &self.post, self.depth) {
             eprintln!("Failed to print state diff: {err}");
         }
     }
-}
-
-#[cfg(feature = "rocksdb")]
-fn chain_path_suffix(chain_path: &Path) -> PathBuf {
-    chain_path.join("rocksdb")
-}
-
-#[cfg(feature = "paritydb")]
-fn chain_path_suffix(chain_path: &Path) -> PathBuf {
-    chain_path.join("paritydb")
 }
 
 /// statediff binary sub-commands available.
