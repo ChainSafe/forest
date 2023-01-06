@@ -51,6 +51,37 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_stream::wrappers::IntervalStream;
 
+mod metrics {
+    use lazy_static::lazy_static;
+    use prometheus::core::{AtomicI64, GenericCounterVec, Opts};
+    lazy_static! {
+        pub static ref BITSWAP_HASHMAP_CAPACITIES: Box<GenericCounterVec<AtomicI64>> = {
+            let bitswap_hashmap_capacities = Box::new(
+                GenericCounterVec::<AtomicI64>::new(
+                    Opts::new(
+                        "bitswap_hashmap_capacities",
+                        "Capacity for each bitswap hashmap",
+                    ),
+                    &[labels::KIND],
+                )
+                .expect("Defining the bitswap_hashmap_capacities metric must succeed"),
+            );
+            prometheus::default_registry().register(bitswap_hashmap_capacities.clone()).expect(
+                "Registering the bitswap_hashmap_capacities metric with the metrics registry must succeed"
+            );
+            bitswap_hashmap_capacities
+        };
+    }
+
+    pub mod values {
+        pub const BITSWAP_OUTGOING_QUERY_IDS: &str = "bitswap_out_query_ids";
+    }
+
+    pub mod labels {
+        pub const KIND: &str = "kind";
+    }
+}
+
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 /// `Gossipsub` Filecoin messages topic identifier.
@@ -357,7 +388,14 @@ async fn handle_network_message<P: StoreParams>(
             response_channel: _,
         } => match swarm.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
+                let capacity0 = outgoing_bitswap_query_ids.capacity();
                 outgoing_bitswap_query_ids.insert(query_id, cid);
+                let capacity1 = outgoing_bitswap_query_ids.capacity();
+                let delta = capacity1 as i64 - capacity0 as i64;
+                metrics::BITSWAP_HASHMAP_CAPACITIES
+                    .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+                    .inc_by(delta);
+
                 emit_event(
                     network_sender_out,
                     NetworkEvent::BitswapRequestOutbound { query_id, cid },
@@ -623,6 +661,7 @@ async fn handle_bitswap_event(
             Ok(()) => {
                 let prefix = get_prefix(&query_id);
                 debug!("{prefix} bitswap query {query_id} completed successfully");
+                let capacity0 = outgoing_bitswap_query_ids.capacity();
                 if let Some(cid) = outgoing_bitswap_query_ids.remove(&query_id) {
                     emit_event(
                         network_sender_out,
@@ -630,6 +669,11 @@ async fn handle_bitswap_event(
                     )
                     .await;
                 }
+                let capacity1 = outgoing_bitswap_query_ids.capacity();
+                let delta = capacity1 as i64 - capacity0 as i64;
+                metrics::BITSWAP_HASHMAP_CAPACITIES
+                    .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+                    .inc_by(delta);
             }
             Err(err) => {
                 let prefix = get_prefix(&query_id);
