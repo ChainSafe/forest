@@ -87,7 +87,7 @@ lazy_static! {
             .expect("Defining the invalid_tipset_total metric must succeed"),
         );
         prometheus::default_registry().register(invalid_tipset_total.clone()).expect(
-            "Registering the invalid_tispet_total metric with the metrics registry must succeed"
+            "Registering the invalid_tipset_total metric with the metrics registry must succeed"
         );
         invalid_tipset_total
     };
