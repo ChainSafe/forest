@@ -152,8 +152,8 @@ impl<BS: Blockstore> ChainIndex<BS> {
         }
     }
 
-    pub async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk).await
+    pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk)
     }
 
     /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
@@ -195,8 +195,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
             {
                 if to == 0 {
-                    let tipset =
-                        tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
+                    let tipset = tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys)?;
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
@@ -239,7 +238,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
     /// Fills cache with look-back entry, and returns inserted entry.
     async fn fill_cache(&self, tsk: TipsetKeys) -> Result<Arc<LookbackEntry>, Error> {
-        let tipset = self.load_tipset(&tsk).await?;
+        let tipset = self.load_tipset(&tsk)?;
 
         if tipset.epoch() == 0 {
             return Ok(Arc::new(LookbackEntry {
@@ -250,7 +249,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
             }));
         }
 
-        let parent = self.load_tipset(tipset.parents()).await?;
+        let parent = self.load_tipset(tipset.parents())?;
         let r_height = self.round_height(tipset.epoch()) - SKIP_LENGTH;
 
         let parent_epoch = parent.epoch();
@@ -297,7 +296,7 @@ impl<BS: Blockstore> ChainIndex<BS> {
 
         let mut ts = from;
         loop {
-            let pts = self.load_tipset(ts.parents()).await?;
+            let pts = self.load_tipset(ts.parents())?;
 
             if to > pts.epoch() {
                 // Pts is lower than to epoch, return the tipset above that height

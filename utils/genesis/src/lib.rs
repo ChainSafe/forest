@@ -114,9 +114,7 @@ where
         debug!("Initialize ChainSyncer with new genesis from config");
         chain_store.set_genesis(&genesis_block)?;
 
-        chain_store
-            .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))
-            .await?;
+        chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
     }
     Ok(genesis_block)
 }
@@ -172,7 +170,7 @@ where
     }
 
     // Update head with snapshot header tipset
-    sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
+    sm.chain_store().set_heaviest_tipset(ts.clone())?;
 
     sm.blockstore().flush()?;
 

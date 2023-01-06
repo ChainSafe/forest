@@ -34,6 +34,7 @@ use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
+use parking_lot::Mutex as StdMutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -43,7 +44,7 @@ use std::{
 };
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -75,7 +76,7 @@ pub struct ChainStore<DB> {
     pub db: DB,
 
     /// Tipset at the head of the best-known chain.
-    heaviest: RwLock<Option<Arc<Tipset>>>,
+    heaviest: StdMutex<Option<Arc<Tipset>>>,
 
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
@@ -96,7 +97,7 @@ where
         DB: Clone,
     {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        let ts_cache = Arc::new(StdMutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
             // subscriptions: Default::default(),
@@ -115,9 +116,9 @@ where
     }
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
-    pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        *self.heaviest.write().await = Some(ts.clone());
+        *self.heaviest.lock() = Some(ts.clone());
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -167,7 +168,7 @@ where
         };
 
         // set as heaviest tipset
-        *self.heaviest.write().await = Some(heaviest_ts);
+        *self.heaviest.lock() = Some(heaviest_ts);
         Ok(())
     }
 
@@ -179,7 +180,7 @@ where
     /// Returns the currently tracked heaviest tipset.
     pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         // TODO: Figure out how to remove optional and return something everytime.
-        self.heaviest.read().await.clone()
+        self.heaviest.lock().clone()
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -197,7 +198,7 @@ where
         if tsk.cids().is_empty() {
             return Ok(self.heaviest_tipset().await.unwrap());
         }
-        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
+        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
     }
 
     /// Returns Tipset key hash from key-value store from provided CIDs
@@ -213,8 +214,7 @@ where
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = self
             .heaviest
-            .read()
-            .await
+            .lock()
             .as_ref()
             .map(|ts| S::weight(self.blockstore(), ts.as_ref()));
 
@@ -226,12 +226,12 @@ where
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset: {:?}", ts.key());
-                    self.set_heaviest_tipset(ts).await?;
+                    self.set_heaviest_tipset(ts)?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(ts).await?;
+                self.set_heaviest_tipset(ts)?;
             }
         }
         Ok(())
@@ -315,7 +315,7 @@ where
         hashes.remove(&tipset_hash);
 
         loop {
-            let pts = self.chain_index.load_tipset(ts.parents()).await?;
+            let pts = self.chain_index.load_tipset(ts.parents())?;
             let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
             hashes.remove(&tipset_hash);
 
@@ -596,10 +596,10 @@ where
     }
 }
 
-pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
+pub(crate) type TipsetCache = StdMutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Loads a tipset from memory given the tipset keys and cache.
-pub(crate) async fn tipset_from_keys<BS>(
+pub(crate) fn tipset_from_keys<BS>(
     cache: &TipsetCache,
     store: &BS,
     tsk: &TipsetKeys,
@@ -607,7 +607,7 @@ pub(crate) async fn tipset_from_keys<BS>(
 where
     BS: Blockstore,
 {
-    if let Some(ts) = cache.lock().await.get(tsk) {
+    if let Some(ts) = cache.lock().get(tsk) {
         metrics::LRU_CACHE_HIT
             .with_label_values(&[metrics::values::TIPSET])
             .inc();
@@ -627,7 +627,7 @@ where
 
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
-    cache.lock().await.put(tsk.clone(), ts.clone());
+    cache.lock().put(tsk.clone(), ts.clone());
     metrics::LRU_CACHE_MISS
         .with_label_values(&[metrics::values::TIPSET])
         .inc();

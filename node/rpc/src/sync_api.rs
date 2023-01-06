@@ -117,7 +117,7 @@ mod tests {
             let ts = Tipset::new(vec![header]).unwrap();
             let db = cs_for_test.blockstore();
             let tsk = ts.key().cids.clone();
-            cs_for_test.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
+            cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
 
             for i in tsk {
                 let bz2 = bz.clone();
