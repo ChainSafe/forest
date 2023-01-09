@@ -213,13 +213,10 @@ where
         .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
         .unwrap_or_default();
 
+    let ts = data.mpool.cur_tipset.lock().clone();
     let res = data
         .state_manager
-        .call_with_gas(
-            &mut ChainMessage::Unsigned(msg),
-            &prior_messages,
-            Some(data.mpool.cur_tipset.as_ref().read().await.clone()),
-        )
+        .call_with_gas(&mut ChainMessage::Unsigned(msg), &prior_messages, Some(ts))
         .await?;
     match res.msg_rct {
         Some(rct) => {

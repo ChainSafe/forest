@@ -40,7 +40,7 @@ where
     /// for inclusion from the pool, given the ticket quality of a miner.
     /// This method selects messages for including in a block.
     pub async fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
-        let cur_ts = self.cur_tipset.read().await.clone();
+        let cur_ts = self.cur_tipset.lock().clone();
         // if the ticket quality is high enough that the first block has higher probability
         // than any other block, then we don't bother with optimal selection because the
         // first block will always have higher effective performance. Otherwise we select

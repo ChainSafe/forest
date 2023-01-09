@@ -126,7 +126,7 @@ pub struct MessagePool<T> {
     /// A map of pending messages where the key is the address
     pub pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
-    pub cur_tipset: Arc<RwLock<Arc<Tipset>>>,
+    pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
     /// The minimum gas price needed for executing the transaction based on number of included blocks
@@ -171,7 +171,7 @@ where
     {
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
         let pending = Arc::new(RwLock::new(HashMap::new()));
-        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().ok_or_else(|| {
+        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset().ok_or_else(|| {
             Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
         })?));
         let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
@@ -300,7 +300,7 @@ where
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg).await?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
-        let cur_ts = self.cur_tipset.read().await.clone();
+        let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true).await?;
         let msg_ser = msg.marshal_cbor()?;
         self.add_local(msg).await?;
@@ -336,7 +336,7 @@ where
     pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg).await?;
 
-        let tip = self.cur_tipset.read().await.clone();
+        let tip = self.cur_tipset.lock().clone();
 
         self.add_tipset(msg, &tip, false).await?;
         Ok(())
@@ -389,7 +389,7 @@ where
     /// message and push it to the pending hash-map.
     async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
-        let cur_ts = self.cur_tipset.read().await.clone();
+        let cur_ts = self.cur_tipset.lock().clone();
         add_helper(
             self.api.as_ref(),
             self.bls_sig_cache.as_ref(),
@@ -403,7 +403,7 @@ where
     /// Get the sequence for a given address, return Error if there is a failure to retrieve
     /// the respective sequence.
     pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
-        let cur_ts = self.cur_tipset.read().await.clone();
+        let cur_ts = self.cur_tipset.lock().clone();
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
@@ -460,7 +460,7 @@ where
             )
         }
 
-        let cur_ts = self.cur_tipset.read().await.clone();
+        let cur_ts = self.cur_tipset.lock().clone();
 
         Ok((out, cur_ts))
     }
