@@ -61,19 +61,6 @@ def snapshot_dir
   syscall('./target/release/forest-cli', 'snapshot', 'dir')
 end
 
-def db_dir
-  config = default_config
-  data_dir = config.dig('client', 'data_dir')
-  db = config.key?('rocks_db') ? 'rocksdb' : 'paritydb'
-
-  "#{data_dir}/mainnet/#{db}"
-end
-
-def db_size
-  size = syscall('du', '-h', db_dir)
-  size.split[0]
-end
-
 def hr(seconds)
   seconds = seconds < MINUTE ? seconds.ceil(1) : seconds.ceil(0)
   time = Time.at(seconds)
@@ -185,6 +172,22 @@ class Benchmark
   attr_reader :name, :metrics
   attr_accessor :snapshot_path, :heights
 
+  def db_size
+    config_path = "#{TEMP_DIR}/#{@name}.toml"
+
+    line = syscall('./target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
+    match = line.match(/Database size: (.+)/)
+    match[1]
+  end
+
+  def clean_db(dry_run)
+    puts 'Wiping db'
+
+    config_path = "#{TEMP_DIR}/#{@name}.toml"
+
+    syscall('./target/release/forest-cli', '-c', config_path, 'db', 'clean', '--force') unless dry_run
+  end
+
   def build_config_file
     config = @config.deep_merge(default_config)
     config_path = "#{TEMP_DIR}/#{@name}.toml"
@@ -218,12 +221,6 @@ class Benchmark
   end
   private :build_artefacts
 
-  def clean(dry_run)
-    # Clean db
-    puts 'Wiping db'
-    FileUtils.rm_rf(db_dir, secure: true) unless dry_run
-  end
-
   def run(dry_run)
     puts "Running bench: #{@name}"
 
@@ -239,7 +236,7 @@ class Benchmark
     validate_command = splice_args(@validate_command, args)
     metrics[:validate] = exec_command(validate_command, dry_run)
 
-    clean(dry_run)
+    clean_db(dry_run)
 
     @metrics = metrics
   end
