@@ -127,7 +127,7 @@ pub struct MessagePool<T> {
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<RwLock<Arc<Tipset>>>,
     /// The underlying provider
-    pub api: Arc<RwLock<T>>,
+    pub api: Arc<T>,
     /// The minimum gas price needed for executing the transaction based on number of included blocks
     pub min_gas_price: BigInt,
     /// This is max number of messages in the pool.
@@ -175,7 +175,7 @@ where
         })?));
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
-        let api_mutex = Arc::new(RwLock::new(api));
+        // let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
@@ -185,7 +185,7 @@ where
             local_addrs,
             pending,
             cur_tipset: tipset,
-            api: api_mutex,
+            api: Arc::new(api),
             min_gas_price: Default::default(),
             max_tx_pool_size: 5000,
             network_name,
@@ -201,7 +201,7 @@ where
 
         mp.load_local().await?;
 
-        let mut subscriber = mp.api.write().await.subscribe_head_changes();
+        let mut subscriber = mp.api.subscribe_head_changes();
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();
@@ -365,7 +365,7 @@ where
         cur_ts: &Tipset,
         local: bool,
     ) -> Result<bool, Error> {
-        let sequence = self.get_state_sequence(msg.from(), cur_ts).await?;
+        let sequence = self.get_state_sequence(msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
@@ -373,7 +373,7 @@ where
 
         let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
-        let balance = self.get_state_balance(msg.from(), cur_ts).await?;
+        let balance = self.get_state_balance(msg.from(), cur_ts)?;
 
         let msg_balance = msg.required_funds();
         if balance < msg_balance {
@@ -394,7 +394,7 @@ where
             self.bls_sig_cache.as_ref(),
             self.pending.as_ref(),
             msg,
-            self.get_state_sequence(&from, &cur_ts).await?,
+            self.get_state_sequence(&from, &cur_ts)?,
         )
         .await
     }
@@ -404,7 +404,7 @@ where
     pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.read().await.clone();
 
-        let sequence = self.get_state_sequence(addr, &cur_ts).await?;
+        let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
         let pending = self.pending.read().await;
 
@@ -421,15 +421,15 @@ where
     }
 
     /// Get the state of the sequence for a given address in `cur_ts`.
-    async fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
-        let actor = self.api.read().await.get_actor_after(addr, cur_ts)?;
+    fn get_state_sequence(&self, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error> {
+        let actor = self.api.get_actor_after(addr, cur_ts)?;
         Ok(actor.sequence)
     }
 
     /// Get the state balance for the actor that corresponds to the supplied address and tipset,
     /// if this actor does not exist, return an error.
-    async fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
-        let actor = self.api.read().await.get_actor_after(addr, ts)?;
+    fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
+        let actor = self.api.get_actor_after(addr, ts)?;
         Ok(actor.balance)
     }
 
@@ -488,7 +488,7 @@ where
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
 
         for block in blks {
-            let (umsg, mut smsgs) = self.api.read().await.messages_for_block(block)?;
+            let (umsg, mut smsgs) = self.api.messages_for_block(block)?;
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
@@ -595,7 +595,7 @@ where
 /// in the hash-map does not yet exist, create a new `mset` that will correspond to the from message
 /// and push it to the pending hash-map.
 pub(crate) async fn add_helper<T>(
-    api: &RwLock<T>,
+    api: &T,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
@@ -617,12 +617,8 @@ where
         ));
     }
 
-    api.read()
-        .await
-        .put_message(&ChainMessage::Signed(msg.clone()))?;
-    api.read()
-        .await
-        .put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
+    api.put_message(&ChainMessage::Signed(msg.clone()))?;
+    api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write().await;
     let msett = pending.get_mut(&msg.message().from);

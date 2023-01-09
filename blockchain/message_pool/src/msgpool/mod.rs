@@ -40,15 +40,11 @@ const PROPAGATION_DELAY_SECS: u64 = 6;
 const MIN_GAS: i64 = 1298450;
 
 /// Get the state of the `base_sequence` for a given address in the current Tipset
-async fn get_state_sequence<T>(
-    api: &RwLock<T>,
-    addr: &Address,
-    cur_ts: &Tipset,
-) -> Result<u64, Error>
+fn get_state_sequence<T>(api: &T, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
 where
     T: Provider,
 {
-    let actor = api.read().await.get_actor_after(addr, cur_ts)?;
+    let actor = api.get_actor_after(addr, cur_ts)?;
     let base_sequence = actor.sequence;
 
     Ok(base_sequence)
@@ -56,7 +52,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 async fn republish_pending_messages<T>(
-    api: &RwLock<T>,
+    api: &T,
     network_sender: &flume::Sender<NetworkMessage>,
     network_name: &str,
     pending: &RwLock<HashMap<Address, MsgSet>>,
@@ -117,7 +113,7 @@ where
 /// a given base tipset. The messages should be eligible for inclusion based on their
 /// sequences and the overall number of them should observe block gas limits.
 async fn select_messages_for_block<T>(
-    api: &RwLock<T>,
+    api: &T,
     chain_config: &ChainConfig,
     base: &Tipset,
     pending: HashMap<Address, HashMap<u64, SignedMessage>>,
@@ -127,7 +123,7 @@ where
 {
     let mut msgs: Vec<SignedMessage> = vec![];
 
-    let base_fee = api.read().await.chain_compute_base_fee(base)?;
+    let base_fee = api.chain_compute_base_fee(base)?;
     let base_fee_lower_bound = get_base_fee_lower_bound(&base_fee, BASE_FEE_LOWER_BOUND_FACTOR);
 
     if pending.is_empty() {
@@ -211,7 +207,7 @@ where
 /// called every time that there is a head change in the message pool.
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
-    api: &RwLock<T>,
+    api: &T,
     bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &RwLock<HashSet<Cid>>,
@@ -226,12 +222,12 @@ where
     let mut repub = false;
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
-        let pts = api.write().await.load_tipset(ts.parents())?;
+        let pts = api.load_tipset(ts.parents())?;
         *cur_tipset.write().await = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (umsg, smsgs) = api.read().await.messages_for_block(block)?;
+            let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
             for msg in umsg {
                 let mut bls_sig_cache = bls_sig_cache.write().await;
@@ -247,7 +243,7 @@ where
 
     for ts in apply {
         for b in ts.blocks() {
-            let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
+            let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
@@ -274,8 +270,7 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence =
-                get_state_sequence(api, msg.from(), &cur_tipset.read().await.clone()).await?;
+            let sequence = get_state_sequence(api, msg.from(), &cur_tipset.read().await.clone())?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence).await {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
@@ -371,7 +366,7 @@ pub mod tests {
         let mut wallet = Wallet::new(keystore);
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        let mut tma = TestApi::default();
+        let tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
 
         let (tx, _rx) = flume::bounded(50);
@@ -392,7 +387,7 @@ pub mod tests {
             smsg_vec.push(msg);
         }
 
-        mpool.api.write().await.set_state_sequence(&sender, 0);
+        mpool.api.inner.lock().set_state_sequence(&sender, 0);
         assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
         mpool.add(smsg_vec[0].clone()).await.unwrap();
         assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
@@ -401,7 +396,7 @@ pub mod tests {
 
         let a = mock_block(1, 1);
 
-        mpool.api.write().await.set_block_messages(&a, smsg_vec);
+        mpool.api.inner.lock().set_block_messages(&a, smsg_vec);
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -456,7 +451,7 @@ pub mod tests {
         .await
         .unwrap();
 
-        let mut api_temp = mpool.api.write().await;
+        let mut api_temp = mpool.api.inner.lock();
         api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
         api_temp.set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
         api_temp.set_state_sequence(&sender, 0);
@@ -467,7 +462,7 @@ pub mod tests {
         mpool.add(smsg_vec[2].clone()).await.unwrap();
         mpool.add(smsg_vec[3].clone()).await.unwrap();
 
-        mpool.api.write().await.set_state_sequence(&sender, 0);
+        mpool.api.set_state_sequence(&sender, 0);
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -490,7 +485,7 @@ pub mod tests {
 
         assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
-        mpool.api.write().await.set_state_sequence(&sender, 1);
+        mpool.api.set_state_sequence(&sender, 1);
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -512,7 +507,7 @@ pub mod tests {
 
         assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
 
-        mpool.api.write().await.set_state_sequence(&sender, 0);
+        mpool.api.set_state_sequence(&sender, 0);
 
         head_change(
             api.as_ref(),
@@ -541,7 +536,7 @@ pub mod tests {
         let sender = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
         let target = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
 
-        let mut tma = TestApi::default();
+        let tma = TestApi::default();
         tma.set_state_sequence(&sender, 0);
         let (tx, _rx) = flume::bounded(50);
         let mut services = JoinSet::new();
@@ -574,12 +569,7 @@ pub mod tests {
         let tipset = Tipset::new(vec![header.clone()]).unwrap();
 
         let ts = tipset.clone();
-        mpool
-            .api
-            .write()
-            .await
-            .set_heaviest_tipset(Arc::new(ts))
-            .await;
+        mpool.api.set_heaviest_tipset(Arc::new(ts)).await;
 
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;
@@ -598,7 +588,6 @@ pub mod tests {
         let tma = TestApi::default();
         let gas_limit = 6955002;
 
-        let tma = RwLock::new(tma);
         let a = mock_block(1, 1);
         let ts = Tipset::new(vec![a]).unwrap();
         let chain_config = ChainConfig::default();
@@ -821,9 +810,7 @@ pub mod tests {
         //         the epoch gasLimit; it should create a single chain with the first 5 messages
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
-        tma.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_atto(1_000_000_000_000_000_000_u64));
+        tma.set_state_balance_raw(&a1, TokenAmount::from_atto(1_000_000_000_000_000_000_u64));
         for i in 0..10 {
             let msg = if i != 5 {
                 create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
@@ -900,9 +887,7 @@ pub mod tests {
         }
 
         // Test 7: insufficient balance for all messages
-        tma.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_atto(300 * gas_limit + 1));
+        tma.set_state_balance_raw(&a1, TokenAmount::from_atto(300 * gas_limit + 1));
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {

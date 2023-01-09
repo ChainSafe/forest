@@ -26,7 +26,7 @@ use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 #[async_trait]
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
     fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>>;
     /// Add a message to the `MpoolProvider`, return either Cid or Error depending on successful put
@@ -72,7 +72,7 @@ impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
 {
-    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()
     }
 
