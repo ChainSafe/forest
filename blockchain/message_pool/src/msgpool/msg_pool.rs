@@ -201,7 +201,7 @@ where
 
         mp.load_local().await?;
 
-        let mut subscriber = mp.api.write().await.subscribe_head_changes().await;
+        let mut subscriber = mp.api.write().await.subscribe_head_changes();
 
         let api = mp.api.clone();
         let bls_sig_cache = mp.bls_sig_cache.clone();

@@ -84,7 +84,7 @@ impl TestApi {
 
 #[async_trait]
 impl Provider for TestApi {
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()
     }
 
