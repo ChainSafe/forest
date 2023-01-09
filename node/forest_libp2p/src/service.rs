@@ -798,7 +798,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                             channel,
                             make_chain_exchange_response(db.as_ref(), &request).await,
                         )) {
-                            warn!("Failed to send ChainExchangeResponse: {e:?}");
+                            debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
                     });
                 }
@@ -818,7 +818,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                             .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
                             .set(cx_request_table.capacity() as u64);
                         if tx.send(Ok(response)).is_err() {
-                            warn!("Fail to send ChainExchange response")
+                            debug!("Failed to send ChainExchange response")
                         }
                     } else {
                         warn!("RPCResponse receive failed: channel not found");
