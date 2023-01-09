@@ -51,6 +51,39 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_stream::wrappers::IntervalStream;
 
+mod metrics {
+    use lazy_static::lazy_static;
+    use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
+    lazy_static! {
+        pub static ref NETWORK_CONTAINER_CAPACITIES: Box<GenericGaugeVec<AtomicU64>> = {
+            let network_container_capacities = Box::new(
+                GenericGaugeVec::<AtomicU64>::new(
+                    Opts::new(
+                        "network_container_capacities",
+                        "Capacity for each container",
+                    ),
+                    &[labels::KIND],
+                )
+                .expect("Defining the network_container_capacities metric must succeed"),
+            );
+            prometheus::default_registry().register(network_container_capacities.clone()).expect(
+                "Registering the network_container_capacities metric with the metrics registry must succeed"
+            );
+            network_container_capacities
+        };
+    }
+
+    pub mod values {
+        pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
+        pub const CX_REQUEST_TABLE: &str = "cx_request_table";
+        pub const BITSWAP_OUTGOING_QUERY_IDS: &str = "bitswap_outgoing_query_ids";
+    }
+
+    pub mod labels {
+        pub const KIND: &str = "kind";
+    }
+}
+
 /// `Gossipsub` Filecoin blocks topic identifier.
 pub const PUBSUB_BLOCK_STR: &str = "/fil/blocks";
 /// `Gossipsub` Filecoin messages topic identifier.
@@ -330,6 +363,9 @@ async fn handle_network_message<P: StoreParams>(
         } => {
             let request_id = swarm.behaviour_mut().hello.send_request(&peer_id, request);
             hello_request_table.insert(request_id, response_channel);
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                .set(hello_request_table.capacity() as u64);
             emit_event(
                 network_sender_out,
                 NetworkEvent::HelloRequestOutbound { request_id },
@@ -346,6 +382,9 @@ async fn handle_network_message<P: StoreParams>(
                 .chain_exchange
                 .send_request(&peer_id, request);
             cx_request_table.insert(request_id, response_channel);
+            metrics::NETWORK_CONTAINER_CAPACITIES
+                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                .set(cx_request_table.capacity() as u64);
             emit_event(
                 network_sender_out,
                 NetworkEvent::ChainExchangeRequestOutbound { request_id },
@@ -358,6 +397,9 @@ async fn handle_network_message<P: StoreParams>(
         } => match swarm.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
                 outgoing_bitswap_query_ids.insert(query_id, cid);
+                metrics::NETWORK_CONTAINER_CAPACITIES
+                    .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+                    .set(outgoing_bitswap_query_ids.capacity() as u64);
                 emit_event(
                     network_sender_out,
                     NetworkEvent::BitswapRequestOutbound { query_id, cid },
@@ -559,6 +601,9 @@ async fn handle_hello_event<P: StoreParams>(
             } => {
                 // Send the sucessful response through channel out.
                 if let Some(tx) = hello_request_table.remove(&request_id) {
+                    metrics::NETWORK_CONTAINER_CAPACITIES
+                        .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                        .set(hello_request_table.capacity() as u64);
                     if tx.send(Ok(response)).is_err() {
                         warn!("Fail to send Hello response");
                     } else {
@@ -586,6 +631,9 @@ async fn handle_hello_event<P: StoreParams>(
             // Send error through channel out.
             let tx = hello_request_table.remove(&request_id);
             if let Some(tx) = tx {
+                metrics::NETWORK_CONTAINER_CAPACITIES
+                    .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                    .set(hello_request_table.capacity() as u64);
                 if tx.send(Err(error.into())).is_err() {
                     warn!("RPCResponse receive failed");
                 }
@@ -624,6 +672,9 @@ async fn handle_bitswap_event(
                 let prefix = get_prefix(&query_id);
                 debug!("{prefix} bitswap query {query_id} completed successfully");
                 if let Some(cid) = outgoing_bitswap_query_ids.remove(&query_id) {
+                    metrics::NETWORK_CONTAINER_CAPACITIES
+                        .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+                        .set(outgoing_bitswap_query_ids.capacity() as u64);
                     emit_event(
                         network_sender_out,
                         NetworkEvent::BitswapResponseInbound { query_id, cid },
@@ -728,6 +779,9 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                     let tx = cx_request_table.remove(&request_id);
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
+                        metrics::NETWORK_CONTAINER_CAPACITIES
+                            .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                            .set(cx_request_table.capacity() as u64);
                         if tx.send(Ok(response)).is_err() {
                             warn!("Fail to send ChainExchange response")
                         }
@@ -751,6 +805,9 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
 
             // Send error through channel out.
             if let Some(tx) = tx {
+                metrics::NETWORK_CONTAINER_CAPACITIES
+                    .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                    .set(cx_request_table.capacity() as u64);
                 if tx.send(Err(error.into())).is_err() {
                     warn!("RPCResponse receive failed")
                 }

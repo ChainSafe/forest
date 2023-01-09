@@ -1,18 +1,16 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::*;
+use forest_blocks::Tipset;
+use log::{debug, trace};
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{cmp::Ordering, collections::HashSet};
-
-use forest_blocks::Tipset;
-use forest_libp2p::PeerId;
-use log::{debug, trace};
-use rand::seq::SliceRandom;
 use tokio::sync::RwLock;
 
-use crate::metrics;
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
 
@@ -60,7 +58,7 @@ struct PeerSets {
 
 /// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
 #[derive(Default)]
-pub(crate) struct PeerManager {
+pub struct PeerManager {
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
     /// Average response time from peers.
