@@ -170,9 +170,9 @@ where
     {
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
         let pending = Arc::new(RwLock::new(HashMap::new()));
-        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().await.ok_or_else(
-            || Error::Other("Failed to retrieve heaviest tipset from provider".to_owned()),
-        )?));
+        let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().ok_or_else(|| {
+            Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
+        })?));
         let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
         let sig_val_cache = Arc::new(RwLock::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
         let api_mutex = Arc::new(RwLock::new(api));
