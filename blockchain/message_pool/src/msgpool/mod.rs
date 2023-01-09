@@ -446,11 +446,13 @@ pub mod tests {
         .await
         .unwrap();
 
-        let mut api_temp = mpool.api.inner.lock();
-        api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
-        api_temp.set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
-        api_temp.set_state_sequence(&sender, 0);
-        drop(api_temp);
+        {
+            let mut api_temp = mpool.api.inner.lock();
+            api_temp.set_block_messages(&a, vec![smsg_vec[0].clone()]);
+            api_temp.set_block_messages(&b.clone(), smsg_vec[1..4].to_vec());
+            api_temp.set_state_sequence(&sender, 0);
+            drop(api_temp);
+        }
 
         mpool.add(smsg_vec[0].clone()).unwrap();
         mpool.add(smsg_vec[1].clone()).unwrap();

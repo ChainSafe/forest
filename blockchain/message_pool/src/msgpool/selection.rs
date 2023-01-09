@@ -755,8 +755,7 @@ mod test_selection {
             assert_eq!(
                 *msg.from(),
                 a1,
-                "first 10 returned messages should be from actor a1 {}",
-                i
+                "first 10 returned messages should be from actor a1 {i}",
             );
             assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
@@ -767,8 +766,7 @@ mod test_selection {
             assert_eq!(
                 *msg.from(),
                 a2,
-                "next 10 returned messages should be from actor a2 {}",
-                i
+                "next 10 returned messages should be from actor a2 {i}",
             );
             assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
@@ -1317,7 +1315,7 @@ mod test_selection {
         for m in &msgs {
             let who = who_is(m.message.from);
             if who < 3 {
-                panic!("got message from {}th actor", who);
+                panic!("got message from {who}th actor",);
             }
 
             let next_nonce: u64 = nonces[who];
