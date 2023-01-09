@@ -10,18 +10,18 @@ use std::io::Write;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use clap::StructOpt;
+use clap::Parser;
 
 /// CLI structure generated when interacting with Forest binary
-#[derive(StructOpt)]
-#[structopt(
+#[derive(Parser)]
+#[clap(
     name = env!("CARGO_PKG_NAME"),
     version = FOREST_VERSION_STRING.as_str(),
     about = env!("CARGO_PKG_DESCRIPTION"),
     author = env!("CARGO_PKG_AUTHORS")
 )]
 pub struct Cli {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub opts: CliOpts,
     pub cmd: Option<String>,
 }

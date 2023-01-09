@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
 use std::path::Path;
-use clap::StructOpt;
+use clap::Parser;
 
 use cid::Cid;
 use forest_statediff::print_state_diff;
 
 /// Examine the state delta
-#[derive(StructOpt)]
+#[derive(Parser)]
 pub struct ChainCommand {
     /// The previous CID state root
     pre: Cid,
@@ -52,14 +52,14 @@ fn open_db(chain_path: &Path) -> forest_db::parity_db::ParityDb {
 }
 
 /// statediff binary sub-commands available.
-#[derive(StructOpt)]
+#[derive(Parser)]
 enum Subcommand {
     #[structopt(name = "chain")]
     Chain(ChainCommand),
 }
 
 /// CLI structure generated when interacting with the statediff tool
-#[derive(StructOpt)]
+#[derive(Parser)]
 #[structopt(
     name = env!("CARGO_PKG_NAME"),
     version = env!("CARGO_PKG_VERSION"),
@@ -74,7 +74,7 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     // Capture Cli inputs
-    let Cli { cmd } = Cli::from_args();
+    let Cli { cmd } = Cli::parse();
     match cmd {
         Subcommand::Chain(cmd) => {
             cmd.run().await;

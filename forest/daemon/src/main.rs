@@ -23,7 +23,7 @@ use std::fs::File;
 use std::process;
 use std::sync::Arc;
 use std::time::Duration;
-use clap::StructOpt;
+use clap::Parser;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;
 
@@ -96,7 +96,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 
 fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::from_args();
+    let Cli { opts, cmd } = Cli::parse();
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 
