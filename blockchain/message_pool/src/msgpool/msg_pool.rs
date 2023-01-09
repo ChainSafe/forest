@@ -35,6 +35,7 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -137,9 +138,9 @@ pub struct MessagePool<T> {
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
     /// A cache for BLS signature keyed by Cid
-    pub bls_sig_cache: Arc<RwLock<LruCache<Cid, Signature>>>,
+    pub bls_sig_cache: Arc<Mutex<LruCache<Cid, Signature>>>,
     /// A cache for BLS signature keyed by Cid
-    pub sig_val_cache: Arc<RwLock<LruCache<Cid, ()>>>,
+    pub sig_val_cache: Arc<Mutex<LruCache<Cid, ()>>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<RwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
@@ -173,8 +174,8 @@ where
         let tipset = Arc::new(RwLock::new(api.get_heaviest_tipset().ok_or_else(|| {
             Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
         })?));
-        let bls_sig_cache = Arc::new(RwLock::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
-        let sig_val_cache = Arc::new(RwLock::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
+        let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
+        let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
         // let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(RwLock::new(HashSet::new()));
         let republished = Arc::new(RwLock::new(HashSet::new()));
@@ -327,7 +328,7 @@ where
         if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
             return Err(Error::GasFeeCapTooLow);
         }
-        self.verify_msg_sig(msg).await
+        self.verify_msg_sig(msg)
     }
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
@@ -343,16 +344,16 @@ where
 
     /// Verify the message signature. first check if it has already been verified and put into
     /// cache. If it has not, then manually verify it then put it into cache for future use.
-    async fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
+    fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid()?;
 
-        if let Some(()) = self.sig_val_cache.write().await.get(&cid) {
+        if let Some(()) = self.sig_val_cache.lock().get(&cid) {
             return Ok(());
         }
 
         msg.verify().map_err(Error::Other)?;
 
-        self.sig_val_cache.write().await.put(cid, ());
+        self.sig_val_cache.lock().put(cid, ());
 
         Ok(())
     }
@@ -492,8 +493,7 @@ where
 
             msg_vec.append(smsgs.as_mut());
             for msg in umsg {
-                let mut bls_sig_cache = self.bls_sig_cache.write().await;
-                let smsg = recover_sig(&mut bls_sig_cache, msg).await?;
+                let smsg = recover_sig(&mut self.bls_sig_cache.lock(), msg)?;
                 msg_vec.push(smsg)
             }
         }
@@ -596,7 +596,7 @@ where
 /// and push it to the pending hash-map.
 pub(crate) async fn add_helper<T>(
     api: &T,
-    bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
+    bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
@@ -606,8 +606,7 @@ where
 {
     if msg.signature().signature_type() == SignatureType::BLS {
         bls_sig_cache
-            .write()
-            .await
+            .lock()
             .put(msg.cid()?, msg.signature().clone());
     }
 

@@ -22,6 +22,7 @@ use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::{borrow::BorrowMut, cmp::Ordering};
@@ -208,7 +209,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &T,
-    bls_sig_cache: &RwLock<LruCache<Cid, Signature>>,
+    bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &RwLock<HashSet<Cid>>,
     pending: &RwLock<HashMap<Address, MsgSet>>,
@@ -230,8 +231,7 @@ where
             let (umsg, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
             for msg in umsg {
-                let mut bls_sig_cache = bls_sig_cache.write().await;
-                let smsg = recover_sig(&mut bls_sig_cache, msg).await?;
+                let smsg = recover_sig(&mut bls_sig_cache.lock(), msg)?;
                 msgs.push(smsg)
             }
         }
