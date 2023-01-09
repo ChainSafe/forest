@@ -46,6 +46,12 @@ end
 def default_config
   toml_str = syscall('./target/release/forest-cli', 'config', 'dump')
 
+  # Comment chain.policy section
+  patched_str = toml_str.sub(/(\[chain.policy\].+?(?=\n\[))/m) {
+    |s| s.split("\n").map { |l| l.prepend("# ") }.join("\n") + "\n"
+  }
+  toml_str = patched_str
+
   default = TomlRB.parse(toml_str)
   default['client']['data_dir'] = TEMP_DIR
   default
