@@ -49,6 +49,7 @@ multihash = { workspace = true, default-features = false, features = ["std", "mu
 pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true
+rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true

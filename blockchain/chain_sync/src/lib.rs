@@ -8,7 +8,6 @@ mod chain_muxer;
 pub mod consensus;
 mod metrics;
 mod network_context;
-mod peer_manager;
 mod sync_state;
 mod tipset_syncer;
 mod validation;
