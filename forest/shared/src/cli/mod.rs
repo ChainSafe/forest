@@ -20,7 +20,7 @@ use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use structopt::StructOpt;
+use clap::StructOpt;
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
@@ -28,7 +28,7 @@ pub static FOREST_VERSION_STRING: Lazy<String> =
     Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
 /// CLI options
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, structopt::StructOpt)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[structopt(short, long)]

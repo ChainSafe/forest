@@ -134,6 +134,7 @@ serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2 = "0.10.5"
 smallvec = "1.9"
 structopt = "0.3"
+clap = { version = "3.0", features = ["derive"] }
 tempfile = "3.3"
 thiserror = "1.0"
 time = "0.3"

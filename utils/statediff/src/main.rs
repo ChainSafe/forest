@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
 use std::path::Path;
-use structopt::StructOpt;
+use clap::StructOpt;
 
 use cid::Cid;
 use forest_statediff::print_state_diff;
@@ -53,7 +53,6 @@ fn open_db(chain_path: &Path) -> forest_db::parity_db::ParityDb {
 
 /// statediff binary sub-commands available.
 #[derive(StructOpt)]
-#[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
 enum Subcommand {
     #[structopt(name = "chain")]
     Chain(ChainCommand),

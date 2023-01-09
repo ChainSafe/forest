@@ -10,7 +10,7 @@ use std::io::Write;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use structopt::StructOpt;
+use clap::StructOpt;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]

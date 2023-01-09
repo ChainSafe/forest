@@ -23,7 +23,7 @@ use std::fs::File;
 use std::process;
 use std::sync::Arc;
 use std::time::Duration;
-use structopt::StructOpt;
+use clap::StructOpt;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;
 
