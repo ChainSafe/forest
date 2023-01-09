@@ -20,6 +20,6 @@ Closes
 - [ ] I have performed a self-review of my own code,
 - [ ] I have made corresponding changes to the documentation,
 - [ ] I have added tests that prove my fix is effective or that my feature works (if possible),
-- [ ] I have added a changelog entry to [CHANGELOG](https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md).
+- [ ] I have made sure the [CHANGELOG](https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md) is up-to-date. All user-facing changes should be reflected in this document.
 
 <!-- Thank you 🔥 -->
