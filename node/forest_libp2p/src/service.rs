@@ -383,7 +383,7 @@ async fn handle_network_message<P: StoreParams>(
                 .send_request(&peer_id, request);
             cx_request_table.insert(request_id, response_channel);
             metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
                 .set(cx_request_table.capacity() as u64);
             emit_event(
                 network_sender_out,
@@ -601,6 +601,9 @@ async fn handle_hello_event<P: StoreParams>(
             } => {
                 // Send the sucessful response through channel out.
                 if let Some(tx) = hello_request_table.remove(&request_id) {
+                    metrics::NETWORK_CONTAINER_CAPACITIES
+                        .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                        .set(hello_request_table.capacity() as u64);
                     if tx.send(Ok(response)).is_err() {
                         warn!("Fail to send Hello response");
                     } else {
@@ -613,9 +616,6 @@ async fn handle_hello_event<P: StoreParams>(
                 } else {
                     warn!("RPCResponse receive failed: channel not found");
                 };
-                metrics::NETWORK_CONTAINER_CAPACITIES
-                    .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                    .set(hello_request_table.capacity() as u64);
             }
         },
         RequestResponseEvent::OutboundFailure {
@@ -630,10 +630,10 @@ async fn handle_hello_event<P: StoreParams>(
 
             // Send error through channel out.
             let tx = hello_request_table.remove(&request_id);
-            metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                .set(hello_request_table.capacity() as u64);
             if let Some(tx) = tx {
+                metrics::NETWORK_CONTAINER_CAPACITIES
+                    .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
+                    .set(hello_request_table.capacity() as u64);
                 if tx.send(Err(error.into())).is_err() {
                     warn!("RPCResponse receive failed");
                 }
@@ -672,15 +672,15 @@ async fn handle_bitswap_event(
                 let prefix = get_prefix(&query_id);
                 debug!("{prefix} bitswap query {query_id} completed successfully");
                 if let Some(cid) = outgoing_bitswap_query_ids.remove(&query_id) {
+                    metrics::NETWORK_CONTAINER_CAPACITIES
+                        .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+                        .set(outgoing_bitswap_query_ids.capacity() as u64);
                     emit_event(
                         network_sender_out,
                         NetworkEvent::BitswapResponseInbound { query_id, cid },
                     )
                     .await;
                 }
-                metrics::NETWORK_CONTAINER_CAPACITIES
-                    .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                    .set(outgoing_bitswap_query_ids.capacity() as u64);
             }
             Err(err) => {
                 let prefix = get_prefix(&query_id);
@@ -777,11 +777,11 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                     )
                     .await;
                     let tx = cx_request_table.remove(&request_id);
-                    metrics::NETWORK_CONTAINER_CAPACITIES
-                        .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                        .set(cx_request_table.capacity() as u64);
                     // Send the sucessful response through channel out.
                     if let Some(tx) = tx {
+                        metrics::NETWORK_CONTAINER_CAPACITIES
+                            .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                            .set(cx_request_table.capacity() as u64);
                         if tx.send(Ok(response)).is_err() {
                             warn!("Fail to send ChainExchange response")
                         }
@@ -802,12 +802,12 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
             );
 
             let tx = cx_request_table.remove(&request_id);
-            metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                .set(cx_request_table.capacity() as u64);
 
             // Send error through channel out.
             if let Some(tx) = tx {
+                metrics::NETWORK_CONTAINER_CAPACITIES
+                    .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
+                    .set(cx_request_table.capacity() as u64);
                 if tx.send(Err(error.into())).is_err() {
                     warn!("RPCResponse receive failed")
                 }
