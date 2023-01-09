@@ -212,7 +212,7 @@ FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http
 
 Note that if a token is not present in the FULLNODE_API_INFO env variable, the colon is removed.
 
-Forest developers will prepend this variable to CLI commands over using `export` on Linux or its equivalant on Windows. This will look like the following:
+Forest developers will prepend this variable to CLI commands over using `export` on Linux or its equivalent on Windows. This will look like the following:
 
 ```
 FULLNODE_API_INFO="..." forest-cli auth api-info -p admin
