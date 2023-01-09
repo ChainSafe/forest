@@ -522,7 +522,8 @@ where
         if local {
             let local_addrs = self.local_addrs.read().await;
             for a in local_addrs.iter() {
-                if let Some(mset) = self.pending.read().get(a) {
+                let pending = self.pending.read().get(a).cloned();
+                if let Some(mset) = pending {
                     for m in mset.msgs.values() {
                         if !self.local_msgs.write().await.remove(m) {
                             warn!("error deleting local message");
@@ -533,8 +534,8 @@ where
             self.pending.write().clear();
             self.republished.write().await.clear();
         } else {
-            let mut pending = self.pending.write();
             let local_addrs = self.local_addrs.read().await;
+            let mut pending = self.pending.write();
             pending.retain(|a, _| local_addrs.contains(a));
         }
     }
