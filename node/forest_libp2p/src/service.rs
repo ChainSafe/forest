@@ -76,7 +76,7 @@ mod metrics {
     pub mod values {
         pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
         pub const CX_REQUEST_TABLE: &str = "cx_request_table";
-        pub const BITSWAP_OUTGOING_QUERY_IDS: &str = "bitswap_out_query_ids";
+        pub const BITSWAP_OUTGOING_QUERY_IDS: &str = "bitswap_outgoing_query_ids";
     }
 
     pub mod labels {
