@@ -9,11 +9,14 @@ mod config;
 mod discovery;
 mod gossip_params;
 pub mod hello;
+mod metrics;
+mod peer_manager;
 pub mod rpc;
 mod service;
 
 pub(crate) use self::behaviour::*;
 pub use self::config::*;
+pub use self::peer_manager::*;
 pub use self::service::*;
 
 // Re-export some libp2p types
