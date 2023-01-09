@@ -31,7 +31,7 @@ where
     let tsk = TipsetKeys::new(cid_vec);
     let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
 
-    let (mut pending, mpts) = data.mpool.pending().await?;
+    let (mut pending, mpts) = data.mpool.pending()?;
 
     let mut have_cids = HashSet::new();
     for item in pending.iter() {
@@ -131,7 +131,7 @@ where
     if from.protocol() == Protocol::ID {
         umsg.from = key_addr;
     }
-    let nonce = data.mpool.get_sequence(&from).await?;
+    let nonce = data.mpool.get_sequence(&from)?;
     umsg.sequence = nonce;
     let key = forest_key_management::Key::try_from(forest_key_management::try_find(
         &key_addr,

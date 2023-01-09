@@ -35,7 +35,7 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock as SyncRwLock};
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -124,7 +124,7 @@ pub struct MessagePool<T> {
     /// The local address of the client
     local_addrs: Arc<RwLock<Vec<Address>>>,
     /// A map of pending messages where the key is the address
-    pub pending: Arc<RwLock<HashMap<Address, MsgSet>>>,
+    pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
     pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
@@ -170,7 +170,7 @@ where
         T: Provider,
     {
         let local_addrs = Arc::new(RwLock::new(Vec::new()));
-        let pending = Arc::new(RwLock::new(HashMap::new()));
+        let pending = Arc::new(SyncRwLock::new(HashMap::new()));
         let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset().ok_or_else(|| {
             Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
         })?));
@@ -301,7 +301,7 @@ where
         self.check_message(&msg)?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
         let cur_ts = self.cur_tipset.lock().clone();
-        let publish = self.add_tipset(msg.clone(), &cur_ts, true).await?;
+        let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = msg.marshal_cbor()?;
         self.add_local(msg).await?;
         if publish {
@@ -333,12 +333,12 @@ where
 
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the `MessagePool`.
-    pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
+    pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
 
         let tip = self.cur_tipset.lock().clone();
 
-        self.add_tipset(msg, &tip, false).await?;
+        self.add_tipset(msg, &tip, false)?;
         Ok(())
     }
 
@@ -360,12 +360,7 @@ where
 
     /// Verify the `state_sequence` and balance for the sender of the message given then
     /// call `add_locked` to finish adding the `signed_message` to pending.
-    async fn add_tipset(
-        &self,
-        msg: SignedMessage,
-        cur_ts: &Tipset,
-        local: bool,
-    ) -> Result<bool, Error> {
+    fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
@@ -380,14 +375,14 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg).await?;
+        self.add_helper(msg)?;
         Ok(publish)
     }
 
     /// Finish verifying signed message before adding it to the pending `mset` hash-map. If an entry
     /// in the hash-map does not yet exist, create a new `mset` that will correspond to the from
     /// message and push it to the pending hash-map.
-    async fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
+    fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
         let cur_ts = self.cur_tipset.lock().clone();
         add_helper(
@@ -397,17 +392,16 @@ where
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
         )
-        .await
     }
 
     /// Get the sequence for a given address, return Error if there is a failure to retrieve
     /// the respective sequence.
-    pub async fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
+    pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.lock().clone();
 
         let sequence = self.get_state_sequence(addr, &cur_ts)?;
 
-        let pending = self.pending.read().await;
+        let pending = self.pending.read();
 
         let msgset = pending.get(addr);
         match msgset {
@@ -435,26 +429,19 @@ where
     }
 
     /// Remove a message given a sequence and address from the message pool.
-    pub async fn remove(
-        &mut self,
-        from: &Address,
-        sequence: u64,
-        applied: bool,
-    ) -> Result<(), Error> {
-        remove(from, self.pending.as_ref(), sequence, applied).await
+    pub fn remove(&mut self, from: &Address, sequence: u64, applied: bool) -> Result<(), Error> {
+        remove(from, self.pending.as_ref(), sequence, applied)
     }
 
     /// Return a tuple that contains a vector of all signed messages and the current tipset for
     /// self.
-    pub async fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
+    pub fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
         let mut out: Vec<SignedMessage> = Vec::new();
-        let pending = self.pending.read().await;
-        let pending_hm = pending.clone();
+        let pending = self.pending.read().clone();
 
-        for (addr, _) in pending_hm {
+        for (addr, _) in pending {
             out.append(
                 self.pending_for(&addr)
-                    .await
                     .ok_or(Error::InvalidFromAddr)?
                     .as_mut(),
             )
@@ -467,8 +454,8 @@ where
 
     /// Return a Vector of signed messages for a given from address. This vector will be sorted by
     /// each `messsage`'s sequence. If no corresponding messages found, return None result type.
-    pub async fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
-        let pending = self.pending.read().await;
+    pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
+        let pending = self.pending.read();
         let mset = pending.get(a)?;
         if mset.msgs.is_empty() {
             return None;
@@ -519,7 +506,7 @@ where
     pub async fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write().await;
         for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
-            self.add(k.clone()).await.unwrap_or_else(|err| {
+            self.add(k.clone()).unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
                     local_msgs.remove(&k);
@@ -535,7 +522,7 @@ where
         if local {
             let local_addrs = self.local_addrs.read().await;
             for a in local_addrs.iter() {
-                if let Some(mset) = self.pending.read().await.get(a) {
+                if let Some(mset) = self.pending.read().get(a) {
                     for m in mset.msgs.values() {
                         if !self.local_msgs.write().await.remove(m) {
                             warn!("error deleting local message");
@@ -543,10 +530,10 @@ where
                     }
                 }
             }
-            self.pending.write().await.clear();
+            self.pending.write().clear();
             self.republished.write().await.clear();
         } else {
-            let mut pending = self.pending.write().await;
+            let mut pending = self.pending.write();
             let local_addrs = self.local_addrs.read().await;
             pending.retain(|a, _| local_addrs.contains(a));
         }
@@ -568,7 +555,7 @@ where
     ) -> Result<Vec<SignedMessage>, Error> {
         // Take a snapshot of the pending messages.
         let pending: HashMap<Address, HashMap<u64, SignedMessage>> = {
-            let pending = self.pending.read().await;
+            let pending = self.pending.read();
             pending
                 .iter()
                 .filter_map(|(actor, mset)| {
@@ -590,10 +577,10 @@ where
 /// Finish verifying signed message before adding it to the pending `mset` hash-map. If an entry
 /// in the hash-map does not yet exist, create a new `mset` that will correspond to the from message
 /// and push it to the pending hash-map.
-pub(crate) async fn add_helper<T>(
+pub(crate) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
 ) -> Result<(), Error>
@@ -615,7 +602,7 @@ where
     api.put_message(&ChainMessage::Signed(msg.clone()))?;
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
-    let mut pending = pending.write().await;
+    let mut pending = pending.write();
     let msett = pending.get_mut(&msg.message().from);
     match msett {
         Some(mset) => mset.add(msg)?,
@@ -658,13 +645,13 @@ fn verify_msg_before_add(
 }
 
 /// Remove a message from pending given the from address and sequence.
-pub async fn remove(
+pub fn remove(
     from: &Address,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     applied: bool,
 ) -> Result<(), Error> {
-    let mut pending = pending.write().await;
+    let mut pending = pending.write();
     let mset = if let Some(mset) = pending.get_mut(from) {
         mset
     } else {

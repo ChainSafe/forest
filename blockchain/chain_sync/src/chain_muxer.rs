@@ -333,8 +333,8 @@ where
         Ok(FullTipset::new(vec![block]).unwrap())
     }
 
-    async fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
-        if let Err(why) = mem_pool.add(message).await {
+    fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
+        if let Err(why) = mem_pool.add(message) {
             debug!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why
@@ -436,7 +436,8 @@ where
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         // Spawn and immediately move on to the next event
-                        tokio::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                        let mem_pool = mem_pool.clone();
+                        tokio::task::spawn_blocking(|| Self::handle_pubsub_message(mem_pool, m));
                     }
                     return Ok(None);
                 }

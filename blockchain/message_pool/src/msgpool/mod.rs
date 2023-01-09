@@ -22,7 +22,7 @@ use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock as SyncRwLock};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::{borrow::BorrowMut, cmp::Ordering};
@@ -56,7 +56,7 @@ async fn republish_pending_messages<T>(
     api: &T,
     network_sender: &flume::Sender<NetworkMessage>,
     network_name: &str,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
     republished: &RwLock<HashSet<Cid>>,
     local_addrs: &RwLock<Vec<Address>>,
@@ -73,7 +73,7 @@ where
     // Only republish messages from local addresses, ie. transactions which were sent to this node directly.
     let local_addrs = local_addrs.read().await;
     for actor in local_addrs.iter() {
-        if let Some(mset) = pending.read().await.get(actor) {
+        if let Some(mset) = pending.read().get(actor) {
             if mset.msgs.is_empty() {
                 continue;
             }
@@ -209,7 +209,7 @@ pub async fn head_change<T>(
     bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
     repub_trigger: Arc<flume::Sender<()>>,
     republished: &RwLock<HashSet<Cid>>,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
     revert: Vec<Tipset>,
     apply: Vec<Tipset>,
@@ -243,15 +243,13 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
-                    .await?;
+                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
-                    .await?;
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
                 if !repub && republished.write().await.insert(msg.cid()?) {
                     repub = true;
                 }
@@ -268,7 +266,7 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence = get_state_sequence(api, msg.from(), &cur_tipset.lock().clone())?;
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence).await {
+            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
         }
@@ -278,9 +276,9 @@ where
 
 /// This is a helper function for `head_change`. This method will remove a sequence for a from address
 /// from the messages selected by priority hash-map. It also removes the 'from' address and sequence from the `MessagePool`.
-pub(crate) async fn remove_from_selected_msgs(
+pub(crate) fn remove_from_selected_msgs(
     from: &Address,
-    pending: &RwLock<HashMap<Address, MsgSet>>,
+    pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     sequence: u64,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) -> Result<(), Error> {
@@ -288,10 +286,10 @@ pub(crate) async fn remove_from_selected_msgs(
         if temp.get_mut(&sequence).is_some() {
             temp.remove(&sequence);
         } else {
-            remove(from, pending, sequence, true).await?;
+            remove(from, pending, sequence, true)?;
         }
     } else {
-        remove(from, pending, sequence, true).await?;
+        remove(from, pending, sequence, true)?;
     }
     Ok(())
 }
@@ -385,11 +383,11 @@ pub mod tests {
         }
 
         mpool.api.inner.lock().set_state_sequence(&sender, 0);
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
-        mpool.add(smsg_vec[0].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
-        mpool.add(smsg_vec[1].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
+        mpool.add(smsg_vec[0].clone()).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
+        mpool.add(smsg_vec[1].clone()).unwrap();
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
 
         let a = mock_block(1, 1);
 
@@ -413,7 +411,7 @@ pub mod tests {
         .await
         .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
     }
 
     #[tokio::test]
@@ -454,10 +452,10 @@ pub mod tests {
         api_temp.set_state_sequence(&sender, 0);
         drop(api_temp);
 
-        mpool.add(smsg_vec[0].clone()).await.unwrap();
-        mpool.add(smsg_vec[1].clone()).await.unwrap();
-        mpool.add(smsg_vec[2].clone()).await.unwrap();
-        mpool.add(smsg_vec[3].clone()).await.unwrap();
+        mpool.add(smsg_vec[0].clone()).unwrap();
+        mpool.add(smsg_vec[1].clone()).unwrap();
+        mpool.add(smsg_vec[2].clone()).unwrap();
+        mpool.add(smsg_vec[3].clone()).unwrap();
 
         mpool.api.set_state_sequence(&sender, 0);
 
@@ -480,7 +478,7 @@ pub mod tests {
         .await
         .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 1);
 
@@ -502,7 +500,7 @@ pub mod tests {
         .await
         .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
         mpool.api.set_state_sequence(&sender, 0);
 
@@ -519,9 +517,9 @@ pub mod tests {
         .await
         .unwrap();
 
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 4);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 4);
 
-        let (p, _) = mpool.pending().await.unwrap();
+        let (p, _) = mpool.pending().unwrap();
         assert_eq!(p.len(), 3);
     }
 
@@ -554,13 +552,13 @@ pub mod tests {
             smsg_vec.push(msg);
         }
 
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 0);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
         mpool.push(smsg_vec[0].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 1);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
         mpool.push(smsg_vec[1].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 2);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
         mpool.push(smsg_vec[2].clone()).await.unwrap();
-        assert_eq!(mpool.get_sequence(&sender).await.unwrap(), 3);
+        assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
 
         let header = mock_block(1, 1);
         let tipset = Tipset::new(vec![header.clone()]).unwrap();

@@ -208,7 +208,7 @@ where
         .resolve_to_key_addr(&msg.from, &curr_ts)
         .await?;
 
-    let pending = data.mpool.pending_for(&from_a).await;
+    let pending = data.mpool.pending_for(&from_a);
     let prior_messages: Vec<ChainMessage> = pending
         .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
         .unwrap_or_default();
