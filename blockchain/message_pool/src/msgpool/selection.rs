@@ -641,11 +641,11 @@ where
     while left != right {
         if left.epoch() > right.epoch() {
             left_chain.push(left.as_ref().clone());
-            let par = api.read().await.load_tipset(left.parents()).await?;
+            let par = api.read().await.load_tipset(left.parents())?;
             left = par;
         } else {
             right_chain.push(right.as_ref().clone());
-            let par = api.read().await.load_tipset(right.parents()).await?;
+            let par = api.read().await.load_tipset(right.parents())?;
             right = par;
         }
     }

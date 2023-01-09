@@ -226,7 +226,7 @@ where
     let mut repub = false;
     let mut rmsgs: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
     for ts in revert {
-        let pts = api.write().await.load_tipset(ts.parents()).await?;
+        let pts = api.write().await.load_tipset(ts.parents())?;
         *cur_tipset.write().await = pts;
 
         let mut msgs: Vec<SignedMessage> = Vec::new();

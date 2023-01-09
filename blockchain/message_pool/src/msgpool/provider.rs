@@ -44,7 +44,7 @@ pub trait Provider {
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
 }
@@ -109,7 +109,7 @@ where
         Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         Ok(self.sm.chain_store().tipset_from_keys(tsk)?)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {

@@ -160,7 +160,7 @@ impl Provider for TestApi {
         Ok(msgs)
     }
 
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         for ts in &self.tipsets {
             if tsk.cids == ts.cids() {
                 return Ok(ts.clone().into());
