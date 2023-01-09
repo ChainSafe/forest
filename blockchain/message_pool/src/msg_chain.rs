@@ -330,7 +330,7 @@ impl std::default::Default for MsgChainNode {
     }
 }
 
-pub(crate) async fn create_message_chains<T>(
+pub(crate) fn create_message_chains<T>(
     api: &T,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,

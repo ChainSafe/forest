@@ -298,7 +298,7 @@ where
 
     /// Push a signed message to the `MessagePool`. Additionally performs
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
-        self.check_message(&msg).await?;
+        self.check_message(&msg)?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true).await?;
@@ -317,7 +317,7 @@ where
     }
 
     /// Basic checks on the validity of a message.
-    async fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
+    fn check_message(&self, msg: &SignedMessage) -> Result<(), Error> {
         if msg.marshal_cbor()?.len() > 32 * 1024 {
             return Err(Error::MessageTooBig);
         }
@@ -334,7 +334,7 @@ where
     /// This is a helper to push that will help to make sure that the message fits the parameters
     /// to be pushed to the `MessagePool`.
     pub async fn add(&self, msg: SignedMessage) -> Result<(), Error> {
-        self.check_message(&msg).await?;
+        self.check_message(&msg)?;
 
         let tip = self.cur_tipset.lock().clone();
 
@@ -482,10 +482,7 @@ where
     }
 
     /// Return Vector of signed messages given a block header for self.
-    pub async fn messages_for_blocks(
-        &self,
-        blks: &[BlockHeader],
-    ) -> Result<Vec<SignedMessage>, Error> {
+    pub fn messages_for_blocks(&self, blks: &[BlockHeader]) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
 
         for block in blks {
@@ -585,7 +582,6 @@ where
         };
 
         select_messages_for_block(self.api.as_ref(), self.chain_config.as_ref(), base, pending)
-            .await
     }
 }
 

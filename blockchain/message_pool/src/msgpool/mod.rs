@@ -86,7 +86,7 @@ where
     }
     drop(local_addrs);
 
-    let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map).await?;
+    let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map)?;
 
     for m in msgs.iter() {
         let mb = m.marshal_cbor()?;
@@ -111,7 +111,7 @@ where
 /// Select messages from the mempool to be included in the next block that builds on
 /// a given base tipset. The messages should be eligible for inclusion based on their
 /// sequences and the overall number of them should observe block gas limits.
-async fn select_messages_for_block<T>(
+fn select_messages_for_block<T>(
     api: &T,
     chain_config: &ChainConfig,
     base: &Tipset,
@@ -139,8 +139,7 @@ where
             base,
             &mut chains,
             chain_config,
-        )
-        .await?;
+        )?;
     }
 
     if chains.is_empty() {
@@ -611,7 +610,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 1, "expected a single chain");
         assert_eq!(
@@ -649,7 +647,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 10, "expected 10 chains");
 
@@ -693,7 +690,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 2, "expected 2 chains");
         assert_eq!(chains[0].msgs.len(), 9);
@@ -741,7 +737,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
 
         for i in 0..chains.len() {
@@ -791,7 +786,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 1, "expected a single chain");
         for (i, m) in chains[0].msgs.iter().enumerate() {
@@ -828,7 +822,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 1, "expected a single chain");
         assert_eq!(chains[0].msgs.len(), 5);
@@ -870,7 +863,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 1, "expected a single chain");
         assert_eq!(chains[0].msgs.len(), max_messages as usize);
@@ -903,7 +895,6 @@ pub mod tests {
             &mut chains,
             &chain_config,
         )
-        .await
         .unwrap();
         assert_eq!(chains.len(), 1, "expected a single chain");
         assert_eq!(chains[0].msgs.len(), 2);

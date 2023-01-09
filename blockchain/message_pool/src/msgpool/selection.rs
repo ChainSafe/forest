@@ -93,8 +93,7 @@ where
                 ts,
                 &mut chains,
                 &self.chain_config,
-            )
-            .await?;
+            )?;
         }
 
         let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
@@ -138,8 +137,7 @@ where
                 target_tipset,
                 &mut chains,
                 &self.chain_config,
-            )
-            .await?;
+            )?;
         }
 
         // 2. Sort the chains
@@ -508,8 +506,7 @@ where
                     ts,
                     &mut chains,
                     &self.chain_config,
-                )
-                .await?;
+                )?;
             }
         }
 
