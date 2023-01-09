@@ -21,7 +21,7 @@ where
     B: Beacon,
 {
     let (CidJson(cid),) = params;
-    Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
+    Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
@@ -35,8 +35,7 @@ where
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
-        .put(cid, "Marked bad manually through RPC API".to_string())
-        .await;
+        .put(cid, "Marked bad manually through RPC API".to_string());
     Ok(())
 }
 
