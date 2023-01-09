@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_chain_sync::SyncConfig;
+use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
@@ -9,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use url::Url;
-
-use crate::DbConfig;
 
 use super::client::Client;
 

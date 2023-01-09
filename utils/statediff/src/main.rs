@@ -1,9 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
-use forest_cli_shared::db_path;
-use forest_cli_shared::open_db;
-use forest_cli_shared::DbConfig;
+use forest_db::db_engine::{db_path, open_db, DbConfig};
 use structopt::StructOpt;
 
 use cid::Cid;

@@ -10,9 +10,9 @@ use anyhow::Context;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
-    logger, Db,
+    logger,
 };
-use forest_db::Store;
+use forest_db::{db_engine::Db, Store};
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
