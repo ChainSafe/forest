@@ -88,7 +88,7 @@ impl Provider for TestApi {
         self.publisher.subscribe()
     }
 
-    fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
+    fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         Tipset::new(vec![create_header(1)]).ok().map(Arc::new)
     }
 

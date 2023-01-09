@@ -158,7 +158,7 @@ where
 {
     /// Creates a new `MessagePool` instance.
     pub async fn new(
-        mut api: T,
+        api: T,
         network_name: String,
         network_sender: flume::Sender<NetworkMessage>,
         config: MpoolConfig,
