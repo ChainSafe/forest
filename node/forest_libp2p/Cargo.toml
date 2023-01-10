@@ -25,6 +25,7 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
+lazy_static.workspace = true
 libipld.workspace = true
 libp2p = { workspace = true, default-features = false, features = [
   "gossipsub",
@@ -48,6 +49,7 @@ multihash = { workspace = true, default-features = false, features = ["std", "mu
 pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true
+rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
