@@ -549,10 +549,7 @@ where
     }
 
     /// Select messages that can be included in a block built on a given base tipset.
-    pub async fn select_messages_for_block(
-        &self,
-        base: &Tipset,
-    ) -> Result<Vec<SignedMessage>, Error> {
+    pub fn select_messages_for_block(&self, base: &Tipset) -> Result<Vec<SignedMessage>, Error> {
         // Take a snapshot of the pending messages.
         let pending: HashMap<Address, HashMap<u64, SignedMessage>> = {
             let pending = self.pending.read();

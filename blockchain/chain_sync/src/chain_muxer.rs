@@ -205,7 +205,7 @@ where
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError<C>> {
         // Attempt to load from the store
-        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
+        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
             return Ok(full_tipset);
         }
         // Load from the network
@@ -215,7 +215,7 @@ where
             .map_err(ChainMuxerError::ChainExchange)
     }
 
-    async fn load_full_tipset(
+    fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError<C>> {
