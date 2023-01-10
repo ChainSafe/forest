@@ -1,3 +1,13 @@
+## Forest unreleased
+Notable updates:
+
+### Added
+
+### Changed
+* [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h.: [#2396](https://github.com/ChainSafe/forest/pull/2396)
+
+### Removed
+
 ## Forest v0.6.0 (2023-01-06)
 
 Notable updates:
