@@ -175,7 +175,6 @@ where
         })?));
         let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
         let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
-        // let api_mutex = Arc::new(RwLock::new(api));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
         let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
