@@ -17,8 +17,8 @@ use forest_db::Store;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
 use forest_key_management::{KeyStore, KeyStoreConfig};
-use forest_libp2p::PeerId;
 use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
+use forest_libp2p::{PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -230,11 +230,14 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         config
     };
 
+    let peer_manager = Arc::new(PeerManager::default());
+    services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     let genesis_cid = *genesis_header.cid();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
         Arc::clone(&chain_store),
+        peer_manager.clone(),
         net_keypair,
         &network_name,
         genesis_cid,
@@ -274,7 +277,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let chain_muxer = ChainMuxer::new(
         Arc::new(consensus),
         Arc::clone(&state_manager),
-        Arc::clone(&mpool),
+        peer_manager,
+        mpool.clone(),
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
