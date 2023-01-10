@@ -41,7 +41,6 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
-use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use tokio::time::interval;
 
@@ -122,7 +121,7 @@ impl MsgSet {
 /// Keeps track of messages to apply, as well as context needed for verifying transactions.
 pub struct MessagePool<T> {
     /// The local address of the client
-    local_addrs: Arc<RwLock<Vec<Address>>>,
+    local_addrs: Arc<SyncRwLock<Vec<Address>>>,
     /// A map of pending messages where the key is the address
     pub pending: Arc<SyncRwLock<HashMap<Address, MsgSet>>>,
     /// The current tipset (a set of blocks)
@@ -142,11 +141,11 @@ pub struct MessagePool<T> {
     /// A cache for BLS signature keyed by Cid
     pub sig_val_cache: Arc<Mutex<LruCache<Cid, ()>>>,
     /// A set of republished messages identified by their Cid
-    pub republished: Arc<RwLock<HashSet<Cid>>>,
+    pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
     /// Acts as a signal to republish messages from the republished set of messages
     pub repub_trigger: flume::Sender<()>,
     // TODO look into adding a cap to `local_msgs`
-    local_msgs: Arc<RwLock<HashSet<SignedMessage>>>,
+    local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,
     /// Chain configuration
@@ -169,7 +168,7 @@ where
     where
         T: Provider,
     {
-        let local_addrs = Arc::new(RwLock::new(Vec::new()));
+        let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
         let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset().ok_or_else(|| {
             Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
@@ -177,8 +176,8 @@ where
         let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
         let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
         // let api_mutex = Arc::new(RwLock::new(api));
-        let local_msgs = Arc::new(RwLock::new(HashSet::new()));
-        let republished = Arc::new(RwLock::new(HashSet::new()));
+        let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
+        let republished = Arc::new(SyncRwLock::new(HashSet::new()));
         let block_delay = chain_config.block_delay_secs;
 
         let (repub_trigger, repub_trigger_rx) = flume::bounded::<()>(4);
@@ -200,7 +199,7 @@ where
             chain_config: Arc::clone(&chain_config),
         };
 
-        mp.load_local().await?;
+        mp.load_local()?;
 
         let mut subscriber = mp.api.subscribe_head_changes();
 
@@ -290,9 +289,9 @@ where
     }
 
     /// Add a signed message to the pool and its address.
-    async fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
-        self.local_addrs.write().await.push(*m.from());
-        self.local_msgs.write().await.insert(m);
+    fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
+        self.local_addrs.write().push(*m.from());
+        self.local_msgs.write().insert(m);
         Ok(())
     }
 
@@ -303,7 +302,7 @@ where
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = msg.marshal_cbor()?;
-        self.add_local(msg).await?;
+        self.add_local(msg)?;
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
@@ -503,8 +502,8 @@ where
     }
 
     /// Loads local messages to the message pool to be applied.
-    pub async fn load_local(&mut self) -> Result<(), Error> {
-        let mut local_msgs = self.local_msgs.write().await;
+    pub fn load_local(&mut self) -> Result<(), Error> {
+        let mut local_msgs = self.local_msgs.write();
         for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
             self.add(k.clone()).unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
@@ -518,27 +517,27 @@ where
     }
     /// If `local = true`, the local messages will be removed as well as pending messages.
     /// If `local = false`, pending messages will be removed while retaining local messages.
-    pub async fn clear(&mut self, local: bool) {
+    pub fn clear(&mut self, local: bool) {
         if local {
-            let local_addrs = self.local_addrs.read().await;
-            for a in local_addrs.iter() {
+            for a in self.local_addrs.read().iter() {
                 let pending = self.pending.read().get(a).cloned();
                 if let Some(mset) = pending {
                     for m in mset.msgs.values() {
-                        if !self.local_msgs.write().await.remove(m) {
+                        if !self.local_msgs.write().remove(m) {
                             warn!("error deleting local message");
                         }
                     }
                 }
             }
             self.pending.write().clear();
-            self.republished.write().await.clear();
+            self.republished.write().clear();
         } else {
-            let local_addrs = self.local_addrs.read().await;
+            let local_addrs = self.local_addrs.read();
             let mut pending = self.pending.write();
             pending.retain(|a, _| local_addrs.contains(a));
         }
     }
+
     pub fn get_config(&self) -> &MpoolConfig {
         &self.config
     }

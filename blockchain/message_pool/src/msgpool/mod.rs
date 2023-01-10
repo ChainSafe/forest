@@ -27,7 +27,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
-use tokio::sync::RwLock;
 use utils::{get_base_fee_lower_bound, recover_sig};
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
@@ -58,8 +57,8 @@ async fn republish_pending_messages<T>(
     network_name: &str,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
-    republished: &RwLock<HashSet<Cid>>,
-    local_addrs: &RwLock<Vec<Address>>,
+    republished: &SyncRwLock<HashSet<Cid>>,
+    local_addrs: &SyncRwLock<Vec<Address>>,
     chain_config: &Arc<ChainConfig>,
 ) -> Result<(), Error>
 where
@@ -68,11 +67,10 @@ where
     let ts = cur_tipset.lock().clone();
     let mut pending_map: HashMap<Address, HashMap<u64, SignedMessage>> = HashMap::new();
 
-    republished.write().await.clear();
+    republished.write().clear();
 
     // Only republish messages from local addresses, ie. transactions which were sent to this node directly.
-    let local_addrs = local_addrs.read().await;
-    for actor in local_addrs.iter() {
+    for actor in local_addrs.read().iter() {
         if let Some(mset) = pending.read().get(actor) {
             if mset.msgs.is_empty() {
                 continue;
@@ -84,7 +82,6 @@ where
             pending_map.insert(*actor, pend);
         }
     }
-    drop(local_addrs);
 
     let msgs = select_messages_for_block(api, chain_config, ts.as_ref(), pending_map)?;
 
@@ -103,7 +100,7 @@ where
     for m in msgs.iter() {
         republished_t.insert(m.cid()?);
     }
-    *republished.write().await = republished_t;
+    *republished.write() = republished_t;
 
     Ok(())
 }
@@ -208,7 +205,7 @@ pub async fn head_change<T>(
     api: &T,
     bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,
     repub_trigger: Arc<flume::Sender<()>>,
-    republished: &RwLock<HashSet<Cid>>,
+    republished: &SyncRwLock<HashSet<Cid>>,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     cur_tipset: &Mutex<Arc<Tipset>>,
     revert: Vec<Tipset>,
@@ -244,13 +241,13 @@ where
 
             for msg in smsgs {
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
-                if !repub && republished.write().await.insert(msg.cid()?) {
+                if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
-                if !repub && republished.write().await.insert(msg.cid()?) {
+                if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
             }
