@@ -129,7 +129,6 @@ pub(crate) async fn validate_block<
                     parent_epoch,
                     &v_prev_beacon,
                 )
-                .await
                 .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
         }));
     }

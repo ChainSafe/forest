@@ -351,7 +351,7 @@ impl BlockHeader {
     }
 
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
-    pub async fn validate_block_drand<B: Beacon>(
+    pub fn validate_block_drand<B: Beacon>(
         &self,
         network_version: NetworkVersion,
         b_schedule: &BeaconSchedule<B>,
@@ -376,7 +376,6 @@ impl BlockHeader {
 
             curr_beacon
                 .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
-                .await
                 .map_err(|e| Error::Validation(e.to_string()))?;
 
             return Ok(());
@@ -413,7 +412,6 @@ impl BlockHeader {
         for curr in &self.beacon_entries {
             if !curr_beacon
                 .verify_entry(curr, prev)
-                .await
                 .map_err(|e| Error::Validation(e.to_string()))?
             {
                 return Err(Error::Validation(format!(
@@ -475,8 +473,8 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
-    async fn beacon_entry_exists() {
+    #[test]
+    fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -490,15 +488,12 @@ mod tests {
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
-        if let Err(e) = block_header
-            .validate_block_drand(
-                NetworkVersion::V16,
-                &beacon_schedule,
-                chain_epoch,
-                &beacon_entry,
-            )
-            .await
-        {
+        if let Err(e) = block_header.validate_block_drand(
+            NetworkVersion::V16,
+            &beacon_schedule,
+            chain_epoch,
+            &beacon_entry,
+        ) {
             // Assert error is for not including a beacon entry in the block
             match e {
                 Error::Validation(why) => {
