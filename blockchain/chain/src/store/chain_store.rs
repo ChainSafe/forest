@@ -34,7 +34,7 @@ use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
-use parking_lot::Mutex as StdMutex;
+use parking_lot::Mutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -44,7 +44,7 @@ use std::{
 };
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tokio::sync::Mutex;
+use tokio::sync::Mutex as TokioMutex;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -76,7 +76,7 @@ pub struct ChainStore<DB> {
     pub db: DB,
 
     /// Tipset at the head of the best-known chain.
-    heaviest: StdMutex<Option<Arc<Tipset>>>,
+    heaviest: Mutex<Option<Arc<Tipset>>>,
 
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
@@ -97,7 +97,7 @@ where
         DB: Clone,
     {
         let (publisher, _) = broadcast::channel(SINK_CAP);
-        let ts_cache = Arc::new(StdMutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
+        let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
         let cs = Self {
             publisher,
             // subscriptions: Default::default(),
@@ -483,7 +483,7 @@ where
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
-        let writer = Arc::new(Mutex::new(writer.compat_write()));
+        let writer = Arc::new(TokioMutex::new(writer.compat_write()));
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
@@ -592,7 +592,7 @@ where
     }
 }
 
-pub(crate) type TipsetCache = StdMutex<LruCache<TipsetKeys, Arc<Tipset>>>;
+pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Loads a tipset from memory given the tipset keys and cache.
 pub(crate) fn tipset_from_keys<BS>(
