@@ -1,7 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::peer_manager::PeerManager;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
@@ -12,7 +11,7 @@ use forest_libp2p::{
     },
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
-    NetworkMessage, PeerId,
+    NetworkMessage, PeerId, PeerManager,
 };
 use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;

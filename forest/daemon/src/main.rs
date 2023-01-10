@@ -12,7 +12,7 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use forest_db::Store;
+use forest_db::{db_engine::Db, Store};
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -93,12 +93,6 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 
     Ok(daemon)
 }
-
-#[cfg(feature = "rocksdb")]
-type Db = forest_db::rocks::RocksDb;
-
-#[cfg(feature = "paritydb")]
-type Db = forest_db::parity_db::ParityDb;
 
 fn main() -> anyhow::Result<()> {
     // Capture Cli inputs

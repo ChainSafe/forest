@@ -9,12 +9,11 @@ mod utils;
 #[cfg(feature = "rocksdb")]
 pub mod rocks;
 
-pub mod rocks_config;
-
 #[cfg(feature = "paritydb")]
 pub mod parity_db;
 
 pub mod parity_db_config;
+pub mod rocks_config;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
@@ -132,5 +131,38 @@ impl<BS: Store> Store for &BS {
 pub trait DBStatistics {
     fn get_statistics(&self) -> Option<String> {
         None
+    }
+}
+
+#[cfg(feature = "rocksdb")]
+pub mod db_engine {
+    use std::path::{Path, PathBuf};
+
+    pub type Db = crate::rocks::RocksDb;
+    pub type DbConfig = crate::rocks_config::RocksDbConfig;
+
+    pub fn db_path(path: &Path) -> PathBuf {
+        path.join("rocksdb")
+    }
+
+    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
+        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
+    }
+}
+
+#[cfg(feature = "paritydb")]
+pub mod db_engine {
+    use std::path::{Path, PathBuf};
+
+    pub type Db = crate::parity_db::ParityDb;
+    pub type DbConfig = crate::parity_db_config::ParityDbConfig;
+
+    pub fn db_path(path: &Path) -> PathBuf {
+        path.join("paritydb")
+    }
+
+    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
+        use crate::parity_db::ParityDb;
+        ParityDb::open(path.to_owned(), config)
     }
 }

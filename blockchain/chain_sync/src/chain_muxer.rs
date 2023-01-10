@@ -16,6 +16,7 @@ use forest_blocks::{
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
+use forest_libp2p::PeerManager;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
     PubsubMessage,
@@ -73,15 +74,6 @@ pub struct SyncConfig {
     pub req_window: i64,
     /// Sample size of tipsets to acquire before determining what the network head is
     pub tipset_sample_size: usize,
-}
-
-impl SyncConfig {
-    pub fn new(req_window: i64, tipset_sample_size: usize) -> Self {
-        Self {
-            req_window,
-            tipset_sample_size,
-        }
-    }
 }
 
 impl Default for SyncConfig {
@@ -167,6 +159,7 @@ where
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
+        peer_manager: Arc<PeerManager>,
         mpool: Arc<MessagePool<M>>,
         network_send: flume::Sender<NetworkMessage>,
         network_rx: flume::Receiver<NetworkEvent>,
@@ -177,7 +170,7 @@ where
     ) -> Result<Self, ChainMuxerError<C>> {
         let network = SyncNetworkContext::new(
             network_send,
-            Default::default(),
+            peer_manager,
             state_manager.blockstore().clone(),
         );
 

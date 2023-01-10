@@ -1,6 +1,6 @@
 [package]
 name = "forest-daemon"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
 edition = "2021"
@@ -18,7 +18,7 @@ chrono.workspace = true
 cid.workspace = true
 ctrlc = { version = "3.2", features = ["termination"] }
 daemonize-me = "2.0"
-dialoguer = "0.10.2"
+dialoguer.workspace = true
 directories.workspace = true
 fil_actor_miner_v8.workspace = true
 flume.workspace = true
