@@ -481,15 +481,12 @@ where
         };
 
         // Validate tipset
-        if let Err(why) = TipsetValidator(&tipset)
-            .validate(
-                chain_store.clone(),
-                bad_block_cache.clone(),
-                genesis.clone(),
-                block_delay,
-            )
-            .await
-        {
+        if let Err(why) = TipsetValidator(&tipset).validate(
+            chain_store.clone(),
+            bad_block_cache.clone(),
+            genesis.clone(),
+            block_delay,
+        ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             warn!(
                 "Validating tipset received through GossipSub failed: {}",

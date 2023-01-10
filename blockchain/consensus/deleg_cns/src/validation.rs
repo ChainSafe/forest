@@ -19,6 +19,7 @@ use crate::DelegatedConsensusError;
 /// * Sanity checks
 /// * Timestamps
 /// * The block was proposed by the only only miner eligible
+#[allow(clippy::unused_async)]
 pub(crate) async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static>(
     chosen_one: &Address,
     state_manager: Arc<StateManager<DB>>,

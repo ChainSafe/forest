@@ -52,7 +52,7 @@ where
     Ok(Tipset::new(vec![genesis])?)
 }
 
-pub async fn get_network_name_from_genesis<BS>(
+pub fn get_network_name_from_genesis<BS>(
     genesis_ts: &Tipset,
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
@@ -78,7 +78,7 @@ where
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
-    let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
+    let network_name = get_network_name_from_genesis(&ts, state_manager)?;
     Ok((ts, network_name))
 }
 

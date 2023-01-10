@@ -55,7 +55,7 @@ impl From<IpldAmtError> for Box<TipsetValidationError> {
 pub struct TipsetValidator<'a>(pub &'a FullTipset);
 
 impl<'a> TipsetValidator<'a> {
-    pub async fn validate<DB: Blockstore>(
+    pub fn validate<DB: Blockstore>(
         &self,
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,

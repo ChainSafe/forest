@@ -563,7 +563,7 @@ pub mod tests {
         let tipset = Tipset::new(vec![header.clone()]).unwrap();
 
         let ts = tipset.clone();
-        mpool.api.set_heaviest_tipset(Arc::new(ts)).await;
+        mpool.api.set_heaviest_tipset(Arc::new(ts));
 
         // sleep allows for async block to update mpool's cur_tipset
         tokio::time::sleep(Duration::new(2, 0)).await;

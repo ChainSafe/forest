@@ -23,7 +23,7 @@ pub struct ChainCommand {
 }
 
 impl ChainCommand {
-    pub async fn run(&self) {
+    pub fn run(&self) {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
         let chain_path = dir.data_dir().join(&self.chain);
         let blockstore = open_db(&chain_path);
@@ -78,7 +78,7 @@ async fn main() {
     let Cli { cmd } = Cli::from_args();
     match cmd {
         Subcommand::Chain(cmd) => {
-            cmd.run().await;
+            cmd.run();
         }
     }
 }

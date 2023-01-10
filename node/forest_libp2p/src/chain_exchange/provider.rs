@@ -15,7 +15,7 @@ use super::{
 };
 
 /// Builds chain exchange response out of chain data.
-pub async fn make_chain_exchange_response<DB>(
+pub fn make_chain_exchange_response<DB>(
     cs: &ChainStore<DB>,
     request: &ChainExchangeRequest,
 ) -> ChainExchangeResponse
@@ -174,8 +174,7 @@ mod tests {
                 request_len: 2,
                 options: HEADERS | MESSAGES,
             },
-        )
-        .await;
+        );
 
         // The response will be loaded with tipsets 39 and 38.
         // See:

@@ -71,7 +71,7 @@ impl TestApi {
     }
 
     /// Set the heaviest tipset for `TestApi`
-    pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
+    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
         self.publisher.send(HeadChange::Apply(ts)).unwrap();
     }
 
