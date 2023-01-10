@@ -39,8 +39,6 @@ pub trait Provider {
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
-    /// Resolves to the key address
-    async fn state_account_key(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
@@ -116,11 +114,5 @@ where
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         forest_chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())
-    }
-    async fn state_account_key(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error> {
-        self.sm
-            .resolve_to_key_addr(addr, ts)
-            .await
-            .map_err(|e| Error::Other(e.to_string()))
     }
 }

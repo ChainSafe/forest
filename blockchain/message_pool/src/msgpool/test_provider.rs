@@ -16,7 +16,7 @@ use forest_message::ChainMessage;
 use forest_message::Message as MessageTrait;
 use forest_message::SignedMessage;
 use fvm::state_tree::ActorState;
-use fvm_shared::address::{Address, Protocol};
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
@@ -166,13 +166,6 @@ impl Provider for TestApi {
                 let temp: Vec<SignedMessage> = Vec::new();
                 Ok((v, temp))
             }
-        }
-    }
-
-    async fn state_account_key(&self, addr: &Address, _ts: &Arc<Tipset>) -> Result<Address, Error> {
-        match addr.protocol() {
-            Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
-            _ => Err(Error::Other("given address was not a key addr".to_string())),
         }
     }
 
