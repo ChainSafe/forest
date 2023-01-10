@@ -231,7 +231,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     };
 
     let peer_manager = Arc::new(PeerManager::default());
-    services.spawn(peer_manager.clone().background_task());
+    services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     let genesis_cid = *genesis_header.cid();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(

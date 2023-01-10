@@ -243,9 +243,11 @@ impl PeerManager {
         }
     }
 
-    pub async fn background_task(self: Arc<Self>) -> anyhow::Result<()> {
+    pub async fn peer_operation_event_loop_task(self: Arc<Self>) -> anyhow::Result<()> {
+        let mut unban_list = vec![];
         loop {
-            let mut unban_list = vec![];
+            unban_list.clear();
+
             let now = Instant::now();
             for (peer, expiration) in self.peer_ban_list.read().await.iter() {
                 if let Some(expiration) = expiration {
@@ -261,7 +263,7 @@ impl PeerManager {
                         locked.remove(peer);
                     }
                 }
-                for peer in unban_list {
+                for &peer in unban_list.iter() {
                     if let Err(e) = self
                         .peer_ops_tx
                         .send_async(PeerOperation::Unban(peer))

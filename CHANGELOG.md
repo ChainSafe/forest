@@ -4,7 +4,7 @@ Notable updates:
 ### Added
 
 ### Changed
-* [libp2p] Ban peers with duration: [#2396](https://github.com/ChainSafe/forest/pull/2396)
+* [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h.: [#2396](https://github.com/ChainSafe/forest/pull/2396)
 
 ### Removed
 
