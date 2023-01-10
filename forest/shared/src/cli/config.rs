@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_chain_sync::SyncConfig;
+use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
@@ -166,6 +167,18 @@ pub struct Config {
     pub daemon: DaemonConfig,
     pub log: LogConfig,
     pub snapshot_fetch: SnapshotFetchConfig,
+}
+
+impl Config {
+    #[cfg(feature = "rocksdb")]
+    pub fn db_config(&self) -> &DbConfig {
+        &self.rocks_db
+    }
+
+    #[cfg(feature = "paritydb")]
+    pub fn db_config(&self) -> &DbConfig {
+        &self.parity_db
+    }
 }
 
 #[cfg(test)]
