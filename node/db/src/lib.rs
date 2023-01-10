@@ -133,3 +133,36 @@ pub trait DBStatistics {
         None
     }
 }
+
+#[cfg(feature = "rocksdb")]
+pub mod db_engine {
+    use std::path::{Path, PathBuf};
+
+    pub type Db = crate::rocks::RocksDb;
+    pub type DbConfig = crate::rocks_config::RocksDbConfig;
+
+    pub fn db_path(path: &Path) -> PathBuf {
+        path.join("rocksdb")
+    }
+
+    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
+        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
+    }
+}
+
+#[cfg(feature = "paritydb")]
+pub mod db_engine {
+    use std::path::{Path, PathBuf};
+
+    pub type Db = crate::parity_db::ParityDb;
+    pub type DbConfig = crate::parity_db_config::ParityDbConfig;
+
+    pub fn db_path(path: &Path) -> PathBuf {
+        path.join("paritydb")
+    }
+
+    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
+        use crate::parity_db::ParityDb;
+        ParityDb::open(path.to_owned(), config)
+    }
+}

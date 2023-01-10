@@ -8,17 +8,19 @@ use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
+use forest_cli_shared::chain_path;
 use forest_cli_shared::cli::{
-    db_path, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
-    FOREST_VERSION_STRING,
+    default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
 };
-use forest_cli_shared::{open_db, Db};
-use forest_db::Store;
+use forest_db::{
+    db_engine::{db_path, open_db, Db},
+    Store,
+};
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
 use forest_key_management::{KeyStore, KeyStoreConfig};
-use forest_libp2p::PeerId;
 use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
+use forest_libp2p::{PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -137,7 +139,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = open_db(&db_path(&config), &config)?;
+    let db = open_db(&db_path(&chain_path(&config)), config.db_config())?;
 
     let mut services = JoinSet::new();
 
@@ -150,7 +152,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = db_path(&config);
+        let db_directory = forest_db::db_engine::db_path(&chain_path(&config));
         let db = db.clone();
         services.spawn(async {
             forest_metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -230,11 +232,14 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         config
     };
 
+    let peer_manager = Arc::new(PeerManager::default());
+    services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     let genesis_cid = *genesis_header.cid();
     // Libp2p service setup
     let p2p_service = Libp2pService::new(
         config.network.clone(),
         Arc::clone(&chain_store),
+        peer_manager.clone(),
         net_keypair,
         &network_name,
         genesis_cid,
@@ -274,7 +279,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let chain_muxer = ChainMuxer::new(
         Arc::new(consensus),
         Arc::clone(&state_manager),
-        Arc::clone(&mpool),
+        peer_manager,
+        mpool.clone(),
         network_send.clone(),
         network_rx,
         Arc::new(genesis),
