@@ -8,6 +8,9 @@ Notable updates:
 
 ### Removed
 
+### Fixed
+* [libp2p] Properly cancel bitswap queries that are not responded to after a period. [2399](https://github.com/ChainSafe/forest/pull/2399)
+
 ## Forest v0.6.0 (2023-01-06)
 
 Notable updates:
