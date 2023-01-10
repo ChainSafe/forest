@@ -388,6 +388,10 @@ async fn bitswap_timeout_task(
                 }
             }
         }
+        metrics::NETWORK_CONTAINER_CAPACITIES
+            .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+            .set(outgoing_bitswap_query_ids.read().await.capacity() as u64);
+
         tokio::time::sleep(Duration::from_secs(60)).await;
     }
 }
@@ -450,9 +454,6 @@ async fn handle_network_message<P: StoreParams>(
                     .write()
                     .await
                     .insert(query_id, (cid, Instant::now()));
-                metrics::NETWORK_CONTAINER_CAPACITIES
-                    .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                    .set(outgoing_bitswap_query_ids.read().await.capacity() as u64);
                 emit_event(
                     network_sender_out,
                     NetworkEvent::BitswapRequestOutbound { query_id, cid },
@@ -715,10 +716,11 @@ async fn handle_bitswap_event(
         BitswapEvent::Complete(query_id, result) => match result {
             Ok(()) => {
                 debug!("bitswap query {query_id} completed successfully");
-                if let Some((cid, _)) = outgoing_bitswap_query_ids.write().await.remove(&query_id) {
-                    metrics::NETWORK_CONTAINER_CAPACITIES
-                        .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                        .set(outgoing_bitswap_query_ids.read().await.capacity() as u64);
+                let query_info_opt = {
+                    let mut locked = outgoing_bitswap_query_ids.write().await;
+                    locked.remove(&query_id)
+                };
+                if let Some((cid, _)) = query_info_opt {
                     emit_event(
                         network_sender_out,
                         NetworkEvent::BitswapResponseInbound { query_id, cid },
