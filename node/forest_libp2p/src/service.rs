@@ -349,7 +349,7 @@ where
                 },
                 bitswap_cancelling_query_opt = outgoing_bitswap_query_cancellation_rx_stream.next() => {
                     if let Some(query_id) = bitswap_cancelling_query_opt {
-                        info!("Cancelling bitswap query {query_id}");
+                        debug!("Cancelling bitswap query {query_id}");
                         swarm_stream.get_mut().behaviour_mut().bitswap.cancel(query_id);
                     }
                 },
