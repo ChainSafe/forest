@@ -16,6 +16,7 @@ use forest_blocks::{
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
+use forest_libp2p::PeerManager;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
     PubsubMessage,
@@ -158,6 +159,7 @@ where
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
+        peer_manager: Arc<PeerManager>,
         mpool: Arc<MessagePool<M>>,
         network_send: flume::Sender<NetworkMessage>,
         network_rx: flume::Receiver<NetworkEvent>,
@@ -168,7 +170,7 @@ where
     ) -> Result<Self, ChainMuxerError<C>> {
         let network = SyncNetworkContext::new(
             network_send,
-            Default::default(),
+            peer_manager,
             state_manager.blockstore().clone(),
         );
 

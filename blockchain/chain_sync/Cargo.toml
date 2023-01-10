@@ -40,7 +40,6 @@ num-traits.workspace = true
 parking_lot.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 quickcheck.workspace = true
-rand.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
 smallvec.workspace = true
 thiserror.workspace = true
