@@ -11,13 +11,13 @@ Dir.glob('**/*.toml').each do |file|
 
   # Add regular dependencies
   toml['dependencies']&.each do |dep|
-    # add the dependency if it is not inheriting versiom from workspace
+    # add the dependency if it is not inheriting version from workspace
     deps[dep[0]] << file unless dep[1].include? 'workspace'
   end
 
   # Add dev dependencies
   toml['dev-dependencies']&.each do |dep|
-    # add the dependency if it is not inheriting versiom from workspace
+    # add the dependency if it is not inheriting version from workspace
     deps[dep[0]] << file unless dep[1].include? 'workspace'
   end
 end

@@ -7,16 +7,12 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
-blake2b_simd.workspace = true
 cid.workspace = true
 flume.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
-forest_encoding.workspace = true
-forest_fil_types.workspace = true
-forest_interpreter.workspace = true
 forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_networks.workspace = true
@@ -27,7 +23,6 @@ fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
-libsecp256k1.workspace = true
 log.workspace = true
 lru.workspace = true
 num-rational.workspace = true
