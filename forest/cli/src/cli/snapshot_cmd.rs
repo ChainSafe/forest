@@ -11,7 +11,7 @@ use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 
-use forest_db::Store;
+use forest_db::{db_engine::open_db, Store};
 use forest_genesis::read_genesis_header;
 use forest_ipld::recurse_links;
 use forest_rpc_client::chain_ops::*;
@@ -370,7 +370,7 @@ async fn validate(
     if confirm {
         let tmp_db_path = TempDir::new()?;
         let db_path = tmp_db_path.path().join(&config.chain.name);
-        let db = forest_cli_shared::open_db(&db_path, config)?;
+        let db = open_db(&db_path, config.db_config())?;
 
         let chain_store = Arc::new(ChainStore::new(db).await);
 

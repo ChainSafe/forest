@@ -1,3 +1,16 @@
+## Forest unreleased
+Notable updates:
+
+### Added
+
+### Changed
+* [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h.: [#2396](https://github.com/ChainSafe/forest/pull/2396)
+
+### Removed
+
+### Fixed
+* [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [2403](https://github.com/ChainSafe/forest/pull/2403)
+
 ## Forest v0.6.0 (2023-01-06)
 
 Notable updates:
