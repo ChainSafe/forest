@@ -1,5 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(clippy::unused_async)]
 
 use forest_beacon::Beacon;
 use forest_chain_sync::SyncState;
@@ -21,7 +22,7 @@ where
     B: Beacon,
 {
     let (CidJson(cid),) = params;
-    Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
+    Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
@@ -35,8 +36,7 @@ where
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
-        .put(cid, "Marked bad manually through RPC API".to_string())
-        .await;
+        .put(cid, "Marked bad manually through RPC API".to_string());
     Ok(())
 }
 
@@ -91,7 +91,7 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db.clone()).await);
+        let cs_arc = Arc::new(ChainStore::new(db.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
@@ -117,7 +117,7 @@ mod tests {
             let ts = Tipset::new(vec![header]).unwrap();
             let db = cs_for_test.blockstore();
             let tsk = ts.key().cids.clone();
-            cs_for_test.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
+            cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
 
             for i in tsk {
                 let bz2 = bz.clone();

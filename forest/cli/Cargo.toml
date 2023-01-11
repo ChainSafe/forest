@@ -11,55 +11,34 @@ atty = "0.2"
 base64.workspace = true
 cid.workspace = true
 dialoguer.workspace = true
-directories.workspace = true
-fil_actor_miner_v8.workspace = true
-forest_actor_interface.workspace = true
 forest_auth.workspace = true
-forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_chain_sync.workspace = true
 forest_cli_shared.workspace = true
-forest_crypto.workspace = true
 forest_db = { workspace = true }
 forest_encoding.workspace = true
-forest_fil_types.workspace = true
 forest_genesis.workspace = true
-forest_interpreter.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
 forest_key_management.workspace = true
 forest_libp2p.workspace = true
-forest_message = { workspace = true, features = ["blst"] }
-forest_message_pool.workspace = true
-forest_networks.workspace = true
 forest_paramfetch.workspace = true
 forest_rpc-api.workspace = true
 forest_rpc-client.workspace = true
-forest_state_manager.workspace = true
 forest_utils.workspace = true
 fs_extra.workspace = true
-futures.workspace = true
-fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
-fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
-git-version.workspace = true
 hex.workspace = true
-http.workspace = true
 human-repr.workspace = true
 jsonrpc-v2.workspace = true
-libp2p = { workspace = true, default-features = false, features = ["identify"] }
 log.workspace = true
 multibase.workspace = true
-num-rational.workspace = true
-num-traits.workspace = true
-prometheus = { workspace = true, features = ["process"] }
 rpassword.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-sha2.workspace = true
 strfmt = "0.2.2"
 structopt.workspace = true
 tempfile.workspace = true
@@ -68,11 +47,9 @@ time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
-url.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
-quickcheck.workspace = true
 rand.workspace = true
 
 [features]

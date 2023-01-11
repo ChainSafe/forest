@@ -34,7 +34,7 @@ pub enum DelegatedConsensusError {
     BlockWithTicket,
     #[error("Block had the wrong timestamp: {0} != {1}")]
     UnequalBlockTimestamps(u64, u64),
-    #[error("Miner isn't elligible to mine: expected {0}; found {1}")]
+    #[error("Miner isn't eligible to mine: expected {0}; found {1}")]
     MinerNotEligibleToMine(Address, Address),
     #[error("Unknown miner: {0}")]
     UnknownMiner(Address),
@@ -78,7 +78,7 @@ impl Default for DelegatedConsensus {
             // In Eudico they use the _Account ID_ directly and not create a _Miner Actor_, but in
             // Forest we go through the common machinery, and validation will call [get_miner_work_addr],
             // which will treat the state pointed at by the `ActorState` as `miner::State`, so we _have_
-            // to use the _Miner ID_ in this version, becuase the data would not deserialise as `account::State`.
+            // to use the _Miner ID_ in this version, because the data would not deserialise as `account::State`.
             chosen_one: Address::from_str("t01000").unwrap(),
         }
     }

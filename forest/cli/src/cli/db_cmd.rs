@@ -21,7 +21,7 @@ pub enum DBCommands {
 }
 
 impl DBCommands {
-    pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
+    pub fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
             Self::Stats => {
                 use human_repr::HumanCount;

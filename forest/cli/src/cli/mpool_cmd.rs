@@ -8,7 +8,7 @@ use structopt::StructOpt;
 pub enum MpoolCommands {}
 
 impl MpoolCommands {
-    pub async fn run(&self, _config: Config) -> anyhow::Result<()> {
+    pub fn run(&self, _config: Config) -> anyhow::Result<()> {
         // match self {}
         Ok(())
     }

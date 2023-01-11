@@ -67,6 +67,7 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     )
 }
 
+#[allow(clippy::unused_async)]
 async fn collect_db_metrics<DB>(
     axum::extract::State(db): axum::extract::State<DB>,
 ) -> impl IntoResponse

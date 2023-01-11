@@ -13,7 +13,6 @@ cid.workspace = true
 const_format = "0.2.26"
 digest.workspace = true
 forest_encoding.workspace = true
-forest_ipld = { workspace = true, optional = true }
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true

@@ -14,10 +14,6 @@ serde_json.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 
 # Internal
-forest_blocks.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
-forest_key_management.workspace = true
 forest_libp2p.workspace = true
-forest_message.workspace = true
 forest_rpc-api.workspace = true
 forest_utils.workspace = true

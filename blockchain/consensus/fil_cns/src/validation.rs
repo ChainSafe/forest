@@ -52,7 +52,6 @@ pub(crate) async fn validate_block<
 
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
-        .await
         .map_err(to_errs)?;
 
     block_timestamp_checks(
@@ -67,14 +66,12 @@ pub(crate) async fn validate_block<
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = state_manager
         .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
-        .await
         .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
 
     let prev_beacon = chain_store
         .latest_beacon_entry(&base_tipset)
-        .await
         .map(Arc::new)
         .map_err(to_errs)?;
 
@@ -131,7 +128,6 @@ pub(crate) async fn validate_block<
                     parent_epoch,
                     &v_prev_beacon,
                 )
-                .await
                 .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
         }));
     }
