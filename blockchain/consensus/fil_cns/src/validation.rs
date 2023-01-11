@@ -66,7 +66,6 @@ pub(crate) async fn validate_block<
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = state_manager
         .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
-        .await
         .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
