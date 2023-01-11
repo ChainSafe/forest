@@ -43,7 +43,6 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
-use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock;
@@ -380,11 +379,7 @@ where
                 self.genesis_info
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
-                chain_epoch_root(
-                    Arc::clone(self),
-                    Arc::clone(tipset),
-                    tokio::runtime::Handle::current(),
-                ),
+                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 &self.engine,
                 Arc::clone(self.chain_config()),
             )
@@ -473,11 +468,7 @@ where
             self.genesis_info
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
-            chain_epoch_root(
-                Arc::clone(self),
-                Arc::clone(tipset),
-                tokio::runtime::Handle::current(),
-            ),
+            chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
             &self.engine,
             Arc::clone(self.chain_config()),
         )?;
@@ -549,7 +540,6 @@ where
         let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let epoch = ts.epoch() + 1;
-        let async_handle = tokio::runtime::Handle::current();
         let mut vm = VM::new(
             st,
             store,
@@ -559,7 +549,7 @@ where
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
-            chain_epoch_root(Arc::clone(self), Arc::clone(&ts), async_handle),
+            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             &self.engine,
             Arc::clone(self.chain_config()),
         )?;
@@ -624,7 +614,12 @@ where
     }
 
     /// Gets look-back tipset for block validations.
-    pub async fn get_lookback_tipset_for_round(
+    ///
+    /// The look-back tipset for a round is the tipset with epoch `round - chain_finality`.
+    /// Chain finality is usually 900. The given is a reference point in the
+    /// blockchain such that the look-back tipset can be found by tracing the
+    /// `parent` pointers.
+    pub fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         round: ChainEpoch,
@@ -639,11 +634,10 @@ where
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
-            let (st, _) = self
-                .tipset_state(&tipset)
-                .await
-                .map_err(|e| Error::Other(format!("Could execute tipset_state {e:?}")))?;
-            return Ok((tipset, st));
+            // This is not allowed to happen after network V3.
+            return Err(Error::Other(
+                "Failed to find look-back tipset: Unexpected number of null blocks.".to_string(),
+            ));
         }
 
         let next_ts = self
@@ -1239,20 +1233,12 @@ where
 fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-    async_handle: Handle,
-) -> Box<dyn Fn(ChainEpoch) -> Cid>
+) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
-    // Yes, both are needed, because the VM should only use the buffered store
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
-        let (_, st) = tokio::task::block_in_place(|| {
-            async_handle
-                .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
-                .unwrap_or_else(|err| {
-                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-                })
-        });
-        st
+        let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;
+        Ok(st)
     })
 }

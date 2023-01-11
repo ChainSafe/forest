@@ -25,4 +25,12 @@ in case of absence, passing the task to a different team member.
    release. Use the tag created in step 4, follow the title convention of the
    previous releases, and write a small summary of the release (similar or
    identical to the summary in the CHANGELOG.md file).
-7. Verify that the new release contains assets for both Linux and MacOS.
+7. Verify that the new release contains assets for both Linux and MacOS (the
+   assets are automatically generated and should show up after 30 minutes to an
+   hour).
+8. Update the [Forest Progress][1] wiki with the changes in the new release. If in
+   doubt about what has been accomplished, is in progress, or what's included in
+   the future plans, ask in the #fil-devs slack channel and tag authors of
+   related PRs.
+
+[1]: https://github.com/ChainSafe/forest/wiki/Forest-Progress
