@@ -946,7 +946,7 @@ async fn sync_headers_in_reverse<
                 i += 1;
             } else {
                 fork_length += 1;
-                // Increment the fork length and enfore the fork length check
+                // Increment the fork length and enforce the fork length check
                 if fork_length > FORK_LENGTH_THRESHOLD {
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsMaximum);
                 }
@@ -1198,7 +1198,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     }
     // Doing flush here creates small sst files at ~20KB
     // Then we need to manually compact them by calling CompactFiles
-    // which howver is not exposed by rocksdb or librocksdb-sys crates
+    // which however is not exposed by rocksdb or librocksdb-sys crates
     // if let Err(e) = chainstore.db.flush() {
     //     warn!("Failed to flush db: {e}");
     // }
@@ -1376,7 +1376,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
         consensus
             .validate_block(state_manager, v_block)
             .map_err(|errs| {
-                // NOTE: Concatentating errors here means the wrapper type of error
+                // NOTE: Concatenating errors here means the wrapper type of error
                 // never surfaces, yet we always pay the cost of the generic argument.
                 // But there's no reason `validate_block` couldn't return a list of all
                 // errors instead of a single one that has all the error messages,
@@ -1659,7 +1659,7 @@ mod test {
 
     #[test]
     pub fn test_heaviest_weight() {
-        // ticket_sequence are choosen so that Ticket(b3) < Ticket(b1)
+        // ticket_sequence are chosen so that Ticket(b3) < Ticket(b1)
 
         let b1 = mock_block(1234561, 10, 2);
         let ts1 = Tipset::new(vec![b1]).unwrap();

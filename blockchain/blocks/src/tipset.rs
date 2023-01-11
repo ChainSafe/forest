@@ -464,7 +464,7 @@ mod test {
         // Can not break weight tie (because of same min tickets)
         assert!(!ts1.break_weight_tie(&ts3));
 
-        // Values are choosen so that Ticket(b4) < Ticket(b5) < Ticket(b1)
+        // Values are chosen so that Ticket(b4) < Ticket(b5) < Ticket(b1)
         let b4 = mock_block(1234564, 1, 41);
         let b5 = mock_block(1234565, 1, 45);
         let ts4 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();

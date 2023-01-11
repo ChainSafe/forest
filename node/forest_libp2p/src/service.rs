@@ -632,7 +632,7 @@ async fn handle_hello_event<P: StoreParams>(
                 request_id,
                 response,
             } => {
-                // Send the sucessful response through channel out.
+                // Send the successful response through channel out.
                 if let Some(tx) = hello_request_table.remove(&request_id) {
                     metrics::NETWORK_CONTAINER_CAPACITIES
                         .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
@@ -812,7 +812,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                     )
                     .await;
                     let tx = cx_request_table.remove(&request_id);
-                    // Send the sucessful response through channel out.
+                    // Send the successful response through channel out.
                     if let Some(tx) = tx {
                         metrics::NETWORK_CONTAINER_CAPACITIES
                             .with_label_values(&[metrics::values::CX_REQUEST_TABLE])

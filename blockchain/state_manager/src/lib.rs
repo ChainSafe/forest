@@ -591,7 +591,7 @@ where
     ) -> Result<(Message, ApplyRet), Error> {
         const ERROR_MSG: &str = "replay_halt";
 
-        // This isn't ideal to have, since the execution is syncronous, but this needs to be the
+        // This isn't ideal to have, since the execution is synchronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
@@ -613,7 +613,7 @@ where
             }
         }
 
-        // Use try_recv here assuming callback execution is syncronous
+        // Use try_recv here assuming callback execution is synchronous
         let out_mes = m_rx
             .try_recv()
             .map_err(|err| Error::Other(format!("given message not found in tipset: {err}")))?;

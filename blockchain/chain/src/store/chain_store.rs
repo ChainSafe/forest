@@ -179,7 +179,7 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
-        // TODO: Figure out how to remove optional and return something everytime.
+        // TODO: Figure out how to remove optional and return something every time.
         self.heaviest.lock().clone()
     }
 
