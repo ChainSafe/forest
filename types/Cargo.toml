@@ -9,17 +9,8 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 anyhow.workspace = true
-base64.workspace = true
-cid.workspace = true
-# cannot update due to `blst` version conflict
 filecoin-proofs-api = { workspace = true, default-features = false }
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
-num-derive.workspace = true
-num-traits.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
 
 [dev-dependencies]
-quickcheck.workspace = true
-serde_json.workspace = true

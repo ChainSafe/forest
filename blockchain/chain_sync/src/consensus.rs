@@ -158,7 +158,6 @@ where
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         self.select_messages_for_block(base)
-            .await
             .map_err(|e| e.into())
             .map(|v| v.into_iter().map(Cow::Owned).collect())
     }

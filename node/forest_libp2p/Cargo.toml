@@ -10,14 +10,12 @@ async-trait.workspace = true
 bytes.workspace = true
 cid = { workspace = true, default-features = false, features = ["std"] }
 flume.workspace = true
-fnv.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
 forest_encoding.workspace = true
 forest_message.workspace = true
 forest_metrics.workspace = true
-forest_networks.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
@@ -53,12 +51,10 @@ rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
-smallvec.workspace = true
 tokio = { workspace = true, features = ["sync", "time"] }
 tokio-stream.workspace = true
 
 [dev-dependencies]
-forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_genesis = { workspace = true, features = ["testing"] }
 quickcheck.workspace = true

@@ -9,19 +9,15 @@ repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
 anyhow.workspace = true
-base64.workspace = true
 cid.workspace = true
 forest_encoding.workspace = true
 fvm.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
-num-traits.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-quickcheck.workspace = true
 rand.workspace = true
-serde_json.workspace = true
 
 [features]
 default = ["blst"]

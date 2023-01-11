@@ -372,7 +372,7 @@ async fn validate(
         let db_path = tmp_db_path.path().join(&config.chain.name);
         let db = open_db(&db_path, config.db_config())?;
 
-        let chain_store = Arc::new(ChainStore::new(db).await);
+        let chain_store = Arc::new(ChainStore::new(db));
 
         let genesis = read_genesis_header(
             config.client.genesis_file.as_ref(),
@@ -387,7 +387,7 @@ async fn validate(
             load_car(chain_store.blockstore(), reader.compat()).await?
         };
 
-        let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids)).await?;
+        let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
 
         validate_links_and_genesis_traversal(
             &chain_store,
@@ -433,7 +433,7 @@ where
             bail!("Broken invariant: no genesis tipset in snapshot.");
         }
 
-        let tipset = chain_store.tipset_from_keys(&tsk).await?;
+        let tipset = chain_store.tipset_from_keys(&tsk)?;
         let height = tipset.epoch();
         // if parent tipset epoch is smaller than child, bail with error.
         if height >= prev_epoch {
