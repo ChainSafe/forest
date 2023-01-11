@@ -2,7 +2,6 @@
 Notable updates:
 
 ### Added
-* Add support for benchmarking all Forest db backends
 
 ### Changed
 * [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h.: [#2396](https://github.com/ChainSafe/forest/pull/2396)
@@ -10,7 +9,6 @@ Notable updates:
 ### Removed
 
 ### Fixed
-* Fix db benchmark script caused by some toml parse error
 * [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [2403](https://github.com/ChainSafe/forest/pull/2403)
 
 ## Forest v0.6.0 (2023-01-06)
