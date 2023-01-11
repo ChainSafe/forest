@@ -6,7 +6,6 @@ edition = "2021"
 
 [dependencies]
 base64.workspace = true
-byteorder.workspace = true
 cid.workspace = true
 derive_builder.workspace = true
 forest_beacon.workspace = true
@@ -23,7 +22,6 @@ num-bigint.workspace = true
 once_cell.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }
-sha2 = { workspace = true, default-features = false }
 thiserror.workspace = true
 
 [dev-dependencies]

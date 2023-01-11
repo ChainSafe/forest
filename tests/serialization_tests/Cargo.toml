@@ -12,7 +12,6 @@ base64.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
 forest_blocks.workspace = true
-forest_encoding.workspace = true
 forest_json.workspace = true
 forest_message.workspace = true
 fvm_ipld_encoding.workspace = true
