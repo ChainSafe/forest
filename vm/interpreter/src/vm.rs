@@ -77,7 +77,7 @@ where
         base_fee: TokenAmount,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
-        lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
+        lb_fn: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
