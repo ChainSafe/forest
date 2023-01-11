@@ -1,7 +1,7 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
-use std::path::Path;
+use forest_db::db_engine::{db_path, open_db, DbConfig};
 use structopt::StructOpt;
 
 use cid::Cid;
@@ -23,32 +23,17 @@ pub struct ChainCommand {
 }
 
 impl ChainCommand {
-    pub async fn run(&self) {
-        let dir = ProjectDirs::from("com", "ChainSafe", "Forest").unwrap();
+    pub async fn run(&self) -> anyhow::Result<()> {
+        let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
+            .ok_or(anyhow::Error::msg("no such path"))?;
         let chain_path = dir.data_dir().join(&self.chain);
-        let blockstore = open_db(&chain_path);
+        let blockstore = open_db(&db_path(&chain_path), &DbConfig::default())?;
 
         if let Err(err) = print_state_diff(&blockstore, &self.pre, &self.post, self.depth) {
             eprintln!("Failed to print state diff: {err}");
         }
+        Ok(())
     }
-}
-
-#[cfg(feature = "rocksdb")]
-fn open_db(chain_path: &Path) -> forest_db::rocks::RocksDb {
-    forest_db::rocks::RocksDb::open(
-        chain_path.join("rocksdb"),
-        &forest_db::rocks_config::RocksDbConfig::default(),
-    )
-    .expect("Opening RocksDB must succeed")
-}
-
-#[cfg(feature = "paritydb")]
-fn open_db(chain_path: &Path) -> forest_db::parity_db::ParityDb {
-    use forest_db::parity_db::*;
-    use forest_db::parity_db_config::*;
-    ParityDb::open(chain_path.join("paritydb"), &ParityDbConfig::default())
-        .expect("Opening ParityDb must succeed")
 }
 
 /// statediff binary sub-commands available.
@@ -73,12 +58,11 @@ struct Cli {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
     let Cli { cmd } = Cli::from_args();
     match cmd {
-        Subcommand::Chain(cmd) => {
-            cmd.run().await;
-        }
+        Subcommand::Chain(cmd) => cmd.run().await?,
     }
+    Ok(())
 }

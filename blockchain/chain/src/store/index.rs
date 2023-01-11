@@ -191,12 +191,13 @@ impl<BS: Blockstore> ChainIndex<BS> {
                 self.fill_cache(std::mem::take(&mut cur)).await?
             };
 
-            if let Some(genesis_tipset_keys) =
-                checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
-            {
-                if to == 0 {
+            if to == 0 {
+                if let Some(genesis_tipset_keys) =
+                    checkpoint_tipsets::genesis_from_checkpoint_tipset(lbe.tipset.key())
+                {
                     let tipset =
                         tipset_from_keys(&self.ts_cache, &self.db, &genesis_tipset_keys).await?;
+                    pb.set(total_size as u64);
                     info!(
                         "Resolving genesis using checkpoint tipset at height: {}",
                         lbe.tipset.epoch()
