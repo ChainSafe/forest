@@ -33,6 +33,7 @@ fvm_shared = { workspace = true, default-features = false }
 log.workspace = true
 lru.workspace = true
 once_cell.workspace = true
+parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }

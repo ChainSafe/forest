@@ -18,7 +18,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::{Index, IndexMut};
-use tokio::sync::RwLock;
 
 new_key_type! {
     pub struct NodeKey;
@@ -331,8 +330,8 @@ impl std::default::Default for MsgChainNode {
     }
 }
 
-pub(crate) async fn create_message_chains<T>(
-    api: &RwLock<T>,
+pub(crate) fn create_message_chains<T>(
+    api: &T,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,
     base_fee: &TokenAmount,
@@ -354,7 +353,7 @@ where
     //   cannot exceed the block limit; drop all messages that exceed the limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages that exceed
     //   the balance
-    let actor_state = api.read().await.get_actor_after(actor, ts)?;
+    let actor_state = api.get_actor_after(actor, ts)?;
     let mut cur_seq = actor_state.sequence;
     let mut balance = actor_state.balance;
 

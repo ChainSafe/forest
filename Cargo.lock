@@ -2875,6 +2875,7 @@ dependencies = [
  "forest_utils",
  "fvm_shared",
  "hex",
+ "parking_lot 0.12.1",
  "quickcheck",
  "quickcheck_macros",
  "serde",
@@ -2909,7 +2910,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "tokio",
 ]
 
 [[package]]
@@ -2945,6 +2945,7 @@ dependencies = [
  "lru 0.9.0",
  "multihash",
  "once_cell",
+ "parking_lot 0.12.1",
  "serde",
  "thiserror",
  "tokio",
@@ -2984,6 +2985,7 @@ dependencies = [
  "lru 0.9.0",
  "nonempty",
  "num-bigint",
+ "parking_lot 0.12.1",
  "prometheus",
  "quickcheck",
  "quickcheck_macros",
@@ -3374,6 +3376,7 @@ dependencies = [
  "lru 0.9.0",
  "num-rational",
  "num-traits",
+ "parking_lot 0.12.1",
  "rand 0.8.5",
  "serde",
  "slotmap",

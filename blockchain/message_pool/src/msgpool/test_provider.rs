@@ -16,10 +16,11 @@ use forest_message::ChainMessage;
 use forest_message::Message as MessageTrait;
 use forest_message::SignedMessage;
 use fvm::state_tree::ActorState;
-use fvm_shared::address::{Address, Protocol};
+use fvm_shared::address::Address;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
@@ -27,11 +28,14 @@ use tokio::sync::broadcast;
 
 /// Structure used for creating a provider when writing tests involving message pool
 pub struct TestApi {
+    pub inner: Mutex<TestApiInner>,
+    pub publisher: Publisher<HeadChange>,
+}
+pub struct TestApiInner {
     bmsgs: HashMap<Cid, Vec<SignedMessage>>,
     state_sequence: HashMap<Address, u64>,
     balances: HashMap<Address, TokenAmount>,
     tipsets: Vec<Tipset>,
-    publisher: Publisher<HeadChange>,
 }
 
 impl Default for TestApi {
@@ -39,16 +43,44 @@ impl Default for TestApi {
     fn default() -> Self {
         let (publisher, _) = broadcast::channel(1);
         TestApi {
-            bmsgs: HashMap::new(),
-            state_sequence: HashMap::new(),
-            balances: HashMap::new(),
-            tipsets: Vec::new(),
+            inner: Mutex::new(TestApiInner {
+                bmsgs: HashMap::new(),
+                state_sequence: HashMap::new(),
+                balances: HashMap::new(),
+                tipsets: Vec::new(),
+            }),
             publisher,
         }
     }
 }
 
 impl TestApi {
+    /// Set the state sequence for an Address for `TestApi`
+    pub fn set_state_sequence(&self, addr: &Address, sequence: u64) {
+        self.inner.lock().set_state_sequence(addr, sequence)
+    }
+
+    /// Set the state balance for an Address for `TestApi`
+    pub fn set_state_balance_raw(&self, addr: &Address, bal: TokenAmount) {
+        self.inner.lock().set_state_balance_raw(addr, bal)
+    }
+
+    /// Set the block messages for `TestApi`
+    pub fn set_block_messages(&self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
+        self.inner.lock().set_block_messages(h, msgs)
+    }
+
+    /// Set the heaviest tipset for `TestApi`
+    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) {
+        self.publisher.send(HeadChange::Apply(ts)).unwrap();
+    }
+
+    pub fn next_block(&self) -> BlockHeader {
+        self.inner.lock().next_block()
+    }
+}
+
+impl TestApiInner {
     /// Set the state sequence for an Address for `TestApi`
     pub fn set_state_sequence(&mut self, addr: &Address, sequence: u64) {
         self.state_sequence.insert(*addr, sequence);
@@ -65,11 +97,6 @@ impl TestApi {
         self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
     }
 
-    /// Set the heaviest tipset for `TestApi`
-    pub async fn set_heaviest_tipset(&mut self, ts: Arc<Tipset>) {
-        self.publisher.send(HeadChange::Apply(ts)).unwrap();
-    }
-
     pub fn next_block(&mut self) -> BlockHeader {
         let new_block = mock_block_with_parents(
             self.tipsets
@@ -84,11 +111,11 @@ impl TestApi {
 
 #[async_trait]
 impl Provider for TestApi {
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.publisher.subscribe()
     }
 
-    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
+    fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         Tipset::new(vec![create_header(1)]).ok().map(Arc::new)
     }
 
@@ -97,9 +124,10 @@ impl Provider for TestApi {
     }
 
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
+        let inner = self.inner.lock();
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for b in ts.blocks() {
-            if let Some(ms) = self.bmsgs.get(b.cid()) {
+            if let Some(ms) = inner.bmsgs.get(b.cid()) {
                 for m in ms {
                     if m.from() == addr {
                         msgs.push(m.clone());
@@ -107,13 +135,13 @@ impl Provider for TestApi {
                 }
             }
         }
-        let balance = match self.balances.get(addr) {
+        let balance = match inner.balances.get(addr) {
             Some(b) => b.clone(),
             None => TokenAmount::from_atto(10_000_000_000_u64),
         };
 
         msgs.sort_by_key(|m| m.sequence());
-        let mut sequence: u64 = self.state_sequence.get(addr).copied().unwrap_or_default();
+        let mut sequence: u64 = inner.state_sequence.get(addr).copied().unwrap_or_default();
         for m in msgs {
             if m.sequence() != sequence {
                 break;
@@ -128,8 +156,9 @@ impl Provider for TestApi {
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
+        let inner = self.inner.lock();
         let v: Vec<Message> = Vec::new();
-        let thing = self.bmsgs.get(h.cid());
+        let thing = inner.bmsgs.get(h.cid());
 
         match thing {
             Some(s) => Ok((v, s.clone())),
@@ -137,13 +166,6 @@ impl Provider for TestApi {
                 let temp: Vec<SignedMessage> = Vec::new();
                 Ok((v, temp))
             }
-        }
-    }
-
-    async fn state_account_key(&self, addr: &Address, _ts: &Arc<Tipset>) -> Result<Address, Error> {
-        match addr.protocol() {
-            Protocol::BLS | Protocol::Secp256k1 => Ok(*addr),
-            _ => Err(Error::Other("given address was not a key addr".to_string())),
         }
     }
 
@@ -160,8 +182,9 @@ impl Provider for TestApi {
         Ok(msgs)
     }
 
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        for ts in &self.tipsets {
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        let inner = self.inner.lock();
+        for ts in &inner.tipsets {
             if tsk.cids == ts.cids() {
                 return Ok(ts.clone().into());
             }

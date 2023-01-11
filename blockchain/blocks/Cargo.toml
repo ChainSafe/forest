@@ -29,4 +29,3 @@ forest_test_utils.workspace = true
 hex.workspace = true
 quickcheck_macros.workspace = true
 serde_json.workspace = true
-tokio.workspace = true

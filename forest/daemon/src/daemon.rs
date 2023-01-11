@@ -162,7 +162,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()).await);
+    let chain_store = Arc::new(ChainStore::new(db.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -180,13 +180,13 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
-    let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
-        None => prompt_snapshot_or_die(&config).await?,
+    let should_fetch_snapshot = match chain_store.heaviest_tipset() {
+        None => prompt_snapshot_or_die(&config)?,
         Some(tipset) => {
             let epoch = tipset.epoch();
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
-                prompt_snapshot_or_die(&config).await?
+                prompt_snapshot_or_die(&config)?
             } else {
                 false
             }
@@ -207,7 +207,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let state_manager = Arc::new(sm);
 
-    let network_name = get_network_name_from_genesis(&genesis, &state_manager).await?;
+    let network_name = get_network_name_from_genesis(&genesis, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
@@ -243,8 +243,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         net_keypair,
         &network_name,
         genesis_cid,
-    )
-    .await;
+    );
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -420,7 +419,7 @@ async fn maybe_fetch_snapshot(
 
 /// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
 /// exits the process.
-async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
+fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
@@ -523,7 +522,7 @@ mod test {
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db).await);
+        let cs = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
