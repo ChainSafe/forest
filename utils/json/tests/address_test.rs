@@ -467,7 +467,7 @@ fn address_hashmap() {
     hm.insert(h2, 2);
     assert_eq!(hm.get(&h2).unwrap(), &2);
 
-    // validate original value was not overriden
+    // validate original value was not overridden
     assert_eq!(hm.get(&h1).unwrap(), &1);
 }
 

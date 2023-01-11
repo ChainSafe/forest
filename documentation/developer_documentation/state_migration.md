@@ -64,7 +64,7 @@ To support nv15 to nv16 migration we need to:
 - [ ] Understand existing forest migration framework (used in the past for nv12 migration). Can we reuse most of the code as is?
 - [ ] Implementation of the nv16 migration logic (replicating same logic as in spec-actors).
 - [ ] Implementation of unit tests covering this migration.
-- [ ] Implemention of a migration schedule that will select the right migration path.
+- [ ] Implementation of a migration schedule that will select the right migration path.
 - [ ] Test migration using the exported calibnet and mainnet snapshots and respectively measure the elapsed time and memory usage.
 
 ## Test snapshots
