@@ -142,7 +142,7 @@ where
                 match self.db.get_obj(&content) {
                     Ok(Some(b)) => Ok(b),
                     Ok(None) => Err(format!("Bitswap response successful for: {content:?}, but can't find it in the database")),
-                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retreive it from the database: {e}")),
+                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retrieve it from the database: {e}")),
                 }
             }
             Err(_e) => {
@@ -312,7 +312,7 @@ where
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
                 peer_manager.log_success(peer_id, res_duration).await;
-                log::debug!("Succeded: ChainExchange Request to {peer_id}");
+                log::debug!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {

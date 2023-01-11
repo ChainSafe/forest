@@ -50,7 +50,7 @@ where
                     return ChainExchangeResponse {
                         chain: vec![],
                         status: ChainExchangeResponseStatus::InternalError,
-                        message: "Can not fullfil the request".to_owned(),
+                        message: "Can not fulfil the request".to_owned(),
                     };
                 }
             }

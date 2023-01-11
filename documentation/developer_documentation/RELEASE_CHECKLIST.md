@@ -2,7 +2,7 @@ Forest follows a fixed, quarterly release schedule. On the last week of each
 quarter, a new version is always released. This is supplemented with additional
 releases for bug fixes and special features. A "release officer" is appointed
 for each release and they are responsible for either following the checklist or,
-in case of absense, passing the task to a different team member.
+in case of absence, passing the task to a different team member.
 
 1. Update the CHANGELOG.md file to reflect all changes and preferably write a
    small summary about the most notable updates. The changelog should follow the
