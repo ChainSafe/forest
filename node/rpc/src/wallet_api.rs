@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+#![allow(clippy::unused_async)]
 use forest_json::signature::json::SignatureJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
@@ -33,7 +33,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
@@ -207,7 +206,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = state_manager
         .resolve_to_key_addr(&address, &heaviest_tipset)

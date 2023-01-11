@@ -18,6 +18,7 @@ pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
     Arc::new(forest_interpreter::RewardActorMessageCalc)
 }
 
+#[allow(clippy::unused_async)]
 pub async fn consensus<DB, MP>(
     state_manager: &Arc<StateManager<DB>>,
     _keystore: &Arc<RwLock<KeyStore>>,

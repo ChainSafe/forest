@@ -88,7 +88,7 @@ impl<'a> DiscoveryConfig<'a> {
     }
 
     /// Create a `DiscoveryBehaviour` from this configuration.
-    pub async fn finish(self) -> DiscoveryBehaviour {
+    pub fn finish(self) -> DiscoveryBehaviour {
         let DiscoveryConfig {
             local_peer_id,
             user_defined,

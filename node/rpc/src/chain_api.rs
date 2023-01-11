@@ -1,5 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(clippy::unused_async)]
 
 use anyhow::Result;
 use forest_beacon::Beacon;
@@ -67,9 +68,9 @@ where
     let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
     let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
-    let head = data.chain_store.tipset_from_keys(&tsk).await?;
+    let head = data.chain_store.tipset_from_keys(&tsk)?;
 
-    let start_ts = data.chain_store.tipset_by_height(epoch, head, true).await?;
+    let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
     match data
         .chain_store
@@ -191,16 +192,11 @@ where
     B: Beacon,
 {
     let (height, tsk) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk)
-        .await?;
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
-        .tipset_by_height(height, ts, true)
-        .await?;
+        .tipset_by_height(height, ts, true)?;
     Ok(TipsetJson(tss))
 }
 
@@ -228,7 +224,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("can't find heaviest tipset")?;
     Ok(TipsetJson(heaviest))
 }
@@ -259,11 +254,7 @@ where
     B: Beacon,
 {
     let (TipsetKeysJson(tsk),) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk)
-        .await?;
+    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     Ok(TipsetJson(ts))
 }
 
@@ -276,11 +267,7 @@ where
     B: Beacon,
 {
     let (TipsetKeysJson(tsk),) = params;
-    let ts = data
-        .state_manager
-        .chain_store()
-        .tipset_hash_from_keys(&tsk)
-        .await;
+    let ts = data.state_manager.chain_store().tipset_hash_from_keys(&tsk);
     Ok(ts)
 }
 
@@ -298,17 +285,14 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or_else(|| forest_chain::Error::NotFound("heaviest tipset".to_string()))?;
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(tipset.key())
-        .await?;
+        .tipset_from_keys(tipset.key())?;
     data.state_manager
         .chain_store()
-        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())
-        .await?;
+        .validate_tipset_checkpoints(ts, data.state_manager.chain_config().name.clone())?;
     Ok("Ok".to_string())
 }
 
