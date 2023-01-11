@@ -1233,16 +1233,12 @@ where
 fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-) -> Box<dyn Fn(ChainEpoch) -> Cid>
+) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
-    // Yes, both are needed, because the VM should only use the buffered store
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
-        let (_, st) =
-            (sm.get_lookback_tipset_for_round(tipset.clone(), round)).unwrap_or_else(|err| {
-                panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-            });
-        st
+        let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;
+        Ok(st)
     })
 }
