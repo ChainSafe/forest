@@ -8,7 +8,6 @@ end
 
 Dir.glob("#{File.dirname(File.expand_path $0)}/../**/*.toml").each do |file|
     crate_dir = File.dirname(file)
-    puts crate_dir
     toml = TomlRB.load_file(file)
     crates = Set.new
     toml['dependencies']&.each do |pair|
@@ -20,8 +19,8 @@ Dir.glob("#{File.dirname(File.expand_path $0)}/../**/*.toml").each do |file|
     crates.each do |crate_raw|
         crate = crate_raw.gsub(/-/, '_')
         used = false
-        Dir.glob("#{crate_dir}/src/**/*.rs").each do |rs|
-            if !used and File.read(rs).match?(Regexp.new("(^use\\s#{crate}\\b)|(\\b#{crate}::)")) then
+        Dir.glob("#{crate_dir}/**/*.rs").each do |rs|
+            if !used and File.read(rs).match?(Regexp.new("(\buse\\s#{crate}\\b)|(\\b#{crate}::)")) then
                 used = true
             end
         end
