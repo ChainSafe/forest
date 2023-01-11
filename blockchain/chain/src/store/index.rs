@@ -9,7 +9,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use lru::LruCache;
-use parking_lot::Mutex as StdMutex;
+use parking_lot::Mutex;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
@@ -134,7 +134,7 @@ pub(crate) struct LookbackEntry {
 /// at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
     /// Cache of look-back entries to speed up lookup.
-    skip_cache: StdMutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
+    skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
 
     /// `Arc` reference tipset cache.
     ts_cache: Arc<TipsetCache>,
@@ -146,7 +146,7 @@ pub(crate) struct ChainIndex<BS> {
 impl<BS: Blockstore> ChainIndex<BS> {
     pub(crate) fn new(ts_cache: Arc<TipsetCache>, db: BS) -> Self {
         Self {
-            skip_cache: StdMutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
+            skip_cache: Mutex::new(LruCache::new(DEFAULT_CHAIN_INDEX_CACHE_SIZE)),
             ts_cache,
             db,
         }
