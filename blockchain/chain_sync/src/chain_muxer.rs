@@ -437,9 +437,7 @@ where
                         .with_label_values(&[metrics::values::PUBSUB_MESSAGE])
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
-                        // Spawn and immediately move on to the next event
-                        let mem_pool = mem_pool.clone();
-                        tokio::task::spawn_blocking(|| Self::handle_pubsub_message(mem_pool, m));
+                        Self::handle_pubsub_message(mem_pool, m);
                     }
                     return Ok(None);
                 }
