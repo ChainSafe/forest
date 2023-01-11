@@ -10,14 +10,11 @@ async-trait.workspace = true
 cid.workspace = true
 flume.workspace = true
 forest_actor_interface.workspace = true
-forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_encoding.workspace = true
-forest_fil_types.workspace = true
-forest_interpreter.workspace = true
 forest_legacy_ipld_amt.workspace = true
 forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
@@ -25,7 +22,6 @@ forest_message_pool.workspace = true
 forest_networks.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
-futures-util.workspace = true
 futures.workspace = true
 fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
@@ -36,20 +32,15 @@ log.workspace = true
 lru.workspace = true
 nonempty.workspace = true
 num-bigint.workspace = true
-num-traits.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive", "rc"] }
-smallvec.workspace = true
 thiserror.workspace = true
 time = { workspace = true, features = ["serde"] }
 tokio = { workspace = true, features = ["sync"] }
 
 [dev-dependencies]
 base64.workspace = true
-forest_ipld.workspace = true
 forest_test_utils.workspace = true
-fvm_ipld_car.workspace = true
-hex.workspace = true
 quickcheck_macros.workspace = true
 serde_json.workspace = true
