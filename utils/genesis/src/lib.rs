@@ -103,16 +103,11 @@ where
             )
         })?;
 
-    let store_genesis = chain_store.genesis();
+    chain_store.set_genesis(&genesis_block)?;
 
-    if store_genesis.is_err() {
-        debug!("Initialize ChainSyncer with new genesis from config");
-        chain_store.set_genesis(&genesis_block)?;
-
-        chain_store
-            .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))
-            .await?;
-    }
+    chain_store
+        .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))
+        .await?;
     Ok(genesis_block)
 }
 
