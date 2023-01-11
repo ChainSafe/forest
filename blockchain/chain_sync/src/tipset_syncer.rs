@@ -1269,7 +1269,6 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     // Retrieve lookback tipset for validation
     let lookback_state = state_manager
         .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
-        .await
         .map_err(|e| (*block_cid, e.into()))
         .map(|(_, s)| Arc::new(s))?;
 
