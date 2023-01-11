@@ -3,7 +3,7 @@
 # Compute code coverage for the following steps:
 #
 # - unit tests
-# - snapshot dowloading
+# - snapshot downloading
 # - validating 200 tipsets from the snapshot
 # - syncing to HEAD
 # - exporting a snapshot

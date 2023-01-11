@@ -1,6 +1,6 @@
 # Configuration
 
-The `forest` process has a set of configurable values which determine the behavior of the node. All values can be set through process flags or through a configuration file. If a configuration is provided through the flag and the configuation file, the flag value will be given preference.
+The `forest` process has a set of configurable values which determine the behavior of the node. All values can be set through process flags or through a configuration file. If a configuration is provided through the flag and the configuration file, the flag value will be given preference.
 
 ## Flags
 

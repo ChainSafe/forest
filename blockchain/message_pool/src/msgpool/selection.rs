@@ -148,7 +148,7 @@ where
             return Ok(result);
         }
 
-        // 3. Parition chains into blocks (without trimming)
+        // 3. Partition chains into blocks (without trimming)
         //    we use the full block_gas_limit (as opposed to the residual `gas_limit` from the
         //    priority message selection) as we have to account for what other miners are doing
         let mut next_chain = 0;
@@ -234,7 +234,7 @@ where
 
                 chains[i].merged = true;
 
-                // adjust the effective peformance for all subsequent chains
+                // adjust the effective performance for all subsequent chains
                 if let Some(next_key) = chains[i].next {
                     let mut next_node = chains.get_mut(next_key).unwrap();
                     if next_node.eff_perf > 0.0 {
