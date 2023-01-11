@@ -61,7 +61,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet_api::WALLET_NEW, Access::Write);
     access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
     access.insert(wallet_api::WALLET_SIGN, Access::Sign);
-    access.insert(wallet_api::WALLET_SIGN_MESSAGE, Access::Sign);
     access.insert(wallet_api::WALLET_VERIFY, Access::Read);
 
     // State API
@@ -247,9 +246,8 @@ pub mod sync_api {
 
 /// Wallet API
 pub mod wallet_api {
+    use forest_json::address::json::AddressJson;
     use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
-    use forest_json::signed_message::json::SignedMessageJson;
-    use forest_json::{address::json::AddressJson, message::json::MessageJson};
     use forest_key_management::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
@@ -287,10 +285,6 @@ pub mod wallet_api {
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
     pub type WalletSignParams = (AddressJson, Vec<u8>);
     pub type WalletSignResult = SignatureJson;
-
-    pub const WALLET_SIGN_MESSAGE: &str = "Filecoin.WalletSignMessage";
-    pub type WalletSignMessageParams = (String, MessageJson);
-    pub type WalletSignMessageResult = SignedMessageJson;
 
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
     pub type WalletVerifyParams = (AddressJson, Vec<u8>, SignatureJson);

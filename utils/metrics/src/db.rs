@@ -5,15 +5,16 @@ use log::error;
 use prometheus::core::{Collector, Desc};
 use prometheus::proto;
 use prometheus::{Gauge, Opts};
+use std::path::PathBuf;
 
 pub struct DBCollector {
-    db_directory: String,
+    db_directory: PathBuf,
     descs: Vec<Desc>,
     db_size: Gauge,
 }
 
 impl DBCollector {
-    pub fn new(db_directory: String) -> Self {
+    pub fn new(db_directory: PathBuf) -> Self {
         let mut descs: Vec<Desc> = vec![];
         let db_size = Gauge::with_opts(Opts::new(
             "forest_db_size",

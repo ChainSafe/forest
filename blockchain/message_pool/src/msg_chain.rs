@@ -18,7 +18,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem;
 use std::ops::{Index, IndexMut};
-use tokio::sync::RwLock;
 
 new_key_type! {
     pub struct NodeKey;
@@ -123,12 +122,8 @@ impl Chains {
 
     /// Retrieves the `msg` chain node at the given index
     pub(crate) fn get_mut_at(&mut self, i: usize) -> Option<&mut MsgChainNode> {
-        if i < self.key_vec.len() {
-            let key = self.key_vec[i];
-            self.get_mut(key)
-        } else {
-            None
-        }
+        let key = self.key_vec.get(i)?;
+        self.get_mut(*key)
     }
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
@@ -143,17 +138,12 @@ impl Chains {
 
     // Retrieves the node key at the given index
     pub(crate) fn get_key_at(&self, i: usize) -> Option<NodeKey> {
-        if i < self.key_vec.len() {
-            Some(self.key_vec[i])
-        } else {
-            None
-        }
+        self.key_vec.get(i).copied()
     }
 
     /// Retrieves the `msg` chain node at the given index
     pub(crate) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
-        let key = self.key_vec[i];
-        self.map.get(key)
+        self.map.get(self.get_key_at(i)?)
     }
 
     /// Retrieves the amount of items.
@@ -340,8 +330,8 @@ impl std::default::Default for MsgChainNode {
     }
 }
 
-pub(crate) async fn create_message_chains<T>(
-    api: &RwLock<T>,
+pub(crate) fn create_message_chains<T>(
+    api: &T,
     actor: &Address,
     mset: &HashMap<u64, SignedMessage>,
     base_fee: &TokenAmount,
@@ -363,7 +353,7 @@ where
     //   cannot exceed the block limit; drop all messages that exceed the limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages that exceed
     //   the balance
-    let actor_state = api.read().await.get_actor_after(actor, ts)?;
+    let actor_state = api.get_actor_after(actor, ts)?;
     let mut cur_seq = actor_state.sequence;
     let mut balance = actor_state.balance;
 

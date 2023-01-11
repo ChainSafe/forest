@@ -16,6 +16,7 @@ use forest_blocks::{
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
+use forest_libp2p::PeerManager;
 use forest_libp2p::{
     hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
     PubsubMessage,
@@ -73,15 +74,6 @@ pub struct SyncConfig {
     pub req_window: i64,
     /// Sample size of tipsets to acquire before determining what the network head is
     pub tipset_sample_size: usize,
-}
-
-impl SyncConfig {
-    pub fn new(req_window: i64, tipset_sample_size: usize) -> Self {
-        Self {
-            req_window,
-            tipset_sample_size,
-        }
-    }
 }
 
 impl Default for SyncConfig {
@@ -167,6 +159,7 @@ where
     pub fn new(
         consensus: Arc<C>,
         state_manager: Arc<StateManager<DB>>,
+        peer_manager: Arc<PeerManager>,
         mpool: Arc<MessagePool<M>>,
         network_send: flume::Sender<NetworkMessage>,
         network_rx: flume::Receiver<NetworkEvent>,
@@ -177,7 +170,7 @@ where
     ) -> Result<Self, ChainMuxerError<C>> {
         let network = SyncNetworkContext::new(
             network_send,
-            Default::default(),
+            peer_manager,
             state_manager.blockstore().clone(),
         );
 
@@ -214,7 +207,7 @@ where
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError<C>> {
         // Attempt to load from the store
-        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
+        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
             return Ok(full_tipset);
         }
         // Load from the network
@@ -224,13 +217,13 @@ where
             .map_err(ChainMuxerError::ChainExchange)
     }
 
-    async fn load_full_tipset(
+    fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError<C>> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
+        let ts = chain_store.tipset_from_keys(&tipset_keys)?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
@@ -255,7 +248,7 @@ where
         genesis_block_cid: Cid,
     ) {
         // Query the heaviest TipSet from the store
-        let heaviest = chain_store.heaviest_tipset().await.unwrap();
+        let heaviest = chain_store.heaviest_tipset().unwrap();
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
@@ -342,8 +335,8 @@ where
         Ok(FullTipset::new(vec![block]).unwrap())
     }
 
-    async fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
-        if let Err(why) = mem_pool.add(message).await {
+    fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
+        if let Err(why) = mem_pool.add(message) {
             debug!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why
@@ -444,8 +437,7 @@ where
                         .with_label_values(&[metrics::values::PUBSUB_MESSAGE])
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
-                        // Spawn and immediately move on to the next event
-                        tokio::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                        Self::handle_pubsub_message(mem_pool, m);
                     }
                     return Ok(None);
                 }
@@ -489,15 +481,12 @@ where
         };
 
         // Validate tipset
-        if let Err(why) = TipsetValidator(&tipset)
-            .validate(
-                chain_store.clone(),
-                bad_block_cache.clone(),
-                genesis.clone(),
-                block_delay,
-            )
-            .await
-        {
+        if let Err(why) = TipsetValidator(&tipset).validate(
+            chain_store.clone(),
+            bad_block_cache.clone(),
+            genesis.clone(),
+            block_delay,
+        ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             warn!(
                 "Validating tipset received through GossipSub failed: {}",
@@ -583,7 +572,7 @@ where
 
             // Query the heaviest tipset in the store
             // Unwrapping is fine because the store always has at least one tipset
-            let local_head = chain_store.heaviest_tipset().await.unwrap();
+            let local_head = chain_store.heaviest_tipset().unwrap();
 
             // We are in sync if the local head weight is heavier or
             // as heavy as the network head
@@ -791,7 +780,6 @@ where
                     // tipset in the store
                     if !chain_store
                         .heaviest_tipset()
-                        .await
                         .map(|heaviest| tipset.weight() >= heaviest.weight())
                         .unwrap_or(true)
                     {

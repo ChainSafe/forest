@@ -5,7 +5,7 @@
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/ChainSafe/forest/Rust?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
 [![Codecov](https://img.shields.io/codecov/c/gh/ChainSafe/forest?style=for-the-badge&token=1OHO2CSD17)](https://codecov.io/gh/ChainSafe/forest)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
-<!-- [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest) -->
+[![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest)
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
 [![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
@@ -212,7 +212,7 @@ FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http
 
 Note that if a token is not present in the FULLNODE_API_INFO env variable, the colon is removed.
 
-Forest developers will prepend this variable to CLI commands over using `export` on Linux or its equivalant on Windows. This will look like the following:
+Forest developers will prepend this variable to CLI commands over using `export` on Linux or its equivalent on Windows. This will look like the following:
 
 ```
 FULLNODE_API_INFO="..." forest-cli auth api-info -p admin

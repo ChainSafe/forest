@@ -1,6 +1,6 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+#![allow(clippy::unused_async)]
 use forest_json::signature::json::SignatureJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
@@ -9,14 +9,10 @@ use std::str::FromStr;
 use forest_beacon::Beacon;
 use forest_db::Store;
 use forest_json::address::json::AddressJson;
-use forest_json::message::json::MessageJson;
-use forest_json::signed_message::json::SignedMessageJson;
 use forest_key_management::{json::KeyInfoJson, Error, Key};
-use forest_message::signed_message::SignedMessage;
 use forest_rpc_api::{data_types::RPCState, wallet_api::*};
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use num_traits::Zero;
@@ -37,7 +33,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or("No heaviest tipset")?;
     let cid = heaviest_ts.parent_state();
 
@@ -211,7 +206,6 @@ where
         .state_manager
         .chain_store()
         .heaviest_tipset()
-        .await
         .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
     let key_addr = state_manager
         .resolve_to_key_addr(&address, &heaviest_tipset)
@@ -232,34 +226,6 @@ where
     )?;
 
     Ok(SignatureJson(sig))
-}
-
-/// Sign an `UnsignedMessage`, return `SignedMessage`
-pub(crate) async fn wallet_sign_message<DB, B>(
-    data: Data<RPCState<DB, B>>,
-    Params(params): Params<WalletSignMessageParams>,
-) -> Result<WalletSignMessageResult, JsonRpcError>
-where
-    DB: Blockstore,
-    B: Beacon,
-{
-    let (addr_str, MessageJson(msg)) = params;
-    let address = Address::from_str(&addr_str)?;
-    let msg_cid = msg.cid()?;
-
-    let keystore = data.keystore.write().await;
-
-    let key = forest_key_management::find_key(&address, &keystore)?;
-
-    let sig = forest_key_management::sign(
-        *key.key_info.key_type(),
-        key.key_info.private_key(),
-        msg_cid.to_bytes().as_slice(),
-    )?;
-
-    let smsg = SignedMessage::new_from_parts(msg, sig)?;
-
-    Ok(SignedMessageJson(smsg))
 }
 
 /// Verify a Signature, true if verified, false otherwise

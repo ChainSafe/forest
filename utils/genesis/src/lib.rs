@@ -6,7 +6,6 @@ use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::net::FetchProgress;
@@ -53,7 +52,7 @@ where
     Ok(Tipset::new(vec![genesis])?)
 }
 
-pub async fn get_network_name_from_genesis<BS>(
+pub fn get_network_name_from_genesis<BS>(
     genesis_ts: &Tipset,
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
@@ -79,7 +78,7 @@ where
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
-    let network_name = get_network_name_from_genesis(&ts, state_manager).await?;
+    let network_name = get_network_name_from_genesis(&ts, state_manager)?;
     Ok((ts, network_name))
 }
 
@@ -115,16 +114,14 @@ where
         debug!("Initialize ChainSyncer with new genesis from config");
         chain_store.set_genesis(&genesis_block)?;
 
-        chain_store
-            .set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))
-            .await?;
+        chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
     }
     Ok(genesis_block)
 }
 
 /// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
 /// state and instead accept the largest height as genesis.
-pub async fn import_chain<V: ProofVerifier, DB>(
+pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
     validate_height: Option<i64>,
@@ -151,16 +148,10 @@ where
     };
 
     info!("Loaded .car file in {}s", stopwatch.elapsed().as_secs());
-    let ts = sm
-        .chain_store()
-        .tipset_from_keys(&TipsetKeys::new(cids))
-        .await?;
+    let ts = sm.chain_store().tipset_from_keys(&TipsetKeys::new(cids))?;
 
     if !skip_load {
-        let gb = sm
-            .chain_store()
-            .tipset_by_height(0, ts.clone(), true)
-            .await?;
+        let gb = sm.chain_store().tipset_by_height(0, ts.clone(), true)?;
         sm.chain_store().set_genesis(&gb.blocks()[0])?;
         if !matches!(&sm.chain_config().genesis_cid, Some(expected_cid) if expected_cid ==  &gb.blocks()[0].cid().to_string())
         {
@@ -173,7 +164,7 @@ where
     }
 
     // Update head with snapshot header tipset
-    sm.chain_store().set_heaviest_tipset(ts.clone()).await?;
+    sm.chain_store().set_heaviest_tipset(ts.clone())?;
 
     sm.blockstore().flush()?;
 
@@ -184,7 +175,7 @@ where
             (ts.epoch() + height).max(0)
         };
         info!("Validating imported chain from height: {}", height);
-        sm.validate_chain::<V>(ts.clone(), height).await?;
+        sm.validate_chain(ts.clone(), height).await?;
     }
 
     info!("Accepting {:?} as new head.", ts.cids());

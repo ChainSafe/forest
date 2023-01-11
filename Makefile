@@ -70,8 +70,8 @@ lint: license clean
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
-	cargo clippy --all-targets -- -D warnings
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings
+	cargo clippy --features slow_tests --all-targets -- -D warnings -W clippy::unused_async
+	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async
 
 # Formats Rust and TOML files
 fmt:
@@ -105,6 +105,7 @@ test:
 	cargo nextest run -p forest_message --features blst --no-default-features
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
+	cargo check --tests --features slow_tests
 
 test-slow:
 	cargo nextest run -p forest_message_pool --features slow_tests

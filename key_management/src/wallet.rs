@@ -68,7 +68,7 @@ impl Wallet {
         if let Some(k) = self.keys.get(addr) {
             return Ok(k.clone());
         }
-        let key_string = format!("wallet-{}", addr);
+        let key_string = format!("wallet-{addr}");
         let key_info = match self.keystore.get(&key_string) {
             Ok(k) => k,
             Err(_) => {
@@ -118,7 +118,7 @@ impl Wallet {
 
     /// Set a default `KeyInfo` to the wallet
     pub fn set_default(&mut self, addr: Address) -> anyhow::Result<()> {
-        let addr_string = format!("wallet-{}", addr);
+        let addr_string = format!("wallet-{addr}");
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
             self.keystore.remove("default".to_string())?; // This line should unregister current default key then continue
@@ -174,14 +174,14 @@ pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
 
 /// Returns a key corresponding to given address
 pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
-    let key_string = format!("wallet-{}", addr);
+    let key_string = format!("wallet-{addr}");
     let key_info = keystore.get(&key_string)?;
     let new_key = Key::try_from(key_info)?;
     Ok(new_key)
 }
 
 pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
-    let key_string = format!("wallet-{}", addr);
+    let key_string = format!("wallet-{addr}");
     match keystore.get(&key_string) {
         Ok(k) => Ok(k),
         Err(_) => {
@@ -190,7 +190,7 @@ pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Erro
             // Try to replace prefix with testnet, for backwards compatibility
             // * We might be able to remove this, look into variants
             new_addr.replace_range(0..1, "t");
-            let key_string = format!("wallet-{}", new_addr);
+            let key_string = format!("wallet-{new_addr}");
             let key_info = match keystore.get(&key_string) {
                 Ok(k) => k,
                 Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
@@ -372,7 +372,7 @@ mod tests {
         // make sure that the newly generated key is the default key - checking by key type
         assert_eq!(&SignatureType::BLS, key.key_type());
 
-        let address = format!("wallet-{}", addr);
+        let address = format!("wallet-{addr}");
 
         let key_info = wallet.keystore.get(&address).unwrap();
         let key = wallet.keys.get(&addr).unwrap();
@@ -395,7 +395,7 @@ mod tests {
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
 
         let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
-        let test_addr_string = format!("wallet-{}", test_addr);
+        let test_addr_string = format!("wallet-{test_addr}");
 
         wallet.keystore.put(test_addr_string, key_info).unwrap();
 

@@ -26,9 +26,9 @@ use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 #[async_trait]
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange>;
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
-    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>>;
+    fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>>;
     /// Add a message to the `MpoolProvider`, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp `StateTree` will be rooted
@@ -39,12 +39,10 @@ pub trait Provider {
         &self,
         h: &BlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
-    /// Resolves to the key address
-    async fn state_account_key(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error>;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
 }
@@ -72,12 +70,12 @@ impl<DB> Provider for MpoolRpcProvider<DB>
 where
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
 {
-    async fn subscribe_head_changes(&mut self) -> Subscriber<HeadChange> {
+    fn subscribe_head_changes(&self) -> Subscriber<HeadChange> {
         self.subscriber.subscribe()
     }
 
-    async fn get_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        self.sm.chain_store().heaviest_tipset().await
+    fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+        self.sm.chain_store().heaviest_tipset()
     }
 
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error> {
@@ -109,19 +107,12 @@ where
         Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
-    async fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
-        let ts = self.sm.chain_store().tipset_from_keys(tsk).await?;
-        Ok(ts)
+    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        Ok(self.sm.chain_store().tipset_from_keys(tsk)?)
     }
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
         let smoke_height = self.sm.chain_config().epoch(Height::Smoke);
         forest_chain::compute_base_fee(self.sm.blockstore(), ts, smoke_height)
             .map_err(|err| err.into())
-    }
-    async fn state_account_key(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<Address, Error> {
-        self.sm
-            .resolve_to_key_addr(addr, ts)
-            .await
-            .map_err(|e| Error::Other(e.to_string()))
     }
 }

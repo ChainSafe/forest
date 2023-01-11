@@ -19,15 +19,11 @@ use fvm_shared::crypto::signature::Signature;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::PoStProof;
 use fvm_shared::version::NetworkVersion;
-use fvm_shared::BLOCKS_PER_EPOCH;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sha2::Digest;
 use std::fmt;
 
 pub mod json;
-
-const SHA_256_BITS: usize = 256;
 
 /// Header of a block
 ///
@@ -346,40 +342,16 @@ impl BlockHeader {
 
         signature
             .verify(&self.to_signing_bytes(), addr)
-            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {}", e)))?;
+            .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {e}")))?;
 
         // Set validated cache to true
         let _ = self.is_validated.set(true);
 
         Ok(())
     }
-    /// Returns true if `(h(vrfout) * totalPower) < (e * sectorSize * 2^256)`
-    pub fn is_ticket_winner(ticket: &Ticket, mpow: BigInt, net_pow: BigInt) -> bool {
-        /*
-        Need to check that
-        (h(vrfout) + 1) / (max(h) + 1) <= e * myPower / totalPower
-        max(h) == 2^256-1
-        which in terms of integer math means:
-        (h(vrfout) + 1) * totalPower <= e * myPower * 2^256
-        in 2^256 space, it is equivalent to:
-        h(vrfout) * totalPower < e * myPower * 2^256
-        */
-
-        let h = sha2::Sha256::digest(ticket.vrfproof.as_bytes());
-        let mut lhs = BigInt::from_signed_bytes_be(&h);
-        lhs *= net_pow;
-
-        // rhs = sectorSize * 2^256
-        // rhs = sectorSize << 256
-        let mut rhs = mpow << SHA_256_BITS;
-        rhs *= BigInt::from(BLOCKS_PER_EPOCH);
-
-        // h(vrfout) * totalPower < e * sectorSize * 2^256
-        lhs < rhs
-    }
 
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
-    pub async fn validate_block_drand<B: Beacon>(
+    pub fn validate_block_drand<B: Beacon>(
         &self,
         network_version: NetworkVersion,
         b_schedule: &BeaconSchedule<B>,
@@ -404,7 +376,6 @@ impl BlockHeader {
 
             curr_beacon
                 .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
-                .await
                 .map_err(|e| Error::Validation(e.to_string()))?;
 
             return Ok(());
@@ -441,12 +412,10 @@ impl BlockHeader {
         for curr in &self.beacon_entries {
             if !curr_beacon
                 .verify_entry(curr, prev)
-                .await
                 .map_err(|e| Error::Validation(e.to_string()))?
             {
                 return Err(Error::Validation(format!(
-                    "beacon entry was invalid: curr:{:?}, prev: {:?}",
-                    curr, prev
+                    "beacon entry was invalid: curr:{curr:?}, prev: {prev:?}"
                 )));
             }
             prev = curr;
@@ -504,8 +473,8 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
-    async fn beacon_entry_exists() {
+    #[test]
+    fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -519,15 +488,12 @@ mod tests {
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
-        if let Err(e) = block_header
-            .validate_block_drand(
-                NetworkVersion::V16,
-                &beacon_schedule,
-                chain_epoch,
-                &beacon_entry,
-            )
-            .await
-        {
+        if let Err(e) = block_header.validate_block_drand(
+            NetworkVersion::V16,
+            &beacon_schedule,
+            chain_epoch,
+            &beacon_entry,
+        ) {
             // Assert error is for not including a beacon entry in the block
             match e {
                 Error::Validation(why) => {

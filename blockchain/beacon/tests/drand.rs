@@ -42,5 +42,5 @@ async fn ask_and_verify_beacon_entry_fail() {
 
     let e2 = beacon.entry(2).await.unwrap();
     let e3 = beacon.entry(3).await.unwrap();
-    assert!(!beacon.verify_entry(&e2, &e3).await.unwrap());
+    assert!(!beacon.verify_entry(&e2, &e3).unwrap());
 }

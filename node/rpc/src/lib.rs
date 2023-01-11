@@ -22,7 +22,6 @@ use axum::routing::{get, post};
 use forest_beacon::Beacon;
 use forest_chain::Scale;
 use forest_db::Store;
-use forest_fil_types::verifier::ProofVerifier;
 use forest_rpc_api::data_types::RPCState;
 use forest_rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, gas_api::*, mpool_api::*, net_api::*,
@@ -34,7 +33,7 @@ use log::info;
 use std::net::TcpListener;
 use std::sync::Arc;
 
-pub async fn start_rpc<DB, B, V, S>(
+pub async fn start_rpc<DB, B, S>(
     state: Arc<RPCState<DB, B>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
@@ -42,7 +41,6 @@ pub async fn start_rpc<DB, B, V, S>(
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
-    V: ProofVerifier,
     S: Scale + 'static,
 {
     use auth_api::*;
@@ -99,7 +97,6 @@ where
             .with_method(WALLET_NEW, wallet_new::<DB, B>)
             .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB, B>)
             .with_method(WALLET_SIGN, wallet_sign::<DB, B>)
-            .with_method(WALLET_SIGN_MESSAGE, wallet_sign_message::<DB, B>)
             .with_method(WALLET_VERIFY, wallet_verify::<DB, B>)
             // State API
             .with_method(STATE_CALL, state_call::<DB, B>)
