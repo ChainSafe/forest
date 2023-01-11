@@ -211,8 +211,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let genesis = forest_chain::genesis(data.state_manager.blockstore())?
-        .ok_or("can't find genesis tipset")?;
+    let genesis = forest_chain::genesis(data.state_manager.blockstore())?;
     let gen_ts = Arc::new(Tipset::new(vec![genesis])?);
     Ok(Some(TipsetJson(gen_ts)))
 }

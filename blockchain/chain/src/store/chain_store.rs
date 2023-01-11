@@ -172,7 +172,7 @@ where
     }
 
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
-    pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
+    pub fn genesis(&self) -> Result<BlockHeader, Error> {
         genesis(self.blockstore())
     }
 
@@ -737,14 +737,14 @@ where
 }
 
 /// Returns the genesis block from storage.
-pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
+pub fn genesis<DB>(db: &DB) -> Result<BlockHeader, Error>
 where
     DB: Blockstore + Store,
 {
-    Ok(db
+    db
         .read(GENESIS_KEY)?
-        .map(|bz| BlockHeader::unmarshal_cbor(&bz))
-        .transpose()?)
+        .map(|bz| BlockHeader::unmarshal_cbor(&bz).map_err(|e| Error::Other(e.to_string())))
+        .ok_or(Error::Other("no genesis".to_string()))?
 }
 
 /// Attempts to de-serialize to unsigned message or signed message and then returns it as a
@@ -967,9 +967,9 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(cs.genesis().unwrap(), None);
+        assert!(cs.genesis().is_err());
         cs.set_genesis(&gen_block).unwrap();
-        assert_eq!(cs.genesis().unwrap(), Some(gen_block));
+        assert_eq!(cs.genesis().unwrap(), gen_block);
     }
 
     #[tokio::test]

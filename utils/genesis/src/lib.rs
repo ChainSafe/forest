@@ -103,11 +103,9 @@ where
             )
         })?;
 
-    let store_genesis = chain_store.genesis()?;
+    let store_genesis = chain_store.genesis();
 
-    if store_genesis
-        .map(|store| store == genesis_block)
-        .unwrap_or_default()
+    if store_genesis.is_ok() && store_genesis.unwrap() == genesis_block
     {
         debug!("Genesis from config matches Genesis from store");
     } else {
