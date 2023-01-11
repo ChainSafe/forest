@@ -22,7 +22,6 @@ pub struct ChainRand<DB> {
     blks: TipsetKeys,
     cs: Arc<ChainStore<DB>>,
     beacon: Arc<BeaconSchedule<DrandBeacon>>,
-    async_handle: tokio::runtime::Handle,
 }
 
 impl<DB> Clone for ChainRand<DB> {
@@ -32,7 +31,6 @@ impl<DB> Clone for ChainRand<DB> {
             blks: self.blks.clone(),
             cs: self.cs.clone(),
             beacon: self.beacon.clone(),
-            async_handle: self.async_handle.clone(),
         }
     }
 }
@@ -46,20 +44,18 @@ where
         blks: TipsetKeys,
         cs: Arc<ChainStore<DB>>,
         beacon: Arc<BeaconSchedule<DrandBeacon>>,
-        async_handle: tokio::runtime::Handle,
     ) -> Self {
         Self {
             chain_config,
             blks,
             cs,
             beacon,
-            async_handle,
         }
     }
 
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
     /// Entropy from the ticket chain.
-    pub async fn get_chain_randomness(
+    pub fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
         pers: i64,
@@ -67,7 +63,7 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let ts = self.cs.tipset_from_keys(blocks).await?;
+        let ts = self.cs.tipset_from_keys(blocks)?;
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");
@@ -75,10 +71,7 @@ where
 
         let search_height = if round < 0 { 0 } else { round };
 
-        let rand_ts = self
-            .cs
-            .tipset_by_height(search_height, ts, lookback)
-            .await?;
+        let rand_ts = self.cs.tipset_by_height(search_height, ts, lookback)?;
 
         draw_randomness(
             rand_ts
@@ -93,7 +86,7 @@ where
     }
 
     /// network version 13 onward
-    pub async fn get_chain_randomness_v2(
+    pub fn get_chain_randomness_v2(
         &self,
         blocks: &TipsetKeys,
         pers: i64,
@@ -101,11 +94,10 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness(blocks, pers, round, entropy, false)
-            .await
     }
 
     /// network version 13; without look-back
-    pub async fn get_beacon_randomness_v2(
+    pub fn get_beacon_randomness_v2(
         &self,
         blocks: &TipsetKeys,
         pers: i64,
@@ -113,11 +105,10 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         self.get_beacon_randomness(blocks, pers, round, entropy, false)
-            .await
     }
 
     /// network version 14 onward
-    pub async fn get_beacon_randomness_v3(
+    pub fn get_beacon_randomness_v3(
         &self,
         blocks: &TipsetKeys,
         pers: i64,
@@ -125,18 +116,16 @@ where
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
         if round < 0 {
-            return self
-                .get_beacon_randomness_v2(blocks, pers, round, entropy)
-                .await;
+            return self.get_beacon_randomness_v2(blocks, pers, round, entropy);
         }
 
-        let beacon_entry = self.extract_beacon_entry_for_epoch(blocks, round).await?;
+        let beacon_entry = self.extract_beacon_entry_for_epoch(blocks, round)?;
         draw_randomness(beacon_entry.data(), pers, round, entropy)
     }
 
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
     /// Entropy from the latest beacon entry.
-    pub async fn get_beacon_randomness(
+    pub fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,
         pers: i64,
@@ -144,21 +133,17 @@ where
         entropy: &[u8],
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
-        let rand_ts: Arc<Tipset> = self
-            .get_beacon_randomness_tipset(blocks, round, lookback)
-            .await?;
-        let be = self.cs.latest_beacon_entry(&rand_ts).await?;
+        let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(blocks, round, lookback)?;
+        let be = self.cs.latest_beacon_entry(&rand_ts)?;
         draw_randomness(be.data(), pers, round, entropy)
     }
 
-    pub async fn extract_beacon_entry_for_epoch(
+    pub fn extract_beacon_entry_for_epoch(
         &self,
         blocks: &TipsetKeys,
         epoch: ChainEpoch,
     ) -> anyhow::Result<BeaconEntry> {
-        let mut rand_ts: Arc<Tipset> = self
-            .get_beacon_randomness_tipset(blocks, epoch, false)
-            .await?;
+        let mut rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(blocks, epoch, false)?;
         let (_, beacon) = self.beacon.beacon_for_epoch(epoch)?;
         let round =
             beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
@@ -171,7 +156,7 @@ where
                 }
             }
 
-            rand_ts = self.cs.tipset_from_keys(rand_ts.parents()).await?;
+            rand_ts = self.cs.tipset_from_keys(rand_ts.parents())?;
         }
 
         bail!(
@@ -181,13 +166,13 @@ where
         )
     }
 
-    pub async fn get_beacon_randomness_tipset(
+    pub fn get_beacon_randomness_tipset(
         &self,
         blocks: &TipsetKeys,
         round: ChainEpoch,
         lookback: bool,
     ) -> anyhow::Result<Arc<Tipset>> {
-        let ts = self.cs.tipset_from_keys(blocks).await?;
+        let ts = self.cs.tipset_from_keys(blocks)?;
 
         if round > ts.epoch() {
             bail!("cannot draw randomness from the future");
@@ -197,7 +182,6 @@ where
 
         self.cs
             .tipset_by_height(search_height, ts, lookback)
-            .await
             .map_err(|e| e.into())
     }
 }
@@ -212,10 +196,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        tokio::task::block_in_place(move || {
-            self.async_handle
-                .block_on(self.get_chain_randomness_v2(&self.blks, pers, round, entropy))
-        })
+        self.get_chain_randomness_v2(&self.blks, pers, round, entropy)
     }
 
     fn get_beacon_randomness(
@@ -224,10 +205,7 @@ where
         round: ChainEpoch,
         entropy: &[u8],
     ) -> anyhow::Result<[u8; 32]> {
-        tokio::task::block_in_place(move || {
-            self.async_handle
-                .block_on(self.get_beacon_randomness_v3(&self.blks, pers, round, entropy))
-        })
+        self.get_beacon_randomness_v3(&self.blks, pers, round, entropy)
     }
 }
 

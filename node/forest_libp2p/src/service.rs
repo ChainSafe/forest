@@ -210,7 +210,7 @@ impl<DB, P: StoreParams> Libp2pService<DB, P>
 where
     DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
 {
-    pub async fn new(
+    pub fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
@@ -220,7 +220,7 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone()).await;
+        let transport = build_transport(net_keypair.clone());
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -231,7 +231,7 @@ where
 
         let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()).await,
+            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()),
             peer_id,
         )
         .connection_limits(limits)
@@ -797,7 +797,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                         if let Err(e) = cx_response_tx.send((
                             request_id,
                             channel,
-                            make_chain_exchange_response(db.as_ref(), &request).await,
+                            make_chain_exchange_response(db.as_ref(), &request),
                         )) {
                             debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
@@ -933,7 +933,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that libp2p will communicate over.
-pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
     let transport = libp2p::dns::TokioDnsConfig::system(tcp_transport()).unwrap();

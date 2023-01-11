@@ -18,13 +18,13 @@ use forest_message::Message;
 use forest_message::SignedMessage;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
+use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 
@@ -39,16 +39,16 @@ where
     /// Forest employs a sophisticated algorithm for selecting messages
     /// for inclusion from the pool, given the ticket quality of a miner.
     /// This method selects messages for including in a block.
-    pub async fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
-        let cur_ts = self.cur_tipset.read().await.clone();
+    pub fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
+        let cur_ts = self.cur_tipset.lock().clone();
         // if the ticket quality is high enough that the first block has higher probability
         // than any other block, then we don't bother with optimal selection because the
         // first block will always have higher effective performance. Otherwise we select
         // message optimally based on effective performance of chains.
         let mut msgs = if tq > 0.84 {
-            self.select_messages_greedy(&cur_ts, ts).await
+            self.select_messages_greedy(&cur_ts, ts)
         } else {
-            self.select_messages_optimal(&cur_ts, ts, tq).await
+            self.select_messages_optimal(&cur_ts, ts, tq)
         }?;
 
         if msgs.len() > MAX_BLOCK_MSGS {
@@ -58,24 +58,22 @@ where
         Ok(msgs)
     }
 
-    async fn select_messages_greedy(
+    fn select_messages_greedy(
         &self,
         cur_ts: &Tipset,
         ts: &Tipset,
     ) -> Result<Vec<SignedMessage>, Error> {
-        let base_fee = self.api.read().await.chain_compute_base_fee(ts)?;
+        let base_fee = self.api.chain_compute_base_fee(ts)?;
 
         // 0. Load messages from the target tipset; if it is the same as the current tipset in
         //    the mpool, then this is just the pending messages
-        let mut pending = self.get_pending_messages(cur_ts, ts).await?;
+        let mut pending = self.get_pending_messages(cur_ts, ts)?;
 
         if pending.is_empty() {
             return Ok(Vec::new());
         }
         // 0b. Select all priority messages that fit in the block
-        let (result, gas_limit) = self
-            .select_priority_messages(&mut pending, &base_fee, ts)
-            .await?;
+        let (result, gas_limit) = self.select_priority_messages(&mut pending, &base_fee, ts)?;
 
         // check if block has been filled
         if gas_limit < MIN_GAS {
@@ -86,45 +84,39 @@ where
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
             create_message_chains(
-                &self.api,
+                self.api.as_ref(),
                 &actor,
                 &mset,
                 &base_fee,
                 ts,
                 &mut chains,
                 &self.chain_config,
-            )
-            .await?;
+            )?;
         }
 
         let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
         Ok(msgs)
     }
 
-    async fn select_messages_optimal(
+    fn select_messages_optimal(
         &self,
         cur_ts: &Tipset,
         target_tipset: &Tipset,
         ticket_quality: f64,
     ) -> Result<Vec<SignedMessage>, Error> {
-        let base_fee = self
-            .api
-            .read()
-            .await
-            .chain_compute_base_fee(target_tipset)?;
+        let base_fee = self.api.chain_compute_base_fee(target_tipset)?;
 
         // 0. Load messages from the target tipset; if it is the same as the current tipset in
         //    the mpool, then this is just the pending messages
-        let mut pending = self.get_pending_messages(cur_ts, target_tipset).await?;
+        let mut pending = self.get_pending_messages(cur_ts, target_tipset)?;
 
         if pending.is_empty() {
             return Ok(Vec::new());
         }
 
         // 0b. Select all priority messages that fit in the block
-        let (mut result, mut gas_limit) = self
-            .select_priority_messages(&mut pending, &base_fee, target_tipset)
-            .await?;
+        let (mut result, mut gas_limit) =
+            self.select_priority_messages(&mut pending, &base_fee, target_tipset)?;
 
         // check if block has been filled
         if gas_limit < MIN_GAS {
@@ -135,15 +127,14 @@ where
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
             create_message_chains(
-                &self.api,
+                self.api.as_ref(),
                 &actor,
                 &mset,
                 &base_fee,
                 target_tipset,
                 &mut chains,
                 &self.chain_config,
-            )
-            .await?;
+            )?;
         }
 
         // 2. Sort the chains
@@ -451,14 +442,14 @@ where
         Ok(result)
     }
 
-    async fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
+    fn get_pending_messages(&self, cur_ts: &Tipset, ts: &Tipset) -> Result<Pending, Error> {
         let mut result: Pending = HashMap::new();
         let mut in_sync = false;
         if cur_ts.epoch() == ts.epoch() && cur_ts == ts {
             in_sync = true;
         }
 
-        for (a, mset) in self.pending.read().await.iter() {
+        for (a, mset) in self.pending.read().iter() {
             if in_sync {
                 result.insert(*a, mset.msgs.clone());
             } else {
@@ -476,18 +467,17 @@ where
 
         // Run head change to do reorg detection
         run_head_change(
-            &self.api,
+            self.api.as_ref(),
             &self.pending,
             cur_ts.clone(),
             ts.clone(),
             &mut result,
-        )
-        .await?;
+        )?;
 
         Ok(result)
     }
 
-    async fn select_priority_messages(
+    fn select_priority_messages(
         &self,
         pending: &mut Pending,
         base_fee: &TokenAmount,
@@ -505,15 +495,14 @@ where
             if let Some(mset) = pending.remove(actor) {
                 // create chains for the priority actor
                 create_message_chains(
-                    &self.api,
+                    self.api.as_ref(),
                     actor,
                     &mset,
                     base_fee,
                     ts,
                     &mut chains,
                     &self.chain_config,
-                )
-                .await?;
+                )?;
             }
         }
 
@@ -623,8 +612,8 @@ fn merge_and_trim(
 
 /// Like `head_change`, except it doesn't change the state of the `MessagePool`.
 /// It simulates a head change call.
-pub(crate) async fn run_head_change<T>(
-    api: &RwLock<T>,
+pub(crate) fn run_head_change<T>(
+    api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,
     from: Tipset,
     to: Tipset,
@@ -641,18 +630,18 @@ where
     while left != right {
         if left.epoch() > right.epoch() {
             left_chain.push(left.as_ref().clone());
-            let par = api.read().await.load_tipset(left.parents()).await?;
+            let par = api.load_tipset(left.parents())?;
             left = par;
         } else {
             right_chain.push(right.as_ref().clone());
-            let par = api.read().await.load_tipset(right.parents()).await?;
+            let par = api.load_tipset(right.parents())?;
             right = par;
         }
     }
     for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
         for block in ts.blocks() {
-            let (_, smsgs) = api.read().await.messages_for_block(block)?;
+            let (_, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
         }
         for msg in msgs {
@@ -662,15 +651,13 @@ where
 
     for ts in right_chain {
         for b in ts.blocks() {
-            let (msgs, smsgs) = api.read().await.messages_for_block(b)?;
+            let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())
-                    .await?;
+                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())
-                    .await?;
+                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
             }
         }
     }
@@ -745,25 +732,21 @@ mod test_selection {
         .unwrap();
 
         // let gas_limit = 6955002;
-        api.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
-        api.write()
-            .await
-            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         // we create 10 messages from each actor to another, with the first actor paying higher
         // gas prices than the second; we expect message selection to order his messages first
         for i in 0..10 {
             let m = create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1);
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
         }
         for i in 0..10 {
             let m = create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1);
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
         }
 
-        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
 
         assert_eq!(msgs.len(), 20, "Expected 20 messages, got {}", msgs.len());
 
@@ -772,8 +755,7 @@ mod test_selection {
             assert_eq!(
                 *msg.from(),
                 a1,
-                "first 10 returned messages should be from actor a1 {}",
-                i
+                "first 10 returned messages should be from actor a1 {i}",
             );
             assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
@@ -784,16 +766,15 @@ mod test_selection {
             assert_eq!(
                 *msg.from(),
                 a2,
-                "next 10 returned messages should be from actor a2 {}",
-                i
+                "next 10 returned messages should be from actor a2 {i}",
             );
             assert_eq!(msg.sequence(), next_nonce, "nonce should be in order");
             next_nonce += 1;
         }
 
         // now we make a block with all the messages and advance the chain
-        let b2 = mpool.api.write().await.next_block();
-        mpool.api.write().await.set_block_messages(&b2, msgs);
+        let b2 = mpool.api.next_block();
+        mpool.api.set_block_messages(&b2, msgs);
         head_change(
             api.as_ref(),
             bls_sig_cache.as_ref(),
@@ -810,9 +791,9 @@ mod test_selection {
         // we should now have no pending messages in the MessagePool
         // let pending = mpool.pending.read().await;
         assert!(
-            mpool.pending.read().await.is_empty(),
+            mpool.pending.read().is_empty(),
             "Expected no pending messages, but got {}",
-            mpool.pending.read().await.len()
+            mpool.pending.read().len()
         );
 
         // create a block and advance the chain without applying to the mpool
@@ -821,9 +802,9 @@ mod test_selection {
             msgs.push(create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1));
             msgs.push(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1));
         }
-        let b3 = mpool.api.write().await.next_block();
+        let b3 = mpool.api.next_block();
         let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
-        mpool.api.write().await.set_block_messages(&b3, msgs);
+        mpool.api.set_block_messages(&b3, msgs);
 
         // now create another set of messages and add them to the mpool
         for i in 20..30 {
@@ -836,19 +817,17 @@ mod test_selection {
                     TEST_GAS_LIMIT,
                     2 * i + 200,
                 ))
-                .await
                 .unwrap();
             mpool
                 .add(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1))
-                .await
                 .unwrap();
         }
         // select messages in the last tipset; this should include the missed messages as well as
         // the last messages we added, with the first actor's messages first
         // first we need to update the nonce on the api
-        mpool.api.write().await.set_state_sequence(&a1, 10);
-        mpool.api.write().await.set_state_sequence(&a2, 10);
-        let msgs = mpool.select_messages(&ts3, 1.0).await.unwrap();
+        mpool.api.set_state_sequence(&a1, 10);
+        mpool.api.set_state_sequence(&a2, 10);
+        let msgs = mpool.select_messages(&ts3, 1.0).unwrap();
 
         assert_eq!(
             msgs.len(),
@@ -917,12 +896,8 @@ mod test_selection {
         .unwrap();
 
         // let gas_limit = 6955002;
-        api.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
-        api.write()
-            .await
-            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         let nmsgs = (fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT) + 1;
 
@@ -937,7 +912,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
             let m = create_smsg(
                 &a1,
                 &a2,
@@ -946,10 +921,10 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
         }
 
-        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
 
         let expected = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         assert_eq!(msgs.len(), expected as usize);
@@ -982,14 +957,14 @@ mod test_selection {
 
         let b1 = mock_block(1, 1);
         let ts = Tipset::new(vec![b1.clone()]).unwrap();
-        let api = mpool.api.clone();
+        let api = &mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
         let cur_tipset = mpool.cur_tipset.clone();
         let repub_trigger = Arc::new(mpool.repub_trigger.clone());
         let republished = mpool.republished.clone();
         head_change(
-            api.as_ref(),
+            mpool.api.as_ref(),
             bls_sig_cache.as_ref(),
             repub_trigger.clone(),
             republished.as_ref(),
@@ -1002,12 +977,8 @@ mod test_selection {
         .unwrap();
 
         // let gas_limit = 6955002;
-        api.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
-        api.write()
-            .await
-            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         let nmsgs = 10;
 
@@ -1022,7 +993,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
             let m = create_smsg(
                 &a1,
                 &a2,
@@ -1031,10 +1002,10 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
         }
 
-        let msgs = mpool.select_messages(&ts, 1.0).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 1.0).unwrap();
 
         assert_eq!(msgs.len(), 20);
 
@@ -1100,13 +1071,8 @@ mod test_selection {
         .await
         .unwrap();
 
-        api.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_whole(1));
-
-        api.write()
-            .await
-            .set_state_balance_raw(&a2, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
+        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
         let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
@@ -1122,10 +1088,10 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
         }
 
-        let msgs = mpool.select_messages(&ts, 0.25).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 0.25).unwrap();
 
         let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
@@ -1184,13 +1150,8 @@ mod test_selection {
         .await
         .unwrap();
 
-        api.write()
-            .await
-            .set_state_balance_raw(&a1, TokenAmount::from_whole(1)); // in FIL
-
-        api.write()
-            .await
-            .set_state_balance_raw(&a2, TokenAmount::from_whole(1)); // in FIL
+        api.set_state_balance_raw(&a1, TokenAmount::from_whole(1)); // in FIL
+        api.set_state_balance_raw(&a2, TokenAmount::from_whole(1)); // in FIL
 
         let n_msgs = 5 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         for i in 0..n_msgs as usize {
@@ -1203,7 +1164,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (200000 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
             let m = create_smsg(
                 &a1,
                 &a2,
@@ -1212,10 +1173,10 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (190000 + i % 3 + bias) as u64,
             );
-            mpool.add(m).await.unwrap();
+            mpool.add(m).unwrap();
         }
 
-        let msgs = mpool.select_messages(&ts, 0.1).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 0.1).unwrap();
 
         let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
         assert_eq!(
@@ -1309,10 +1270,7 @@ mod test_selection {
         .unwrap();
 
         for a in &mut actors {
-            api.write()
-                .await
-                .set_state_balance_raw(a, TokenAmount::from_whole(1));
-            // in FIL
+            api.set_state_balance_raw(a, TokenAmount::from_whole(1));
         }
 
         let n_msgs = 1 + fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
@@ -1328,11 +1286,11 @@ mod test_selection {
                     TEST_GAS_LIMIT,
                     premium as u64,
                 );
-                mpool.add(m).await.unwrap();
+                mpool.add(m).unwrap();
             }
         }
 
-        let msgs = mpool.select_messages(&ts, 0.1).await.unwrap();
+        let msgs = mpool.select_messages(&ts, 0.1).unwrap();
         let expected_msgs = fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
         assert_eq!(
@@ -1357,7 +1315,7 @@ mod test_selection {
         for m in &msgs {
             let who = who_is(m.message.from);
             if who < 3 {
-                panic!("got message from {}th actor", who);
+                panic!("got message from {who}th actor",);
             }
 
             let next_nonce: u64 = nonces[who];

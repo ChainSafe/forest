@@ -3,21 +3,20 @@
 
 use log::{debug, warn};
 use std::collections::HashMap;
-use tokio::sync::RwLock;
 
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
+use parking_lot::Mutex;
 
 use super::Error;
 
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
 pub(crate) struct TipsetTracker<DB> {
-    // TODO: look into optimizing https://github.com/ChainSafe/forest/issues/878
-    entries: RwLock<HashMap<ChainEpoch, Vec<Cid>>>,
+    entries: Mutex<HashMap<ChainEpoch, Vec<Cid>>>,
     db: DB,
 }
 
@@ -30,19 +29,19 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     }
 
     /// Adds a block header to the tracker.
-    pub async fn add(&self, header: &BlockHeader) {
-        // TODO: consider only acquiring a writer lock when appending this header to the map,
-        // in order to avoid holding the writer lock during the `blockstore` reads
-        let mut map = self.entries.write().await;
-        let cids = map.entry(header.epoch()).or_default();
-
-        for cid in cids.iter() {
-            if cid == header.cid() {
+    pub fn add(&self, header: &BlockHeader) {
+        let cids = {
+            let mut map = self.entries.lock();
+            let cids = map.entry(header.epoch()).or_default();
+            if cids.contains(header.cid()) {
                 debug!("tried to add block to tipset tracker that was already there");
                 return;
             }
-        }
+            cids.push(*header.cid());
+            cids.clone()
+        };
 
+        // XXX: What is this code supposed to do? ~Lemmih
         for cid in cids.iter() {
             // TODO: maybe cache the miner address to avoid having to do a `blockstore` lookup here
             if let Ok(Some(block)) = self.db.get_obj::<BlockHeader>(cid) {
@@ -57,26 +56,24 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                 }
             }
         }
-
-        cids.push(*header.cid());
     }
 
     /// Expands the given block header into the largest possible tipset by
     /// combining it with known blocks at the same height with the same parents.
-    pub async fn expand(&self, header: BlockHeader) -> Result<Tipset, Error> {
+    pub fn expand(&self, header: BlockHeader) -> Result<Tipset, Error> {
         let epoch = header.epoch();
         let mut headers = vec![header];
 
-        if let Some(entries) = self.entries.read().await.get(&epoch) {
+        if let Some(entries) = self.entries.lock().get(&epoch).cloned() {
             for cid in entries {
-                if cid == headers[0].cid() {
+                if &cid == headers[0].cid() {
                     continue;
                 }
 
                 // TODO: maybe cache the parents tipset keys to avoid having to do a `blockstore` lookup here
                 let h = self
                     .db
-                    .get_obj::<BlockHeader>(cid)
+                    .get_obj::<BlockHeader>(&cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {

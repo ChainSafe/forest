@@ -23,7 +23,7 @@ pub struct ChainCommand {
 }
 
 impl ChainCommand {
-    pub async fn run(&self) -> anyhow::Result<()> {
+    pub fn run(&self) -> anyhow::Result<()> {
         let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
             .ok_or(anyhow::Error::msg("no such path"))?;
         let chain_path = dir.data_dir().join(&self.chain);
@@ -62,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
     let Cli { cmd } = Cli::from_args();
     match cmd {
-        Subcommand::Chain(cmd) => cmd.run().await?,
+        Subcommand::Chain(cmd) => cmd.run()?,
     }
     Ok(())
 }

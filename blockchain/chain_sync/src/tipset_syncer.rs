@@ -302,7 +302,7 @@ where
         Box::pin(async move {
             // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
-            let current_head = chain_store.heaviest_tipset().await.unwrap();
+            let current_head = chain_store.heaviest_tipset().unwrap();
             // Unwrapping is safe here because we assume that the
             // tipset group contains at least one tipset
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
@@ -827,7 +827,7 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
             current_head.epoch(),
             proposed_head.key()
         );
-        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head).await {
+        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head) {
             error!(
                 "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
                 proposed_head.epoch(),
@@ -871,8 +871,7 @@ async fn sync_headers_in_reverse<
         let oldest_parent = parent_tipsets.last().unwrap();
         let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
         pb.set((work_to_be_done - total_size).unsigned_abs());
-        validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)
-            .await?;
+        validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)?;
 
         // Check if we are at the end of the range
         if oldest_parent.epoch() <= current_head.epoch() {
@@ -881,7 +880,7 @@ async fn sync_headers_in_reverse<
             break;
         }
         // Attempt to load the parent tipset from local store
-        if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()).await {
+        if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()) {
             parent_blocks.extend_from_slice(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
@@ -900,7 +899,7 @@ async fn sync_headers_in_reverse<
             if tipset.epoch() < current_head.epoch() {
                 break 'sync;
             }
-            validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks).await?;
+            validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks)?;
             parent_blocks.extend_from_slice(tipset.cids());
             tracker.write().await.set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
@@ -921,8 +920,7 @@ async fn sync_headers_in_reverse<
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
-        let mut potential_common_ancestor =
-            chain_store.tipset_from_keys(current_head.parents()).await?;
+        let mut potential_common_ancestor = chain_store.tipset_from_keys(current_head.parents())?;
         let mut i = 0;
         let mut fork_length = 1;
         while i < fork_tipsets.len() {
@@ -956,9 +954,8 @@ async fn sync_headers_in_reverse<
                 if i == (fork_tipsets.len() - 1) {
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
                 }
-                potential_common_ancestor = chain_store
-                    .tipset_from_keys(potential_common_ancestor.parents())
-                    .await?;
+                potential_common_ancestor =
+                    chain_store.tipset_from_keys(potential_common_ancestor.parents())?;
             }
         }
     }
@@ -1001,7 +998,7 @@ fn sync_tipset<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consen
 
         // Add the tipset to the store. The tipset will be expanded with other blocks with
         // the same [epoch, parents] before updating the heaviest Tipset in the store.
-        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head).await {
+        if let Err(why) = chain_store.put_tipset::<C>(&proposed_head) {
             error!(
                 "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
                 proposed_head.epoch(),
@@ -1175,7 +1172,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     while let Some(result) = validations.next().await {
         match result? {
             Ok(block) => {
-                chainstore.add_to_tipset_tracker(block.header()).await;
+                chainstore.add_to_tipset_tracker(block.header());
             }
             Err((cid, why)) => {
                 warn!(
@@ -1191,7 +1188,7 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
                         TipsetRangeSyncerError::TimeTravellingBlock(_, _)
                         | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
                         why => {
-                            bad_block_cache.put(cid, why.to_string()).await;
+                            bad_block_cache.put(cid, why.to_string());
                         }
                     }
                 }
@@ -1257,7 +1254,6 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
 
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
-        .await
         // The parent tipset will always be there when calling validate_block
         // as part of the sync_tipset_range flow because all of the headers in the range
         // have been committed to the store. When validate_block is called from sync_tipset
@@ -1608,17 +1604,15 @@ fn block_timestamp_checks<C: Consensus>(
 
 /// Check if any CID in `tipset` is a known bad block.
 /// If so, add all their descendants to the bad block cache and return an error.
-async fn validate_tipset_against_cache<C: Consensus>(
+fn validate_tipset_against_cache<C: Consensus>(
     bad_block_cache: &BadBlockCache,
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError<C>> {
     for cid in tipset.cids() {
-        if let Some(reason) = bad_block_cache.get(cid).await {
+        if let Some(reason) = bad_block_cache.get(cid) {
             for block_cid in descendant_blocks {
-                bad_block_cache
-                    .put(*block_cid, format!("chain contained {cid}"))
-                    .await;
+                bad_block_cache.put(*block_cid, format!("chain contained {cid}"));
             }
             return Err(TipsetRangeSyncerError::TipsetRangeWithBadBlock(
                 *cid, reason,

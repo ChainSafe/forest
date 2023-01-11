@@ -10,11 +10,11 @@ use byteorder::{BigEndian, WriteBytesExt};
 use forest_utils::net::{https_client, HyperBodyExt};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::version::NetworkVersion;
+use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
 use std::borrow::Cow;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
@@ -134,11 +134,7 @@ where
     Self: Sized + Send + Sync + 'static,
 {
     /// Verify a new beacon entry against the most recent one before it.
-    async fn verify_entry(
-        &self,
-        curr: &BeaconEntry,
-        prev: &BeaconEntry,
-    ) -> Result<bool, anyhow::Error>;
+    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error>;
 
     /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a `Drand` node over [`gRPC`](https://grpc.io/)
     /// In the future, we will cache values, and support streaming.
@@ -232,11 +228,7 @@ impl DrandBeacon {
 
 #[async_trait]
 impl Beacon for DrandBeacon {
-    async fn verify_entry(
-        &self,
-        curr: &BeaconEntry,
-        prev: &BeaconEntry,
-    ) -> Result<bool, anyhow::Error> {
+    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
         // TODO: Handle Genesis better
         if prev.round() == 0 {
             return Ok(true);
@@ -253,18 +245,15 @@ impl Beacon for DrandBeacon {
         let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()?]);
 
         // Cache the result
-        let contains_curr = self.local_cache.read().await.contains_key(&curr.round());
+        let contains_curr = self.local_cache.read().contains_key(&curr.round());
         if sig_match && !contains_curr {
-            self.local_cache
-                .write()
-                .await
-                .insert(curr.round(), curr.clone());
+            self.local_cache.write().insert(curr.round(), curr.clone());
         }
         Ok(sig_match)
     }
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
-        let cached: Option<BeaconEntry> = self.local_cache.read().await.get(&round).cloned();
+        let cached: Option<BeaconEntry> = self.local_cache.read().get(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {

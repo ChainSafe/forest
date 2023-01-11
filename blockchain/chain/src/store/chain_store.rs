@@ -34,6 +34,7 @@ use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use log::{debug, info, trace, warn};
 use lru::LruCache;
+use parking_lot::Mutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -43,7 +44,7 @@ use std::{
 };
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex as TokioMutex;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 const GENESIS_KEY: &str = "gen_block";
@@ -75,7 +76,7 @@ pub struct ChainStore<DB> {
     pub db: DB,
 
     /// Tipset at the head of the best-known chain.
-    heaviest: RwLock<Option<Arc<Tipset>>>,
+    heaviest: Mutex<Option<Arc<Tipset>>>,
 
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
@@ -91,7 +92,7 @@ impl<DB> ChainStore<DB>
 where
     DB: Blockstore + Store + Send + Sync,
 {
-    pub async fn new(db: DB) -> Self
+    pub fn new(db: DB) -> Self
     where
         DB: Clone,
     {
@@ -109,15 +110,15 @@ where
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
-        let _ = cs.load_heaviest_tipset().await;
+        let _ = cs.load_heaviest_tipset();
 
         cs
     }
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
-    pub async fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
+    pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        *self.heaviest.write().await = Some(ts.clone());
+        *self.heaviest.lock() = Some(ts.clone());
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -130,13 +131,13 @@ where
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid headers.
-    pub async fn add_to_tipset_tracker(&self, header: &BlockHeader) {
-        self.tipset_tracker.add(header).await;
+    pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
+        self.tipset_tracker.add(header);
     }
 
     /// Writes tipset block headers to data store and updates heaviest tipset with other
     /// compatible tracked headers.
-    pub async fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
+    pub fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
     where
         S: Scale,
     {
@@ -146,20 +147,20 @@ where
         persist_objects(self.blockstore(), ts.blocks())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
-        let expanded = self.expand_tipset(ts.min_ticket_block().clone()).await?;
-        self.update_heaviest::<S>(Arc::new(expanded)).await?;
+        let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
+        self.update_heaviest::<S>(Arc::new(expanded))?;
         Ok(())
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using the tipset tracker.
-    async fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
-        self.tipset_tracker.expand(header).await
+    fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
+        self.tipset_tracker.expand(header)
     }
 
     /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.
-    async fn load_heaviest_tipset(&self) -> Result<(), Error> {
+    fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
-            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?).await?,
+            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?)?,
             None => {
                 warn!("No previous chain state found");
                 return Err(Error::Other("No chain state found".to_owned()));
@@ -167,7 +168,7 @@ where
         };
 
         // set as heaviest tipset
-        *self.heaviest.write().await = Some(heaviest_ts);
+        *self.heaviest.lock() = Some(heaviest_ts);
         Ok(())
     }
 
@@ -177,9 +178,9 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset.
-    pub async fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+    pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
         // TODO: Figure out how to remove optional and return something everytime.
-        self.heaviest.read().await.clone()
+        self.heaviest.lock().clone()
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -193,28 +194,27 @@ where
     }
 
     /// Returns Tipset from key-value store from provided CIDs
-    pub async fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
-            return Ok(self.heaviest_tipset().await.unwrap());
+            return Ok(self.heaviest_tipset().unwrap());
         }
-        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk).await
+        tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
     }
 
     /// Returns Tipset key hash from key-value store from provided CIDs
-    pub async fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
+    pub fn tipset_hash_from_keys(&self, tsk: &TipsetKeys) -> String {
         checkpoint_tipsets::tipset_hash(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest tipset
-    async fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
+    fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
     where
         S: Scale,
     {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
         let heaviest_weight = self
             .heaviest
-            .read()
-            .await
+            .lock()
             .as_ref()
             .map(|ts| S::weight(self.blockstore(), ts.as_ref()));
 
@@ -226,12 +226,12 @@ where
                 if new_weight > curr_weight {
                     // TODO potentially need to deal with re-orgs here
                     info!("New heaviest tipset: {:?}", ts.key());
-                    self.set_heaviest_tipset(ts).await?;
+                    self.set_heaviest_tipset(ts)?;
                 }
             }
             None => {
                 info!("set heaviest tipset");
-                self.set_heaviest_tipset(ts).await?;
+                self.set_heaviest_tipset(ts)?;
             }
         }
         Ok(())
@@ -257,7 +257,7 @@ where
     /// - If `prev` is `false`, the tipset following the null round is returned.
     ///
     /// Returns `None` if the tipset provided was the tipset at the given height.
-    pub async fn tipset_by_height(
+    pub fn tipset_by_height(
         &self,
         height: ChainEpoch,
         ts: Arc<Tipset>,
@@ -269,13 +269,10 @@ where
             ));
         }
         if height == ts.epoch() {
-            return Ok(ts.clone());
+            return Ok(ts);
         }
 
-        let mut lbts = self
-            .chain_index
-            .get_tipset_by_height(ts.clone(), height)
-            .await?;
+        let mut lbts = self.chain_index.get_tipset_by_height(ts.clone(), height)?;
 
         if lbts.epoch() < height {
             warn!(
@@ -284,18 +281,17 @@ where
             );
             lbts = self
                 .chain_index
-                .get_tipset_by_height_without_cache(ts, height)
-                .await?;
+                .get_tipset_by_height_without_cache(ts, height)?;
         }
 
         if lbts.epoch() == height || !prev {
             Ok(lbts)
         } else {
-            self.tipset_from_keys(lbts.parents()).await
+            self.tipset_from_keys(lbts.parents())
         }
     }
 
-    pub async fn validate_tipset_checkpoints(
+    pub fn validate_tipset_checkpoints(
         &self,
         from: Arc<Tipset>,
         network: String,
@@ -315,7 +311,7 @@ where
         hashes.remove(&tipset_hash);
 
         loop {
-            let pts = self.chain_index.load_tipset(ts.parents()).await?;
+            let pts = self.chain_index.load_tipset(ts.parents())?;
             let tipset_hash = checkpoint_tipsets::tipset_hash(ts.key());
             hashes.remove(&tipset_hash);
 
@@ -343,7 +339,7 @@ where
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
-    pub async fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
+    pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
             let cbe = ts.min_ticket_block().beacon_entries();
             if let Some(entry) = cbe.last() {
@@ -360,10 +356,10 @@ where
         if let Some(entry) = check_for_beacon_entry(ts)? {
             return Ok(entry);
         }
-        let mut cur = self.tipset_from_keys(ts.parents()).await?;
+        let mut cur = self.tipset_from_keys(ts.parents())?;
         for i in 1..20 {
             if i != 1 {
-                cur = self.tipset_from_keys(cur.parents()).await?;
+                cur = self.tipset_from_keys(cur.parents())?;
             }
             if let Some(entry) = check_for_beacon_entry(&cur)? {
                 return Ok(entry);
@@ -487,7 +483,7 @@ where
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
-        let writer = Arc::new(Mutex::new(writer.compat_write()));
+        let writer = Arc::new(TokioMutex::new(writer.compat_write()));
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
@@ -599,7 +595,7 @@ where
 pub(crate) type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
 
 /// Loads a tipset from memory given the tipset keys and cache.
-pub(crate) async fn tipset_from_keys<BS>(
+pub(crate) fn tipset_from_keys<BS>(
     cache: &TipsetCache,
     store: &BS,
     tsk: &TipsetKeys,
@@ -607,7 +603,7 @@ pub(crate) async fn tipset_from_keys<BS>(
 where
     BS: Blockstore,
 {
-    if let Some(ts) = cache.lock().await.get(tsk) {
+    if let Some(ts) = cache.lock().get(tsk) {
         metrics::LRU_CACHE_HIT
             .with_label_values(&[metrics::values::TIPSET])
             .inc();
@@ -627,7 +623,7 @@ where
 
     // construct new Tipset to return
     let ts = Arc::new(Tipset::new(block_headers)?);
-    cache.lock().await.put(tsk.clone(), ts.clone());
+    cache.lock().put(tsk.clone(), ts.clone());
     metrics::LRU_CACHE_MISS
         .with_label_values(&[metrics::values::TIPSET])
         .inc();
@@ -952,11 +948,11 @@ mod tests {
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
 
-    #[tokio::test]
-    async fn genesis_test() {
+    #[test]
+    fn genesis_test() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db).await;
+        let cs = ChainStore::new(db);
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -972,11 +968,11 @@ mod tests {
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
-    #[tokio::test]
-    async fn block_validation_cache_basic() {
+    #[test]
+    fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
 
-        let cs = ChainStore::new(db).await;
+        let cs = ChainStore::new(db);
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

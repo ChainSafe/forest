@@ -55,7 +55,7 @@ impl From<IpldAmtError> for Box<TipsetValidationError> {
 pub struct TipsetValidator<'a>(pub &'a FullTipset);
 
 impl<'a> TipsetValidator<'a> {
-    pub async fn validate<DB: Blockstore>(
+    pub fn validate<DB: Blockstore>(
         &self,
         chainstore: Arc<ChainStore<DB>>,
         bad_block_cache: Arc<BadBlockCache>,
@@ -75,7 +75,7 @@ impl<'a> TipsetValidator<'a> {
         // 2. Ensuring it has not previously been seen in the bad blocks cache
         for block in self.0.blocks() {
             self.validate_msg_root(&chainstore.db, block)?;
-            if let Some(bad) = bad_block_cache.peek(block.cid()).await {
+            if let Some(bad) = bad_block_cache.peek(block.cid()) {
                 return Err(Box::new(TipsetValidationError::InvalidBlock(
                     *block.cid(),
                     bad,

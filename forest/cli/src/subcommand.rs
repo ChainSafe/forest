@@ -13,11 +13,11 @@ pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Resu
         Subcommand::Net(cmd) => cmd.run(config).await,
         Subcommand::Wallet(cmd) => cmd.run(config).await,
         Subcommand::Sync(cmd) => cmd.run(config).await,
-        Subcommand::Mpool(cmd) => cmd.run(config).await,
-        Subcommand::State(cmd) => cmd.run(config).await,
-        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()).await,
+        Subcommand::Mpool(cmd) => cmd.run(config),
+        Subcommand::State(cmd) => cmd.run(config),
+        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
         Subcommand::Send(cmd) => cmd.run(config).await,
-        Subcommand::DB(cmd) => cmd.run(&config).await,
+        Subcommand::DB(cmd) => cmd.run(&config),
         Subcommand::Snapshot(cmd) => cmd.run(config).await,
     }
 }
