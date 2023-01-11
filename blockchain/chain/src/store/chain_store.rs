@@ -741,8 +741,7 @@ pub fn genesis<DB>(db: &DB) -> Result<BlockHeader, Error>
 where
     DB: Blockstore + Store,
 {
-    db
-        .read(GENESIS_KEY)?
+    db.read(GENESIS_KEY)?
         .map(|bz| BlockHeader::unmarshal_cbor(&bz).map_err(|e| Error::Other(e.to_string())))
         .ok_or(Error::Other("no genesis".to_string()))?
 }

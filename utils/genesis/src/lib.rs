@@ -105,8 +105,7 @@ where
 
     let store_genesis = chain_store.genesis();
 
-    if store_genesis.is_ok() && store_genesis.unwrap() == genesis_block
-    {
+    if store_genesis.is_ok() && store_genesis.unwrap() == genesis_block {
         debug!("Genesis from config matches Genesis from store");
     } else {
         debug!("Initialize ChainSyncer with new genesis from config");
