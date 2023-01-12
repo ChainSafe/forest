@@ -44,25 +44,42 @@ cat log/*
 
 ## Wallet tests
 
-FIL_AMT=500
-ADMIN_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjc4NTMwODk3fQ.E0Glkq-Br5x3wLCes8HS20wAfzlSGqVX-mo0WKeYXRc
-# Wallet addresses: 
-ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
-# ADDR_TWO=f1zy4ylxlqplz3ulqscmta4ay7aijphopmmmjcjqq
+# The following steps does basic wallet handling tests.
 
-# Show balance
+set -x
+
+# Amount to send to
+FIL_AMT=500
+# Admin token used when interacting with wallet
+ADMIN_TOKEN=$(grep "Admin token" forest.out | cut -d ' ' -f 7)
+# Wallet addresses: 
+# A preloaded address
+ADDR_ONE=f1qmmbzfb3m6fijab4boagmkx72ouxhh7f2ylgzlq
+
+forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import scripts/preloaded_wallet.key
+sleep 10s
+pkill -15 forest && sleep 20s
+
+# restart forest
+forest --chain calibnet --target-peer-count 50 --encrypt-keystore false --detach
+
+sleep 60s
+
+# Show balances
 forest-cli --chain calibnet --token $ADMIN_TOKEN wallet list
 
-# # create new address
+# # # create a new address to send FIL to.
 # ADDR_TWO=`forest-cli --chain calibnet --token $ADMIN_TOKEN wallet new`
 
 # # send FIL to the above address
-# forest-cli --token send $ADDR_TWO $FIL_AMT
+# forest-cli --token $ADMIN_TOKEN send $ADDR_TWO $FIL_AMT
 
 # # Check balance of addr_two
-# timeout 30 min && ./target/release/forest-cli --chain calibnet --token $ADMIN_TOKEN wallet balance $ADDR_TWO
+# timeout 5m && forest-cli --chain calibnet --token $ADMIN_TOKEN wallet balance $ADDR_TWO
 # # Export wallet
-# forest-cli --chain calibnet --token $ADMIN_TOKEN wallet export $ADDR_ONE
+# forest-cli --chain calibnet --token $ADMIN_TOKEN wallet export $ADDR_ONE > addr_two_pkey.key
+# # Import wallet
+# forest-cli --chain calibnet --token $ADMIN_TOKEN wallet import addr_two_pkey.key || true
 
 # Get and print metrics and logs and kill forest
 # wget -O metrics.log http://localhost:6116/metrics
