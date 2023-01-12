@@ -9,7 +9,8 @@ Notable updates:
 ### Removed
 
 ### Fixed
-* [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [2403](https://github.com/ChainSafe/forest/pull/2403)
+* [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [#2403](https://github.com/ChainSafe/forest/pull/2403)
+* [forest daemon] forest daeamon crashes on sending bitswap requests. [#2419](https://github.com/ChainSafe/forest/pull/2419)
 
 ## Forest v0.6.0 (2023-01-06)
 
