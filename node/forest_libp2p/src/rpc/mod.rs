@@ -83,7 +83,7 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        read_and_decode(io).await
+        read_request_and_decode(io).await
     }
 
     async fn read_response<T>(
@@ -94,7 +94,10 @@ where
     where
         T: AsyncRead + Unpin + Send,
     {
-        read_and_decode(io).await
+        let mut bytes = vec![];
+        io.read_to_end(&mut bytes).await?;
+        serde_ipld_dagcbor::de::from_reader(bytes.as_slice())
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
     }
 
     async fn write_request<T>(
@@ -122,14 +125,32 @@ where
     }
 }
 
-async fn read_and_decode<IO, T>(io: &mut IO) -> io::Result<T>
+// Because of how lotus implements the protocol, it will deadlock when calling
+// `io.ReadToEnd` on requests.
+//
+// for sending requests, the flow in lotus is
+// 1. write encoded request bytes
+// 2. wait for response
+// 3. close request stream, which sends `FIN` header over `yamux` protocol
+// if we call `io.ReadToEnd` before `FIN` is sent, it will deadlock
+//
+// but for sending responses, the flow in lotus is
+// 1. receive request
+// 2. write encode response bytes
+// 3. close response stream, which sends `FIN` header over `yamux` protocol
+// and we call `io.ReadToEnd` after `FIN` is sent, it will not deadlock
+//
+// Note: `FIN` - Performs a half-close of a stream. May be sent with a data message or window update.
+// See <https://github.com/libp2p/go-yamux/blob/master/spec.md#flag-field>
+//
+// `io` is essentially [yamux::Stream](https://docs.rs/yamux/0.11.0/yamux/struct.Stream.html)
+//
+async fn read_request_and_decode<IO, T>(io: &mut IO) -> io::Result<T>
 where
     IO: AsyncRead + Unpin,
     T: serde::de::DeserializeOwned,
 {
-    // FIXME: investigate the best value here, 2MB is not enough for mainnet epoch 2419928
-    // Issue: https://github.com/ChainSafe/forest/issues/2362
-    const MAX_BYTES_ALLOWED: usize = 200 * 1024 * 1024; // messages over 200MB are likely malicious
+    const MAX_BYTES_ALLOWED: usize = 2 * 1024 * 1024; // messages over 2MB are likely malicious
     const TIMEOUT: Duration = Duration::from_secs(30);
 
     // Currently the protocol does not send length encoded message,

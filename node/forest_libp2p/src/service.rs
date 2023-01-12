@@ -39,9 +39,10 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise,
+    noise,
     swarm::{ConnectionLimits, SwarmEvent},
-    yamux, PeerId, Swarm, Transport,
+    yamux::YamuxConfig,
+    PeerId, Swarm, Transport,
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use libp2p_bitswap::{BitswapEvent, BitswapStore};
@@ -944,21 +945,10 @@ pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
         noise::NoiseConfig::xx(dh_keys).into_authenticated()
     };
 
-    let mplex_config = {
-        let mut mplex_config = mplex::MplexConfig::new();
-        mplex_config.set_max_buffer_size(usize::MAX);
-
-        let mut yamux_config = yamux::YamuxConfig::default();
-        yamux_config.set_max_buffer_size(16 * 1024 * 1024);
-        yamux_config.set_receive_window_size(16 * 1024 * 1024);
-        // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
-        core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
-    };
-
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
-        .multiplex(mplex_config)
+        .multiplex(YamuxConfig::default())
         .timeout(Duration::from_secs(20))
         .boxed()
 }
