@@ -39,9 +39,10 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise,
+    noise,
     swarm::{ConnectionLimits, SwarmEvent},
-    yamux, PeerId, Swarm, Transport,
+    yamux::YamuxConfig,
+    PeerId, Swarm, Transport,
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use libp2p_bitswap::{BitswapEvent, BitswapStore};
@@ -209,7 +210,7 @@ impl<DB, P: StoreParams> Libp2pService<DB, P>
 where
     DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
 {
-    pub async fn new(
+    pub fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
@@ -219,7 +220,7 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone()).await;
+        let transport = build_transport(net_keypair.clone());
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -230,7 +231,7 @@ where
 
         let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()).await,
+            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()),
             peer_id,
         )
         .connection_limits(limits)
@@ -632,7 +633,7 @@ async fn handle_hello_event<P: StoreParams>(
                 request_id,
                 response,
             } => {
-                // Send the sucessful response through channel out.
+                // Send the successful response through channel out.
                 if let Some(tx) = hello_request_table.remove(&request_id) {
                     metrics::NETWORK_CONTAINER_CAPACITIES
                         .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
@@ -796,7 +797,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                         if let Err(e) = cx_response_tx.send((
                             request_id,
                             channel,
-                            make_chain_exchange_response(db.as_ref(), &request).await,
+                            make_chain_exchange_response(db.as_ref(), &request),
                         )) {
                             debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
@@ -812,7 +813,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                     )
                     .await;
                     let tx = cx_request_table.remove(&request_id);
-                    // Send the sucessful response through channel out.
+                    // Send the successful response through channel out.
                     if let Some(tx) = tx {
                         metrics::NETWORK_CONTAINER_CAPACITIES
                             .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
@@ -932,7 +933,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that libp2p will communicate over.
-pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
     let transport = libp2p::dns::TokioDnsConfig::system(tcp_transport()).unwrap();
@@ -944,21 +945,10 @@ pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBo
         noise::NoiseConfig::xx(dh_keys).into_authenticated()
     };
 
-    let mplex_config = {
-        let mut mplex_config = mplex::MplexConfig::new();
-        mplex_config.set_max_buffer_size(usize::MAX);
-
-        let mut yamux_config = yamux::YamuxConfig::default();
-        yamux_config.set_max_buffer_size(16 * 1024 * 1024);
-        yamux_config.set_receive_window_size(16 * 1024 * 1024);
-        // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
-        core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
-    };
-
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
-        .multiplex(mplex_config)
+        .multiplex(YamuxConfig::default())
         .timeout(Duration::from_secs(20))
         .boxed()
 }

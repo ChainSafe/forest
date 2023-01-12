@@ -11,8 +11,6 @@ forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_chain_sync.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
-forest_fil_types.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
 forest_key_management.workspace = true
@@ -20,19 +18,15 @@ forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace = true
 forest_state_manager.workspace = true
-forest_utils.workspace = true
+
 # Public
 anyhow.workspace = true
 chrono.workspace = true
 cid.workspace = true
 flume.workspace = true
-forest_db.workspace = true
-fvm.workspace = true
-fvm_ipld_bitfield = { workspace = true, features = ["json"] }
 fvm_ipld_blockstore.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 jsonrpc-v2.workspace = true
-libp2p = { workspace = true, default-features = false }
 once_cell.workspace = true
 serde = { workspace = true, default-features = false, features = ["derive"] }
 serde_json.workspace = true

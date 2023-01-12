@@ -60,7 +60,7 @@ where
 }
 
 impl<P: StoreParams> ForestBehaviour<P> {
-    pub async fn new<DB: BitswapStore<Params = P>>(
+    pub fn new<DB: BitswapStore<Params = P>>(
         local_key: &Keypair,
         config: &Libp2pConfig,
         network_name: &str,
@@ -110,7 +110,7 @@ impl<P: StoreParams> ForestBehaviour<P> {
 
         ForestBehaviour {
             gossipsub,
-            discovery: discovery_config.finish().await,
+            discovery: discovery_config.finish(),
             ping: Default::default(),
             identify: identify::Behaviour::new(identify::Config::new(
                 "ipfs/0.1.0".into(),

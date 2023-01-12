@@ -13,5 +13,4 @@ lazy_static.workspace = true
 log.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 prometheus-client.workspace = true
-thiserror.workspace = true
 tokio.workspace = true

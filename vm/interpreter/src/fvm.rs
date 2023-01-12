@@ -23,7 +23,7 @@ pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
-    lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
+    lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
 }
@@ -33,7 +33,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
         root: Cid,
-        lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
+        lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
@@ -60,7 +60,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
             );
         }
 
-        let prev_root = (self.lookback)(height);
+        let prev_root = (self.lookback)(height)?;
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
