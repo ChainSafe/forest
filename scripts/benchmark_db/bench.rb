@@ -43,21 +43,6 @@ def forest_version
   syscall('./target/release/forest', '--version')
 end
 
-def default_config
-  toml_str = syscall('./target/release/forest-cli', 'config', 'dump')
-
-  # Comment chain.policy section
-  patched_toml = toml_str.sub(/(\[chain.policy\].+?(?=\n\[))/m) do |s|
-    commented = s.split("\n").map { |l| l.prepend('# ') }.join("\n")
-    "#{commented}\n"
-  end
-  toml_str = patched_toml
-
-  default = TomlRB.parse(toml_str)
-  default['client']['data_dir'] = TEMP_DIR
-  default
-end
-
 def snapshot_dir
   syscall('./target/release/forest-cli', 'snapshot', 'dir')
 end
@@ -131,6 +116,7 @@ def write_import_table(metrics)
 end
 
 def write_validate_table(metrics)
+  return "" if !metrics.key?(:validate)
   result = "Bench | Validate Time | Validate RSS\n"
   result += "-|-|-\n"
 
@@ -171,7 +157,22 @@ end
 # Benchmarks Forest import of a snapshot and validation of the chain
 class Benchmark
   attr_reader :name, :metrics
-  attr_accessor :snapshot_path, :heights
+  attr_accessor :snapshot_path, :heights, :chain
+
+  def default_config
+    toml_str = syscall('./target/release/forest-cli', '--chain', @chain, 'config', 'dump')
+  
+    # Comment chain.policy section
+    patched_toml = toml_str.sub(/(\[chain.policy\].+?(?=\n\[))/m) do |s|
+      commented = s.split("\n").map { |l| l.prepend('# ') }.join("\n")
+      "#{commented}\n"
+    end
+    toml_str = patched_toml
+  
+    default = TomlRB.parse(toml_str)
+    default['client']['data_dir'] = TEMP_DIR
+    default
+  end
 
   def db_size
     config_path = "#{TEMP_DIR}/#{@name}.toml"
@@ -214,15 +215,15 @@ class Benchmark
   private :build_substitution_hash
 
   def build_artefacts(dry_run)
-    exec_command(%w[cargo clean], dry_run)
-    exec_command(build_command, dry_run)
+    clean_command(dry_run)
+    build_command(dry_run)
 
     build_config_file unless dry_run
     build_substitution_hash(dry_run)
   end
   private :build_artefacts
 
-  def run(dry_run)
+  def run(dry_run, daily)
     puts "Running bench: #{@name}"
 
     metrics = {}
@@ -234,8 +235,10 @@ class Benchmark
     # Save db size just after import
     metrics[:import][:db_size] = db_size unless dry_run
 
-    validate_command = splice_args(@validate_command, args)
-    metrics[:validate] = exec_command(validate_command, dry_run)
+    if !daily
+      validate_command = splice_args(@validate_command, args)
+      metrics[:validate] = exec_command(validate_command, dry_run)
+    end
 
     clean_db(dry_run)
 
@@ -246,8 +249,12 @@ class Benchmark
     './target/release/forest'
   end
 
-  def build_command
-    ['cargo', 'build', '--release']
+  def clean_command(dry_run)
+    exec_command(['cargo', 'clean'], dry_run)
+  end
+
+  def build_command(dry_run)
+    exec_command(['cargo', 'build', '--release'], dry_run)
   end
 
   def initialize(name:, config: {})
@@ -264,10 +271,53 @@ class Benchmark
   end
 end
 
-# Benchmark class for ParityDb
+# Benchmark class for Forest+ParityDb
 class ParityDbBenchmark < Benchmark
-  def build_command
-    ['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb']
+  def build_command(dry_run)
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
+  end
+end
+
+# Benchmark class for Lotus
+class LotusBenchmark < Benchmark
+  def db_size
+    #raise NotImplementedError
+  end
+
+  def clean_db(dry_run)
+    #raise NotImplementedError
+  end
+
+  def build_config_file
+    # No support for passing custom config file right now
+  end
+  private :build_config_file
+
+  def target
+    '../lotus/lotus'
+  end
+
+  def clean_command(dry_run)
+    # TODO: handle build both client in a tmpdir
+    Dir.chdir("../lotus") do
+      exec_command(['make', 'clean'], dry_run)
+    end
+  end
+
+  def build_command(dry_run)
+    # TODO: handle build both client in a tmpdir
+    Dir.chdir("../lotus") do
+      exec_command(['make', @chain == 'mainnet' ? '' : 'calibnet'], dry_run)
+    end
+  end
+
+  def initialize(name:, config: {})
+    @name = name
+    @config = config
+    @import_command = [
+      target, 'daemon', '--import-snapshot', '%<s>s', '--halt-after-import'
+    ]
+    @metrics = {}
   end
 end
 
@@ -276,7 +326,8 @@ def run_benchmarks(benchmarks, options)
   benchmarks.each do |bench|
     bench.snapshot_path = options[:snapshot_path]
     bench.heights = options[:heights]
-    bench.run(options[:dry_run])
+    bench.chain = options[:chain]
+    bench.run(options[:dry_run], options[:daily])
 
     bench_metrics[bench.name] = bench.metrics
 
@@ -293,13 +344,16 @@ BENCHMARKS = [
 
 options = {
   heights: HEIGHTS_TO_VALIDATE,
-  pattern: 'baseline'
+  pattern: 'baseline',
+  chain: 'calibnet', # TODO: replace with 'mainnet' before merging
+  daily: true,
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
   opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
   opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
+  opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:pattern] = v }
 end.parse!
 
 snapshot_path = ARGV.pop
@@ -307,14 +361,22 @@ raise OptionParser::ParseError, 'need to specify a snapshot for running benchmar
 
 options[:snapshot_path] = snapshot_path
 
-selection = Set[]
-BENCHMARKS.each do |bench|
-  options[:pattern].split(',').each do |pat|
-    selection.add(bench) if File.fnmatch(pat.strip, bench.name)
-  end
-end
-if !selection.empty?
+if options[:daily]
+  selection = Set[
+    Benchmark.new(name: 'forest'),
+    LotusBenchmark.new(name: 'lotus')
+  ]
   run_benchmarks(selection, options)
 else
-  puts 'Nothing to run'
+  selection = Set[]
+  BENCHMARKS.each do |bench|
+    options[:pattern].split(',').each do |pat|
+      selection.add(bench) if File.fnmatch(pat.strip, bench.name)
+    end
+  end
+  if !selection.empty?
+    run_benchmarks(selection, options)
+  else
+    puts 'Nothing to run'
+  end
 end
