@@ -213,12 +213,12 @@ where
             let mut cur_chain = chains[i].prev;
             while let Some(cur_chn) = cur_chain {
                 let node = chains.get(cur_chn).unwrap();
-                if !node.merged {
+                if node.merged {
+                    break;
+                } else {
                     chain_deps.push(cur_chn);
                     chain_gas_limit += node.gas_limit;
                     cur_chain = node.prev;
-                } else {
-                    break;
                 }
             }
 

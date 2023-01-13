@@ -591,18 +591,7 @@ async fn handle_hello_event<P: StoreParams>(
                     .expect("System time since unix epoch should not exceed u64");
 
                 trace!("Received hello request: {:?}", request);
-                if &request.genesis_cid != genesis_cid {
-                    peer_manager
-                        .ban_peer(
-                            peer,
-                            format!(
-                                "Genesis hash mismatch: {} received, {genesis_cid} expected",
-                                request.genesis_cid
-                            ),
-                            Some(BAN_PEER_DURATION),
-                        )
-                        .await;
-                } else {
+                if &request.genesis_cid == genesis_cid {
                     let sent = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")
@@ -627,6 +616,17 @@ async fn handle_hello_event<P: StoreParams>(
                         )
                         .await;
                     }
+                } else {
+                    peer_manager
+                        .ban_peer(
+                            peer,
+                            format!(
+                                "Genesis hash mismatch: {} received, {genesis_cid} expected",
+                                request.genesis_cid
+                            ),
+                            Some(BAN_PEER_DURATION),
+                        )
+                        .await;
                 }
             }
             RequestResponseMessage::Response {

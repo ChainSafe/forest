@@ -134,25 +134,7 @@ impl<V> CollapsedNode<V> {
             )));
         }
 
-        if !links.is_empty() {
-            let mut links_iter = links.into_iter();
-            let mut links = init_sized_vec::<Link<V>>(bit_width);
-            for (i, v) in links.iter_mut().enumerate() {
-                if bmap[i / 8] & (1 << (i % 8)) != 0 {
-                    *v = Some(Link::from(links_iter.next().ok_or_else(|| {
-                        Error::Other(
-                            "Bitmap contained more set bits than links provided".to_string(),
-                        )
-                    })?))
-                }
-            }
-            if links_iter.next().is_some() {
-                return Err(Error::Other(
-                    "Bitmap contained less set bits than links provided".to_string(),
-                ));
-            }
-            Ok(Node::Link { links })
-        } else {
+        if links.is_empty() {
             let mut val_iter = values.into_iter();
             let mut vals = init_sized_vec::<V>(bit_width);
             for (i, v) in vals.iter_mut().enumerate() {
@@ -170,6 +152,24 @@ impl<V> CollapsedNode<V> {
                 ));
             }
             Ok(Node::Leaf { vals })
+        } else {
+            let mut links_iter = links.into_iter();
+            let mut links = init_sized_vec::<Link<V>>(bit_width);
+            for (i, v) in links.iter_mut().enumerate() {
+                if bmap[i / 8] & (1 << (i % 8)) != 0 {
+                    *v = Some(Link::from(links_iter.next().ok_or_else(|| {
+                        Error::Other(
+                            "Bitmap contained more set bits than links provided".to_string(),
+                        )
+                    })?))
+                }
+            }
+            if links_iter.next().is_some() {
+                return Err(Error::Other(
+                    "Bitmap contained less set bits than links provided".to_string(),
+                ));
+            }
+            Ok(Node::Link { links })
         }
     }
 }

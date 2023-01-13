@@ -72,7 +72,9 @@ impl MsgSet {
             self.next_sequence = m.sequence() + 1;
         }
         if let Some(exms) = self.msgs.get(&m.sequence()) {
-            if m.cid()? != exms.cid()? {
+            if m.cid()? == exms.cid()? {
+                return Err(Error::DuplicateSequence);
+            } else {
                 let premium = exms.message().gas_premium.clone();
                 let min_price = premium.clone()
                     + ((premium * RBF_NUM).div_floor(RBF_DENOM))
@@ -80,8 +82,6 @@ impl MsgSet {
                 if m.message().gas_premium <= min_price {
                     return Err(Error::GasPriceTooLow);
                 }
-            } else {
-                return Err(Error::DuplicateSequence);
             }
         }
         self.msgs.insert(m.sequence(), m);

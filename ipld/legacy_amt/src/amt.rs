@@ -130,7 +130,12 @@ where
 
         while i >= nodes_for_height(self.bit_width(), self.height() + 1) {
             // node at index exists
-            if !self.root.node.is_empty() {
+            if self.root.node.is_empty() {
+                // If first expansion is before a value inserted, convert base node to Link
+                self.root.node = Node::Link {
+                    links: init_sized_vec(self.bit_width()),
+                };
+            } else {
                 // Parent node for expansion
                 let mut new_links: Vec<Option<Link<V>>> = init_sized_vec(self.root.bit_width);
 
@@ -141,11 +146,6 @@ where
                 new_links[0] = Some(Link::Dirty(Box::new(node)));
 
                 self.root.node = Node::Link { links: new_links };
-            } else {
-                // If first expansion is before a value inserted, convert base node to Link
-                self.root.node = Node::Link {
-                    links: init_sized_vec(self.bit_width()),
-                };
             }
             // Incrememnt height after each iteration
             self.root.height += 1;
