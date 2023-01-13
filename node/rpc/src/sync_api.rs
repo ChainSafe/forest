@@ -79,7 +79,7 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    async fn state_setup() -> (
+    fn state_setup() -> (
         Arc<RPCState<MemoryDB, MockBeacon>>,
         flume::Receiver<NetworkMessage>,
     ) {
@@ -91,7 +91,7 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db.clone()));
+        let cs_arc = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
@@ -104,7 +104,6 @@ mod tests {
                 Arc::new(ChainConfig::default()),
                 Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
-            .await
             .unwrap(),
         );
         let state_manager_for_thread = state_manager.clone();
@@ -134,7 +133,6 @@ mod tests {
                 Arc::clone(state_manager_for_thread.chain_config()),
                 &mut services,
             )
-            .await
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
@@ -155,7 +153,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_check_bad() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let cid: CidJson =
             from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
@@ -177,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_state_test() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let st_copy = state.sync_state.clone();
 

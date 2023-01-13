@@ -680,7 +680,7 @@ mod test_selection {
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
-    async fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
+    fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
         MessagePool::new(
@@ -691,7 +691,6 @@ mod test_selection {
             Arc::default(),
             joinset,
         )
-        .await
         .unwrap()
     }
 
@@ -699,7 +698,7 @@ mod test_selection {
     #[tokio::test]
     async fn basic_message_selection() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -864,7 +863,7 @@ mod test_selection {
     #[cfg(feature = "slow_tests")]
     async fn message_selection_trimming() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -940,7 +939,7 @@ mod test_selection {
         let db = MemoryDB::default();
 
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset).await;
+        let mut mpool = make_test_mpool(&mut joinset);
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -1038,7 +1037,7 @@ mod test_selection {
         // the chain depenent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1117,7 +1116,7 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the second actor from the start
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1229,7 +1228,7 @@ mod test_selection {
         // actors paying higher gas premium than the subsequent actors.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the median actor from the start
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         let n_actors = 10;
 
