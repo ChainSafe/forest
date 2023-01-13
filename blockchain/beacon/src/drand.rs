@@ -189,7 +189,7 @@ pub struct DrandBeacon {
 
 impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
-    pub async fn new(
+    pub fn new(
         genesis_ts: u64,
         interval: u64,
         config: &DrandConfig<'_>,
@@ -201,15 +201,18 @@ impl DrandBeacon {
         let chain_info = &config.chain_info;
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let client = https_client();
-            let remote_chain_info: ChainInfo = client
-                .get(format!("{}/info", &config.server).try_into()?)
-                .await?
-                .into_body()
-                .json()
-                .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
-            debug_assert!(&remote_chain_info == chain_info);
+            futures::executor::block_on(async {
+                let client = https_client();
+                let remote_chain_info: ChainInfo = client
+                    .get(format!("{}/info", &config.server).try_into()?)
+                    .await?
+                    .into_body()
+                    .json()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                debug_assert!(&remote_chain_info == chain_info);
+                Ok::<(), anyhow::Error>(())
+            })?;
         }
 
         Ok(Self {

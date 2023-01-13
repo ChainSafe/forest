@@ -4,7 +4,7 @@
 use forest_beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig};
 use serde::{Deserialize, Serialize};
 
-async fn new_beacon() -> DrandBeacon {
+fn new_beacon() -> DrandBeacon {
     DrandBeacon::new(
         15904451751,
         25,
@@ -19,7 +19,6 @@ async fn new_beacon() -> DrandBeacon {
             network_type: forest_beacon::DrandNetwork::Incentinet
         },
     )
-    .await
     .unwrap()
 }
 
@@ -31,14 +30,14 @@ pub struct BeaconEntryJson {
     previous_signature: String,
 }
 
-#[tokio::test]
-async fn construct_drand_beacon() {
-    new_beacon().await;
+#[test]
+fn construct_drand_beacon() {
+    new_beacon();
 }
 
 #[tokio::test]
 async fn ask_and_verify_beacon_entry_fail() {
-    let beacon = new_beacon().await;
+    let beacon = new_beacon();
 
     let e2 = beacon.entry(2).await.unwrap();
     let e3 = beacon.entry(3).await.unwrap();
