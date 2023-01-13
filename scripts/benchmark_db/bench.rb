@@ -26,6 +26,8 @@ HOUR = MINUTE * MINUTE
 
 TEMP_DIR = Dir.mktmpdir('forest-benchs-')
 
+ONLINE_VALIDATION_SECS = 60.0
+
 # Provides human readable formatting to Numeric class
 class Numeric
   def to_bibyte
@@ -61,8 +63,27 @@ def sample_proc(pid, metrics)
   metrics[:vsz].push(output[1].to_i)
 end
 
-def proc_monitor(pid)
+def proc_monitor(pid, benchmark)
   metrics = { rss: [], vsz: [] }
+  if benchmark
+    Thread.new do
+      first_epoch = nil
+      loop do
+        start, first_epoch = benchmark.start_online_validation_command
+        if start
+          puts "Start measure"
+          break
+        end
+        sleep 0.05
+      end
+      sleep ONLINE_VALIDATION_SECS
+      last_epoch = benchmark.epoch_command
+      metrics[:num_epochs] = last_epoch - first_epoch
+      
+      puts "Stopping process..."
+      benchmark.stop_command(pid)
+    end
+  end
   handle = Thread.new do
     loop do
       sample_proc(pid, metrics)
@@ -74,11 +95,11 @@ def proc_monitor(pid)
   [handle, metrics]
 end
 
-def exec_command_aux(command, metrics)
+def exec_command_aux(command, metrics, benchmark)
   Open3.popen2(*command) do |i, o, t|
     i.close
 
-    handle, proc_metrics = proc_monitor(t.pid)
+    handle, proc_metrics = proc_monitor(t.pid, benchmark)
     o.each_line do |l|
       print l
     end
@@ -88,19 +109,20 @@ def exec_command_aux(command, metrics)
   end
 end
 
-def exec_command(command, dry_run)
+def exec_command(command, dry_run, benchmark=nil)
   puts "$ #{command.join(' ')}"
   return {} if dry_run
 
   metrics = {}
   t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-  exec_command_aux(command, metrics)
+  exec_command_aux(command, metrics, benchmark)
   t1 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   metrics[:elapsed] = hr(t1 - t0)
   metrics
 end
 
 def write_import_table(metrics)
+  return "" if !metrics.key?(:import)
   result = "Bench | Import Time | Import RSS | DB Size\n"
   result += "-|-|-|-\n"
 
@@ -240,6 +262,14 @@ class Benchmark
       metrics[:validate] = exec_command(validate_command, dry_run)
     end
 
+    if daily
+      validate_online_command = splice_args(@validate_online_command, args)
+      new_metrics = exec_command(validate_online_command, dry_run, self)
+      new_metrics[:tps] = new_metrics[:num_epochs] / ONLINE_VALIDATION_SECS
+      metrics[:validate_online] = new_metrics
+    end
+    puts metrics
+
     clean_db(dry_run)
 
     @metrics = metrics
@@ -257,6 +287,18 @@ class Benchmark
     exec_command(['cargo', 'build', '--release'], dry_run)
   end
 
+  def epoch_command
+    nil
+  end
+
+  def start_online_validation_command
+    nil
+  end
+
+  def stop_command(pid)
+    syscall('kill', '-9', pid)
+  end
+
   def initialize(name:, config: {})
     @name = name
     @config = config
@@ -266,6 +308,9 @@ class Benchmark
     @validate_command = [
       target, '--config', '%<c>s', '--encrypt-keystore', 'false',
       '--import-snapshot', '%<s>s', '--halt-after-import', '--skip-load', '--height', '%<h>s'
+    ]
+    @validate_online_command = [
+      target, '--config', '%<c>s', '--encrypt-keystore', 'false'
     ]
     @metrics = {}
   end
@@ -311,11 +356,47 @@ class LotusBenchmark < Benchmark
     end
   end
 
+  def epoch_command
+    begin
+      output = syscall(target, 'sync', 'status')
+    rescue RuntimeError
+      return nil
+    end
+    msg_sync = output.match(/Stage: message sync/m)
+    if msg_sync
+      # TODO: merge matches since lotus prints workers that could be at different stages
+      match = output.match(/Height: (\d+)/m)
+      if match
+        return match.captures[0].to_i
+      end
+    end
+    nil
+  end
+
+  def start_online_validation_command
+    snapshot_height = snapshot_height(@snapshot_path)
+    current = epoch_command
+    if current
+      puts "@#{current}"
+      # Check if we can start the measure
+      [current >= snapshot_height + 10, current]
+    else
+      [false, nil]
+    end
+  end
+
+  def stop_command(pid)
+    syscall(target, 'daemon', 'stop')
+  end
+
   def initialize(name:, config: {})
     @name = name
     @config = config
     @import_command = [
       target, 'daemon', '--import-snapshot', '%<s>s', '--halt-after-import'
+    ]
+    @validate_online_command = [
+      target, 'daemon'
     ]
     @metrics = {}
   end
@@ -363,7 +444,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    Benchmark.new(name: 'forest'),
+    #Benchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
