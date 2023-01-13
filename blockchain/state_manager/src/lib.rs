@@ -880,9 +880,8 @@ where
 
             if let Some(receipt) = r {
                 return Ok(Some((tipset, receipt)));
-            } else {
-                current = tipset;
             }
+            current = tipset;
         }
     }
 

@@ -70,8 +70,8 @@ lint: license clean
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
-	cargo clippy --features slow_tests --all-targets -- -D warnings -W clippy::unused_async
-	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async
+	cargo clippy --features slow_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
 # Formats Rust and TOML files
 fmt:
