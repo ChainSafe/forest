@@ -371,7 +371,6 @@ pub mod tests {
             Arc::default(),
             &mut services,
         )
-        .await
         .unwrap();
         let mut smsg_vec = Vec::new();
         for i in 0..2 {
@@ -440,7 +439,6 @@ pub mod tests {
             Arc::default(),
             &mut services,
         )
-        .await
         .unwrap();
 
         {
@@ -542,7 +540,6 @@ pub mod tests {
             Arc::default(),
             &mut services,
         )
-        .await
         .unwrap();
 
         let mut smsg_vec = Vec::new();

@@ -91,7 +91,7 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db.clone()));
+        let cs_arc = Arc::new(ChainStore::new(db));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
@@ -133,7 +133,6 @@ mod tests {
                 Arc::clone(state_manager_for_thread.chain_config()),
                 &mut services,
             )
-            .await
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);

@@ -256,8 +256,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         MpoolConfig::load_config(&db)?,
         Arc::clone(state_manager.chain_config()),
         &mut services,
-    )
-    .await?;
+    )?;
 
     let mpool = Arc::new(mpool);
 
