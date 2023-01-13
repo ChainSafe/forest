@@ -79,7 +79,7 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    async fn state_setup() -> (
+    fn state_setup() -> (
         Arc<RPCState<MemoryDB, MockBeacon>>,
         flume::Receiver<NetworkMessage>,
     ) {
@@ -153,7 +153,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_check_bad() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let cid: CidJson =
             from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
@@ -175,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_state_test() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let st_copy = state.sync_state.clone();
 
