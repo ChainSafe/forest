@@ -193,15 +193,15 @@ async fn process_vector(tv: TestVector) -> Result<(), String> {
 
     // Ensure all expected traversals were checked
     let current_idx = index.into_inner();
-    if expect.len() != current_idx {
+    if expect.len() == current_idx {
+        Ok(())
+    } else {
         Err(format!(
             "{}: Did not traverse all expected nodes (expected: {}) (current: {})",
             description,
             expect.len(),
             current_idx
         ))
-    } else {
-        Ok(())
     }
 }
 

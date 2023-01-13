@@ -798,10 +798,10 @@ pub mod tests {
         let mut smsg_vec = Vec::new();
         tma.set_state_balance_raw(&a1, TokenAmount::from_atto(1_000_000_000_000_000_000_u64));
         for i in 0..10 {
-            let msg = if i != 5 {
-                create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
-            } else {
+            let msg = if i == 5 {
                 create_smsg(&a2, &a1, wallet.borrow_mut(), i, 1, 1 + i)
+            } else {
+                create_smsg(&a2, &a1, wallet.borrow_mut(), i, gas_limit, 1 + i)
             };
             smsg_vec.push(msg.clone());
             mset.insert(i, msg);
