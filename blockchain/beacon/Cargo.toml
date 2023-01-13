@@ -16,6 +16,7 @@ bls-signatures.workspace = true
 byteorder.workspace = true
 forest_encoding.workspace = true
 forest_utils.workspace = true
+futures.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 parking_lot.workspace = true

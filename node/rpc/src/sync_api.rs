@@ -104,7 +104,6 @@ mod tests {
                 Arc::new(ChainConfig::default()),
                 Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
-            .await
             .unwrap(),
         );
         let state_manager_for_thread = state_manager.clone();
