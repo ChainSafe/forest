@@ -204,7 +204,7 @@ impl<DB: Blockstore> fvm::kernel::CryptoOps for ForestInstrumentedKernel<DB> {
     }
 }
 impl<DB: Blockstore> DebugOps for ForestInstrumentedKernel<DB> {
-    fn log(&self, msg: String) {
+    fn log(&mut self, msg: String) {
         forward_instrumented!(|| self.0.log(msg))
     }
 
