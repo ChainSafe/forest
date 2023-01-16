@@ -33,19 +33,15 @@ pub async fn read_genesis_header<DB>(
 where
     DB: Blockstore + Store + Send + Sync,
 {
-    let genesis = match genesis_fp {
-        Some(path) => {
-            let file = File::open(path).await?;
-            let reader = BufReader::new(file);
-            process_car(reader, cs).await?
-        }
-        None => {
-            debug!("No specified genesis in config. Using default genesis.");
-            let genesis_bytes =
-                genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
-            let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader, cs).await?
-        }
+    let genesis = if let Some(path) = genesis_fp {
+        let file = File::open(path).await?;
+        let reader = BufReader::new(file);
+        process_car(reader, cs).await?
+    } else {
+        debug!("No specified genesis in config. Using default genesis.");
+        let genesis_bytes = genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
+        let reader = BufReader::<&[u8]>::new(genesis_bytes);
+        process_car(reader, cs).await?
     };
 
     info!("Initialized genesis: {}", genesis);

@@ -113,40 +113,37 @@ where
 
     debug!("RPC request received");
 
-    match &rpc_subscription_response {
-        jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) => {
-            match rpc_subscription_params {
-                jsonrpc_v2::ResponseObject::Result { result, .. } => {
-                    let response_str = serde_json::to_string(&rpc_subscription_response)?;
-                    debug!("RPC Response: {:?}", response_str);
-                    Ok((
-                        response_str,
-                        serde_json::from_value::<T>(serde_json::to_value(result)?)?,
-                    ))
-                }
-                jsonrpc_v2::ResponseObject::Error { error, .. } => match error {
-                    jsonrpc_v2::Error::Provided { message, code } => {
-                        let msg = format!(
-                            "Error after making RPC call. Code: {}. Error: {:?}",
-                            code, &message
-                        );
-                        error!("RPC call error: {}", msg);
-                        anyhow::bail!(msg)
-                    }
-                    jsonrpc_v2::Error::Full { code, message, .. } => {
-                        let msg = format!(
-                            "Unknown error after making RPC call. Code: {code}. Error: {message:?} "
-                        );
-                        error!("RPC call error: {}", msg);
-                        anyhow::bail!(msg)
-                    }
-                },
+    if let jsonrpc_v2::ResponseObjects::One(rpc_subscription_params) = &rpc_subscription_response {
+        match rpc_subscription_params {
+            jsonrpc_v2::ResponseObject::Result { result, .. } => {
+                let response_str = serde_json::to_string(&rpc_subscription_response)?;
+                debug!("RPC Response: {:?}", response_str);
+                Ok((
+                    response_str,
+                    serde_json::from_value::<T>(serde_json::to_value(result)?)?,
+                ))
             }
+            jsonrpc_v2::ResponseObject::Error { error, .. } => match error {
+                jsonrpc_v2::Error::Provided { message, code } => {
+                    let msg = format!(
+                        "Error after making RPC call. Code: {}. Error: {:?}",
+                        code, &message
+                    );
+                    error!("RPC call error: {}", msg);
+                    anyhow::bail!(msg)
+                }
+                jsonrpc_v2::Error::Full { code, message, .. } => {
+                    let msg = format!(
+                        "Unknown error after making RPC call. Code: {code}. Error: {message:?} "
+                    );
+                    error!("RPC call error: {}", msg);
+                    anyhow::bail!(msg)
+                }
+            },
         }
-        _ => {
-            let msg = "Unexpected response type after making RPC call";
-            error!("RPC call error: {}", msg);
-            anyhow::bail!(msg)
-        }
+    } else {
+        let msg = "Unexpected response type after making RPC call";
+        error!("RPC call error: {}", msg);
+        anyhow::bail!(msg)
     }
 }

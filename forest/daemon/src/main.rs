@@ -119,42 +119,39 @@ fn main() -> anyhow::Result<()> {
     } else {
         info!("Using default {} config", cfg.chain.name);
     }
-    match cmd {
-        Some(_) => {
-            warn!("All subcommands have been moved to forest-cli tool");
+    if cmd.is_some() {
+        warn!("All subcommands have been moved to forest-cli tool");
+    } else {
+        if opts.detach {
+            create_ipc_lock()?;
+            info!(
+                "Redirecting stdout and stderr to files {} and {}.",
+                cfg.daemon.stdout.display(),
+                cfg.daemon.stderr.display()
+            );
+            build_daemon(&cfg.daemon)?.start()?;
         }
-        None => {
-            if opts.detach {
-                create_ipc_lock()?;
-                info!(
-                    "Redirecting stdout and stderr to files {} and {}.",
-                    cfg.daemon.stdout.display(),
-                    cfg.daemon.stderr.display()
-                );
-                build_daemon(&cfg.daemon)?.start()?;
-            }
 
-            let rt = Runtime::new()?;
-            if let Some(loki_task) = loki_task {
-                rt.spawn(loki_task);
-            }
-            let db: Db = rt.block_on(daemon::start(cfg, opts.detach))?;
-
-            info!("Shutting down tokio...");
-            rt.shutdown_timeout(Duration::from_secs(10));
-
-            db.flush()?;
-            let db_weak_ref = Arc::downgrade(&db.db);
-            drop(db);
-
-            if db_weak_ref.strong_count() != 0 {
-                error!(
-                    "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-                    db_weak_ref.strong_count()
-                );
-            }
-            info!("Forest finish shutdown");
+        let rt = Runtime::new()?;
+        if let Some(loki_task) = loki_task {
+            rt.spawn(loki_task);
         }
+        let db: Db = rt.block_on(daemon::start(cfg, opts.detach))?;
+
+        info!("Shutting down tokio...");
+        rt.shutdown_timeout(Duration::from_secs(10));
+
+        db.flush()?;
+        let db_weak_ref = Arc::downgrade(&db.db);
+        drop(db);
+
+        if db_weak_ref.strong_count() != 0 {
+            error!(
+                "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
+                db_weak_ref.strong_count()
+            );
+        }
+        info!("Forest finish shutdown");
     }
     Ok(())
 }

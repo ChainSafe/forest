@@ -146,38 +146,35 @@ where
             _ => return Ok(()),
         }
 
-        match selector.interests() {
-            Some(interests) => {
-                for ps in interests {
-                    let v = match lookup_segment(ipld, &ps) {
-                        Some(ipld) => ipld,
-                        None => continue,
-                    };
-                    self.traverse_node(ipld, selector.clone(), callback, &ps, v)
-                        .await?;
-                }
-                Ok(())
+        if let Some(interests) = selector.interests() {
+            for ps in interests {
+                let v = match lookup_segment(ipld, &ps) {
+                    Some(ipld) => ipld,
+                    None => continue,
+                };
+                self.traverse_node(ipld, selector.clone(), callback, &ps, v)
+                    .await?;
             }
-            None => {
-                match ipld {
-                    Ipld::Map(m) => {
-                        for (k, v) in m.iter() {
-                            self.traverse_node(ipld, selector.clone(), callback, k, v)
-                                .await?;
-                        }
+            Ok(())
+        } else {
+            match ipld {
+                Ipld::Map(m) => {
+                    for (k, v) in m.iter() {
+                        self.traverse_node(ipld, selector.clone(), callback, k, v)
+                            .await?;
                     }
-                    Ipld::List(list) => {
-                        for (i, v) in list.iter().enumerate() {
-                            let ps = i.to_string();
-                            self.traverse_node(ipld, selector.clone(), callback, &ps, v)
-                                .await?;
-                        }
-                    }
-                    _ => unreachable!(),
                 }
+                Ipld::List(list) => {
+                    for (i, v) in list.iter().enumerate() {
+                        let ps = i.to_string();
+                        self.traverse_node(ipld, selector.clone(), callback, &ps, v)
+                            .await?;
+                    }
+                }
+                _ => unreachable!(),
+            }
 
-                Ok(())
-            }
+            Ok(())
         }
     }
 

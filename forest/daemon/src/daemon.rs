@@ -73,17 +73,16 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     );
 
     let path: PathBuf = config.client.data_dir.join("libp2p");
-    let net_keypair = match get_keypair(&path.join("keypair")) {
-        Some(keypair) => Ok::<forest_libp2p::Keypair, std::io::Error>(keypair),
-        None => {
-            let gen_keypair = ed25519::Keypair::generate();
-            // Save Ed25519 keypair to file
-            // TODO rename old file to keypair.old(?)
-            let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
-            // Restrict permissions on files containing private keys
-            forest_utils::io::set_user_perm(&file)?;
-            Ok(Keypair::Ed25519(gen_keypair))
-        }
+    let net_keypair = if let Some(keypair) = get_keypair(&path.join("keypair")) {
+        Ok::<forest_libp2p::Keypair, std::io::Error>(keypair)
+    } else {
+        let gen_keypair = ed25519::Keypair::generate();
+        // Save Ed25519 keypair to file
+        // TODO rename old file to keypair.old(?)
+        let file = write_to_file(&gen_keypair.encode(), &path, "keypair")?;
+        // Restrict permissions on files containing private keys
+        forest_utils::io::set_user_perm(&file)?;
+        Ok(Keypair::Ed25519(gen_keypair))
     }?;
 
     // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.

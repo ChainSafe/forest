@@ -157,13 +157,14 @@ where
     // and we use `decode-success-with-no-trailing-data` to detect end of frame
     // just like what `FramedRead` does, so it's possible to cause deadlock at `io.poll_ready`
     // Adding timeout here to mitigate the issue
-    match tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await {
-        Ok(r) => r,
-        Err(_) => {
-            let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
-            log::warn!("{err}");
-            Err(err)
-        }
+    if let Ok(r) =
+        tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await
+    {
+        r
+    } else {
+        let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
+        log::warn!("{err}");
+        Err(err)
     }
 }
 

@@ -159,12 +159,11 @@ where
 
     /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.
     fn load_heaviest_tipset(&self) -> Result<(), Error> {
-        let heaviest_ts = match self.db.read(HEAD_KEY)? {
-            Some(bz) => self.tipset_from_keys(&from_slice(&bz)?)?,
-            None => {
-                warn!("No previous chain state found");
-                return Err(Error::Other("No chain state found".to_owned()));
-            }
+        let heaviest_ts = if let Some(bz) = self.db.read(HEAD_KEY)? {
+            self.tipset_from_keys(&from_slice(&bz)?)?
+        } else {
+            warn!("No previous chain state found");
+            return Err(Error::Other("No chain state found".to_owned()));
         };
 
         // set as heaviest tipset
@@ -218,21 +217,18 @@ where
             .as_ref()
             .map(|ts| S::weight(self.blockstore(), ts.as_ref()));
 
-        match heaviest_weight {
-            Some(heaviest) => {
-                let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
-                let curr_weight = heaviest?;
+        if let Some(heaviest) = heaviest_weight {
+            let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
+            let curr_weight = heaviest?;
 
-                if new_weight > curr_weight {
-                    // TODO potentially need to deal with re-orgs here
-                    info!("New heaviest tipset: {:?}", ts.key());
-                    self.set_heaviest_tipset(ts)?;
-                }
-            }
-            None => {
-                info!("set heaviest tipset");
+            if new_weight > curr_weight {
+                // TODO potentially need to deal with re-orgs here
+                info!("New heaviest tipset: {:?}", ts.key());
                 self.set_heaviest_tipset(ts)?;
             }
+        } else {
+            info!("set heaviest tipset");
+            self.set_heaviest_tipset(ts)?;
         }
         Ok(())
     }

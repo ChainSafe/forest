@@ -100,21 +100,21 @@ impl TipsetStateCache {
         F: Fn() -> Fut,
         Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
     {
-        let status = self.with_inner(|inner| match inner.values.get(key) {
-            Some(v) => Status::Done(*v),
-            None => {
+        let status = self.with_inner(|inner| {
+            if let Some(v) = inner.values.get(key) {
+                Status::Done(*v)
+            } else {
                 let option = inner
                     .pending
                     .iter()
                     .find(|(k, _)| k == key)
                     .map(|(_, mutex)| mutex);
-                match option {
-                    Some(mutex) => Status::Empty(mutex.clone()),
-                    None => {
-                        let mutex = Arc::new(TokioMutex::new(()));
-                        inner.pending.push((key.clone(), mutex.clone()));
-                        Status::Empty(mutex)
-                    }
+                if let Some(mutex) = option {
+                    Status::Empty(mutex.clone())
+                } else {
+                    let mutex = Arc::new(TokioMutex::new(()));
+                    inner.pending.push((key.clone(), mutex.clone()));
+                    Status::Empty(mutex)
                 }
             }
         });
@@ -127,31 +127,24 @@ impl TipsetStateCache {
             }
             Status::Empty(mtx) => {
                 let _guard = mtx.lock().await;
-                match self.get(key) {
-                    Some(v) => {
-                        // While locking someone else computed the pending task
-                        forest_metrics::metrics::LRU_CACHE_HIT
-                            .with_label_values(&[
-                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
-                            ])
-                            .inc();
+                if let Some(v) = self.get(key) {
+                    // While locking someone else computed the pending task
+                    forest_metrics::metrics::LRU_CACHE_HIT
+                        .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                        .inc();
 
-                        Ok(v)
-                    }
-                    None => {
-                        // Entry does not have state computed yet, compute value and fill the cache
-                        forest_metrics::metrics::LRU_CACHE_MISS
-                            .with_label_values(&[
-                                forest_metrics::metrics::values::STATE_MANAGER_TIPSET,
-                            ])
-                            .inc();
+                    Ok(v)
+                } else {
+                    // Entry does not have state computed yet, compute value and fill the cache
+                    forest_metrics::metrics::LRU_CACHE_MISS
+                        .with_label_values(&[forest_metrics::metrics::values::STATE_MANAGER_TIPSET])
+                        .inc();
 
-                        let cid_pair = compute().await?;
+                    let cid_pair = compute().await?;
 
-                        // Write back to cache, release lock and return value
-                        self.insert(key.clone(), cid_pair);
-                        Ok(cid_pair)
-                    }
+                    // Write back to cache, release lock and return value
+                    self.insert(key.clone(), cid_pair);
+                    Ok(cid_pair)
                 }
             }
         }

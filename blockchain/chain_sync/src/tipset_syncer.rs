@@ -1482,19 +1482,16 @@ async fn check_block_messages<
 
         // Phase 2: (Partial) Semantic validation
         // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(&msg.from) {
-            Some(sequence) => *sequence,
-            None => {
-                let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Failed to retrieve nonce for addr: Actor does not exist in state"
-                    )
-                })?;
-                if !is_account_actor(&actor.code) {
-                    anyhow::bail!("Sending must be an account actor");
-                }
-                actor.sequence
+        let sequence: u64 = if let Some(sequence) = account_sequences.get(&msg.from) {
+            *sequence
+        } else {
+            let actor = tree.get_actor(&msg.from)?.ok_or_else(|| {
+                anyhow::anyhow!("Failed to retrieve nonce for addr: Actor does not exist in state")
+            })?;
+            if !is_account_actor(&actor.code) {
+                anyhow::bail!("Sending must be an account actor");
             }
+            actor.sequence
         };
 
         // Sequence equality check

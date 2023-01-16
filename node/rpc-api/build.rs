@@ -455,33 +455,28 @@ Feel free to reach out in #fil-forest-help in the [Filecoin Slack](https://docs.
             );
 
             // Create if report already exists
-            let existing_report = match fs::metadata(API_IMPLEMENTATION_MD_PATH) {
-                Ok(metadata) => {
-                    if metadata.is_file() {
-                        let mut existing_report_file = File::open(API_IMPLEMENTATION_MD_PATH)
-                            .expect("Open existing API_IMPLEMENTATION.md file");
+            let existing_report = if let Ok(metadata) = fs::metadata(API_IMPLEMENTATION_MD_PATH) {
+                if metadata.is_file() {
+                    let mut existing_report_file = File::open(API_IMPLEMENTATION_MD_PATH)
+                        .expect("Open existing API_IMPLEMENTATION.md file");
 
-                        let mut existing_report_content = String::new();
+                    let mut existing_report_content = String::new();
 
-                        existing_report_file
-                            .read_to_string(&mut existing_report_content)
-                            .expect("Read existing API_IMPLEMENTATION.md file");
+                    existing_report_file
+                        .read_to_string(&mut existing_report_content)
+                        .expect("Read existing API_IMPLEMENTATION.md file");
 
-                        existing_report_content
-                    } else {
-                        println!(
-                            "cargo:warning=API_IMPLEMENTATION.md file exists but is not a file"
-                        );
+                    existing_report_content
+                } else {
+                    println!("cargo:warning=API_IMPLEMENTATION.md file exists but is not a file");
 
-                        "Unexpected condition".to_owned()
-                    }
+                    "Unexpected condition".to_owned()
                 }
-                Err(_) => {
-                    File::create(API_IMPLEMENTATION_MD_PATH)
-                        .expect("Create API_IMPLEMENTATION.md failed");
+            } else {
+                File::create(API_IMPLEMENTATION_MD_PATH)
+                    .expect("Create API_IMPLEMENTATION.md failed");
 
-                    "".to_owned()
-                }
+                "".to_owned()
             };
 
             if existing_report != report {

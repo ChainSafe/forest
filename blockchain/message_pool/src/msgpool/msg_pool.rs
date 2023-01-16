@@ -600,14 +600,13 @@ where
 
     let mut pending = pending.write();
     let msett = pending.get_mut(&msg.message().from);
-    match msett {
-        Some(mset) => mset.add(msg)?,
-        None => {
-            let mut mset = MsgSet::new(sequence);
-            let from = msg.message().from;
-            mset.add(msg)?;
-            pending.insert(from, mset);
-        }
+    if let Some(mset) = msett {
+        mset.add(msg)?
+    } else {
+        let mut mset = MsgSet::new(sequence);
+        let from = msg.message().from;
+        mset.add(msg)?;
+        pending.insert(from, mset);
     }
 
     Ok(())

@@ -160,12 +160,11 @@ impl Provider for TestApi {
         let v: Vec<Message> = Vec::new();
         let thing = inner.bmsgs.get(h.cid());
 
-        match thing {
-            Some(s) => Ok((v, s.clone())),
-            None => {
-                let temp: Vec<SignedMessage> = Vec::new();
-                Ok((v, temp))
-            }
+        if let Some(s) = thing {
+            Ok((v, s.clone()))
+        } else {
+            let temp: Vec<SignedMessage> = Vec::new();
+            Ok((v, temp))
         }
     }
 

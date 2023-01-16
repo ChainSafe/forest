@@ -129,12 +129,11 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Import { path } => {
-                let key = match path {
-                    Some(path) => read_file_to_string(&PathBuf::from(path))?,
-                    _ => {
-                        println!("Enter the private key: ");
-                        read_password()?
-                    }
+                let key = if let Some(path) = path {
+                    read_file_to_string(&PathBuf::from(path))?
+                } else {
+                    println!("Enter the private key: ");
+                    read_password()?
                 };
 
                 let key = key.trim();

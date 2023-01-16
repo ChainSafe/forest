@@ -211,12 +211,11 @@ where
         .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
     let keystore = &mut *data.keystore.write().await;
-    let key = match forest_key_management::find_key(&key_addr, keystore) {
-        Ok(key) => key,
-        Err(_) => {
-            let key_info = forest_key_management::try_find(&key_addr, keystore)?;
-            Key::try_from(key_info)?
-        }
+    let key = if let Ok(key) = forest_key_management::find_key(&key_addr, keystore) {
+        key
+    } else {
+        let key_info = forest_key_management::try_find(&key_addr, keystore)?;
+        Key::try_from(key_info)?
     };
 
     let sig = forest_key_management::sign(

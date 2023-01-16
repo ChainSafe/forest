@@ -102,14 +102,13 @@ where
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());
         for bls_cid in bls_cids.into_iter() {
-            let order = match bls_messages_order.get(&bls_cid) {
-                Some(order) => *order,
-                None => {
-                    let order = bls_cids_combined.len() as u64;
-                    bls_cids_combined.push(bls_cid);
-                    bls_messages_order.insert(bls_cid, order);
-                    order
-                }
+            let order = if let Some(order) = bls_messages_order.get(&bls_cid) {
+                *order
+            } else {
+                let order = bls_cids_combined.len() as u64;
+                bls_cids_combined.push(bls_cid);
+                bls_messages_order.insert(bls_cid, order);
+                order
             };
 
             bls_include.push(order);
@@ -119,14 +118,13 @@ where
 
         let mut secp_include = Vec::with_capacity(secp_cids.len());
         for secp_cid in secp_cids.into_iter() {
-            let order = match secp_messages_order.get(&secp_cid) {
-                Some(order) => *order,
-                None => {
-                    let order = secp_cids_combined.len() as u64;
-                    secp_cids_combined.push(secp_cid);
-                    secp_messages_order.insert(secp_cid, order);
-                    order
-                }
+            let order = if let Some(order) = secp_messages_order.get(&secp_cid) {
+                *order
+            } else {
+                let order = secp_cids_combined.len() as u64;
+                secp_cids_combined.push(secp_cid);
+                secp_messages_order.insert(secp_cid, order);
+                order
             };
 
             secp_include.push(order);

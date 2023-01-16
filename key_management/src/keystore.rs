@@ -230,76 +230,23 @@ impl KeyStore {
                     File::create(file_path.clone())?;
                 }
 
-                match File::open(&file_path) {
-                    Ok(file) => {
-                        let mut reader = BufReader::new(file);
-                        let mut buf = vec![];
-                        let read_bytes = reader.read_to_end(&mut buf)?;
+                if let Ok(file) = File::open(&file_path) {
+                    let mut reader = BufReader::new(file);
+                    let mut buf = vec![];
+                    let read_bytes = reader.read_to_end(&mut buf)?;
 
-                        if read_bytes == 0 {
-                            // New encrypted keystore if file exists but is zero bytes (i.e., touch)
-                            warn!(
-                                "Keystore does not exist, initializing new keystore at {:?}",
-                                file_path
-                            );
-
-                            let (salt, encryption_key) =
-                                EncryptedKeyStore::derive_key(&passphrase, None).map_err(
-                                    |error| {
-                                        error!("Failed to create key from passphrase");
-                                        Error::Other(error.to_string())
-                                    },
-                                )?;
-                            Ok(Self {
-                                key_info: HashMap::new(),
-                                persistence: Some(PersistentKeyStore { file_path }),
-                                encryption: Some(EncryptedKeyStore {
-                                    salt,
-                                    encryption_key,
-                                }),
-                            })
-                        } else {
-                            // Existing encrypted keystore
-                            // Split off data from prepended salt
-                            let data = buf.split_off(RECOMMENDED_SALT_LEN);
-                            let mut prev_salt = [0; RECOMMENDED_SALT_LEN];
-                            prev_salt.copy_from_slice(&buf);
-                            let (salt, encryption_key) =
-                                EncryptedKeyStore::derive_key(&passphrase, Some(prev_salt))
-                                    .map_err(|error| {
-                                        error!("Failed to create key from passphrase");
-                                        Error::Other(error.to_string())
-                                    })?;
-
-                            let decrypted_data = EncryptedKeyStore::decrypt(&encryption_key, &data)
-                                .map_err(|error| Error::Other(error.to_string()))?;
-
-                            let key_info = serde_ipld_dagcbor::from_slice(&decrypted_data)
-                                .map_err(|e| {
-                                    error!("Failed to deserialize keyfile, initializing new");
-                                    e
-                                })
-                                .unwrap_or_default();
-
-                            Ok(Self {
-                                key_info,
-                                persistence: Some(PersistentKeyStore { file_path }),
-                                encryption: Some(EncryptedKeyStore {
-                                    salt,
-                                    encryption_key,
-                                }),
-                            })
-                        }
-                    }
-                    Err(_) => {
-                        warn!("Encrypted keystore does not exist, initializing new keystore");
+                    if read_bytes == 0 {
+                        // New encrypted keystore if file exists but is zero bytes (i.e., touch)
+                        warn!(
+                            "Keystore does not exist, initializing new keystore at {:?}",
+                            file_path
+                        );
 
                         let (salt, encryption_key) =
                             EncryptedKeyStore::derive_key(&passphrase, None).map_err(|error| {
                                 error!("Failed to create key from passphrase");
                                 Error::Other(error.to_string())
                             })?;
-
                         Ok(Self {
                             key_info: HashMap::new(),
                             persistence: Some(PersistentKeyStore { file_path }),
@@ -308,7 +255,56 @@ impl KeyStore {
                                 encryption_key,
                             }),
                         })
+                    } else {
+                        // Existing encrypted keystore
+                        // Split off data from prepended salt
+                        let data = buf.split_off(RECOMMENDED_SALT_LEN);
+                        let mut prev_salt = [0; RECOMMENDED_SALT_LEN];
+                        prev_salt.copy_from_slice(&buf);
+                        let (salt, encryption_key) =
+                            EncryptedKeyStore::derive_key(&passphrase, Some(prev_salt)).map_err(
+                                |error| {
+                                    error!("Failed to create key from passphrase");
+                                    Error::Other(error.to_string())
+                                },
+                            )?;
+
+                        let decrypted_data = EncryptedKeyStore::decrypt(&encryption_key, &data)
+                            .map_err(|error| Error::Other(error.to_string()))?;
+
+                        let key_info = serde_ipld_dagcbor::from_slice(&decrypted_data)
+                            .map_err(|e| {
+                                error!("Failed to deserialize keyfile, initializing new");
+                                e
+                            })
+                            .unwrap_or_default();
+
+                        Ok(Self {
+                            key_info,
+                            persistence: Some(PersistentKeyStore { file_path }),
+                            encryption: Some(EncryptedKeyStore {
+                                salt,
+                                encryption_key,
+                            }),
+                        })
                     }
+                } else {
+                    warn!("Encrypted keystore does not exist, initializing new keystore");
+
+                    let (salt, encryption_key) = EncryptedKeyStore::derive_key(&passphrase, None)
+                        .map_err(|error| {
+                        error!("Failed to create key from passphrase");
+                        Error::Other(error.to_string())
+                    })?;
+
+                    Ok(Self {
+                        key_info: HashMap::new(),
+                        persistence: Some(PersistentKeyStore { file_path }),
+                        encryption: Some(EncryptedKeyStore {
+                            salt,
+                            encryption_key,
+                        }),
+                    })
                 }
             }
         }
@@ -414,13 +410,12 @@ impl EncryptedKeyStore {
         passphrase: &str,
         prev_salt: Option<SaltByteArray>,
     ) -> anyhow::Result<(SaltByteArray, Vec<u8>)> {
-        let salt = match prev_salt {
-            Some(prev_salt) => prev_salt,
-            None => {
-                let mut salt = [0; RECOMMENDED_SALT_LEN];
-                OsRng.fill_bytes(&mut salt);
-                salt
-            }
+        let salt = if let Some(prev_salt) = prev_salt {
+            prev_salt
+        } else {
+            let mut salt = [0; RECOMMENDED_SALT_LEN];
+            OsRng.fill_bytes(&mut salt);
+            salt
         };
 
         let mut param_builder = ParamsBuilder::new();

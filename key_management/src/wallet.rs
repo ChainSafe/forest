@@ -182,21 +182,20 @@ pub fn find_key(addr: &Address, keystore: &KeyStore) -> Result<Key, Error> {
 
 pub fn try_find(addr: &Address, keystore: &mut KeyStore) -> Result<KeyInfo, Error> {
     let key_string = format!("wallet-{addr}");
-    match keystore.get(&key_string) {
-        Ok(k) => Ok(k),
-        Err(_) => {
-            let mut new_addr = addr.to_string();
+    if let Ok(k) = keystore.get(&key_string) {
+        Ok(k)
+    } else {
+        let mut new_addr = addr.to_string();
 
-            // Try to replace prefix with testnet, for backwards compatibility
-            // * We might be able to remove this, look into variants
-            new_addr.replace_range(0..1, "t");
-            let key_string = format!("wallet-{new_addr}");
-            let key_info = match keystore.get(&key_string) {
-                Ok(k) => k,
-                Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
-            };
-            Ok(key_info)
-        }
+        // Try to replace prefix with testnet, for backwards compatibility
+        // * We might be able to remove this, look into variants
+        new_addr.replace_range(0..1, "t");
+        let key_string = format!("wallet-{new_addr}");
+        let key_info = match keystore.get(&key_string) {
+            Ok(k) => k,
+            Err(_) => keystore.get(&format!("wallet-f{}", &new_addr[1..]))?,
+        };
+        Ok(key_info)
     }
 }
 

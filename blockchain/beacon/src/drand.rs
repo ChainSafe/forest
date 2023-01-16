@@ -257,20 +257,19 @@ impl Beacon for DrandBeacon {
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
         let cached: Option<BeaconEntry> = self.local_cache.read().get(&round).cloned();
-        match cached {
-            Some(cached_entry) => Ok(cached_entry),
-            None => {
-                let url = format!("{}/public/{}", self.url, round);
-                let client = https_client();
-                let resp: BeaconEntryJson = client
-                    .get(url.try_into()?)
-                    .await?
-                    .into_body()
-                    .json()
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{}", e))?;
-                Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
-            }
+        if let Some(cached_entry) = cached {
+            Ok(cached_entry)
+        } else {
+            let url = format!("{}/public/{}", self.url, round);
+            let client = https_client();
+            let resp: BeaconEntryJson = client
+                .get(url.try_into()?)
+                .await?
+                .into_body()
+                .json()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
         }
     }
 
