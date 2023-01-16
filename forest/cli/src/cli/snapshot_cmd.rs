@@ -372,7 +372,7 @@ async fn validate(
         let db_path = tmp_db_path.path().join(&config.chain.name);
         let db = open_db(&db_path, config.db_config())?;
 
-        let chain_store = Arc::new(ChainStore::new(db));
+        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone()));
 
         let genesis = read_genesis_header(
             config.client.genesis_file.as_ref(),
