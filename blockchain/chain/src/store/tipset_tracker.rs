@@ -32,19 +32,24 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
     /// Adds a block header to the tracker.
     pub fn add(&self, header: &BlockHeader) {
-        let cids = {
-            let mut map = self.entries.lock();
-            let cids = map.entry(header.epoch()).or_default();
-            if cids.contains(header.cid()) {
-                debug!("tried to add block to tipset tracker that was already there");
-                return;
-            }
-            cids.push(*header.cid());
-            cids.clone()
-        };
+        let mut map = self.entries.lock();
+        let cids = map.entry(header.epoch()).or_default();
+        if cids.contains(header.cid()) {
+            debug!("tried to add block to tipset tracker that was already there");
+            return;
+        }
+        self.check_multiple_blocks_from_same_miner(cids, header);
+        cids.push(*header.cid());
+        drop(map);
 
-        // This should never happen. Something is weird as it's against the protocol rules for a
-        // miner to produce multiple blocks at the same height.
+        self.prune_entries(header.epoch());
+    }
+
+    /// Checks if there are multiple blocks from the same miner at the same height.
+    ///
+    /// This should never happen. Something is weird as it's against the protocol rules for a
+    /// miner to produce multiple blocks at the same height.
+    fn check_multiple_blocks_from_same_miner(&self, cids: &[Cid], header: &BlockHeader) {
         for cid in cids.iter() {
             // TODO: maybe cache the miner address to avoid having to do a `blockstore` lookup here
             if let Ok(Some(block)) = self.db.get_obj::<BlockHeader>(cid) {
@@ -59,8 +64,6 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                 }
             }
         }
-
-        self.prune_entries(header.epoch());
     }
 
     /// Deletes old entries in the `TipsetTracker` that are past the chain finality.
