@@ -32,16 +32,17 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
     /// Adds a block header to the tracker.
     pub fn add(&self, header: &BlockHeader) {
-        let mut map = self.entries.lock();
-        let cids = map.entry(header.epoch()).or_default();
+        let mut map_lock = self.entries.lock();
+        let cids = map_lock.entry(header.epoch()).or_default();
         if cids.contains(header.cid()) {
             debug!("tried to add block to tipset tracker that was already there");
             return;
         }
-        self.check_multiple_blocks_from_same_miner(cids, header);
+        let cids_to_verify = cids.to_owned();
         cids.push(*header.cid());
-        drop(map);
+        drop(map_lock);
 
+        self.check_multiple_blocks_from_same_miner(&cids_to_verify, header);
         self.prune_entries(header.epoch());
     }
 
