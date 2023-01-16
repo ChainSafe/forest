@@ -58,7 +58,7 @@ clean:
 lint-all: lint audit spellcheck udeps
 
 audit:
-	cargo audit --ignore RUSTSEC-2022-0075 --ignore RUSTSEC-2022-0076
+	cargo audit
 
 udeps:
 	cargo udeps --all-targets --features submodule_tests,instrumented_kernel
