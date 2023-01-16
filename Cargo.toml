@@ -98,9 +98,13 @@ libipld = { version = "0.14", default-features = false, features = ["dag-cbor", 
 libipld-core = "0.14"
 libipld-macro = "0.14"
 libp2p = { version = "0.50", default-features = false }
-libp2p-bitswap.branch = "forest-libp2p@0.50"
-libp2p-bitswap.features = ["compat"]
-libp2p-bitswap.git = "https://github.com/hanabi1224/libp2p-bitswap"
+# libp2p-bitswap = { path = "../hanabi1224/libp2p-bitswap", features = ["compat"] }
+libp2p-bitswap = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest/2023.1", features = [
+  "compat",
+] }
+# libp2p-bitswap.branch = "forest-libp2p@0.50"
+# libp2p-bitswap.features = ["compat"]
+# libp2p-bitswap.git = "https://github.com/hanabi1224/libp2p-bitswap"
 libsecp256k1 = "0.7"
 log = "0.4"
 lru = "0.9"
