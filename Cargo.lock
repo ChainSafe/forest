@@ -4918,6 +4918,7 @@ dependencies = [
 [[package]]
 name = "libp2p-bitswap"
 version = "0.25.0"
+source = "git+https://github.com/hanabi1224/libp2p-bitswap?branch=forest/2023.1#1e0ce469ed4f4845b88ebc6c85b932c034e23587"
 dependencies = [
  "async-trait",
  "fnv",
