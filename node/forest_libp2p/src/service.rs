@@ -379,8 +379,9 @@ async fn bitswap_timeout_task(
     outgoing_bitswap_query_ids: BitswapOutgoingQueryTable,
     outgoing_bitswap_query_cancellation_tx: Sender<libp2p_bitswap::QueryId>,
 ) {
+    let mut timeout_queries = vec![];
     loop {
-        let mut timeout_queries = vec![];
+        timeout_queries.clear();
         {
             let now = Instant::now();
             for (query_id, (_, start)) in outgoing_bitswap_query_ids.read().await.iter() {
@@ -396,7 +397,7 @@ async fn bitswap_timeout_task(
                     locked.remove(id);
                 }
             }
-            for id in timeout_queries {
+            for &id in timeout_queries.iter() {
                 if let Err(e) = outgoing_bitswap_query_cancellation_tx.send_async(id).await {
                     warn!("bitswap query cancellation err: {e}");
                 }
