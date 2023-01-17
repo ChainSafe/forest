@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use fvm_shared::sector::{
         PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
@@ -59,7 +60,7 @@ pub mod json {
     {
         JsonHelper {
             post_proof: i64::from(m.post_proof),
-            proof_bytes: base64::encode(&m.proof_bytes),
+            proof_bytes: BASE64_STANDARD.encode(&m.proof_bytes),
         }
         .serialize(serializer)
     }
@@ -71,7 +72,9 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(PoStProof {
             post_proof: RegisteredPoStProof::from(m.post_proof),
-            proof_bytes: base64::decode(m.proof_bytes).map_err(de::Error::custom)?,
+            proof_bytes: BASE64_STANDARD
+                .decode(m.proof_bytes)
+                .map_err(de::Error::custom)?,
         })
     }
 

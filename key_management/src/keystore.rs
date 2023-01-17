@@ -4,6 +4,8 @@
 use super::errors::Error;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN};
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use fvm_shared::crypto::signature::SignatureType;
 use log::{error, warn};
 use rand::rngs::OsRng;
@@ -94,7 +96,7 @@ pub mod json {
     {
         JsonHelper {
             sig_type: SignatureTypeJson(k.key_type),
-            private_key: base64::encode(&k.private_key),
+            private_key: BASE64_STANDARD.encode(&k.private_key),
         }
         .serialize(serializer)
     }
@@ -109,7 +111,9 @@ pub mod json {
         } = Deserialize::deserialize(deserializer)?;
         Ok(KeyInfo {
             key_type: sig_type.0,
-            private_key: base64::decode(private_key).map_err(de::Error::custom)?,
+            private_key: BASE64_STANDARD
+                .decode(private_key)
+                .map_err(de::Error::custom)?,
         })
     }
 }
@@ -189,7 +193,8 @@ impl KeyStore {
                             key_info.insert(
                                 key.to_string(),
                                 KeyInfo {
-                                    private_key: base64::decode(value.private_key.clone())
+                                    private_key: BASE64_STANDARD
+                                        .decode(value.private_key.clone())
                                         .map_err(|error| Error::Other(error.to_string()))?,
                                     key_type: value.key_type,
                                 },
@@ -351,7 +356,7 @@ impl KeyStore {
                             key_info.insert(
                                 key.to_string(),
                                 PersistentKeyInfo {
-                                    private_key: base64::encode(value.private_key.clone()),
+                                    private_key: BASE64_STANDARD.encode(value.private_key.clone()),
                                     key_type: value.key_type,
                                 },
                             );
@@ -485,6 +490,8 @@ mod test {
     use crate::json::{KeyInfoJson, KeyInfoJsonRef};
     use crate::wallet;
     use anyhow::*;
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use quickcheck_macros::quickcheck;
 
     const PASSPHRASE: &str = "foobarbaz";
@@ -573,7 +580,7 @@ mod test {
             serde_json::from_reader(reader)?;
 
         let default_key_info = persisted_keystore.get(&addr).unwrap();
-        let actual = base64::decode(default_key_info.private_key.clone())?;
+        let actual = BASE64_STANDARD.decode(default_key_info.private_key.clone())?;
 
         assert_eq!(
             default.private_key, actual,

@@ -31,6 +31,7 @@ impl quickcheck::Arbitrary for Ticket {
 
 pub mod json {
     use super::*;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     #[derive(Deserialize, Serialize)]
@@ -52,7 +53,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            vrfproof: base64::encode(m.vrfproof.as_bytes()),
+            vrfproof: BASE64_STANDARD.encode(m.vrfproof.as_bytes()),
         }
         .serialize(serializer)
     }
@@ -63,7 +64,11 @@ pub mod json {
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(Ticket {
-            vrfproof: VRFProof::new(base64::decode(m.vrfproof).map_err(de::Error::custom)?),
+            vrfproof: VRFProof::new(
+                BASE64_STANDARD
+                    .decode(m.vrfproof)
+                    .map_err(de::Error::custom)?,
+            ),
         })
     }
 
