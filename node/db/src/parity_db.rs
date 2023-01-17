@@ -18,7 +18,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
-    statistcs_enabled: bool,
+    statistics_enabled: bool,
 }
 
 /// Converts string to a compression `ParityDb` variant.
@@ -55,7 +55,7 @@ impl ParityDb {
         let opts = Self::to_options(path, config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
-            statistcs_enabled: opts.stats,
+            statistics_enabled: opts.stats,
         })
     }
 }
@@ -156,7 +156,7 @@ impl BitswapStore for ParityDb {
 
 impl DBStatistics for ParityDb {
     fn get_statistics(&self) -> Option<String> {
-        if !self.statistcs_enabled {
+        if !self.statistics_enabled {
             return None;
         }
 
