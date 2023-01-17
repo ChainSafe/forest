@@ -3311,6 +3311,7 @@ dependencies = [
  "forest_genesis",
  "forest_message",
  "forest_metrics",
+ "forest_networks",
  "forest_utils",
  "futures",
  "futures-util",

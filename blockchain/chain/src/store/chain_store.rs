@@ -19,6 +19,7 @@ use forest_legacy_ipld_amt::Amt;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_metrics::metrics;
+use forest_networks::ChainConfig;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
 use futures::Future;
@@ -92,7 +93,7 @@ impl<DB> ChainStore<DB>
 where
     DB: Blockstore + Store + Send + Sync,
 {
-    pub fn new(db: DB) -> Self
+    pub fn new(db: DB, chain_config: Arc<ChainConfig>) -> Self
     where
         DB: Clone,
     {
@@ -103,7 +104,7 @@ where
             // subscriptions: Default::default(),
             // subscriptions_count: Default::default(),
             chain_index: ChainIndex::new(ts_cache.clone(), db.clone()),
-            tipset_tracker: TipsetTracker::new(db.clone()),
+            tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
             db,
             ts_cache,
             heaviest: Default::default(),
@@ -951,8 +952,9 @@ mod tests {
     #[test]
     fn genesis_test() {
         let db = forest_db::MemoryDB::default();
+        let chain_config = Arc::new(ChainConfig::default());
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db, chain_config);
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -971,8 +973,9 @@ mod tests {
     #[test]
     fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
+        let chain_config = Arc::new(ChainConfig::default());
 
-        let cs = ChainStore::new(db);
+        let cs = ChainStore::new(db, chain_config);
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

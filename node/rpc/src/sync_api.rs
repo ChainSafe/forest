@@ -91,7 +91,8 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db));
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
@@ -101,7 +102,7 @@ mod tests {
         let state_manager = Arc::new(
             StateManager::new(
                 cs_arc.clone(),
-                Arc::new(ChainConfig::default()),
+                chain_config,
                 Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
             .unwrap(),
