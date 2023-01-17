@@ -3159,7 +3159,6 @@ dependencies = [
  "anyhow",
  "cid",
  "forest_blocks",
- "forest_chain",
  "forest_db",
  "forest_state_manager",
  "forest_utils",

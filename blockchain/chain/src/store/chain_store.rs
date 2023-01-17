@@ -942,7 +942,6 @@ mod tests {
         let db = forest_db::MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
 
-        let cs = ChainStore::new(db, chain_config);
         let gen_block = BlockHeader::builder()
             .epoch(1)
             .weight(2_u32.into())
@@ -952,6 +951,8 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
+        let genesis_ts = Tipset::new(vec![gen_block.clone()]).unwrap();
+        let cs = ChainStore::new(db, chain_config, genesis_ts);
 
         assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(&gen_block).unwrap();
@@ -962,8 +963,18 @@ mod tests {
     fn block_validation_cache_basic() {
         let db = forest_db::MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
+        let gen_block = BlockHeader::builder()
+            .epoch(1)
+            .weight(2_u32.into())
+            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let genesis_ts = Tipset::new(vec![gen_block]).unwrap();
 
-        let cs = ChainStore::new(db, chain_config);
+        let cs = ChainStore::new(db, chain_config, genesis_ts);
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

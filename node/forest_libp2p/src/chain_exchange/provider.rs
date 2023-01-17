@@ -149,10 +149,15 @@ where
 mod tests {
     use super::super::{HEADERS, MESSAGES};
     use super::*;
+    use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
     use forest_networks::ChainConfig;
     use fvm_ipld_car::load_car;
+    use fvm_ipld_encoding::DAG_CBOR;
+    use fvm_shared::address::Address;
+    use multihash::Code::Identity;
+    use multihash::MultihashDigest;
     use std::sync::Arc;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -169,8 +174,19 @@ mod tests {
     async fn compact_messages_test() {
         let (cids, db) = populate_db().await;
 
+        let gen_block = BlockHeader::builder()
+            .epoch(1)
+            .weight(2_u32.into())
+            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let genesis_ts = Tipset::new(vec![gen_block]).unwrap();
+
         let response = make_chain_exchange_response(
-            &ChainStore::new(db, Arc::new(ChainConfig::default())),
+            &ChainStore::new(db, Arc::new(ChainConfig::default()), genesis_ts),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

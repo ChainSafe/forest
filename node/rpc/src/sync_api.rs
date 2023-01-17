@@ -92,12 +92,17 @@ mod tests {
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
-        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone()));
+
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()
             .unwrap();
+
+        let genesis_ts = Tipset::new(vec![genesis_header.clone()]).unwrap();
+
+        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
+
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(
             StateManager::new(

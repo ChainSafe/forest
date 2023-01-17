@@ -778,7 +778,7 @@ where
 
                     // Validate that the tipset is heavier that the heaviest
                     // tipset in the store
-                    if !(tipset.weight() >= chain_store.heaviest_tipset().weight()) {
+                    if tipset.weight() < chain_store.heaviest_tipset().weight() {
                         // Only send heavier Tipsets to the TipsetProcessor
                         trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
                         continue;

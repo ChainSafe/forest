@@ -527,11 +527,15 @@ mod test {
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone()));
+
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
+
+        let genesis_ts = Tipset::new(vec![genesis_header.clone()])?;
+
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
         cs.set_genesis(&genesis_header)?;
         let sm = Arc::new(StateManager::new(
             cs,
@@ -546,11 +550,14 @@ mod test {
     async fn import_chain_from_file() -> anyhow::Result<()> {
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
+
+        let genesis_ts = Tipset::new(vec![genesis_header.clone()])?;
+
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
         cs.set_genesis(&genesis_header)?;
         let sm = Arc::new(StateManager::new(
             cs,
