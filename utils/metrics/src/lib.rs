@@ -74,7 +74,7 @@ async fn collect_db_metrics<DB>(
 where
     DB: DBStatistics + Sync + Send + Clone + 'static,
 {
-    let mut metrics = "# RocksDB statistics:\n".to_owned();
+    let mut metrics = "# DB statistics:\n".to_owned();
     if let Some(db_stats) = db.get_statistics() {
         metrics.push_str(&db_stats);
     } else {
