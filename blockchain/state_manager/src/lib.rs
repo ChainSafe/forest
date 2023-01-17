@@ -504,9 +504,7 @@ where
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
-            self.cs
-                .heaviest_tipset()
-                .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
+            self.cs.heaviest_tipset()
         };
         let chain_rand = self.chain_rand(ts.key().to_owned());
         self.call_raw(message, chain_rand, &ts)
@@ -523,9 +521,7 @@ where
         let ts = if let Some(t_set) = tipset {
             t_set
         } else {
-            self.cs
-                .heaviest_tipset()
-                .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
+            self.cs.heaviest_tipset()
         };
         let (st, _) = self
             .tipset_state(&ts)
@@ -928,7 +924,7 @@ where
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (message.from(), &message.sequence());
-        let current_tipset = self.cs.heaviest_tipset().unwrap();
+        let current_tipset = self.cs.heaviest_tipset();
         let maybe_message_reciept =
             self.tipset_executed_message(&current_tipset, msg_cid, message_var)?;
         if let Some(r) = maybe_message_reciept {
@@ -1073,10 +1069,7 @@ where
 
     /// Return the heaviest tipset's balance from self.db for a given address
     pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let ts = self
-            .cs
-            .heaviest_tipset()
-            .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
+        let ts = self.cs.heaviest_tipset();
         let cid = ts.parent_state();
         self.get_balance(addr, *cid)
     }

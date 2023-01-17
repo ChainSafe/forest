@@ -109,11 +109,7 @@ where
     let from = umsg.from;
 
     let mut keystore = data.keystore.as_ref().write().await;
-    let heaviest_tipset = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = data
         .state_manager
         .resolve_to_key_addr(&from, &heaviest_tipset)

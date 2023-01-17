@@ -49,11 +49,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("can't find heaviest tipset")?;
+    let ts = data.state_manager.chain_store().heaviest_tipset();
 
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
     let increase_factor =
@@ -102,11 +98,7 @@ where
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("cant get heaviest tipset")?;
+    let mut ts = data.state_manager.chain_store().heaviest_tipset();
 
     for _ in 0..(nblocksincl * 2) {
         if ts.epoch() == 0 {
@@ -199,11 +191,7 @@ where
     msg.gas_fee_cap = TokenAmount::from_atto(MINIMUM_BASE_FEE + 1);
     msg.gas_premium = TokenAmount::from_atto(1);
 
-    let curr_ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("cant find the current heaviest tipset")?;
+    let curr_ts = data.state_manager.chain_store().heaviest_tipset();
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)

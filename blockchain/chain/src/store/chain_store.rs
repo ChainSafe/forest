@@ -77,7 +77,7 @@ pub struct ChainStore<DB> {
     pub db: DB,
 
     /// Tipset at the head of the best-known chain.
-    heaviest: Mutex<Option<Arc<Tipset>>>,
+    heaviest: Mutex<Arc<Tipset>>,
 
     /// Caches loaded tipsets for fast retrieval.
     ts_cache: Arc<TipsetCache>,
@@ -93,7 +93,7 @@ impl<DB> ChainStore<DB>
 where
     DB: Blockstore + Store + Send + Sync,
 {
-    pub fn new(db: DB, chain_config: Arc<ChainConfig>) -> Self
+    pub fn new(db: DB, chain_config: Arc<ChainConfig>, genesis_ts: Tipset) -> Self
     where
         DB: Clone,
     {
@@ -107,7 +107,7 @@ where
             tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
             db,
             ts_cache,
-            heaviest: Default::default(),
+            heaviest: Mutex::new(Arc::new(genesis_ts)),
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
@@ -119,7 +119,7 @@ where
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
-        *self.heaviest.lock() = Some(ts.clone());
+        *self.heaviest.lock() = ts.clone();
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
         }
@@ -169,7 +169,7 @@ where
         };
 
         // set as heaviest tipset
-        *self.heaviest.lock() = Some(heaviest_ts);
+        *self.heaviest.lock() = heaviest_ts;
         Ok(())
     }
 
@@ -179,7 +179,7 @@ where
     }
 
     /// Returns the currently tracked heaviest tipset.
-    pub fn heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+    pub fn heaviest_tipset(&self) -> Arc<Tipset> {
         // TODO: Figure out how to remove optional and return something every time.
         self.heaviest.lock().clone()
     }
@@ -197,7 +197,7 @@ where
     /// Returns Tipset from key-value store from provided CIDs
     pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
         if tsk.cids().is_empty() {
-            return Ok(self.heaviest_tipset().unwrap());
+            return Ok(self.heaviest_tipset());
         }
         tipset_from_keys(&self.ts_cache, self.blockstore(), tsk)
     }
@@ -213,27 +213,15 @@ where
         S: Scale,
     {
         // Calculate heaviest weight before matching to avoid deadlock with mutex
-        let heaviest_weight = self
-            .heaviest
-            .lock()
-            .as_ref()
-            .map(|ts| S::weight(self.blockstore(), ts.as_ref()));
+        let heaviest_weight = S::weight(self.blockstore(), self.heaviest.lock().as_ref())?;
 
-        match heaviest_weight {
-            Some(heaviest) => {
-                let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
-                let curr_weight = heaviest?;
+        let new_weight = S::weight(self.blockstore(), ts.as_ref())?;
+        let curr_weight = heaviest_weight;
 
-                if new_weight > curr_weight {
-                    // TODO potentially need to deal with re-orgs here
-                    info!("New heaviest tipset: {:?}", ts.key());
-                    self.set_heaviest_tipset(ts)?;
-                }
-            }
-            None => {
-                info!("set heaviest tipset");
-                self.set_heaviest_tipset(ts)?;
-            }
+        if new_weight > curr_weight {
+            // TODO potentially need to deal with re-orgs here
+            info!("New heaviest tipset: {:?}", ts.key());
+            self.set_heaviest_tipset(ts)?;
         }
         Ok(())
     }
