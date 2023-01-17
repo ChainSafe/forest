@@ -1,6 +1,8 @@
 // Copyright 2019-2022 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use forest_json::signature::json::SignatureJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
@@ -222,7 +224,7 @@ where
     let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        &base64::decode(msg_string)?,
+        &BASE64_STANDARD.decode(msg_string)?,
     )?;
 
     Ok(SignatureJson(sig))
