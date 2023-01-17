@@ -157,7 +157,7 @@ where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
     /// Creates a new `MessagePool` instance.
-    pub async fn new(
+    pub fn new(
         api: T,
         network_name: String,
         network_sender: flume::Sender<NetworkMessage>,

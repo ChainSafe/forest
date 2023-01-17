@@ -202,8 +202,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         Arc::clone(&chain_store),
         Arc::clone(&config.chain),
         reward_calc,
-    )
-    .await?;
+    )?;
 
     let state_manager = Arc::new(sm);
 
@@ -257,8 +256,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         MpoolConfig::load_config(&db)?,
         Arc::clone(state_manager.chain_config()),
         &mut services,
-    )
-    .await?;
+    )?;
 
     let mpool = Arc::new(mpool);
 
@@ -529,33 +527,34 @@ mod test {
             .build()?;
         cs.set_genesis(&genesis_header)?;
         let chain_config = Arc::new(ChainConfig::default());
-        let sm = Arc::new(
-            StateManager::new(
-                cs,
-                chain_config,
-                Arc::new(forest_interpreter::RewardActorMessageCalc),
-            )
-            .await?,
-        );
+        let sm = Arc::new(StateManager::new(
+            cs,
+            chain_config,
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )?);
         import_chain::<_>(&sm, file_path, None, false).await?;
         Ok(())
     }
 
-    // FIXME: This car file refers to actors that are not available in FVM yet.
-    //        See issue: https://github.com/ChainSafe/forest/issues/1452
-    // #[async_std::test]
-    // async fn import_chain_from_file() {
-    //     let db = Arc::new(MemoryDB::default());
-    //     let cs = Arc::new(ChainStore::new(db));
-    //     let genesis_header = BlockHeader::builder()
-    //         .miner_address(Address::new_id(0))
-    //         .timestamp(7777)
-    //         .build()
-    //         .unwrap();
-    //     cs.set_genesis(&genesis_header).unwrap();
-    //     let sm = Arc::new(StateManager::new(cs).await.unwrap());
-    //     import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
-    //         .await
-    //         .expect("Failed to import chain");
-    // }
+    #[tokio::test]
+    async fn import_chain_from_file() -> anyhow::Result<()> {
+        let db = MemoryDB::default();
+        let cs = Arc::new(ChainStore::new(db));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()?;
+        cs.set_genesis(&genesis_header)?;
+        let chain_config = Arc::new(ChainConfig::default());
+        let sm = Arc::new(StateManager::new(
+            cs,
+            chain_config,
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )?);
+        import_chain::<_>(&sm, "test_files/chain4.car", None, false)
+            .await
+            .expect("Failed to import chain");
+
+        Ok(())
+    }
 }

@@ -88,7 +88,13 @@ impl<P: StoreParams> ForestBehaviour<P> {
             )
             .unwrap();
 
-        let bitswap = Bitswap::new(BitswapConfig::new(), db);
+        let bitswap = Bitswap::new(
+            BitswapConfig {
+                compat_protocol_name: b"/chain/ipfs/bitswap/1.2.0",
+                ..Default::default()
+            },
+            db,
+        );
         if let Err(err) = bitswap.register_metrics(prometheus::default_registry()) {
             warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
         }

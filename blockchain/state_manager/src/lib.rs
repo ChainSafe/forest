@@ -211,17 +211,13 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
-    pub async fn new(
+    pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
         reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis()?.context("genesis header missing")?;
-        let beacon = Arc::new(
-            chain_config
-                .get_beacon_schedule(genesis.timestamp())
-                .await?,
-        );
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp())?);
 
         Ok(Self {
             cs,
