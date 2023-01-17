@@ -28,6 +28,9 @@ TEMP_DIR = Dir.mktmpdir('forest-benchs-')
 
 ONLINE_VALIDATION_SECS = 60.0
 
+snapshot_path = ARGV.pop
+raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot_path
+
 # Provides human readable formatting to Numeric class
 class Numeric
   def to_bibyte
@@ -43,10 +46,6 @@ end
 
 def forest_version
   syscall('./target/release/forest', '--version')
-end
-
-def snapshot_dir
-  syscall('./target/release/forest-cli', 'snapshot', 'dir')
 end
 
 def hr(seconds)
@@ -230,7 +229,7 @@ class Benchmark
 
     config_path = "#{TEMP_DIR}/#{@name}.toml"
 
-    snapshot_path = File.file?(snapshot) ? snapshot : "#{snapshot_dir}/#{snapshot}"
+    snapshot_path = File.file?(snapshot) ? snapshot : "#{snapshot}"
 
     { c: config_path, s: snapshot_path, h: start }
   end
@@ -436,9 +435,6 @@ OptionParser.new do |opts|
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
   opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:pattern] = v }
 end.parse!
-
-snapshot_path = ARGV.pop
-raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot_path
 
 options[:snapshot_path] = snapshot_path
 
