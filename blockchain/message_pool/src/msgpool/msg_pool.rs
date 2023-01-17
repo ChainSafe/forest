@@ -631,10 +631,9 @@ fn verify_msg_before_add(
             if local {
                 warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
                 return Ok(false);
-            } else {
-                return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-                    m.gas_fee_cap(), base_fee_lower_bound)));
             }
+            return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
+                m.gas_fee_cap(), base_fee_lower_bound)));
         }
     }
     Ok(local)
