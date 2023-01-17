@@ -37,6 +37,7 @@ members = [
   "utils/paramfetch",
   "utils/json",
   "utils/forest_utils",
+  "utils/forest_shim",
 ]
 resolver = "2"
 
