@@ -40,6 +40,7 @@ impl quickcheck::Arbitrary for BeaconEntry {
 
 pub mod json {
     use super::*;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `BeaconEntry` from JSON.
@@ -72,7 +73,7 @@ pub mod json {
     {
         JsonHelper {
             round: m.round,
-            data: base64::encode(&m.data),
+            data: BASE64_STANDARD.encode(&m.data),
         }
         .serialize(serializer)
     }
@@ -84,7 +85,7 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(BeaconEntry {
             round: m.round,
-            data: base64::decode(m.data).map_err(de::Error::custom)?,
+            data: BASE64_STANDARD.decode(m.data).map_err(de::Error::custom)?,
         })
     }
 

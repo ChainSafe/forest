@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use forest_encoding::de;
     use fvm_shared::crypto::signature::{Signature, SignatureType};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -30,7 +31,7 @@ pub mod json {
     {
         JsonHelper {
             sig_type: m.sig_type,
-            bytes: base64::encode(&m.bytes),
+            bytes: BASE64_STANDARD.encode(&m.bytes),
         }
         .serialize(serializer)
     }
@@ -42,7 +43,7 @@ pub mod json {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
         Ok(Signature {
             sig_type,
-            bytes: base64::decode(bytes).map_err(de::Error::custom)?,
+            bytes: BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
         })
     }
 

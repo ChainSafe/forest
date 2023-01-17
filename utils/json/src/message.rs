@@ -3,6 +3,8 @@
 
 pub mod json {
     use crate::address::json::AddressJson;
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use cid::Cid;
     use fvm_ipld_encoding::Cbor;
     use fvm_ipld_encoding::RawBytes;
@@ -69,7 +71,7 @@ pub mod json {
             gas_fee_cap: m.gas_fee_cap.clone(),
             gas_premium: m.gas_premium.clone(),
             method_num: m.method_num,
-            params: Some(base64::encode(m.params.bytes())),
+            params: Some(BASE64_STANDARD.encode(m.params.bytes())),
             cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
@@ -91,7 +93,9 @@ pub mod json {
             gas_premium: m.gas_premium,
             method_num: m.method_num,
             params: RawBytes::new(
-                base64::decode(m.params.unwrap_or_default()).map_err(de::Error::custom)?,
+                BASE64_STANDARD
+                    .decode(m.params.unwrap_or_default())
+                    .map_err(de::Error::custom)?,
             ),
         })
     }
