@@ -32,14 +32,14 @@ impl From<Address_v2> for Address {
     }
 }
 
-impl Into<Address_v3> for Address {
-    fn into(self) -> Address_v3 {
-        self.0
+impl From<Address> for Address_v3 {
+    fn from(other: Address) -> Self {
+        other.0
     }
 }
 
-impl Into<Address_v2> for Address {
-    fn into(self) -> Address_v2 {
-        Address_v2::from_bytes(&self.to_bytes()).unwrap()
+impl From<Address> for Address_v2 {
+    fn from(other: Address) -> Address_v2 {
+        Address_v2::from_bytes(&other.to_bytes()).unwrap()
     }
 }
