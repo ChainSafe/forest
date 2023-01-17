@@ -163,9 +163,8 @@ impl<P: StoreParams> ForestBehaviour<P> {
         let peers: Vec<_> = self.discovery.peers().iter().cloned().collect();
         if peers.is_empty() {
             anyhow::bail!("no peers connected")
-        } else {
-            let query_id = self.bitswap.sync(cid, peers, [cid].into_iter());
-            Ok(query_id)
         }
+        let query_id = self.bitswap.sync(cid, peers, [cid].into_iter());
+        Ok(query_id)
     }
 }
