@@ -162,7 +162,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()));
+    let chain_store = Arc::new(ChainStore::new(db.clone(), config.chain.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -520,13 +520,13 @@ mod test {
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db));
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
         cs.set_genesis(&genesis_header)?;
-        let chain_config = Arc::new(ChainConfig::default());
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
@@ -539,13 +539,13 @@ mod test {
     #[tokio::test]
     async fn import_chain_from_file() -> anyhow::Result<()> {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db));
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
         cs.set_genesis(&genesis_header)?;
-        let chain_config = Arc::new(ChainConfig::default());
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,

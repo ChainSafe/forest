@@ -929,6 +929,7 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
@@ -956,9 +957,9 @@ mod tests {
     fn empty_msg_meta_vector() {
         let blockstore = MemoryDB::default();
         let usm: Vec<Message> =
-            fvm_ipld_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
         let sm: Vec<SignedMessage> =
-            fvm_ipld_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
             TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)

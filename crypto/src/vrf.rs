@@ -28,6 +28,7 @@ impl VRFProof {
 
 pub mod json {
     use super::*;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::borrow::Cow;
 
@@ -35,7 +36,7 @@ pub mod json {
     where
         S: Serializer,
     {
-        base64::encode(m.as_bytes()).serialize(serializer)
+        BASE64_STANDARD.encode(m.as_bytes()).serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<VRFProof, D::Error>
@@ -44,7 +45,9 @@ pub mod json {
     {
         let s: Cow<'de, str> = Deserialize::deserialize(deserializer)?;
         Ok(VRFProof::new(
-            base64::decode(s.as_ref()).map_err(de::Error::custom)?,
+            BASE64_STANDARD
+                .decode(s.as_ref())
+                .map_err(de::Error::custom)?,
         ))
     }
 }
