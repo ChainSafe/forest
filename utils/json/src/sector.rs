@@ -4,9 +4,8 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_shared::sector::{
-        PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
-    };
+    use forest_shim::sector::{PoStProof, RegisteredPoStProof};
+    use fvm_shared::sector::{RegisteredSealProof, SectorInfo, SectorNumber};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing a `PoStProof` to JSON.
@@ -105,7 +104,8 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use fvm_shared::sector::{PoStProof, RegisteredPoStProof};
+    use forest_shim::sector::{PoStProof, RegisteredPoStProof};
+    // use fvm_shared::sector::{PoStProof, RegisteredPoStProof};
     use quickcheck_macros::quickcheck;
     use serde_json;
 

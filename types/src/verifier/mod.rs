@@ -3,11 +3,12 @@
 
 use filecoin_proofs_api::{post, PublicReplicaInfo};
 use filecoin_proofs_api::{ProverId, SectorId};
+use forest_shim::sector::{PoStProof, RegisteredPoStProof};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::address::Address;
 use fvm_shared::commcid::cid_to_replica_commitment_v1;
 use fvm_shared::randomness::Randomness;
-use fvm_shared::sector::{PoStProof, RegisteredPoStProof, SectorInfo};
+use fvm_shared::sector::SectorInfo;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 

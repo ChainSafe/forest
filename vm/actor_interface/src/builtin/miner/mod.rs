@@ -4,6 +4,7 @@
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
+use forest_shim::sector::SectorSize;
 use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
@@ -12,7 +13,7 @@ use fvm_ipld_encoding::BytesDe;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::deal::DealID;
-use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize};
+use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber};
 use fvm_shared::{address::Address, econ::TokenAmount};
 use libp2p::PeerId;
 use serde::{Deserialize, Serialize};
@@ -210,7 +211,7 @@ impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
             peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: info.window_post_proof_type,
-            sector_size: info.sector_size,
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }
@@ -234,7 +235,7 @@ impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
             peer_id,
             multiaddrs: info.multi_address,
             window_post_proof_type: info.window_post_proof_type,
-            sector_size: info.sector_size,
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }

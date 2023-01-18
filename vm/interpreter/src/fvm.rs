@@ -6,8 +6,10 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
+use forest_shim::fvm::gas::{price_list_by_network_version, Gas, GasTracker};
+use forest_shim::version::NetworkVersion;
 use fvm::externs::{Consensus, Externs, Rand};
-use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
+use fvm::gas::{price_list_by_network_version, GasTracker as GasTracker_v2};
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::tracking::{BSStats, TrackingBlockstore};
 use fvm_ipld_blockstore::Blockstore;
@@ -15,7 +17,6 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
-use fvm_shared::version::NetworkVersion;
 use std::cell::Ref;
 use std::sync::Arc;
 
@@ -234,8 +235,11 @@ fn cal_gas_used_from_stats(
     stats: Ref<BSStats>,
     network_version: NetworkVersion,
 ) -> anyhow::Result<Gas> {
+    use cid::multihash::Code;
+
     let price_list = price_list_by_network_version(network_version);
-    let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
+    let enable_tracing = false;
+    let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0), enable_tracing);
     // num of reads
     for _ in 0..stats.r {
         gas_tracker.apply_charge(price_list.on_block_open_base())?;
@@ -243,7 +247,7 @@ fn cal_gas_used_from_stats(
     // num of writes
     if stats.w > 0 {
         // total bytes written
-        gas_tracker.apply_charge(price_list.on_block_link(stats.bw))?;
+        gas_tracker.apply_charge(price_list.on_block_link(Code::Blake2b256.into(), stats.bw))?;
         for _ in 1..stats.w {
             gas_tracker.apply_charge(price_list.on_block_link(0))?;
         }

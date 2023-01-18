@@ -17,7 +17,8 @@ use fvm_shared::bigint::{
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::econ::TokenAmount;
-use fvm_shared::sector::PoStProof;
+// use fvm_shared::sector::PoStProof;
+use forest_shim::sector::PoStProof;
 use fvm_shared::version::NetworkVersion;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
