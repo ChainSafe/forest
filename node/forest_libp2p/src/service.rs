@@ -139,12 +139,6 @@ pub enum NetworkEvent {
     },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
-    BitswapRequestOutbound {
-        cid: Cid,
-    },
-    BitswapResponseInbound {
-        cid: Cid,
-    },
 }
 
 /// Message types that can come over `GossipSub`

@@ -466,18 +466,6 @@ where
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::BitswapRequestOutbound { .. } => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::BITSWAP_BLOCK_REQUEST_OUTBOUND])
-                    .inc();
-                return Ok(None);
-            }
-            NetworkEvent::BitswapResponseInbound { .. } => {
-                metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::BITSWAP_BLOCK_RESPONSE_INBOUND])
-                    .inc();
-                return Ok(None);
-            }
         };
 
         // Validate tipset
