@@ -21,6 +21,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -36,7 +37,7 @@ where
     pub state_manager: Arc<StateManager<DB>>,
     pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
     pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<RwLock<SyncState>>,
+    pub sync_state: Arc<SyncRwLock<SyncState>>,
     pub network_send: flume::Sender<NetworkMessage>,
     pub network_name: String,
     pub new_mined_block_tx: flume::Sender<Arc<Tipset>>,
