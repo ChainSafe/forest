@@ -16,7 +16,7 @@ use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_libp2p_bitswap::{BitswapInboundResponseEvent, BitswapRequestManager, BitswapStore};
+use forest_libp2p_bitswap::{BitswapRequestManager, BitswapStore};
 use forest_message::SignedMessage;
 use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
@@ -277,13 +277,11 @@ where
         let mut hello_request_table = HashMap::new();
         let mut cx_request_table = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
-        let (bitswap_inbound_response_tx, bitswap_inbound_response_rx) = flume::unbounded();
         let (bitswap_outbound_request_tx, bitswap_outbound_request_rx) = flume::unbounded();
         let bitswap_request_manager =
             Arc::new(BitswapRequestManager::new(bitswap_outbound_request_tx));
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
-        let mut bitswap_inbound_response_rx_stream = bitswap_inbound_response_rx.stream().fuse();
         let mut bitswap_outbound_request_rx_stream = bitswap_outbound_request_rx.stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
@@ -306,7 +304,6 @@ where
                             &mut hello_request_table,
                             &mut cx_request_table,
                             cx_response_tx.clone(),
-                            bitswap_inbound_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
                     },
@@ -339,11 +336,6 @@ where
                         }
                     }
                 },
-                bitswap_inbound_response_event_opt = bitswap_inbound_response_rx_stream.next() => {
-                    if let Some(bitswap_inbound_response_event) = bitswap_inbound_response_event_opt {
-                        bitswap_request_manager.on_inbound_response_event(bitswap_inbound_response_event);
-                    }
-                }
                 bitswap_outbound_request_opt = bitswap_outbound_request_rx_stream.next() => {
                     if let Some((peer, request)) = bitswap_outbound_request_opt {
                         let bitswap = &mut swarm_stream.get_mut().behaviour_mut().bitswap;
@@ -841,7 +833,6 @@ async fn handle_forest_behaviour_event<DB, P>(
         ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
-    bitswap_inbound_response_tx: Sender<BitswapInboundResponseEvent>,
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
@@ -866,13 +857,9 @@ async fn handle_forest_behaviour_event<DB, P>(
             .await
         }
         ForestBehaviourEvent::Bitswap(event) => {
-            if let Err(e) = forest_libp2p_bitswap::handle_event(
-                &mut swarm.behaviour_mut().bitswap,
-                db.blockstore(),
-                event,
-                bitswap_inbound_response_tx,
-            )
-            .await
+            if let Err(e) = bitswap_request_manager
+                .handle_event(&mut swarm.behaviour_mut().bitswap, db.blockstore(), event)
+                .await
             {
                 warn!("bitswap: {e}");
             }

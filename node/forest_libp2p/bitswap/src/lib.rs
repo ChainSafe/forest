@@ -19,7 +19,6 @@ mod request_manager;
 mod store;
 
 pub use behaviour::*;
-pub use event_handlers::*;
 pub use message::*;
 pub use metrics::*;
 pub use protocol::*;

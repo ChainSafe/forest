@@ -7,18 +7,19 @@ use libp2p::{
     request_response::{RequestResponseEvent, RequestResponseMessage},
     PeerId,
 };
+use std::sync::Arc;
 
-pub enum BitswapInboundResponseEvent {
+pub(crate) enum BitswapInboundResponseEvent {
     HaveBlock(PeerId, Cid),
     BlockSaved(PeerId, Cid),
 }
 
 // Note: This method performs db IO syncronously to reduce complexity
-pub async fn handle_event<S: BitswapStore>(
+pub(crate) async fn handle_event_impl<S: BitswapStore>(
+    request_manager: &Arc<BitswapRequestManager>,
     bitswap: &mut BitswapBehaviour,
     store: &S,
     event: BitswapBehaviourEvent,
-    inbound_response_tx: flume::Sender<BitswapInboundResponseEvent>,
 ) -> anyhow::Result<()> {
     match event {
         BitswapBehaviourEvent::Inner(RequestResponseEvent::Message { peer, message }) => {
@@ -83,9 +84,7 @@ pub async fn handle_event<S: BitswapStore>(
                                         }
                                     }
                                 } {
-                                    if inbound_response_tx.send_async(event).await.is_err() {
-                                        warn!("Failed to send inbound response event");
-                                    }
+                                    request_manager.on_inbound_response_event(event);
                                 }
                             }
                         }

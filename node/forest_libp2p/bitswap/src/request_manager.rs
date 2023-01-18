@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::*;
+use crate::{event_handlers::*, *};
 use flume::TryRecvError;
 use hashbrown::{HashMap, HashSet};
 use libipld::Cid;
@@ -53,6 +53,15 @@ impl BitswapRequestManager {
             metrics::peer_container_capacity().set(self.peers.read().capacity() as _);
         }
         r
+    }
+
+    pub async fn handle_event<S: BitswapStore>(
+        self: &Arc<Self>,
+        bitswap: &mut BitswapBehaviour,
+        store: &S,
+        event: BitswapBehaviourEvent,
+    ) -> anyhow::Result<()> {
+        handle_event_impl(self, bitswap, store, event).await
     }
 
     pub fn get_block(
@@ -143,7 +152,7 @@ impl BitswapRequestManager {
         success
     }
 
-    pub fn on_inbound_response_event(&self, response: BitswapInboundResponseEvent) {
+    pub(crate) fn on_inbound_response_event(&self, response: BitswapInboundResponseEvent) {
         use BitswapInboundResponseEvent::*;
         match response {
             HaveBlock(peer, cid) => {
