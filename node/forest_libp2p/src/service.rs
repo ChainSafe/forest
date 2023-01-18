@@ -324,7 +324,7 @@ where
                     Some(message) => {
                         handle_network_message(
                             swarm_stream.get_mut(),
-                            self.cs.blockstore(),
+                            self.cs.clone(),
                             bitswap_request_manager.clone(),
                             message,
                             &self.network_sender_out,
@@ -393,7 +393,7 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
 
 async fn handle_network_message(
     swarm: &mut Swarm<ForestBehaviour>,
-    store: &impl BitswapStore,
+    store: Arc<impl BitswapStore>,
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
@@ -445,7 +445,7 @@ async fn handle_network_message(
             cid,
             response_channel,
         } => {
-            bitswap_request_manager.get_block(cid, BITSWAP_TIMEOUT, response_channel);
+            bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, response_channel);
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {

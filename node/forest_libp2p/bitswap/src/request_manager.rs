@@ -52,28 +52,33 @@ impl BitswapRequestManager {
         r
     }
 
-    pub fn get_block(self: Arc<Self>, cid: Cid, timeout: Duration, responder: flume::Sender<bool>) {
+    pub fn get_block(
+        self: Arc<Self>,
+        store: Arc<impl BitswapStore>,
+        cid: Cid,
+        timeout: Duration,
+        responder: flume::Sender<bool>,
+    ) {
         tokio::spawn(async move {
-            if let Err(e) = tokio::task::spawn_blocking(move || {
-                let success = self.get_block_sync(cid, timeout);
+            let deadline = Instant::now().checked_add(timeout).expect("Infallible");
+            if let Ok(mut success) =
+                tokio::task::spawn_blocking(move || self.get_block_sync(cid, deadline)).await
+            {
+                while !success && Instant::now() < deadline {
+                    tokio::time::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
+                    if let Ok(true) = store.contains(&cid) {
+                        success = true;
+                    }
+                }
                 if let Err(e) = responder.send(success) {
                     warn!("{e}");
                 }
-            })
-            .await
-            {
-                warn!("{e}");
             }
         });
     }
 
-    pub fn get_block_sync(&self, cid: Cid, timeout: Duration) -> bool {
+    fn get_block_sync(&self, cid: Cid, deadline: Instant) -> bool {
         info!("get_block_sync start");
-        let deadline = Instant::now().checked_add(timeout).expect("Infallible");
-        if self.response_channels.read().contains_key(&cid) {
-            // TODO: spin and check db
-            return false;
-        }
 
         let (block_have_tx, block_have_rx) = flume::unbounded();
         let (block_saved_tx, block_saved_rx) = flume::unbounded();

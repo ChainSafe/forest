@@ -16,6 +16,7 @@ use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
 use forest_legacy_ipld_amt::Amt;
+use forest_libp2p_bitswap::BitswapStore;
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_metrics::metrics;
@@ -87,6 +88,29 @@ pub struct ChainStore<DB> {
 
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
+}
+
+impl<DB> BitswapStore for ChainStore<DB>
+where
+    DB: BitswapStore,
+{
+    type Params = <DB as BitswapStore>::Params;
+
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        self.db.contains(cid)
+    }
+
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.db.get(cid)
+    }
+
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        self.db.insert(block)
+    }
+
+    fn missing_blocks(&self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
+        self.db.missing_blocks(cid)
+    }
 }
 
 impl<DB> ChainStore<DB>
