@@ -181,7 +181,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     ));
 
     chain_store.set_genesis(&genesis.clone())?;
-    chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis.clone()])?))?;
+    chain_store.load_heaviest_tipset()?;
 
     let publisher = chain_store.publisher();
 
