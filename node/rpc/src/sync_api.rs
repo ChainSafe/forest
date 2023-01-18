@@ -8,9 +8,8 @@ use forest_json::cid::CidJson;
 use forest_rpc_api::data_types::{RPCState, RPCSyncState};
 use forest_rpc_api::sync_api::*;
 use fvm_ipld_blockstore::Blockstore;
-
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB, B>(
@@ -40,10 +39,8 @@ where
     Ok(())
 }
 
-// TODO SyncIncomingBlocks (requires websockets)
-
 async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
-    state.read().await.clone()
+    state.read().clone()
 }
 
 /// Returns the current status of the `ChainSync` process.
@@ -142,7 +139,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Arc::new(RwLock::new(Default::default())),
+            sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
             chain_store: cs_for_chain,
@@ -186,8 +183,8 @@ mod tests {
         }
 
         // update cloned state
-        st_copy.write().await.set_stage(SyncStage::Messages);
-        st_copy.write().await.set_epoch(4);
+        st_copy.write().set_stage(SyncStage::Messages);
+        st_copy.write().set_epoch(4);
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {

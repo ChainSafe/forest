@@ -770,7 +770,6 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
     Box::pin(async move {
         tracker
             .write()
-            .await
             .init(current_head.clone(), proposed_head.clone());
 
         let parent_tipsets = match sync_headers_in_reverse(
@@ -786,21 +785,21 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
         {
             Ok(parent_tipsets) => parent_tipsets,
             Err(why) => {
-                tracker.write().await.error(why.to_string());
+                tracker.write().error(why.to_string());
                 return Err(why);
             }
         };
 
         // Persist the blocks from the synced Tipsets into the store
-        tracker.write().await.set_stage(SyncStage::Headers);
+        tracker.write().set_stage(SyncStage::Headers);
         let headers: Vec<&BlockHeader> = parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
         if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
-            tracker.write().await.error(why.to_string());
+            tracker.write().error(why.to_string());
             return Err(why.into());
         };
 
         //  Sync and validate messages from the tipsets
-        tracker.write().await.set_stage(SyncStage::Messages);
+        tracker.write().set_stage(SyncStage::Messages);
         if let Err(why) = sync_messages_check_state(
             tracker.clone(),
             consensus,
@@ -815,10 +814,10 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
         .await
         {
             error!("Sync messages check state failed for tipset range");
-            tracker.write().await.error(why.to_string());
+            tracker.write().error(why.to_string());
             return Err(why);
         };
-        tracker.write().await.set_stage(SyncStage::Complete);
+        tracker.write().set_stage(SyncStage::Complete);
 
         // At this point the head is synced and it can be set in the store as the heaviest
         debug!(
@@ -858,7 +857,7 @@ async fn sync_headers_in_reverse<
     let mut parent_blocks: Vec<Cid> = vec![];
     let mut parent_tipsets = Vec::with_capacity(tipset_range_length as usize + 1);
     parent_tipsets.push(proposed_head.clone());
-    tracker.write().await.set_epoch(current_head.epoch());
+    tracker.write().set_epoch(current_head.epoch());
 
     let total_size = proposed_head.epoch() - current_head.epoch();
     let pb = ProgressBar::new(total_size as u64);
@@ -901,7 +900,7 @@ async fn sync_headers_in_reverse<
             }
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks)?;
             parent_blocks.extend_from_slice(tipset.cids());
-            tracker.write().await.set_epoch(tipset.epoch());
+            tracker.write().set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
         }
     }
@@ -1124,7 +1123,7 @@ async fn sync_messages_check_state<
             )
             .await?;
         }
-        tracker.write().await.set_epoch(current_epoch);
+        tracker.write().set_epoch(current_epoch);
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
 
