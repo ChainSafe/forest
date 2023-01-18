@@ -104,7 +104,6 @@ mod tests {
         let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
 
         cs_arc.set_genesis(&genesis_header).unwrap();
-        cs_arc.set_heaviest_tipset(Arc::new(genesis_ts))?;
         let state_manager = Arc::new(
             StateManager::new(
                 cs_arc.clone(),
