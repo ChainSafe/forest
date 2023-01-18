@@ -439,7 +439,7 @@ async fn handle_network_message(
             cid,
             response_channel,
         } => {
-            bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, response_channel);
+            bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, Some(response_channel));
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {
@@ -876,7 +876,6 @@ async fn handle_forest_behaviour_event<DB, P>(
             {
                 warn!("bitswap: {e}");
             }
-            // handle_bitswap_event(bs_event, network_sender_out, outgoing_bitswap_query_ids).await
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
         ForestBehaviourEvent::Identify(_) => {}

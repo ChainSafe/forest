@@ -60,7 +60,7 @@ impl BitswapRequestManager {
         store: Arc<impl BitswapStore>,
         cid: Cid,
         timeout: Duration,
-        responder: flume::Sender<bool>,
+        responder: Option<flume::Sender<bool>>,
     ) {
         let start = Instant::now();
         let timer = metrics::GET_BLOCK_TIME.start_timer();
@@ -83,8 +83,10 @@ impl BitswapRequestManager {
                 metrics::message_counter_get_block_failure().inc();
             }
 
-            if let Err(e) = responder.send_async(success).await {
-                warn!("{e}");
+            if let Some(responder) = responder {
+                if let Err(e) = responder.send_async(success).await {
+                    warn!("{e}");
+                }
             }
 
             timer.observe_duration();
