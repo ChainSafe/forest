@@ -30,11 +30,11 @@ use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 use std::sync::Arc;
 use std::time::SystemTime;
