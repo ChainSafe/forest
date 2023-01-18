@@ -104,7 +104,10 @@ where
         })?;
 
     chain_store.set_genesis(&genesis_block)?;
-    chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
+
+    if chain_store.genesis()? != genesis_block {
+        chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
+    }
 
     Ok(genesis_block)
 }
