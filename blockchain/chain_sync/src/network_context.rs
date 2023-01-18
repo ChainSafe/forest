@@ -14,7 +14,7 @@ use forest_libp2p::{
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
 use forest_utils::db::BlockstoreExt;
-use futures::channel::oneshot::channel as oneshot_channel;
+use futures::{channel::oneshot::channel as oneshot_channel, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, trace, warn};
 use std::sync::{atomic::Ordering, Arc};
@@ -122,34 +122,67 @@ where
         &self,
         content: Cid,
     ) -> Result<TMessage, String> {
+        tokio::time::timeout(BITSWAP_TIMEOUT, self.bitswap_get_no_timeout(content))
+            .await
+            .map_err(|_| "bitswap_get timeout".to_string())?
+    }
+
+    async fn bitswap_get_no_timeout<TMessage: DeserializeOwned>(
+        &self,
+        content: Cid,
+    ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
         // database. If it does, return it, else fetch over the network.
         if let Some(b) = self.db.get_obj(&content).map_err(|e| e.to_string())? {
             return Ok(b);
         }
-        let (tx, rx) = oneshot_channel();
+        log::info!("bitswap_get_no_timeout");
+        let (have_tx, have_rx) = flume::unbounded();
         self.network_send
-            .send_async(NetworkMessage::BitswapRequest {
+            .send_async(NetworkMessage::BitswapRequestHave {
                 cid: content,
-                response_channel: tx,
+                response_channel: have_tx,
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-        let res = timeout(BITSWAP_TIMEOUT, rx).await;
-        match res {
-            Ok(Ok(())) => {
-                match self.db.get_obj(&content) {
-                    Ok(Some(b)) => Ok(b),
-                    Ok(None) => Err(format!("Bitswap response successful for: {content:?}, but can't find it in the database")),
-                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retrieve it from the database: {e}")),
-                }
+        let (block_tx, block_rx) = flume::bounded(1);
+        let mut success = false;
+        while let Some(peer) = have_rx.stream().fuse().next().await {
+            if let Err(e) = self
+                .network_send
+                .send_async(NetworkMessage::BitswapRequestBlock {
+                    peer,
+                    cid: content,
+                    response_channel: block_tx.clone(),
+                })
+                .await
+            {
+                warn!("{e}");
             }
-            Err(_e) => {
-               Err(format!("Bitswap get for {content:?} timed out"))
+
+            log::info!("bitswap_get_no_timeout waiting for block, cid: {content}");
+            const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
+            if let Ok(()) = block_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
+                success = true;
+                break;
             }
-            Ok(Err(e)) => {
-                Err(format!("Bitswap get for {content:?} failed: {e}"))
+        }
+        if !success {
+            if let Ok(()) = block_rx.recv_async().await {
+                success = true;
             }
+        }
+
+        log::info!("bitswap_get_no_timeout. success: {success}, cid: {content}");
+
+        match self.db.get_obj(&content) {
+            Ok(Some(b)) => Ok(b),
+            Ok(None) => Err(format!(
+                "Not found in db, bitswap. success: {success} cid, {content:?}"
+            )),
+            Err(e) => Err(format!(
+                "Error retrieving from db. success: {success} cid, {content:?}, {e}"
+            )),
         }
     }
 

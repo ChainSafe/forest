@@ -6,7 +6,7 @@ use fvm_ipld_blockstore::Blockstore;
 use libipld::{prelude::*, store::StoreParams, Ipld};
 
 pub(super) fn bitswap_missing_blocks<BS: Blockstore, P: StoreParams>(
-    bs: &mut BS,
+    bs: &BS,
     cid: &Cid,
 ) -> anyhow::Result<Vec<Cid>>
 where

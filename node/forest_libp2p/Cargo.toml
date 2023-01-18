@@ -14,6 +14,7 @@ forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
 forest_encoding.workspace = true
+forest_libp2p_bitswap.workspace = true
 forest_message.workspace = true
 forest_metrics.workspace = true
 forest_utils.workspace = true
@@ -40,7 +41,7 @@ libp2p = { workspace = true, default-features = false, features = [
   "tokio",
   "macros",
 ] }
-libp2p-bitswap.workspace = true
+# libp2p-bitswap.workspace = true
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
 pin-project-lite.workspace = true

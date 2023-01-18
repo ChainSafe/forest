@@ -24,10 +24,10 @@ paritydb = ["dep:parity-db"]
 [dependencies]
 anyhow.workspace = true
 cid.workspace = true
+forest_libp2p_bitswap.workspace = true
 fvm_ipld_blockstore.workspace = true
 lazy_static.workspace = true
 libipld.workspace = true
-libp2p-bitswap.workspace = true
 num_cpus.workspace = true
 parity-db = { version = "0.4", default-features = false, optional = true }
 parking_lot.workspace = true
