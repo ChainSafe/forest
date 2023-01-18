@@ -952,10 +952,11 @@ mod tests {
             .build()
             .unwrap();
         let genesis_ts = Tipset::new(vec![gen_block.clone()]).unwrap();
-        let cs = ChainStore::new(db, chain_config, genesis_ts);
+        let cs = ChainStore::new(db, chain_config, genesis_ts.clone());
 
         assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(&gen_block).unwrap();
+        cs.set_heaviest_tipset(Arc::new(genesis_ts.clone())).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
@@ -972,9 +973,11 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let genesis_ts = Tipset::new(vec![gen_block]).unwrap();
+        let genesis_ts = Tipset::new(vec![gen_block.clone()]).unwrap();
 
-        let cs = ChainStore::new(db, chain_config, genesis_ts);
+        let cs = ChainStore::new(db, chain_config, genesis_ts.clone());
+        cs.set_genesis(&gen_block).unwrap();
+        cs.set_heaviest_tipset(Arc::new(genesis_ts.clone())).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

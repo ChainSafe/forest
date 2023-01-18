@@ -537,6 +537,7 @@ mod test {
 
         let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
         cs.set_genesis(&genesis_header)?;
+        cs.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_header.clone()])?))?;
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
@@ -559,6 +560,7 @@ mod test {
 
         let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
         cs.set_genesis(&genesis_header)?;
+        cs.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_header.clone()])?))?;
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
