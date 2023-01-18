@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use prometheus::{
     core::{AtomicU64, GenericCounter, GenericGauge, GenericGaugeVec},
-    IntCounterVec, Opts, Registry,
+    Histogram, HistogramOpts, IntCounterVec, Opts, Registry,
 };
 
 lazy_static! {
@@ -18,13 +18,27 @@ lazy_static! {
         &["type"],
     )
     .expect("Infallible");
+    pub static ref GET_BLOCK_TIME: Histogram = Histogram::with_opts(HistogramOpts {
+        common_opts: Opts::new("bitswap_get_block_time", "Duration of get_block"),
+        buckets: vec![0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+    })
+    .expect("Infallible");
 }
 
 pub fn register_metrics(registry: &Registry) -> anyhow::Result<()> {
     registry.register(Box::new(MESSAGE_COUNTER.clone()))?;
     registry.register(Box::new(CONTAINER_CAPACITIES.clone()))?;
+    registry.register(Box::new(GET_BLOCK_TIME.clone()))?;
 
     Ok(())
+}
+
+pub(crate) fn message_counter_get_block_success() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["get_block_success"])
+}
+
+pub(crate) fn message_counter_get_block_failure() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["get_block_failure"])
 }
 
 pub(crate) fn message_counter_inbound_request_have() -> GenericCounter<AtomicU64> {

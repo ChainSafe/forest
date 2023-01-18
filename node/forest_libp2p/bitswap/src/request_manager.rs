@@ -59,21 +59,32 @@ impl BitswapRequestManager {
         timeout: Duration,
         responder: flume::Sender<bool>,
     ) {
+        let start = Instant::now();
+        let timer = metrics::GET_BLOCK_TIME.start_timer();
         tokio::spawn(async move {
-            let deadline = Instant::now().checked_add(timeout).expect("Infallible");
-            if let Ok(mut success) =
-                tokio::task::spawn_blocking(move || self.get_block_sync(cid, deadline)).await
-            {
+            let mut success = store.contains(&cid).unwrap_or_default();
+            if !success {
+                let deadline = start.checked_add(timeout).expect("Infallible");
+                success = tokio::task::spawn_blocking(move || self.get_block_sync(cid, deadline))
+                    .await
+                    .unwrap_or_default();
                 while !success && Instant::now() < deadline {
                     tokio::time::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
-                    if let Ok(true) = store.contains(&cid) {
-                        success = true;
-                    }
-                }
-                if let Err(e) = responder.send(success) {
-                    warn!("{e}");
+                    success = store.contains(&cid).unwrap_or_default();
                 }
             }
+
+            if success {
+                metrics::message_counter_get_block_success().inc();
+            } else {
+                metrics::message_counter_get_block_failure().inc();
+            }
+
+            if let Err(e) = responder.send_async(success).await {
+                warn!("{e}");
+            }
+
+            timer.observe_duration();
         });
     }
 
@@ -116,8 +127,10 @@ impl BitswapRequestManager {
             }
         }
 
-        info!("get_block_sync waiting for block_saved_rx");
-        success = !success && block_saved_rx.recv_deadline(deadline).is_ok();
+        if !success {
+            info!("get_block_sync waiting for block_saved_rx");
+            success = block_saved_rx.recv_deadline(deadline).is_ok();
+        }
         info!("get_block_sync waiting for block_saved_rx, done: {success}");
 
         // Cleanup
