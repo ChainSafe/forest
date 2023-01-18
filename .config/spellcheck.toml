@@ -7,7 +7,8 @@ search_dirs = ["."]
 skip_os_lookups = true
 use_builtin = true
 tokenization_splitchars = "\",;:.!?#(){}[]|/_-‒'`&@§¶…"
-extra_dictionaries = ["forest.dic", "en_US.dic"]
+# ignore.dic stores unrecogonized words in generated files (e.g. protobuf)
+extra_dictionaries = ["forest.dic", "en_US.dic", "ignore.dic"]
 
 [hunspell.quirks]
 transform_regex = [

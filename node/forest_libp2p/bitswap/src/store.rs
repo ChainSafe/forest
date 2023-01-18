@@ -6,7 +6,7 @@ use libipld::Block;
 
 /// Trait implemented by a block store.
 pub trait BitswapStore: Send + Sync + 'static {
-    /// The store params.
+    /// The store parameters.
     type Params: StoreParams;
     /// A have query needs to know if the block store contains the block.
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool>;
