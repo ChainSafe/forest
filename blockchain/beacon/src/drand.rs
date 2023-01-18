@@ -201,18 +201,24 @@ impl DrandBeacon {
         let chain_info = &config.chain_info;
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            futures::executor::block_on(async {
-                let client = https_client();
-                let remote_chain_info: ChainInfo = client
-                    .get(format!("{}/info", &config.server).try_into()?)
-                    .await?
-                    .into_body()
-                    .json()
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
-                debug_assert!(&remote_chain_info == chain_info);
-                Ok::<(), anyhow::Error>(())
-            })?;
+            let server = config.server;
+            let remote_chain_info = std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new()?;
+                rt.block_on(async {
+                    let client = https_client();
+                    let remote_chain_info: ChainInfo = client
+                        .get(format!("{server}/info").try_into()?)
+                        .await?
+                        .into_body()
+                        .json()
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{e}"))?;
+                    Ok::<ChainInfo, anyhow::Error>(remote_chain_info)
+                })
+            })
+            .join()
+            .expect("thread panicked")?;
+            debug_assert!(&remote_chain_info == chain_info);
         }
 
         Ok(Self {
