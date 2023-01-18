@@ -23,8 +23,6 @@ use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::from_slice;
-use libipld::store::StoreParams;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
@@ -48,7 +46,6 @@ use libp2p::{
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -187,7 +184,7 @@ pub enum NetRPCMethods {
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
-pub struct Libp2pService<DB, P: StoreParams> {
+pub struct Libp2pService<DB> {
     config: Libp2pConfig,
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
@@ -198,12 +195,11 @@ pub struct Libp2pService<DB, P: StoreParams> {
     network_sender_out: Sender<NetworkEvent>,
     network_name: String,
     genesis_cid: Cid,
-    _pd: PhantomData<P>,
 }
 
-impl<DB, P: StoreParams> Libp2pService<DB, P>
+impl<DB> Libp2pService<DB>
 where
-    DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
+    DB: Blockstore + Store + BitswapStore + Clone + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,
@@ -254,7 +250,6 @@ where
             network_sender_out,
             network_name: network_name.into(),
             genesis_cid,
-            _pd: Default::default(),
         }
     }
 
@@ -514,7 +509,7 @@ async fn handle_gossip_event(
         let message = message.data;
         trace!("Got a Gossip Message from {:?}", source);
         if topic == pubsub_block_str {
-            match from_slice::<GossipBlock>(&message) {
+            match fvm_ipld_encoding::from_slice::<GossipBlock>(&message) {
                 Ok(b) => {
                     emit_event(
                         network_sender_out,
@@ -530,7 +525,7 @@ async fn handle_gossip_event(
                 }
             }
         } else if topic == pubsub_msg_str {
-            match from_slice::<SignedMessage>(&message) {
+            match fvm_ipld_encoding::from_slice::<SignedMessage>(&message) {
                 Ok(m) => {
                     emit_event(
                         network_sender_out,

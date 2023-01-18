@@ -3323,7 +3323,6 @@ dependencies = [
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
  "lazy_static",
- "libipld",
  "libp2p",
  "log",
  "multihash",
