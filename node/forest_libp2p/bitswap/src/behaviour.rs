@@ -35,11 +35,7 @@ impl BitswapBehaviour {
             .send_request(peer, vec![BitswapMessage::Request(request)])
     }
 
-    pub async fn send_response(
-        &mut self,
-        peer: &PeerId,
-        response: (Cid, BitswapResponse),
-    ) -> RequestId {
+    pub fn send_response(&mut self, peer: &PeerId, response: (Cid, BitswapResponse)) -> RequestId {
         match response.1 {
             BitswapResponse::Have(..) => metrics::message_counter_outbound_response_have().inc(),
             BitswapResponse::Block(..) => metrics::message_counter_outbound_response_block().inc(),

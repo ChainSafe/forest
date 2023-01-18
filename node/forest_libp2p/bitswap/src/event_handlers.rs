@@ -34,10 +34,8 @@ pub async fn handle_event<S: BitswapStore>(
                     for message in request {
                         match message {
                             BitswapMessage::Request(request) => {
-                                if let Some(response) =
-                                    handle_inbound_request(store, &request).await
-                                {
-                                    bitswap.send_response(&peer, (request.cid, response)).await;
+                                if let Some(response) = handle_inbound_request(store, &request) {
+                                    bitswap.send_response(&peer, (request.cid, response));
                                 }
                             }
                             BitswapMessage::Response(cid, response) => {
@@ -106,7 +104,7 @@ pub async fn handle_event<S: BitswapStore>(
     Ok(())
 }
 
-async fn handle_inbound_request<S: BitswapStore>(
+fn handle_inbound_request<S: BitswapStore>(
     store: &S,
     request: &BitswapRequest,
 ) -> Option<BitswapResponse> {

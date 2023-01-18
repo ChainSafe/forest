@@ -141,7 +141,7 @@ impl BitswapRequestManager {
         success
     }
 
-    pub async fn on_inbound_response_event(&self, response: BitswapInboundResponseEvent) {
+    pub fn on_inbound_response_event(&self, response: BitswapInboundResponseEvent) {
         use BitswapInboundResponseEvent::*;
         match response {
             HaveBlock(peer, cid) => {

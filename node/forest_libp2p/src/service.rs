@@ -347,7 +347,7 @@ where
                 },
                 bitswap_inbound_response_event_opt = bitswap_inbound_response_rx_stream.next() => {
                     if let Some(bitswap_inbound_response_event) = bitswap_inbound_response_event_opt {
-                        bitswap_request_manager.on_inbound_response_event(bitswap_inbound_response_event).await;
+                        bitswap_request_manager.on_inbound_response_event(bitswap_inbound_response_event);
                     }
                 }
                 bitswap_outbound_request_opt = bitswap_outbound_request_rx_stream.next() => {
