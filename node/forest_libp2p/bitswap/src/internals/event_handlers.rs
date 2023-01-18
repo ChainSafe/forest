@@ -9,13 +9,13 @@ use libp2p::{
 };
 use std::sync::Arc;
 
-pub(crate) enum BitswapInboundResponseEvent {
+pub enum BitswapInboundResponseEvent {
     HaveBlock(PeerId, Cid),
     BlockSaved(PeerId, Cid),
 }
 
 // Note: This method performs db IO syncronously to reduce complexity
-pub(crate) async fn handle_event_impl<S: BitswapStore>(
+pub async fn handle_event_impl<S: BitswapStore>(
     request_manager: &Arc<BitswapRequestManager>,
     bitswap: &mut BitswapBehaviour,
     store: &S,
