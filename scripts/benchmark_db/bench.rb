@@ -4,6 +4,7 @@
 
 # Script to test various configurations that can impact performance of the node
 
+require 'csv'
 require 'deep_merge'
 require 'fileutils'
 require 'open3'
@@ -30,6 +31,10 @@ ONLINE_VALIDATION_SECS = 60.0
 
 snapshot_path = ARGV.pop
 raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot_path
+
+CSV.open('results.csv', 'w') do |csv|
+  csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
+end
 
 # Provides human readable formatting to Numeric class
 class Numeric
@@ -134,6 +139,15 @@ def write_import_table(metrics)
   end
 
   result
+end
+
+def write_csv(bench)
+  import_time = bench.metrics[:import][:elapsed]
+  validation_time = bench.metrics[:validate_online][:tps]
+
+  CSV.open('results.csv', 'w') do |csv|
+    csv << [bench.name, import_time, validation_time]
+  end
 end
 
 def write_validate_table(metrics)
@@ -410,6 +424,8 @@ def run_benchmarks(benchmarks, options)
     bench.run(options[:dry_run], options[:daily])
 
     bench_metrics[bench.name] = bench.metrics
+
+    write_csv(bench)
 
     puts "\n"
   end
