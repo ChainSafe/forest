@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, Store};
-use crate::utils::bitswap_missing_blocks;
 use anyhow::Result;
 use cid::Cid;
 use forest_libp2p_bitswap::BitswapStore;
@@ -87,9 +86,5 @@ impl BitswapStore for MemoryDB {
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&self, cid: &Cid) -> Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }

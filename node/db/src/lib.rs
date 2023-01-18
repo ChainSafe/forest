@@ -4,7 +4,6 @@
 mod errors;
 mod memory;
 mod metrics;
-mod utils;
 
 #[cfg(feature = "rocksdb")]
 pub mod rocks;

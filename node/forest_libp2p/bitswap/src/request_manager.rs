@@ -145,7 +145,6 @@ impl BitswapRequestManager {
         use BitswapInboundResponseEvent::*;
         match response {
             HaveBlock(peer, cid) => {
-                // info!("on_inbound_response_event: have");
                 if let Some(chans) = self.response_channels.read().get(&cid) {
                     _ = chans.block_have.send(peer);
                 }

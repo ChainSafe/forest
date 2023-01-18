@@ -14,6 +14,4 @@ pub trait BitswapStore: Send + Sync + 'static {
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>>;
     /// A block response needs to insert the block into the store.
     fn insert(&self, block: &Block<Self::Params>) -> anyhow::Result<()>;
-    /// A sync query needs a list of missing blocks to make progress.
-    fn missing_blocks(&self, cid: &Cid) -> anyhow::Result<Vec<Cid>>;
 }

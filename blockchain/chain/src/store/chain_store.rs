@@ -107,10 +107,6 @@ where
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.db.insert(block)
     }
-
-    fn missing_blocks(&self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        self.db.missing_blocks(cid)
-    }
 }
 
 impl<DB> ChainStore<DB>

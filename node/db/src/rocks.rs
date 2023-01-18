@@ -4,7 +4,7 @@
 use super::errors::Error;
 use super::Store;
 use crate::rocks_config::RocksDbConfig;
-use crate::{metrics, utils::bitswap_missing_blocks, DBStatistics};
+use crate::{metrics, DBStatistics};
 use anyhow::anyhow;
 use cid::Cid;
 use forest_libp2p_bitswap::BitswapStore;
@@ -312,10 +312,6 @@ impl BitswapStore for RocksDb {
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
 
