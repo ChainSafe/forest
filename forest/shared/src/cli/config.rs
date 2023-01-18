@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_chain_sync::SyncConfig;
@@ -257,8 +257,8 @@ mod test {
                     optimize_for_point_lookup: i32::arbitrary(g),
                 },
                 parity_db: forest_db::parity_db_config::ParityDbConfig {
-                    stats: bool::arbitrary(g),
-                    compression: String::arbitrary(g),
+                    enable_statistics: bool::arbitrary(g),
+                    compression_type: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
                     listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
