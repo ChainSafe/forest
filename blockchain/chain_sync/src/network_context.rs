@@ -14,7 +14,7 @@ use forest_libp2p::{
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
 use forest_utils::db::BlockstoreExt;
-use futures::{channel::oneshot::channel as oneshot_channel, StreamExt};
+use futures::channel::oneshot::channel as oneshot_channel;
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, trace, warn};
 use std::sync::{atomic::Ordering, Arc};
@@ -136,7 +136,7 @@ where
         if let Some(b) = self.db.get_obj(&content).map_err(|e| e.to_string())? {
             return Ok(b);
         }
-        log::info!("bitswap_get_no_timeout");
+
         let (have_tx, have_rx) = flume::unbounded();
         self.network_send
             .send_async(NetworkMessage::BitswapRequestHave {
@@ -147,7 +147,8 @@ where
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
         let (block_tx, block_rx) = flume::bounded(1);
         let mut success = false;
-        while let Some(peer) = have_rx.stream().fuse().next().await {
+        let block_rx = Arc::new(block_rx);
+        while let Ok(peer) = have_rx.try_recv() {
             if let Err(e) = self
                 .network_send
                 .send_async(NetworkMessage::BitswapRequestBlock {
@@ -160,9 +161,19 @@ where
                 warn!("{e}");
             }
 
-            log::info!("bitswap_get_no_timeout waiting for block, cid: {content}");
             const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
-            if let Ok(()) = block_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
+            // if let Ok(Ok(())) =
+            //     tokio::time::timeout(BITSWAP_BLOCK_REQUEST_INTERVAL, block_rx.recv_async()).await
+            // {
+            //     success = true;
+            //     break;
+            // }
+            let block_rx = block_rx.clone();
+            if let Ok(Ok(())) = tokio::task::spawn_blocking(move || {
+                block_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL)
+            })
+            .await
+            {
                 success = true;
                 break;
             }

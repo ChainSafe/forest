@@ -88,12 +88,7 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
         );
 
         let bytes = messages[0].to_bytes()?;
-        upgrade::write_length_prefixed(io, bytes)
-            .await
-            .map_err(|e| {
-                warn!("write_request: {e}");
-                e
-            })
+        upgrade::write_length_prefixed(io, bytes).await
     }
 
     // Sending `FIN` header and close the stream

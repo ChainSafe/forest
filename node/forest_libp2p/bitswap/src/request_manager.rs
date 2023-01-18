@@ -69,11 +69,9 @@ impl BitswapRequestManager {
     }
 
     pub async fn on_inbound_response_event(&mut self, response: BitswapInboundResponseEvent) {
-        info!("on_inbound_response_event");
         use BitswapInboundResponseEvent::*;
         match response {
             HaveBlock(peer, cid) => {
-                info!("on_inbound_response_event: have: {cid}, {peer}");
                 if let Some(chans) = self.response_channels.get(&cid) {
                     for tx in &chans.block_have {
                         _ = tx.send_async(peer).await;
@@ -81,9 +79,10 @@ impl BitswapRequestManager {
                 }
             }
             BlockSaved(_peer, cid) => {
-                info!("on_inbound_response_event: block: {cid}");
                 // Cleanup on success
                 self.response_channels.remove(&cid);
+                metrics::response_channel_container_capacity()
+                    .set(self.response_channels.capacity() as _);
                 if let Some(chans) = self.response_channels.get(&cid) {
                     for tx in &chans.block_saved {
                         _ = tx.send_async(()).await;

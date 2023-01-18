@@ -55,6 +55,15 @@ pub(crate) fn message_counter_inbound_response_block() -> GenericCounter<AtomicU
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block"])
 }
 
+pub(crate) fn message_counter_inbound_response_block_update_db() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["inbound_response_block_update_db"])
+}
+
+pub(crate) fn message_counter_inbound_response_block_update_db_failure() -> GenericCounter<AtomicU64>
+{
+    MESSAGE_COUNTER.with_label_values(&["inbound_response_block_update_db_failure"])
+}
+
 pub(crate) fn message_counter_outbound_response_have() -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["outbound_response_have"])
 }

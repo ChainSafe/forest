@@ -59,12 +59,16 @@ pub async fn handle_event<S: BitswapStore>(
                                         } else {
                                             match Block::new(cid, data) {
                                                 Ok(block) => match store.insert(&block) {
-                                                    Ok(()) => Some(
-                                                        BitswapInboundResponseEvent::BlockSaved(
-                                                            peer, cid,
-                                                        ),
-                                                    ),
+                                                    Ok(()) => {
+                                                        metrics::message_counter_inbound_response_block_update_db().inc();
+                                                        Some(
+                                                            BitswapInboundResponseEvent::BlockSaved(
+                                                                peer, cid,
+                                                            ),
+                                                        )
+                                                    }
                                                     Err(e) => {
+                                                        metrics::message_counter_inbound_response_block_update_db_failure().inc();
                                                         warn!("Failed to update db: {e}, cid: {cid}, data: {:?}",block.data());
                                                         None
                                                     }
