@@ -9,6 +9,7 @@ use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
+use log::warn;
 use parity_db::{CompressionType, Db, Options};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -17,6 +18,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
+    statistics_enabled: bool,
 }
 
 /// Converts string to a compression `ParityDb` variant.
@@ -32,12 +34,12 @@ fn compression_type_from_str(s: &str) -> anyhow::Result<CompressionType> {
 impl ParityDb {
     fn to_options(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Options> {
         const COLUMNS: usize = 1;
-        let compression = compression_type_from_str(&config.compression)?;
+        let compression = compression_type_from_str(&config.compression_type)?;
         Ok(Options {
             path,
             sync_wal: true,
             sync_data: true,
-            stats: config.stats,
+            stats: config.enable_statistics,
             salt: None,
             columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
@@ -53,6 +55,7 @@ impl ParityDb {
         let opts = Self::to_options(path, config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
+            statistics_enabled: opts.stats,
         })
     }
 }
@@ -151,7 +154,27 @@ impl BitswapStore for ParityDb {
     }
 }
 
-impl DBStatistics for ParityDb {}
+impl DBStatistics for ParityDb {
+    fn get_statistics(&self) -> Option<String> {
+        if !self.statistics_enabled {
+            return None;
+        }
+
+        let mut buf = Vec::new();
+        if let Err(err) = self.db.write_stats_text(&mut buf, None) {
+            warn!("Unable to write database statistics: {err}");
+            return None;
+        }
+
+        match String::from_utf8(buf) {
+            Ok(stats) => Some(stats),
+            Err(e) => {
+                warn!("Malformed statistics: {e}");
+                None
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {

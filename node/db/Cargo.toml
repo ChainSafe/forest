@@ -28,6 +28,7 @@ fvm_ipld_blockstore.workspace = true
 lazy_static.workspace = true
 libipld.workspace = true
 libp2p-bitswap.workspace = true
+log.workspace = true
 num_cpus.workspace = true
 parity-db = { version = "0.4", default-features = false, optional = true }
 parking_lot.workspace = true

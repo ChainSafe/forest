@@ -7,15 +7,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ParityDbConfig {
-    pub stats: bool,
-    pub compression: String,
+    pub enable_statistics: bool,
+    pub compression_type: String,
 }
 
 impl Default for ParityDbConfig {
     fn default() -> Self {
         Self {
-            stats: false,
-            compression: "lz4".into(),
+            enable_statistics: false,
+            compression_type: "lz4".into(),
         }
     }
 }

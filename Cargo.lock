@@ -3063,6 +3063,7 @@ dependencies = [
  "lazy_static",
  "libipld",
  "libp2p-bitswap",
+ "log",
  "num_cpus",
  "parity-db",
  "parking_lot 0.12.1",
