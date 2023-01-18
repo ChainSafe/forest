@@ -284,10 +284,13 @@ where
         let mut cx_request_table = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let (bitswap_inbound_response_tx, bitswap_inbound_response_rx) = flume::unbounded();
-        let mut bitswap_request_manager = BitswapRequestManager::default();
+        let (bitswap_outbound_request_tx, bitswap_outbound_request_rx) = flume::unbounded();
+        let mut bitswap_request_manager =
+            Arc::new(BitswapRequestManager::new(bitswap_outbound_request_tx));
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
         let mut bitswap_inbound_response_rx_stream = bitswap_inbound_response_rx.stream().fuse();
+        let mut bitswap_outbound_request_rx_stream = bitswap_outbound_request_rx.stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -300,7 +303,7 @@ where
                         metrics.record(&event);
                         handle_forest_behaviour_event(
                             swarm_stream.get_mut(),
-                            &mut bitswap_request_manager,
+                            &bitswap_request_manager,
                             &self.peer_manager,
                             event,
                             &self.cs,
@@ -322,7 +325,7 @@ where
                         handle_network_message(
                             swarm_stream.get_mut(),
                             self.cs.blockstore(),
-                            &mut bitswap_request_manager,
+                            bitswap_request_manager.clone(),
                             message,
                             &self.network_sender_out,
                             &mut hello_request_table,
@@ -345,6 +348,12 @@ where
                 bitswap_inbound_response_event_opt = bitswap_inbound_response_rx_stream.next() => {
                     if let Some(bitswap_inbound_response_event) = bitswap_inbound_response_event_opt {
                         bitswap_request_manager.on_inbound_response_event(bitswap_inbound_response_event).await;
+                    }
+                }
+                bitswap_outbound_request_opt = bitswap_outbound_request_rx_stream.next() => {
+                    if let Some((peer, request)) = bitswap_outbound_request_opt {
+                        let bitswap = &mut swarm_stream.get_mut().behaviour_mut().bitswap;
+                        bitswap.send_request(&peer, request);
                     }
                 }
                 peer_ops_opt = peer_ops_rx_stream.next() => {
@@ -385,7 +394,7 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
 async fn handle_network_message(
     swarm: &mut Swarm<ForestBehaviour>,
     store: &impl BitswapStore,
-    bitswap_request_manager: &mut BitswapRequestManager,
+    bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
     hello_request_table: &mut HelloRequestTable,
@@ -436,11 +445,14 @@ async fn handle_network_message(
             cid,
             response_channel,
         } => {
-            let bitswap = &mut swarm.behaviour_mut().bitswap;
-            let success = bitswap_request_manager
-                .get_block_sync(bitswap, cid, BITSWAP_TIMEOUT)
-                .await;
-            _ = response_channel.send_async(success).await;
+            if let Err(e) = tokio::task::spawn_blocking(move || {
+                let success = bitswap_request_manager.get_block_sync(cid, BITSWAP_TIMEOUT);
+                _ = response_channel.send(success);
+            })
+            .await
+            {
+                warn!("{e}");
+            }
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {
@@ -489,7 +501,7 @@ async fn handle_network_message(
 
 async fn handle_discovery_event(
     discovery_out: DiscoveryOut,
-    bitswap_request_manager: &mut BitswapRequestManager,
+    bitswap_request_manager: &Arc<BitswapRequestManager>,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
     match discovery_out {
@@ -829,7 +841,7 @@ async fn handle_chain_exchange_event<DB>(
 #[allow(clippy::too_many_arguments)]
 async fn handle_forest_behaviour_event<DB, P>(
     swarm: &mut Swarm<ForestBehaviour>,
-    bitswap_request_manager: &mut BitswapRequestManager,
+    bitswap_request_manager: &Arc<BitswapRequestManager>,
     peer_manager: &Arc<PeerManager>,
     event: ForestBehaviourEvent,
     db: &Arc<ChainStore<DB>>,

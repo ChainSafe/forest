@@ -3350,6 +3350,7 @@ dependencies = [
  "lazy_static",
  "libipld",
  "libp2p",
+ "parking_lot 0.12.1",
  "prometheus",
  "prost 0.11.6",
  "tokio",

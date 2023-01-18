@@ -2,6 +2,7 @@ use crate::*;
 use hashbrown::{HashMap, HashSet};
 use libipld::Cid;
 use libp2p::PeerId;
+use parking_lot::RwLock;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -11,61 +12,77 @@ struct ResponseChannels {
 }
 
 // TODO: Use message queue like `go-bitswap`
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BitswapRequestManager {
-    peers: HashSet<PeerId>,
-    response_channels: HashMap<Cid, ResponseChannels>,
+    outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
+    peers: RwLock<HashSet<PeerId>>,
+    response_channels: RwLock<HashMap<Cid, ResponseChannels>>,
 }
 
 impl BitswapRequestManager {
-    pub fn add_peer(&mut self, peer: PeerId) -> bool {
-        let r = self.peers.insert(peer);
+    pub fn new(outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>) -> Self {
+        Self {
+            outbound_request_tx,
+            peers: RwLock::new(HashSet::new()),
+            response_channels: RwLock::new(HashMap::new()),
+        }
+    }
+}
+
+impl BitswapRequestManager {
+    pub fn add_peer(&self, peer: PeerId) -> bool {
+        let r = self.peers.write().insert(peer);
         if r {
-            metrics::peer_container_capacity().set(self.peers.capacity() as _);
+            metrics::peer_container_capacity().set(self.peers.read().capacity() as _);
         }
         r
     }
 
-    pub fn remove_peer(&mut self, peer: &PeerId) -> bool {
-        let r = self.peers.remove(peer);
+    pub fn remove_peer(&self, peer: &PeerId) -> bool {
+        let r = self.peers.write().remove(peer);
         if r {
-            metrics::peer_container_capacity().set(self.peers.capacity() as _);
+            metrics::peer_container_capacity().set(self.peers.read().capacity() as _);
         }
         r
     }
 
-    pub async fn get_block_sync(
-        &mut self,
-        bitswap: &mut BitswapBehaviour,
-        cid: Cid,
-        timeout: Duration,
-    ) -> bool {
+    pub fn get_block_sync(&self, cid: Cid, timeout: Duration) -> bool {
         info!("get_block_sync start");
+        if self.response_channels.read().contains_key(&cid) {
+            // TODO: spin and check db
+            return false;
+        }
+
         let (block_saved_tx, block_saved_rx) = flume::unbounded();
         let channels = ResponseChannels {
             block_saved: block_saved_tx,
         };
+        {
+            self.response_channels.write().insert(cid, channels);
+        }
 
-        self.response_channels.insert(cid, channels);
         let block_request = BitswapRequest::new_block(cid).send_dont_have(false);
-        for peer in &self.peers {
-            bitswap.send_request(peer, block_request.clone());
+        for &peer in self.peers.read().iter() {
+            if let Err(e) = self.outbound_request_tx.send((peer, block_request.clone())) {
+                warn!("{e}");
+            }
         }
 
         info!("get_block_sync waiting for block_saved_rx");
-        let success = tokio::task::spawn_blocking(move || block_saved_rx.recv_timeout(timeout))
-            .await
-            .is_ok();
+        let success = block_saved_rx.recv_timeout(timeout).is_ok();
         info!("get_block_sync waiting for block_saved_rx, done: {success}");
 
-        self.response_channels.remove(&cid);
-
-        metrics::response_channel_container_capacity().set(self.response_channels.capacity() as _);
+        // Cleanup
+        {
+            self.response_channels.write().remove(&cid);
+            metrics::response_channel_container_capacity()
+                .set(self.response_channels.read().capacity() as _);
+        }
 
         success
     }
 
-    pub async fn on_inbound_response_event(&mut self, response: BitswapInboundResponseEvent) {
+    pub async fn on_inbound_response_event(&self, response: BitswapInboundResponseEvent) {
         use BitswapInboundResponseEvent::*;
         match response {
             HaveBlock(peer, cid) => {
@@ -77,10 +94,9 @@ impl BitswapRequestManager {
                 // }
             }
             BlockSaved(_peer, cid) => {
-                // info!("on_inbound_response_event: block");
-                if let Some(chans) = self.response_channels.get(&cid) {
+                if let Some(chans) = self.response_channels.read().get(&cid) {
                     info!("on_inbound_response_event: block sending");
-                    _ = chans.block_saved.send_async(()).await;
+                    _ = chans.block_saved.send(());
                     info!("on_inbound_response_event: block sent");
                 }
             }
