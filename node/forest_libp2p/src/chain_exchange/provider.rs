@@ -151,7 +151,9 @@ mod tests {
     use super::*;
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
+    use forest_networks::ChainConfig;
     use fvm_ipld_car::load_car;
+    use std::sync::Arc;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -168,7 +170,7 @@ mod tests {
         let (cids, db) = populate_db().await;
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db),
+            &ChainStore::new(db, Arc::new(ChainConfig::default())),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
