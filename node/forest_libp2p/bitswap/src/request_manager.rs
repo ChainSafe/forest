@@ -40,17 +40,19 @@ impl BitswapRequestManager {
 
 impl BitswapRequestManager {
     pub fn add_peer(&self, peer: PeerId) -> bool {
-        let r = self.peers.write().insert(peer);
+        let mut peers = self.peers.write();
+        let r = peers.insert(peer);
         if r {
-            metrics::peer_container_capacity().set(self.peers.read().capacity() as _);
+            metrics::peer_container_capacity().set(peers.capacity() as _);
         }
         r
     }
 
     pub fn remove_peer(&self, peer: &PeerId) -> bool {
-        let r = self.peers.write().remove(peer);
+        let mut peers = self.peers.write();
+        let r = peers.remove(peer);
         if r {
-            metrics::peer_container_capacity().set(self.peers.read().capacity() as _);
+            metrics::peer_container_capacity().set(peers.capacity() as _);
         }
         r
     }
@@ -144,9 +146,9 @@ impl BitswapRequestManager {
 
         // Cleanup
         {
-            self.response_channels.write().remove(&cid);
-            metrics::response_channel_container_capacity()
-                .set(self.response_channels.read().capacity() as _);
+            let mut response_channels = self.response_channels.write();
+            response_channels.remove(&cid);
+            metrics::response_channel_container_capacity().set(response_channels.capacity() as _);
         }
 
         success
