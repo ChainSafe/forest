@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use directories::ProjectDirs;
 use forest_db::db_engine::{db_path, open_db, DbConfig};
