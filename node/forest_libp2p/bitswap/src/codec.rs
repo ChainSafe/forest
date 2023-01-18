@@ -22,6 +22,10 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
         T: AsyncRead + Send + Unpin,
     {
         let data = upgrade::read_length_prefixed(io, MAX_BUF_SIZE).await?;
+
+        metrics::inbound_stream_count().inc();
+        metrics::inbound_bytes().inc_by(data.len() as _);
+
         let pb_msg = proto::Message::decode(&data[..]).map_err(map_io_err)?;
         let mut parts = vec![];
         for entry in pb_msg.wantlist.unwrap_or_default().entries {
@@ -95,6 +99,10 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
         );
 
         let bytes = messages[0].to_bytes()?;
+
+        metrics::outbound_stream_count().inc();
+        metrics::outbound_bytes().inc_by(bytes.len() as _);
+
         upgrade::write_length_prefixed(io, bytes).await
     }
 

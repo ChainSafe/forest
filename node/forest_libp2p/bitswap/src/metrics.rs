@@ -8,6 +8,11 @@ use prometheus::{
 };
 
 lazy_static! {
+    static ref MESSAGE_SIZE: IntCounterVec = IntCounterVec::new(
+        Opts::new("bitswap_message_size", "Size of bitswap messages",),
+        &["type"],
+    )
+    .expect("Infallible");
     static ref MESSAGE_COUNTER: IntCounterVec = IntCounterVec::new(
         Opts::new("bitswap_message_count", "Number of bitswap messages",),
         &["type"],
@@ -29,11 +34,28 @@ lazy_static! {
 }
 
 pub fn register_metrics(registry: &Registry) -> anyhow::Result<()> {
+    registry.register(Box::new(MESSAGE_SIZE.clone()))?;
     registry.register(Box::new(MESSAGE_COUNTER.clone()))?;
     registry.register(Box::new(CONTAINER_CAPACITIES.clone()))?;
     registry.register(Box::new(GET_BLOCK_TIME.clone()))?;
 
     Ok(())
+}
+
+pub(crate) fn inbound_bytes() -> GenericCounter<AtomicU64> {
+    MESSAGE_SIZE.with_label_values(&["inbound_bytes"])
+}
+
+pub(crate) fn outbound_bytes() -> GenericCounter<AtomicU64> {
+    MESSAGE_SIZE.with_label_values(&["outbound_bytes"])
+}
+
+pub(crate) fn inbound_stream_count() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["inbound_stream_count"])
+}
+
+pub(crate) fn outbound_stream_count() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["outbound_stream_count"])
 }
 
 pub(crate) fn message_counter_get_block_success() -> GenericCounter<AtomicU64> {
