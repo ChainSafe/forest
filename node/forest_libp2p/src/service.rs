@@ -285,7 +285,7 @@ where
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let (bitswap_inbound_response_tx, bitswap_inbound_response_rx) = flume::unbounded();
         let (bitswap_outbound_request_tx, bitswap_outbound_request_rx) = flume::unbounded();
-        let mut bitswap_request_manager =
+        let bitswap_request_manager =
             Arc::new(BitswapRequestManager::new(bitswap_outbound_request_tx));
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();

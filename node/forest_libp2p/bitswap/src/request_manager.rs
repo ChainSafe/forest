@@ -1,13 +1,19 @@
 use crate::*;
+use flume::TryRecvError;
 use hashbrown::{HashMap, HashSet};
 use libipld::Cid;
 use libp2p::PeerId;
 use parking_lot::RwLock;
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone)]
 struct ResponseChannels {
-    // block_have: flume::Sender<PeerId>,
+    block_have: flume::Sender<PeerId>,
     block_saved: flume::Sender<()>,
 }
 
@@ -63,28 +69,50 @@ impl BitswapRequestManager {
 
     pub fn get_block_sync(&self, cid: Cid, timeout: Duration) -> bool {
         info!("get_block_sync start");
+        let deadline = Instant::now().checked_add(timeout).expect("Infallible");
         if self.response_channels.read().contains_key(&cid) {
             // TODO: spin and check db
             return false;
         }
 
+        let (block_have_tx, block_have_rx) = flume::unbounded();
         let (block_saved_tx, block_saved_rx) = flume::unbounded();
         let channels = ResponseChannels {
+            block_have: block_have_tx,
             block_saved: block_saved_tx,
         };
         {
             self.response_channels.write().insert(cid, channels);
         }
 
-        let block_request = BitswapRequest::new_block(cid).send_dont_have(false);
+        let have_request = BitswapRequest::new_have(cid).send_dont_have(false);
         for &peer in self.peers.read().iter() {
-            if let Err(e) = self.outbound_request_tx.send((peer, block_request.clone())) {
+            if let Err(e) = self.outbound_request_tx.send((peer, have_request.clone())) {
                 warn!("{e}");
             }
         }
 
+        let mut success = false;
+        let block_request = BitswapRequest::new_block(cid).send_dont_have(false);
+        while !success && Instant::now() < deadline {
+            match block_have_rx.try_recv() {
+                Ok(peer) => {
+                    _ = self.outbound_request_tx.send((peer, block_request.clone()));
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    break;
+                }
+            }
+
+            info!("get_block_sync waiting for block_saved_rx");
+            if let Ok(()) = block_saved_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
+                success = true;
+            }
+        }
+
         info!("get_block_sync waiting for block_saved_rx");
-        let success = block_saved_rx.recv_timeout(timeout).is_ok();
+        success = !success && block_saved_rx.recv_deadline(deadline).is_ok();
         info!("get_block_sync waiting for block_saved_rx, done: {success}");
 
         // Cleanup
@@ -102,17 +130,13 @@ impl BitswapRequestManager {
         match response {
             HaveBlock(peer, cid) => {
                 // info!("on_inbound_response_event: have");
-                // if let Some(chans) = self.response_channels.get(&cid) {
-                //     info!("on_inbound_response_event: have sending");
-                //     join_all(chans.block_have.iter().map(|tx| tx.send_async(peer))).await;
-                //     info!("on_inbound_response_event: have sent");
-                // }
+                if let Some(chans) = self.response_channels.read().get(&cid) {
+                    _ = chans.block_have.send(peer);
+                }
             }
             BlockSaved(_peer, cid) => {
                 if let Some(chans) = self.response_channels.read().get(&cid) {
-                    info!("on_inbound_response_event: block sending");
                     _ = chans.block_saved.send(());
-                    info!("on_inbound_response_event: block sent");
                 }
             }
         }
