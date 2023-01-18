@@ -55,13 +55,13 @@ impl BitswapRequestManager {
         r
     }
 
-    pub async fn handle_event<S: BitswapStore>(
+    pub fn handle_event<S: BitswapStore>(
         self: &Arc<Self>,
         bitswap: &mut BitswapBehaviour,
         store: &S,
         event: BitswapBehaviourEvent,
     ) -> anyhow::Result<()> {
-        handle_event_impl(self, bitswap, store, event).await
+        handle_event_impl(self, bitswap, store, event)
     }
 
     pub fn get_block(

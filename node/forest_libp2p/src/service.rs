@@ -852,10 +852,11 @@ async fn handle_forest_behaviour_event<DB, P>(
             .await
         }
         ForestBehaviourEvent::Bitswap(event) => {
-            if let Err(e) = bitswap_request_manager
-                .handle_event(&mut swarm.behaviour_mut().bitswap, db.blockstore(), event)
-                .await
-            {
+            if let Err(e) = bitswap_request_manager.handle_event(
+                &mut swarm.behaviour_mut().bitswap,
+                db.blockstore(),
+                event,
+            ) {
                 warn!("bitswap: {e}");
             }
         }

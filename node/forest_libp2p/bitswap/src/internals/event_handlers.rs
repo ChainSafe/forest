@@ -15,7 +15,7 @@ pub enum BitswapInboundResponseEvent {
 }
 
 // Note: This method performs db IO syncronously to reduce complexity
-pub async fn handle_event_impl<S: BitswapStore>(
+pub fn handle_event_impl<S: BitswapStore>(
     request_manager: &Arc<BitswapRequestManager>,
     bitswap: &mut BitswapBehaviour,
     store: &S,
