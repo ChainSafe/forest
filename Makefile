@@ -70,7 +70,7 @@ lint: license clean
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
-	cargo clippy --features slow_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
 # Formats Rust and TOML files
@@ -92,7 +92,7 @@ pull-serialization-tests:
 	git submodule update --init
 
 run-serialization-vectors:
-	cargo nextest run --release --manifest-path=$(SER_TESTS)/Cargo.toml --features submodule_tests
+	cargo nextest run --manifest-path=$(SER_TESTS)/Cargo.toml --features submodule_tests
 
 run-vectors: run-serialization-vectors
 
@@ -100,7 +100,7 @@ test-vectors: pull-serialization-tests run-vectors
 
 # Test all without the submodule test vectors with release configuration
 test:
-	cargo nextest run --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto --exclude forest_db
+	cargo nextest run --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
 	cargo nextest run -p forest_crypto --features blst --no-default-features
 	cargo nextest run -p forest_message --features blst --no-default-features
 	cargo nextest run -p forest_db --no-default-features --features paritydb
@@ -116,6 +116,9 @@ test-release:
 	cargo nextest run --release --all --exclude serialization_tests --exclude forest_message --exclude forest_crypto
 	cargo nextest run --release -p forest_crypto --features blst --no-default-features
 	cargo nextest run --release -p forest_message --features blst --no-default-features
+	cargo nextest run --release -p forest_db --no-default-features --features paritydb
+	cargo nextest run --release -p forest_db --no-default-features --features rocksdb
+	cargo check --tests --features slow_tests
 
 test-slow-release:
 	cargo nextest run --release -p forest_message_pool --features slow_tests
@@ -125,7 +128,9 @@ test-slow-release:
 smoke-test:
 	./scripts/smoke_test.sh
 
-test-all: test-release test-vectors test-slow-release
+test-all: test test-vectors test-slow
+
+test-all-release: test-release test-vectors test-slow-release
 
 # Checks if all headers are present and adds if not
 license:
@@ -143,4 +148,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --no-deps
 
-.PHONY: clean clean-all lint build release test test-all test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc

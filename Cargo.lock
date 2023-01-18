@@ -2874,7 +2874,6 @@ dependencies = [
  "byteorder",
  "forest_encoding",
  "forest_utils",
- "futures",
  "fvm_shared",
  "hex",
  "parking_lot 0.12.1",
