@@ -122,69 +122,31 @@ where
         &self,
         content: Cid,
     ) -> Result<TMessage, String> {
-        tokio::time::timeout(BITSWAP_TIMEOUT, self.bitswap_get_no_timeout(content))
-            .await
-            .map_err(|_| "bitswap_get timeout".to_string())?
-    }
-
-    async fn bitswap_get_no_timeout<TMessage: DeserializeOwned>(
-        &self,
-        content: Cid,
-    ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
         // database. If it does, return it, else fetch over the network.
         if let Some(b) = self.db.get_obj(&content).map_err(|e| e.to_string())? {
             return Ok(b);
         }
 
-        let (have_tx, have_rx) = flume::unbounded();
+        log::info!("bitswap_get sending, cid: {content}");
+
+        let (tx, rx) = flume::bounded(1);
+
         self.network_send
-            .send_async(NetworkMessage::BitswapRequestHave {
+            .send_async(NetworkMessage::BitswapRequest {
                 cid: content,
-                response_channel: have_tx,
+                response_channel: tx,
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-        let (block_tx, block_rx) = flume::bounded(1);
-        let mut success = false;
-        let block_rx = Arc::new(block_rx);
-        while let Ok(peer) = have_rx.try_recv() {
-            if let Err(e) = self
-                .network_send
-                .send_async(NetworkMessage::BitswapRequestBlock {
-                    peer,
-                    cid: content,
-                    response_channel: block_tx.clone(),
-                })
-                .await
-            {
-                warn!("{e}");
-            }
 
-            const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
-            // if let Ok(Ok(())) =
-            //     tokio::time::timeout(BITSWAP_BLOCK_REQUEST_INTERVAL, block_rx.recv_async()).await
-            // {
-            //     success = true;
-            //     break;
-            // }
-            let block_rx = block_rx.clone();
-            if let Ok(Ok(())) = tokio::task::spawn_blocking(move || {
-                block_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL)
-            })
-            .await
-            {
-                success = true;
-                break;
-            }
-        }
-        if !success {
-            if let Ok(()) = block_rx.recv_async().await {
-                success = true;
-            }
-        }
+        let success = tokio::task::spawn_blocking(move || {
+            rx.recv_timeout(BITSWAP_TIMEOUT).unwrap_or_default()
+        })
+        .await
+        .is_ok();
 
-        log::info!("bitswap_get_no_timeout. success: {success}, cid: {content}");
+        log::info!("bitswap_get. success: {success}, cid: {content}");
 
         match self.db.get_obj(&content) {
             Ok(Some(b)) => Ok(b),

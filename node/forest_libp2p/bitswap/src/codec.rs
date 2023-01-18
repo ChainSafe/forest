@@ -22,6 +22,10 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
         let pb_msg = proto::Message::decode(&data[..]).map_err(map_io_err)?;
         let mut parts = vec![];
         for entry in pb_msg.wantlist.unwrap_or_default().entries {
+            // TODO: Implement cancellation
+            if entry.cancel {
+                continue;
+            }
             let cid = Cid::try_from(entry.block).map_err(map_io_err)?;
             let ty = match entry.want_type {
                 ty if proto::message::wantlist::WantType::Have as i32 == ty => RequestType::Have,

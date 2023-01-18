@@ -174,14 +174,9 @@ pub enum NetworkMessage {
         request: HelloRequest,
         response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
     },
-    BitswapRequestHave {
+    BitswapRequest {
         cid: Cid,
-        response_channel: flume::Sender<PeerId>,
-    },
-    BitswapRequestBlock {
-        peer: PeerId,
-        cid: Cid,
-        response_channel: flume::Sender<()>,
+        response_channel: flume::Sender<bool>,
     },
     JSONRPCRequest {
         method: NetRPCMethods,
@@ -437,24 +432,15 @@ async fn handle_network_message(
             )
             .await;
         }
-        NetworkMessage::BitswapRequestHave {
+        NetworkMessage::BitswapRequest {
             cid,
             response_channel,
         } => {
             let bitswap = &mut swarm.behaviour_mut().bitswap;
-            bitswap_request_manager.broadcast_have_request(bitswap, cid, response_channel);
-        }
-        NetworkMessage::BitswapRequestBlock {
-            peer,
-            cid,
-            response_channel,
-        } => {
-            if let Ok(true) = store.contains(&cid) {
-                _ = response_channel.send(());
-            } else {
-                let bitswap = &mut swarm.behaviour_mut().bitswap;
-                bitswap_request_manager.send_block_request(bitswap, &peer, cid, response_channel);
-            }
+            let success = bitswap_request_manager
+                .get_block_sync(bitswap, cid, BITSWAP_TIMEOUT)
+                .await;
+            _ = response_channel.send_async(success).await;
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {
