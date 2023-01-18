@@ -128,8 +128,6 @@ where
             return Ok(b);
         }
 
-        log::info!("bitswap_get sending, cid: {content}");
-
         let (tx, rx) = flume::bounded(1);
 
         self.network_send
@@ -145,8 +143,6 @@ where
         })
         .await
         .is_ok();
-
-        log::info!("bitswap_get. success: {success}, cid: {content}");
 
         match self.db.get_obj(&content) {
             Ok(Some(b)) => Ok(b),

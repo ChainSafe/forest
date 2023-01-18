@@ -89,8 +89,6 @@ impl BitswapRequestManager {
     }
 
     fn get_block_sync(&self, cid: Cid, deadline: Instant) -> bool {
-        info!("get_block_sync start");
-
         let (block_have_tx, block_have_rx) = flume::unbounded();
         let (block_saved_tx, block_saved_rx) = flume::unbounded();
         let channels = ResponseChannels {
@@ -121,17 +119,14 @@ impl BitswapRequestManager {
                 }
             }
 
-            info!("get_block_sync waiting for block_saved_rx");
             if let Ok(()) = block_saved_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
                 success = true;
             }
         }
 
         if !success {
-            info!("get_block_sync waiting for block_saved_rx");
             success = block_saved_rx.recv_deadline(deadline).is_ok();
         }
-        info!("get_block_sync waiting for block_saved_rx, done: {success}");
 
         // Cleanup
         {
