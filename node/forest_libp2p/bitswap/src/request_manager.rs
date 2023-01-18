@@ -3,7 +3,7 @@ use hashbrown::{HashMap, HashSet};
 use libipld::Cid;
 use libp2p::PeerId;
 use parking_lot::RwLock;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 #[derive(Debug, Clone)]
 struct ResponseChannels {
@@ -44,6 +44,21 @@ impl BitswapRequestManager {
             metrics::peer_container_capacity().set(self.peers.read().capacity() as _);
         }
         r
+    }
+
+    pub fn get_block(self: Arc<Self>, cid: Cid, timeout: Duration, responder: flume::Sender<bool>) {
+        tokio::spawn(async move {
+            if let Err(e) = tokio::task::spawn_blocking(move || {
+                let success = self.get_block_sync(cid, timeout);
+                if let Err(e) = responder.send(success) {
+                    warn!("{e}");
+                }
+            })
+            .await
+            {
+                warn!("{e}");
+            }
+        });
     }
 
     pub fn get_block_sync(&self, cid: Cid, timeout: Duration) -> bool {

@@ -445,14 +445,7 @@ async fn handle_network_message(
             cid,
             response_channel,
         } => {
-            if let Err(e) = tokio::task::spawn_blocking(move || {
-                let success = bitswap_request_manager.get_block_sync(cid, BITSWAP_TIMEOUT);
-                _ = response_channel.send(success);
-            })
-            .await
-            {
-                warn!("{e}");
-            }
+            bitswap_request_manager.get_block(cid, BITSWAP_TIMEOUT, response_channel);
         }
         NetworkMessage::JSONRPCRequest { method } => match method {
             NetRPCMethods::NetAddrsListen(response_channel) => {
