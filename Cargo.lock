@@ -3533,6 +3533,7 @@ version = "0.1.0"
 dependencies = [
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.16",
+ "serde",
 ]
 
 [[package]]
