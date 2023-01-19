@@ -5,6 +5,11 @@ require 'set'
 
 exit_code = 0
 
+def get_pattern(crate_raw)
+  crate = crate_raw.gsub(/-/, '_')
+  Regexp.new("(\\buse\\s#{crate}\\b)|(\\b#{crate}::)")
+end
+
 Dir.glob('**/*.toml').each do |file|
   crate_dir = File.dirname(file)
   toml = TomlRB.load_file(file)
@@ -15,14 +20,19 @@ Dir.glob('**/*.toml').each do |file|
   toml['dev-dependencies']&.each do |crate_name, _|
     crates.add crate_name
   end
-  crates.each do |crate_raw|
-    crate = crate_raw.gsub(/-/, '_')
+  if toml['workspace']
+    toml['workspace']['dependencies']&.each do |crate_name, _|
+      crates.add crate_name
+    end
+  end
+  crates.each do |crate|
     used = false
+    pattern = get_pattern(crate)
     Dir.glob("#{crate_dir}/**/*.rs").each do |rs|
-      used |= File.read(rs).match?(Regexp.new("(\\buse\\s#{crate}\\b)|(\\b#{crate}::)"))
+      used |= File.read(rs).match?(pattern)
     end
     unless used
-      puts "Protentially unused: #{crate_raw} in #{crate_dir}"
+      puts "Protentially unused: #{crate} in #{crate_dir}"
       exit_code = 1
     end
   end
