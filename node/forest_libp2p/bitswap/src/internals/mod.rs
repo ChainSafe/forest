@@ -4,5 +4,7 @@
 pub(crate) mod codec;
 pub(crate) mod event_handlers;
 pub(crate) mod prefix;
+pub(crate) mod protocol;
+
 mod utils;
 pub(crate) use utils::*;

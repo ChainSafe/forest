@@ -26,7 +26,7 @@ lazy_static! {
         &["type"],
     )
     .expect("Infallible");
-    pub static ref GET_BLOCK_TIME: Histogram = Histogram::with_opts(HistogramOpts {
+    pub(crate) static ref GET_BLOCK_TIME: Histogram = Histogram::with_opts(HistogramOpts {
         common_opts: Opts::new("bitswap_get_block_time", "Duration of get_block"),
         buckets: vec![0.1, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
     })

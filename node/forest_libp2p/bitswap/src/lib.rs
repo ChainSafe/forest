@@ -21,9 +21,6 @@ pub use message::*;
 mod metrics;
 pub use metrics::register_metrics;
 
-mod protocol;
-pub use protocol::*;
-
 mod request_manager;
 pub use request_manager::*;
 

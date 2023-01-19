@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{codec::*, *};
+use crate::{codec::*, protocol::*, *};
 use libp2p::{
     request_response::{ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig},
     swarm::NetworkBehaviour,
