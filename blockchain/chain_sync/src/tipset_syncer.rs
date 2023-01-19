@@ -11,7 +11,6 @@ use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use std::cmp::{min, Ordering};
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -1630,7 +1629,6 @@ mod test {
     use num_bigint::BigInt;
 
     use super::*;
-    use std::convert::TryFrom;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
@@ -1661,13 +1659,13 @@ mod test {
         // ticket_sequence are chosen so that Ticket(b3) < Ticket(b1)
 
         let b1 = mock_block(1234561, 10, 2);
-        let ts1 = Tipset::tryfrom(&b1).unwrap();
+        let ts1 = Tipset::try_from(&b1).unwrap();
 
         let b2 = mock_block(1234563, 9, 1);
-        let ts2 = Tipset::tryfrom(&b2).unwrap();
+        let ts2 = Tipset::try_from(&b2).unwrap();
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::tryfrom(&b3).unwrap();
+        let ts3 = Tipset::try_from(&b3).unwrap();
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
