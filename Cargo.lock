@@ -2937,6 +2937,7 @@ dependencies = [
  "forest_message",
  "forest_metrics",
  "forest_networks",
+ "forest_shim",
  "forest_utils",
  "futures",
  "fvm",

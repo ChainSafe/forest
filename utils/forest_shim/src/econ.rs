@@ -5,7 +5,7 @@ use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
-use std::ops::{AddAssign, Deref, DerefMut, Mul};
+use std::ops::{Add, AddAssign, Mul};
 
 // FIXME: Transparent Debug trait impl
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Default)]
@@ -20,21 +20,29 @@ impl std::fmt::Display for TokenAmount {
 }
 
 impl TokenAmount {
+    /// Returns the quantity of indivisible units.
+    pub fn atto(&self) -> &BigInt {
+        self.0.atto()
+    }
+
     pub fn from_atto(atto: impl Into<BigInt>) -> Self {
         TokenAmount_v3::from_atto(atto).into()
     }
-}
 
-impl Deref for TokenAmount {
-    type Target = TokenAmount_v3;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    #[inline]
+    pub fn div_rem(&self, other: impl Into<BigInt>) -> (TokenAmount, TokenAmount) {
+        let (q, r) = self.0.div_rem(other);
+        (q.into(), r.into())
     }
-}
 
-impl DerefMut for TokenAmount {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+    #[inline]
+    pub fn div_ceil(&self, other: impl Into<BigInt>) -> TokenAmount {
+        self.0.div_ceil(other).into()
+    }
+
+    #[inline]
+    pub fn div_floor(&self, other: impl Into<BigInt>) -> TokenAmount {
+        self.0.div_floor(other).into()
     }
 }
 
@@ -73,6 +81,20 @@ impl Mul<BigInt> for &TokenAmount {
     type Output = TokenAmount;
     fn mul(self, rhs: BigInt) -> Self::Output {
         (&self.0).mul(rhs).into()
+    }
+}
+
+impl Mul<i64> for &TokenAmount {
+    type Output = TokenAmount;
+    fn mul(self, rhs: i64) -> Self::Output {
+        (&self.0).mul(rhs).into()
+    }
+}
+
+impl Add<TokenAmount> for &TokenAmount {
+    type Output = TokenAmount;
+    fn add(self, rhs: TokenAmount) -> Self::Output {
+        (&self.0).add(rhs.0).into()
     }
 }
 
