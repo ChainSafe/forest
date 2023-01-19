@@ -669,8 +669,7 @@ where
             genesis.clone(),
         ));
 
-        let mut tipsets_included = HashSet::new();
-        tipsets_included.insert(proposed_head.key().clone());
+        let tipsets_included = HashSet::from([proposed_head.key().clone()]);
         Ok(Self {
             proposed_head,
             current_head,
