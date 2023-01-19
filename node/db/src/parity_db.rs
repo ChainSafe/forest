@@ -8,10 +8,10 @@ use crate::{DBStatistics, Store};
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use hashbrown::HashMap;
 use libp2p_bitswap::BitswapStore;
 use log::warn;
 use parity_db::{CompressionType, Db, Options};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 

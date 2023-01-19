@@ -25,7 +25,6 @@ paritydb = ["dep:parity-db"]
 anyhow.workspace = true
 cid.workspace = true
 fvm_ipld_blockstore.workspace = true
-hashbrown.workspace = true
 lazy_static.workspace = true
 libipld.workspace = true
 libp2p-bitswap.workspace = true

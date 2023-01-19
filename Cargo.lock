@@ -3064,7 +3064,6 @@ dependencies = [
  "anyhow",
  "cid",
  "fvm_ipld_blockstore",
- "hashbrown 0.13.2",
  "lazy_static",
  "libipld",
  "libp2p-bitswap",
