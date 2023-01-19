@@ -114,6 +114,9 @@ where
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
         let _ = cs.load_heaviest_tipset();
 
+        cs.blockstore().read(HEAD_KEY)?;
+        cs.blockstore().read(GENESIS_KEY)?;
+
         Ok(cs)
     }
 
