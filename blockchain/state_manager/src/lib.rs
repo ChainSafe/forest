@@ -8,6 +8,7 @@ mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
+use ahash::{HashMap, HashMapExt};
 use anyhow::Context;
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -36,7 +37,6 @@ use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::version::NetworkVersion;
-use hashbrown::HashMap;
 use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};

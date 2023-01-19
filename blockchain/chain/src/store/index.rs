@@ -21,9 +21,9 @@ const SKIP_LENGTH: ChainEpoch = 20;
 
 // This module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
 pub(super) mod checkpoint_tipsets {
+    use ahash::{HashMap, HashMapExt, HashSet};
     use cid::Cid;
     use forest_blocks::TipsetKeys;
-    use hashbrown::{HashMap, HashSet};
     use once_cell::sync::Lazy;
     use std::str::FromStr;
 

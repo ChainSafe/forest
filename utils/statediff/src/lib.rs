@@ -3,6 +3,7 @@
 
 mod resolve;
 
+use ahash::HashMap;
 use cid::Cid;
 use colored::*;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
@@ -10,7 +11,6 @@ use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use hashbrown::HashMap;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};

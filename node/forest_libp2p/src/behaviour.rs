@@ -10,9 +10,9 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName},
 };
+use ahash::{HashMap, HashSet};
 use cid::Cid;
 use forest_encoding::blake2b_256;
-use hashbrown::{HashMap, HashSet};
 use libipld::store::StoreParams;
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};

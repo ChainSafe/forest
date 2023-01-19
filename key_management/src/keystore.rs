@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
+use ahash::{HashMap, HashMapExt};
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use fvm_shared::crypto::signature::SignatureType;
-use hashbrown::HashMap;
 use log::{error, warn};
 use rand::rngs::OsRng;
 use rand::RngCore;

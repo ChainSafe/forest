@@ -4,6 +4,7 @@
 use super::index::checkpoint_tipsets;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::Scale;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -33,7 +34,6 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
-use hashbrown::{HashMap, HashSet};
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;

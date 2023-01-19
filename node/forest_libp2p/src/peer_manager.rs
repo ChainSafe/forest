@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::*;
+use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
 use forest_blocks::Tipset;
-use hashbrown::{HashMap, HashSet};
 use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
 use std::cmp::Ordering;

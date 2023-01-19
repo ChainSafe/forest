@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use hashbrown::{HashMap, HashSet};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::mdns::tokio::Behaviour as Mdns;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;

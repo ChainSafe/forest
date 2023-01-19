@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
@@ -34,7 +35,6 @@ fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
-hashbrown.workspace = true
 hex.workspace = true
 http.workspace = true
 jsonrpc-v2.workspace = true

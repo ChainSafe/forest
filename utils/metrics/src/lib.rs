@@ -4,9 +4,9 @@
 pub mod db;
 pub mod metrics;
 
+use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use forest_db::DBStatistics;
-use hashbrown::HashMap;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
 use std::{net::TcpListener, path::PathBuf};

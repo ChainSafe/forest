@@ -6,6 +6,7 @@ description = "Filecoin implementation in Rust. This crate contains all the subc
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
@@ -31,7 +32,6 @@ fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_shared = { workspace = true, default-features = false }
-hashbrown.workspace = true
 hex.workspace = true
 human-repr.workspace = true
 jsonrpc-v2.workspace = true

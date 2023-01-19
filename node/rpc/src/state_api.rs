@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use forest_actor_interface::market;
 use forest_beacon::Beacon;
@@ -15,7 +16,6 @@ use forest_rpc_api::{
 };
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
-use hashbrown::HashMap;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 

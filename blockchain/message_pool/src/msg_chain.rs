@@ -4,6 +4,7 @@
 use super::errors::Error;
 use crate::provider::Provider;
 use crate::utils::{get_gas_perf, get_gas_reward};
+use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
@@ -11,7 +12,6 @@ use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
-use hashbrown::HashMap;
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};

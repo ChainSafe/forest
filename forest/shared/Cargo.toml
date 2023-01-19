@@ -6,6 +6,7 @@ description = "Filecoin implementation in Rust. This crate contains shared utili
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 atty.workspace = true
 byte-unit = "4.0"
@@ -22,7 +23,6 @@ futures.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 gethostname.workspace = true
 git-version.workspace = true
-hashbrown.workspace = true
 hex.workspace = true
 log = { workspace = true, features = ["serde"] }
 once_cell.workspace = true

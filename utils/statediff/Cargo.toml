@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
 colored = "2.0"
@@ -26,7 +27,6 @@ fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared.workspace = true
-hashbrown.workspace = true
 libipld-core.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

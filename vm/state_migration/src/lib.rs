@@ -4,14 +4,13 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-
 use fvm_shared::econ::TokenAmount;
-use hashbrown::{HashMap, HashSet};
 use rayon::ThreadPoolBuildError;
 use std::sync::Arc;
 

@@ -2725,6 +2725,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "forest-cli"
 version = "0.6.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "assert_cmd",
  "atty",
@@ -2751,7 +2752,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_shared",
- "hashbrown 0.13.2",
  "hex",
  "human-repr",
  "jsonrpc-v2",
@@ -2890,6 +2890,7 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "base64 0.21.0",
  "cid",
  "derive_builder",
@@ -2902,7 +2903,6 @@ dependencies = [
  "forest_utils",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "hex",
  "lazy_static",
  "log",
@@ -2919,6 +2919,7 @@ dependencies = [
 name = "forest_chain"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-stream",
  "blake2b_simd",
@@ -2944,7 +2945,6 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "log",
  "lru 0.9.0",
  "multihash",
@@ -2960,6 +2960,7 @@ dependencies = [
 name = "forest_chain_sync"
 version = "0.2.1"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "base64 0.21.0",
@@ -2984,7 +2985,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "lazy_static",
  "log",
  "lru 0.9.0",
@@ -3005,6 +3005,7 @@ dependencies = [
 name = "forest_cli_shared"
 version = "0.4.1"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "atty",
  "axum",
@@ -3022,7 +3023,6 @@ dependencies = [
  "fvm_shared",
  "gethostname",
  "git-version",
- "hashbrown 0.13.2",
  "hex",
  "http",
  "log",
@@ -3191,6 +3191,7 @@ dependencies = [
 name = "forest_interpreter"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "forest_actor_interface",
@@ -3201,7 +3202,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "lazy_static",
  "log",
  "prometheus",
@@ -3212,6 +3212,7 @@ dependencies = [
 name = "forest_ipld"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-recursion",
  "async-trait",
@@ -3221,7 +3222,6 @@ dependencies = [
  "forest_utils",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "indexmap",
  "libipld",
  "libipld-core 0.14.0",
@@ -3240,6 +3240,7 @@ dependencies = [
 name = "forest_json"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "arbitrary",
  "base64 0.21.0",
  "cid",
@@ -3251,7 +3252,6 @@ dependencies = [
  "fvm",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "multihash",
  "num-bigint",
  "quickcheck",
@@ -3264,6 +3264,7 @@ dependencies = [
 name = "forest_key_management"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "argon2",
  "base64 0.21.0",
@@ -3272,7 +3273,6 @@ dependencies = [
  "forest_json",
  "forest_utils",
  "fvm_shared",
- "hashbrown 0.13.2",
  "libsecp256k1",
  "log",
  "quickcheck",
@@ -3308,6 +3308,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "bytes 1.3.0",
@@ -3328,7 +3329,6 @@ dependencies = [
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "lazy_static",
  "libipld",
  "libp2p",
@@ -3366,6 +3366,7 @@ dependencies = [
 name = "forest_message_pool"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "cid",
@@ -3385,7 +3386,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "log",
  "lru 0.9.0",
  "num-rational",
@@ -3403,11 +3403,11 @@ dependencies = [
 name = "forest_metrics"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "axum",
  "forest_db",
  "fs_extra",
- "hashbrown 0.13.2",
  "lazy_static",
  "log",
  "prometheus",
@@ -3431,13 +3431,13 @@ dependencies = [
 name = "forest_paramfetch"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "backoff",
  "blake2b_simd",
  "forest_utils",
  "futures",
  "fvm_shared",
- "hashbrown 0.13.2",
  "log",
  "serde",
  "serde_json",
@@ -3449,6 +3449,7 @@ dependencies = [
 name = "forest_rpc"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "axum",
  "base64 0.21.0",
@@ -3478,7 +3479,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "hex",
  "http",
  "jsonrpc-v2",
@@ -3500,6 +3500,7 @@ dependencies = [
 name = "forest_rpc-api"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "chrono",
  "cid",
@@ -3518,7 +3519,6 @@ dependencies = [
  "forest_state_manager",
  "fvm_ipld_blockstore",
  "fvm_shared",
- "hashbrown 0.13.2",
  "jsonrpc-v2",
  "once_cell",
  "parking_lot 0.12.1",
@@ -3548,6 +3548,7 @@ dependencies = [
 name = "forest_state_manager"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "blake2b_simd",
  "byteorder",
@@ -3573,7 +3574,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "lazy_static",
  "lru 0.9.0",
  "num-traits",
@@ -3588,12 +3588,12 @@ dependencies = [
 name = "forest_state_migration"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "cid",
  "crossbeam-channel",
  "fvm",
  "fvm_ipld_blockstore",
  "fvm_shared",
- "hashbrown 0.13.2",
  "log",
  "num_cpus",
  "rayon",
@@ -3604,6 +3604,7 @@ dependencies = [
 name = "forest_statediff"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "colored",
@@ -3625,7 +3626,6 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared",
- "hashbrown 0.13.2",
  "libipld-core 0.14.0",
  "serde",
  "serde_json",
@@ -4271,7 +4271,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
  "ahash 0.8.2",
- "serde",
 ]
 
 [[package]]

@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use hashbrown::HashMap;
+use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
 
 pub mod data_types;
@@ -294,6 +294,7 @@ pub mod wallet_api {
 /// State API
 pub mod state_api {
     use crate::data_types::{MarketDeal, MessageLookup};
+    use ahash::HashMap;
     use forest_blocks::tipset_keys_json::TipsetKeysJson;
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;
@@ -301,7 +302,6 @@ pub mod state_api {
     use forest_json::message_receipt::json::ReceiptJson;
     use forest_state_manager::{InvocResult, MarketBalance};
     use fvm_shared::version::NetworkVersion;
-    use hashbrown::HashMap;
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
     pub type StateCallParams = (MessageJson, TipsetKeysJson);

@@ -3,9 +3,9 @@
 
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
+use ahash::{HashMap, HashMapExt};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
-use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::str::FromStr;

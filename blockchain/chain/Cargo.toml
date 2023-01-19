@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 async-stream = "0.3.3"
 blake2b_simd.workspace = true
@@ -30,7 +31,6 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
-hashbrown.workspace = true
 log.workspace = true
 lru.workspace = true
 once_cell.workspace = true

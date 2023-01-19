@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Block, BlockHeader, Error, Ticket};
+use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::{address::Address, bigint::BigInt};
-use hashbrown::HashSet;
 use log::info;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};

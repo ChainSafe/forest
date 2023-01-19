@@ -11,6 +11,7 @@ use crate::{
     rpc::RequestResponseError,
 };
 use crate::{PeerManager, PeerOperation};
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
@@ -23,7 +24,6 @@ use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
-use hashbrown::HashMap;
 use libipld::store::StoreParams;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
