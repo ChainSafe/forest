@@ -83,6 +83,8 @@ impl BitswapRequestManager {
                 success = tokio::task::spawn_blocking(move || self.get_block_sync(cid, deadline))
                     .await
                     .unwrap_or_default();
+                // Spin check db when `get_block_sync` fails fast,
+                // which means there is other task actually processing the same `cid`
                 while !success && Instant::now() < deadline {
                     tokio::time::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
                     success = store.contains(&cid).unwrap_or_default();
@@ -106,6 +108,11 @@ impl BitswapRequestManager {
     }
 
     fn get_block_sync(&self, cid: Cid, deadline: Instant) -> bool {
+        // Fail fast here when the given `cid` is being processed by other tasks
+        if self.response_channels.read().contains_key(&cid) {
+            return false;
+        }
+
         let (block_have_tx, block_have_rx) = flume::unbounded();
         let (block_saved_tx, block_saved_rx) = flume::unbounded();
         let channels = ResponseChannels {
