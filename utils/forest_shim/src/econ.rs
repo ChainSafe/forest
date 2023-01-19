@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul};
 
 // FIXME: Transparent Debug trait impl
+// FIXME: Consider 'type TokenAmount = TokenAmount_v3'
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug, Default)]
 #[serde(transparent)]
 pub struct TokenAmount(TokenAmount_v3);
