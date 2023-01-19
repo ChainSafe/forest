@@ -176,8 +176,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         config.chain.clone(),
-        genesis_ts.clone(),
-    ));
+        Arc::new(genesis_ts.clone()),
+    )?);
 
     chain_store.set_genesis(&genesis_header.clone())?;
 
@@ -533,7 +533,11 @@ mod test {
 
         let genesis_ts = Tipset::try_from(&genesis_header)?;
 
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
+        let cs = Arc::new(ChainStore::new(
+            db,
+            chain_config.clone(),
+            Arc::new(genesis_ts),
+        )?);
         cs.set_genesis(&genesis_header)?;
         cs.set_heaviest_tipset(Arc::new(Tipset::try_from(&genesis_header)?))?;
         let sm = Arc::new(StateManager::new(
@@ -556,7 +560,11 @@ mod test {
 
         let genesis_ts = Tipset::try_from(&genesis_header)?;
 
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
+        let cs = Arc::new(ChainStore::new(
+            db,
+            chain_config.clone(),
+            Arc::new(genesis_ts),
+        )?);
         cs.set_genesis(&genesis_header)?;
         cs.set_heaviest_tipset(Arc::new(Tipset::try_from(&genesis_header)?))?;
         let sm = Arc::new(StateManager::new(

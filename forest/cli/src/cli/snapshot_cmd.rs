@@ -384,8 +384,8 @@ async fn validate(
         let chain_store = Arc::new(ChainStore::new(
             db,
             config.chain.clone(),
-            genesis_ts.clone(),
-        ));
+            Arc::new(genesis_ts.clone()),
+        )?);
 
         chain_store.set_genesis(&genesis.clone())?;
         chain_store.set_heaviest_tipset(Arc::new(genesis_ts.clone()))?;

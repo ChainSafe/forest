@@ -4,6 +4,7 @@
 use super::index::checkpoint_tipsets;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::Scale;
+use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
 use cid::{multihash::Code::Blake2b256, Cid};
@@ -93,7 +94,7 @@ impl<DB> ChainStore<DB>
 where
     DB: Blockstore + Store + Send + Sync,
 {
-    pub fn new(db: DB, chain_config: Arc<ChainConfig>, genesis_ts: Tipset) -> Self
+    pub fn new(db: DB, chain_config: Arc<ChainConfig>, genesis_ts: Arc<Tipset>) -> Result<Self>
     where
         DB: Clone,
     {
@@ -107,13 +108,13 @@ where
             tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
             db,
             ts_cache,
-            heaviest: Mutex::new(Arc::new(genesis_ts)),
+            heaviest: Mutex::new(genesis_ts),
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
         let _ = cs.load_heaviest_tipset();
 
-        cs
+        Ok(cs)
     }
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
@@ -951,7 +952,7 @@ mod tests {
             .build()
             .unwrap();
         let genesis_ts = Tipset::try_from(&gen_block).unwrap();
-        let cs = ChainStore::new(db, chain_config, genesis_ts.clone());
+        let cs = ChainStore::new(db, chain_config, Arc::new(genesis_ts.clone())).unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);
         cs.set_genesis(&gen_block).unwrap();
@@ -974,7 +975,7 @@ mod tests {
             .unwrap();
         let genesis_ts = Tipset::try_from(&gen_block).unwrap();
 
-        let cs = ChainStore::new(db, chain_config, genesis_ts.clone());
+        let cs = ChainStore::new(db, chain_config, Arc::new(genesis_ts.clone())).unwrap();
         cs.set_genesis(&gen_block).unwrap();
         cs.set_heaviest_tipset(Arc::new(genesis_ts)).unwrap();
 

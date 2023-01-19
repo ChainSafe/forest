@@ -101,7 +101,8 @@ mod tests {
 
         let genesis_ts = Tipset::try_from(&genesis_header).unwrap();
 
-        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
+        let cs_arc =
+            Arc::new(ChainStore::new(db, chain_config.clone(), Arc::new(genesis_ts)).unwrap());
 
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(

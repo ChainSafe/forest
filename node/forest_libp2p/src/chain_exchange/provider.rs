@@ -186,7 +186,7 @@ mod tests {
         let genesis_ts = Tipset::try_from(&gen_block).unwrap();
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db, Arc::new(ChainConfig::default()), genesis_ts),
+            &ChainStore::new(db, Arc::new(ChainConfig::default()), Arc::new(genesis_ts)).unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,
