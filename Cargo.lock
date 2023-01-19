@@ -2889,7 +2889,6 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
- "anyhow",
  "base64 0.21.0",
  "cid",
  "derive_builder",
