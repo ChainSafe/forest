@@ -2898,6 +2898,7 @@ dependencies = [
  "forest_encoding",
  "forest_json",
  "forest_message",
+ "forest_shim",
  "forest_test_utils",
  "forest_utils",
  "fvm_ipld_encoding 0.2.3",
@@ -3458,6 +3459,7 @@ dependencies = [
  "forest_message_pool",
  "forest_networks",
  "forest_rpc-api",
+ "forest_shim",
  "forest_state_manager",
  "forest_utils",
  "futures",
@@ -3533,6 +3535,7 @@ version = "0.1.0"
 dependencies = [
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.16",
+ "num-bigint",
  "serde",
 ]
 
