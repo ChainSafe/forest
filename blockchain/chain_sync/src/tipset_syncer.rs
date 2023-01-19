@@ -670,11 +670,11 @@ where
         ));
 
         let mut tipsets_included = HashSet::new();
-        tipsets_included.insert(proposed_head.key());
+        tipsets_included.insert(proposed_head.key().clone());
         Ok(Self {
             proposed_head,
             current_head,
-            tipsets_included: HashSet::new(),
+            tipsets_included,
             tipset_tasks,
             consensus,
             state_manager,
