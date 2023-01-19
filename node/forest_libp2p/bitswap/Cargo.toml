@@ -5,11 +5,11 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 flume.workspace = true
 futures.workspace = true
-hashbrown.workspace = true
 lazy_static.workspace = true
 libipld = { workspace = true, default-features = false }
 libp2p = { workspace = true, default-features = false, features = ["request-response", "macros"] }

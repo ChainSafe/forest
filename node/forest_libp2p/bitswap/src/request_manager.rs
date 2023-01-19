@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{event_handlers::*, *};
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use flume::TryRecvError;
-use hashbrown::{HashMap, HashSet};
 use libipld::Cid;
 use libp2p::PeerId;
 use parking_lot::RwLock;

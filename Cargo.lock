@@ -3343,11 +3343,11 @@ dependencies = [
 name = "forest_libp2p_bitswap"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "flume",
  "futures",
- "hashbrown 0.13.2",
  "lazy_static",
  "libipld",
  "libp2p",
