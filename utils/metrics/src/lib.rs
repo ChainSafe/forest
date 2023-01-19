@@ -6,9 +6,10 @@ pub mod metrics;
 
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use forest_db::DBStatistics;
+use hashbrown::HashMap;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
-use std::{collections::HashMap, net::TcpListener, path::PathBuf};
+use std::{net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
 
 lazy_static::lazy_static! {

@@ -34,6 +34,7 @@ fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+hashbrown.workspace = true
 hex.workspace = true
 http.workspace = true
 jsonrpc-v2.workspace = true

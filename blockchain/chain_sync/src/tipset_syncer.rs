@@ -7,10 +7,10 @@ use futures::StreamExt;
 use futures::TryFutureExt;
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
+use hashbrown::{HashMap, HashSet};
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use std::cmp::{min, Ordering};
-use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::future::Future;
 use std::pin::Pin;
@@ -670,11 +670,11 @@ where
         ));
 
         let mut tipsets_included = HashSet::new();
-        tipsets_included.insert(proposed_head.key());
+        tipsets_included.insert(proposed_head.key().clone());
         Ok(Self {
             proposed_head,
             current_head,
-            tipsets_included: HashSet::new(),
+            tipsets_included,
             tipset_tasks,
             consensus,
             state_manager,

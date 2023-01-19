@@ -18,12 +18,12 @@ use forest_message::Message;
 use forest_message::SignedMessage;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
+use hashbrown::HashMap;
 use parking_lot::RwLock;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;

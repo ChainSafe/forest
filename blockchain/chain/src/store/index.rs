@@ -23,8 +23,8 @@ const SKIP_LENGTH: ChainEpoch = 20;
 pub(super) mod checkpoint_tipsets {
     use cid::Cid;
     use forest_blocks::TipsetKeys;
+    use hashbrown::{HashMap, HashSet};
     use once_cell::sync::Lazy;
-    use std::collections::{HashMap, HashSet};
     use std::str::FromStr;
 
     macro_rules! add_calibnet {

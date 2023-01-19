@@ -4,12 +4,12 @@
 use crate::*;
 use flume::{Receiver, Sender};
 use forest_blocks::Tipset;
+use hashbrown::{HashMap, HashSet};
 use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
-use std::collections::HashMap;
+use std::cmp::Ordering;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{cmp::Ordering, collections::HashSet};
 use tokio::sync::RwLock;
 
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.

@@ -10,6 +10,7 @@ crossbeam-channel = "0.5"
 fvm.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+hashbrown.workspace = true
 log.workspace = true
 num_cpus.workspace = true
 rayon.workspace = true

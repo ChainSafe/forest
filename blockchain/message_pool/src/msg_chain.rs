@@ -11,11 +11,11 @@ use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
+use hashbrown::HashMap;
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::mem;
 use std::ops::{Index, IndexMut};
 

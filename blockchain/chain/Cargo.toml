@@ -30,6 +30,7 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+hashbrown.workspace = true
 log.workspace = true
 lru.workspace = true
 once_cell.workspace = true

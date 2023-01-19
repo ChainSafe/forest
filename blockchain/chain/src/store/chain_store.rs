@@ -33,16 +33,14 @@ use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
+use hashbrown::{HashMap, HashSet};
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    time::SystemTime,
-};
+use std::{collections::VecDeque, time::SystemTime};
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tokio::sync::Mutex as TokioMutex;

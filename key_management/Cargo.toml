@@ -16,6 +16,7 @@ forest_encoding.workspace = true
 forest_json.workspace = true
 forest_utils.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+hashbrown.workspace = true
 libsecp256k1.workspace = true
 log.workspace = true
 rand.workspace = true

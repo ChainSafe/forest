@@ -16,6 +16,7 @@ forest_message = { workspace = true, features = ["blst"] }
 forest_utils.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+hashbrown.workspace = true
 lazy_static.workspace = true
 log.workspace = true
 num-bigint.workspace = true

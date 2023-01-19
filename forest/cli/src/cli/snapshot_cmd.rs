@@ -18,7 +18,8 @@ use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_ipld_car::load_car;
 use fvm_shared::clock::ChainEpoch;
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use hashbrown::HashSet;
+use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use tempfile::TempDir;
@@ -160,7 +161,7 @@ impl SnapshotCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let vars = HashMap::from([
+                let vars = std::collections::HashMap::from([
                     ("year".to_string(), year.to_string()),
                     ("month".to_string(), month_string),
                     ("day".to_string(), day_string),
@@ -414,7 +415,7 @@ async fn validate_links_and_genesis_traversal<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
-    let mut seen = std::collections::HashSet::<Cid>::new();
+    let mut seen = HashSet::<Cid>::new();
     let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();

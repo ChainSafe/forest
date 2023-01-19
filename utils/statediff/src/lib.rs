@@ -10,13 +10,13 @@ use forest_json::cid::CidJson;
 use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
+use hashbrown::HashMap;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 use similar::ChangeTag;
 use similar::TextDiff;
 
-use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;

@@ -31,6 +31,7 @@ fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+hashbrown.workspace = true
 hex.workspace = true
 human-repr.workspace = true
 jsonrpc-v2.workspace = true

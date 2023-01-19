@@ -6,8 +6,8 @@ use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::{ChainStore, Error as ChainError};
 use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
+use hashbrown::HashMap;
 use log::debug;
-use std::collections::HashMap;
 
 use super::{
     ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,

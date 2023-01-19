@@ -15,9 +15,9 @@ use forest_rpc_api::mpool_api::*;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Protocol;
-
+use hashbrown::HashSet;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::{collections::HashSet, convert::TryFrom};
+use std::convert::TryFrom;
 
 /// Return `Vec` of pending messages in `mpool`
 pub(crate) async fn mpool_pending<DB, B>(

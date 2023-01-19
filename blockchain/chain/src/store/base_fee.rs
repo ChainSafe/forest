@@ -8,7 +8,7 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::BLOCK_GAS_LIMIT;
-use std::collections::HashSet;
+use hashbrown::HashSet;
 
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: i64 = BLOCK_GAS_LIMIT / 2;

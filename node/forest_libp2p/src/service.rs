@@ -23,6 +23,7 @@ use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::from_slice;
+use hashbrown::HashMap;
 use libipld::store::StoreParams;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
@@ -47,7 +48,6 @@ use libp2p::{
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use libp2p_bitswap::{BitswapEvent, BitswapStore};
 use log::{debug, error, info, trace, warn};
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};

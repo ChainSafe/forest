@@ -22,6 +22,7 @@ futures.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 gethostname.workspace = true
 git-version.workspace = true
+hashbrown.workspace = true
 hex.workspace = true
 log = { workspace = true, features = ["serde"] }
 once_cell.workspace = true
