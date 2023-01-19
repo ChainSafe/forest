@@ -301,11 +301,33 @@ class Benchmark
   end
 
   def epoch_command
+    begin
+      output = syscall('./target/release/forest-cli', 'sync', 'status')
+      puts "sync status"
+    rescue RuntimeError
+      return nil
+    end
+    msg_sync = output.match(/Stage: message sync/m)
+    if msg_sync
+      # TODO: merge matches since forest prints workers that could be at different stages
+      match = output.match(/Height: (\d+)/m)
+      if match
+        return match.captures[0].to_i
+      end
+    end
     nil
   end
 
   def start_online_validation_command
-    nil
+    snapshot_height = snapshot_height(@snapshot_path)
+    current = epoch_command
+    if current
+      puts "@#{current}"
+      # Check if we can start the measure
+      [current >= snapshot_height + 10, current]
+    else
+      [false, nil]
+    end
   end
 
   def stop_command(pid)
@@ -323,7 +345,7 @@ class Benchmark
       '--import-snapshot', '%<s>s', '--halt-after-import', '--skip-load', '--height', '%<h>s'
     ]
     @validate_online_command = [
-      target, '--config', '%<c>s', '--encrypt-keystore', 'false'
+      target, '--config', '%<c>s', '--encrypt-keystore', 'false', '--chain', 'calibnet'
     ]
     @metrics = {}
   end
@@ -456,7 +478,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    #Benchmark.new(name: 'forest'),
+    Benchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
