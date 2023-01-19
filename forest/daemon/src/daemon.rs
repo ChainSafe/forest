@@ -164,14 +164,13 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let genesis = read_genesis_header(
+    let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
         &db,
     )
     .await?;
-    let genesis_ts = Tipset::new(vec![genesis.clone()])?;
-    let genesis_header = &genesis_ts.blocks()[0];
+    let genesis_ts = Tipset::new(vec![genesis_header.clone()])?;
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
@@ -180,7 +179,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         genesis_ts.clone(),
     ));
 
-    chain_store.set_genesis(&genesis.clone())?;
+    chain_store.set_genesis(&genesis_header.clone())?;
 
     let publisher = chain_store.publisher();
 

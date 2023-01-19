@@ -180,7 +180,6 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        // TODO: Figure out how to remove optional and return something every time.
         self.heaviest.lock().clone()
     }
 

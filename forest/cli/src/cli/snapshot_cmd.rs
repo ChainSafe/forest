@@ -388,7 +388,7 @@ async fn validate(
         ));
 
         chain_store.set_genesis(&genesis.clone())?;
-        chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis.clone()])?))?;
+        chain_store.set_heaviest_tipset(Arc::new(genesis_ts.clone()))?;
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;

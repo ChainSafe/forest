@@ -76,12 +76,8 @@ where
     BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
-    let genesis = read_genesis_header(
-        genesis_fp,
-        genesis_bytes,
-        &state_manager.chain_store().as_ref().db,
-    )
-    .await?;
+    let genesis =
+        read_genesis_header(genesis_fp, genesis_bytes, state_manager.blockstore()).await?;
     let ts = Tipset::new(vec![genesis])?;
     let network_name = get_network_name_from_genesis(&ts, state_manager)?;
     Ok((ts, network_name))
