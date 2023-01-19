@@ -4,6 +4,7 @@
 use crate::{event_handlers::*, *};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use flume::TryRecvError;
+use libipld::Block;
 use libipld::Cid;
 use libp2p::PeerId;
 use parking_lot::RwLock;
@@ -154,7 +155,11 @@ impl BitswapRequestManager {
         success
     }
 
-    pub(crate) fn on_inbound_response_event(&self, response: BitswapInboundResponseEvent) {
+    pub(crate) fn on_inbound_response_event<S: BitswapStore>(
+        &self,
+        store: &S,
+        response: BitswapInboundResponseEvent,
+    ) {
         use BitswapInboundResponseEvent::*;
         match response {
             HaveBlock(peer, cid) => {
@@ -162,9 +167,39 @@ impl BitswapRequestManager {
                     _ = chans.block_have.send(peer);
                 }
             }
-            BlockSaved(_peer, cid) => {
+            DataBlock(_peer, cid, data) => {
                 if let Some(chans) = self.response_channels.read().get(&cid) {
-                    _ = chans.block_saved.send(());
+                    if let Ok(true) = store.contains(&cid) {
+                        // Avoid duplicate writes, still notify the receiver
+                        metrics::message_counter_inbound_response_block_already_exists_in_db()
+                            .inc();
+                        _ = chans.block_saved.send(());
+                        _ = chans.block_saved.send(());
+                    } else {
+                        match Block::new(cid, data) {
+                            Ok(block) => match store.insert(&block) {
+                                Ok(()) => {
+                                    metrics::message_counter_inbound_response_block_update_db()
+                                        .inc();
+                                    _ = chans.block_saved.send(());
+                                }
+                                Err(e) => {
+                                    metrics::message_counter_inbound_response_block_update_db_failure()
+                                    .inc();
+                                    warn!(
+                                        "Failed to update db: {e}, cid: {cid}, data: {:?}",
+                                        block.data()
+                                    );
+                                }
+                            },
+                            Err(e) => {
+                                // TODO: log data
+                                warn!("Failed to construct block: {e}, cid: {cid}");
+                            }
+                        }
+                    }
+                } else {
+                    metrics::message_counter_inbound_response_block_not_requested().inc();
                 }
             }
         }

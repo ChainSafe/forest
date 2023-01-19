@@ -98,6 +98,15 @@ pub(crate) fn message_counter_inbound_response_block_update_db() -> GenericCount
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block_update_db"])
 }
 
+pub(crate) fn message_counter_inbound_response_block_already_exists_in_db(
+) -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["inbound_response_block_already_exists_in_db"])
+}
+
+pub(crate) fn message_counter_inbound_response_block_not_requested() -> GenericCounter<AtomicU64> {
+    MESSAGE_COUNTER.with_label_values(&["inbound_response_block_not_requested"])
+}
+
 pub(crate) fn message_counter_inbound_response_block_update_db_failure() -> GenericCounter<AtomicU64>
 {
     MESSAGE_COUNTER.with_label_values(&["inbound_response_block_update_db_failure"])

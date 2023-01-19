@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::*;
-use libipld::Block;
 use libp2p::{
     request_response::{RequestResponseEvent, RequestResponseMessage},
     PeerId,
@@ -11,7 +10,7 @@ use std::sync::Arc;
 
 pub enum BitswapInboundResponseEvent {
     HaveBlock(PeerId, Cid),
-    BlockSaved(PeerId, Cid),
+    DataBlock(PeerId, Cid, Vec<u8>),
 }
 
 // Note: This method performs db IO syncronously to reduce complexity
@@ -54,37 +53,12 @@ pub fn handle_event_impl<S: BitswapStore>(
                                     }
                                     BitswapResponse::Block(data) => {
                                         metrics::message_counter_inbound_response_block().inc();
-                                        // Avoid duplicate writes
-                                        // but still emit event
-                                        if let Ok(true) = store.contains(&cid) {
-                                            Some(BitswapInboundResponseEvent::BlockSaved(peer, cid))
-                                        } else {
-                                            match Block::new(cid, data) {
-                                                Ok(block) => match store.insert(&block) {
-                                                    Ok(()) => {
-                                                        metrics::message_counter_inbound_response_block_update_db().inc();
-                                                        Some(
-                                                            BitswapInboundResponseEvent::BlockSaved(
-                                                                peer, cid,
-                                                            ),
-                                                        )
-                                                    }
-                                                    Err(e) => {
-                                                        metrics::message_counter_inbound_response_block_update_db_failure().inc();
-                                                        warn!("Failed to update db: {e}, cid: {cid}, data: {:?}",block.data());
-                                                        None
-                                                    }
-                                                },
-                                                Err(e) => {
-                                                    // TODO: log data
-                                                    warn!("Failed to construct block: {e}, cid: {cid}");
-                                                    None
-                                                }
-                                            }
-                                        }
+                                        Some(BitswapInboundResponseEvent::DataBlock(
+                                            peer, cid, data,
+                                        ))
                                     }
                                 } {
-                                    request_manager.on_inbound_response_event(event);
+                                    request_manager.on_inbound_response_event(store, event);
                                 }
                             }
                         }
