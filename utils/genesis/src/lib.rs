@@ -52,15 +52,12 @@ where
 }
 
 pub fn get_network_name_from_genesis<BS>(
-    genesis_ts: &Tipset,
+    genesis_header: &BlockHeader,
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
     BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
-    // the genesis tipset has just one block, so fetch it
-    let genesis_header = genesis_ts.min_ticket_block();
-
     // Get network name from genesis state.
     let network_name = state_manager
         .get_network_name(genesis_header.state_root())
@@ -78,8 +75,8 @@ where
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let genesis =
         read_genesis_header(genesis_fp, genesis_bytes, state_manager.blockstore()).await?;
-    let ts = Tipset::new(vec![genesis])?;
-    let network_name = get_network_name_from_genesis(&ts, state_manager)?;
+    let ts = Tipset::new(vec![genesis.clone()])?;
+    let network_name = get_network_name_from_genesis(&genesis, state_manager)?;
     Ok((ts, network_name))
 }
 

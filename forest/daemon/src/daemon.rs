@@ -210,7 +210,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let state_manager = Arc::new(sm);
 
-    let network_name = get_network_name_from_genesis(&genesis_ts, &state_manager)?;
+    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
