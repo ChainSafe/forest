@@ -379,7 +379,7 @@ async fn validate(
         )
         .await?;
 
-        let genesis_ts = Tipset::new(vec![genesis.clone()])?;
+        let genesis_ts = Tipset::try_from(&genesis.clone())?;
 
         let chain_store = Arc::new(ChainStore::new(
             db,

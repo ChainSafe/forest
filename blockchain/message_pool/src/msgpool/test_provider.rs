@@ -94,14 +94,14 @@ impl TestApiInner {
     /// Set the block messages for `TestApi`
     pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
         self.bmsgs.insert(*h.cid(), msgs);
-        self.tipsets.push(Tipset::new(vec![h.clone()]).unwrap())
+        self.tipsets.push(Tipset::try_from(h).unwrap())
     }
 
     pub fn next_block(&mut self) -> BlockHeader {
         let new_block = mock_block_with_parents(
             self.tipsets
                 .last()
-                .unwrap_or(&Tipset::new(vec![mock_block(1, 1)]).unwrap()),
+                .unwrap_or(&Tipset::try_from(&mock_block(1, 1)).unwrap()),
             1,
             1,
         );
@@ -116,7 +116,7 @@ impl Provider for TestApi {
     }
 
     fn get_heaviest_tipset(&self) -> Arc<Tipset> {
-        Arc::new(Tipset::new(vec![create_header(1)]).unwrap())
+        Arc::new(Tipset::try_from(&create_header(1)).unwrap())
     }
 
     fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Error> {

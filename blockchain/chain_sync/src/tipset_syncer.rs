@@ -1661,13 +1661,13 @@ mod test {
         // ticket_sequence are chosen so that Ticket(b3) < Ticket(b1)
 
         let b1 = mock_block(1234561, 10, 2);
-        let ts1 = Tipset::new(vec![b1]).unwrap();
+        let ts1 = Tipset::tryfrom(&b1).unwrap();
 
         let b2 = mock_block(1234563, 9, 1);
-        let ts2 = Tipset::new(vec![b2]).unwrap();
+        let ts2 = Tipset::tryfrom(&b2).unwrap();
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::new(vec![b3]).unwrap();
+        let ts3 = Tipset::tryfrom(&b3).unwrap();
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());

@@ -402,7 +402,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![a]).unwrap()],
+            vec![Tipset::try_from(&a).unwrap()],
         )
         .await
         .unwrap();
@@ -417,7 +417,7 @@ pub mod tests {
         let mut wallet = Wallet::new(keystore);
 
         let a = mock_block(1, 1);
-        let tipset = Tipset::new(vec![a.clone()]).unwrap();
+        let tipset = Tipset::try_from(&a).unwrap();
         let b = mock_block_with_parents(&tipset, 1, 1);
 
         let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
@@ -470,7 +470,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![a]).unwrap()],
+            vec![Tipset::try_from(&a).unwrap()],
         )
         .await
         .unwrap();
@@ -492,7 +492,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b.clone()]).unwrap()],
+            vec![Tipset::try_from(&b).unwrap()],
         )
         .await
         .unwrap();
@@ -508,7 +508,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
-            vec![Tipset::new(vec![b]).unwrap()],
+            vec![Tipset::try_from(&b).unwrap()],
             Vec::new(),
         )
         .await
@@ -557,7 +557,7 @@ pub mod tests {
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
 
         let header = mock_block(1, 1);
-        let tipset = Tipset::new(vec![header.clone()]).unwrap();
+        let tipset = Tipset::try_from(&header.clone()).unwrap();
 
         let ts = tipset.clone();
         mpool.api.set_heaviest_tipset(Arc::new(ts));
@@ -580,7 +580,7 @@ pub mod tests {
         let gas_limit = 6955002;
 
         let a = mock_block(1, 1);
-        let ts = Tipset::new(vec![a]).unwrap();
+        let ts = Tipset::try_from(&a).unwrap();
         let chain_config = ChainConfig::default();
 
         // --- Test Chain Aggregations ---

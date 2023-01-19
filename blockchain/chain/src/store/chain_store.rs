@@ -950,7 +950,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let genesis_ts = Tipset::new(vec![gen_block.clone()]).unwrap();
+        let genesis_ts = Tipset::try_from(&gen_block).unwrap();
         let cs = ChainStore::new(db, chain_config, genesis_ts.clone());
 
         assert_eq!(cs.genesis().unwrap(), None);
@@ -972,7 +972,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let genesis_ts = Tipset::new(vec![gen_block.clone()]).unwrap();
+        let genesis_ts = Tipset::try_from(gen_block).unwrap();
 
         let cs = ChainStore::new(db, chain_config, genesis_ts.clone());
         cs.set_genesis(&gen_block).unwrap();

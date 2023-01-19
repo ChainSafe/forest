@@ -183,7 +183,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let genesis_ts = Tipset::new(vec![gen_block]).unwrap();
+        let genesis_ts = Tipset::try_from(&gen_block).unwrap();
 
         let response = make_chain_exchange_response(
             &ChainStore::new(db, Arc::new(ChainConfig::default()), genesis_ts),

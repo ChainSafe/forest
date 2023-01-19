@@ -972,7 +972,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let ts = Tipset::new(vec![h0]).unwrap();
+        let ts = Tipset::try_from(&h0).unwrap();
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
         assert!(forest_chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }

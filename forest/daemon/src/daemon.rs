@@ -170,7 +170,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         &db,
     )
     .await?;
-    let genesis_ts = Tipset::new(vec![genesis_header.clone()])?;
+    let genesis_ts = Tipset::try_from(&genesis_header)?;
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
@@ -531,11 +531,11 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let genesis_ts = Tipset::new(vec![genesis_header.clone()])?;
+        let genesis_ts = Tipset::try_from(&genesis_header)?;
 
         let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
         cs.set_genesis(&genesis_header)?;
-        cs.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_header.clone()])?))?;
+        cs.set_heaviest_tipset(Arc::new(Tipset::try_from(&genesis_header)?))?;
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
@@ -554,11 +554,11 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let genesis_ts = Tipset::new(vec![genesis_header.clone()])?;
+        let genesis_ts = Tipset::try_from(&genesis_header)?;
 
         let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_ts));
         cs.set_genesis(&genesis_header)?;
-        cs.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_header.clone()])?))?;
+        cs.set_heaviest_tipset(Arc::new(Tipset::try_from(&genesis_header)?))?;
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,

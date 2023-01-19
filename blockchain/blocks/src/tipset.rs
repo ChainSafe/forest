@@ -41,6 +41,14 @@ pub struct Tipset {
     key: OnceCell<TipsetKeys>,
 }
 
+impl TryFrom<&BlockHeader> for Tipset {
+    fn try_from(value: &BlockHeader) -> Result<Self, Error> {
+        Tipset::new(vec![value.clone()])
+    }
+
+    type Error = crate::errors::Error;
+}
+
 impl PartialEq for Tipset {
     fn eq(&self, other: &Self) -> bool {
         self.headers.eq(&other.headers)
@@ -51,7 +59,7 @@ impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // XXX: Support random generation of tipsets with multiple blocks.
         let first_header = BlockHeader::arbitrary(g);
-        Tipset::new(vec![first_header]).unwrap()
+        Tipset::try_from(&first_header).unwrap()
     }
 }
 
@@ -449,13 +457,13 @@ mod test {
     #[test]
     fn test_break_weight_tie() {
         let b1 = mock_block(1234561, 1, 1);
-        let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts1 = Tipset::try_from(&b1).unwrap();
 
         let b2 = mock_block(1234562, 1, 2);
-        let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
+        let ts2 = Tipset::try_from(&b2).unwrap();
 
         let b3 = mock_block(1234563, 1, 1);
-        let ts3 = Tipset::new(vec![b3]).unwrap();
+        let ts3 = Tipset::try_from(&b3).unwrap();
 
         // All tipsets have the same weight (but it's not really important here)
 
