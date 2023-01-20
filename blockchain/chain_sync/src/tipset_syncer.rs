@@ -7,7 +7,7 @@ use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use forest_actor_interface::is_account_actor;
 use forest_blocks::{
@@ -666,7 +666,7 @@ where
             genesis.clone(),
         ));
 
-        let tipsets_included = HashSet::from([proposed_head.key().clone()]);
+        let tipsets_included = HashSet::from_iter([proposed_head.key().clone()]);
         Ok(Self {
             proposed_head,
             current_head,
