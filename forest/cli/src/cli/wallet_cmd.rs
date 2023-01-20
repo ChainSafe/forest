@@ -359,7 +359,7 @@ fn not_exact_balance_fixed_unit() {
         TokenAmount::from_atto(100),
         &true,
         &false,
-    ), "some_addr                                  X        0.0000000000000001 FIL");
+    ), "some_addr                                  X        ~0 FIL");
 }
 
 #[test]
@@ -370,7 +370,7 @@ fn exact_balance_not_fixed_unit() {
         TokenAmount::from_atto(100),
         &false,
         &true,
-    ), "some_addr                                  X        0.0000000000000001 FIL");
+    ), "some_addr                                  X        100 atto FIL");
 }
 
 #[test]
