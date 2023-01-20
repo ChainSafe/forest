@@ -75,7 +75,7 @@ where
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
     let genesis =
         read_genesis_header(genesis_fp, genesis_bytes, state_manager.blockstore()).await?;
-    let ts = Tipset::try_from(&genesis)?;
+    let ts = Tipset::from(&genesis);
     let network_name = get_network_name_from_genesis(&genesis, state_manager)?;
     Ok((ts, network_name))
 }

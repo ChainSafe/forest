@@ -379,13 +379,7 @@ async fn validate(
         )
         .await?;
 
-        let genesis_ts = Tipset::try_from(&genesis.clone())?;
-
-        let chain_store = Arc::new(ChainStore::new(
-            db,
-            config.chain.clone(),
-            Arc::new(genesis_ts.clone()),
-        )?);
+        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone(), genesis.clone())?);
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
@@ -400,7 +394,7 @@ async fn validate(
             ts,
             chain_store.blockstore(),
             *recent_stateroots,
-            &genesis_ts,
+            &Tipset::from(&genesis),
             &config.chain.name,
         )
         .await?;

@@ -170,16 +170,15 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         &db,
     )
     .await?;
-    let genesis_ts = Tipset::try_from(&genesis_header)?;
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         config.chain.clone(),
-        Arc::new(genesis_ts.clone()),
+        genesis_header.clone(),
     )?);
 
-    chain_store.set_genesis(&genesis_header.clone())?;
+    chain_store.set_genesis(&genesis_header)?;
 
     let publisher = chain_store.publisher();
 
@@ -284,7 +283,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         mpool.clone(),
         network_send.clone(),
         network_rx,
-        Arc::new(genesis_ts),
+        Arc::new(Tipset::from(&genesis_header)),
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync.clone(),
@@ -531,13 +530,7 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let genesis_ts = Tipset::try_from(&genesis_header)?;
-
-        let cs = Arc::new(ChainStore::new(
-            db,
-            chain_config.clone(),
-            Arc::new(genesis_ts),
-        )?);
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_header)?);
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
@@ -556,13 +549,7 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let genesis_ts = Tipset::try_from(&genesis_header)?;
-
-        let cs = Arc::new(ChainStore::new(
-            db,
-            chain_config.clone(),
-            Arc::new(genesis_ts),
-        )?);
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_header)?);
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,

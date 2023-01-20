@@ -175,10 +175,9 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let genesis_ts = Tipset::try_from(&gen_block).unwrap();
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db, Arc::new(ChainConfig::default()), Arc::new(genesis_ts)).unwrap(),
+            &ChainStore::new(db, Arc::new(ChainConfig::default()), gen_block).unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

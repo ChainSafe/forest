@@ -209,7 +209,7 @@ where
 {
     let genesis = forest_chain::genesis(data.state_manager.blockstore())?
         .ok_or("can't find genesis tipset")?;
-    let gen_ts = Arc::new(Tipset::try_from(&genesis)?);
+    let gen_ts = Arc::new(Tipset::from(&genesis));
     Ok(Some(TipsetJson(gen_ts)))
 }
 
