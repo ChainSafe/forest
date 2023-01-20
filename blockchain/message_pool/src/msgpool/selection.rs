@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Contains routines for message selection APIs.
@@ -13,6 +13,7 @@ use crate::msg_pool::MsgSet;
 use crate::msgpool::MIN_GAS;
 use crate::Error;
 use crate::{add_to_selected_msgs, remove_from_selected_msgs};
+use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::Message;
 use forest_message::SignedMessage;
@@ -23,7 +24,6 @@ use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
@@ -680,7 +680,7 @@ mod test_selection {
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
-    async fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
+    fn make_test_mpool(joinset: &mut JoinSet<anyhow::Result<()>>) -> MessagePool<TestApi> {
         let tma = TestApi::default();
         let (tx, _rx) = flume::bounded(50);
         MessagePool::new(
@@ -691,7 +691,6 @@ mod test_selection {
             Arc::default(),
             joinset,
         )
-        .await
         .unwrap()
     }
 
@@ -699,7 +698,7 @@ mod test_selection {
     #[tokio::test]
     async fn basic_message_selection() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -710,7 +709,7 @@ mod test_selection {
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -726,7 +725,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -783,7 +782,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b2]).unwrap()],
+            vec![Tipset::from(b2)],
         )
         .await
         .unwrap();
@@ -803,7 +802,7 @@ mod test_selection {
             msgs.push(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1));
         }
         let b3 = mpool.api.next_block();
-        let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
+        let ts3 = Tipset::from(&b3);
         mpool.api.set_block_messages(&b3, msgs);
 
         // now create another set of messages and add them to the mpool
@@ -864,7 +863,7 @@ mod test_selection {
     #[cfg(feature = "slow_tests")]
     async fn message_selection_trimming() {
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -875,7 +874,7 @@ mod test_selection {
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -890,7 +889,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -940,7 +939,7 @@ mod test_selection {
         let db = MemoryDB::default();
 
         let mut joinset = JoinSet::new();
-        let mut mpool = make_test_mpool(&mut joinset).await;
+        let mut mpool = make_test_mpool(&mut joinset);
 
         let ks1 = KeyStore::new(KeyStoreConfig::Memory).unwrap();
         let mut w1 = Wallet::new(ks1);
@@ -956,7 +955,7 @@ mod test_selection {
         mpool.set_config(&db, mpool_cfg).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
         let api = &mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -971,7 +970,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1038,7 +1037,7 @@ mod test_selection {
         // the chain depenent merging algorithm should pick messages from the actor
         // from the start
         let mut joinset = JoinSet::new();
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1049,7 +1048,7 @@ mod test_selection {
         // create a block
         let b1 = mock_block(1, 1);
         // add block to tipset
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1.clone());
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -1066,7 +1065,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1117,7 +1116,7 @@ mod test_selection {
         // actor paying (much) higher gas premium than the second.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the second actor from the start
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         // create two actors
         let mut w1 = Wallet::new(KeyStore::new(KeyStoreConfig::Memory).unwrap());
@@ -1128,7 +1127,7 @@ mod test_selection {
         // create a block
         let b1 = mock_block(1, 1);
         // add block to tipset
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -1145,7 +1144,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1229,7 +1228,7 @@ mod test_selection {
         // actors paying higher gas premium than the subsequent actors.
         // We select with a low ticket quality; the chain depenent merging algorithm should pick
         // messages from the median actor from the start
-        let mpool = make_test_mpool(&mut joinset).await;
+        let mpool = make_test_mpool(&mut joinset);
 
         let n_actors = 10;
 
@@ -1247,7 +1246,7 @@ mod test_selection {
         // create a block
         let block = mock_block(1, 1);
         // add block to tipset
-        let ts = Tipset::new(vec![block.clone()]).unwrap();
+        let ts = Tipset::from(&block);
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -1264,7 +1263,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![block]).unwrap()],
+            vec![Tipset::from(block)],
         )
         .await
         .unwrap();

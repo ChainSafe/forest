@@ -1,18 +1,17 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{
+    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
+    TipsetBundle,
+};
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::{ChainStore, Error as ChainError};
 use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
 use log::debug;
-use std::collections::HashMap;
-
-use super::{
-    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
-    TipsetBundle,
-};
 
 /// Builds chain exchange response out of chain data.
 pub fn make_chain_exchange_response<DB>(
@@ -149,9 +148,13 @@ where
 mod tests {
     use super::super::{HEADERS, MESSAGES};
     use super::*;
+    use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
+    use forest_networks::ChainConfig;
     use fvm_ipld_car::load_car;
+    use fvm_shared::address::Address;
+    use std::sync::Arc;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -167,8 +170,13 @@ mod tests {
     async fn compact_messages_test() {
         let (cids, db) = populate_db().await;
 
+        let gen_block = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+
         let response = make_chain_exchange_response(
-            &ChainStore::new(db),
+            &ChainStore::new(db, Arc::new(ChainConfig::default()), &gen_block).unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

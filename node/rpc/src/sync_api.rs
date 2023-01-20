@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
@@ -8,9 +8,8 @@ use forest_json::cid::CidJson;
 use forest_rpc_api::data_types::{RPCState, RPCSyncState};
 use forest_rpc_api::sync_api::*;
 use fvm_ipld_blockstore::Blockstore;
-
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB, B>(
@@ -40,10 +39,8 @@ where
     Ok(())
 }
 
-// TODO SyncIncomingBlocks (requires websockets)
-
 async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
-    state.read().await.clone()
+    state.read().clone()
 }
 
 /// Returns the current status of the `ChainSync` process.
@@ -79,7 +76,7 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    async fn state_setup() -> (
+    fn state_setup() -> (
         Arc<RPCState<MemoryDB, MockBeacon>>,
         flume::Receiver<NetworkMessage>,
     ) {
@@ -91,20 +88,23 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db.clone()));
+        let chain_config = Arc::new(ChainConfig::default());
+
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()
             .unwrap();
+
+        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header).unwrap());
+
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(
             StateManager::new(
                 cs_arc.clone(),
-                Arc::new(ChainConfig::default()),
+                chain_config,
                 Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
-            .await
             .unwrap(),
         );
         let state_manager_for_thread = state_manager.clone();
@@ -114,7 +114,7 @@ mod tests {
         let pool = {
             let bz = hex::decode("904300e80781586082cb7477a801f55c1f2ea5e5d1167661feea60a39f697e1099af132682b81cc5047beacf5b6e80d5f52b9fd90323fb8510a5396416dd076c13c85619e176558582744053a3faef6764829aa02132a1571a76aabdc498a638ea0054d3bb57f41d82015860812d2396cc4592cdf7f829374b01ffd03c5469a4b0a9acc5ccc642797aa0a5498b97b28d90820fedc6f79ff0a6005f5c15dbaca3b8a45720af7ed53000555667207a0ccb50073cd24510995abd4c4e45c1e9e114905018b2da9454190499941e818201582012dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a608182004b76616c69642070726f6f6681d82a5827000171a0e4022030f89a8b0373ad69079dbcbc5addfe9b34dce932189786e50d3eb432ede3ba9c43000f0001d82a5827000171a0e4022052238c7d15c100c1b9ebf849541810c9e3c2d86e826512c6c416d2318fcd496dd82a5827000171a0e40220e5658b3d18cd06e1db9015b4b0ec55c123a24d5be1ea24d83938c5b8397b4f2fd82a5827000171a0e4022018d351341c302a21786b585708c9873565a0d07c42521d4aaf52da3ff6f2e461586102c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001a5f2c5439586102b5cd48724dce0fec8799d77fd6c5113276e7f470c8391faa0b5a6033a3eaf357d635705c36abe10309d73592727289680515afd9d424793ba4796b052682d21b03c5c8a37d94827fecc59cdc5750e198fdf20dee012f4d627c6665132298ab95004500053724e0").unwrap();
             let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
-            let ts = Tipset::new(vec![header]).unwrap();
+            let ts = Tipset::from(header);
             let db = cs_for_test.blockstore();
             let tsk = ts.key().cids.clone();
             cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
@@ -134,7 +134,6 @@ mod tests {
                 Arc::clone(state_manager_for_thread.chain_config()),
                 &mut services,
             )
-            .await
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
@@ -143,7 +142,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Arc::new(RwLock::new(Default::default())),
+            sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
             chain_store: cs_for_chain,
@@ -155,7 +154,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_check_bad() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let cid: CidJson =
             from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
@@ -177,7 +176,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_state_test() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let st_copy = state.sync_state.clone();
 
@@ -187,8 +186,8 @@ mod tests {
         }
 
         // update cloned state
-        st_copy.write().await.set_stage(SyncStage::Messages);
-        st_copy.write().await.set_epoch(4);
+        st_copy.write().set_stage(SyncStage::Messages);
+        st_copy.write().set_epoch(4);
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {

@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod client;
@@ -8,6 +8,7 @@ mod snapshot_fetch;
 pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
 
+use ahash::HashSet;
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
@@ -16,7 +17,6 @@ use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::error;
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -154,19 +154,19 @@ impl CliOpts {
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
-        } else {
-            if let Some(snapshot_path) = &self.import_snapshot {
-                cfg.client.snapshot_path = Some(snapshot_path.into());
-                cfg.client.snapshot = true;
-            }
-            if let Some(snapshot_path) = &self.import_chain {
-                cfg.client.snapshot_path = Some(snapshot_path.into());
-                cfg.client.snapshot = false;
-            }
-            cfg.client.snapshot_height = self.height;
-
-            cfg.client.skip_load = self.skip_load;
         }
+
+        if let Some(snapshot_path) = &self.import_snapshot {
+            cfg.client.snapshot_path = Some(snapshot_path.into());
+            cfg.client.snapshot = true;
+        }
+        if let Some(snapshot_path) = &self.import_chain {
+            cfg.client.snapshot_path = Some(snapshot_path.into());
+            cfg.client.snapshot = false;
+        }
+        cfg.client.snapshot_height = self.height;
+
+        cfg.client.skip_load = self.skip_load;
 
         cfg.client.halt_after_import = self.halt_after_import;
         cfg.client.download_snapshot = self.download_snapshot;

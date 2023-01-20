@@ -1,10 +1,11 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
+use forest_blocks::Tipset;
 use forest_chain::ChainStore;
 use forest_chain_sync::consensus::SyncGossipSubmitter;
 use forest_chain_sync::ChainMuxer;
@@ -161,36 +162,36 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         });
     }
 
-    // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()));
-
-    let publisher = chain_store.publisher();
-
     // Read Genesis file
     // * When snapshot command implemented, this genesis does not need to be initialized
-    let genesis = read_genesis_header(
+    let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
-        &chain_store,
+        &db,
     )
     .await?;
-    let genesis_header = &genesis.blocks()[0];
-    chain_store.set_genesis(genesis_header)?;
+
+    // Initialize ChainStore
+    let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
+        config.chain.clone(),
+        &genesis_header,
+    )?);
+
+    chain_store.set_genesis(&genesis_header)?;
+
+    let publisher = chain_store.publisher();
 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
-    let should_fetch_snapshot = match chain_store.heaviest_tipset() {
-        None => prompt_snapshot_or_die(&config)?,
-        Some(tipset) => {
-            let epoch = tipset.epoch();
-            let nv = config.chain.network_version(epoch);
-            if nv < NetworkVersion::V16 {
-                prompt_snapshot_or_die(&config)?
-            } else {
-                false
-            }
-        }
+
+    let epoch = chain_store.heaviest_tipset().epoch();
+    let nv = config.chain.network_version(epoch);
+    let should_fetch_snapshot = if nv < NetworkVersion::V16 {
+        prompt_snapshot_or_die(&config)?
+    } else {
+        false
     };
 
     // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
@@ -202,12 +203,11 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         Arc::clone(&chain_store),
         Arc::clone(&config.chain),
         reward_calc,
-    )
-    .await?;
+    )?;
 
     let state_manager = Arc::new(sm);
 
-    let network_name = get_network_name_from_genesis(&genesis, &state_manager)?;
+    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
@@ -257,8 +257,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         MpoolConfig::load_config(&db)?,
         Arc::clone(state_manager.chain_config()),
         &mut services,
-    )
-    .await?;
+    )?;
 
     let mpool = Arc::new(mpool);
 
@@ -282,7 +281,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         mpool.clone(),
         network_send.clone(),
         network_rx,
-        Arc::new(genesis),
+        Arc::new(Tipset::from(genesis_header)),
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync.clone(),
@@ -522,40 +521,42 @@ mod test {
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db));
+        let chain_config = Arc::new(ChainConfig::default());
+
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
-        cs.set_genesis(&genesis_header)?;
-        let chain_config = Arc::new(ChainConfig::default());
-        let sm = Arc::new(
-            StateManager::new(
-                cs,
-                chain_config,
-                Arc::new(forest_interpreter::RewardActorMessageCalc),
-            )
-            .await?,
-        );
+
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header)?);
+        let sm = Arc::new(StateManager::new(
+            cs,
+            chain_config,
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )?);
         import_chain::<_>(&sm, file_path, None, false).await?;
         Ok(())
     }
 
-    // FIXME: This car file refers to actors that are not available in FVM yet.
-    //        See issue: https://github.com/ChainSafe/forest/issues/1452
-    // #[async_std::test]
-    // async fn import_chain_from_file() {
-    //     let db = Arc::new(MemoryDB::default());
-    //     let cs = Arc::new(ChainStore::new(db));
-    //     let genesis_header = BlockHeader::builder()
-    //         .miner_address(Address::new_id(0))
-    //         .timestamp(7777)
-    //         .build()
-    //         .unwrap();
-    //     cs.set_genesis(&genesis_header).unwrap();
-    //     let sm = Arc::new(StateManager::new(cs).await.unwrap());
-    //     import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
-    //         .await
-    //         .expect("Failed to import chain");
-    // }
+    #[tokio::test]
+    async fn import_chain_from_file() -> anyhow::Result<()> {
+        let db = MemoryDB::default();
+        let chain_config = Arc::new(ChainConfig::default());
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()?;
+
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header)?);
+        let sm = Arc::new(StateManager::new(
+            cs,
+            chain_config,
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )?);
+        import_chain::<_>(&sm, "test_files/chain4.car", None, false)
+            .await
+            .expect("Failed to import chain");
+
+        Ok(())
+    }
 }

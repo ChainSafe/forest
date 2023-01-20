@@ -1,9 +1,10 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
 use crate::provider::Provider;
 use crate::utils::{get_gas_perf, get_gas_reward};
+use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
@@ -15,7 +16,6 @@ use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::mem;
 use std::ops::{Index, IndexMut};
 

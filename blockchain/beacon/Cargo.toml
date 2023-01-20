@@ -21,7 +21,7 @@ hex.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }
 sha2 = { workspace = true, default-features = false }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["sync", "rt-multi-thread"] }
 
 [dev-dependencies]
 quickcheck.workspace = true

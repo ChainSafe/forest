@@ -1,8 +1,8 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::beacon_entries::BeaconEntry;
-use ahash::AHashMap;
+use ahash::HashMap;
 use anyhow::Context;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
@@ -184,12 +184,12 @@ pub struct DrandBeacon {
     fil_round_time: u64,
 
     /// Keeps track of computed beacon entries.
-    local_cache: RwLock<AHashMap<u64, BeaconEntry>>,
+    local_cache: RwLock<HashMap<u64, BeaconEntry>>,
 }
 
 impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
-    pub async fn new(
+    pub fn new(
         genesis_ts: u64,
         interval: u64,
         config: &DrandConfig<'_>,
@@ -201,14 +201,23 @@ impl DrandBeacon {
         let chain_info = &config.chain_info;
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let client = https_client();
-            let remote_chain_info: ChainInfo = client
-                .get(format!("{}/info", &config.server).try_into()?)
-                .await?
-                .into_body()
-                .json()
-                .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let server = config.server;
+            let remote_chain_info = std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new()?;
+                rt.block_on(async {
+                    let client = https_client();
+                    let remote_chain_info: ChainInfo = client
+                        .get(format!("{server}/info").try_into()?)
+                        .await?
+                        .into_body()
+                        .json()
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{e}"))?;
+                    Ok::<ChainInfo, anyhow::Error>(remote_chain_info)
+                })
+            })
+            .join()
+            .expect("thread panicked")?;
             debug_assert!(&remote_chain_info == chain_info);
         }
 

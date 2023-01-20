@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{tipset_from_keys, Error, TipsetCache};
@@ -21,10 +21,10 @@ const SKIP_LENGTH: ChainEpoch = 20;
 
 // This module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
 pub(super) mod checkpoint_tipsets {
+    use ahash::{HashMap, HashMapExt, HashSet};
     use cid::Cid;
     use forest_blocks::TipsetKeys;
     use once_cell::sync::Lazy;
-    use std::collections::{HashMap, HashSet};
     use std::str::FromStr;
 
     macro_rules! add_calibnet {

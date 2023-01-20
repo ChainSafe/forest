@@ -8,6 +8,7 @@ edition = "2021"
 repository = "https://github.com/ChainSafe/forest"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 async-recursion = "1.0"
 async-trait.workspace = true

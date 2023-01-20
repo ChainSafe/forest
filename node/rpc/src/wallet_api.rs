@@ -1,6 +1,8 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use forest_json::signature::json::SignatureJson;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use std::convert::TryFrom;
@@ -29,11 +31,7 @@ where
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
 
-    let heaviest_ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("No heaviest tipset")?;
+    let heaviest_ts = data.state_manager.chain_store().heaviest_tipset();
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
@@ -202,11 +200,7 @@ where
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
     let address = addr.0;
-    let heaviest_tipset = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = state_manager
         .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;
@@ -222,7 +216,7 @@ where
     let sig = forest_key_management::sign(
         *key.key_info.key_type(),
         key.key_info.private_key(),
-        &base64::decode(msg_string)?,
+        &BASE64_STANDARD.decode(msg_string)?,
     )?;
 
     Ok(SignatureJson(sig))

@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Contains the implementation of Message Pool component.
@@ -16,6 +16,7 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -36,7 +37,6 @@ use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -157,7 +157,7 @@ where
     T: Provider + std::marker::Send + std::marker::Sync + 'static,
 {
     /// Creates a new `MessagePool` instance.
-    pub async fn new(
+    pub fn new(
         api: T,
         network_name: String,
         network_sender: flume::Sender<NetworkMessage>,
@@ -170,9 +170,7 @@ where
     {
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
-        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset().ok_or_else(|| {
-            Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
-        })?));
+        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
         let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
         let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
@@ -631,10 +629,9 @@ fn verify_msg_before_add(
             if local {
                 warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
                 return Ok(false);
-            } else {
-                return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
-                    m.gas_fee_cap(), base_fee_lower_bound)));
             }
+            return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",
+                m.gas_fee_cap(), base_fee_lower_bound)));
         }
     }
     Ok(local)

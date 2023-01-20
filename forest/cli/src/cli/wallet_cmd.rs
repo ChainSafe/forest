@@ -1,8 +1,10 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Config;
 use anyhow::Context;
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use forest_json::address::json::AddressJson;
 use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use forest_key_management::json::KeyInfoJson;
@@ -195,7 +197,7 @@ impl WalletCommands {
                     .with_context(|| format!("Invalid address: {address}"))?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
-                let message = base64::encode(message);
+                let message = BASE64_STANDARD.encode(message);
 
                 let response = wallet_sign(
                     (AddressJson(address), message.into_bytes()),
