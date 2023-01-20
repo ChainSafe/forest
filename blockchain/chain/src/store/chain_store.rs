@@ -961,7 +961,7 @@ mod tests {
             .unwrap();
         let cs = ChainStore::new(db, chain_config, &gen_block).unwrap();
 
-        assert_eq!(cs.genesis().unwrap(), Some(gen_block));
+        assert_eq!(cs.genesis().unwrap(), gen_block);
     }
 
     #[test]
