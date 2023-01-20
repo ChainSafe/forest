@@ -1302,7 +1302,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
                 TipsetRangeSyncerError::<C>::Validation(format!("Could not compute base fee: {e}"))
             })?;
         let parent_base_fee = v_block.header.parent_base_fee();
-        if &base_fee != parent_base_fee {
+        if base_fee != parent_base_fee.clone().into() {
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "base fee doesn't match: {parent_base_fee} (header), {base_fee} (computed)"
             )));

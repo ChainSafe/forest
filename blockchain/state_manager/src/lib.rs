@@ -541,7 +541,7 @@ where
             store,
             epoch,
             chain_rand,
-            ts.blocks()[0].parent_base_fee().clone(),
+            ts.blocks()[0].parent_base_fee().clone().into(),
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
@@ -774,7 +774,7 @@ where
                 &blocks,
                 epoch,
                 chain_rand,
-                base_fee,
+                base_fee.into(),
                 callback,
                 &ts_cloned,
             )?)

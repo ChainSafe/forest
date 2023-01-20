@@ -71,7 +71,7 @@ impl DelegatedProposer {
             .bls_aggregate(Some(persisted.bls_agg))
             .miner_address(self.miner_addr)
             .weight(parent_weight)
-            .parent_base_fee(parent_base_fee)
+            .parent_base_fee(parent_base_fee.into())
             .parents(base.key().clone())
             .epoch(base.epoch() + 1)
             .timestamp(base.min_timestamp() + block_delay)

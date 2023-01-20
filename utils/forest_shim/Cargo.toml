@@ -10,4 +10,5 @@ edition = "2021"
 #fvm3 = { package = "fvm", version = "3.0.0-alpha.19" }
 fvm_shared.workspace = true
 fvm_shared3 = { package = "fvm_shared", version = "3.0.0-alpha.16" }
+num-bigint.workspace = true
 serde = { workspace = true, features = ["derive"] }
