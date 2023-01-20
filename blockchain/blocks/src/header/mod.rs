@@ -11,14 +11,12 @@ use forest_encoding::blake2b_256;
 use forest_shim::econ::TokenAmount;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    BigInt,
-};
+use fvm_shared::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::sector::PoStProof;
 use fvm_shared::version::NetworkVersion;
+use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -33,7 +31,7 @@ pub mod json;
 /// use fvm_shared::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
-/// use fvm_shared::bigint::BigInt;
+/// use num::BigInt;
 /// use fvm_shared::crypto::signature::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
