@@ -42,20 +42,20 @@ impl BitswapRequestManager {
 impl BitswapRequestManager {
     pub fn on_peer_connected(&self, peer: PeerId) -> bool {
         let mut peers = self.peers.write();
-        let r = peers.insert(peer);
-        if r {
+        let success = peers.insert(peer);
+        if success {
             metrics::peer_container_capacity().set(peers.capacity() as _);
         }
-        r
+        success
     }
 
     pub fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
         let mut peers = self.peers.write();
-        let r = peers.remove(peer);
-        if r {
+        let success = peers.remove(peer);
+        if success {
             metrics::peer_container_capacity().set(peers.capacity() as _);
         }
-        r
+        success
     }
 
     pub fn handle_event<S: BitswapStore>(
