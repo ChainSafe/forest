@@ -3,3 +3,4 @@
 
 pub mod address;
 pub mod econ;
+pub mod version;
