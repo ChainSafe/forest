@@ -281,7 +281,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         mpool.clone(),
         network_send.clone(),
         network_rx,
-        Arc::new(Tipset::from(&genesis_header)),
+        Arc::new(Tipset::from(genesis_header)),
         chain_muxer_tipset_sink,
         tipset_stream,
         config.sync.clone(),

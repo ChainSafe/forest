@@ -101,7 +101,7 @@ impl TestApiInner {
         let new_block = mock_block_with_parents(
             self.tipsets
                 .last()
-                .unwrap_or(&Tipset::from(&mock_block(1, 1))),
+                .unwrap_or(&Tipset::from(mock_block(1, 1))),
             1,
             1,
         );
@@ -116,7 +116,7 @@ impl Provider for TestApi {
     }
 
     fn get_heaviest_tipset(&self) -> Arc<Tipset> {
-        Arc::new(Tipset::from(&create_header(1)))
+        Arc::new(Tipset::from(create_header(1)))
     }
 
     fn put_message(&self, _msg: &ChainMessage) -> Result<Cid, Error> {

@@ -725,7 +725,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b1)],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -782,7 +782,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b2)],
+            vec![Tipset::from(b2)],
         )
         .await
         .unwrap();
@@ -889,7 +889,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b1)],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -955,7 +955,7 @@ mod test_selection {
         mpool.set_config(&db, mpool_cfg).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::from(&b1.clone());
+        let ts = Tipset::from(&b1);
         let api = &mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -970,7 +970,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b1)],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1065,7 +1065,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b1)],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1144,7 +1144,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&b1)],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1263,7 +1263,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&block)],
+            vec![Tipset::from(block)],
         )
         .await
         .unwrap();

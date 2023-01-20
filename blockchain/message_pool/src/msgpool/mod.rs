@@ -470,7 +470,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&a)],
+            vec![Tipset::from(a)],
         )
         .await
         .unwrap();
@@ -508,7 +508,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
-            vec![Tipset::from(&b)],
+            vec![Tipset::from(b)],
             Vec::new(),
         )
         .await
@@ -580,7 +580,7 @@ pub mod tests {
         let gas_limit = 6955002;
 
         let a = mock_block(1, 1);
-        let ts = Tipset::from(&a);
+        let ts = Tipset::from(a);
         let chain_config = ChainConfig::default();
 
         // --- Test Chain Aggregations ---

@@ -394,7 +394,7 @@ async fn validate(
             ts,
             chain_store.blockstore(),
             *recent_stateroots,
-            &Tipset::from(&genesis),
+            &Tipset::from(genesis),
             &config.chain.name,
         )
         .await?;
