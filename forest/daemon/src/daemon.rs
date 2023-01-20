@@ -186,9 +186,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
 
-    let tipset = chain_store.heaviest_tipset();
-
-    let epoch = tipset.epoch();
+    let epoch = chain_store.heaviest_tipset().epoch();
     let nv = config.chain.network_version(epoch);
     let should_fetch_snapshot = if nv < NetworkVersion::V16 {
         prompt_snapshot_or_die(&config)?

@@ -43,8 +43,19 @@ pub struct Tipset {
 
 impl From<&BlockHeader> for Tipset {
     fn from(value: &BlockHeader) -> Self {
-        //unfallible since there's just one BlockHeader
-        Tipset::new(vec![value.clone()]).unwrap()
+        Self {
+            headers: vec![value.clone()],
+            key: OnceCell::new(),
+        }
+    }
+}
+
+impl From<BlockHeader> for Tipset {
+    fn from(value: BlockHeader) -> Self {
+        Self {
+            headers: vec![value],
+            key: OnceCell::new(),
+        }
     }
 }
 
