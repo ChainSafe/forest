@@ -108,14 +108,19 @@ where
             tipset_tracker: TipsetTracker::new(db.clone(), chain_config),
             db,
             ts_cache,
-            heaviest: Mutex::new(genesis_ts),
+            heaviest: Mutex::new(genesis_ts.clone()),
         };
 
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
         let _ = cs.load_heaviest_tipset();
 
-        cs.blockstore().read(HEAD_KEY)?;
-        cs.blockstore().read(GENESIS_KEY)?;
+        if cs.blockstore().read(HEAD_KEY)?.is_none() {
+            cs.set_genesis(&genesis_ts.blocks()[0])?;
+        }
+
+        if cs.blockstore().read(GENESIS_KEY)?.is_none() {
+            cs.set_heaviest_tipset(genesis_ts)?;
+        }
 
         Ok(cs)
     }
