@@ -402,7 +402,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::from(&a)],
+            vec![Tipset::from(a)],
         )
         .await
         .unwrap();
