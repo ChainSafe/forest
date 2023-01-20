@@ -11,7 +11,6 @@ use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
 use log::warn;
 use parity_db::{CompressionType, Db, Options};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -47,7 +46,7 @@ impl ParityDb {
                     ..Default::default()
                 })
                 .collect(),
-            compression_threshold: HashMap::new(),
+            compression_threshold: Default::default(),
         })
     }
 

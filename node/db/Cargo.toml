@@ -22,6 +22,7 @@ lz4 = ["rocksdb?/lz4"]
 paritydb = ["dep:parity-db"]
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
 fvm_ipld_blockstore.workspace = true

@@ -1,33 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::bitswap_missing_blocks;
-
 use super::{Error, Store};
+use crate::utils::bitswap_missing_blocks;
+use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use libp2p_bitswap::BitswapStore;
 use parking_lot::RwLock;
-use std::collections::{hash_map::DefaultHasher, HashMap};
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// A thread-safe `HashMap` wrapper.
 #[derive(Debug, Default, Clone)]
 pub struct MemoryDB {
-    db: Arc<RwLock<HashMap<u64, Vec<u8>>>>,
-}
-
-impl MemoryDB {
-    fn db_index<K>(key: K) -> u64
-    where
-        K: AsRef<[u8]>,
-    {
-        let mut hasher = DefaultHasher::new();
-        key.as_ref().hash::<DefaultHasher>(&mut hasher);
-        hasher.finish()
-    }
+    db: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
 impl Store for MemoryDB {
@@ -38,7 +25,7 @@ impl Store for MemoryDB {
     {
         self.db
             .write()
-            .insert(Self::db_index(key), value.as_ref().to_vec());
+            .insert(key.as_ref().to_vec(), value.as_ref().to_vec());
         Ok(())
     }
 
@@ -46,7 +33,7 @@ impl Store for MemoryDB {
     where
         K: AsRef<[u8]>,
     {
-        self.db.write().remove(&Self::db_index(key));
+        self.db.write().remove(key.as_ref());
         Ok(())
     }
 
@@ -54,14 +41,14 @@ impl Store for MemoryDB {
     where
         K: AsRef<[u8]>,
     {
-        Ok(self.db.read().get(&Self::db_index(key)).cloned())
+        Ok(self.db.read().get(key.as_ref()).cloned())
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,
     {
-        Ok(self.db.read().contains_key(&Self::db_index(key)))
+        Ok(self.db.read().contains_key(key.as_ref()))
     }
 }
 

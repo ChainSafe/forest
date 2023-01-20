@@ -20,6 +20,7 @@ forest_message_pool.workspace = true
 forest_state_manager.workspace = true
 
 # Public
+ahash.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 cid.workspace = true
