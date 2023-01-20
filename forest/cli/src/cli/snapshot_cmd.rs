@@ -373,14 +373,14 @@ async fn validate(
         let db_path = tmp_db_path.path().join(&config.chain.name);
         let db = open_db(&db_path, config.db_config())?;
 
-        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone()));
-
         let genesis = read_genesis_header(
             config.client.genesis_file.as_ref(),
             config.chain.genesis_bytes(),
-            &chain_store,
+            &db,
         )
         .await?;
+
+        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone(), &genesis)?);
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
@@ -395,7 +395,7 @@ async fn validate(
             ts,
             chain_store.blockstore(),
             *recent_stateroots,
-            &genesis,
+            &Tipset::from(genesis),
             &config.chain.name,
         )
         .await?;

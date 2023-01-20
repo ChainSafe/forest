@@ -71,10 +71,7 @@ pub(crate) async fn state_network_name<
     data: Data<RPCState<DB, B>>,
 ) -> Result<StateNetworkNameResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let heaviest_tipset = state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("Heaviest Tipset not found in state_network_name")?;
+    let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
 
     state_manager
         .get_network_name(heaviest_tipset.parent_state())

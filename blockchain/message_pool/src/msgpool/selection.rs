@@ -709,7 +709,7 @@ mod test_selection {
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -725,7 +725,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -782,7 +782,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b2]).unwrap()],
+            vec![Tipset::from(b2)],
         )
         .await
         .unwrap();
@@ -802,7 +802,7 @@ mod test_selection {
             msgs.push(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1));
         }
         let b3 = mpool.api.next_block();
-        let ts3 = Tipset::new(vec![b3.clone()]).unwrap();
+        let ts3 = Tipset::from(&b3);
         mpool.api.set_block_messages(&b3, msgs);
 
         // now create another set of messages and add them to the mpool
@@ -874,7 +874,7 @@ mod test_selection {
         let a2 = w2.generate_addr(SignatureType::Secp256k1).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -889,7 +889,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -955,7 +955,7 @@ mod test_selection {
         mpool.set_config(&db, mpool_cfg).unwrap();
 
         let b1 = mock_block(1, 1);
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
         let api = &mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
         let pending = mpool.pending.clone();
@@ -970,7 +970,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1048,7 +1048,7 @@ mod test_selection {
         // create a block
         let b1 = mock_block(1, 1);
         // add block to tipset
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1.clone());
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -1065,7 +1065,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1127,7 +1127,7 @@ mod test_selection {
         // create a block
         let b1 = mock_block(1, 1);
         // add block to tipset
-        let ts = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts = Tipset::from(&b1);
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -1144,7 +1144,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b1]).unwrap()],
+            vec![Tipset::from(b1)],
         )
         .await
         .unwrap();
@@ -1246,7 +1246,7 @@ mod test_selection {
         // create a block
         let block = mock_block(1, 1);
         // add block to tipset
-        let ts = Tipset::new(vec![block.clone()]).unwrap();
+        let ts = Tipset::from(&block);
 
         let api = mpool.api.clone();
         let bls_sig_cache = mpool.bls_sig_cache.clone();
@@ -1263,7 +1263,7 @@ mod test_selection {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![block]).unwrap()],
+            vec![Tipset::from(block)],
         )
         .await
         .unwrap();
