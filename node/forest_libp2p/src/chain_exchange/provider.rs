@@ -1,18 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{
+    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
+    TipsetBundle,
+};
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::{ChainStore, Error as ChainError};
 use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
 use log::debug;
-use std::collections::HashMap;
-
-use super::{
-    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
-    TipsetBundle,
-};
 
 /// Builds chain exchange response out of chain data.
 pub fn make_chain_exchange_response<DB>(

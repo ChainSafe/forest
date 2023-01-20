@@ -13,6 +13,7 @@ use crate::msg_pool::MsgSet;
 use crate::msgpool::MIN_GAS;
 use crate::Error;
 use crate::{add_to_selected_msgs, remove_from_selected_msgs};
+use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::Message;
 use forest_message::SignedMessage;
@@ -23,7 +24,6 @@ use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use std::borrow::BorrowMut;
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
