@@ -963,8 +963,6 @@ mod tests {
         let cs = ChainStore::new(db, chain_config, Arc::new(genesis_ts.clone())).unwrap();
 
         assert_eq!(cs.genesis().unwrap(), None);
-        cs.set_genesis(&gen_block).unwrap();
-        cs.set_heaviest_tipset(Arc::new(genesis_ts)).unwrap();
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
 
@@ -979,8 +977,6 @@ mod tests {
         let genesis_ts = Tipset::try_from(&gen_block).unwrap();
 
         let cs = ChainStore::new(db, chain_config, Arc::new(genesis_ts.clone())).unwrap();
-        cs.set_genesis(&gen_block).unwrap();
-        cs.set_heaviest_tipset(Arc::new(genesis_ts)).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());

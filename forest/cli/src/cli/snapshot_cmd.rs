@@ -387,9 +387,6 @@ async fn validate(
             Arc::new(genesis_ts.clone()),
         )?);
 
-        chain_store.set_genesis(&genesis.clone())?;
-        chain_store.set_heaviest_tipset(Arc::new(genesis_ts.clone()))?;
-
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
