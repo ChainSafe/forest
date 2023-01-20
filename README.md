@@ -145,7 +145,7 @@ RUST_LOG="debug,forest_libp2p::service=info" forest
 
 Will show all debug logs by default, but the `forest_libp2p::service` logs will be limited to `info`
 
-Forest can also expose a [Loki](https://github.com/grafana/loki) endpoint to facilitate logs monitoring. Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
+Forest can also send telemetry to the endpoint of a Loki instance or a Loki agent (see [Grafana Cloud](https://grafana.com/oss/loki/)). Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
 
 ### Testing
 ```bash
