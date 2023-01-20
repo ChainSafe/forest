@@ -145,6 +145,8 @@ RUST_LOG="debug,forest_libp2p::service=info" forest
 
 Will show all debug logs by default, but the `forest_libp2p::service` logs will be limited to `info`
 
+Forest can also send telemetry to the endpoint of a Loki instance or a Loki agent (see [Grafana Cloud](https://grafana.com/oss/loki/)). Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
+
 ### Testing
 ```bash
 # To run base tests
@@ -189,17 +191,10 @@ After everything is installed, you can run `make lint-all`.
 
 ### Joining the testnet
 
-Select the builtin calibnet configuration with the `--chain` option:
+Select the builtin calibnet configuration with the `--chain` option. The `--auto-download-snapshot` will ensure that a snapshot is downloaded if needed without any prompts.
 
 ```bash
-# Run and import past the state migrations to latest network version
-./target/release/forest --chain calibnet --import-snapshot snapshot.car
-```
-
-Importing the snapshot only needs to happen during the first run. Following this, to restart the daemon run:
-
-```bash
-./target/release/forest --chain calibnet
+./target/release/forest --chain calibnet --auto-download-snapshot
 ```
 
 ### Interacting with Forest via CLI
