@@ -24,6 +24,7 @@ num-bigint.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+ahash.workspace = true
 arbitrary.workspace = true
 forest_test_utils.workspace = true
 fvm_shared = { workspace = true, features = ["arb"] }

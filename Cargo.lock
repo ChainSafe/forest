@@ -406,9 +406,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.61"
+version = "0.1.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "705339e0e4a9690e2908d2b3d049d85682cf19fbd5782494498fbf7003a6a282"
+checksum = "689894c2db1ea643a50834b999abf1c110887402542955ff5451dab8f861f9ed"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -903,9 +903,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.12.3"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaa3a8d9a1ca92e282c96a32d6511b695d7d994d1d102ba85d279f9b2756947f"
+checksum = "c041d3eab048880cb0b86b256447da3f18859a163c3b8d8893f4e6368abe6393"
 
 [[package]]
 name = "byteorder"
@@ -1652,9 +1652,9 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.86"
+version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51d1075c37807dcf850c379432f0df05ba52cc30f279c5cfc43cc221ce7f8579"
+checksum = "b61a7545f753a88bcbe0a70de1fcc0221e10bfc752f576754fa91e663db1622e"
 dependencies = [
  "cc",
  "cxxbridge-flags",
@@ -1664,9 +1664,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.86"
+version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5044281f61b27bc598f2f6647d480aed48d2bf52d6eb0b627d84c0361b17aa70"
+checksum = "f464457d494b5ed6905c63b0c4704842aba319084a0a3561cdc1359536b53200"
 dependencies = [
  "cc",
  "codespan-reporting",
@@ -1679,15 +1679,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.86"
+version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61b50bc93ba22c27b0d31128d2d130a0a6b3d267ae27ef7e4fae2167dfe8781c"
+checksum = "43c7119ce3a3701ed81aca8410b9acf6fc399d2629d057b87e2efa4e63a3aaea"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.86"
+version = "1.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39e61fda7e62115119469c7b3591fd913ecca96fb766cfd3f2e2502ab7bc87a5"
+checksum = "65e07508b90551e610910fa648a1878991d367064997a596135b86df30daf07e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2725,6 +2725,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "forest-cli"
 version = "0.6.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "assert_cmd",
  "atty",
@@ -2889,6 +2890,7 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "base64 0.21.0",
  "cid",
  "derive_builder",
@@ -2917,6 +2919,7 @@ dependencies = [
 name = "forest_chain"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-stream",
  "blake2b_simd",
@@ -2959,6 +2962,7 @@ dependencies = [
 name = "forest_chain_sync"
 version = "0.2.1"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "base64 0.21.0",
@@ -3003,6 +3007,7 @@ dependencies = [
 name = "forest_cli_shared"
 version = "0.4.1"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "atty",
  "axum",
@@ -3058,6 +3063,7 @@ dependencies = [
 name = "forest_db"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "forest_libp2p_bitswap",
@@ -3188,6 +3194,7 @@ dependencies = [
 name = "forest_interpreter"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "forest_actor_interface",
@@ -3208,6 +3215,7 @@ dependencies = [
 name = "forest_ipld"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-recursion",
  "async-trait",
@@ -3235,6 +3243,7 @@ dependencies = [
 name = "forest_json"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "arbitrary",
  "base64 0.21.0",
  "cid",
@@ -3258,6 +3267,7 @@ dependencies = [
 name = "forest_key_management"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "argon2",
  "base64 0.21.0",
@@ -3301,6 +3311,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "bytes 1.3.0",
@@ -3377,6 +3388,7 @@ dependencies = [
 name = "forest_message_pool"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "async-trait",
  "cid",
@@ -3413,6 +3425,7 @@ dependencies = [
 name = "forest_metrics"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "axum",
  "forest_db",
@@ -3440,6 +3453,7 @@ dependencies = [
 name = "forest_paramfetch"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "backoff",
  "blake2b_simd",
@@ -3457,6 +3471,7 @@ dependencies = [
 name = "forest_rpc"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "axum",
  "base64 0.21.0",
@@ -3507,6 +3522,7 @@ dependencies = [
 name = "forest_rpc-api"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "chrono",
  "cid",
@@ -3554,6 +3570,7 @@ dependencies = [
 name = "forest_state_manager"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "blake2b_simd",
  "byteorder",
@@ -3593,6 +3610,7 @@ dependencies = [
 name = "forest_state_migration"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "cid",
  "crossbeam-channel",
  "fvm",
@@ -3608,6 +3626,7 @@ dependencies = [
 name = "forest_statediff"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "colored",
@@ -5972,9 +5991,9 @@ dependencies = [
 
 [[package]]
 name = "num-complex"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ae39348c8bc5fbd7f40c727a9925f03517afd2ab27d46702108b6a7e5414c19"
+checksum = "02e0d21255c828d6f128a1e41534206671e8c3ea0c62f32291e808dc82cff17d"
 dependencies = [
  "num-traits",
  "serde",
@@ -7050,11 +7069,11 @@ checksum = "e3a8614ee435691de62bcffcf4a66d91b3594bf1428a5722e79103249a095690"
 
 [[package]]
 name = "reqwest"
-version = "0.11.13"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68cc60575865c7831548863cc02356512e3f1dc2f3f82cb837d7fc4cc8f3c97c"
+checksum = "21eed90ec8570952d53b772ecf8f206aa1ec9a3d76b2521c56c42973f2d91ee9"
 dependencies = [
- "base64 0.13.1",
+ "base64 0.21.0",
  "bytes 1.3.0",
  "encoding_rs",
  "futures-core",
@@ -8506,9 +8525,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.5.10"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1333c76748e868a4d9d1017b5ab53171dfd095f70c712fdb4653a406547f598f"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
  "serde",
 ]
@@ -9518,9 +9537,9 @@ dependencies = [
 
 [[package]]
 name = "which"
-version = "4.3.0"
+version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c831fbbee9e129a8cf93e7747a82da9d95ba8e16621cae60ec2cdc849bacb7b"
+checksum = "2441c784c52b289a054b7201fc93253e288f094e2f4be9058343127c4226a269"
 dependencies = [
  "either",
  "libc",

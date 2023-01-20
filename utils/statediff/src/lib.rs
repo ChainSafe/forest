@@ -3,6 +3,7 @@
 
 mod resolve;
 
+use ahash::HashMap;
 use cid::Cid;
 use colored::*;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
@@ -16,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use similar::ChangeTag;
 use similar::TextDiff;
 
-use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;

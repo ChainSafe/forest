@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::mdns::tokio::Behaviour as Mdns;
 use libp2p::swarm::behaviour::toggle::ToggleIntoConnectionHandler;
@@ -15,10 +16,9 @@ use libp2p::{
 };
 use log::{debug, error, trace, warn};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::{
     cmp,
-    collections::{HashSet, VecDeque},
+    collections::VecDeque,
     task::{Context, Poll},
     time::Duration,
 };

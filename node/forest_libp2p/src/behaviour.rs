@@ -10,6 +10,7 @@ use crate::{
     discovery::DiscoveryConfig,
     hello::{HelloCodec, HelloProtocolName},
 };
+use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
 use libp2p::swarm::NetworkBehaviour;
@@ -28,7 +29,6 @@ use libp2p::{
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
 };
 use log::warn;
-use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
