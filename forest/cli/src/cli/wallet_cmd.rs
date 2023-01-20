@@ -320,3 +320,43 @@ fn formating_vars(balance_string: String, balance_exact: String) -> (String, Str
         (res, "~".to_string())
     }
 }
+
+fn format_balance_string(default_address_mark: &str, addr: String, mut balance_int: TokenAmount, fixed_unit: &bool, exact_balance: &bool) -> String {
+    let mut unit = "FIL";
+    let (balance_string, symbol) = if *fixed_unit {
+        if *exact_balance {
+            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
+        } else {
+            formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
+        }
+    } else {
+        let atto = balance_int.atto();
+        if *atto < BigInt::from(1000) {
+            unit = "atto FIL";
+            balance_int *= BigInt::from(1000000000000000000i64);
+        } else if *atto < BigInt::from(1000000) {
+            unit = "femto FIL";
+            balance_int *= BigInt::from(1000000000000000i64);
+        } else if *atto < BigInt::from(1000000000) {
+            unit = "pico FIL";
+            balance_int *= BigInt::from(1000000000000i64);
+        } else if *atto < BigInt::from(1000000000000i64) {
+            unit = "nano FIL";
+            balance_int *= BigInt::from(1000000000);
+        } else if *atto < BigInt::from(1000000000000000i64) {
+            unit = "micro FIL";
+            balance_int *= BigInt::from(1000000);
+        } else if *atto < BigInt::from(1000000000000000000i64) {
+            unit = "milli FIL";
+            balance_int *= BigInt::from(1000);
+        }
+        if *exact_balance {
+            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
+        } else {
+            formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
+        }
+    };
+    format!(
+        "{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}"
+    )
+}
