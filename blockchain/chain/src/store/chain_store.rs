@@ -946,6 +946,11 @@ mod tests {
         let chain_config = Arc::new(ChainConfig::default());
 
         let gen_block = BlockHeader::builder()
+            .epoch(1)
+            .weight(2_u32.into())
+            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
+            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
@@ -963,11 +968,6 @@ mod tests {
         let db = forest_db::MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block = BlockHeader::builder()
-            .epoch(1)
-            .weight(2_u32.into())
-            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
-            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
-            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();

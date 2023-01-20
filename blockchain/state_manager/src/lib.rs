@@ -501,11 +501,7 @@ where
         message: &mut Message,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
-        let ts = if let Some(t_set) = tipset {
-            t_set
-        } else {
-            self.cs.heaviest_tipset()
-        };
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.key().to_owned());
         self.call_raw(message, chain_rand, &ts)
     }
@@ -518,11 +514,7 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
-        let ts = if let Some(t_set) = tipset {
-            t_set
-        } else {
-            self.cs.heaviest_tipset()
-        };
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
             .await
@@ -1069,8 +1061,7 @@ where
 
     /// Return the heaviest tipset's balance from self.db for a given address
     pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let ts = self.cs.heaviest_tipset();
-        let cid = ts.parent_state();
+        let cid = self.cs.heaviest_tipset().parent_state();
         self.get_balance(addr, *cid)
     }
 
