@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
@@ -207,8 +207,9 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let genesis = forest_chain::genesis(data.state_manager.blockstore())?;
-    let gen_ts = Arc::new(Tipset::new(vec![genesis])?);
+    let genesis = forest_chain::genesis(data.state_manager.blockstore())?
+        .ok_or("can't find genesis tipset")?;
+    let gen_ts = Arc::new(Tipset::from(genesis));
     Ok(Some(TipsetJson(gen_ts)))
 }
 
@@ -219,11 +220,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let heaviest = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("can't find heaviest tipset")?;
+    let heaviest = data.state_manager.chain_store().heaviest_tipset();
     Ok(TipsetJson(heaviest))
 }
 
@@ -280,11 +277,7 @@ where
 {
     let () = params;
 
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or_else(|| forest_chain::Error::NotFound("heaviest tipset".to_string()))?;
+    let tipset = data.state_manager.chain_store().heaviest_tipset();
     let ts = data
         .state_manager
         .chain_store()

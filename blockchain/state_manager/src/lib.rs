@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
@@ -8,6 +8,8 @@ mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
+use ahash::{HashMap, HashMapExt};
+use anyhow::Context;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
@@ -38,7 +40,6 @@ use fvm_shared::version::NetworkVersion;
 use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
@@ -500,13 +501,7 @@ where
         message: &mut Message,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
-        let ts = if let Some(t_set) = tipset {
-            t_set
-        } else {
-            self.cs
-                .heaviest_tipset()
-                .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
-        };
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(ts.key().to_owned());
         self.call_raw(message, chain_rand, &ts)
     }
@@ -519,13 +514,7 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
-        let ts = if let Some(t_set) = tipset {
-            t_set
-        } else {
-            self.cs
-                .heaviest_tipset()
-                .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
-        };
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
             .await
@@ -927,7 +916,7 @@ where
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (message.from(), &message.sequence());
-        let current_tipset = self.cs.heaviest_tipset().unwrap();
+        let current_tipset = self.cs.heaviest_tipset();
         let maybe_message_reciept =
             self.tipset_executed_message(&current_tipset, msg_cid, message_var)?;
         if let Some(r) = maybe_message_reciept {
@@ -1072,12 +1061,8 @@ where
 
     /// Return the heaviest tipset's balance from self.db for a given address
     pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let ts = self
-            .cs
-            .heaviest_tipset()
-            .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
-        let cid = ts.parent_state();
-        self.get_balance(addr, *cid)
+        let cid = *self.cs.heaviest_tipset().parent_state();
+        self.get_balance(addr, cid)
     }
 
     /// Return the balance of a given address and `state_cid`

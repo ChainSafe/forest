@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
@@ -30,11 +30,11 @@ use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -248,7 +248,7 @@ where
         genesis_block_cid: Cid,
     ) {
         // Query the heaviest TipSet from the store
-        let heaviest = chain_store.heaviest_tipset().unwrap();
+        let heaviest = chain_store.heaviest_tipset();
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
@@ -572,7 +572,7 @@ where
 
             // Query the heaviest tipset in the store
             // Unwrapping is fine because the store always has at least one tipset
-            let local_head = chain_store.heaviest_tipset().unwrap();
+            let local_head = chain_store.heaviest_tipset();
 
             // We are in sync if the local head weight is heavier or
             // as heavy as the network head
@@ -778,11 +778,7 @@ where
 
                     // Validate that the tipset is heavier that the heaviest
                     // tipset in the store
-                    if !chain_store
-                        .heaviest_tipset()
-                        .map(|heaviest| tipset.weight() >= heaviest.weight())
-                        .unwrap_or(true)
-                    {
+                    if tipset.weight() < chain_store.heaviest_tipset().weight() {
                         // Only send heavier Tipsets to the TipsetProcessor
                         trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
                         continue;
@@ -976,7 +972,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let ts = Tipset::new(vec![h0]).unwrap();
+        let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
         assert!(forest_chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }

@@ -1,12 +1,12 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
+use ahash::{HashMap, HashMapExt};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::str::FromStr;
 

@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub(crate) mod msg_pool;
@@ -12,6 +12,7 @@ use crate::msg_chain::{create_message_chains, Chains};
 use crate::msg_pool::MsgSet;
 use crate::msg_pool::{add_helper, remove};
 use crate::provider::Provider;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
@@ -23,7 +24,6 @@ use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
@@ -402,7 +402,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![a]).unwrap()],
+            vec![Tipset::from(a)],
         )
         .await
         .unwrap();
@@ -417,7 +417,7 @@ pub mod tests {
         let mut wallet = Wallet::new(keystore);
 
         let a = mock_block(1, 1);
-        let tipset = Tipset::new(vec![a.clone()]).unwrap();
+        let tipset = Tipset::from(&a);
         let b = mock_block_with_parents(&tipset, 1, 1);
 
         let sender = wallet.generate_addr(SignatureType::BLS).unwrap();
@@ -470,7 +470,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![a]).unwrap()],
+            vec![Tipset::from(a)],
         )
         .await
         .unwrap();
@@ -492,7 +492,7 @@ pub mod tests {
             pending.as_ref(),
             cur_tipset.as_ref(),
             Vec::new(),
-            vec![Tipset::new(vec![b.clone()]).unwrap()],
+            vec![Tipset::from(&b)],
         )
         .await
         .unwrap();
@@ -508,7 +508,7 @@ pub mod tests {
             republished.as_ref(),
             pending.as_ref(),
             cur_tipset.as_ref(),
-            vec![Tipset::new(vec![b]).unwrap()],
+            vec![Tipset::from(b)],
             Vec::new(),
         )
         .await
@@ -557,7 +557,7 @@ pub mod tests {
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
 
         let header = mock_block(1, 1);
-        let tipset = Tipset::new(vec![header.clone()]).unwrap();
+        let tipset = Tipset::from(&header.clone());
 
         let ts = tipset.clone();
         mpool.api.set_heaviest_tipset(Arc::new(ts));
@@ -580,7 +580,7 @@ pub mod tests {
         let gas_limit = 6955002;
 
         let a = mock_block(1, 1);
-        let ts = Tipset::new(vec![a]).unwrap();
+        let ts = Tipset::from(a);
         let chain_config = ChainConfig::default();
 
         // --- Test Chain Aggregations ---

@@ -1,8 +1,9 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod resolve;
 
+use ahash::HashMap;
 use cid::Cid;
 use colored::*;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
@@ -16,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use similar::ChangeTag;
 use similar::TextDiff;
 
-use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
 use std::io::stdout;
 use std::io::Write;

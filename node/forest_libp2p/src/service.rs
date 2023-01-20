@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::chain_exchange::{
@@ -11,6 +11,7 @@ use crate::{
     rpc::RequestResponseError,
 };
 use crate::{PeerManager, PeerOperation};
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
@@ -47,7 +48,6 @@ use libp2p::{
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use libp2p_bitswap::{BitswapEvent, BitswapStore};
 use log::{debug, error, info, trace, warn};
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};

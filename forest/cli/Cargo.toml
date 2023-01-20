@@ -6,6 +6,7 @@ description = "Filecoin implementation in Rust. This crate contains all the subc
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true

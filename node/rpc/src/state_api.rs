@@ -1,10 +1,8 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::collections::HashMap;
-
+use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use forest_actor_interface::market;
 use forest_beacon::Beacon;
@@ -18,6 +16,7 @@ use forest_rpc_api::{
 };
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 
 // TODO handle using configurable verification implementation in RPC (all defaulting to Full).
@@ -72,10 +71,7 @@ pub(crate) async fn state_network_name<
     data: Data<RPCState<DB, B>>,
 ) -> Result<StateNetworkNameResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let heaviest_tipset = state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("Heaviest Tipset not found in state_network_name")?;
+    let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
 
     state_manager
         .get_network_name(heaviest_tipset.parent_state())
