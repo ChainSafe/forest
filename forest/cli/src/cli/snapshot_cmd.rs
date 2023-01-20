@@ -379,7 +379,7 @@ async fn validate(
         )
         .await?;
 
-        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone(), genesis.clone())?);
+        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone(), &genesis)?);
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;

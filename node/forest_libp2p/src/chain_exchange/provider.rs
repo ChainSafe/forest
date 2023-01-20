@@ -177,7 +177,7 @@ mod tests {
             .unwrap();
 
         let response = make_chain_exchange_response(
-            &ChainStore::new(db, Arc::new(ChainConfig::default()), gen_block).unwrap(),
+            &ChainStore::new(db, Arc::new(ChainConfig::default()), &gen_block).unwrap(),
             &ChainExchangeRequest {
                 start: cids,
                 request_len: 2,

@@ -175,7 +175,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         config.chain.clone(),
-        genesis_header.clone(),
+        &genesis_header,
     )?);
 
     chain_store.set_genesis(&genesis_header)?;
@@ -528,7 +528,7 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_header)?);
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header)?);
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,
@@ -547,7 +547,7 @@ mod test {
             .timestamp(7777)
             .build()?;
 
-        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), genesis_header)?);
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header)?);
         let sm = Arc::new(StateManager::new(
             cs,
             chain_config,

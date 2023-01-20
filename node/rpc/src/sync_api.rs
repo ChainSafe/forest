@@ -100,7 +100,7 @@ mod tests {
             .unwrap();
 
         let cs_arc =
-            Arc::new(ChainStore::new(db, chain_config.clone(), genesis_header.clone()).unwrap());
+            Arc::new(ChainStore::new(db, chain_config.clone(), &genesis_header).unwrap());
 
         cs_arc.set_genesis(&genesis_header).unwrap();
         let state_manager = Arc::new(

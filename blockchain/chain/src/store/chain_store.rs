@@ -97,14 +97,14 @@ where
     pub fn new(
         db: DB,
         chain_config: Arc<ChainConfig>,
-        genesis_block_header: BlockHeader,
+        genesis_block_header: &BlockHeader,
     ) -> Result<Self>
     where
         DB: Clone,
     {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let ts_cache = Arc::new(Mutex::new(LruCache::new(DEFAULT_TIPSET_CACHE_SIZE)));
-        let genesis_ts = Arc::new(Tipset::from(&genesis_block_header));
+        let genesis_ts = Arc::new(Tipset::from(genesis_block_header));
         let cs = Self {
             publisher,
             // subscriptions: Default::default(),
@@ -119,7 +119,7 @@ where
         // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
         let _ = cs.load_heaviest_tipset();
 
-        cs.set_genesis(&genesis_block_header)?;
+        cs.set_genesis(genesis_block_header)?;
 
         if cs.blockstore().read(HEAD_KEY)?.is_none() {
             cs.set_heaviest_tipset(genesis_ts)?;
@@ -962,7 +962,7 @@ mod tests {
             .miner_address(Address::new_id(0))
             .build()
             .unwrap();
-        let cs = ChainStore::new(db, chain_config, gen_block.clone()).unwrap();
+        let cs = ChainStore::new(db, chain_config, &gen_block).unwrap();
 
         assert_eq!(cs.genesis().unwrap(), Some(gen_block));
     }
@@ -976,7 +976,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let cs = ChainStore::new(db, chain_config, gen_block).unwrap();
+        let cs = ChainStore::new(db, chain_config, &gen_block).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid).unwrap());
