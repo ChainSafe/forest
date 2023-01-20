@@ -28,7 +28,7 @@ pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
-    fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>>;
+    fn get_heaviest_tipset(&self) -> Arc<Tipset>;
     /// Add a message to the `MpoolProvider`, return either Cid or Error depending on successful put
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
     /// Return state actor for given address given the tipset that the a temp `StateTree` will be rooted
@@ -74,7 +74,7 @@ where
         self.subscriber.subscribe()
     }
 
-    fn get_heaviest_tipset(&self) -> Option<Arc<Tipset>> {
+    fn get_heaviest_tipset(&self) -> Arc<Tipset> {
         self.sm.chain_store().heaviest_tipset()
     }
 

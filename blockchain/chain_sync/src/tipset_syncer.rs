@@ -299,7 +299,7 @@ where
         Box::pin(async move {
             // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
-            let current_head = chain_store.heaviest_tipset().unwrap();
+            let current_head = chain_store.heaviest_tipset();
             // Unwrapping is safe here because we assume that the
             // tipset group contains at least one tipset
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
@@ -1625,7 +1625,6 @@ mod test {
     use num_bigint::BigInt;
 
     use super::*;
-    use std::convert::TryFrom;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
@@ -1656,13 +1655,13 @@ mod test {
         // ticket_sequence are chosen so that Ticket(b3) < Ticket(b1)
 
         let b1 = mock_block(1234561, 10, 2);
-        let ts1 = Tipset::new(vec![b1]).unwrap();
+        let ts1 = Tipset::from(b1);
 
         let b2 = mock_block(1234563, 9, 1);
-        let ts2 = Tipset::new(vec![b2]).unwrap();
+        let ts2 = Tipset::from(b2);
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::new(vec![b3]).unwrap();
+        let ts3 = Tipset::from(b3);
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
