@@ -9,7 +9,6 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use ahash::{HashMap, HashMapExt};
-use anyhow::Context;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
