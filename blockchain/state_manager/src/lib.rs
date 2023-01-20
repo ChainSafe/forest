@@ -8,6 +8,7 @@ mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
+use ahash::{HashMap, HashMapExt};
 use anyhow::Context;
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -39,7 +40,6 @@ use fvm_shared::version::NetworkVersion;
 use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;

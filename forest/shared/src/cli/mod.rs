@@ -8,6 +8,7 @@ mod snapshot_fetch;
 pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
 
+use ahash::HashSet;
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
@@ -16,7 +17,6 @@ use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::error;
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

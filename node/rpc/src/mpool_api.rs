@@ -3,6 +3,7 @@
 #![allow(clippy::unused_async)]
 
 use super::gas_api::estimate_message_gas;
+use ahash::{HashSet, HashSetExt};
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
 use forest_db::Store;
@@ -15,9 +16,8 @@ use forest_rpc_api::mpool_api::*;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Protocol;
-
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::{collections::HashSet, convert::TryFrom};
+use std::convert::TryFrom;
 
 /// Return `Vec` of pending messages in `mpool`
 pub(crate) async fn mpool_pending<DB, B>(

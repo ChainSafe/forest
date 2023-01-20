@@ -4,6 +4,7 @@
 use super::index::checkpoint_tipsets;
 use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
 use crate::Scale;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
@@ -40,10 +41,7 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    time::SystemTime,
-};
+use std::{collections::VecDeque, time::SystemTime};
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tokio::sync::Mutex as TokioMutex;

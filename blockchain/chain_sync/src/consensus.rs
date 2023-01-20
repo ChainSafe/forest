@@ -127,7 +127,6 @@ pub trait Proposer {
 ///
 /// The `MessagePool` is still expected to monitor the chain growth and remove messages
 /// which were included in blocks on its own.
-#[async_trait]
 pub trait MessagePoolApi {
     /// Select the set of suitable signed messages based on a tipset we are about
     /// to build the next block on.
@@ -135,7 +134,7 @@ pub trait MessagePoolApi {
     /// The result is a `Cow` in case the source can avoid cloning messages and just
     /// return a reference. They will be sent to the data store for storage, but a
     /// reference is enough for that.
-    async fn select_signed<DB>(
+    fn select_signed<DB>(
         &self,
         state_manager: &StateManager<DB>,
         base: &Tipset,
@@ -144,12 +143,11 @@ pub trait MessagePoolApi {
         DB: Blockstore + Store + Clone + Sync + Send + 'static;
 }
 
-#[async_trait]
 impl<P> MessagePoolApi for MessagePool<P>
 where
     P: forest_message_pool::Provider + Send + Sync + 'static,
 {
-    async fn select_signed<DB>(
+    fn select_signed<DB>(
         &self,
         _: &StateManager<DB>,
         base: &Tipset,

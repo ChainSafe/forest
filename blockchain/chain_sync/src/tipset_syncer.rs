@@ -1,29 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_utils::io::ProgressBar;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
-use futures::TryFutureExt;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
-use log::{debug, error, info, trace, warn};
-use nonempty::NonEmpty;
-use std::cmp::{min, Ordering};
-use std::collections::{HashMap, HashSet};
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
-use thiserror::Error;
-
 use crate::bad_block_cache::BadBlockCache;
 use crate::consensus::{collect_errs, Consensus};
 use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use forest_actor_interface::is_account_actor;
 use forest_blocks::{
@@ -38,15 +22,29 @@ use forest_message::Message as MessageTrait;
 use forest_networks::Height;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
-use futures::Stream;
+use forest_utils::io::ProgressBar;
+use futures::stream::FuturesUnordered;
+use futures::{Stream, StreamExt, TryFutureExt};
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use fvm_shared::message::Message;
 use fvm_shared::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
+use log::{debug, error, info, trace, warn};
+use nonempty::NonEmpty;
+use std::cmp::{min, Ordering};
+use std::convert::TryFrom;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
 
 const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 
@@ -769,7 +767,6 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
     Box::pin(async move {
         tracker
             .write()
-            .await
             .init(current_head.clone(), proposed_head.clone());
 
         let parent_tipsets = match sync_headers_in_reverse(
@@ -785,21 +782,21 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
         {
             Ok(parent_tipsets) => parent_tipsets,
             Err(why) => {
-                tracker.write().await.error(why.to_string());
+                tracker.write().error(why.to_string());
                 return Err(why);
             }
         };
 
         // Persist the blocks from the synced Tipsets into the store
-        tracker.write().await.set_stage(SyncStage::Headers);
+        tracker.write().set_stage(SyncStage::Headers);
         let headers: Vec<&BlockHeader> = parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
         if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
-            tracker.write().await.error(why.to_string());
+            tracker.write().error(why.to_string());
             return Err(why.into());
         };
 
         //  Sync and validate messages from the tipsets
-        tracker.write().await.set_stage(SyncStage::Messages);
+        tracker.write().set_stage(SyncStage::Messages);
         if let Err(why) = sync_messages_check_state(
             tracker.clone(),
             consensus,
@@ -814,10 +811,10 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
         .await
         {
             error!("Sync messages check state failed for tipset range");
-            tracker.write().await.error(why.to_string());
+            tracker.write().error(why.to_string());
             return Err(why);
         };
-        tracker.write().await.set_stage(SyncStage::Complete);
+        tracker.write().set_stage(SyncStage::Complete);
 
         // At this point the head is synced and it can be set in the store as the heaviest
         debug!(
@@ -857,7 +854,7 @@ async fn sync_headers_in_reverse<
     let mut parent_blocks: Vec<Cid> = vec![];
     let mut parent_tipsets = Vec::with_capacity(tipset_range_length as usize + 1);
     parent_tipsets.push(proposed_head.clone());
-    tracker.write().await.set_epoch(current_head.epoch());
+    tracker.write().set_epoch(current_head.epoch());
 
     let total_size = proposed_head.epoch() - current_head.epoch();
     let pb = ProgressBar::new(total_size as u64);
@@ -900,7 +897,7 @@ async fn sync_headers_in_reverse<
             }
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &parent_blocks)?;
             parent_blocks.extend_from_slice(tipset.cids());
-            tracker.write().await.set_epoch(tipset.epoch());
+            tracker.write().set_epoch(tipset.epoch());
             parent_tipsets.push(tipset);
         }
     }
@@ -1123,7 +1120,7 @@ async fn sync_messages_check_state<
             )
             .await?;
         }
-        tracker.write().await.set_epoch(current_epoch);
+        tracker.write().set_epoch(current_epoch);
         metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
     }
 

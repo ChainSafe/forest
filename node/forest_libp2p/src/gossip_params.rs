@@ -5,7 +5,7 @@ use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
 use libp2p::gossipsub::{
     score_parameter_decay, IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams,
 };
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 // All these parameters are copied from what Lotus has set for their Topic scores.
 // They are currently unused because enabling them causes GossipSub blocks to come
@@ -76,7 +76,8 @@ fn build_block_topic_config() -> TopicScoreParams {
 }
 
 pub(crate) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
-    let mut psp_topics = HashMap::new();
+    #[allow(clippy::disallowed_types)]
+    let mut psp_topics = std::collections::HashMap::new();
 
     // msg topic
     let msg_topic = IdentTopic::new(format!("{PUBSUB_MSG_STR}/{network_name}"));

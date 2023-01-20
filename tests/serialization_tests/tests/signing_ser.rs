@@ -4,6 +4,7 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use forest_json::{message, signature};
@@ -36,7 +37,7 @@ fn signing_test() {
     let vectors: Vec<TestVec> =
         serde_json::from_str(&string).expect("Test vector deserialization failed");
     for test_vec in vectors {
-        let test = base64::decode(test_vec.private_key).unwrap();
+        let test = BASE64_STANDARD.decode(test_vec.private_key).unwrap();
         // TODO set up a private key based on sig type
         let priv_key = PrivateKey::from_bytes(&test).unwrap();
         let msg_sign_bz = test_vec.unsigned.cid().unwrap().to_bytes();

@@ -6,6 +6,7 @@
 use crate::msgpool::{Publisher, Subscriber};
 use crate::provider::Provider;
 use crate::Error;
+use ahash::{HashMap, HashMapExt};
 use async_trait::async_trait;
 use cid::Cid;
 use forest_blocks::TipsetKeys;
@@ -21,7 +22,6 @@ use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use parking_lot::Mutex;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use tokio::sync::broadcast;

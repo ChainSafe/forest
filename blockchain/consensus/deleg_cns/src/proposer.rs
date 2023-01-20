@@ -62,7 +62,7 @@ impl DelegatedProposer {
             forest_chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
 
         let parent_weight = DelegatedConsensus::weight(state_manager.blockstore(), base)?;
-        let msgs = mpool.select_signed(state_manager, base).await?;
+        let msgs = mpool.select_signed(state_manager, base)?;
         let msgs = msgs.iter().map(|m| m.as_ref()).collect();
         let persisted = forest_chain::persist_block_messages(state_manager.blockstore(), msgs)?;
 

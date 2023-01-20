@@ -69,20 +69,16 @@ digest = "0.10.5"
 directories = "4.0.1"
 filecoin-proofs-api = "12.0"
 flume = "0.10"
-fnv = "1.0"
 fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = "~2.2"
-fvm_ipld_amt = "0.4"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
-fvm_ipld_hamt = "0.5"
 fvm_shared = "2.0"
 gethostname = "0.4"
-getrandom = { version = "0.2.5" }
 git-version = "0.3"
 hex = "0.4"
 http = "0.2.8"
@@ -90,7 +86,6 @@ human-repr = "1.0"
 hyper = { version = "0.14", features = ["client", "stream", "http1"] }
 hyper-rustls = "0.23"
 indexmap = { version = "1.9", features = ["serde-1"] }
-integer-encoding = { version = "3.0.3", default-features = false }
 itertools = "0.10"
 jsonrpc-v2 = { version = "0.11", default-features = false, features = ["easy-errors", "macros", "bytes-v05"] }
 lazy_static = "1.4"
@@ -98,13 +93,9 @@ libipld = { version = "0.14", default-features = false, features = ["dag-cbor", 
 libipld-core = "0.14"
 libipld-macro = "0.14"
 libp2p = { version = "0.50", default-features = false }
-# libp2p-bitswap = { path = "../hanabi1224/libp2p-bitswap", features = ["compat"] }
 libp2p-bitswap = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest/2023.1", features = [
   "compat",
 ] }
-# libp2p-bitswap.branch = "forest-libp2p@0.50"
-# libp2p-bitswap.features = ["compat"]
-# libp2p-bitswap.git = "https://github.com/hanabi1224/libp2p-bitswap"
 libsecp256k1 = "0.7"
 log = "0.4"
 lru = "0.9"
@@ -113,7 +104,6 @@ multihash = "0.16"
 nonempty = "0.8.0"
 num = "0.4.0"
 num-bigint = "0.4"
-num-derive = "0.3"
 num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
@@ -134,7 +124,6 @@ serde_json = "1.0"
 serde_repr = "0.1.8"
 serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2 = "0.10.5"
-smallvec = "1.9"
 structopt = "0.3"
 tempfile = "3.3"
 thiserror = "1.0"
@@ -148,7 +137,6 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-unsigned-varint = "0.7.1"
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
@@ -162,19 +150,19 @@ fil_actor_market_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_market_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_miner_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_miner_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_multisig_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+# fil_actor_multisig_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_multisig_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_power_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_power_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_reward_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_reward_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_system_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+# fil_actor_system_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actor_system_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_verifreg_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actor_verifreg_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+# fil_actor_verifreg_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+# fil_actor_verifreg_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 fil_actors_runtime = { git = "https://github.com/ChainSafe/fil-actor-states", package = "fil_actors_runtime_v9" }
-fil_actors_runtime_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
-fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+# fil_actors_runtime_v8 = { git = "https://github.com/ChainSafe/fil-actor-states" }
+# fil_actors_runtime_v9 = { git = "https://github.com/ChainSafe/fil-actor-states" }
 forest_actor_interface = { path = "./vm/actor_interface" }
 forest_auth = { path = "./utils/auth" }
 forest_beacon = { path = "./blockchain/beacon" }
@@ -204,7 +192,7 @@ forest_rpc = { path = "./node/rpc" }
 forest_rpc-api = { path = "./node/rpc-api" }
 forest_rpc-client = { path = "./node/rpc-client" }
 forest_state_manager = { path = "./blockchain/state_manager" }
-forest_state_migration = { path = "./vm/state_migration" }
+# forest_state_migration = { path = "./vm/state_migration" }
 forest_statediff = { path = "./utils/statediff" }
 forest_test_utils = { path = "./utils/test_utils" }
 forest_utils = { path = "./utils/forest_utils" }
