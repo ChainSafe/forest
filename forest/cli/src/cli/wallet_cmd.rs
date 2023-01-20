@@ -55,8 +55,10 @@ pub enum WalletCommands {
     },
     /// List addresses of the wallet
     List {
+        //flag to show exact balance
         #[structopt(short, long)]
         exact_balance: bool,
+        //flag to force the balance to be in FIL
         #[structopt(short, long)]
         fixed_unit: bool,
     },
