@@ -338,48 +338,58 @@ fn format_balance_string(
     format!("{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}")
 }
 
-
 #[test]
 fn exact_balance_fixed_unit() {
-    assert_eq!(format_balance_string(
-        "X",
-        "some_addr".to_string(),
-        TokenAmount::from_atto(100),
-        &true,
-        &true,
-    ), "some_addr                                  X        0.0000000000000001 FIL");
+    assert_eq!(
+        format_balance_string(
+            "X",
+            "some_addr".to_string(),
+            TokenAmount::from_atto(100),
+            &true,
+            &true,
+        ),
+        "some_addr                                  X        0.0000000000000001 FIL"
+    );
 }
-
 
 #[test]
 fn not_exact_balance_fixed_unit() {
-    assert_eq!(format_balance_string(
-        "X",
-        "some_addr".to_string(),
-        TokenAmount::from_atto(100),
-        &true,
-        &false,
-    ), "some_addr                                  X        ~0 FIL");
+    assert_eq!(
+        format_balance_string(
+            "X",
+            "some_addr".to_string(),
+            TokenAmount::from_atto(100),
+            &true,
+            &false,
+        ),
+        "some_addr                                  X        ~0 FIL"
+    );
 }
 
 #[test]
 fn exact_balance_not_fixed_unit() {
-    assert_eq!(format_balance_string(
-        "X",
-        "some_addr".to_string(),
-        TokenAmount::from_atto(100),
-        &false,
-        &true,
-    ), "some_addr                                  X        100 atto FIL");
+    assert_eq!(
+        format_balance_string(
+            "X",
+            "some_addr".to_string(),
+            TokenAmount::from_atto(100),
+            &false,
+            &true,
+        ),
+        "some_addr                                  X        100 atto FIL"
+    );
 }
 
 #[test]
 fn not_exact_balance_not_fixed_unit() {
-    assert_eq!(format_balance_string(
-        "X",
-        "some_addr".to_string(),
-        TokenAmount::from_atto(100),
-        &false,
-        &false,
-    ), "some_addr                                  X        100 atto FIL");
+    assert_eq!(
+        format_balance_string(
+            "X",
+            "some_addr".to_string(),
+            TokenAmount::from_atto(100),
+            &false,
+            &false,
+        ),
+        "some_addr                                  X        100 atto FIL"
+    );
 }
