@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
+use ahash::{HashMap, HashMapExt};
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN};
 use base64::prelude::BASE64_STANDARD;
@@ -11,7 +12,6 @@ use log::{error, warn};
 use rand::rngs::OsRng;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::{self, create_dir, File};
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};

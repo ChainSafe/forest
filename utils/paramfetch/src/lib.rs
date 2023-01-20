@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use forest_utils::net::{https_client, hyper};
@@ -8,7 +9,6 @@ use futures::TryStreamExt;
 use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs::File as SyncFile;
 use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind};
 use std::path::{Path, PathBuf};

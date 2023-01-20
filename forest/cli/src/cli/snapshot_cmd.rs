@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
+use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
@@ -10,7 +11,6 @@ use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
-
 use forest_db::{db_engine::open_db, Store};
 use forest_genesis::read_genesis_header;
 use forest_ipld::recurse_links;
@@ -18,7 +18,7 @@ use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_ipld_car::load_car;
 use fvm_shared::clock::ChainEpoch;
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use tempfile::TempDir;
@@ -160,7 +160,8 @@ impl SnapshotCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let vars = HashMap::from([
+                #[allow(clippy::disallowed_types)]
+                let vars = std::collections::HashMap::from([
                     ("year".to_string(), year.to_string()),
                     ("month".to_string(), month_string),
                     ("day".to_string(), day_string),
@@ -414,7 +415,7 @@ async fn validate_links_and_genesis_traversal<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
-    let mut seen = std::collections::HashSet::<Cid>::new();
+    let mut seen = HashSet::<Cid>::new();
     let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();

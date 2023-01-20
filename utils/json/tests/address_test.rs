@@ -453,7 +453,7 @@ fn cbor_encoding() {
 
 #[test]
 fn address_hashmap() {
-    use std::collections::HashMap;
+    use ahash::{HashMap, HashMapExt};
 
     // insert and validate value set
     let mut hm: HashMap<Address, u8> = HashMap::new();
