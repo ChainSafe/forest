@@ -196,9 +196,9 @@ impl WalletCommands {
                     let mut unit = "FIL";
                     let (balance_string, symbol) = if *fixed_unit {
                         if *exact_balance {
-                            formatring_vars(format!("{balance_int}"), format!("{balance_int}"))
+                            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
                         } else {
-                            formatring_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
+                            formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
                         }
                     } else {
                         let atto = balance_int.atto();
@@ -222,9 +222,9 @@ impl WalletCommands {
                             balance_int *= BigInt::from(1000);
                         }
                         if *exact_balance {
-                            formatring_vars(format!("{balance_int}"), format!("{balance_int}"))
+                            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
                         } else {
-                            formatring_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
+                            formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
                         }
                     };
                     println!(
@@ -289,7 +289,7 @@ impl WalletCommands {
     }
 }
 
-fn formatring_vars(balance_string: String, balance_exact: String) -> (String, String) {
+fn formating_vars(balance_string: String, balance_exact: String) -> (String, String) {
     if balance_exact.len() <= balance_string.len() {
         let res = if balance_exact.ends_with(".0") {
             //unfallible unwrap
