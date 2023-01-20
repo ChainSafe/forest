@@ -471,7 +471,7 @@ OptionParser.new do |opts|
   opts.on('--dry-run', 'Only print the commands that will be run') { |v| options[:dry_run] = v }
   opts.on('--heights [Integer]', Integer, 'Number of heights to validate') { |v| options[:heights] = v }
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
-  opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:pattern] = v }
+  opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
 end.parse!
 
 options[:snapshot_path] = snapshot_path
