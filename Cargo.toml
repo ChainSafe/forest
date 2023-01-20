@@ -21,6 +21,7 @@ members = [
   "node/rpc-client",
   "node/rpc-api",
   "node/forest_libp2p",
+  "node/forest_libp2p/bitswap",
   "crypto",
   "encoding",
   "ipld/legacy_amt",
@@ -93,9 +94,6 @@ libipld = { version = "0.14", default-features = false, features = ["dag-cbor", 
 libipld-core = "0.14"
 libipld-macro = "0.14"
 libp2p = { version = "0.50", default-features = false }
-libp2p-bitswap = { git = "https://github.com/hanabi1224/libp2p-bitswap", branch = "forest/2023.1", features = [
-  "compat",
-] }
 libsecp256k1 = "0.7"
 log = "0.4"
 lru = "0.9"
@@ -112,6 +110,7 @@ parking_lot = "0.12"
 pin-project-lite = "0.2"
 prometheus = "0.13"
 prometheus-client = "0.18"
+prost = "0.11"
 quickcheck = "1"
 quickcheck_macros = "1"
 rand = "0.8"
@@ -128,7 +127,7 @@ structopt = "0.3"
 tempfile = "3.3"
 thiserror = "1.0"
 time = "0.3"
-tokio = "1.21"
+tokio = "1.24"
 tokio-stream = "0.1"
 tokio-util = "0.7.0"
 toml = "0.5"
@@ -137,6 +136,7 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+unsigned-varint = { version = "0.7", default-features = false }
 url = { version = "2.3", features = ["serde"] }
 which = "4.3"
 
@@ -183,6 +183,7 @@ forest_json = { path = "./utils/json" }
 forest_key_management = { path = "./key_management" }
 forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
 forest_libp2p = { path = "./node/forest_libp2p" }
+forest_libp2p_bitswap = { path = "./node/forest_libp2p/bitswap" }
 forest_message = { path = "./vm/message" }
 forest_message_pool = { path = "./blockchain/message_pool" }
 forest_metrics = { path = "./utils/metrics" }

@@ -217,8 +217,6 @@ pub mod values {
     pub const CHAIN_EXCHANGE_RESPONSE_INBOUND: &str = "chain_exchange_response_in";
     pub const CHAIN_EXCHANGE_REQUEST_INBOUND: &str = "chain_exchange_request_in";
     pub const CHAIN_EXCHANGE_RESPONSE_OUTBOUND: &str = "chain_exchange_response_out";
-    pub const BITSWAP_BLOCK_REQUEST_OUTBOUND: &str = "bitswap_block_request_out";
-    pub const BITSWAP_BLOCK_RESPONSE_INBOUND: &str = "bitswap_block_response_in";
 
     // block validation tasks
     pub const BASE_FEE_CHECK: &str = "base_fee_check";

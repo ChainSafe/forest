@@ -11,9 +11,8 @@ use crate::{
     hello::{HelloCodec, HelloProtocolName},
 };
 use ahash::{HashMap, HashSet};
-use cid::Cid;
 use forest_encoding::blake2b_256;
-use libipld::store::StoreParams;
+use forest_libp2p_bitswap::BitswapBehaviour;
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::{core::identity::Keypair, kad::QueryId};
 use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
@@ -29,27 +28,23 @@ use libp2p::{
     metrics::{Metrics, Recorder},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
 };
-use libp2p_bitswap::{Bitswap, BitswapConfig, BitswapStore};
-use log::{debug, warn};
+use log::warn;
 use std::time::Duration;
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]
-pub(crate) struct ForestBehaviour<P: StoreParams> {
+pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
     identify: identify::Behaviour,
     pub(super) hello: RequestResponse<HelloCodec>,
     pub(super) chain_exchange: RequestResponse<ChainExchangeCodec>,
-    pub(super) bitswap: Bitswap<P>,
+    pub(super) bitswap: BitswapBehaviour,
 }
 
-impl<P> Recorder<ForestBehaviourEvent<P>> for Metrics
-where
-    P: StoreParams,
-{
-    fn record(&self, event: &ForestBehaviourEvent<P>) {
+impl Recorder<ForestBehaviourEvent> for Metrics {
+    fn record(&self, event: &ForestBehaviourEvent) {
         match event {
             ForestBehaviourEvent::Gossipsub(e) => self.record(e),
             ForestBehaviourEvent::Ping(ping_event) => self.record(ping_event),
@@ -59,13 +54,8 @@ where
     }
 }
 
-impl<P: StoreParams> ForestBehaviour<P> {
-    pub fn new<DB: BitswapStore<Params = P>>(
-        local_key: &Keypair,
-        config: &Libp2pConfig,
-        network_name: &str,
-        db: DB,
-    ) -> Self {
+impl ForestBehaviour {
+    pub fn new(local_key: &Keypair, config: &Libp2pConfig, network_name: &str) -> Self {
         let mut gs_config_builder = GossipsubConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
@@ -88,14 +78,16 @@ impl<P: StoreParams> ForestBehaviour<P> {
             )
             .unwrap();
 
-        let bitswap = Bitswap::new(
-            BitswapConfig {
-                compat_protocol_name: b"/chain/ipfs/bitswap/1.2.0",
-                ..Default::default()
-            },
-            db,
+        let bitswap = BitswapBehaviour::new(
+            &[
+                b"/chain/ipfs/bitswap/1.2.0",
+                b"/chain/ipfs/bitswap/1.1.0",
+                b"/chain/ipfs/bitswap/1.0.0",
+                b"/chain/ipfs/bitswap",
+            ],
+            Default::default(),
         );
-        if let Err(err) = bitswap.register_metrics(prometheus::default_registry()) {
+        if let Err(err) = forest_libp2p_bitswap::register_metrics(prometheus::default_registry()) {
             warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
         }
 
@@ -148,23 +140,12 @@ impl<P: StoreParams> ForestBehaviour<P> {
     }
 
     /// Returns a set of peer ids
-    pub fn peers(&mut self) -> &HashSet<PeerId> {
+    pub fn peers(&self) -> &HashSet<PeerId> {
         self.discovery.peers()
     }
 
     /// Returns a map of peer ids and their multi-addresses
     pub fn peer_addresses(&mut self) -> &HashMap<PeerId, Vec<Multiaddr>> {
         self.discovery.peer_addresses()
-    }
-
-    /// Send a request for data over bit-swap
-    pub fn want_block(&mut self, cid: Cid) -> anyhow::Result<libp2p_bitswap::QueryId> {
-        debug!("want {}", cid.to_string());
-        let peers: Vec<_> = self.discovery.peers().iter().cloned().collect();
-        if peers.is_empty() {
-            anyhow::bail!("no peers connected")
-        }
-        let query_id = self.bitswap.sync(cid, peers, [cid].into_iter());
-        Ok(query_id)
     }
 }

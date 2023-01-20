@@ -21,6 +21,7 @@ forest_encoding.workspace = true
 forest_interpreter.workspace = true
 forest_ipld.workspace = true
 forest_legacy_ipld_amt.workspace = true
+forest_libp2p_bitswap.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
 forest_networks.workspace = true
@@ -31,6 +32,7 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+libipld.workspace = true
 log.workspace = true
 lru.workspace = true
 once_cell.workspace = true
