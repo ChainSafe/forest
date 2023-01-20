@@ -91,9 +91,10 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
-    /// Download a chain specific snapshot to sync with the Filecoin network
+    /// Automatically download a chain specific snapshot to sync with the Filecoin network if
+    /// needed.
     #[structopt(long)]
-    pub download_snapshot: bool,
+    pub auto_download_snapshot: bool,
     /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto")]
     pub color: LoggingColor,
@@ -169,7 +170,7 @@ impl CliOpts {
         cfg.client.skip_load = self.skip_load;
 
         cfg.client.halt_after_import = self.halt_after_import;
-        cfg.client.download_snapshot = self.download_snapshot;
+        cfg.client.auto_download_snapshot = self.auto_download_snapshot;
         cfg.client.show_progress_bars = self.show_progress_bars;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);

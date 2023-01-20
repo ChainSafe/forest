@@ -422,7 +422,8 @@ fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
-    let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
+    let should_download = if !config.client.auto_download_snapshot && atty::is(atty::Stream::Stdin)
+    {
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
                     "Forest needs a snapshot to sync with the network. Would you like to download one now?",
@@ -431,7 +432,7 @@ fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
                 .interact()
                 .unwrap_or_default()
     } else {
-        config.client.download_snapshot
+        config.client.auto_download_snapshot
     };
 
     if should_download {
