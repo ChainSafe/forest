@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -11,7 +11,7 @@ use forest_libp2p::{
     },
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
-    NetworkMessage, PeerId, PeerManager,
+    NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
 use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
@@ -25,7 +25,6 @@ use tokio::{task::JoinSet, time::timeout};
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
 // requests from slowing the node down. If increase, should create a countermeasure for this.
-const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
 const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Maximum number of concurrent chain exchange request being sent to the network
@@ -142,7 +141,7 @@ where
                 match self.db.get_obj(&content) {
                     Ok(Some(b)) => Ok(b),
                     Ok(None) => Err(format!("Bitswap response successful for: {content:?}, but can't find it in the database")),
-                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retreive it from the database: {e}")),
+                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retrieve it from the database: {e}")),
                 }
             }
             Err(_e) => {
@@ -312,7 +311,7 @@ where
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
                 peer_manager.log_success(peer_id, res_duration).await;
-                log::debug!("Succeded: ChainExchange Request to {peer_id}");
+                log::debug!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {

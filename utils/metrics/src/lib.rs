@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod db;
@@ -67,13 +67,14 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     )
 }
 
+#[allow(clippy::unused_async)]
 async fn collect_db_metrics<DB>(
     axum::extract::State(db): axum::extract::State<DB>,
 ) -> impl IntoResponse
 where
     DB: DBStatistics + Sync + Send + Clone + 'static,
 {
-    let mut metrics = "# RocksDB statistics:\n".to_owned();
+    let mut metrics = "# DB statistics:\n".to_owned();
     if let Some(db_stats) = db.get_statistics() {
         metrics.push_str(&db_stats);
     } else {

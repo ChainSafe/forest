@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_cli_shared::{chain_path, cli::Config};
@@ -21,7 +21,7 @@ pub enum DBCommands {
 }
 
 impl DBCommands {
-    pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
+    pub fn run(&self, config: &Config) -> anyhow::Result<()> {
         match self {
             Self::Stats => {
                 use human_repr::HumanCount;

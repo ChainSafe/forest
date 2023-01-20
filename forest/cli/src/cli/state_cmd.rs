@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Config;
@@ -22,7 +22,7 @@ struct VestingScheduleEntry {
 pub enum StateCommands {}
 
 impl StateCommands {
-    pub async fn run(&self, _config: Config) -> anyhow::Result<()> {
+    pub fn run(&self, _config: Config) -> anyhow::Result<()> {
         // match self {}
         Ok(())
     }

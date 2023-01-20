@@ -20,7 +20,7 @@ Some command-line tools and software is required to follow this guide.
 Refer to the mdbook documentation on how to download a snapshot and run forest
 
 Warning: FileCoin snapshots as of this writing are over 75GB. Verify you have enough
-space on your system to accomodate these large files.
+space on your system to accommodate these large files.
 
  - Use `make mdbook` in Forest's root directory
  - Open `http://localhost:3000`

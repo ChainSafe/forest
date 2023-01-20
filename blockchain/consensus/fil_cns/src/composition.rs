@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::FilecoinConsensus;
 use forest_beacon::DrandBeacon;
@@ -18,6 +18,7 @@ pub fn reward_calc() -> Arc<dyn forest_interpreter::RewardCalc> {
     Arc::new(forest_interpreter::RewardActorMessageCalc)
 }
 
+#[allow(clippy::unused_async)]
 pub async fn consensus<DB, MP>(
     state_manager: &Arc<StateManager<DB>>,
     _keystore: &Arc<RwLock<KeyStore>>,

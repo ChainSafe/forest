@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
@@ -30,11 +30,11 @@ use futures::{future::try_join_all, future::Future, try_join};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -207,7 +207,7 @@ where
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError<C>> {
         // Attempt to load from the store
-        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()).await {
+        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
             return Ok(full_tipset);
         }
         // Load from the network
@@ -217,13 +217,13 @@ where
             .map_err(ChainMuxerError::ChainExchange)
     }
 
-    async fn load_full_tipset(
+    fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError<C>> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(&tipset_keys).await?;
+        let ts = chain_store.tipset_from_keys(&tipset_keys)?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
@@ -248,7 +248,7 @@ where
         genesis_block_cid: Cid,
     ) {
         // Query the heaviest TipSet from the store
-        let heaviest = chain_store.heaviest_tipset().await.unwrap();
+        let heaviest = chain_store.heaviest_tipset().unwrap();
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
@@ -335,8 +335,8 @@ where
         Ok(FullTipset::new(vec![block]).unwrap())
     }
 
-    async fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
-        if let Err(why) = mem_pool.add(message).await {
+    fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
+        if let Err(why) = mem_pool.add(message) {
             debug!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why
@@ -437,8 +437,7 @@ where
                         .with_label_values(&[metrics::values::PUBSUB_MESSAGE])
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
-                        // Spawn and immediately move on to the next event
-                        tokio::task::spawn(Self::handle_pubsub_message(mem_pool.clone(), m));
+                        Self::handle_pubsub_message(mem_pool, m);
                     }
                     return Ok(None);
                 }
@@ -482,15 +481,12 @@ where
         };
 
         // Validate tipset
-        if let Err(why) = TipsetValidator(&tipset)
-            .validate(
-                chain_store.clone(),
-                bad_block_cache.clone(),
-                genesis.clone(),
-                block_delay,
-            )
-            .await
-        {
+        if let Err(why) = TipsetValidator(&tipset).validate(
+            chain_store.clone(),
+            bad_block_cache.clone(),
+            genesis.clone(),
+            block_delay,
+        ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             warn!(
                 "Validating tipset received through GossipSub failed: {}",
@@ -576,7 +572,7 @@ where
 
             // Query the heaviest tipset in the store
             // Unwrapping is fine because the store always has at least one tipset
-            let local_head = chain_store.heaviest_tipset().await.unwrap();
+            let local_head = chain_store.heaviest_tipset().unwrap();
 
             // We are in sync if the local head weight is heavier or
             // as heavy as the network head
@@ -784,7 +780,6 @@ where
                     // tipset in the store
                     if !chain_store
                         .heaviest_tipset()
-                        .await
                         .map(|heaviest| tipset.weight() >= heaviest.weight())
                         .unwrap_or(true)
                     {
@@ -934,6 +929,7 @@ mod tests {
     use std::convert::TryFrom;
 
     use crate::validation::TipsetValidator;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
@@ -961,9 +957,9 @@ mod tests {
     fn empty_msg_meta_vector() {
         let blockstore = MemoryDB::default();
         let usm: Vec<Message> =
-            fvm_ipld_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
         let sm: Vec<SignedMessage> =
-            fvm_ipld_encoding::from_slice(&base64::decode("gA==").unwrap()).unwrap();
+            fvm_ipld_encoding::from_slice(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
 
         assert_eq!(
             TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)

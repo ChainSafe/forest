@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use libp2p::kad::record::store::MemoryStore;
@@ -88,7 +88,7 @@ impl<'a> DiscoveryConfig<'a> {
     }
 
     /// Create a `DiscoveryBehaviour` from this configuration.
-    pub async fn finish(self) -> DiscoveryBehaviour {
+    pub fn finish(self) -> DiscoveryBehaviour {
         let DiscoveryConfig {
             local_peer_id,
             user_defined,

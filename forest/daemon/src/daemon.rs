@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::cli::set_sigint_handler;
@@ -162,7 +162,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Initialize ChainStore
-    let chain_store = Arc::new(ChainStore::new(db.clone()).await);
+    let chain_store = Arc::new(ChainStore::new(db.clone(), config.chain.clone()));
 
     let publisher = chain_store.publisher();
 
@@ -180,13 +180,13 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     // XXX: This code has to be run before starting the background services.
     //      If it isn't, several threads will be competing for access to stdout.
     // Terminate if no snapshot is provided or DB isn't recent enough
-    let should_fetch_snapshot = match chain_store.heaviest_tipset().await {
-        None => prompt_snapshot_or_die(&config).await?,
+    let should_fetch_snapshot = match chain_store.heaviest_tipset() {
+        None => prompt_snapshot_or_die(&config)?,
         Some(tipset) => {
             let epoch = tipset.epoch();
             let nv = config.chain.network_version(epoch);
             if nv < NetworkVersion::V16 {
-                prompt_snapshot_or_die(&config).await?
+                prompt_snapshot_or_die(&config)?
             } else {
                 false
             }
@@ -202,12 +202,11 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         Arc::clone(&chain_store),
         Arc::clone(&config.chain),
         reward_calc,
-    )
-    .await?;
+    )?;
 
     let state_manager = Arc::new(sm);
 
-    let network_name = get_network_name_from_genesis(&genesis, &state_manager).await?;
+    let network_name = get_network_name_from_genesis(&genesis, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
@@ -243,8 +242,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         net_keypair,
         &network_name,
         genesis_cid,
-    )
-    .await;
+    );
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -258,8 +256,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         MpoolConfig::load_config(&db)?,
         Arc::clone(state_manager.chain_config()),
         &mut services,
-    )
-    .await?;
+    )?;
 
     let mpool = Arc::new(mpool);
 
@@ -420,7 +417,7 @@ async fn maybe_fetch_snapshot(
 
 /// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
 /// exits the process.
-async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
+fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
@@ -523,40 +520,41 @@ mod test {
 
     async fn import_snapshot_from_file(file_path: &str) -> anyhow::Result<()> {
         let db = MemoryDB::default();
-        let cs = Arc::new(ChainStore::new(db).await);
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
         cs.set_genesis(&genesis_header)?;
-        let chain_config = Arc::new(ChainConfig::default());
-        let sm = Arc::new(
-            StateManager::new(
-                cs,
-                chain_config,
-                Arc::new(forest_interpreter::RewardActorMessageCalc),
-            )
-            .await?,
-        );
+        let sm = Arc::new(StateManager::new(
+            cs,
+            chain_config,
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )?);
         import_chain::<_>(&sm, file_path, None, false).await?;
         Ok(())
     }
 
-    // FIXME: This car file refers to actors that are not available in FVM yet.
-    //        See issue: https://github.com/ChainSafe/forest/issues/1452
-    // #[async_std::test]
-    // async fn import_chain_from_file() {
-    //     let db = Arc::new(MemoryDB::default());
-    //     let cs = Arc::new(ChainStore::new(db));
-    //     let genesis_header = BlockHeader::builder()
-    //         .miner_address(Address::new_id(0))
-    //         .timestamp(7777)
-    //         .build()
-    //         .unwrap();
-    //     cs.set_genesis(&genesis_header).unwrap();
-    //     let sm = Arc::new(StateManager::new(cs).await.unwrap());
-    //     import_chain::<FullVerifier, _>(&sm, "test_files/chain4.car", Some(0), false)
-    //         .await
-    //         .expect("Failed to import chain");
-    // }
+    #[tokio::test]
+    async fn import_chain_from_file() -> anyhow::Result<()> {
+        let db = MemoryDB::default();
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs = Arc::new(ChainStore::new(db, chain_config.clone()));
+        let genesis_header = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .timestamp(7777)
+            .build()?;
+        cs.set_genesis(&genesis_header)?;
+        let sm = Arc::new(StateManager::new(
+            cs,
+            chain_config,
+            Arc::new(forest_interpreter::RewardActorMessageCalc),
+        )?);
+        import_chain::<_>(&sm, "test_files/chain4.car", None, false)
+            .await
+            .expect("Failed to import chain");
+
+        Ok(())
+    }
 }

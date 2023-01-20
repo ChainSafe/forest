@@ -32,7 +32,7 @@ Notice the `2k` tag: it activates the [params_2k](https://github.com/filecoin-pr
 
 According to the [spec](https://spec.filecoin.io/#section-systems.filecoin_nodes.repository.key_store) we need to generate a BLS key for signing blocks, a.k.a. the "worker" key.
 
-We could use the [lotus-keygen](https://github.com/filecoin-project/lotus/tree/v1.17.0-rc3/cmd/lotus-keygen) command to generate Secp256k1 or BLS keys, but unfortunately this command is not copied into the Docker image we built. However, that's not a problem in this case becase the `lotus-seed` command will generate a key for us, if it's not given an existing one.
+We could use the [lotus-keygen](https://github.com/filecoin-project/lotus/tree/v1.17.0-rc3/cmd/lotus-keygen) command to generate Secp256k1 or BLS keys, but unfortunately this command is not copied into the Docker image we built. However, that's not a problem in this case because the `lotus-seed` command will generate a key for us, if it's not given an existing one.
 
 ### Generate the pre-seal file
 
@@ -356,7 +356,7 @@ We will need to attach the the JWT to each request, let's put it in a variable.
 JWT_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjczMjEwMTkzfQ.xxhmqtG9O3XNTIrOEB2_TWnVkq0JkqzRdw63BdosV0c
 ```
 
-Let's see what happens if we create a new wallet. We don't need to do this, becuase we already have a BLS key we want to put in, but it might help guide us later.
+Let's see what happens if we create a new wallet. We don't need to do this, because we already have a BLS key we want to put in, but it might help guide us later.
 
 ```console
 $ forest-cli --token $JWT_TOKEN wallet new bls

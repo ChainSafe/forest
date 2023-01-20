@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use cid::Cid;
 use fvm::call_manager::CallManager;
@@ -204,7 +204,7 @@ impl<DB: Blockstore> fvm::kernel::CryptoOps for ForestInstrumentedKernel<DB> {
     }
 }
 impl<DB: Blockstore> DebugOps for ForestInstrumentedKernel<DB> {
-    fn log(&self, msg: String) {
+    fn log(&mut self, msg: String) {
         forward_instrumented!(|| self.0.log(msg))
     }
 

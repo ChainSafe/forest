@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::{anyhow, Context};
@@ -62,7 +62,7 @@ impl DelegatedProposer {
             forest_chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
 
         let parent_weight = DelegatedConsensus::weight(state_manager.blockstore(), base)?;
-        let msgs = mpool.select_signed(state_manager, base).await?;
+        let msgs = mpool.select_signed(state_manager, base)?;
         let msgs = msgs.iter().map(|m| m.as_ref()).collect();
         let persisted = forest_chain::persist_block_messages(state_manager.blockstore(), msgs)?;
 
@@ -137,7 +137,7 @@ impl DelegatedProposer {
         )));
 
         while interval.next().await.is_some() {
-            if let Some(base) = chain_store.heaviest_tipset().await {
+            if let Some(base) = chain_store.heaviest_tipset() {
                 info!(
                     "Proposing a block on top {} in epoch {}",
                     base.min_ticket_block().cid(),

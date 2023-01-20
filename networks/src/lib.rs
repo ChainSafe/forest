@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fil_actors_runtime::runtime::Policy;
@@ -133,7 +133,7 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub async fn get_beacon_schedule(
+    pub fn get_beacon_schedule(
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
@@ -146,9 +146,11 @@ impl ChainConfig {
         for dc in ds_iter {
             points.0.push(BeaconPoint {
                 height: dc.height,
-                beacon: Arc::new(
-                    DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?,
-                ),
+                beacon: Arc::new(DrandBeacon::new(
+                    genesis_ts,
+                    self.block_delay_secs,
+                    dc.config,
+                )?),
             });
         }
         Ok(points)

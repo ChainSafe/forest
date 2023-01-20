@@ -1,10 +1,11 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fvm_shared::receipt::Receipt;
 
 pub mod json {
     use super::*;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use fvm_ipld_encoding::RawBytes;
     use fvm_shared::error::ExitCode;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
@@ -46,7 +47,7 @@ pub mod json {
     {
         JsonHelper {
             exit_code: m.exit_code.value() as u64,
-            return_data: base64::encode(m.return_data.bytes()),
+            return_data: BASE64_STANDARD.encode(m.return_data.bytes()),
             gas_used: m.gas_used,
         }
         .serialize(serializer)
@@ -63,7 +64,11 @@ pub mod json {
         } = Deserialize::deserialize(deserializer)?;
         Ok(Receipt {
             exit_code: ExitCode::new(exit_code as u32),
-            return_data: RawBytes::new(base64::decode(return_data).map_err(de::Error::custom)?),
+            return_data: RawBytes::new(
+                BASE64_STANDARD
+                    .decode(return_data)
+                    .map_err(de::Error::custom)?,
+            ),
             gas_used,
         })
     }

@@ -1,5 +1,6 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(clippy::unused_async)]
 
 use forest_beacon::Beacon;
 use forest_chain_sync::SyncState;
@@ -7,9 +8,8 @@ use forest_json::cid::CidJson;
 use forest_rpc_api::data_types::{RPCState, RPCSyncState};
 use forest_rpc_api::sync_api::*;
 use fvm_ipld_blockstore::Blockstore;
-
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
 pub(crate) async fn sync_check_bad<DB, B>(
@@ -21,7 +21,7 @@ where
     B: Beacon,
 {
     let (CidJson(cid),) = params;
-    Ok(data.bad_blocks.peek(&cid).await.unwrap_or_default())
+    Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
@@ -35,15 +35,12 @@ where
 {
     let (CidJson(cid),) = params;
     data.bad_blocks
-        .put(cid, "Marked bad manually through RPC API".to_string())
-        .await;
+        .put(cid, "Marked bad manually through RPC API".to_string());
     Ok(())
 }
 
-// TODO SyncIncomingBlocks (requires websockets)
-
 async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
-    state.read().await.clone()
+    state.read().clone()
 }
 
 /// Returns the current status of the `ChainSync` process.
@@ -79,7 +76,7 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    async fn state_setup() -> (
+    fn state_setup() -> (
         Arc<RPCState<MemoryDB, MockBeacon>>,
         flume::Receiver<NetworkMessage>,
     ) {
@@ -91,7 +88,8 @@ mod tests {
         let (network_send, network_rx) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = MemoryDB::default();
-        let cs_arc = Arc::new(ChainStore::new(db.clone()).await);
+        let chain_config = Arc::new(ChainConfig::default());
+        let cs_arc = Arc::new(ChainStore::new(db, chain_config.clone()));
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .timestamp(7777)
@@ -101,10 +99,9 @@ mod tests {
         let state_manager = Arc::new(
             StateManager::new(
                 cs_arc.clone(),
-                Arc::new(ChainConfig::default()),
+                chain_config,
                 Arc::new(forest_interpreter::RewardActorMessageCalc),
             )
-            .await
             .unwrap(),
         );
         let state_manager_for_thread = state_manager.clone();
@@ -117,7 +114,7 @@ mod tests {
             let ts = Tipset::new(vec![header]).unwrap();
             let db = cs_for_test.blockstore();
             let tsk = ts.key().cids.clone();
-            cs_for_test.set_heaviest_tipset(Arc::new(ts)).await.unwrap();
+            cs_for_test.set_heaviest_tipset(Arc::new(ts)).unwrap();
 
             for i in tsk {
                 let bz2 = bz.clone();
@@ -134,7 +131,6 @@ mod tests {
                 Arc::clone(state_manager_for_thread.chain_config()),
                 &mut services,
             )
-            .await
             .unwrap()
         };
         let (new_mined_block_tx, _) = flume::bounded(5);
@@ -143,7 +139,7 @@ mod tests {
             keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
             mpool: Arc::new(pool),
             bad_blocks: Default::default(),
-            sync_state: Arc::new(RwLock::new(Default::default())),
+            sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
             network_send,
             network_name: TEST_NET_NAME.to_owned(),
             chain_store: cs_for_chain,
@@ -155,7 +151,7 @@ mod tests {
 
     #[tokio::test]
     async fn set_check_bad() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let cid: CidJson =
             from_str(r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#)
@@ -177,7 +173,7 @@ mod tests {
 
     #[tokio::test]
     async fn sync_state_test() {
-        let (state, _) = state_setup().await;
+        let (state, _) = state_setup();
 
         let st_copy = state.sync_state.clone();
 
@@ -187,8 +183,8 @@ mod tests {
         }
 
         // update cloned state
-        st_copy.write().await.set_stage(SyncStage::Messages);
-        st_copy.write().await.set_epoch(4);
+        st_copy.write().set_stage(SyncStage::Messages);
+        st_copy.write().set_epoch(4);
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {

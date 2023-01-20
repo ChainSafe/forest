@@ -10,7 +10,7 @@ The only requirement for running these smoke tests is that Forest is installed a
 
 This will execute a blank request to all endpoints listed defined and check the HTTP
 status code of the response. If a response is received, this should be considered a good
-test, even if an error has occured. No parameters are passed to the API endpoints.
+test, even if an error has occurred. No parameters are passed to the API endpoints.
 An `OK` will be displayed if a test passes, and a `FAIL` will be displayed with an HTTP/curl code
 if a test fails.
 

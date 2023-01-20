@@ -4,12 +4,9 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-anyhow.workspace = true
 base64.workspace = true
 cid.workspace = true
-cs_serde_bytes.workspace = true
 data-encoding = "2.3"
-data-encoding-macro = "0.1"
 forest_encoding.workspace = true
 forest_message.workspace = true
 forest_utils.workspace = true

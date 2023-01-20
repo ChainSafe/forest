@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::chain_exchange::{
@@ -39,9 +39,10 @@ use libp2p::{
     core::muxing::StreamMuxerBox,
     core::transport::Boxed,
     identity::{ed25519, Keypair},
-    mplex, noise,
+    noise,
     swarm::{ConnectionLimits, SwarmEvent},
-    yamux, PeerId, Swarm, Transport,
+    yamux::YamuxConfig,
+    PeerId, Swarm, Transport,
 };
 use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use libp2p_bitswap::{BitswapEvent, BitswapStore};
@@ -49,7 +50,8 @@ use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 use tokio_stream::wrappers::IntervalStream;
 
 mod metrics {
@@ -92,6 +94,8 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
+pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
+
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
 
 type HelloRequestTable =
@@ -99,6 +103,8 @@ type HelloRequestTable =
 
 type CxRequestTable =
     HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>;
+
+type BitswapOutgoingQueryTable = Arc<RwLock<HashMap<libp2p_bitswap::QueryId, (Cid, Instant)>>>;
 
 /// Events emitted by this Service.
 #[allow(clippy::large_enum_variant)]
@@ -209,7 +215,7 @@ impl<DB, P: StoreParams> Libp2pService<DB, P>
 where
     DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
 {
-    pub async fn new(
+    pub fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
@@ -219,7 +225,7 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone()).await;
+        let transport = build_transport(net_keypair.clone());
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -230,7 +236,7 @@ where
 
         let mut swarm = SwarmBuilder::with_tokio_executor(
             transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()).await,
+            ForestBehaviour::new(&net_keypair, &config, network_name, cs.db.clone()),
             peer_id,
         )
         .connection_limits(limits)
@@ -279,9 +285,17 @@ where
 
         let mut hello_request_table = HashMap::new();
         let mut cx_request_table = HashMap::new();
-        let mut outgoing_bitswap_query_ids = HashMap::new();
+        let outgoing_bitswap_query_ids = BitswapOutgoingQueryTable::default();
+        let (outgoing_bitswap_query_cancellation_tx, outgoing_bitswap_query_cancellation_rx) =
+            flume::unbounded();
+        tokio::spawn(bitswap_timeout_task(
+            outgoing_bitswap_query_ids.clone(),
+            outgoing_bitswap_query_cancellation_tx,
+        ));
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
+        let mut outgoing_bitswap_query_cancellation_rx_stream =
+            outgoing_bitswap_query_cancellation_rx.stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -301,7 +315,7 @@ where
                             &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
-                            &mut outgoing_bitswap_query_ids,
+                            &outgoing_bitswap_query_ids,
                             cx_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
@@ -318,7 +332,7 @@ where
                             &self.network_sender_out,
                             &mut hello_request_table,
                             &mut cx_request_table,
-                            &mut outgoing_bitswap_query_ids).await;
+                            &outgoing_bitswap_query_ids).await;
                     }
                     None => { break; }
                 },
@@ -334,11 +348,17 @@ where
                         }
                     }
                 },
+                bitswap_cancelling_query_opt = outgoing_bitswap_query_cancellation_rx_stream.next() => {
+                    if let Some(query_id) = bitswap_cancelling_query_opt {
+                        debug!("Cancelling bitswap query {query_id}");
+                        swarm_stream.get_mut().behaviour_mut().bitswap.cancel(query_id);
+                    }
+                },
                 peer_ops_opt = peer_ops_rx_stream.next() => {
                     if let Some(peer_ops) = peer_ops_opt {
                         handle_peer_ops(swarm_stream.get_mut(), peer_ops);
                     }
-                }
+                },
             };
         }
         Ok(())
@@ -352,6 +372,42 @@ where
     /// Returns a receiver to listen to network events emitted from the service.
     pub fn network_receiver(&self) -> flume::Receiver<NetworkEvent> {
         self.network_receiver_out.clone()
+    }
+}
+
+async fn bitswap_timeout_task(
+    outgoing_bitswap_query_ids: BitswapOutgoingQueryTable,
+    outgoing_bitswap_query_cancellation_tx: Sender<libp2p_bitswap::QueryId>,
+) {
+    let mut timeout_queries = vec![];
+    loop {
+        timeout_queries.clear();
+        {
+            let now = Instant::now();
+            for (query_id, (_, start)) in outgoing_bitswap_query_ids.read().await.iter() {
+                if now.duration_since(*start) > BITSWAP_TIMEOUT {
+                    timeout_queries.push(*query_id);
+                }
+            }
+        }
+        if !timeout_queries.is_empty() {
+            {
+                let mut locked = outgoing_bitswap_query_ids.write().await;
+                for id in timeout_queries.iter() {
+                    locked.remove(id);
+                }
+            }
+            for &id in timeout_queries.iter() {
+                if let Err(e) = outgoing_bitswap_query_cancellation_tx.send_async(id).await {
+                    warn!("bitswap query cancellation err: {e}");
+                }
+            }
+        }
+        metrics::NETWORK_CONTAINER_CAPACITIES
+            .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
+            .set(outgoing_bitswap_query_ids.read().await.capacity() as u64);
+
+        tokio::time::sleep(Duration::from_secs(60)).await;
     }
 }
 
@@ -375,7 +431,7 @@ async fn handle_network_message<P: StoreParams>(
     network_sender_out: &Sender<NetworkEvent>,
     hello_request_table: &mut HelloRequestTable,
     cx_request_table: &mut CxRequestTable,
-    outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
+    outgoing_bitswap_query_ids: &BitswapOutgoingQueryTable,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -423,10 +479,10 @@ async fn handle_network_message<P: StoreParams>(
             response_channel: _,
         } => match swarm.behaviour_mut().want_block(cid) {
             Ok(query_id) => {
-                outgoing_bitswap_query_ids.insert(query_id, cid);
-                metrics::NETWORK_CONTAINER_CAPACITIES
-                    .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                    .set(outgoing_bitswap_query_ids.capacity() as u64);
+                outgoing_bitswap_query_ids
+                    .write()
+                    .await
+                    .insert(query_id, (cid, Instant::now()));
                 emit_event(
                     network_sender_out,
                     NetworkEvent::BitswapRequestOutbound { query_id, cid },
@@ -632,7 +688,7 @@ async fn handle_hello_event<P: StoreParams>(
                 request_id,
                 response,
             } => {
-                // Send the sucessful response through channel out.
+                // Send the successful response through channel out.
                 if let Some(tx) = hello_request_table.remove(&request_id) {
                     metrics::NETWORK_CONTAINER_CAPACITIES
                         .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
@@ -686,28 +742,20 @@ async fn handle_hello_event<P: StoreParams>(
 async fn handle_bitswap_event(
     bs_event: BitswapEvent,
     network_sender_out: &Sender<NetworkEvent>,
-    outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
+    outgoing_bitswap_query_ids: &BitswapOutgoingQueryTable,
 ) {
-    let get_prefix = |query_id: &libp2p_bitswap::QueryId| {
-        if outgoing_bitswap_query_ids.contains_key(query_id) {
-            "Outgoing"
-        } else {
-            "Inbound"
-        }
-    };
     match bs_event {
         BitswapEvent::Progress(query_id, num_missing) => {
-            let prefix = get_prefix(&query_id);
-            debug!("{prefix} bitswap query {query_id} in progress, {num_missing} blocks pending");
+            debug!("bitswap query {query_id} in progress, {num_missing} blocks pending");
         }
         BitswapEvent::Complete(query_id, result) => match result {
             Ok(()) => {
-                let prefix = get_prefix(&query_id);
-                debug!("{prefix} bitswap query {query_id} completed successfully");
-                if let Some(cid) = outgoing_bitswap_query_ids.remove(&query_id) {
-                    metrics::NETWORK_CONTAINER_CAPACITIES
-                        .with_label_values(&[metrics::values::BITSWAP_OUTGOING_QUERY_IDS])
-                        .set(outgoing_bitswap_query_ids.capacity() as u64);
+                debug!("bitswap query {query_id} completed successfully");
+                let query_info_opt = {
+                    let mut locked = outgoing_bitswap_query_ids.write().await;
+                    locked.remove(&query_id)
+                };
+                if let Some((cid, _)) = query_info_opt {
                     emit_event(
                         network_sender_out,
                         NetworkEvent::BitswapResponseInbound { query_id, cid },
@@ -716,9 +764,13 @@ async fn handle_bitswap_event(
                 }
             }
             Err(err) => {
-                let prefix = get_prefix(&query_id);
-                let msg = format!("{prefix} bitswap query {query_id} completed with error: {err}");
-                if outgoing_bitswap_query_ids.contains_key(&query_id) {
+                let msg = format!("bitswap query {query_id} completed with error: {err}");
+                if outgoing_bitswap_query_ids
+                    .write()
+                    .await
+                    .remove(&query_id)
+                    .is_some()
+                {
                     warn!("{msg}");
                 } else {
                     debug!("{msg}");
@@ -796,7 +848,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                         if let Err(e) = cx_response_tx.send((
                             request_id,
                             channel,
-                            make_chain_exchange_response(db.as_ref(), &request).await,
+                            make_chain_exchange_response(db.as_ref(), &request),
                         )) {
                             debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
@@ -812,7 +864,7 @@ async fn handle_chain_exchange_event<DB, P: StoreParams>(
                     )
                     .await;
                     let tx = cx_request_table.remove(&request_id);
-                    // Send the sucessful response through channel out.
+                    // Send the successful response through channel out.
                     if let Some(tx) = tx {
                         metrics::NETWORK_CONTAINER_CAPACITIES
                             .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
@@ -878,7 +930,7 @@ async fn handle_forest_behaviour_event<DB, P: StoreParams>(
     network_sender_out: &Sender<NetworkEvent>,
     hello_request_table: &mut HelloRequestTable,
     cx_request_table: &mut CxRequestTable,
-    outgoing_bitswap_query_ids: &mut HashMap<libp2p_bitswap::QueryId, Cid>,
+    outgoing_bitswap_query_ids: &BitswapOutgoingQueryTable,
     cx_response_tx: Sender<(
         RequestId,
         ResponseChannel<ChainExchangeResponse>,
@@ -932,7 +984,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 }
 
 /// Builds the transport stack that libp2p will communicate over.
-pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
+pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
     let tcp_transport =
         || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
     let transport = libp2p::dns::TokioDnsConfig::system(tcp_transport()).unwrap();
@@ -944,21 +996,10 @@ pub async fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBo
         noise::NoiseConfig::xx(dh_keys).into_authenticated()
     };
 
-    let mplex_config = {
-        let mut mplex_config = mplex::MplexConfig::new();
-        mplex_config.set_max_buffer_size(usize::MAX);
-
-        let mut yamux_config = yamux::YamuxConfig::default();
-        yamux_config.set_max_buffer_size(16 * 1024 * 1024);
-        yamux_config.set_receive_window_size(16 * 1024 * 1024);
-        // yamux_config.set_window_update_mode(WindowUpdateMode::OnRead);
-        core::upgrade::SelectUpgrade::new(yamux_config, mplex_config)
-    };
-
     transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
-        .multiplex(mplex_config)
+        .multiplex(YamuxConfig::default())
         .timeout(Duration::from_secs(20))
         .boxed()
 }

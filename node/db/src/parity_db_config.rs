@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use serde::{Deserialize, Serialize};
@@ -7,15 +7,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ParityDbConfig {
-    pub stats: bool,
-    pub compression: String,
+    pub enable_statistics: bool,
+    pub compression_type: String,
 }
 
 impl Default for ParityDbConfig {
     fn default() -> Self {
         Self {
-            stats: false,
-            compression: "lz4".into(),
+            enable_statistics: false,
+            compression_type: "lz4".into(),
         }
     }
 }
