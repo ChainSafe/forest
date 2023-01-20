@@ -49,7 +49,7 @@ Follow other instructions for proper `forest` usage. You may need to mount a vol
 ```
 Use dockerized Forest with host database:
 ```
-❯ docker run --init -it -v $HOME/.forest:/root/.forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
+❯ docker run --init -it -v $HOME/.forest:/home/forest/.local/share/forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
 ```
 
 ## Dependencies
