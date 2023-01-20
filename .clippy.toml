@@ -1,0 +1,2 @@
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_types
+disallowed-types = ["std::collections::HashMap"]

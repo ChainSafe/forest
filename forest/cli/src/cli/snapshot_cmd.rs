@@ -160,6 +160,7 @@ impl SnapshotCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
+                #[allow(clippy::disallowed_types)]
                 let vars = std::collections::HashMap::from([
                     ("year".to_string(), year.to_string()),
                     ("month".to_string(), month_string),

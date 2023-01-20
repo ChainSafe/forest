@@ -3061,6 +3061,7 @@ dependencies = [
 name = "forest_db"
 version = "0.2.0"
 dependencies = [
+ "ahash 0.8.2",
  "anyhow",
  "cid",
  "fvm_ipld_blockstore",
