@@ -1061,8 +1061,8 @@ where
 
     /// Return the heaviest tipset's balance from self.db for a given address
     pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let cid = self.cs.heaviest_tipset().parent_state();
-        self.get_balance(addr, *cid)
+        let cid = *self.cs.heaviest_tipset().parent_state();
+        self.get_balance(addr, cid)
     }
 
     /// Return the balance of a given address and `state_cid`
