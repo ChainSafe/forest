@@ -18,4 +18,4 @@ prometheus.workspace = true
 prost.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 tracing.workspace = true
-unsigned-varint = { workspace = true, default-features = false, features = [] }
+unsigned-varint.workspace = true

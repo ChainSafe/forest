@@ -40,7 +40,7 @@ impl BitswapRequestManager {
 }
 
 impl BitswapRequestManager {
-    pub fn add_peer(&self, peer: PeerId) -> bool {
+    pub fn on_peer_connected(&self, peer: PeerId) -> bool {
         let mut peers = self.peers.write();
         let r = peers.insert(peer);
         if r {
@@ -49,7 +49,7 @@ impl BitswapRequestManager {
         r
     }
 
-    pub fn remove_peer(&self, peer: &PeerId) -> bool {
+    pub fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
         let mut peers = self.peers.write();
         let r = peers.remove(peer);
         if r {

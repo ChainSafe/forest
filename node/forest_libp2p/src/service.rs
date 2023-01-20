@@ -482,12 +482,12 @@ async fn handle_discovery_event(
         DiscoveryOut::Connected(peer_id, _) => {
             debug!("Peer connected, {:?}", peer_id);
             // TODO: Maybe better to add after hello
-            bitswap_request_manager.add_peer(peer_id);
+            bitswap_request_manager.on_peer_connected(peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryOut::Disconnected(peer_id, _) => {
             debug!("Peer disconnected, {:?}", peer_id);
-            bitswap_request_manager.remove_peer(&peer_id);
+            bitswap_request_manager.on_peer_disconnected(&peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
     }
