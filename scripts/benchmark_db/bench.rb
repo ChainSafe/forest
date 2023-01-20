@@ -29,9 +29,6 @@ TEMP_DIR = Dir.mktmpdir('forest-benchs-')
 
 ONLINE_VALIDATION_SECS = 60.0
 
-snapshot_path = ARGV.pop
-raise OptionParser::ParseError, 'need to specify a snapshot for running benchmarks' unless snapshot_path
-
 CSV.open('results.csv', 'w') do |csv|
   csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
 end
@@ -43,8 +40,8 @@ class Numeric
   end
 end
 
-def syscall(*command)
-  stdout, _stderr, status = Open3.capture3(*command)
+def syscall(*command, chdir: '.')
+  stdout, _stderr, status = Open3.capture3(*command, chdir: chdir)
 
   status.success? ? stdout.chomp : (raise "#{command}, #{status}")
 end
@@ -68,6 +65,7 @@ def sample_proc(pid, metrics)
 end
 
 def proc_monitor(pid, benchmark)
+  # TODO: synchronize access to metrics hashmap
   metrics = { rss: [], vsz: [] }
   if benchmark
     Thread.new do
@@ -82,6 +80,7 @@ def proc_monitor(pid, benchmark)
       end
       sleep ONLINE_VALIDATION_SECS
       last_epoch = benchmark.epoch_command
+      # TODO: sometimes last_epoch or first_epoch is nil, fix it
       metrics[:num_epochs] = last_epoch - first_epoch
       
       puts "Stopping process..."
@@ -189,6 +188,36 @@ def snapshot_height(snapshot)
   raise 'unsupported snapshot name'
 end
 
+def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
+  puts "output_dir: #{output_dir}"
+  puts "chain: #{chain}"
+  if !url
+    value = (chain == 'mainnet') ? 'mainnet' : 'calibrationnet'
+    output = syscall('aria2c', '--dry-run', "https://snapshots.#{value}.filops.net/minimal/latest.zst")
+    url = output.match(/Redirecting to (https:\/\/.+?\d+_.+)/)[1]
+  end
+  puts "snapshot_url: #{url}"
+  filename = url.match(/(\d+_.+)/)[1]
+  checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
+  checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
+
+  decompressed_filename = filename.sub(/\.car\.zst/, '.car')
+
+  Dir.mktmpdir do |dir|
+    # Download, decompress and verify checksums
+    puts "Downloading..."
+    syscall('aria2c', checksum_url, chdir: dir)
+    syscall('aria2c', '-x5', url, chdir: dir)
+    puts "Decompressing..."
+    syscall('zstd', '-d', filename, chdir: dir)
+    puts "Verifying..."
+    syscall('sha256sum', '--check', '--status', checksum_filename, chdir: dir)
+    
+    FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
+  end
+  "#{output_dir}/#{decompressed_filename}"
+end
+
 # Benchmarks Forest import of a snapshot and validation of the chain
 class Benchmark
   attr_reader :name, :metrics
@@ -235,17 +264,14 @@ class Benchmark
   private :build_config_file
 
   def build_substitution_hash(dry_run)
-    snapshot = @snapshot_path
-    height = snapshot_height(snapshot)
+    height = snapshot_height(@snapshot_path)
     start = height - @heights
 
     return { c: '<tbd>', s: '<tbd>', h: start } if dry_run
 
     config_path = "#{TEMP_DIR}/#{@name}.toml"
 
-    snapshot_path = File.file?(snapshot) ? snapshot : "#{snapshot}"
-
-    { c: config_path, s: snapshot_path, h: start }
+    { c: config_path, s: @snapshot_path, h: start }
   end
   private :build_substitution_hash
 
@@ -473,6 +499,17 @@ OptionParser.new do |opts|
   opts.on('--pattern [String]', 'Run benchmarks that match the pattern') { |v| options[:pattern] = v }
   opts.on('--chain [String]', 'Choose network chain [default: mainnet]') { |v| options[:chain] = v }
 end.parse!
+
+snapshot_path = ARGV.pop
+if snapshot_path && !File.file?(snapshot_path)
+  raise "The file '#{snapshot_path}' does not exist"
+end
+
+if snapshot_path == nil
+  puts 'No snapshot provided, downloading one'
+  snapshot_path = download_snapshot(chain: options[:chain])
+  puts snapshot_path
+end
 
 options[:snapshot_path] = snapshot_path
 
