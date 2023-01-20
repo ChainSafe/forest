@@ -184,7 +184,7 @@ impl WalletCommands {
                         .await
                         .map_err(handle_rpc_err)?;
 
-                    let mut balance_int = match balance_string.parse::<BigInt>() {
+                    let balance_int = match balance_string.parse::<BigInt>() {
                         Ok(balance) => TokenAmount::from_atto(balance),
                         Err(err) => {
                             println!(
@@ -193,42 +193,15 @@ impl WalletCommands {
                             continue;
                         }
                     };
-                    let mut unit = "FIL";
-                    let (balance_string, symbol) = if *fixed_unit {
-                        if *exact_balance {
-                            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
-                        } else {
-                            formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
-                        }
-                    } else {
-                        let atto = balance_int.atto();
-                        if *atto < BigInt::from(1000) {
-                            unit = "atto FIL";
-                            balance_int *= BigInt::from(1000000000000000000i64);
-                        } else if *atto < BigInt::from(1000000) {
-                            unit = "femto FIL";
-                            balance_int *= BigInt::from(1000000000000000i64);
-                        } else if *atto < BigInt::from(1000000000) {
-                            unit = "pico FIL";
-                            balance_int *= BigInt::from(1000000000000i64);
-                        } else if *atto < BigInt::from(1000000000000i64) {
-                            unit = "nano FIL";
-                            balance_int *= BigInt::from(1000000000);
-                        } else if *atto < BigInt::from(1000000000000000i64) {
-                            unit = "micro FIL";
-                            balance_int *= BigInt::from(1000000);
-                        } else if *atto < BigInt::from(1000000000000000000i64) {
-                            unit = "milli FIL";
-                            balance_int *= BigInt::from(1000);
-                        }
-                        if *exact_balance {
-                            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
-                        } else {
-                            formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
-                        }
-                    };
                     println!(
-                        "{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}"
+                        "{}",
+                        format_balance_string(
+                            default_address_mark,
+                            addr,
+                            balance_int,
+                            fixed_unit,
+                            exact_balance
+                        )
                     );
                 }
                 Ok(())
@@ -321,7 +294,13 @@ fn formating_vars(balance_string: String, balance_exact: String) -> (String, Str
     }
 }
 
-fn format_balance_string(default_address_mark: &str, addr: String, mut balance_int: TokenAmount, fixed_unit: &bool, exact_balance: &bool) -> String {
+fn format_balance_string(
+    default_address_mark: &str,
+    addr: String,
+    mut balance_int: TokenAmount,
+    fixed_unit: &bool,
+    exact_balance: &bool,
+) -> String {
     let mut unit = "FIL";
     let (balance_string, symbol) = if *fixed_unit {
         if *exact_balance {
@@ -356,7 +335,30 @@ fn format_balance_string(default_address_mark: &str, addr: String, mut balance_i
             formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
         }
     };
-    format!(
-        "{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}"
-    )
+    format!("{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}")
+}
+
+
+#[test]
+fn exact_balance_fixed_unit() {
+    // assert_eq!(format_balance_string(
+    //     default_address_mark: &str,
+    //     addr: String,
+    //     balance_int: TokenAmount,
+    //     fixed_unit: &bool,
+    //     exact_balance: &bool,
+    // ), "");
+}
+
+
+#[test]
+fn not_exact_balance_fixed_unit() {
+}
+
+#[test]
+fn exact_balance_not_fixed_unit() {
+}
+
+#[test]
+fn not_exact_balance_not_fixed_unit() {
 }
