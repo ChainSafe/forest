@@ -737,7 +737,9 @@ where
 {
     db.read(GENESIS_KEY)?
         .map(|bz| BlockHeader::unmarshal_cbor(&bz).map_err(|e| Error::Other(e.to_string())))
-        .ok_or(Error::Other("no genesis".to_string()))?
+        .ok_or(Error::Other(
+            "Genesis key not defined in database".to_string(),
+        ))?
 }
 
 /// Attempts to de-serialize to unsigned message or signed message and then returns it as a
