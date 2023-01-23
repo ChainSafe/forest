@@ -8,6 +8,11 @@ install-daemon:
 
 install: install-cli install-daemon
 
+# Installs Forest binaries with ParityDb backend
+install-with-paritydb:
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb
+	cargo install --locked --path forest/cli --force --no-default-features --features paritydb
+
 install-deps:
 	apt-get update -y
 	apt-get install --no-install-recommends -y build-essential clang protobuf-compiler ocl-icd-opencl-dev aria2 cmake

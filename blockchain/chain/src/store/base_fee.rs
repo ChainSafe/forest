@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::{HashSet, HashSetExt};
 use forest_blocks::Tipset;
 use forest_message::Message;
 use fvm_ipld_blockstore::Blockstore;
@@ -8,7 +9,6 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::BLOCK_GAS_LIMIT;
-use std::collections::HashSet;
 
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: i64 = BLOCK_GAS_LIMIT / 2;
