@@ -1,7 +1,5 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-// Copyright 2019-2022 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
 
 use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;

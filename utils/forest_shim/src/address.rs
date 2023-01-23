@@ -1,7 +1,5 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-// Copyright 2019-2022 ChainSafe Systems
-// SPDX-License-Identifier: Apache-2.0, MIT
 
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
