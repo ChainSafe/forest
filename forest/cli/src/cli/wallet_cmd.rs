@@ -195,16 +195,10 @@ impl WalletCommands {
                             continue;
                         }
                     };
-                    println!(
-                        "{}",
-                        format_balance_string(
-                            default_address_mark,
-                            addr,
-                            balance_int,
-                            fixed_unit,
-                            exact_balance
-                        )
-                    );
+                    let formatted_balance_string =
+                        format_balance_string(balance_int, fixed_unit, exact_balance);
+
+                    println!("{addr:41}  {default_address_mark:7}  {formatted_balance_string}",);
                 }
                 Ok(())
             }
@@ -297,8 +291,6 @@ fn formating_vars(balance_string: String, balance_exact: String) -> (String, Str
 }
 
 fn format_balance_string(
-    default_address_mark: &str,
-    addr: String,
     mut balance_int: TokenAmount,
     fixed_unit: &bool,
     exact_balance: &bool,
@@ -337,61 +329,37 @@ fn format_balance_string(
             formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
         }
     };
-    format!("{addr:41}  {default_address_mark:7}  {symbol}{balance_string} {unit}")
+    format!("{symbol}{balance_string} {unit}")
 }
 
 #[test]
 fn exact_balance_fixed_unit() {
     assert_eq!(
-        format_balance_string(
-            "X",
-            "some_addr".to_string(),
-            TokenAmount::from_atto(100),
-            &true,
-            &true,
-        ),
-        "some_addr                                  X        0.0000000000000001 FIL"
+        format_balance_string(TokenAmount::from_atto(100), &true, &true,),
+        "0.0000000000000001 FIL"
     );
 }
 
 #[test]
 fn not_exact_balance_fixed_unit() {
     assert_eq!(
-        format_balance_string(
-            "X",
-            "some_addr".to_string(),
-            TokenAmount::from_atto(100),
-            &true,
-            &false,
-        ),
-        "some_addr                                  X        ~0 FIL"
+        format_balance_string(TokenAmount::from_atto(100), &true, &false,),
+        "~0 FIL"
     );
 }
 
 #[test]
 fn exact_balance_not_fixed_unit() {
     assert_eq!(
-        format_balance_string(
-            "X",
-            "some_addr".to_string(),
-            TokenAmount::from_atto(100),
-            &false,
-            &true,
-        ),
-        "some_addr                                  X        100 atto FIL"
+        format_balance_string(TokenAmount::from_atto(100), &false, &true,),
+        "100 atto FIL"
     );
 }
 
 #[test]
 fn not_exact_balance_not_fixed_unit() {
     assert_eq!(
-        format_balance_string(
-            "X",
-            "some_addr".to_string(),
-            TokenAmount::from_atto(100),
-            &false,
-            &false,
-        ),
-        "some_addr                                  X        100 atto FIL"
+        format_balance_string(TokenAmount::from_atto(100), &false, &false,),
+        "100 atto FIL"
     );
 }
