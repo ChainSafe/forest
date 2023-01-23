@@ -56,10 +56,13 @@ pub enum WalletCommands {
     },
     /// List addresses of the wallet
     List {
-        //flag to show exact balance
+        //flag to show exact balance meaming
+        // he full accuracy, not just default 4 values
         #[structopt(short, long)]
         exact_balance: bool,
         //flag to force the balance to be in FIL
+        //meaning one won't balance in `atto` or `micro`
+        //form even if it is appropriate
         #[structopt(short, long)]
         fixed_unit: bool,
     },
