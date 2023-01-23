@@ -28,12 +28,6 @@ HOUR = MINUTE * MINUTE
 
 TEMP_DIR = Dir.mktmpdir('forest-benchs-')
 
-ONLINE_VALIDATION_SECS = 120.0
-
-# CSV.open('results.csv', 'w') do |csv|
-#   csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
-# end
-
 # Provides human readable formatting to Numeric class
 class Numeric
   def to_bibyte
@@ -79,7 +73,7 @@ def proc_monitor(pid, benchmark)
         end
         sleep 0.05
       end
-      sleep ONLINE_VALIDATION_SECS
+      sleep benchmark.online_validation_secs
       last_epoch = benchmark.epoch_command
       # TODO: sometimes last_epoch or first_epoch is nil, fix it
       metrics[:num_epochs] = last_epoch - first_epoch
@@ -144,13 +138,13 @@ end
 def write_csv(metrics)
   filename = "result_#{Time.now.to_i}.csv"
   CSV.open(filename, 'w') do |csv|
-    csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
+    csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/min]"]
 
     metrics.each do |key, value|
       elapsed = value[:import][:elapsed] || 'n/a'
-      tps = value[:validate_online][:tps] || 'n/a'
+      tpm = value[:validate_online][:tpm] || 'n/a'
 
-      csv << [key, elapsed, tps]
+      csv << [key, elapsed, tpm]
     end
   end
   puts "Wrote #{filename}"
@@ -306,7 +300,7 @@ class Benchmark
     if daily
       validate_online_command = splice_args(@validate_online_command, args)
       new_metrics = exec_command(validate_online_command, dry_run, self)
-      new_metrics[:tps] = new_metrics[:num_epochs] / ONLINE_VALIDATION_SECS
+      new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
       metrics[:validate_online] = new_metrics
     end
     # puts metrics
@@ -359,6 +353,10 @@ class Benchmark
     else
       [false, nil]
     end
+  end
+
+  def online_validation_secs
+    @chain == "mainnet" ? 120.0 : 60.0
   end
 
   def stop_command(pid)
