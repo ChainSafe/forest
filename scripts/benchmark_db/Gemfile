@@ -6,3 +6,4 @@ git_source(:github) { |repo_name| "https://github.com/#{repo_name}" }
 
 gem 'deep_merge', '~> 1.2', '>= 1.2.2'
 gem 'toml-rb', '~> 2.2'
+gem 'tomlrb', '~> 2.0', '>= 2.0.3'

@@ -12,6 +12,7 @@ require 'optparse'
 require 'pathname'
 require 'set'
 require 'tmpdir'
+require 'tomlrb'
 require 'toml-rb'
 
 # Those are for capturing the snapshot height
@@ -27,11 +28,11 @@ HOUR = MINUTE * MINUTE
 
 TEMP_DIR = Dir.mktmpdir('forest-benchs-')
 
-ONLINE_VALIDATION_SECS = 60.0
+ONLINE_VALIDATION_SECS = 120.0
 
-CSV.open('results.csv', 'w') do |csv|
-  csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
-end
+# CSV.open('results.csv', 'w') do |csv|
+#   csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
+# end
 
 # Provides human readable formatting to Numeric class
 class Numeric
@@ -226,14 +227,7 @@ class Benchmark
   def default_config
     toml_str = syscall('./target/release/forest-cli', '--chain', @chain, 'config', 'dump')
   
-    # Comment chain.policy section
-    patched_toml = toml_str.sub(/(\[chain.policy\].+?(?=\n\[))/m) do |s|
-      commented = s.split("\n").map { |l| l.prepend('# ') }.join("\n")
-      "#{commented}\n"
-    end
-    toml_str = patched_toml
-  
-    default = TomlRB.parse(toml_str)
+    default = Tomlrb.parse(toml_str)
     default['client']['data_dir'] = TEMP_DIR
     default
   end
@@ -296,6 +290,8 @@ class Benchmark
     # Save db size just after import
     metrics[:import][:db_size] = db_size unless dry_run
 
+    @sync_status_command = splice_args(@sync_status_command, args)
+
     if !daily
       validate_command = splice_args(@validate_command, args)
       metrics[:validate] = exec_command(validate_command, dry_run)
@@ -307,7 +303,7 @@ class Benchmark
       new_metrics[:tps] = new_metrics[:num_epochs] / ONLINE_VALIDATION_SECS
       metrics[:validate_online] = new_metrics
     end
-    puts metrics
+    # puts metrics
 
     clean_db(dry_run)
 
@@ -316,6 +312,10 @@ class Benchmark
 
   def target
     './target/release/forest'
+  end
+
+  def target_cli
+    './target/release/forest-cli'
   end
 
   def clean_command(dry_run)
@@ -328,15 +328,14 @@ class Benchmark
 
   def epoch_command
     begin
-      output = syscall('./target/release/forest-cli', 'sync', 'status')
-      puts "sync status"
+      output = syscall(*@sync_status_command)
     rescue RuntimeError
       return nil
     end
-    msg_sync = output.match(/Stage: message sync/m)
+    msg_sync = output.match(/Stage:\smessage sync/m)
     if msg_sync
       # TODO: merge matches since forest prints workers that could be at different stages
-      match = output.match(/Height: (\d+)/m)
+      match = output.match(/Height:\s(\d+)/m)
       if match
         return match.captures[0].to_i
       end
@@ -357,7 +356,7 @@ class Benchmark
   end
 
   def stop_command(pid)
-    syscall('kill', '-9', pid)
+    syscall('kill', '-SIGINT', pid.to_s)
   end
 
   def initialize(name:, config: {})
@@ -371,7 +370,10 @@ class Benchmark
       '--import-snapshot', '%<s>s', '--halt-after-import', '--skip-load', '--height', '%<h>s'
     ]
     @validate_online_command = [
-      target, '--config', '%<c>s', '--encrypt-keystore', 'false', '--chain', 'calibnet'
+      target, '--config', '%<c>s', '--encrypt-keystore', 'false'
+    ]
+    @sync_status_command = [
+      target_cli, '--config', '%<c>s', 'sync', 'status'
     ]
     @metrics = {}
   end
@@ -413,7 +415,7 @@ class LotusBenchmark < Benchmark
   def build_command(dry_run)
     # TODO: handle build both client in a tmpdir
     Dir.chdir("../lotus") do
-      exec_command(['make', @chain == 'mainnet' ? '' : 'calibnet'], dry_run)
+      exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
     end
   end
 
@@ -459,6 +461,9 @@ class LotusBenchmark < Benchmark
     @validate_online_command = [
       target, 'daemon'
     ]
+    @sync_status_command = [
+      target, 'sync', 'status'
+    ]
     @metrics = {}
   end
 end
@@ -473,11 +478,13 @@ def run_benchmarks(benchmarks, options)
 
     bench_metrics[bench.name] = bench.metrics
 
-    write_csv(bench)
+    # write_csv(bench)
 
     puts "\n"
   end
   write_result(bench_metrics)
+
+  # puts bench_metrics
 end
 
 BENCHMARKS = [

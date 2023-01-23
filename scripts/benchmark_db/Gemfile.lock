@@ -1,0 +1,19 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    citrus (3.0.2)
+    deep_merge (1.2.2)
+    toml-rb (2.2.0)
+      citrus (~> 3.0, > 3.0)
+    tomlrb (2.0.3)
+
+PLATFORMS
+  arm64-darwin-21
+
+DEPENDENCIES
+  deep_merge (~> 1.2, >= 1.2.2)
+  toml-rb (~> 2.2)
+  tomlrb (~> 2.0, >= 2.0.3)
+
+BUNDLED WITH
+   2.3.26
