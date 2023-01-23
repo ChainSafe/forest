@@ -1,30 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_utils::io::ProgressBar;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
-use futures::TryFutureExt;
-use fvm_shared::bigint::BigInt;
-use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
-use log::{debug, error, info, trace, warn};
-use nonempty::NonEmpty;
-use std::cmp::{min, Ordering};
-use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
-use thiserror::Error;
-
 use crate::bad_block_cache::BadBlockCache;
 use crate::consensus::{collect_errs, Consensus};
 use crate::metrics;
 use crate::network_context::SyncNetworkContext;
 use crate::sync_state::SyncStage;
 use crate::validation::TipsetValidator;
+use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use forest_actor_interface::is_account_actor;
 use forest_blocks::{
@@ -39,15 +22,29 @@ use forest_message::Message as MessageTrait;
 use forest_networks::Height;
 use forest_state_manager::Error as StateManagerError;
 use forest_state_manager::StateManager;
-use futures::Stream;
+use forest_utils::io::ProgressBar;
+use futures::stream::FuturesUnordered;
+use futures::{Stream, StreamExt, TryFutureExt};
 use fvm::gas::price_list_by_network_version;
 use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
+use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
+use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
 use fvm_shared::message::Message;
 use fvm_shared::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
+use log::{debug, error, info, trace, warn};
+use nonempty::NonEmpty;
+use std::cmp::{min, Ordering};
+use std::convert::TryFrom;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
 
 const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 
@@ -302,7 +299,7 @@ where
         Box::pin(async move {
             // Define the low end of the range
             // Unwrapping is safe here because the store always has at least one tipset
-            let current_head = chain_store.heaviest_tipset().unwrap();
+            let current_head = chain_store.heaviest_tipset();
             // Unwrapping is safe here because we assume that the
             // tipset group contains at least one tipset
             let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
@@ -669,12 +666,11 @@ where
             genesis.clone(),
         ));
 
-        let mut tipsets_included = HashSet::new();
-        tipsets_included.insert(proposed_head.key());
+        let tipsets_included = HashSet::from_iter([proposed_head.key().clone()]);
         Ok(Self {
             proposed_head,
             current_head,
-            tipsets_included: HashSet::new(),
+            tipsets_included,
             tipset_tasks,
             consensus,
             state_manager,
@@ -1629,7 +1625,6 @@ mod test {
     use num_bigint::BigInt;
 
     use super::*;
-    use std::convert::TryFrom;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
@@ -1660,13 +1655,13 @@ mod test {
         // ticket_sequence are chosen so that Ticket(b3) < Ticket(b1)
 
         let b1 = mock_block(1234561, 10, 2);
-        let ts1 = Tipset::new(vec![b1]).unwrap();
+        let ts1 = Tipset::from(b1);
 
         let b2 = mock_block(1234563, 9, 1);
-        let ts2 = Tipset::new(vec![b2]).unwrap();
+        let ts2 = Tipset::from(b2);
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::new(vec![b3]).unwrap();
+        let ts3 = Tipset::from(b3);
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());

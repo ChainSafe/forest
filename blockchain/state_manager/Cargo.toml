@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 blake2b_simd.workspace = true
 byteorder.workspace = true

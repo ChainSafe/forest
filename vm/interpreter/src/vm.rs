@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::fvm::ForestExterns;
+use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
@@ -19,7 +20,6 @@ use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
-use std::collections::HashSet;
 use std::sync::Arc;
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;

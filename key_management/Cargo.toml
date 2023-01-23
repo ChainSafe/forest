@@ -8,6 +8,7 @@ edition = "2021"
 features = ["json"]
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 argon2 = "0.4"
 base64.workspace = true

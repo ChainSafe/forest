@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
 
 pub mod data_types;
 
@@ -293,9 +293,8 @@ pub mod wallet_api {
 
 /// State API
 pub mod state_api {
-    use std::collections::HashMap;
-
     use crate::data_types::{MarketDeal, MessageLookup};
+    use ahash::HashMap;
     use forest_blocks::tipset_keys_json::TipsetKeysJson;
     use forest_json::address::json::AddressJson;
     use forest_json::cid::CidJson;

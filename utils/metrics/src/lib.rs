@@ -4,11 +4,12 @@
 pub mod db;
 pub mod metrics;
 
+use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use forest_db::DBStatistics;
 use log::warn;
 use prometheus::{Encoder, TextEncoder};
-use std::{collections::HashMap, net::TcpListener, path::PathBuf};
+use std::{net::TcpListener, path::PathBuf};
 use tokio::sync::RwLock;
 
 lazy_static::lazy_static! {

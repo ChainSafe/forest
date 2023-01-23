@@ -31,11 +31,7 @@ where
     let (addr_str,) = params;
     let address = Address::from_str(&addr_str)?;
 
-    let heaviest_ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or("No heaviest tipset")?;
+    let heaviest_ts = data.state_manager.chain_store().heaviest_tipset();
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
@@ -204,11 +200,7 @@ where
     let state_manager = &data.state_manager;
     let (addr, msg_string) = params;
     let address = addr.0;
-    let heaviest_tipset = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = state_manager
         .resolve_to_key_addr(&address, &heaviest_tipset)
         .await?;

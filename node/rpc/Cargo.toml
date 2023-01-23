@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 axum = { workspace = true, features = ["ws"] }
 base64.workspace = true
