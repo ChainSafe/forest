@@ -82,7 +82,7 @@ where
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
-        let config = NetworkConfig::new(network_version);
+        let config = NetworkConfig::new(network_version.into());
         let engine = multi_engine.get(&config)?;
         let mut context = config.for_epoch(epoch, root);
         context.set_base_fee(base_fee);

@@ -620,7 +620,7 @@ fn verify_msg_before_add(
     chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch).into())
         .on_chain_message(m.marshal_cbor()?.len());
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {

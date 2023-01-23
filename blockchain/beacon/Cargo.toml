@@ -15,6 +15,7 @@ base64.workspace = true
 bls-signatures.workspace = true
 byteorder.workspace = true
 forest_encoding.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
