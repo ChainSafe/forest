@@ -141,13 +141,19 @@ def write_import_table(metrics)
   result
 end
 
-def write_csv(bench)
-  import_time = bench.metrics[:import][:elapsed]
-  validation_time = bench.metrics[:validate_online][:tps]
+def write_csv(metrics)
+  filename = "result_#{Time.now.to_i}.csv"
+  CSV.open(filename, 'w') do |csv|
+    csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/sec]"]
 
-  CSV.open('results.csv', 'w') do |csv|
-    csv << [bench.name, import_time, validation_time]
+    metrics.each do |key, value|
+      elapsed = value[:import][:elapsed] || 'n/a'
+      tps = value[:validate_online][:tps] || 'n/a'
+
+      csv << [key, elapsed, tps]
+    end
   end
+  puts "Wrote #{filename}"
 end
 
 def write_validate_table(metrics)
@@ -165,7 +171,7 @@ def write_validate_table(metrics)
   result
 end
 
-def write_result(metrics)
+def write_markdown(metrics)
   # Output file is a suite of markdown tables
   result = ''
   result += write_import_table(metrics)
@@ -486,11 +492,13 @@ def run_benchmarks(benchmarks, options)
 
     bench_metrics[bench.name] = bench.metrics
 
-    # write_csv(bench)
-
     puts "\n"
   end
-  write_result(bench_metrics)
+  if options[:daily]
+    write_csv(bench_metrics)
+  else
+    write_markdown(bench_metrics)
+  end
 
   # puts bench_metrics
 end
