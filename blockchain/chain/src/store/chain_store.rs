@@ -136,6 +136,7 @@ where
         Ok(())
     }
 
+    /// Writes genesis to `blockstore`.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
         self.blockstore()
             .write(GENESIS_KEY, header.marshal_cbor()?)?;
