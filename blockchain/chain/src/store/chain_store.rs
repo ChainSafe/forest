@@ -696,10 +696,6 @@ where
     }
 }
 
-/// Sets the genesis key in the `Blockstore`. Be careful if using this outside of
-/// the `ChainStore` as it will not update what the `ChainStore` thinks is the genesis
-/// after the `ChainStore` has been created.
-
 /// Persists slice of `serializable` objects to `blockstore`.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
