@@ -107,6 +107,7 @@ where
             .with_method(STATE_CALL, state_call::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB, B>)
+            .with_method(STATE_START_TIME, state_start_time::<DB, B>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB, B>)
             .with_method(STATE_REPLAY, state_replay::<DB, B>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB, B>)

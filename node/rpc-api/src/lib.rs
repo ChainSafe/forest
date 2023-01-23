@@ -54,6 +54,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Wallet API
     access.insert(wallet_api::WALLET_BALANCE, Access::Write);
     access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Write);
+    access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Read);
     access.insert(wallet_api::WALLET_EXPORT, Access::Admin);
     access.insert(wallet_api::WALLET_HAS, Access::Write);
     access.insert(wallet_api::WALLET_IMPORT, Access::Admin);
@@ -71,6 +72,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
+    access.insert(state_api::STATE_START_TIME, Access::Read);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
 
     // Gas API
@@ -332,6 +334,10 @@ pub mod state_api {
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
     pub type StateNetworkNameParams = ();
     pub type StateNetworkNameResult = String;
+
+    pub const STATE_START_TIME: &str = "Filecoin.StateStartTime";
+    pub type StateStartTimeParams = ();
+    pub type StateStartTimeResult = String;
 
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
     pub type StateNetworkVersionParams = (TipsetKeysJson,);

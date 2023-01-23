@@ -3,6 +3,7 @@
 
 use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
 
+use ::time::OffsetDateTime;
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
@@ -75,6 +76,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
     set_sigint_handler();
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
+    let start_time = OffsetDateTime::now_utc();
 
     info!(
         "Starting Forest daemon, version {}",
@@ -307,6 +309,7 @@ pub(super) async fn start(opts: CliOpts, config: Config) -> anyhow::Result<Db> {
                     beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
                                                                   * this itself from the
                                                                   * StateManager */
+                    start_time,
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),

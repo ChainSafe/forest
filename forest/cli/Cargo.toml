@@ -11,6 +11,7 @@ edition.workspace = true
 ahash.workspace = true
 anyhow.workspace = true
 atty = "0.2"
+colored = "2"
 base64.workspace = true
 boa_engine = { version = "0.16.0", features = ["console"] }
 cid.workspace = true
