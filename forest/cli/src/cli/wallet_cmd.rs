@@ -170,6 +170,7 @@ impl WalletCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
+                
                 let default = wallet_default_address(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -186,15 +187,8 @@ impl WalletCommands {
                         .await
                         .map_err(handle_rpc_err)?;
 
-                    let balance_int = match balance_string.parse::<BigInt>() {
-                        Ok(balance) => TokenAmount::from_atto(balance),
-                        Err(err) => {
-                            println!(
-                                "Couldn't convert balance {balance_string} to TokenAmount: {err}"
-                            );
-                            continue;
-                        }
-                    };
+                    let balance_int = TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
+
                     let formatted_balance_string =
                         format_balance_string(balance_int, fixed_unit, exact_balance);
 
