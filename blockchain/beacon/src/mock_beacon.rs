@@ -5,7 +5,7 @@ use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use forest_encoding::blake2b_256;
-use fvm_shared::version::NetworkVersion;
+use forest_shim::version::NetworkVersion;
 use std::time::Duration;
 
 /// Mock beacon used for testing. Deterministic based on an interval.

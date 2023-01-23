@@ -25,6 +25,7 @@ serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 arbitrary.workspace = true
+forest_shim.workspace = true
 forest_test_utils.workspace = true
 fvm_shared = { workspace = true, features = ["arb"] }
 num-bigint = { workspace = true, features = ["quickcheck"] }
