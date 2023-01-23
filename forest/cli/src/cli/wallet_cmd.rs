@@ -14,6 +14,7 @@ use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
+use regex::Regex;
 use rpassword::read_password;
 use std::{
     path::PathBuf,
@@ -169,7 +170,7 @@ impl WalletCommands {
                 let response = wallet_list(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
-                
+
                 let default = wallet_default_address(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -261,24 +262,9 @@ fn formating_vars(balance_string: String, balance_exact: String) -> (String, Str
         };
         (res, "".to_string())
     } else {
-        let res = if balance_string.ends_with(".0") {
-            //unfallible unwrap
-            balance_string.strip_suffix(".0").unwrap().to_string()
-        } else if balance_string.ends_with('.') {
-            //unfallible unwrap
-            balance_string.strip_suffix('.').unwrap().to_string()
-        } else if balance_string.ends_with("0000") {
-            //unfallible unwrap
-            balance_string.strip_suffix("0000").unwrap().to_string()
-        } else if balance_string.ends_with("000") {
-            //unfallible unwrap
-            balance_string.strip_suffix("000").unwrap().to_string()
-        } else if balance_string.ends_with("00") {
-            //unfallible unwrap
-            balance_string.strip_suffix("00").unwrap().to_string()
-        } else {
-            balance_string
-        };
+        //unfallible unwrap
+        let re = Regex::new(r"(\.0+|\.)$").unwrap();
+        let res = re.replace(balance_string.as_str(), "").to_string();
         (res, "~".to_string())
     }
 }

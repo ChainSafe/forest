@@ -2758,6 +2758,7 @@ dependencies = [
  "log",
  "multibase",
  "rand 0.8.5",
+ "regex",
  "rpassword",
  "serde",
  "serde_json",
