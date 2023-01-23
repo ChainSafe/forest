@@ -388,12 +388,20 @@ end
 
 # Benchmark class for Lotus
 class LotusBenchmark < Benchmark
+  def db_dir
+    lotus_path = ENV['LOTUS_PATH'] || "#{ENV['HOME']}/.lotus"
+    "#{lotus_path}/datastore/chain"
+  end
+
   def db_size
-    #raise NotImplementedError
+    size = syscall('du', '-h', db_dir)
+    size.split[0]
   end
 
   def clean_db(dry_run)
-    #raise NotImplementedError
+    # Clean db
+    puts 'Wiping db'
+    FileUtils.rm_rf(db_dir, secure: true) unless dry_run
   end
 
   def build_config_file
