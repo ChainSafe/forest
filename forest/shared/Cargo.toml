@@ -20,7 +20,6 @@ forest_networks.workspace = true
 forest_rpc-client.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
-fvm_shared = { workspace = true, default-features = false }
 gethostname.workspace = true
 git-version.workspace = true
 hex.workspace = true

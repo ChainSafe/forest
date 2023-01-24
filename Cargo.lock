@@ -3030,7 +3030,6 @@ dependencies = [
  "forest_rpc-client",
  "forest_utils",
  "futures",
- "fvm_shared 2.0.0",
  "gethostname",
  "git-version",
  "hex",
