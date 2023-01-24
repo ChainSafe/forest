@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Config;
+use ahash::HashMap;
+use ahash::HashMapExt;
 use anyhow::Context;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -17,7 +19,6 @@ use fvm_shared::econ::TokenAmount;
 use lazy_static::lazy_static;
 use regex::Regex;
 use rpassword::read_password;
-use std::collections::HashMap;
 use std::{
     path::PathBuf,
     str::{self, FromStr},
@@ -83,7 +84,7 @@ pub enum WalletCommands {
     },
     /// List addresses of the wallet
     List {
-        /// flag to force full accuracy, 
+        /// flag to force full accuracy,
         /// not just default 4 significant digits
         /// E.g. 500.2367798 milli FIL instead of 500.2367 milli FIL
         /// In compination with `--fixed-unit` flag
@@ -291,20 +292,16 @@ impl WalletCommands {
 }
 
 fn formating_vars(balance_string: String, balance_exact: String) -> (String, String) {
-    if balance_exact.len() <= balance_string.len() {
-        let res = if balance_exact.ends_with(".0") {
-            //unfallible unwrap
-            balance_exact.strip_suffix(".0").unwrap().to_string()
-        } else {
-            balance_exact
-        };
-        (res, "".to_string())
+    //unfallible unwrap
+    let re = Regex::new(r"(?i)(0+$)|(\.0+$)|(\.+$)").unwrap();
+    let res = re.replace(balance_string.as_str(), "").to_string();
+    let balance_exact_res = re.replace(balance_exact.as_str(), "").to_string();
+    let symbol = if balance_exact_res.len() <= res.len() {
+        ""
     } else {
-        //unfallible unwrap
-        let re = Regex::new(r"(\.0+|\.)$").unwrap();
-        let res = re.replace(balance_string.as_str(), "").to_string();
-        (res, "~".to_string())
-    }
+        "~"
+    };
+    (res, symbol.to_string())
 }
 
 fn format_balance_string(
@@ -435,5 +432,21 @@ fn not_exact_balance_not_fixed_unit() {
     assert_eq!(
         format_balance_string(TokenAmount::from_atto(90000002750000000i64), &false, &false,),
         "~90 milli FIL"
+    );
+}
+
+#[test]
+fn test_formatting_vars() {
+    assert_eq!(
+        formating_vars("1940.00".to_string(), "1940.000".to_string()),
+        ("1940".to_string(), "".to_string())
+    );
+    assert_eq!(
+        formating_vars("940.050".to_string(), "940.050123".to_string()),
+        ("940.05".to_string(), "~".to_string())
+    );
+    assert_eq!(
+        formating_vars("230.".to_string(), "230.0".to_string()),
+        ("230".to_string(), "".to_string())
     );
 }

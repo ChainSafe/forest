@@ -35,6 +35,7 @@ fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 human-repr.workspace = true
 jsonrpc-v2.workspace = true
+lazy_static.workspace = true
 log.workspace = true
 multibase.workspace = true
 regex.workspace = true
@@ -49,7 +50,6 @@ time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
-lazy_static.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
