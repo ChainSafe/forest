@@ -21,8 +21,8 @@ use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use nonempty::NonEmpty;
+use num::BigInt;
 
 use crate::DelegatedProposer;
 

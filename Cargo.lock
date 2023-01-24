@@ -3108,6 +3108,7 @@ dependencies = [
  "fvm_shared 2.0.0",
  "log",
  "nonempty",
+ "num",
  "thiserror",
  "tokio",
  "tokio-stream",
