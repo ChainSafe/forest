@@ -7,12 +7,12 @@ use cid::Cid;
 use forest_actor_interface::miner;
 use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
+use forest_shim::version::NetworkVersion;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::randomness::Randomness;
 use fvm_shared::sector::{RegisteredSealProof, SectorInfo};
-use fvm_shared::version::NetworkVersion;
 
 impl<DB> StateManager<DB>
 where
@@ -68,7 +68,7 @@ where
 
         let info = mas.info(store)?;
 
-        let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv);
+        let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv.into());
 
         let wpt = spt
             .registered_winning_post_proof()

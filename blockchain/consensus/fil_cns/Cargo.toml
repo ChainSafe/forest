@@ -19,6 +19,7 @@ forest_fil_types.workspace = true
 forest_interpreter.workspace = true
 forest_key_management.workspace = true
 forest_networks.workspace = true
+forest_shim.workspace = true
 forest_state_manager.workspace = true
 futures.workspace = true
 fvm.workspace = true

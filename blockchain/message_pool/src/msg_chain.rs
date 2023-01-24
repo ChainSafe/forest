@@ -383,7 +383,7 @@ where
 
         let network_version = chain_config.network_version(ts.epoch());
 
-        let min_gas = price_list_by_network_version(network_version)
+        let min_gas = price_list_by_network_version(network_version.into())
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 

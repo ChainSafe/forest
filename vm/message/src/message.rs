@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use forest_shim::version::NetworkVersion;
 use fvm::gas::Gas;
 use fvm_shared::message::Message;
 
@@ -8,9 +9,8 @@ use fvm_shared::message::Message;
 pub fn valid_for_block_inclusion(
     msg: &Message,
     min_gas: Gas,
-    version: fvm_shared::version::NetworkVersion,
+    version: NetworkVersion,
 ) -> Result<(), anyhow::Error> {
-    use fvm_shared::version::NetworkVersion;
     use fvm_shared::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN, ZERO_ADDRESS};
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
