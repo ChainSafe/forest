@@ -52,7 +52,6 @@ jobs:
         with:
           tags: ${{ steps.meta.outputs.tags }}
           push: ${{ github.ref == 'refs/heads/main' }}
- 
       - name: List docker images
         run: docker image ls
 
