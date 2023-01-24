@@ -83,13 +83,21 @@ pub enum WalletCommands {
     },
     /// List addresses of the wallet
     List {
-        //flag to show exact balance meaming
-        // he full accuracy, not just default 4 values
+        /// flag to force full accuracy, 
+        /// not just default 4 significant digits
+        /// E.g. 500.2367798 milli FIL instead of 500.2367 milli FIL
+        /// In compination with `--fixed-unit` flag
+        /// it will show exact data in `FIL` units
+        /// E.g. 0.0000002367798 FIL instead of 0 FIL
         #[structopt(short, long)]
         exact_balance: bool,
-        //flag to force the balance to be in FIL
-        //meaning one won't balance in `atto` or `micro`
-        //form even if it is appropriate
+        /// flag to force the balance to be in `FIL`
+        /// meaning one won't balance in `atto` or `micro`
+        /// form even if it is appropriate
+        /// E.g. 0.5002 FIL instead of 500.2367 milli FIL
+        /// In compination with `--exact-balance` flag
+        /// it will show exact data in `FIL` units
+        /// E.g. 0.0000002367798 FIL instead of 0 FIL
         #[structopt(short, long)]
         fixed_unit: bool,
     },
