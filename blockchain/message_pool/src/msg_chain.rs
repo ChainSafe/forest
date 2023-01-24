@@ -4,6 +4,7 @@
 use super::errors::Error;
 use crate::provider::Provider;
 use crate::utils::{get_gas_perf, get_gas_reward};
+use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
@@ -15,7 +16,6 @@ use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
 use std::cmp::Ordering;
-use std::collections::HashMap;
 use std::mem;
 use std::ops::{Index, IndexMut};
 
@@ -383,7 +383,7 @@ where
 
         let network_version = chain_config.network_version(ts.epoch());
 
-        let min_gas = price_list_by_network_version(network_version)
+        let min_gas = price_list_by_network_version(network_version.into())
             .on_chain_message(m.marshal_cbor()?.len())
             .total();
 

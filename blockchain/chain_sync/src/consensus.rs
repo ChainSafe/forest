@@ -185,7 +185,7 @@ impl SyncGossipSubmitter {
 
     pub async fn submit_block(&self, block: GossipBlock) -> anyhow::Result<()> {
         let data = block.marshal_cbor()?;
-        let ts = Arc::new(Tipset::new(vec![block.header])?);
+        let ts = Arc::new(Tipset::from(&block.header));
         let msg = NetworkMessage::PubsubMessage {
             topic: Topic::new(format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name)),
             message: data,

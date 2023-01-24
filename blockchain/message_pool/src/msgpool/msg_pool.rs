@@ -16,6 +16,7 @@ use crate::msgpool::{republish_pending_messages, select_messages_for_block};
 use crate::msgpool::{RBF_DENOM, RBF_NUM};
 use crate::provider::Provider;
 use crate::utils::get_base_fee_lower_bound;
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -36,7 +37,6 @@ use fvm_shared::econ::TokenAmount;
 use log::warn;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -170,9 +170,7 @@ where
     {
         let local_addrs = Arc::new(SyncRwLock::new(Vec::new()));
         let pending = Arc::new(SyncRwLock::new(HashMap::new()));
-        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset().ok_or_else(|| {
-            Error::Other("Failed to retrieve heaviest tipset from provider".to_owned())
-        })?));
+        let tipset = Arc::new(Mutex::new(api.get_heaviest_tipset()));
         let bls_sig_cache = Arc::new(Mutex::new(LruCache::new(BLS_SIG_CACHE_SIZE)));
         let sig_val_cache = Arc::new(Mutex::new(LruCache::new(SIG_VAL_CACHE_SIZE)));
         let local_msgs = Arc::new(SyncRwLock::new(HashSet::new()));
@@ -620,7 +618,7 @@ fn verify_msg_before_add(
     chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch).into())
         .on_chain_message(m.marshal_cbor()?.len());
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {

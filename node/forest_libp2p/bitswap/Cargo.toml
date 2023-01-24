@@ -1,0 +1,21 @@
+[package]
+name = "forest_libp2p_bitswap"
+version = "0.1.0"
+authors = ["ChainSafe Systems <info@chainsafe.io>"]
+edition = "2021"
+
+[dependencies]
+ahash.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+flume.workspace = true
+futures.workspace = true
+lazy_static.workspace = true
+libipld = { workspace = true, default-features = false }
+libp2p = { workspace = true, default-features = false, features = ["request-response", "macros"] }
+parking_lot.workspace = true
+prometheus.workspace = true
+prost.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
+tracing.workspace = true
+unsigned-varint.workspace = true

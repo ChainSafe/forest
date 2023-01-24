@@ -238,7 +238,7 @@ mod test {
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
-                    download_snapshot: bool::arbitrary(g),
+                    auto_download_snapshot: bool::arbitrary(g),
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },

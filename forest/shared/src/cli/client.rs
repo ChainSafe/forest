@@ -37,7 +37,7 @@ pub struct Client {
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
     /// Download a chain specific snapshot to sync with the Filecoin network
-    pub download_snapshot: bool,
+    pub auto_download_snapshot: bool,
     // Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
     pub token_exp: Duration,
@@ -62,7 +62,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
-            download_snapshot: false,
+            auto_download_snapshot: false,
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
         }

@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::beacon_entries::BeaconEntry;
-use ahash::AHashMap;
+use ahash::HashMap;
 use anyhow::Context;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
+use forest_shim::version::NetworkVersion;
 use forest_utils::net::{https_client, HyperBodyExt};
 use fvm_shared::clock::ChainEpoch;
-use fvm_shared::version::NetworkVersion;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
@@ -184,7 +184,7 @@ pub struct DrandBeacon {
     fil_round_time: u64,
 
     /// Keeps track of computed beacon entries.
-    local_cache: RwLock<AHashMap<u64, BeaconEntry>>,
+    local_cache: RwLock<HashMap<u64, BeaconEntry>>,
 }
 
 impl DrandBeacon {

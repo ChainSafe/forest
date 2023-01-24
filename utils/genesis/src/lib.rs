@@ -4,7 +4,6 @@
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
-use forest_chain::ChainStore;
 use forest_db::Store;
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
@@ -28,8 +27,8 @@ pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 pub async fn read_genesis_header<DB>(
     genesis_fp: Option<&String>,
     genesis_bytes: Option<&[u8]>,
-    cs: &ChainStore<DB>,
-) -> Result<Tipset, anyhow::Error>
+    db: &DB,
+) -> Result<BlockHeader, anyhow::Error>
 where
     DB: Blockstore + Store + Send + Sync,
 {
@@ -37,31 +36,28 @@ where
         Some(path) => {
             let file = File::open(path).await?;
             let reader = BufReader::new(file);
-            process_car(reader, cs).await?
+            process_car(reader, db).await?
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
             let genesis_bytes =
                 genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
             let reader = BufReader::<&[u8]>::new(genesis_bytes);
-            process_car(reader, cs).await?
+            process_car(reader, db).await?
         }
     };
 
     info!("Initialized genesis: {}", genesis);
-    Ok(Tipset::new(vec![genesis])?)
+    Ok(genesis)
 }
 
 pub fn get_network_name_from_genesis<BS>(
-    genesis_ts: &Tipset,
+    genesis_header: &BlockHeader,
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
     BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
-    // the genesis tipset has just one block, so fetch it
-    let genesis_header = genesis_ts.min_ticket_block();
-
     // Get network name from genesis state.
     let network_name = state_manager
         .get_network_name(genesis_header.state_root())
@@ -77,45 +73,28 @@ where
     BS: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     let genesis_bytes = state_manager.chain_config().genesis_bytes();
-    let ts = read_genesis_header(genesis_fp, genesis_bytes, state_manager.chain_store()).await?;
-    let network_name = get_network_name_from_genesis(&ts, state_manager)?;
+    let genesis =
+        read_genesis_header(genesis_fp, genesis_bytes, state_manager.blockstore()).await?;
+    let ts = Tipset::from(&genesis);
+    let network_name = get_network_name_from_genesis(&genesis, state_manager)?;
     Ok((ts, network_name))
 }
 
-async fn process_car<R, BS>(
-    reader: R,
-    chain_store: &ChainStore<BS>,
-) -> Result<BlockHeader, anyhow::Error>
+async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
     BS: Blockstore + Store + Send + Sync,
 {
     // Load genesis state into the database and get the Cid
-    let genesis_cids: Vec<Cid> = load_car(chain_store.blockstore(), reader.compat()).await?;
+    let genesis_cids: Vec<Cid> = load_car(db, reader.compat()).await?;
     if genesis_cids.len() != 1 {
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block: BlockHeader =
-        chain_store.db.get_obj(&genesis_cids[0])?.ok_or_else(|| {
-            anyhow::anyhow!(
-                "Could not find genesis block despite being loaded using a genesis file"
-            )
-        })?;
+    let genesis_block: BlockHeader = db.get_obj(&genesis_cids[0])?.ok_or_else(|| {
+        anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
+    })?;
 
-    let store_genesis = chain_store.genesis()?;
-
-    if store_genesis
-        .map(|store| store == genesis_block)
-        .unwrap_or_default()
-    {
-        debug!("Genesis from config matches Genesis from store");
-    } else {
-        debug!("Initialize ChainSyncer with new genesis from config");
-        chain_store.set_genesis(&genesis_block)?;
-
-        chain_store.set_heaviest_tipset(Arc::new(Tipset::new(vec![genesis_block.clone()])?))?;
-    }
     Ok(genesis_block)
 }
 
