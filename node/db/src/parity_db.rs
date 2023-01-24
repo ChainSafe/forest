@@ -3,12 +3,11 @@
 
 use super::errors::Error;
 use crate::parity_db_config::ParityDbConfig;
-use crate::utils::bitswap_missing_blocks;
 use crate::{DBStatistics, Store};
 use anyhow::anyhow;
 use cid::Cid;
+use forest_libp2p_bitswap::BitswapStore;
 use fvm_ipld_blockstore::Blockstore;
-use libp2p_bitswap::BitswapStore;
 use log::warn;
 use parity_db::{CompressionType, Db, Options};
 use std::path::PathBuf;
@@ -136,20 +135,16 @@ impl BitswapStore for ParityDb {
     /// under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
-    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
 

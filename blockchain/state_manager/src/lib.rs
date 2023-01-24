@@ -22,6 +22,7 @@ use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
+use forest_shim::version::NetworkVersion;
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
@@ -35,7 +36,6 @@ use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
-use fvm_shared::version::NetworkVersion;
 use lru::LruCache;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
@@ -528,7 +528,7 @@ where
             store,
             epoch,
             chain_rand,
-            ts.blocks()[0].parent_base_fee().clone(),
+            ts.blocks()[0].parent_base_fee().clone().into(),
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
@@ -761,7 +761,7 @@ where
                 &blocks,
                 epoch,
                 chain_rand,
-                base_fee,
+                base_fee.into(),
                 callback,
                 &ts_cloned,
             )?)

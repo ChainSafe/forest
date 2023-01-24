@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Error, Store};
-use crate::utils::bitswap_missing_blocks;
 use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
+use forest_libp2p_bitswap::BitswapStore;
 use fvm_ipld_blockstore::Blockstore;
-use libp2p_bitswap::BitswapStore;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -65,19 +64,15 @@ impl Blockstore for MemoryDB {
 impl BitswapStore for MemoryDB {
     type Params = libipld::DefaultParams;
 
-    fn contains(&mut self, cid: &Cid) -> Result<bool> {
+    fn contains(&self, cid: &Cid) -> Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> Result<Option<Vec<u8>>> {
+    fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> Result<()> {
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&mut self, cid: &Cid) -> Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }

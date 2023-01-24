@@ -127,7 +127,9 @@ where
         if let Some(b) = self.db.get_obj(&content).map_err(|e| e.to_string())? {
             return Ok(b);
         }
-        let (tx, rx) = oneshot_channel();
+
+        let (tx, rx) = flume::bounded(1);
+
         self.network_send
             .send_async(NetworkMessage::BitswapRequest {
                 cid: content,
@@ -135,21 +137,21 @@ where
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
-        let res = timeout(BITSWAP_TIMEOUT, rx).await;
-        match res {
-            Ok(Ok(())) => {
-                match self.db.get_obj(&content) {
-                    Ok(Some(b)) => Ok(b),
-                    Ok(None) => Err(format!("Bitswap response successful for: {content:?}, but can't find it in the database")),
-                    Err(e) => Err(format!("Bitswap response successful for: {content:?}, but can't retrieve it from the database: {e}")),
-                }
-            }
-            Err(_e) => {
-               Err(format!("Bitswap get for {content:?} timed out"))
-            }
-            Ok(Err(e)) => {
-                Err(format!("Bitswap get for {content:?} failed: {e}"))
-            }
+
+        let success = tokio::task::spawn_blocking(move || {
+            rx.recv_timeout(BITSWAP_TIMEOUT).unwrap_or_default()
+        })
+        .await
+        .is_ok();
+
+        match self.db.get_obj(&content) {
+            Ok(Some(b)) => Ok(b),
+            Ok(None) => Err(format!(
+                "Not found in db, bitswap. success: {success} cid, {content:?}"
+            )),
+            Err(e) => Err(format!(
+                "Error retrieving from db. success: {success} cid, {content:?}, {e}"
+            )),
         }
     }
 

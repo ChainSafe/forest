@@ -25,11 +25,11 @@ use forest_libp2p::{PeerId, PeerManager};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
+use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use forest_utils::io::write_to_file;
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::version::NetworkVersion;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
@@ -422,7 +422,8 @@ fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
-    let should_download = if !config.client.download_snapshot && atty::is(atty::Stream::Stdin) {
+    let should_download = if !config.client.auto_download_snapshot && atty::is(atty::Stream::Stdin)
+    {
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
                     "Forest needs a snapshot to sync with the network. Would you like to download one now?",
@@ -431,7 +432,7 @@ fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
                 .interact()
                 .unwrap_or_default()
     } else {
-        config.client.download_snapshot
+        config.client.auto_download_snapshot
     };
 
     if should_download {
