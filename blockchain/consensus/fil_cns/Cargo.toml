@@ -28,8 +28,8 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 nonempty.workspace = true
-num.workspace = true
 num-traits.workspace = true
+num.workspace = true
 prometheus.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }

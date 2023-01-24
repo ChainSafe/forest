@@ -34,8 +34,8 @@ fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 lru.workspace = true
-num.workspace = true
 num-traits.workspace = true
+num.workspace = true
 prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
