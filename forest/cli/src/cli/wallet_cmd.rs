@@ -14,13 +14,40 @@ use fvm_shared::address::{Address, Protocol};
 use fvm_shared::bigint::BigInt;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
+use lazy_static::lazy_static;
 use regex::Regex;
 use rpassword::read_password;
+use std::collections::HashMap;
 use std::{
     path::PathBuf,
     str::{self, FromStr},
 };
 use structopt::StructOpt;
+
+lazy_static! {
+    static ref LEN_TO_CLOSURE_POWERS: HashMap<usize, (String, u8)> = {
+        let mut map = HashMap::new();
+        for item in 0..4 {
+            map.insert(item, ("atto FIL".to_string(), 18));
+        }
+        for item in 4..7 {
+            map.insert(item, ("femto FIL".to_string(), 15));
+        }
+        for item in 7..10 {
+            map.insert(item, ("pico FIL".to_string(), 12));
+        }
+        for item in 10..13 {
+            map.insert(item, ("nano FIL".to_string(), 9));
+        }
+        for item in 13..16 {
+            map.insert(item, ("micro FIL".to_string(), 6));
+        }
+        for item in 16..19 {
+            map.insert(item, ("milli FIL".to_string(), 3));
+        }
+        map
+    };
+}
 
 use super::handle_rpc_err;
 
@@ -286,24 +313,12 @@ fn format_balance_string(
         }
     } else {
         let atto = balance_int.atto();
-        if *atto < BigInt::from(1000) {
-            unit = "atto FIL";
-            balance_int *= BigInt::from(1000000000000000000i64);
-        } else if *atto < BigInt::from(1000000) {
-            unit = "femto FIL";
-            balance_int *= BigInt::from(1000000000000000i64);
-        } else if *atto < BigInt::from(1000000000) {
-            unit = "pico FIL";
-            balance_int *= BigInt::from(1000000000000i64);
-        } else if *atto < BigInt::from(1000000000000i64) {
-            unit = "nano FIL";
-            balance_int *= BigInt::from(1000000000);
-        } else if *atto < BigInt::from(1000000000000000i64) {
-            unit = "micro FIL";
-            balance_int *= BigInt::from(1000000);
-        } else if *atto < BigInt::from(1000000000000000000i64) {
-            unit = "milli FIL";
-            balance_int *= BigInt::from(1000);
+        let len = atto.to_string().len();
+        if len <= 18 {
+            //unfallible unwrap
+            let (unit_string, closure_power) = LEN_TO_CLOSURE_POWERS.get(&len).unwrap();
+            unit = unit_string.as_str();
+            balance_int *= BigInt::from(10i64.pow(*closure_power as u32));
         }
         if *exact_balance {
             formating_vars(format!("{balance_int}"), format!("{balance_int}"))
@@ -320,6 +335,11 @@ fn exact_balance_fixed_unit() {
         format_balance_string(TokenAmount::from_atto(100), &true, &true,),
         "0.0000000000000001 FIL"
     );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(12465), &true, &true,),
+        "0.000000000000012465 FIL"
+    );
 }
 
 #[test]
@@ -327,6 +347,20 @@ fn not_exact_balance_fixed_unit() {
     assert_eq!(
         format_balance_string(TokenAmount::from_atto(100), &true, &false,),
         "~0 FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(1000005000), &true, &false,),
+        "~0 FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(
+            TokenAmount::from_atto(15089000000000050000u64),
+            &true,
+            &false,
+        ),
+        "~15 FIL"
     );
 }
 
@@ -336,6 +370,31 @@ fn exact_balance_not_fixed_unit() {
         format_balance_string(TokenAmount::from_atto(100), &false, &true,),
         "100 atto FIL"
     );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(120005), &false, &true,),
+        "120.005 femto FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(200000045i64), &false, &true,),
+        "200.000045 pico FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(1000000123), &false, &true,),
+        "1.000000123 nano FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(450000008000000i64), &false, &true,),
+        "450.000008 micro FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(90000002750000000i64), &false, &true,),
+        "90.00000275 milli FIL"
+    );
 }
 
 #[test]
@@ -343,5 +402,30 @@ fn not_exact_balance_not_fixed_unit() {
     assert_eq!(
         format_balance_string(TokenAmount::from_atto(100), &false, &false,),
         "100 atto FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(120005), &false, &false,),
+        "120.005 femto FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(200000045i64), &false, &false,),
+        "~200 pico FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(1000000123), &false, &false,),
+        "~1 nano FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(450000008000000i64), &false, &false,),
+        "~450 micro FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(90000002750000000i64), &false, &false,),
+        "~90 milli FIL"
     );
 }

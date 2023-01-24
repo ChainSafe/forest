@@ -2755,6 +2755,7 @@ dependencies = [
  "hex",
  "human-repr",
  "jsonrpc-v2",
+ "lazy_static",
  "log",
  "multibase",
  "rand 0.8.5",
