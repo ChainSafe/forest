@@ -655,7 +655,7 @@ mod test {
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
             "test",
-            "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
+            "sha-256=d06d7f5613640befb07f99079ffcbdc55fff064fc1dfa8041acf2547f5fa1a6e",
         )?;
         shutdown_tx.send(()).unwrap();
         Ok(())
