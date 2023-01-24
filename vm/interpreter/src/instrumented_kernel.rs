@@ -260,7 +260,7 @@ impl<DB: Blockstore> NetworkOps for ForestInstrumentedKernel<DB> {
         forward_instrumented!(|| self.0.network_epoch())
     }
 
-    fn network_version(&self) -> fvm_shared::version::NetworkVersion {
+    fn network_version(&self) -> forest_shim::version::NetworkVersion_v2 {
         forward_instrumented!(|| self.0.network_version())
     }
 

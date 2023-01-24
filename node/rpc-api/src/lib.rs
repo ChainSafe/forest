@@ -300,8 +300,8 @@ pub mod state_api {
     use forest_json::cid::CidJson;
     use forest_json::message::json::MessageJson;
     use forest_json::message_receipt::json::ReceiptJson;
+    use forest_shim::version::NetworkVersion;
     use forest_state_manager::{InvocResult, MarketBalance};
-    use fvm_shared::version::NetworkVersion;
 
     pub const STATE_CALL: &str = "Filecoin.StateCall";
     pub type StateCallParams = (MessageJson, TipsetKeysJson);

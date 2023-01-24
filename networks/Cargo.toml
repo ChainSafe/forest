@@ -8,6 +8,7 @@ edition = "2021"
 anyhow.workspace = true
 fil_actors_runtime.workspace = true
 forest_beacon.workspace = true
+forest_shim.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"] }
 

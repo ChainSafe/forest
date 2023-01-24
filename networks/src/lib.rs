@@ -3,8 +3,8 @@
 
 use fil_actors_runtime::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use fvm_shared::version::NetworkVersion;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -197,7 +197,7 @@ pub fn default_network_version() -> NetworkVersion {
 }
 
 pub mod de_network_version {
-    use fvm_shared::version::NetworkVersion;
+    use forest_shim::version::NetworkVersion;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
@@ -236,7 +236,7 @@ pub mod de_network_version {
     where
         S: Serializer,
     {
-        let version_string = match nv {
+        let version_string = match *nv {
             NetworkVersion::V0 => "V0",
             NetworkVersion::V1 => "V1",
             NetworkVersion::V2 => "V2",

@@ -8,6 +8,8 @@ use cid::Cid;
 use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
+use forest_shim::econ::TokenAmount;
+use forest_shim::version::NetworkVersion;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
 use fvm_shared::bigint::{
@@ -16,9 +18,7 @@ use fvm_shared::bigint::{
 };
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
-use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::PoStProof;
-use fvm_shared::version::NetworkVersion;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -448,9 +448,9 @@ impl fmt::Display for BlockHeader {
 mod tests {
     use crate::{errors::Error, BlockHeader};
     use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use forest_shim::version::NetworkVersion;
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
-    use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;
     use std::time::Duration;

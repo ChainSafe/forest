@@ -35,6 +35,7 @@ forest_networks.workspace = true
 forest_paramfetch.workspace = true
 forest_rpc-api.workspace = true
 forest_rpc.workspace = true
+forest_shim.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true

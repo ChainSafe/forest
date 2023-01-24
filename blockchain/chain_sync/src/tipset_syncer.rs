@@ -1297,7 +1297,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
                 TipsetRangeSyncerError::<C>::Validation(format!("Could not compute base fee: {e}"))
             })?;
         let parent_base_fee = v_block.header.parent_base_fee();
-        if &base_fee != parent_base_fee {
+        if base_fee != parent_base_fee.clone() {
             return Err(TipsetRangeSyncerError::<C>::Validation(format!(
                 "base fee doesn't match: {parent_base_fee} (header), {base_fee} (computed)"
             )));
@@ -1458,7 +1458,7 @@ async fn check_block_messages<
         return Err(TipsetRangeSyncerError::BlockWithoutBlsAggregate);
     }
 
-    let price_list = price_list_by_network_version(network_version);
+    let price_list = price_list_by_network_version(network_version.into());
     let mut sum_gas_limit = 0;
 
     // Check messages for validity

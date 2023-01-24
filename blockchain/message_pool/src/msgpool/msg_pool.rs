@@ -618,13 +618,15 @@ fn verify_msg_before_add(
     chain_config: &ChainConfig,
 ) -> Result<bool, Error> {
     let epoch = cur_ts.epoch();
-    let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
+    let min_gas = price_list_by_network_version(chain_config.network_version(epoch).into())
         .on_chain_message(m.marshal_cbor()?.len());
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
-        let base_fee_lower_bound =
-            get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
+        let base_fee_lower_bound = get_base_fee_lower_bound(
+            &base_fee.clone().into(),
+            BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
+        );
         if m.gas_fee_cap() < &base_fee_lower_bound {
             if local {
                 warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
