@@ -68,7 +68,7 @@ def proc_monitor(pid, benchmark)
       loop do
         start, first_epoch = benchmark.start_online_validation_command
         if start
-          puts "Start measure"
+          puts 'Start measure'
           break
         end
         sleep 0.05
@@ -77,8 +77,8 @@ def proc_monitor(pid, benchmark)
       last_epoch = benchmark.epoch_command
       # TODO: sometimes last_epoch or first_epoch is nil, fix it
       metrics[:num_epochs] = last_epoch - first_epoch
-      
-      puts "Stopping process..."
+
+      puts 'Stopping process...'
       benchmark.stop_command(pid)
     end
   end
@@ -107,7 +107,7 @@ def exec_command_aux(command, metrics, benchmark)
   end
 end
 
-def exec_command(command, dry_run, benchmark=nil)
+def exec_command(command, dry_run, benchmark = nil)
   puts "$ #{command.join(' ')}"
   return {} if dry_run
 
@@ -120,7 +120,8 @@ def exec_command(command, dry_run, benchmark=nil)
 end
 
 def write_import_table(metrics)
-  return "" if !metrics.key?(:import)
+  return '' unless metrics.key?(:import)
+
   result = "Bench | Import Time | Import RSS | DB Size\n"
   result += "-|-|-|-\n"
 
@@ -138,7 +139,7 @@ end
 def write_csv(metrics)
   filename = "result_#{Time.now.to_i}.csv"
   CSV.open(filename, 'w') do |csv|
-    csv << ["Client", "Snapshot Import Time [sec]", "Validation Time [tipsets/min]"]
+    csv << ['Client', 'Snapshot Import Time [sec]', 'Validation Time [tipsets/min]']
 
     metrics.each do |key, value|
       elapsed = value[:import][:elapsed] || 'n/a'
@@ -151,7 +152,8 @@ def write_csv(metrics)
 end
 
 def write_validate_table(metrics)
-  return "" if !metrics.key?(:validate)
+  return '' unless metrics.key?(:validate)
+
   result = "Bench | Validate Time | Validate RSS\n"
   result += "-|-|-\n"
 
@@ -192,10 +194,10 @@ end
 def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
   puts "output_dir: #{output_dir}"
   puts "chain: #{chain}"
-  if !url
-    value = (chain == 'mainnet') ? 'mainnet' : 'calibrationnet'
+  unless url
+    value = chain == 'mainnet' ? 'mainnet' : 'calibrationnet'
     output = syscall('aria2c', '--dry-run', "https://snapshots.#{value}.filops.net/minimal/latest.zst")
-    url = output.match(/Redirecting to (https:\/\/.+?\d+_.+)/)[1]
+    url = output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
   end
   puts "snapshot_url: #{url}"
   filename = url.match(/(\d+_.+)/)[1]
@@ -206,14 +208,14 @@ def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
 
   Dir.mktmpdir do |dir|
     # Download, decompress and verify checksums
-    puts "Downloading..."
+    puts 'Downloading...'
     syscall('aria2c', checksum_url, chdir: dir)
     syscall('aria2c', '-x5', url, chdir: dir)
-    puts "Decompressing..."
+    puts 'Decompressing...'
     syscall('zstd', '-d', filename, chdir: dir)
-    puts "Verifying..."
+    puts 'Verifying...'
     syscall('sha256sum', '--check', '--status', checksum_filename, chdir: dir)
-    
+
     FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
   end
   "#{output_dir}/#{decompressed_filename}"
@@ -226,7 +228,7 @@ class Benchmark
 
   def default_config
     toml_str = syscall('./target/release/forest-cli', '--chain', @chain, 'config', 'dump')
-  
+
     default = Tomlrb.parse(toml_str)
     default['client']['data_dir'] = TEMP_DIR
     default
@@ -292,7 +294,7 @@ class Benchmark
 
     @sync_status_command = splice_args(@sync_status_command, args)
 
-    if !daily
+    unless daily
       validate_command = splice_args(@validate_command, args)
       metrics[:validate] = exec_command(validate_command, dry_run)
     end
@@ -319,7 +321,7 @@ class Benchmark
   end
 
   def clean_command(dry_run)
-    exec_command(['cargo', 'clean'], dry_run)
+    exec_command(%w[cargo clean], dry_run)
   end
 
   def build_command(dry_run)
@@ -336,9 +338,7 @@ class Benchmark
     if msg_sync
       # TODO: merge matches since forest prints workers that could be at different stages
       match = output.match(/Height:\s(\d+)/m)
-      if match
-        return match.captures[0].to_i
-      end
+      return match.captures[0].to_i if match
     end
     nil
   end
@@ -356,7 +356,7 @@ class Benchmark
   end
 
   def online_validation_secs
-    @chain == "mainnet" ? 120.0 : 60.0
+    @chain == 'mainnet' ? 120.0 : 60.0
   end
 
   def stop_command(pid)
@@ -386,7 +386,8 @@ end
 # Benchmark class for Forest+ParityDb
 class ParityDbBenchmark < Benchmark
   def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'],
+                 dry_run)
   end
 end
 
@@ -419,14 +420,14 @@ class LotusBenchmark < Benchmark
 
   def clean_command(dry_run)
     # TODO: handle build both client in a tmpdir
-    Dir.chdir("../lotus") do
-      exec_command(['make', 'clean'], dry_run)
+    Dir.chdir('../lotus') do
+      exec_command(%w[make clean], dry_run)
     end
   end
 
   def build_command(dry_run)
     # TODO: handle build both client in a tmpdir
-    Dir.chdir("../lotus") do
+    Dir.chdir('../lotus') do
       exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
     end
   end
@@ -441,9 +442,7 @@ class LotusBenchmark < Benchmark
     if msg_sync
       # TODO: merge matches since lotus prints workers that could be at different stages
       match = output.match(/Height: (\d+)/m)
-      if match
-        return match.captures[0].to_i
-      end
+      return match.captures[0].to_i if match
     end
     nil
   end
@@ -460,7 +459,7 @@ class LotusBenchmark < Benchmark
     end
   end
 
-  def stop_command(pid)
+  def stop_command(_pid)
     syscall(target, 'daemon', 'stop')
   end
 
@@ -511,7 +510,7 @@ options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
   chain: 'calibnet', # TODO: replace with 'mainnet' before merging
-  daily: true,
+  daily: true
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
@@ -522,11 +521,9 @@ OptionParser.new do |opts|
 end.parse!
 
 snapshot_path = ARGV.pop
-if snapshot_path && !File.file?(snapshot_path)
-  raise "The file '#{snapshot_path}' does not exist"
-end
+raise "The file '#{snapshot_path}' does not exist" if snapshot_path && !File.file?(snapshot_path)
 
-if snapshot_path == nil
+if snapshot_path.nil?
   puts 'No snapshot provided, downloading one'
   snapshot_path = download_snapshot(chain: options[:chain])
   puts snapshot_path
