@@ -18,10 +18,10 @@ use forest_rpc_api::{
     gas_api::*,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::BLOCK_GAS_LIMIT;
+use num::BigInt;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 

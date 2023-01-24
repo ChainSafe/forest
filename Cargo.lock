@@ -3217,6 +3217,7 @@ dependencies = [
  "fvm_shared 2.0.0",
  "lazy_static",
  "log",
+ "num",
  "prometheus",
  "stdext",
 ]
@@ -3521,6 +3522,7 @@ dependencies = [
  "libipld-core 0.14.0",
  "log",
  "multibase",
+ "num",
  "num-traits",
  "parking_lot 0.12.1",
  "rand 0.8.5",
@@ -3624,6 +3626,7 @@ dependencies = [
  "fvm_shared 2.0.0",
  "lazy_static",
  "lru 0.9.0",
+ "num",
  "num-traits",
  "prometheus",
  "serde",
