@@ -9,7 +9,6 @@ mod vm_circ_supply;
 
 pub use self::errors::*;
 use ahash::{HashMap, HashMapExt};
-use anyhow::Context;
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
@@ -216,7 +215,7 @@ where
         chain_config: Arc<ChainConfig>,
         reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis()?.context("genesis header missing")?;
+        let genesis = cs.genesis()?;
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp())?);
 
         Ok(Self {

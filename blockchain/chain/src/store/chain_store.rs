@@ -158,7 +158,11 @@ where
 
     /// Writes genesis to `blockstore`.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        set_genesis(self.blockstore(), header)
+        self.blockstore()
+            .write(GENESIS_KEY, header.marshal_cbor()?)?;
+        self.blockstore()
+            .put_obj(&header, Blake2b256)
+            .map_err(|e| Error::Other(e.to_string()))
     }
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid headers.
@@ -204,8 +208,13 @@ where
     }
 
     /// Returns genesis [`BlockHeader`] from the store based on a static key.
-    pub fn genesis(&self) -> Result<Option<BlockHeader>, Error> {
-        genesis(self.blockstore())
+    pub fn genesis(&self) -> Result<BlockHeader, Error> {
+        self.blockstore()
+            .read(GENESIS_KEY)?
+            .map(|bz| BlockHeader::unmarshal_cbor(&bz).map_err(|e| Error::Other(e.to_string())))
+            .ok_or(Error::Other(
+                "Genesis key not defined in database".to_string(),
+            ))?
     }
 
     /// Returns the currently tracked heaviest tipset.
@@ -708,18 +717,6 @@ where
     }
 }
 
-/// Sets the genesis key in the `Blockstore`. Be careful if using this outside of
-/// the `ChainStore` as it will not update what the `ChainStore` thinks is the genesis
-/// after the `ChainStore` has been created.
-pub fn set_genesis<DB>(db: &DB, header: &BlockHeader) -> Result<Cid, Error>
-where
-    DB: Blockstore + Store,
-{
-    db.write(GENESIS_KEY, header.marshal_cbor()?)?;
-    db.put_obj(&header, Blake2b256)
-        .map_err(|e| Error::Other(e.to_string()))
-}
-
 /// Persists slice of `serializable` objects to `blockstore`.
 pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
 where
@@ -748,17 +745,6 @@ where
     }
 
     Ok(cids)
-}
-
-/// Returns the genesis block from storage.
-pub fn genesis<DB>(db: &DB) -> Result<Option<BlockHeader>, Error>
-where
-    DB: Blockstore + Store,
-{
-    Ok(db
-        .read(GENESIS_KEY)?
-        .map(|bz| BlockHeader::unmarshal_cbor(&bz))
-        .transpose()?)
 }
 
 /// Attempts to de-serialize to unsigned message or signed message and then returns it as a
@@ -982,7 +968,7 @@ mod tests {
             .unwrap();
         let cs = ChainStore::new(db, chain_config, &gen_block).unwrap();
 
-        assert_eq!(cs.genesis().unwrap(), Some(gen_block));
+        assert_eq!(cs.genesis().unwrap(), gen_block);
     }
 
     #[test]
