@@ -195,21 +195,13 @@ def snapshot_height(snapshot)
   raise 'unsupported snapshot name'
 end
 
-def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
-  puts "output_dir: #{output_dir}"
-  puts "chain: #{chain}"
-  unless url
-    value = chain == 'mainnet' ? 'mainnet' : 'calibrationnet'
-    output = syscall('aria2c', '--dry-run', "https://snapshots.#{value}.filops.net/minimal/latest.zst")
-    url = output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
-  end
-  puts "snapshot_url: #{url}"
-  filename = url.match(/(\d+_.+)/)[1]
-  checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
-  checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
+def get_url(chain: 'calibnet', url: nil)
+  value = chain == 'mainnet' ? 'mainnet' : 'calibrationnet'
+  output = syscall('aria2c', '--dry-run', "https://snapshots.#{value}.filops.net/minimal/latest.zst")
+  url || output.match(%r{Redirecting to (https://.+?\d+_.+)})[1]
+end
 
-  decompressed_filename = filename.sub(/\.car\.zst/, '.car')
-
+def download_and_move(url, filename, checksum_url, checksum_filename, output_dir)
   Dir.mktmpdir do |dir|
     # Download, decompress and verify checksums
     puts 'Downloading...'
@@ -222,6 +214,20 @@ def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
 
     FileUtils.mv("#{dir}/#{decompressed_filename}", output_dir)
   end
+end
+
+def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
+  puts "output_dir: #{output_dir}"
+  puts "chain: #{chain}"
+  url = get_url(chain, url)
+  puts "snapshot_url: #{url}"
+
+  filename = url.match(/(\d+_.+)/)[1]
+  checksum_url = url.sub(/\.car\.zst/, '.sha256sum')
+  checksum_filename = checksum_url.match(/(\d+_.+)/)[1]
+  decompressed_filename = filename.sub(/\.car\.zst/, '.car')
+
+  download_and_move(url, filename, checksum_url, checksum_filename, output_dir)
   "#{output_dir}/#{decompressed_filename}"
 end
 
