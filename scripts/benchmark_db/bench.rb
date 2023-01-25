@@ -179,7 +179,7 @@ def write_markdown(metrics)
   result += write_validate_table(metrics)
 
   filename = "result_#{Time.now.to_i}.md"
-  File.open(filename, 'w') { |file| file.write(result) }
+  File.write(filename, result)
   puts "Wrote #{filename}"
 end
 
@@ -265,7 +265,7 @@ class Benchmark
     config_path = "#{TEMP_DIR}/#{@name}.toml"
 
     toml_str = TomlRB.dump(config)
-    File.open(config_path, 'w') { |file| file.write(toml_str) }
+    File.write(config_path, toml_str)
   end
   private :build_config_file
 
@@ -344,7 +344,8 @@ class Benchmark
     rescue RuntimeError
       return nil
     end
-    if output.match(/Stage:\smessage sync/m)
+    msg_sync = output.match(/Stage:\smessage sync/m)
+    if msg_sync
       # TODO: merge matches since forest prints workers that could be at different stages
       match = output.match(/Height:\s(\d+)/m)
       return match.captures[0].to_i if match
@@ -403,7 +404,7 @@ end
 # Benchmark class for Lotus
 class LotusBenchmark < Benchmark
   def db_dir
-    lotus_path = ENV['LOTUS_PATH'] || "#{ENV['HOME']}/.lotus"
+    lotus_path = ENV['LOTUS_PATH'] || "#{Dir.home}/.lotus"
     "#{lotus_path}/datastore/chain"
   end
 
@@ -447,7 +448,8 @@ class LotusBenchmark < Benchmark
     rescue RuntimeError
       return nil
     end
-    if output.match(/Stage: message sync/m)
+    msg_sync = output.match(/Stage: message sync/m)
+    if msg_sync
       # TODO: merge matches since lotus prints workers that could be at different stages
       match = output.match(/Height: (\d+)/m)
       return match.captures[0].to_i if match
@@ -552,9 +554,9 @@ else
       selection.add(bench) if File.fnmatch(pat.strip, bench.name)
     end
   end
-  if !selection.empty?
-    run_benchmarks(selection, options)
-  else
+  if selection.empty?
     puts 'Nothing to run'
+  else
+    run_benchmarks(selection, options)
   end
 end
