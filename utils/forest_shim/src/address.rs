@@ -4,11 +4,20 @@
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Address(Address_v3);
+
+impl Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl Deref for Address {
     type Target = Address_v3;
@@ -31,7 +40,19 @@ impl From<Address_v3> for Address {
 
 impl From<Address_v2> for Address {
     fn from(other: Address_v2) -> Self {
-        Address::from(Address_v3::from_bytes(&other.to_bytes()).unwrap())
+        Address::from(
+            Address_v3::from_bytes(&other.to_bytes())
+                .expect("Couldn't convert between FVM2 and FVM3 addresses."),
+        )
+    }
+}
+
+impl From<&Address_v2> for Address {
+    fn from(other: &Address_v2) -> Self {
+        Address::from(
+            Address_v3::from_bytes(&other.to_bytes())
+                .expect("Couldn't convert between FVM2 and FVM3 addresses."),
+        )
     }
 }
 
@@ -43,6 +64,7 @@ impl From<Address> for Address_v3 {
 
 impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
-        Address_v2::from_bytes(&other.to_bytes()).unwrap()
+        Address_v2::from_bytes(&other.to_bytes())
+            .expect("Couldn't convert between FVM2 and FVM3 addresses")
     }
 }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-use fvm::state_tree::ActorState;
+use forest_shim::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use serde::Serialize;
