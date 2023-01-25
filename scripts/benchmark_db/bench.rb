@@ -119,6 +119,14 @@ def exec_command(command, dry_run, benchmark = nil)
   metrics
 end
 
+def import_table_row(key, value)
+  elapsed = value[:import][:elapsed] || 'n/a'
+  rss = value[:import][:rss]
+  rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
+  db_size = value[:import][:db_size] || 'n/a'
+  "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
+end
+
 def write_import_table(metrics)
   return '' unless metrics.key?(:import)
 
@@ -126,11 +134,7 @@ def write_import_table(metrics)
   result += "-|-|-|-\n"
 
   metrics.each do |key, value|
-    elapsed = value[:import][:elapsed] || 'n/a'
-    rss = value[:import][:rss]
-    rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
-    db_size = value[:import][:db_size] || 'n/a'
-    result += "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
+    result += import_table_row(key, value)
   end
 
   result
@@ -334,8 +338,7 @@ class Benchmark
     rescue RuntimeError
       return nil
     end
-    msg_sync = output.match(/Stage:\smessage sync/m)
-    if msg_sync
+    if output.match(/Stage:\smessage sync/m)
       # TODO: merge matches since forest prints workers that could be at different stages
       match = output.match(/Height:\s(\d+)/m)
       return match.captures[0].to_i if match
@@ -438,8 +441,7 @@ class LotusBenchmark < Benchmark
     rescue RuntimeError
       return nil
     end
-    msg_sync = output.match(/Stage: message sync/m)
-    if msg_sync
+    if output.match(/Stage: message sync/m)
       # TODO: merge matches since lotus prints workers that could be at different stages
       match = output.match(/Height: (\d+)/m)
       return match.captures[0].to_i if match
