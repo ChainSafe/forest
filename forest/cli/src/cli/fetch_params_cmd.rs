@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_paramfetch::{get_params_default, SectorSizeOpt};
-use fvm_shared::sector::SectorSize;
+use forest_shim::{sector::SectorSize, Inner};
 
 use super::cli_error_and_die;
 use crate::cli::Config;
@@ -26,7 +26,7 @@ impl FetchCommands {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
             let sector_size = ram_to_int(size)?;
-            SectorSizeOpt::Size(sector_size)
+            SectorSizeOpt::Size(sector_size.into())
         } else if self.keys {
             SectorSizeOpt::Keys
         } else {
@@ -49,11 +49,11 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
     trimmed = trimmed.trim_end_matches('b');
 
     match trimmed {
-        "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB),
-        "8388608" | "8Mi" | "8mi" => Ok(SectorSize::_8MiB),
-        "536870912" | "512Mi" | "512mi" => Ok(SectorSize::_512MiB),
-        "34359738368" | "32Gi" | "32gi" => Ok(SectorSize::_32GiB),
-        "68719476736" | "64Gi" | "64gi" => Ok(SectorSize::_64GiB),
+        "2048" | "2Ki" | "2ki" => Ok(<SectorSize as Inner>::FVM::_2KiB.into()),
+        "8388608" | "8Mi" | "8mi" => Ok(<SectorSize as Inner>::FVM::_8MiB.into()),
+        "536870912" | "512Mi" | "512mi" => Ok(<SectorSize as Inner>::FVM::_512MiB.into()),
+        "34359738368" | "32Gi" | "32gi" => Ok(<SectorSize as Inner>::FVM::_32GiB.into()),
+        "68719476736" | "64Gi" | "64gi" => Ok(<SectorSize as Inner>::FVM::_64GiB.into()),
         _ => Err(anyhow::Error::msg(format!(
             "Failed to parse: {size}. Must be a valid sector size"
         ))),

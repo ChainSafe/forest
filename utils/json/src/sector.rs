@@ -4,20 +4,22 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_shared::sector::{
-        PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
+    use forest_shim::{
+        sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
+        Inner,
     };
+    use fvm_shared::sector::SectorNumber;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing a `PoStProof` to JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
-    pub struct PoStProofJson(#[serde(with = "self")] pub PoStProof);
+    pub struct PoStProofJson(#[serde(with = "self")] pub forest_shim::sector::PoStProof);
 
     /// Wrapper for serializing a `PoStProof` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
+    pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a forest_shim::sector::PoStProof);
 
     #[derive(Clone, Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
@@ -33,14 +35,14 @@ pub mod json {
     impl From<SectorInfo> for SectorInfoJson {
         fn from(sector: SectorInfo) -> Self {
             Self {
-                proof: sector.proof,
+                proof: sector.proof.into(),
                 sector_number: sector.sector_number,
                 sealed_cid: sector.sealed_cid,
             }
         }
     }
 
-    impl From<PoStProofJson> for PoStProof {
+    impl From<PoStProofJson> for forest_shim::sector::PoStProof {
         fn from(wrapper: PoStProofJson) -> Self {
             wrapper.0
         }
@@ -54,7 +56,10 @@ pub mod json {
         proof_bytes: String,
     }
 
-    pub fn serialize<S>(m: &PoStProof, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(
+        m: &forest_shim::sector::PoStProof,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -65,17 +70,17 @@ pub mod json {
         .serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<PoStProof, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<forest_shim::sector::PoStProof, D::Error>
     where
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        Ok(PoStProof {
-            post_proof: RegisteredPoStProof::from(m.post_proof),
-            proof_bytes: BASE64_STANDARD
-                .decode(m.proof_bytes)
-                .map_err(de::Error::custom)?,
-        })
+        let reg_post_proof = <RegisteredPoStProof as Inner>::FVM::from(m.post_proof);
+        let proof_bytes = BASE64_STANDARD
+            .decode(m.proof_bytes)
+            .map_err(de::Error::custom)?;
+        let post_proof = forest_shim::sector::PoStProof::new(reg_post_proof.into(), proof_bytes);
+        Ok(post_proof)
     }
 
     pub mod vec {
@@ -84,7 +89,10 @@ pub mod json {
 
         use super::*;
 
-        pub fn serialize<S>(m: &[PoStProof], serializer: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(
+            m: &[forest_shim::sector::PoStProof],
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
@@ -95,18 +103,26 @@ pub mod json {
             seq.end()
         }
 
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PoStProof>, D::Error>
+        pub fn deserialize<'de, D>(
+            deserializer: D,
+        ) -> Result<Vec<forest_shim::sector::PoStProof>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            deserializer.deserialize_any(GoVecVisitor::<PoStProof, PoStProofJson>::new())
+            deserializer
+                .deserialize_any(
+                    GoVecVisitor::<forest_shim::sector::PoStProof, PoStProofJson>::new(),
+                )
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use fvm_shared::sector::{PoStProof, RegisteredPoStProof};
+    use forest_shim::{
+        sector::{PoStProof, RegisteredPoStProof},
+        Inner,
+    };
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -119,22 +135,19 @@ mod tests {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let registered_postproof = g
                 .choose(&[
-                    RegisteredPoStProof::StackedDRGWinning2KiBV1,
-                    RegisteredPoStProof::StackedDRGWinning8MiBV1,
-                    RegisteredPoStProof::StackedDRGWinning512MiBV1,
-                    RegisteredPoStProof::StackedDRGWinning32GiBV1,
-                    RegisteredPoStProof::StackedDRGWinning64GiBV1,
-                    RegisteredPoStProof::StackedDRGWindow2KiBV1,
-                    RegisteredPoStProof::StackedDRGWindow8MiBV1,
-                    RegisteredPoStProof::StackedDRGWindow512MiBV1,
-                    RegisteredPoStProof::StackedDRGWindow32GiBV1,
-                    RegisteredPoStProof::StackedDRGWindow64GiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning2KiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning8MiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning512MiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning32GiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning64GiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow2KiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow8MiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow512MiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow32GiBV1,
+                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow64GiBV1,
                 ])
                 .unwrap();
-            let postproof = PoStProof {
-                post_proof: *registered_postproof,
-                proof_bytes: Vec::arbitrary(g),
-            };
+            let postproof = PoStProof::new((*registered_postproof).into(), Vec::arbitrary(g));
             PoStProofWrapper { postproof }
         }
     }

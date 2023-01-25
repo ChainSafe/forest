@@ -1,16 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// <<<<<<< HEAD
+// use std::{collections::BTreeMap, convert::TryInto};
+
+// use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
+// use forest_shim::randomness::Randomness;
+// use fvm_ipld_encoding::bytes_32;
+// use fvm_shared::{
+//     address::Address,
+//     commcid::cid_to_replica_commitment_v1,
+//     sector::{PoStProof, RegisteredPoStProof, SectorInfo},
+// };
+// =======
 use std::{collections::BTreeMap, convert::TryInto};
 
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
-use forest_shim::randomness::Randomness;
+use forest_shim::sector::{RegisteredSealProof, SectorInfo};
 use fvm_ipld_encoding::bytes_32;
-use fvm_shared::{
-    address::Address,
-    commcid::cid_to_replica_commitment_v1,
-    sector::{PoStProof, RegisteredPoStProof, SectorInfo},
-};
+use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, randomness::Randomness};
+// >>>>>>> 9aaea1d2 (sectorinfo v2-v3)
 
 /// Functionality for verification of seal, winning PoSt and window PoSt proofs.
 /// Proof verification will be full validation by default.
@@ -19,13 +28,13 @@ use fvm_shared::{
 /// miners that are elected to mine a new block to verify a sector. A failed
 /// winning proof leads to a miner being slashed.
 pub fn verify_winning_post(
-    mut rand: Randomness,
-    proofs: &[PoStProof],
+    Randomness(mut randomness): Randomness,
+    proofs: &[forest_shim::sector::PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
 ) -> Result<(), anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    rand.0[31] &= 0x3f;
+    randomness[31] &= 0x3f;
 
     // Convert sector info into public replica
     let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)
@@ -41,7 +50,7 @@ pub fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
+    if !post::verify_winning_post(&bytes_32(&randomness), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }
     Ok(())
@@ -49,7 +58,7 @@ pub fn verify_winning_post(
 
 /// Generates sector challenge indexes for use in winning PoSt verification.
 pub fn generate_winning_post_sector_challenge(
-    proof: RegisteredPoStProof,
+    proof: forest_shim::sector::RegisteredPoStProof,
     prover_id: u64,
     mut rand: Randomness,
     eligible_sector_count: u64,
@@ -58,7 +67,7 @@ pub fn generate_winning_post_sector_challenge(
     rand.0[31] &= 0x3f;
 
     post::generate_winning_post_sector_challenge(
-        proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
+        (*proof).try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
         &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),
@@ -85,9 +94,10 @@ fn to_fil_public_replica_infos(
     let replicas = src
         .iter()
         .map::<Result<(SectorId, PublicReplicaInfo), String>, _>(|sector_info: &SectorInfo| {
+            let proof: RegisteredSealProof = RegisteredSealProof::from(sector_info.proof);
             let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
             let proof = match typ {
-                ProofType::Winning => sector_info.proof.registered_winning_post_proof()?,
+                ProofType::Winning => proof.registered_winning_post_proof()?,
                 // ProofType::Window => sector_info.proof.registered_window_post_proof()?,
             };
             let replica = PublicReplicaInfo::new(proof.try_into()?, commr);

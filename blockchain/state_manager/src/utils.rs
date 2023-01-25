@@ -5,13 +5,15 @@ use cid::Cid;
 use forest_actor_interface::miner;
 use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
-use forest_shim::{randomness::Randomness, version::NetworkVersion};
+use forest_shim::{
+    randomness::Randomness,
+    sector::{RegisteredSealProof, SectorInfo},
+    version::NetworkVersion,
+    Inner,
+};
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{
-    address::Address,
-    sector::{RegisteredSealProof, SectorInfo},
-};
+use fvm_shared::address::Address;
 
 use crate::{errors::*, StateManager};
 
@@ -70,7 +72,12 @@ where
 
         let info = mas.info(store)?;
 
-        let spt = RegisteredSealProof::from_sector_size(info.sector_size(), nv.into());
+        let sector_size: forest_shim::sector::SectorSize = info.sector_size().into();
+
+        let spt = <forest_shim::sector::RegisteredSealProof as Inner>::FVM::from_sector_size(
+            *sector_size,
+            nv.into(),
+        );
 
         let wpt = spt
             .registered_winning_post_proof()
@@ -78,7 +85,12 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids = generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
+        let ids = generate_winning_post_sector_challenge(
+            forest_shim::sector::RegisteredPoStProof::from(wpt),
+            m_id,
+            rand.into(),
+            num_prov_sect,
+        )?;
 
         let mut iter = proving_sectors.iter();
 
@@ -97,10 +109,13 @@ where
 
         let out = sectors
             .into_iter()
-            .map(|s_info| SectorInfo {
-                proof: spt,
-                sector_number: s_info.sector_number,
-                sealed_cid: s_info.sealed_cid,
+            .map(|s_info| {
+                let proof: RegisteredSealProof = spt.into();
+                forest_shim::sector::SectorInfo::new(
+                    *proof,
+                    s_info.sector_number,
+                    s_info.sealed_cid,
+                )
             })
             .collect();
 

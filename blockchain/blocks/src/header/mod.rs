@@ -16,9 +16,7 @@ use forest_shim::{
     version::NetworkVersion,
 };
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
-use fvm_shared::{
-    address::Address, clock::ChainEpoch, crypto::signature::Signature, sector::PoStProof,
-};
+use fvm_shared::{address::Address, clock::ChainEpoch, crypto::signature::Signature};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -85,7 +83,7 @@ pub struct BlockHeader {
 
     /// `PoStProofs` are the winning post proofs
     #[builder(default)]
-    winning_post_proof: Vec<PoStProof>,
+    winning_post_proof: Vec<forest_shim::sector::PoStProof>,
 
     // MINER INFO
     /// `miner_address` is the address of the miner actor that mined this block
@@ -272,7 +270,7 @@ impl BlockHeader {
         &self.beacon_entries
     }
     /// Get winning `PoSt` proof
-    pub fn winning_post_proof(&self) -> &[PoStProof] {
+    pub fn winning_post_proof(&self) -> &[forest_shim::sector::PoStProof] {
         &self.winning_post_proof
     }
     /// Get `BlockHeader.miner_address`
