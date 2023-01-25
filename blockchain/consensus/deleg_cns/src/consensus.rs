@@ -104,7 +104,6 @@ impl DelegatedConsensus {
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         let genesis = state_manager.chain_store().genesis()?;
-        let genesis = genesis.ok_or_else(|| anyhow!("Genesis not set!"))?;
         let state_cid = genesis.state_root();
         let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one)?;
 
