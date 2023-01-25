@@ -1,13 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fvm_shared3::bigint::bigint_ser;
 use fvm_shared3::bigint::BigInt as BigInt_v3;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct BigInt(BigInt_v3);
+pub struct BigInt(#[serde(with = "bigint_ser")] BigInt_v3);
 
 impl Deref for BigInt {
     type Target = BigInt_v3;
