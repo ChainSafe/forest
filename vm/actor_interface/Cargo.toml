@@ -30,4 +30,5 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 libp2p = { workspace = true, default-features = false }
+num.workspace = true
 serde = { workspace = true, features = ["derive"] }
