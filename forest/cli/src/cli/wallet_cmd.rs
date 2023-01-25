@@ -229,7 +229,7 @@ impl WalletCommands {
                     let balance_int = TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
 
                     let formatted_balance_string =
-                        format_balance_string(balance_int, fixed_unit, exact_balance);
+                        format_balance_string(balance_int, *fixed_unit, *exact_balance);
 
                     println!("{addr:41}  {default_address_mark:7}  {formatted_balance_string}",);
                 }
@@ -306,12 +306,12 @@ fn formating_vars(balance_string: String, balance_exact: String) -> (String, Str
 
 fn format_balance_string(
     mut balance_int: TokenAmount,
-    fixed_unit: &bool,
-    exact_balance: &bool,
+    fixed_unit: bool,
+    exact_balance: bool,
 ) -> String {
     let mut unit = "FIL";
-    let (balance_string, symbol) = if *fixed_unit {
-        if *exact_balance {
+    let (balance_string, symbol) = if fixed_unit {
+        if exact_balance {
             formating_vars(format!("{balance_int}"), format!("{balance_int}"))
         } else {
             formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
@@ -325,7 +325,7 @@ fn format_balance_string(
             unit = unit_string.as_str();
             balance_int *= BigInt::from(10i64.pow(*closure_power as u32));
         }
-        if *exact_balance {
+        if exact_balance {
             formating_vars(format!("{balance_int}"), format!("{balance_int}"))
         } else {
             formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
@@ -337,12 +337,12 @@ fn format_balance_string(
 #[test]
 fn exact_balance_fixed_unit() {
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), &true, &true,),
+        format_balance_string(TokenAmount::from_atto(100), true, true,),
         "0.0000000000000001 FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(12465), &true, &true,),
+        format_balance_string(TokenAmount::from_atto(12465), true, true,),
         "0.000000000000012465 FIL"
     );
 }
@@ -350,20 +350,20 @@ fn exact_balance_fixed_unit() {
 #[test]
 fn not_exact_balance_fixed_unit() {
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), &true, &false,),
+        format_balance_string(TokenAmount::from_atto(100), true, false,),
         "~0 FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(1000005000), &true, &false,),
+        format_balance_string(TokenAmount::from_atto(1000005000), true, false,),
         "~0 FIL"
     );
 
     assert_eq!(
         format_balance_string(
             TokenAmount::from_atto(15089000000000050000u64),
-            &true,
-            &false,
+            true,
+            false,
         ),
         "~15 FIL"
     );
@@ -372,32 +372,32 @@ fn not_exact_balance_fixed_unit() {
 #[test]
 fn exact_balance_not_fixed_unit() {
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), &false, &true,),
+        format_balance_string(TokenAmount::from_atto(100), false, true,),
         "100 atto FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(120005), &false, &true,),
+        format_balance_string(TokenAmount::from_atto(120005), false, true,),
         "120.005 femto FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(200000045i64), &false, &true,),
+        format_balance_string(TokenAmount::from_atto(200000045i64), false, true,),
         "200.000045 pico FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(1000000123), &false, &true,),
+        format_balance_string(TokenAmount::from_atto(1000000123), false, true,),
         "1.000000123 nano FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(450000008000000i64), &false, &true,),
+        format_balance_string(TokenAmount::from_atto(450000008000000i64), false, true,),
         "450.000008 micro FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(90000002750000000i64), &false, &true,),
+        format_balance_string(TokenAmount::from_atto(90000002750000000i64), false, true,),
         "90.00000275 milli FIL"
     );
 }
@@ -405,32 +405,32 @@ fn exact_balance_not_fixed_unit() {
 #[test]
 fn not_exact_balance_not_fixed_unit() {
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), &false, &false,),
+        format_balance_string(TokenAmount::from_atto(100), false, false,),
         "100 atto FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(120005), &false, &false,),
+        format_balance_string(TokenAmount::from_atto(120005), false, false,),
         "120.005 femto FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(200000045i64), &false, &false,),
+        format_balance_string(TokenAmount::from_atto(200000045i64), false, false,),
         "~200 pico FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(1000000123), &false, &false,),
+        format_balance_string(TokenAmount::from_atto(1000000123), false, false,),
         "~1 nano FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(450000008000000i64), &false, &false,),
+        format_balance_string(TokenAmount::from_atto(450000008000000i64), false, false,),
         "~450 micro FIL"
     );
 
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(90000002750000000i64), &false, &false,),
+        format_balance_string(TokenAmount::from_atto(90000002750000000i64), false, false,),
         "~90 milli FIL"
     );
 }
