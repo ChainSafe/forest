@@ -36,6 +36,7 @@ fvm_shared = { workspace = true, default-features = false }
 libipld.workspace = true
 log.workspace = true
 lru.workspace = true
+num.workspace = true
 once_cell.workspace = true
 parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"] }

@@ -13,9 +13,9 @@ use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
-use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::error;
+use num::BigInt;
 use once_cell::sync::Lazy;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -316,7 +316,7 @@ pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fvm_shared::bigint::Zero;
+    use num::Zero;
 
     #[test]
     fn to_size_string_valid_input() {

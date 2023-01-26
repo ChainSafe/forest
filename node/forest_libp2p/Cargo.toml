@@ -19,6 +19,7 @@ forest_libp2p_bitswap.workspace = true
 forest_message.workspace = true
 forest_metrics.workspace = true
 forest_networks.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
@@ -44,6 +45,7 @@ libp2p = { workspace = true, default-features = false, features = [
 ] }
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+num.workspace = true
 pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true

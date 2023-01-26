@@ -8,7 +8,8 @@ use forest_libp2p::chain_exchange::{
 use forest_message::SignedMessage;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
-use fvm_shared::{bigint::BigInt, message::Message};
+use fvm_shared::message::Message;
+use num::BigInt;
 use std::convert::TryFrom;
 
 #[test]

@@ -33,6 +33,7 @@ log.workspace = true
 lru.workspace = true
 nonempty.workspace = true
 num-bigint.workspace = true
+num.workspace = true
 parking_lot.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 quickcheck.workspace = true

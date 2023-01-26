@@ -21,6 +21,7 @@ fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 log.workspace = true
 num-bigint.workspace = true
+num.workspace = true
 once_cell.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }

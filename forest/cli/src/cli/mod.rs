@@ -188,7 +188,7 @@ fn prompt_confirm() -> bool {
 #[cfg(test)]
 mod test {
     use forest_cli_shared::cli::to_size_string;
-    use fvm_shared::bigint::{BigInt, Zero};
+    use num::{BigInt, Zero};
 
     #[test]
     fn to_size_string_valid_input() {

@@ -13,13 +13,13 @@ use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::Zero;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
+use num::Zero;
 use std::sync::Arc;
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;

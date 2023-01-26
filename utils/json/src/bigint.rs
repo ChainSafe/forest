@@ -52,7 +52,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fvm_shared::bigint::BigInt;
+    use num::BigInt;
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]

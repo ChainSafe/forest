@@ -5,9 +5,10 @@ use super::{Block, BlockHeader, Error, Ticket};
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::Cbor;
+use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fvm_shared::{address::Address, bigint::BigInt};
 use log::info;
+use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
