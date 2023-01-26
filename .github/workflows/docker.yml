@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-push-docker-image:
     name: Build Docker image and push to repositories
-    runs-on: buildjet-32vcpu-ubuntu-2204
+    runs-on: buildjet-8vcpu-ubuntu-2204-arm
     timeout-minutes: 30
     steps:
       - name: List cached docker images
@@ -42,7 +42,7 @@ jobs:
         with:
           images: ghcr.io/chainsafe/forest
           tags: |
-            type=raw,value=latest-multiplatform
+            type=raw,value=latest-arm
             type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
             type=ref,event=tag
 
@@ -50,7 +50,6 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           tags: ${{ steps.meta.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
           push: true
       - name: List docker images
         run: docker image ls
