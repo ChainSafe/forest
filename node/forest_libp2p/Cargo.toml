@@ -45,6 +45,7 @@ libp2p = { workspace = true, default-features = false, features = [
 ] }
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+num.workspace = true
 pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true

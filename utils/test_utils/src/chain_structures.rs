@@ -16,7 +16,8 @@ use fvm_ipld_encoding::to_vec;
 use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
-use fvm_shared::{bigint::BigInt, message::Message};
+use fvm_shared::message::Message;
+use num::BigInt;
 use std::convert::TryFrom;
 
 /// Defines a `TipsetKey` used in testing

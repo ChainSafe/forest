@@ -13,3 +13,4 @@ forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+num.workspace = true
