@@ -531,7 +531,9 @@ mod test {
     use axum::{routing::get_service, Router};
     use http::StatusCode;
     use quickcheck_macros::quickcheck;
+    use rand::{distributions::Alphanumeric, Rng};
     use std::{env::temp_dir, net::TcpListener};
+    use tempfile::TempDir;
     use tower_http::services::ServeDir;
 
     #[test]
@@ -630,7 +632,7 @@ mod test {
             return Ok(());
         }
 
-        let (url, shutdown_tx) = serve_forest_logo()?;
+        let (url, shutdown_tx, _, _data_dir) = serve_random_file()?;
         let r = download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
@@ -650,23 +652,52 @@ mod test {
             return Ok(());
         }
 
-        let (url, shutdown_tx) = serve_forest_logo()?;
+        let (url, shutdown_tx, shasum, _data_dir) = serve_random_file()?;
         download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
             "test",
-            "sha-256=d06d7f5613640befb07f99079ffcbdc55fff064fc1dfa8041acf2547f5fa1a6e",
+            &format!("sha-256={}", hex::encode(shasum)),
         )?;
         shutdown_tx.send(()).unwrap();
         Ok(())
     }
 
-    fn serve_forest_logo() -> Result<(String, tokio::sync::oneshot::Sender<()>)> {
+    /// Serves a random file over HTTP.
+    /// Returns:
+    /// - url of the served file,
+    /// - service channel,
+    /// - expected SHA-256 of the file,
+    /// - handle to the temporary directory in which the file is created.
+    fn serve_random_file() -> Result<(
+        String,
+        tokio::sync::oneshot::Sender<()>,
+        sha2::digest::Output<Sha256>,
+        TempDir,
+    )> {
+        // Create temporary directory
+        let temp_dir = tempfile::Builder::new()
+            .tempdir()
+            .expect("Failed to create temporary path");
+
+        // Create random file with a random name and calculate its sha256sum
+        let data: Vec<_> = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(100)
+            .collect();
+        let filename: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(10)
+            .map(char::from)
+            .collect();
+        std::fs::write(temp_dir.path().join(&filename), &data).unwrap();
+        let shasum = sha2::Sha256::digest(&data);
+
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
-        let url = format!("http://{}:{}/forest_logo.png", addr.ip(), addr.port());
+        let url = format!("http://{}:{}/{filename}", addr.ip(), addr.port());
         let app = {
-            let serve_dir = get_service(ServeDir::new("../../.github")).handle_error(|_| async {
+            let serve_dir = get_service(ServeDir::new(temp_dir.path())).handle_error(|_| async {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
             });
             Router::new().nest_service("/", serve_dir)
@@ -678,7 +709,7 @@ mod test {
                 shutdown_rx.await.ok();
             });
         tokio::spawn(server);
-        Ok((url, shutdown_tx))
+        Ok((url, shutdown_tx, shasum, temp_dir))
     }
 
     fn is_github_action() -> bool {
