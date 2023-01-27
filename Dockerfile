@@ -50,6 +50,14 @@ RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-
 RUN update-ca-certificates
 
 # Copy forest daemon and cli binaries from the build-env
-COPY --from=build-env /root/.cargo/bin/forest /root/.cargo/bin/forest-cli /usr/local/bin/
+COPY --from=build-env /root/.cargo/bin/forest* /usr/local/bin/
+
+# Create `forest` user and group and assign appropriate rights to the forest binaries
+RUN addgroup --gid 1000 forest && adduser --uid 1000 --ingroup forest --disabled-password --gecos "" forest
+RUN chown forest:forest /usr/local/bin/* && \
+    chmod 0700 /usr/local/bin/*
+
+USER forest
+WORKDIR /home/forest
 
 ENTRYPOINT ["forest"]

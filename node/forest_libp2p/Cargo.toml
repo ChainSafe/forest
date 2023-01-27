@@ -5,19 +5,21 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 cid = { workspace = true, default-features = false, features = ["std"] }
 flume.workspace = true
-fnv.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
 forest_encoding.workspace = true
+forest_libp2p_bitswap.workspace = true
 forest_message.workspace = true
 forest_metrics.workspace = true
 forest_networks.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 futures-util.workspace = true
 futures.workspace = true
@@ -25,7 +27,7 @@ fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false, features = ["testing"] }
-libipld.workspace = true
+lazy_static.workspace = true
 libp2p = { workspace = true, default-features = false, features = [
   "gossipsub",
   "kad",
@@ -36,27 +38,25 @@ libp2p = { workspace = true, default-features = false, features = [
   "yamux",
   "tcp",
   "dns",
-  "mplex",
   "request-response",
   "metrics",
   "tokio",
   "macros",
 ] }
-libp2p-bitswap.workspace = true
 log.workspace = true
 multihash = { workspace = true, default-features = false, features = ["std", "multihash-impl", "identity", "sha2"] }
+num.workspace = true
 pin-project-lite.workspace = true
 prometheus.workspace = true
 quickcheck.workspace = true
+rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_ipld_dagcbor.workspace = true
 serde_json.workspace = true
-smallvec.workspace = true
 tokio = { workspace = true, features = ["sync", "time"] }
 tokio-stream.workspace = true
 
 [dev-dependencies]
-forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_genesis = { workspace = true, features = ["testing"] }
 quickcheck.workspace = true

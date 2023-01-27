@@ -1,0 +1,5 @@
+# https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_types
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "use ahash::HashMap instead" },
+  { path = "std::collections::HashSet", reason = "use ahash::HashSet instead" },
+]

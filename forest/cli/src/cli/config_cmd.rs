@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cli::Config;
@@ -13,7 +13,7 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub async fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
+    pub fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
         match self {
             Self::Dump => writeln!(
                 sink,
@@ -37,7 +37,6 @@ mod tests {
 
         ConfigCommands::Dump
             .run(&expected_config, &mut sink)
-            .await
             .unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())

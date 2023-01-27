@@ -1,7 +1,9 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(clippy::unused_async)]
 
 use super::gas_api::estimate_message_gas;
+use ahash::{HashSet, HashSetExt};
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
 use forest_db::Store;
@@ -14,9 +16,8 @@ use forest_rpc_api::mpool_api::*;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Protocol;
-
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::{collections::HashSet, convert::TryFrom};
+use std::convert::TryFrom;
 
 /// Return `Vec` of pending messages in `mpool`
 pub(crate) async fn mpool_pending<DB, B>(
@@ -29,13 +30,9 @@ where
 {
     let (CidJsonVec(cid_vec),) = params;
     let tsk = TipsetKeys::new(cid_vec);
-    let mut ts = data
-        .state_manager
-        .chain_store()
-        .tipset_from_keys(&tsk)
-        .await?;
+    let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
 
-    let (mut pending, mpts) = data.mpool.pending().await?;
+    let (mut pending, mpts) = data.mpool.pending()?;
 
     let mut have_cids = HashSet::new();
     for item in pending.iter() {
@@ -53,14 +50,14 @@ where
             }
 
             // mpts has different blocks than ts
-            let have = data.mpool.as_ref().messages_for_blocks(ts.blocks()).await?;
+            let have = data.mpool.as_ref().messages_for_blocks(ts.blocks())?;
 
             for sm in have {
                 have_cids.insert(sm.cid()?);
             }
         }
 
-        let msgs = data.mpool.as_ref().messages_for_blocks(ts.blocks()).await?;
+        let msgs = data.mpool.as_ref().messages_for_blocks(ts.blocks())?;
 
         for m in msgs {
             if have_cids.contains(&m.cid()?) {
@@ -78,8 +75,7 @@ where
         ts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())
-            .await?;
+            .tipset_from_keys(ts.parents())?;
     }
 }
 
@@ -113,12 +109,7 @@ where
     let from = umsg.from;
 
     let mut keystore = data.keystore.as_ref().write().await;
-    let heaviest_tipset = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .await
-        .ok_or_else(|| "Could not get heaviest tipset".to_string())?;
+    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = data
         .state_manager
         .resolve_to_key_addr(&from, &heaviest_tipset)
@@ -137,7 +128,7 @@ where
     if from.protocol() == Protocol::ID {
         umsg.from = key_addr;
     }
-    let nonce = data.mpool.get_sequence(&from).await?;
+    let nonce = data.mpool.get_sequence(&from)?;
     umsg.sequence = nonce;
     let key = forest_key_management::Key::try_from(forest_key_management::try_find(
         &key_addr,

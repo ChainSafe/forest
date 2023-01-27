@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
@@ -52,7 +52,7 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fvm_shared::bigint::BigInt;
+    use num::BigInt;
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]

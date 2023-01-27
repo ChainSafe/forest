@@ -1,10 +1,10 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use fil_actors_runtime::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use fvm_shared::version::NetworkVersion;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -133,7 +133,7 @@ impl ChainConfig {
         From::from(height)
     }
 
-    pub async fn get_beacon_schedule(
+    pub fn get_beacon_schedule(
         &self,
         genesis_ts: u64,
     ) -> Result<BeaconSchedule<DrandBeacon>, anyhow::Error> {
@@ -146,9 +146,11 @@ impl ChainConfig {
         for dc in ds_iter {
             points.0.push(BeaconPoint {
                 height: dc.height,
-                beacon: Arc::new(
-                    DrandBeacon::new(genesis_ts, self.block_delay_secs, dc.config).await?,
-                ),
+                beacon: Arc::new(DrandBeacon::new(
+                    genesis_ts,
+                    self.block_delay_secs,
+                    dc.config,
+                )?),
             });
         }
         Ok(points)
@@ -195,7 +197,7 @@ pub fn default_network_version() -> NetworkVersion {
 }
 
 pub mod de_network_version {
-    use fvm_shared::version::NetworkVersion;
+    use forest_shim::version::NetworkVersion;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
@@ -234,7 +236,7 @@ pub mod de_network_version {
     where
         S: Serializer,
     {
-        let version_string = match nv {
+        let version_string = match *nv {
             NetworkVersion::V0 => "V0",
             NetworkVersion::V1 => "V1",
             NetworkVersion::V2 => "V2",

@@ -1,7 +1,8 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::fvm::ForestExterns;
+use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
@@ -12,14 +13,13 @@ use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::Zero;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
-use std::collections::HashSet;
+use num::Zero;
 use std::sync::Arc;
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
@@ -77,12 +77,12 @@ where
         base_fee: TokenAmount,
         circ_supply: TokenAmount,
         reward_calc: Arc<dyn RewardCalc>,
-        lb_fn: Box<dyn Fn(ChainEpoch) -> Cid>,
+        lb_fn: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         multi_engine: &MultiEngine,
         chain_config: Arc<ChainConfig>,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
-        let config = NetworkConfig::new(network_version);
+        let config = NetworkConfig::new(network_version.into());
         let engine = multi_engine.get(&config)?;
         let mut context = config.for_epoch(epoch, root);
         context.set_base_fee(base_fee);

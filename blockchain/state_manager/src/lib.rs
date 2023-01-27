@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
@@ -8,7 +8,7 @@ mod utils;
 mod vm_circ_supply;
 
 pub use self::errors::*;
-use anyhow::Context;
+use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
@@ -22,6 +22,7 @@ use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
+use forest_shim::version::NetworkVersion;
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
@@ -30,20 +31,17 @@ use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
-use fvm_shared::version::NetworkVersion;
 use lru::LruCache;
+use num::BigInt;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
-use tokio::runtime::Handle;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock;
@@ -212,17 +210,13 @@ impl<DB> StateManager<DB>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
-    pub async fn new(
+    pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
         reward_calc: Arc<dyn RewardCalc>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis()?.context("genesis header missing")?;
-        let beacon = Arc::new(
-            chain_config
-                .get_beacon_schedule(genesis.timestamp())
-                .await?,
-        );
+        let genesis = cs.genesis()?;
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp())?);
 
         Ok(Self {
             cs,
@@ -380,11 +374,7 @@ where
                 self.genesis_info
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
-                chain_epoch_root(
-                    Arc::clone(self),
-                    Arc::clone(tipset),
-                    tokio::runtime::Handle::current(),
-                ),
+                chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
                 &self.engine,
                 Arc::clone(self.chain_config()),
             )
@@ -473,11 +463,7 @@ where
             self.genesis_info
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
-            chain_epoch_root(
-                Arc::clone(self),
-                Arc::clone(tipset),
-                tokio::runtime::Handle::current(),
-            ),
+            chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
             &self.engine,
             Arc::clone(self.chain_config()),
         )?;
@@ -509,20 +495,13 @@ where
     }
 
     /// runs the given message and returns its result without any persisted changes.
-    pub async fn call(
+    pub fn call(
         self: &Arc<Self>,
         message: &mut Message,
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
-        let ts = if let Some(t_set) = tipset {
-            t_set
-        } else {
-            self.cs
-                .heaviest_tipset()
-                .await
-                .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
-        };
-        let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
+        let chain_rand = self.chain_rand(ts.key().to_owned());
         self.call_raw(message, chain_rand, &ts)
     }
 
@@ -534,34 +513,26 @@ where
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
     ) -> StateCallResult {
-        let ts = if let Some(t_set) = tipset {
-            t_set
-        } else {
-            self.cs
-                .heaviest_tipset()
-                .await
-                .ok_or_else(|| Error::Other("No heaviest tipset".to_string()))?
-        };
+        let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
             .await
             .map_err(|_| Error::Other("Could not load tipset state".to_string()))?;
-        let chain_rand = self.chain_rand(ts.key().to_owned(), tokio::runtime::Handle::current());
+        let chain_rand = self.chain_rand(ts.key().to_owned());
 
         let store = self.blockstore().clone();
         // Since we're simulating a future message, pretend we're applying it in the "next" tipset
         let epoch = ts.epoch() + 1;
-        let async_handle = tokio::runtime::Handle::current();
         let mut vm = VM::new(
             st,
             store,
             epoch,
             chain_rand,
-            ts.blocks()[0].parent_base_fee().clone(),
+            ts.blocks()[0].parent_base_fee().clone().into(),
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
-            chain_epoch_root(Arc::clone(self), Arc::clone(&ts), async_handle),
+            chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
             &self.engine,
             Arc::clone(self.chain_config()),
         )?;
@@ -593,7 +564,7 @@ where
     ) -> Result<(Message, ApplyRet), Error> {
         const ERROR_MSG: &str = "replay_halt";
 
-        // This isn't ideal to have, since the execution is syncronous, but this needs to be the
+        // This isn't ideal to have, since the execution is synchronous, but this needs to be the
         // case because the state transition has to be in blocking thread to avoid starving executor
         let (m_tx, m_rx) = std::sync::mpsc::channel();
         let (r_tx, r_rx) = std::sync::mpsc::channel();
@@ -615,7 +586,7 @@ where
             }
         }
 
-        // Use try_recv here assuming callback execution is syncronous
+        // Use try_recv here assuming callback execution is synchronous
         let out_mes = m_rx
             .try_recv()
             .map_err(|err| Error::Other(format!("given message not found in tipset: {err}")))?;
@@ -626,7 +597,12 @@ where
     }
 
     /// Gets look-back tipset for block validations.
-    pub async fn get_lookback_tipset_for_round(
+    ///
+    /// The look-back tipset for a round is the tipset with epoch `round - chain_finality`.
+    /// Chain finality is usually 900. The given is a reference point in the
+    /// blockchain such that the look-back tipset can be found by tracing the
+    /// `parent` pointers.
+    pub fn get_lookback_tipset_for_round(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
         round: ChainEpoch,
@@ -641,17 +617,15 @@ where
 
         // More null blocks than lookback
         if lbr >= tipset.epoch() {
-            let (st, _) = self
-                .tipset_state(&tipset)
-                .await
-                .map_err(|e| Error::Other(format!("Could execute tipset_state {e:?}")))?;
-            return Ok((tipset, st));
+            // This is not allowed to happen after network V3.
+            return Err(Error::Other(
+                "Failed to find look-back tipset: Unexpected number of null blocks.".to_string(),
+            ));
         }
 
         let next_ts = self
             .cs
             .tipset_by_height(lbr + 1, tipset.clone(), false)
-            .await
             .map_err(|e| Error::Other(format!("Could not get tipset by height {e:?}")))?;
         if lbr > next_ts.epoch() {
             return Err(Error::Other(format!(
@@ -665,7 +639,6 @@ where
         let lbts = self
             .cs
             .tipset_from_keys(next_ts.parents())
-            .await
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
@@ -768,9 +741,8 @@ where
             Default::default()
         };
 
-        let async_handle = tokio::runtime::Handle::current();
         let tipset_keys = TipsetKeys::new(block_headers.iter().map(|s| s.cid()).cloned().collect());
-        let chain_rand = self.chain_rand(tipset_keys, async_handle);
+        let chain_rand = self.chain_rand(tipset_keys);
         let base_fee = first_block.parent_base_fee().clone();
 
         let blocks = self
@@ -789,7 +761,7 @@ where
                 &blocks,
                 epoch,
                 chain_rand,
-                base_fee,
+                base_fee.into(),
                 callback,
                 &ts_cloned,
             )?)
@@ -800,7 +772,7 @@ where
 
     /// Check if tipset had executed the message, by loading the receipt based on the index of
     /// the message in the block.
-    async fn tipset_executed_message(
+    fn tipset_executed_message(
         &self,
         tipset: &Tipset,
         msg_cid: Cid,
@@ -813,7 +785,6 @@ where
         let pts = self
             .cs
             .tipset_from_keys(tipset.parents())
-            .await
             .map_err(|err| Error::Other(err.to_string()))?;
         let messages = self
             .cs
@@ -858,77 +829,58 @@ where
             .unwrap_or(Ok(None))
     }
 
-    async fn check_search(
+    fn check_search(
         &self,
-        current: &Tipset,
+        mut current: Arc<Tipset>,
         (message_from_address, message_cid, message_sequence): (&Address, &Cid, &u64),
-    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Result<Arc<Tipset>, Error>> {
-        if current.epoch() == 0 {
-            return Ok(None);
-        }
-        let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
-            .map_err(|e| Err(Error::State(e.to_string())))?;
-
-        if let Some(actor_state) = state
-            .get_actor(message_from_address)
-            .map_err(|e| Err(Error::State(e.to_string())))?
-        {
-            if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
+    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+        loop {
+            if current.epoch() == 0 {
                 return Ok(None);
             }
-        }
+            let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
+                .map_err(|e| Error::State(e.to_string()))?;
 
-        let tipset = self
-            .cs
-            .tipset_from_keys(current.parents())
-            .await
-            .map_err(|err| {
-                Err(Error::Other(format!(
+            if let Some(actor_state) = state
+                .get_actor(message_from_address)
+                .map_err(|e| Error::State(e.to_string()))?
+            {
+                if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
+                    return Ok(None);
+                }
+            }
+
+            let tipset = self.cs.tipset_from_keys(current.parents()).map_err(|err| {
+                Error::Other(format!(
                     "failed to load tipset during msg wait searchback: {err:}"
-                )))
+                ))
             })?;
-        let r = self
-            .tipset_executed_message(
+            let r = self.tipset_executed_message(
                 &tipset,
                 *message_cid,
                 (message_from_address, message_sequence),
-            )
-            .await
-            .map_err(Err)?;
+            )?;
 
-        if let Some(receipt) = r {
-            Ok(Some((tipset, receipt)))
-        } else {
-            Err(Ok(tipset))
+            if let Some(receipt) = r {
+                return Ok(Some((tipset, receipt)));
+            }
+            current = tipset;
         }
     }
 
-    async fn search_back_for_message(
+    fn search_back_for_message(
         &self,
-        current: &Tipset,
+        current: Arc<Tipset>,
         params: (&Address, &Cid, &u64),
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
-        let mut ts: Arc<Tipset> = match self.check_search(current, params).await {
-            Ok(res) => return Ok(res),
-            Err(e) => e?,
-        };
-
-        // Loops until message is found, genesis is hit, or an error is encountered
-        loop {
-            ts = match self.check_search(&ts, params).await {
-                Ok(res) => return Ok(res),
-                Err(e) => e?,
-            };
-        }
+        self.check_search(current, params)
     }
     /// Returns a message receipt from a given tipset and message CID.
-    pub async fn get_receipt(&self, tipset: &Tipset, msg: Cid) -> Result<Receipt, Error> {
+    pub fn get_receipt(&self, tipset: Arc<Tipset>, msg: Cid) -> Result<Receipt, Error> {
         let m = forest_chain::get_chain_message(self.blockstore(), &msg)
             .map_err(|e| Error::Other(e.to_string()))?;
         let message_var = (m.from(), &m.sequence());
-        let message_receipt = self
-            .tipset_executed_message(tipset, msg, message_var)
-            .await?;
+        let message_receipt = self.tipset_executed_message(&tipset, msg, message_var)?;
 
         if let Some(receipt) = message_receipt {
             return Ok(receipt);
@@ -937,7 +889,7 @@ where
             .cid()
             .map_err(|e| Error::Other(format!("Could not convert message to cid {e:?}")))?;
         let message_var = (m.from(), &cid, &m.sequence());
-        let maybe_tuple = self.search_back_for_message(tipset, message_var).await?;
+        let maybe_tuple = self.search_back_for_message(tipset, message_var)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -963,10 +915,9 @@ where
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
 
         let message_var = (message.from(), &message.sequence());
-        let current_tipset = self.cs.heaviest_tipset().await.unwrap();
-        let maybe_message_reciept = self
-            .tipset_executed_message(&current_tipset, msg_cid, message_var)
-            .await?;
+        let current_tipset = self.cs.heaviest_tipset();
+        let maybe_message_reciept =
+            self.tipset_executed_message(&current_tipset, msg_cid, message_var)?;
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(current_tipset.clone()), Some(r)));
         }
@@ -984,12 +935,10 @@ where
         let sequence_for_task = message.sequence();
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
-            let back_tuple = sm_cloned
-                .search_back_for_message(
-                    &current_tipset,
-                    (&address_for_task, &cid_for_task, &sequence_for_task),
-                )
-                .await?;
+            let back_tuple = sm_cloned.search_back_for_message(
+                current_tipset,
+                (&address_for_task, &cid_for_task, &sequence_for_task),
+            )?;
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
@@ -1028,9 +977,8 @@ where
                             }
 
                             let message_var = (message.from(), &message.sequence());
-                            let maybe_receipt = sm_cloned
-                                .tipset_executed_message(&tipset, msg_cid, message_var)
-                                .await?;
+                            let maybe_receipt =
+                                sm_cloned.tipset_executed_message(&tipset, msg_cid, message_var)?;
                             if let Some(receipt) = maybe_receipt {
                                 if confidence == 0 {
                                     return Ok((Some(tipset), Some(receipt)));
@@ -1111,14 +1059,9 @@ where
     }
 
     /// Return the heaviest tipset's balance from self.db for a given address
-    pub async fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
-        let ts = self
-            .cs
-            .heaviest_tipset()
-            .await
-            .ok_or_else(|| Error::Other("could not get bs heaviest ts".to_owned()))?;
-        let cid = ts.parent_state();
-        self.get_balance(addr, *cid)
+    pub fn get_heaviest_balance(&self, addr: &Address) -> Result<TokenAmount, Error> {
+        let cid = *self.cs.heaviest_tipset().parent_state();
+        self.get_balance(addr, cid)
     }
 
     /// Return the balance of a given address and `state_cid`
@@ -1219,7 +1162,7 @@ where
         }
         let mut ts_chain = Vec::<Arc<Tipset>>::new();
         while ts.epoch() != height {
-            let next = self.cs.tipset_from_keys(ts.parents()).await?;
+            let next = self.cs.tipset_from_keys(ts.parents())?;
             ts_chain.push(std::mem::replace(&mut ts, next));
         }
         ts_chain.push(ts);
@@ -1255,17 +1198,12 @@ where
         Ok(())
     }
 
-    fn chain_rand(
-        &self,
-        blocks: TipsetKeys,
-        async_handle: tokio::runtime::Handle,
-    ) -> ChainRand<DB> {
+    fn chain_rand(&self, blocks: TipsetKeys) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config.clone(),
             blocks,
             self.cs.clone(),
             self.beacon.clone(),
-            async_handle,
         )
     }
 }
@@ -1273,20 +1211,12 @@ where
 fn chain_epoch_root<DB>(
     sm: Arc<StateManager<DB>>,
     tipset: Arc<Tipset>,
-    async_handle: Handle,
-) -> Box<dyn Fn(ChainEpoch) -> Cid>
+) -> Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>
 where
-    // Yes, both are needed, because the VM should only use the buffered store
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
 {
     Box::new(move |round| {
-        let (_, st) = tokio::task::block_in_place(|| {
-            async_handle
-                .block_on(sm.get_lookback_tipset_for_round(tipset.clone(), round))
-                .unwrap_or_else(|err| {
-                    panic!("Internal Error. Failed to find root CID for epoch {round}: {err}")
-                })
-        });
-        st
+        let (_, st) = sm.get_lookback_tipset_for_round(tipset.clone(), round)?;
+        Ok(st)
     })
 }

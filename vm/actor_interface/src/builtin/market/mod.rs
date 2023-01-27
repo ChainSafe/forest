@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -6,10 +6,10 @@ use forest_utils::db::BlockstoreExt;
 use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::piece::PaddedPieceSize;
+use num::BigInt;
 use serde::Serialize;
 use std::marker::PhantomData;
 

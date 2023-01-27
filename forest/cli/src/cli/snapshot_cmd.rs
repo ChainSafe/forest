@@ -1,8 +1,9 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
+use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
@@ -10,15 +11,14 @@ use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
-
-use forest_db::Store;
+use forest_db::{db_engine::open_db, Store};
 use forest_genesis::read_genesis_header;
 use forest_ipld::recurse_links;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_ipld_car::load_car;
 use fvm_shared::clock::ChainEpoch;
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use tempfile::TempDir;
@@ -160,7 +160,8 @@ impl SnapshotCommands {
                     .await
                     .map_err(handle_rpc_err)?;
 
-                let vars = HashMap::from([
+                #[allow(clippy::disallowed_types)]
+                let vars = std::collections::HashMap::from([
                     ("year".to_string(), year.to_string()),
                     ("month".to_string(), month_string),
                     ("day".to_string(), day_string),
@@ -370,16 +371,16 @@ async fn validate(
     if confirm {
         let tmp_db_path = TempDir::new()?;
         let db_path = tmp_db_path.path().join(&config.chain.name);
-        let db = forest_cli_shared::open_db(&db_path, config)?;
-
-        let chain_store = Arc::new(ChainStore::new(db).await);
+        let db = open_db(&db_path, config.db_config())?;
 
         let genesis = read_genesis_header(
             config.client.genesis_file.as_ref(),
             config.chain.genesis_bytes(),
-            &chain_store,
+            &db,
         )
         .await?;
+
+        let chain_store = Arc::new(ChainStore::new(db, config.chain.clone(), &genesis)?);
 
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
@@ -387,14 +388,14 @@ async fn validate(
             load_car(chain_store.blockstore(), reader.compat()).await?
         };
 
-        let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids)).await?;
+        let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
 
         validate_links_and_genesis_traversal(
             &chain_store,
             ts,
             chain_store.blockstore(),
             *recent_stateroots,
-            &genesis,
+            &Tipset::from(genesis),
             &config.chain.name,
         )
         .await?;
@@ -414,7 +415,7 @@ async fn validate_links_and_genesis_traversal<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
-    let mut seen = std::collections::HashSet::<Cid>::new();
+    let mut seen = HashSet::<Cid>::new();
     let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();
@@ -433,7 +434,7 @@ where
             bail!("Broken invariant: no genesis tipset in snapshot.");
         }
 
-        let tipset = chain_store.tipset_from_keys(&tsk).await?;
+        let tipset = chain_store.tipset_from_keys(&tsk)?;
         let height = tipset.epoch();
         // if parent tipset epoch is smaller than child, bail with error.
         if height >= prev_epoch {

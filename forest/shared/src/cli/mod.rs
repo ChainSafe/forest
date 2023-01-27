@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod client;
@@ -8,15 +8,15 @@ mod snapshot_fetch;
 pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;
 
+use ahash::HashSet;
 use byte_unit::Byte;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
-use fvm_shared::bigint::BigInt;
 use git_version::git_version;
 use log::error;
+use num::BigInt;
 use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -90,9 +90,10 @@ pub struct CliOpts {
     /// Daemonize Forest process
     #[structopt(long)]
     pub detach: bool,
-    /// Download a chain specific snapshot to sync with the Filecoin network
+    /// Automatically download a chain specific snapshot to sync with the Filecoin network if
+    /// needed.
     #[structopt(long)]
-    pub download_snapshot: bool,
+    pub auto_download_snapshot: bool,
     /// Enable or disable colored logging in `stdout`
     #[structopt(long, default_value = "auto")]
     pub color: LoggingColor,
@@ -153,22 +154,22 @@ impl CliOpts {
         }
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
-        } else {
-            if let Some(snapshot_path) = &self.import_snapshot {
-                cfg.client.snapshot_path = Some(snapshot_path.into());
-                cfg.client.snapshot = true;
-            }
-            if let Some(snapshot_path) = &self.import_chain {
-                cfg.client.snapshot_path = Some(snapshot_path.into());
-                cfg.client.snapshot = false;
-            }
-            cfg.client.snapshot_height = self.height;
-
-            cfg.client.skip_load = self.skip_load;
         }
 
+        if let Some(snapshot_path) = &self.import_snapshot {
+            cfg.client.snapshot_path = Some(snapshot_path.into());
+            cfg.client.snapshot = true;
+        }
+        if let Some(snapshot_path) = &self.import_chain {
+            cfg.client.snapshot_path = Some(snapshot_path.into());
+            cfg.client.snapshot = false;
+        }
+        cfg.client.snapshot_height = self.height;
+
+        cfg.client.skip_load = self.skip_load;
+
         cfg.client.halt_after_import = self.halt_after_import;
-        cfg.client.download_snapshot = self.download_snapshot;
+        cfg.client.auto_download_snapshot = self.auto_download_snapshot;
         cfg.client.show_progress_bars = self.show_progress_bars;
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
@@ -288,18 +289,6 @@ pub fn default_snapshot_dir(config: &Config) -> PathBuf {
         .join(config.chain.name.clone())
 }
 
-#[cfg(feature = "rocksdb")]
-/// Gets database directory
-pub fn db_path(config: &Config) -> PathBuf {
-    chain_path(config).join("rocksdb")
-}
-
-#[cfg(feature = "paritydb")]
-/// Gets database directory
-pub fn db_path(config: &Config) -> PathBuf {
-    chain_path(config).join("paritydb")
-}
-
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(&config.chain.name)
@@ -326,7 +315,7 @@ pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fvm_shared::bigint::Zero;
+    use num::Zero;
 
     #[test]
     fn to_size_string_valid_input() {

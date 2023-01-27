@@ -5,17 +5,16 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 blake2b_simd.workspace = true
 byteorder.workspace = true
 cid.workspace = true
 fil_actors_runtime.workspace = true
-filecoin-proofs-api = { workspace = true, default-features = false }
 forest_actor_interface.workspace = true
 forest_beacon.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
-forest_crypto = { workspace = true, features = ["blst"] }
 forest_db.workspace = true
 forest_encoding.workspace = true
 forest_fil_types.workspace = true
@@ -25,6 +24,7 @@ forest_legacy_ipld_amt.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
 forest_networks.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm.workspace = true
@@ -35,7 +35,7 @@ fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 lru.workspace = true
 num-traits.workspace = true
-once_cell.workspace = true
+num.workspace = true
 prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true

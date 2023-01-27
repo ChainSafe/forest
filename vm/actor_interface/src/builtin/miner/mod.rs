@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -9,12 +9,12 @@ use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::deal::DealID;
 use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize};
 use fvm_shared::{address::Address, econ::TokenAmount};
 use libp2p::PeerId;
+use num::BigInt;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 

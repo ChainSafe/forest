@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::Error;
@@ -40,7 +40,7 @@ pub(crate) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: i64) -> f64 {
 }
 
 /// Attempt to get a signed message that corresponds to an unsigned message in `bls_sig_cache`.
-pub(crate) async fn recover_sig(
+pub(crate) fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
     msg: Message,
 ) -> Result<SignedMessage, Error> {

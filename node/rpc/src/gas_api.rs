@@ -1,5 +1,6 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(clippy::unused_async)]
 
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::{FromPrimitive, Zero};
@@ -17,10 +18,10 @@ use forest_rpc_api::{
     gas_api::*,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::bigint::BigInt;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::BLOCK_GAS_LIMIT;
+use num::BigInt;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -35,12 +36,10 @@ where
 {
     let (MessageJson(msg), max_queue_blks, TipsetKeysJson(tsk)) = params;
 
-    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk)
-        .await
-        .map(|n| TokenAmount::to_string(&n))
+    estimate_fee_cap::<DB, B>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
 
-async fn estimate_fee_cap<DB, B>(
+fn estimate_fee_cap<DB, B>(
     data: &Data<RPCState<DB, B>>,
     msg: Message,
     max_queue_blks: i64,
@@ -50,12 +49,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .await
-        .ok_or("can't find heaviest tipset")?;
+    let ts = data.state_manager.chain_store().heaviest_tipset();
 
     let parent_base_fee = ts.blocks()[0].parent_base_fee();
     let increase_factor =
@@ -64,9 +58,9 @@ where
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
-    let mut out = fee_in_future.div_floor(1 << 8);
-    out += msg.gas_premium;
-    Ok(out)
+    let mut out: forest_shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
+    out += msg.gas_premium.into();
+    Ok(out.into())
 }
 
 /// Estimate the fee cap
@@ -104,12 +98,7 @@ where
     let mut prices: Vec<GasMeta> = Vec::new();
     let mut blocks = 0;
 
-    let mut ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .await
-        .ok_or("cant get heaviest tipset")?;
+    let mut ts = data.state_manager.chain_store().heaviest_tipset();
 
     for _ in 0..(nblocksincl * 2) {
         if ts.epoch() == 0 {
@@ -118,8 +107,7 @@ where
         let pts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())
-            .await?;
+            .tipset_from_keys(ts.parents())?;
         blocks += pts.blocks().len();
         let msgs = forest_chain::messages_for_tipset(data.state_manager.blockstore(), &pts)?;
 
@@ -203,29 +191,21 @@ where
     msg.gas_fee_cap = TokenAmount::from_atto(MINIMUM_BASE_FEE + 1);
     msg.gas_premium = TokenAmount::from_atto(1);
 
-    let curr_ts = data
-        .state_manager
-        .chain_store()
-        .heaviest_tipset()
-        .await
-        .ok_or("cant find the current heaviest tipset")?;
+    let curr_ts = data.state_manager.chain_store().heaviest_tipset();
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)
         .await?;
 
-    let pending = data.mpool.pending_for(&from_a).await;
+    let pending = data.mpool.pending_for(&from_a);
     let prior_messages: Vec<ChainMessage> = pending
         .map(|s| s.into_iter().map(ChainMessage::Signed).collect::<Vec<_>>())
         .unwrap_or_default();
 
+    let ts = data.mpool.cur_tipset.lock().clone();
     let res = data
         .state_manager
-        .call_with_gas(
-            &mut ChainMessage::Unsigned(msg),
-            &prior_messages,
-            Some(data.mpool.cur_tipset.as_ref().read().await.clone()),
-        )
+        .call_with_gas(&mut ChainMessage::Unsigned(msg), &prior_messages, Some(ts))
         .await?;
     match res.msg_rct {
         Some(rct) => {
@@ -275,7 +255,7 @@ where
         msg.gas_premium = gp;
     }
     if msg.gas_fee_cap.is_zero() {
-        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk).await?;
+        let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
         msg.gas_fee_cap = gfp;
     }
     // TODO: Cap Gas Fee https://github.com/ChainSafe/forest/issues/901

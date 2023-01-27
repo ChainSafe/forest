@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
@@ -10,6 +10,7 @@ use forest_chain_sync::collect_errs;
 use forest_db::Store;
 use forest_fil_types::verifier::verify_winning_post;
 use forest_networks::{ChainConfig, Height};
+use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
@@ -17,7 +18,6 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::ops::verify_bls_sig;
 use fvm_shared::randomness::Randomness;
-use fvm_shared::version::NetworkVersion;
 use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
 use nonempty::NonEmpty;
 use std::sync::Arc;
@@ -52,7 +52,6 @@ pub(crate) async fn validate_block<
 
     let base_tipset = chain_store
         .tipset_from_keys(header.parents())
-        .await
         .map_err(to_errs)?;
 
     block_timestamp_checks(
@@ -67,14 +66,12 @@ pub(crate) async fn validate_block<
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = state_manager
         .get_lookback_tipset_for_round(base_tipset.clone(), block.header().epoch())
-        .await
         .map_err(to_errs)?;
 
     let lookback_state = Arc::new(lookback_state);
 
     let prev_beacon = chain_store
         .latest_beacon_entry(&base_tipset)
-        .await
         .map(Arc::new)
         .map_err(to_errs)?;
 
@@ -131,7 +128,6 @@ pub(crate) async fn validate_block<
                     parent_epoch,
                     &v_prev_beacon,
                 )
-                .await
                 .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
         }));
     }

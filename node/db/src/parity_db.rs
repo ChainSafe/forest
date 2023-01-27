@@ -1,22 +1,22 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
 use crate::parity_db_config::ParityDbConfig;
-use crate::utils::bitswap_missing_blocks;
 use crate::{DBStatistics, Store};
 use anyhow::anyhow;
 use cid::Cid;
+use forest_libp2p_bitswap::BitswapStore;
 use fvm_ipld_blockstore::Blockstore;
-use libp2p_bitswap::BitswapStore;
+use log::warn;
 use parity_db::{CompressionType, Db, Options};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
+    statistics_enabled: bool,
 }
 
 /// Converts string to a compression `ParityDb` variant.
@@ -32,12 +32,12 @@ fn compression_type_from_str(s: &str) -> anyhow::Result<CompressionType> {
 impl ParityDb {
     fn to_options(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Options> {
         const COLUMNS: usize = 1;
-        let compression = compression_type_from_str(&config.compression)?;
+        let compression = compression_type_from_str(&config.compression_type)?;
         Ok(Options {
             path,
             sync_wal: true,
             sync_data: true,
-            stats: config.stats,
+            stats: config.enable_statistics,
             salt: None,
             columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
@@ -45,7 +45,7 @@ impl ParityDb {
                     ..Default::default()
                 })
                 .collect(),
-            compression_threshold: HashMap::new(),
+            compression_threshold: Default::default(),
         })
     }
 
@@ -53,6 +53,7 @@ impl ParityDb {
         let opts = Self::to_options(path, config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
+            statistics_enabled: opts.stats,
         })
     }
 }
@@ -134,24 +135,40 @@ impl BitswapStore for ParityDb {
     /// under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
-    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
 
-impl DBStatistics for ParityDb {}
+impl DBStatistics for ParityDb {
+    fn get_statistics(&self) -> Option<String> {
+        if !self.statistics_enabled {
+            return None;
+        }
+
+        let mut buf = Vec::new();
+        if let Err(err) = self.db.write_stats_text(&mut buf, None) {
+            warn!("Unable to write database statistics: {err}");
+            return None;
+        }
+
+        match String::from_utf8(buf) {
+            Ok(stats) => Some(stats),
+            Err(e) => {
+                warn!("Malformed statistics: {e}");
+                None
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {

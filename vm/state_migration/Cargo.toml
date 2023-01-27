@@ -5,6 +5,7 @@ authors = ["ChainSafe Systems <info@chainsafe.io>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 cid.workspace = true
 crossbeam-channel = "0.5"
 fvm.workspace = true
@@ -13,5 +14,4 @@ fvm_shared = { workspace = true, default-features = false }
 log.workspace = true
 num_cpus.workspace = true
 rayon.workspace = true
-serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true

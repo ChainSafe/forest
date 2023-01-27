@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anyhow::{anyhow, Context};
@@ -62,7 +62,7 @@ impl DelegatedProposer {
             forest_chain::compute_base_fee(state_manager.blockstore(), base, smoke_height)?;
 
         let parent_weight = DelegatedConsensus::weight(state_manager.blockstore(), base)?;
-        let msgs = mpool.select_signed(state_manager, base).await?;
+        let msgs = mpool.select_signed(state_manager, base)?;
         let msgs = msgs.iter().map(|m| m.as_ref()).collect();
         let persisted = forest_chain::persist_block_messages(state_manager.blockstore(), msgs)?;
 
@@ -137,26 +137,25 @@ impl DelegatedProposer {
         )));
 
         while interval.next().await.is_some() {
-            if let Some(base) = chain_store.heaviest_tipset().await {
-                info!(
-                    "Proposing a block on top {} in epoch {}",
-                    base.min_ticket_block().cid(),
-                    base.epoch(),
-                );
-                match self.create_block(mpool, &state_manager, &base).await {
-                    Ok(block) => {
-                        let cid = *block.header.cid();
-                        let msg_cnt = block.secpk_messages.len() + block.bls_messages.len();
-                        match submitter.submit_block(block).await {
-                            Ok(()) => info!("Proposed block {} with {} messages", cid, msg_cnt),
-                            Err(e) => error!("Failed to submit block: {}", e),
-                        }
+            let base = chain_store.heaviest_tipset();
+            info!(
+                "Proposing a block on top {} in epoch {}",
+                base.min_ticket_block().cid(),
+                base.epoch(),
+            );
+            match self.create_block(mpool, &state_manager, &base).await {
+                Ok(block) => {
+                    let cid = *block.header.cid();
+                    let msg_cnt = block.secpk_messages.len() + block.bls_messages.len();
+                    match submitter.submit_block(block).await {
+                        Ok(()) => info!("Proposed block {} with {} messages", cid, msg_cnt),
+                        Err(e) => error!("Failed to submit block: {}", e),
                     }
-                    Err(e) => {
-                        // The eudico version keeps going, but if we can't create blocks,
-                        // maybe that's a good enough reason to throw in the towel.
-                        return Err(anyhow!(e));
-                    }
+                }
+                Err(e) => {
+                    // The eudico version keeps going, but if we can't create blocks,
+                    // maybe that's a good enough reason to throw in the towel.
+                    return Err(anyhow!(e));
                 }
             }
         }

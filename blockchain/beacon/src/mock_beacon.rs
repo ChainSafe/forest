@@ -1,11 +1,11 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{Beacon, BeaconEntry};
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use forest_encoding::blake2b_256;
-use fvm_shared::version::NetworkVersion;
+use forest_shim::version::NetworkVersion;
 use std::time::Duration;
 
 /// Mock beacon used for testing. Deterministic based on an interval.
@@ -30,11 +30,7 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
-    async fn verify_entry(
-        &self,
-        curr: &BeaconEntry,
-        prev: &BeaconEntry,
-    ) -> Result<bool, anyhow::Error> {
+    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
         let oe = Self::entry_for_index(prev.round());
         Ok(oe.data() == curr.data())
     }

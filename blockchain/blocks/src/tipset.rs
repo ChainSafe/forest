@@ -1,15 +1,16 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{Block, BlockHeader, Error, Ticket};
+use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::Cbor;
+use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
-use fvm_shared::{address::Address, bigint::BigInt};
 use log::info;
+use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs` are *not* maintained in
@@ -41,6 +42,24 @@ pub struct Tipset {
     key: OnceCell<TipsetKeys>,
 }
 
+impl From<&BlockHeader> for Tipset {
+    fn from(value: &BlockHeader) -> Self {
+        Self {
+            headers: vec![value.clone()],
+            key: OnceCell::new(),
+        }
+    }
+}
+
+impl From<BlockHeader> for Tipset {
+    fn from(value: BlockHeader) -> Self {
+        Self {
+            headers: vec![value],
+            key: OnceCell::new(),
+        }
+    }
+}
+
 impl PartialEq for Tipset {
     fn eq(&self, other: &Self) -> bool {
         self.headers.eq(&other.headers)
@@ -50,8 +69,7 @@ impl PartialEq for Tipset {
 impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // XXX: Support random generation of tipsets with multiple blocks.
-        let first_header = BlockHeader::arbitrary(g);
-        Tipset::new(vec![first_header]).unwrap()
+        Tipset::from(BlockHeader::arbitrary(g))
     }
 }
 
@@ -449,13 +467,13 @@ mod test {
     #[test]
     fn test_break_weight_tie() {
         let b1 = mock_block(1234561, 1, 1);
-        let ts1 = Tipset::new(vec![b1.clone()]).unwrap();
+        let ts1 = Tipset::from(&b1);
 
         let b2 = mock_block(1234562, 1, 2);
-        let ts2 = Tipset::new(vec![b2.clone()]).unwrap();
+        let ts2 = Tipset::from(&b2);
 
         let b3 = mock_block(1234563, 1, 1);
-        let ts3 = Tipset::new(vec![b3]).unwrap();
+        let ts3 = Tipset::from(&b3);
 
         // All tipsets have the same weight (but it's not really important here)
 
@@ -464,7 +482,7 @@ mod test {
         // Can not break weight tie (because of same min tickets)
         assert!(!ts1.break_weight_tie(&ts3));
 
-        // Values are choosen so that Ticket(b4) < Ticket(b5) < Ticket(b1)
+        // Values are chosen so that Ticket(b4) < Ticket(b5) < Ticket(b1)
         let b4 = mock_block(1234564, 1, 41);
         let b5 = mock_block(1234565, 1, 45);
         let ts4 = Tipset::new(vec![b4.clone(), b5.clone(), b1.clone()]).unwrap();

@@ -5,6 +5,7 @@ authors = ["jorge <jorgeaolivero@gmail.com>"]
 edition = "2021"
 
 [dependencies]
+ahash.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 forest_db.workspace = true
@@ -13,5 +14,4 @@ lazy_static.workspace = true
 log.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 prometheus-client.workspace = true
-thiserror.workspace = true
 tokio.workspace = true

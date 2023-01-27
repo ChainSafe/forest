@@ -182,7 +182,7 @@ jobs:
           ls -hl log
           cat log/*
 
-  dependencies-duplicate-check:
+  dependencies-check:
     name: Check cargo files for duplicates
     runs-on: ubuntu-22.04
     steps:
@@ -191,7 +191,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.0"
-      - name: Run duplicate find check
+      - name: Run dependencies checks
         run: |
           gem install toml-rb --no-document
-          ruby scripts/find_duplicate_deps.rb
+          ruby scripts/find_duplicate_deps.rb && ruby scripts/find_unused_deps.rb

@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -21,8 +21,8 @@ use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use fvm_shared::address::Address;
-use fvm_shared::bigint::BigInt;
 use nonempty::NonEmpty;
+use num::BigInt;
 
 use crate::DelegatedProposer;
 
@@ -34,7 +34,7 @@ pub enum DelegatedConsensusError {
     BlockWithTicket,
     #[error("Block had the wrong timestamp: {0} != {1}")]
     UnequalBlockTimestamps(u64, u64),
-    #[error("Miner isn't elligible to mine: expected {0}; found {1}")]
+    #[error("Miner isn't eligible to mine: expected {0}; found {1}")]
     MinerNotEligibleToMine(Address, Address),
     #[error("Unknown miner: {0}")]
     UnknownMiner(Address),
@@ -78,7 +78,7 @@ impl Default for DelegatedConsensus {
             // In Eudico they use the _Account ID_ directly and not create a _Miner Actor_, but in
             // Forest we go through the common machinery, and validation will call [get_miner_work_addr],
             // which will treat the state pointed at by the `ActorState` as `miner::State`, so we _have_
-            // to use the _Miner ID_ in this version, becuase the data would not deserialise as `account::State`.
+            // to use the _Miner ID_ in this version, because the data would not deserialise as `account::State`.
             chosen_one: Address::from_str("t01000").unwrap(),
         }
     }
@@ -104,7 +104,6 @@ impl DelegatedConsensus {
         DB: Blockstore + Store + Clone + Sync + Send + 'static,
     {
         let genesis = state_manager.chain_store().genesis()?;
-        let genesis = genesis.ok_or_else(|| anyhow!("Genesis not set!"))?;
         let state_cid = genesis.state_root();
         let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one)?;
 

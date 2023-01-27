@@ -1,18 +1,17 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{cmp::Ordering, collections::HashSet};
-
+use crate::*;
+use ahash::{HashMap, HashSet};
+use flume::{Receiver, Sender};
 use forest_blocks::Tipset;
-use forest_libp2p::PeerId;
-use log::{debug, trace};
+use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
+use std::cmp::Ordering;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
-use crate::metrics;
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;
 
@@ -59,12 +58,30 @@ struct PeerSets {
 }
 
 /// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
-#[derive(Default)]
-pub(crate) struct PeerManager {
+pub struct PeerManager {
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
     /// Average response time from peers.
     avg_global_time: RwLock<Duration>,
+    /// Peer operation sender
+    peer_ops_tx: Sender<PeerOperation>,
+    /// Peer operation receiver
+    peer_ops_rx: Receiver<PeerOperation>,
+    /// Peer ban list, key is peer id, value is expiration time
+    peer_ban_list: RwLock<HashMap<PeerId, Option<Instant>>>,
+}
+
+impl Default for PeerManager {
+    fn default() -> Self {
+        let (peer_ops_tx, peer_ops_rx) = flume::unbounded();
+        PeerManager {
+            peers: Default::default(),
+            avg_global_time: Default::default(),
+            peer_ops_tx,
+            peer_ops_rx,
+            peer_ban_list: Default::default(),
+        }
+    }
 }
 
 impl PeerManager {
@@ -202,6 +219,63 @@ impl PeerManager {
         }
         removed
     }
+
+    /// Gets peer operation receiver
+    pub fn peer_ops_rx(&self) -> &Receiver<PeerOperation> {
+        &self.peer_ops_rx
+    }
+
+    /// Bans a peer with an optional duration
+    pub async fn ban_peer(
+        &self,
+        peer: PeerId,
+        reason: impl Into<String>,
+        duration: Option<Duration>,
+    ) {
+        let mut locked = self.peer_ban_list.write().await;
+        locked.insert(peer, duration.and_then(|d| Instant::now().checked_add(d)));
+        if let Err(e) = self
+            .peer_ops_tx
+            .send_async(PeerOperation::Ban(peer, reason.into()))
+            .await
+        {
+            warn!("ban_peer err: {e}");
+        }
+    }
+
+    pub async fn peer_operation_event_loop_task(self: Arc<Self>) -> anyhow::Result<()> {
+        let mut unban_list = vec![];
+        loop {
+            unban_list.clear();
+
+            let now = Instant::now();
+            for (peer, expiration) in self.peer_ban_list.read().await.iter() {
+                if let Some(expiration) = expiration {
+                    if &now > expiration {
+                        unban_list.push(*peer);
+                    }
+                }
+            }
+            if !unban_list.is_empty() {
+                {
+                    let mut locked = self.peer_ban_list.write().await;
+                    for peer in unban_list.iter() {
+                        locked.remove(peer);
+                    }
+                }
+                for &peer in unban_list.iter() {
+                    if let Err(e) = self
+                        .peer_ops_tx
+                        .send_async(PeerOperation::Unban(peer))
+                        .await
+                    {
+                        warn!("unban_peer err: {e}");
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        }
+    }
 }
 
 fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) -> bool {
@@ -224,4 +298,9 @@ fn log_time(info: &mut PeerInfo, dur: Duration) {
         let delta = (dur - info.average_time) / LOCAL_INV_ALPHA;
         info.average_time += delta
     }
+}
+
+pub enum PeerOperation {
+    Ban(PeerId, String),
+    Unban(PeerId),
 }

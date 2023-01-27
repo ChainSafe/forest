@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
@@ -8,17 +8,15 @@ use cid::Cid;
 use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
+use forest_shim::bigint::{BigIntDe, BigIntSer};
+use forest_shim::econ::TokenAmount;
+use forest_shim::version::NetworkVersion;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
 use fvm_shared::address::Address;
-use fvm_shared::bigint::{
-    bigint_ser::{BigIntDe, BigIntSer},
-    BigInt,
-};
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::crypto::signature::Signature;
-use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::PoStProof;
-use fvm_shared::version::NetworkVersion;
+use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -33,7 +31,7 @@ pub mod json;
 /// use fvm_shared::address::Address;
 /// use cid::Cid;
 /// use cid::multihash::Code::Identity;
-/// use fvm_shared::bigint::BigInt;
+/// use num::BigInt;
 /// use fvm_shared::crypto::signature::Signature;
 /// use fvm_ipld_encoding::DAG_CBOR;
 /// use cid::multihash::MultihashDigest;
@@ -351,7 +349,7 @@ impl BlockHeader {
     }
 
     /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
-    pub async fn validate_block_drand<B: Beacon>(
+    pub fn validate_block_drand<B: Beacon>(
         &self,
         network_version: NetworkVersion,
         b_schedule: &BeaconSchedule<B>,
@@ -376,7 +374,6 @@ impl BlockHeader {
 
             curr_beacon
                 .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
-                .await
                 .map_err(|e| Error::Validation(e.to_string()))?;
 
             return Ok(());
@@ -413,7 +410,6 @@ impl BlockHeader {
         for curr in &self.beacon_entries {
             if !curr_beacon
                 .verify_entry(curr, prev)
-                .await
                 .map_err(|e| Error::Validation(e.to_string()))?
             {
                 return Err(Error::Validation(format!(
@@ -450,9 +446,9 @@ impl fmt::Display for BlockHeader {
 mod tests {
     use crate::{errors::Error, BlockHeader};
     use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
+    use forest_shim::version::NetworkVersion;
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
-    use fvm_shared::version::NetworkVersion;
 
     use std::sync::Arc;
     use std::time::Duration;
@@ -475,8 +471,8 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
-    async fn beacon_entry_exists() {
+    #[test]
+    fn beacon_entry_exists() {
         // Setup
         let block_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -490,15 +486,12 @@ mod tests {
         let chain_epoch = 0;
         let beacon_entry = BeaconEntry::new(1, vec![]);
         // Validate_block_drand
-        if let Err(e) = block_header
-            .validate_block_drand(
-                NetworkVersion::V16,
-                &beacon_schedule,
-                chain_epoch,
-                &beacon_entry,
-            )
-            .await
-        {
+        if let Err(e) = block_header.validate_block_drand(
+            NetworkVersion::V16,
+            &beacon_schedule,
+            chain_epoch,
+            &beacon_entry,
+        ) {
             // Assert error is for not including a beacon entry in the block
             match e {
                 Error::Validation(why) => {

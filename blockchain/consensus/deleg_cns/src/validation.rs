@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -19,6 +19,7 @@ use crate::DelegatedConsensusError;
 /// * Sanity checks
 /// * Timestamps
 /// * The block was proposed by the only only miner eligible
+#[allow(clippy::unused_async)]
 pub(crate) async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static>(
     chosen_one: &Address,
     state_manager: Arc<StateManager<DB>>,
@@ -29,7 +30,7 @@ pub(crate) async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send 
 
     block_sanity_checks(header)?;
 
-    let base_tipset = chain_store.tipset_from_keys(header.parents()).await?;
+    let base_tipset = chain_store.tipset_from_keys(header.parents())?;
 
     block_timestamp_checks(
         header,

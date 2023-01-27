@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::resolve_to_key_addr;
@@ -6,6 +6,7 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
+use forest_shim::version::NetworkVersion;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
 use fvm::state_tree::StateTree;
@@ -15,7 +16,6 @@ use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
-use fvm_shared::version::NetworkVersion;
 use std::cell::Ref;
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
-    lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
+    lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
     db: DB,
     chain_config: Arc<ChainConfig>,
 }
@@ -33,7 +33,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
         root: Cid,
-        lookback: Box<dyn Fn(ChainEpoch) -> Cid>,
+        lookback: Box<dyn Fn(ChainEpoch) -> anyhow::Result<Cid>>,
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
@@ -60,7 +60,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
             );
         }
 
-        let prev_root = (self.lookback)(height);
+        let prev_root = (self.lookback)(height)?;
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
@@ -234,7 +234,7 @@ fn cal_gas_used_from_stats(
     stats: Ref<BSStats>,
     network_version: NetworkVersion,
 ) -> anyhow::Result<Gas> {
-    let price_list = price_list_by_network_version(network_version);
+    let price_list = price_list_by_network_version(network_version.into());
     let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
     // num of reads
     for _ in 0..stats.r {
@@ -301,7 +301,7 @@ mod tests {
         let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version)?;
 
         // Simulates logic in old GasBlockStore
-        let price_list = price_list_by_network_version(network_version);
+        let price_list = price_list_by_network_version(network_version.into());
         let mut tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
         repeat(()).take(read_count).for_each(|_| {
             tracker

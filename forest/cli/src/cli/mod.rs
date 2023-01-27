@@ -1,4 +1,4 @@
-// Copyright 2019-2022 ChainSafe Systems
+// Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Due to https://git.wiki.kernel.org/index.php/GitFaq#Why_does_Git_not_.22track.22_renames.3F
@@ -188,7 +188,7 @@ fn prompt_confirm() -> bool {
 #[cfg(test)]
 mod test {
     use forest_cli_shared::cli::to_size_string;
-    use fvm_shared::bigint::{BigInt, Zero};
+    use num::{BigInt, Zero};
 
     #[test]
     fn to_size_string_valid_input() {
