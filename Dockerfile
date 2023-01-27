@@ -17,7 +17,7 @@
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ## 
-FROM buildpack-deps:bullseye AS build-env
+FROM --platform=$BUILDPLATFORM buildpack-deps:bullseye AS build-env
 
 # Install dependencies
 RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang ocl-icd-opencl-dev protobuf-compiler cmake ca-certificates curl
