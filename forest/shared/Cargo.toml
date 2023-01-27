@@ -32,6 +32,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_with.workspace = true
 sha2.workspace = true
 structopt.workspace = true
+tikv-jemallocator = { version = "0.5", optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
@@ -52,3 +53,4 @@ tower-http = { workspace = true, features = ["fs"] }
 [features]
 rocksdb = []
 paritydb = []
+jemalloc = ["dep:tikv-jemallocator"]

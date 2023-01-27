@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #[cfg(feature = "jemalloc")]
-use tikv_jemallocator::Jemalloc;
+use forest_cli_shared::tikv_jemallocator::Jemalloc;
 
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
