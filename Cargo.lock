@@ -150,9 +150,9 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf6ccdb167abbf410dcb915cabd428929d7f6a04980b54a11f26a39f1c7f7107"
+checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
 dependencies = [
  "cfg-if 1.0.0",
  "getrandom 0.2.8",
@@ -495,9 +495,9 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678c5130a507ae3a7c797f9a17393c14849300b8440eac47cdb90a5bdcb3a543"
+checksum = "e5694b64066a2459918d8074c2ce0d5a88f409431994c2356617c8ae0c4721fc"
 dependencies = [
  "async-trait",
  "axum-core",
@@ -2256,7 +2256,7 @@ checksum = "a214f5bb88731d436478f3ae1f8a277b62124089ba9fb67f4f93fb100ef73c90"
 [[package]]
 name = "fil_actor_account_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2270,7 +2270,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v9",
@@ -2286,7 +2286,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2301,7 +2301,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -2316,7 +2316,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2334,7 +2334,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2352,7 +2352,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2372,7 +2372,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2393,7 +2393,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2417,7 +2417,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2443,7 +2443,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2464,7 +2464,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2484,7 +2484,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2504,7 +2504,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2521,7 +2521,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -2538,7 +2538,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "cid",
@@ -2553,7 +2553,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2586,7 +2586,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#1ebee82f698fc195de3423faa4d2cb5c67e4e8be"
+source = "git+https://github.com/ChainSafe/fil-actor-states#3aff14273196704f74a37c2d80e0a57967278800"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2725,7 +2725,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 name = "forest-cli"
 version = "0.6.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "assert_cmd",
  "atty",
@@ -2870,7 +2870,7 @@ dependencies = [
 name = "forest_beacon"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-trait",
  "base64 0.21.0",
@@ -2894,7 +2894,7 @@ dependencies = [
 name = "forest_blocks"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "base64 0.21.0",
  "cid",
  "derive_builder",
@@ -2925,7 +2925,7 @@ dependencies = [
 name = "forest_chain"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-stream",
  "blake2b_simd",
@@ -2970,7 +2970,7 @@ dependencies = [
 name = "forest_chain_sync"
 version = "0.2.1"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-trait",
  "base64 0.21.0",
@@ -3016,7 +3016,7 @@ dependencies = [
 name = "forest_cli_shared"
 version = "0.4.1"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "atty",
  "axum",
@@ -3040,12 +3040,14 @@ dependencies = [
  "once_cell",
  "quickcheck",
  "quickcheck_macros",
+ "rand 0.8.5",
  "regex",
  "rust-s3",
  "serde",
  "serde_with",
  "sha2 0.10.6",
  "structopt",
+ "tempfile",
  "time",
  "tokio",
  "toml",
@@ -3072,7 +3074,7 @@ dependencies = [
 name = "forest_db"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "cid",
  "forest_libp2p_bitswap",
@@ -3205,7 +3207,7 @@ dependencies = [
 name = "forest_interpreter"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "cid",
  "forest_actor_interface",
@@ -3228,7 +3230,7 @@ dependencies = [
 name = "forest_ipld"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-recursion",
  "async-trait",
@@ -3256,7 +3258,7 @@ dependencies = [
 name = "forest_json"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "arbitrary",
  "base64 0.21.0",
  "cid",
@@ -3281,7 +3283,7 @@ dependencies = [
 name = "forest_key_management"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "argon2",
  "base64 0.21.0",
@@ -3307,7 +3309,7 @@ dependencies = [
 name = "forest_legacy_ipld_amt"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "cid",
  "forest_db",
@@ -3325,7 +3327,7 @@ dependencies = [
 name = "forest_libp2p"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-trait",
  "bytes 1.3.0",
@@ -3370,7 +3372,7 @@ dependencies = [
 name = "forest_libp2p_bitswap"
 version = "0.1.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-trait",
  "flume",
@@ -3405,7 +3407,7 @@ dependencies = [
 name = "forest_message_pool"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "async-trait",
  "cid",
@@ -3443,7 +3445,7 @@ dependencies = [
 name = "forest_metrics"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "axum",
  "forest_db",
@@ -3472,7 +3474,7 @@ dependencies = [
 name = "forest_paramfetch"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "backoff",
  "blake2b_simd",
@@ -3490,7 +3492,7 @@ dependencies = [
 name = "forest_rpc"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "axum",
  "base64 0.21.0",
@@ -3543,7 +3545,7 @@ dependencies = [
 name = "forest_rpc-api"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "chrono",
  "cid",
@@ -3602,7 +3604,7 @@ dependencies = [
 name = "forest_state_manager"
 version = "0.1.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "blake2b_simd",
  "byteorder",
@@ -3644,7 +3646,7 @@ dependencies = [
 name = "forest_state_migration"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "cid",
  "crossbeam-channel",
  "fvm",
@@ -3660,7 +3662,7 @@ dependencies = [
 name = "forest_statediff"
 version = "0.2.0"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
  "anyhow",
  "cid",
  "colored",
@@ -3762,9 +3764,9 @@ dependencies = [
 
 [[package]]
 name = "frc42_dispatch"
-version = "1.1.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35603a100f622ebeaa2b6a252071878d52b45c14487c8391f9a2f067b6ca00bb"
+checksum = "a093747f6447d7528cf37b87b8ab9879c7417e960d2ea1ac523890eb3a924e2a"
 dependencies = [
  "frc42_hasher",
  "frc42_macros",
@@ -3776,9 +3778,9 @@ dependencies = [
 
 [[package]]
 name = "frc42_hasher"
-version = "1.1.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cce4462a4b1f36909664f66962dc70b7b6b53c4abb0183ca3d34163a3106c7b"
+checksum = "0cf52e60a67e9ad15cd4909ef8c8e45ab3744015dbb603efd8dfbdbfc7ce95b7"
 dependencies = [
  "fvm_sdk",
  "fvm_shared 2.0.0",
@@ -4101,9 +4103,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_sdk"
-version = "2.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19d6b29114b9cbdee7ccf7540bdda6657af7fa91666e2489c4d415a7f0706748"
+checksum = "bb46d7b26e1609de1a3b7470cbd190d78f2d01fdf1b317f741bdd3ac8f59825e"
 dependencies = [
  "cid",
  "fvm_ipld_encoding 0.2.3",
@@ -4356,7 +4358,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
 dependencies = [
- "ahash 0.8.2",
+ "ahash 0.8.3",
 ]
 
 [[package]]
@@ -5944,9 +5946,9 @@ dependencies = [
 
 [[package]]
 name = "netlink-sys"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92b654097027250401127914afb37cb1f311df6610a9891ff07a757e94199027"
+checksum = "260e21fbb6f3d253a14df90eb0000a6066780a15dd901a7519ce02d77a94985b"
 dependencies = [
  "bytes 1.3.0",
  "futures",
@@ -6279,9 +6281,9 @@ dependencies = [
 
 [[package]]
 name = "parity-db"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a7511a0bec4a336b5929999d02b560d2439c993cccf98c26481484e811adc43"
+checksum = "dd684a725651d9588ef21f140a328b6b4f64e646b2e931f3e6f14f75eedf9980"
 dependencies = [
  "blake2",
  "crc32fast",
@@ -7590,9 +7592,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "2.8.0"
+version = "2.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "645926f31b250a2dca3c232496c2d898d91036e45ca0e97e0e2390c54e11be36"
+checksum = "7c4437699b6d34972de58652c68b98cb5b53a4199ab126db8e20ec8ded29a721"
 dependencies = [
  "bitflags",
  "core-foundation",
