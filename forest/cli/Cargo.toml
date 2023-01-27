@@ -45,6 +45,7 @@ strfmt = "0.2.2"
 structopt.workspace = true
 tempfile.workspace = true
 ticker = "0.1"
+tikv-jemallocator = { version = "0.5", optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
@@ -59,3 +60,4 @@ default = ["rocksdb"]
 rocksdb = ["forest_cli_shared/rocksdb", "forest_db/rocksdb"]
 paritydb = ["forest_cli_shared/paritydb", "forest_db/paritydb"]
 slow_tests = []
+jemalloc = ["dep:tikv-jemallocator"]

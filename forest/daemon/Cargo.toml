@@ -49,6 +49,7 @@ serde_json.workspace = true
 shared_memory = "0.12"
 structopt.workspace = true
 tempfile.workspace = true
+tikv-jemallocator = { version = "0.5", optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 
@@ -63,3 +64,4 @@ forest_fil_cns = ["dep:forest_fil_cns"]
 forest_deleg_cns = ["dep:forest_deleg_cns"]
 slow_tests = []
 instrumented_kernel = ["forest_interpreter/instrumented_kernel"]
+jemalloc = ["dep:tikv-jemallocator"]
