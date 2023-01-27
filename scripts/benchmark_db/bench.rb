@@ -231,33 +231,14 @@ def download_snapshot(output_dir: '.', chain: 'calibnet', url: nil)
   "#{output_dir}/#{decompressed_filename}"
 end
 
-# Benchmarks Forest import of a snapshot and validation of the chain
+# Base benchmark class
 class Benchmark
   attr_reader :name, :metrics
   attr_accessor :snapshot_path, :heights, :chain
 
-  def default_config
-    toml_str = syscall('./target/release/forest-cli', '--chain', @chain, 'config', 'dump')
-
-    default = Tomlrb.parse(toml_str)
-    default['client']['data_dir'] = TEMP_DIR
-    default
-  end
-
-  def db_size
-    config_path = "#{TEMP_DIR}/#{@name}.toml"
-
-    line = syscall('./target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
-    match = line.match(/Database size: (.+)/)
-    match[1]
-  end
-
-  def clean_db(dry_run)
-    puts 'Wiping db'
-
-    config_path = "#{TEMP_DIR}/#{@name}.toml"
-
-    syscall('./target/release/forest-cli', '-c', config_path, 'db', 'clean', '--force') unless dry_run
+  def initialize(name:, config: {})
+    @name = name
+    @config = config
   end
 
   def build_config_file
@@ -322,6 +303,49 @@ class Benchmark
     @metrics = metrics
   end
 
+  def online_validation_secs
+    @chain == 'mainnet' ? 120.0 : 60.0
+  end
+
+  def start_online_validation_command
+    snapshot_height = snapshot_height(@snapshot_path)
+    current = epoch_command
+    if current
+      puts "@#{current}"
+      # Check if we can start the measure
+      [current >= snapshot_height + 10, current]
+    else
+      [false, nil]
+    end
+  end
+end
+
+# Forest benchmark class
+class ForestBenchmark < Benchmark
+  def default_config
+    toml_str = syscall('./target/release/forest-cli', '--chain', @chain, 'config', 'dump')
+
+    default = Tomlrb.parse(toml_str)
+    default['client']['data_dir'] = TEMP_DIR
+    default
+  end
+
+  def db_size
+    config_path = "#{TEMP_DIR}/#{@name}.toml"
+
+    line = syscall('./target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
+    match = line.match(/Database size: (.+)/)
+    match[1]
+  end
+
+  def clean_db(dry_run)
+    puts 'Wiping db'
+
+    config_path = "#{TEMP_DIR}/#{@name}.toml"
+
+    syscall('./target/release/forest-cli', '-c', config_path, 'db', 'clean', '--force') unless dry_run
+  end
+
   def target
     './target/release/forest'
   end
@@ -353,27 +377,12 @@ class Benchmark
     nil
   end
 
-  def start_online_validation_command
-    snapshot_height = snapshot_height(@snapshot_path)
-    current = epoch_command
-    if current
-      puts "@#{current}"
-      # Check if we can start the measure
-      [current >= snapshot_height + 10, current]
-    else
-      [false, nil]
-    end
-  end
-
-  def online_validation_secs
-    @chain == 'mainnet' ? 120.0 : 60.0
-  end
-
   def stop_command(pid)
     syscall('kill', '-SIGINT', pid.to_s)
   end
 
   def initialize(name:, config: {})
+    super(name: name, config: config)
     @name = name
     @config = config
     @import_command = [
@@ -393,15 +402,15 @@ class Benchmark
   end
 end
 
-# Benchmark class for Forest+ParityDb
-class ParityDbBenchmark < Benchmark
+# Forest benchmark class with ParityDb backend
+class ParityDbBenchmark < ForestBenchmark
   def build_command(dry_run)
     exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'],
                  dry_run)
   end
 end
 
-# Benchmark class for Lotus
+# Lotus benchmark class
 class LotusBenchmark < Benchmark
   def db_dir
     lotus_path = ENV['LOTUS_PATH'] || "#{Dir.home}/.lotus"
@@ -457,23 +466,12 @@ class LotusBenchmark < Benchmark
     nil
   end
 
-  def start_online_validation_command
-    snapshot_height = snapshot_height(@snapshot_path)
-    current = epoch_command
-    if current
-      puts "@#{current}"
-      # Check if we can start the measure
-      [current >= snapshot_height + 10, current]
-    else
-      [false, nil]
-    end
-  end
-
   def stop_command(_pid)
     syscall(target, 'daemon', 'stop')
   end
 
   def initialize(name:, config: {})
+    super(name: name, config: config)
     @name = name
     @config = config
     @import_command = [
@@ -511,8 +509,8 @@ def run_benchmarks(benchmarks, options)
 end
 
 BENCHMARKS = [
-  Benchmark.new(name: 'baseline'),
-  Benchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
+  ForestBenchmark.new(name: 'baseline'),
+  ForestBenchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
   ParityDbBenchmark.new(name: 'paritydb')
 ].freeze
 
@@ -543,7 +541,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    Benchmark.new(name: 'forest'),
+    ForestBenchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
