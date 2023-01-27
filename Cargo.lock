@@ -2815,7 +2815,6 @@ dependencies = [
  "shared_memory",
  "structopt",
  "tempfile",
- "tikv-jemallocator",
  "time",
  "tokio",
 ]
