@@ -25,14 +25,23 @@ struct ResponseChannels {
 #[derive(Debug)]
 pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
+    outbound_request_rx: flume::Receiver<(PeerId, BitswapRequest)>,
     peers: RwLock<HashSet<PeerId>>,
     response_channels: RwLock<HashMap<Cid, ResponseChannels>>,
 }
 
 impl BitswapRequestManager {
-    pub fn new(outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>) -> Self {
+    pub fn outbound_request_rx(&self) -> &flume::Receiver<(PeerId, BitswapRequest)> {
+        &self.outbound_request_rx
+    }
+}
+
+impl Default for BitswapRequestManager {
+    fn default() -> Self {
+        let (outbound_request_tx, outbound_request_rx) = flume::unbounded();
         Self {
             outbound_request_tx,
+            outbound_request_rx,
             peers: RwLock::new(HashSet::new()),
             response_channels: RwLock::new(HashMap::new()),
         }
@@ -40,24 +49,6 @@ impl BitswapRequestManager {
 }
 
 impl BitswapRequestManager {
-    pub fn on_peer_connected(&self, peer: PeerId) -> bool {
-        let mut peers = self.peers.write();
-        let success = peers.insert(peer);
-        if success {
-            metrics::peer_container_capacity().set(peers.capacity() as _);
-        }
-        success
-    }
-
-    pub fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
-        let mut peers = self.peers.write();
-        let success = peers.remove(peer);
-        if success {
-            metrics::peer_container_capacity().set(peers.capacity() as _);
-        }
-        success
-    }
-
     pub fn handle_event<S: BitswapStore>(
         self: &Arc<Self>,
         bitswap: &mut BitswapBehaviour,
@@ -76,17 +67,17 @@ impl BitswapRequestManager {
     ) {
         let start = Instant::now();
         let timer = metrics::GET_BLOCK_TIME.start_timer();
-        tokio::spawn(async move {
+        task::spawn(async move {
             let mut success = store.contains(&cid).unwrap_or_default();
             if !success {
                 let deadline = start.checked_add(timeout).expect("Infallible");
-                success = tokio::task::spawn_blocking(move || self.get_block_sync(cid, deadline))
+                success = task::spawn_blocking(move || self.get_block_sync(cid, deadline))
                     .await
                     .unwrap_or_default();
                 // Spin check db when `get_block_sync` fails fast,
                 // which means there is other task actually processing the same `cid`
                 while !success && Instant::now() < deadline {
-                    tokio::time::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
+                    task::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
                     success = store.contains(&cid).unwrap_or_default();
                 }
             }
@@ -168,6 +159,7 @@ impl BitswapRequestManager {
         response: BitswapInboundResponseEvent,
     ) {
         use BitswapInboundResponseEvent::*;
+
         match response {
             HaveBlock(peer, cid) => {
                 if let Some(chans) = self.response_channels.read().get(&cid) {
@@ -180,7 +172,6 @@ impl BitswapRequestManager {
                         // Avoid duplicate writes, still notify the receiver
                         metrics::message_counter_inbound_response_block_already_exists_in_db()
                             .inc();
-                        _ = chans.block_saved.send(());
                         _ = chans.block_saved.send(());
                     } else {
                         match Block::new(cid, data) {
@@ -210,5 +201,23 @@ impl BitswapRequestManager {
                 }
             }
         }
+    }
+
+    pub(crate) fn on_peer_connected(&self, peer: PeerId) -> bool {
+        let mut peers = self.peers.write();
+        let success = peers.insert(peer);
+        if success {
+            metrics::peer_container_capacity().set(peers.capacity() as _);
+        }
+        success
+    }
+
+    pub(crate) fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
+        let mut peers = self.peers.write();
+        let success = peers.remove(peer);
+        if success {
+            metrics::peer_container_capacity().set(peers.capacity() as _);
+        }
+        success
     }
 }

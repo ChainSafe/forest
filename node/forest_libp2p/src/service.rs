@@ -17,7 +17,7 @@ use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_libp2p_bitswap::{BitswapRequestManager, BitswapStore};
+use forest_libp2p_bitswap::{request_manager::BitswapRequestManager, BitswapStore};
 use forest_message::SignedMessage;
 use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
@@ -262,6 +262,7 @@ where
             warn!("Failed to bootstrap with Kademlia: {e}");
         }
 
+        let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
@@ -272,12 +273,12 @@ where
         let mut hello_request_table = HashMap::new();
         let mut cx_request_table = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
-        let (bitswap_outbound_request_tx, bitswap_outbound_request_rx) = flume::unbounded();
-        let bitswap_request_manager =
-            Arc::new(BitswapRequestManager::new(bitswap_outbound_request_tx));
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
-        let mut bitswap_outbound_request_rx_stream = bitswap_outbound_request_rx.stream().fuse();
+        let mut bitswap_outbound_request_rx_stream = bitswap_request_manager
+            .outbound_request_rx()
+            .stream()
+            .fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -475,19 +476,15 @@ async fn handle_network_message(
 
 async fn handle_discovery_event(
     discovery_out: DiscoveryOut,
-    bitswap_request_manager: &Arc<BitswapRequestManager>,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
     match discovery_out {
         DiscoveryOut::Connected(peer_id, _) => {
             debug!("Peer connected, {:?}", peer_id);
-            // TODO: Maybe better to add after hello
-            bitswap_request_manager.on_peer_connected(peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryOut::Disconnected(peer_id, _) => {
             debug!("Peer disconnected, {:?}", peer_id);
-            bitswap_request_manager.on_peer_disconnected(&peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
     }
@@ -835,7 +832,7 @@ async fn handle_forest_behaviour_event<DB, P>(
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
-            handle_discovery_event(discovery_out, bitswap_request_manager, network_sender_out).await
+            handle_discovery_event(discovery_out, network_sender_out).await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
             handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
