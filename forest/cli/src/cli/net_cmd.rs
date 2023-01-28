@@ -4,12 +4,19 @@
 use super::{handle_rpc_err, print_stdout, Config};
 use crate::cli::cli_error_and_die;
 use ahash::HashSet;
+use clap::Subcommand;
 use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::data_types::AddrInfo;
 use forest_rpc_client::net_ops::*;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+
+#[derive(clap::Parser)]
+pub struct NetCommandsStruct {
+    #[command(subcommand)]
+    pub net_commands: NetCommands,
+}
+
+#[derive(Debug, Subcommand)]
 pub enum NetCommands {
     /// Lists `libp2p` swarm listener addresses
     Listen,

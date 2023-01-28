@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::cli::Config;
-use structopt::StructOpt;
 
 use forest_paramfetch::{get_params_default, SectorSizeOpt};
 use fvm_shared::sector::SectorSize;
@@ -10,16 +9,15 @@ use fvm_shared::sector::SectorSize;
 use super::cli_error_and_die;
 
 #[allow(missing_docs)]
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Args)]
 pub struct FetchCommands {
     /// Download all proof parameters
-    #[structopt(short, long)]
+    #[arg(short, long)]
     all: bool,
     /// Download only verification keys
-    #[structopt(short, long)]
+    #[arg(short, long)]
     keys: bool,
     /// Size in bytes
-    #[structopt(required_ifs(&[("all", "false"), ("keys", "false")]))]
     params_size: Option<String>,
 }
 

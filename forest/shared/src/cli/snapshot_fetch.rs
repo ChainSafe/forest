@@ -30,7 +30,7 @@ use tokio::{
 use url::Url;
 
 /// Snapshot fetch service provider
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SnapshotServer {
     Forest,
     Filecoin,

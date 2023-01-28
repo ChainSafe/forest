@@ -8,16 +8,16 @@ pub(super) async fn process(command: Subcommand, config: Config) -> anyhow::Resu
     // Run command
     match command {
         Subcommand::Fetch(cmd) => cmd.run(config).await,
-        Subcommand::Chain(cmd) => cmd.run(config).await,
-        Subcommand::Auth(cmd) => cmd.run(config).await,
-        Subcommand::Net(cmd) => cmd.run(config).await,
-        Subcommand::Wallet(cmd) => cmd.run(config).await,
-        Subcommand::Sync(cmd) => cmd.run(config).await,
-        Subcommand::Mpool(cmd) => cmd.run(config),
-        Subcommand::State(cmd) => cmd.run(config),
-        Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
+        Subcommand::Chain(cmd) => cmd.chain_commands.run(config).await,
+        Subcommand::Auth(cmd) => cmd.auth_commands.run(config).await,
+        Subcommand::Net(cmd) => cmd.net_commands.run(config).await,
+        Subcommand::Wallet(cmd) => cmd.wallet_commands.run(config).await,
+        Subcommand::Sync(cmd) => cmd.sync_commands.run(config).await,
+        Subcommand::Mpool(cmd) => cmd.mpool_commands.run(config),
+        Subcommand::State(cmd) => cmd.state_commands.run(config),
+        Subcommand::Config(cmd) => cmd.config_commands.run(&config, &mut std::io::stdout()),
         Subcommand::Send(cmd) => cmd.run(config).await,
-        Subcommand::DB(cmd) => cmd.run(&config),
-        Subcommand::Snapshot(cmd) => cmd.run(config).await,
+        Subcommand::DB(cmd) => cmd.db_commands.run(&config),
+        Subcommand::Snapshot(cmd) => cmd.snapshot_commands.run(config).await,
     }
 }

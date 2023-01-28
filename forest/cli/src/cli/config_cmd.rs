@@ -3,10 +3,16 @@
 
 use crate::cli::Config;
 use anyhow::Context;
+use clap::{Subcommand, Parser};
 use std::io::Write;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+#[derive(Parser)]
+pub struct ConfigCommandsStruct {
+    #[command(subcommand)]
+    pub config_commands: ConfigCommands,
+}
+
+#[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
     /// Dump current configuration to standard output
     Dump,

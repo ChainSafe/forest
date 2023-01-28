@@ -19,20 +19,12 @@ mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
-pub(super) use self::auth_cmd::AuthCommands;
-pub(super) use self::chain_cmd::ChainCommands;
-pub(super) use self::db_cmd::DBCommands;
+use self::{auth_cmd::AuthCommandsStruct, chain_cmd::ChainCommandsStruct, snapshot_cmd::SnapshotCommandsStruct, config_cmd::ConfigCommandsStruct, state_cmd::StateCommandsStruct, wallet_cmd::WalletCommandsStruct, db_cmd::DBCommandsStruct, net_cmd::NetCommandsStruct, sync_cmd::SyncCommandsStruct, mpool_cmd::MpoolCommandsStruct};
 pub(super) use self::fetch_params_cmd::FetchCommands;
-pub(super) use self::mpool_cmd::MpoolCommands;
-pub(super) use self::net_cmd::NetCommands;
 pub(super) use self::send_cmd::SendCommand;
-pub(super) use self::snapshot_cmd::SnapshotCommands;
-pub(super) use self::state_cmd::StateCommands;
-pub(super) use self::sync_cmd::SyncCommands;
-pub(super) use self::wallet_cmd::WalletCommands;
-pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
+use clap::Parser;
+pub(crate) use forest_cli_shared::cli::Config;
 
-use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::cli::CliOpts;
@@ -40,63 +32,55 @@ use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
 use std::io::{self, Write};
-use structopt::StructOpt;
 
 /// CLI structure generated when interacting with Forest binary
-#[derive(StructOpt)]
-#[structopt(
-    name = env!("CARGO_PKG_NAME"),
-    version = FOREST_VERSION_STRING.as_str(),
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    author = env!("CARGO_PKG_AUTHORS")
-)]
+#[derive(Parser)]
 pub struct Cli {
-    #[structopt(flatten)]
+    #[command(flatten)]
     pub opts: CliOpts,
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     pub cmd: Subcommand,
 }
 
 /// Forest binary sub-commands available.
-#[derive(StructOpt)]
-#[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
+#[derive(clap::Subcommand)]
 pub enum Subcommand {
     /// Download parameters for generating and verifying proofs for given size
-    #[structopt(name = "fetch-params")]
+    #[command(name = "fetch-params")]
     Fetch(FetchCommands),
 
     /// Interact with Filecoin blockchain
-    Chain(ChainCommands),
+    Chain(ChainCommandsStruct),
 
     /// Manage RPC permissions
-    Auth(AuthCommands),
+    Auth(AuthCommandsStruct),
 
     /// Manage P2P network
-    Net(NetCommands),
+    Net(NetCommandsStruct),
 
     /// Manage wallet
-    Wallet(WalletCommands),
+    Wallet(WalletCommandsStruct),
 
     /// Inspect or interact with the chain synchronizer
-    Sync(SyncCommands),
+    Sync(SyncCommandsStruct),
 
     /// Interact with the message pool
-    Mpool(MpoolCommands),
+    Mpool(MpoolCommandsStruct),
 
     /// Interact with and query Filecoin chain state
-    State(StateCommands),
+    State(StateCommandsStruct),
 
     /// Manage node configuration
-    Config(ConfigCommands),
+    Config(ConfigCommandsStruct),
 
     /// Manage snapshots
-    Snapshot(SnapshotCommands),
+    Snapshot(SnapshotCommandsStruct),
 
     /// Send funds between accounts
     Send(SendCommand),
 
     /// Database management
-    DB(DBCommands),
+    DB(DBCommandsStruct),
 }
 
 /// Pretty-print a JSON-RPC error and exit

@@ -7,61 +7,75 @@ use forest_db::db_engine::{db_path, open_db, DbConfig};
 use cid::Cid;
 use forest_statediff::print_state_diff;
 
-/// Examine the state delta
-#[derive(Parser)]
-pub struct ChainCommand {
-    /// The previous CID state root
-    pre: Cid,
-    /// The post CID state root
-    post: Cid,
-    /// The name of the chain
-    #[structopt(short, long, default_value = "mainnet")]
-    chain: String,
-    /// The depth at which IPLD links are resolved
-    #[structopt(short, long)]
-    depth: Option<u64>,
-}
+// /// Examine the state delta
+// #[derive(clap::Subcommand)]
+// pub struct ChainCommand {
+//     /// The previous CID state root
+//     pre: Cid,
+//     /// The post CID state root
+//     post: Cid,
+//     /// The name of the chain
+//     #[arg(short, long, default_value = "mainnet")]
+//     chain: String,
+//     /// The depth at which IPLD links are resolved
+//     #[arg(short, long)]
+//     depth: Option<u64>,
+// }
 
-impl ChainCommand {
+impl crate::Subcommand {
     pub fn run(&self) -> anyhow::Result<()> {
-        let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
-            .ok_or(anyhow::Error::msg("no such path"))?;
-        let chain_path = dir.data_dir().join(&self.chain);
-        let blockstore = open_db(&db_path(&chain_path), &DbConfig::default())?;
-
-        if let Err(err) = print_state_diff(&blockstore, &self.pre, &self.post, self.depth) {
-            eprintln!("Failed to print state diff: {err}");
+        match self {
+            Subcommand::ChainCommand { pre, post, chain, depth } => {
+                let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
+                    .ok_or(anyhow::Error::msg("no such path"))?;
+                let chain_path = dir.data_dir().join(&chain);
+                let blockstore = open_db(&db_path(&chain_path), &DbConfig::default())?;
+        
+                if let Err(err) = print_state_diff(&blockstore, &pre, &post, *depth) {
+                    eprintln!("Failed to print state diff: {err}");
+                }
+                Ok(())
+            },
         }
-        Ok(())
     }
 }
 
-/// statediff binary sub-commands available.
-#[derive(Parser)]
-enum Subcommand {
-    #[structopt(name = "chain")]
-    Chain(ChainCommand),
-}
+// /// statediff binary sub-commands available.
+// #[derive(Parser)]
+// enum Subcommand {
+//     #[command(name = "chain")]
+//     Chain(ChainCommand),
+// }
 
 /// CLI structure generated when interacting with the statediff tool
 #[derive(Parser)]
-#[structopt(
-    name = env!("CARGO_PKG_NAME"),
-    version = env!("CARGO_PKG_VERSION"),
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    author = env!("CARGO_PKG_AUTHORS")
-)]
 struct Cli {
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Subcommand,
+}
+
+#[derive(clap::Subcommand)]
+enum Subcommand {
+    /// does testing things
+    #[command(name = "chain")]
+    ChainCommand {
+        /// The previous CID state root
+        pre: Cid,
+        /// The post CID state root
+        post: Cid,
+        /// The name of the chain
+        #[arg(short, long, default_value = "mainnet")]
+        chain: String,
+        /// The depth at which IPLD links are resolved
+        #[arg(short, long)]
+        depth: Option<u64>,
+    }
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
     let Cli { cmd } = Cli::parse();
-    match cmd {
-        Subcommand::Chain(cmd) => cmd.run()?,
-    }
+    cmd.run()?;
     Ok(())
 }

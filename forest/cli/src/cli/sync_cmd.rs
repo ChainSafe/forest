@@ -3,6 +3,7 @@
 
 use super::Config;
 use cid::Cid;
+use clap::Subcommand;
 use forest_chain_sync::SyncStage;
 use forest_json::cid::CidJson;
 use forest_rpc_client::*;
@@ -10,31 +11,36 @@ use std::{
     io::{stdout, Write},
     time::Duration,
 };
-use structopt::StructOpt;
 use ticker::Ticker;
 
 use crate::cli::{format_vec_pretty, handle_rpc_err};
 
-#[derive(Debug, StructOpt)]
+#[derive(clap::Parser)]
+pub struct SyncCommandsStruct {
+    #[command(subcommand)]
+    pub sync_commands: SyncCommands,
+}
+
+#[derive(Debug, Subcommand)]
 pub enum SyncCommands {
     /// Display continuous sync data until sync is complete
     Wait {
         /// Don't exit after node is synced
-        #[structopt(short)]
+        #[arg(short)]
         watch: bool,
     },
     /// Check sync status
     Status,
     /// Check if a given block is marked bad, and for what reason
     CheckBad {
-        #[structopt(short)]
+        #[arg(short)]
         /// The block CID to check
         cid: String,
     },
     /// Mark a given block as bad
     MarkBad {
         /// The block CID to mark as a bad block
-        #[structopt(short)]
+        #[arg(short)]
         cid: String,
     },
 }

@@ -2,26 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};
+use clap::Subcommand;
 use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::auth_api::AuthNewParams;
 use forest_rpc_client::auth_new;
 use jsonrpc_v2::Error as JsonRpcError;
-use structopt::StructOpt;
 
 use forest_auth::*;
 
-#[derive(Debug, StructOpt)]
-pub enum AuthCommands {
+#[derive(clap::Parser)]
+pub struct AuthCommandsStruct {
+        #[command(subcommand)]
+        pub auth_commands: AuthCommands,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum  AuthCommands {
     /// Create a new Authentication token with given permission
     CreateToken {
         /// permission to assign to the token, one of: read, write, sign, admin
-        #[structopt(short, long)]
+        #[arg(short, long)]
         perm: String,
     },
     /// Get RPC API Information
     ApiInfo {
         /// permission to assign the token, one of: read, write, sign, admin
-        #[structopt(short, long)]
+        #[arg(short, long)]
         perm: String,
     },
 }

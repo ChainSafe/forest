@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::Config;
+use clap::Subcommand;
 use forest_encoding::tuple::*;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use structopt::StructOpt;
 
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingSchedule {
@@ -18,7 +18,13 @@ struct VestingScheduleEntry {
     amount: TokenAmount,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(clap::Parser)]
+pub struct StateCommandsStruct {
+         #[command(subcommand)]
+        pub state_commands: StateCommands,
+}
+
+#[derive(Debug, Subcommand)]
 pub enum StateCommands {}
 
 impl StateCommands {

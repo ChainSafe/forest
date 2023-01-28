@@ -3,18 +3,24 @@
 
 use super::*;
 use cid::Cid;
+use clap::Subcommand;
 use forest_blocks::TipsetKeys;
 use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
 use std::str::FromStr;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+#[derive(clap::Parser)]
+pub struct ChainCommandsStruct {
+         #[command(subcommand)]
+        pub chain_commands: ChainCommands,
+}
+
+#[derive(Debug, Subcommand)]
 pub enum ChainCommands {
     /// Retrieves and prints out the block specified by the given CID
     Block {
         /// Input a valid CID
-        #[structopt(short)]
+        #[arg(short)]
         cid: String,
     },
 
@@ -34,7 +40,7 @@ pub enum ChainCommands {
     /// chain block store
     Message {
         /// Input a valid CID
-        #[structopt(short)]
+        #[arg(short)]
         cid: String,
     },
 
@@ -42,7 +48,7 @@ pub enum ChainCommands {
     /// block store and returns raw bytes
     ReadObj {
         /// Input a valid CID
-        #[structopt(short)]
+        #[arg(short)]
         cid: String,
     },
 }

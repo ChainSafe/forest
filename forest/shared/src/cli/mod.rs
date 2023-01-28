@@ -28,88 +28,88 @@ pub static FOREST_VERSION_STRING: Lazy<String> =
     Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
 /// CLI options
-#[derive(Parser, Debug, structopt::StructOpt)]
+#[derive(Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub config: Option<String>,
     /// The genesis CAR file
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub genesis: Option<String>,
     /// Allow RPC to be active or not (default: true)
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub rpc: Option<bool>,
     /// Client JWT token to use for JSON-RPC authentication
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub token: Option<String>,
     /// Address used for metrics collection server. By defaults binds on localhost on port 6116.
-    #[structopt(long)]
+    #[arg(long)]
     pub metrics_address: Option<SocketAddr>,
     /// Address used for RPC. By defaults binds on localhost on port 1234.
-    #[structopt(long)]
+    #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
     /// Allow Kademlia (default: true)
-    #[structopt(short, long)]
+    #[arg(short, long)]
     pub kademlia: Option<bool>,
     /// Allow MDNS (default: false)
-    #[structopt(long)]
+    #[arg(long)]
     pub mdns: Option<bool>,
     /// Validate snapshot at given EPOCH, use a negative value -N to validate the last N EPOCH(s)
-    #[structopt(long)]
+    #[arg(long)]
     pub height: Option<i64>,
     /// Import a snapshot from a local CAR file or URL
-    #[structopt(long)]
+    #[arg(long)]
     pub import_snapshot: Option<String>,
     /// Halt with exit code 0 after successfully importing a snapshot
-    #[structopt(long)]
+    #[arg(long)]
     pub halt_after_import: bool,
     /// Import a chain from a local CAR file or URL
-    #[structopt(long)]
+    #[arg(long)]
     pub import_chain: Option<String>,
     /// Skips loading CAR file and uses header to index chain. Assumes a pre-loaded database
-    #[structopt(long)]
+    #[arg(long)]
     pub skip_load: bool,
     /// Number of tipsets requested over chain exchange (default is 200)
-    #[structopt(long)]
+    #[arg(long)]
     pub req_window: Option<i64>,
     /// Number of tipsets to include in the sample that determines what the network head is
-    #[structopt(long)]
+    #[arg(long)]
     pub tipset_sample_size: Option<u8>,
     /// Amount of Peers we want to be connected to (default is 75)
-    #[structopt(long)]
+    #[arg(long)]
     pub target_peer_count: Option<u32>,
     /// Encrypt the key-store (default: true)
-    #[structopt(long)]
+    #[arg(long)]
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
-    #[structopt(
+    #[arg(
         long,
         default_value = "mainnet",
     )]
     pub chain: String,
     /// Daemonize Forest process
-    #[structopt(long)]
+    #[arg(long)]
     pub detach: bool,
     /// Automatically download a chain specific snapshot to sync with the Filecoin network if
     /// needed.
-    #[structopt(long)]
+    #[arg(long)]
     pub auto_download_snapshot: bool,
     /// Enable or disable colored logging in `stdout`
-    #[structopt(long, default_value = "auto")]
+    #[arg(long, default_value = "auto")]
     pub color: LoggingColor,
     /// Display progress bars mode [always, never, auto]. Auto will display if TTY.
-    #[structopt(long, default_value = "auto")]
+    #[arg(long, default_value = "auto")]
     pub show_progress_bars: ProgressBarVisibility,
     /// Turn on tokio-console support for debugging
-    #[structopt(long)]
+    #[arg(long)]
     pub tokio_console: bool,
     /// Send telemetry to `grafana loki`
-    #[structopt(long)]
+    #[arg(long)]
     pub loki: bool,
     /// Endpoint of `grafana loki`
-    #[structopt(long, default_value = "http://127.0.0.1:3100")]
+    #[arg(long, default_value = "http://127.0.0.1:3100")]
     pub loki_endpoint: String,
-    #[structopt(
+    #[arg(
         long,
         help = "Specify a directory into which rolling log files should be appended"
     )]
