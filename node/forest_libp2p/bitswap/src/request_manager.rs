@@ -181,7 +181,6 @@ impl BitswapRequestManager {
                         metrics::message_counter_inbound_response_block_already_exists_in_db()
                             .inc();
                         _ = chans.block_saved.send(());
-                        _ = chans.block_saved.send(());
                     } else {
                         match Block::new(cid, data) {
                             Ok(block) => match store.insert(&block) {

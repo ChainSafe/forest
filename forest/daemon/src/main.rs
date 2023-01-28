@@ -12,16 +12,15 @@ use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
     logger,
 };
-use forest_db::{db_engine::Db, Store};
+use forest_db::ReadWriteStore;
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
-use log::{error, info, warn};
+use log::{info, warn};
 use raw_sync::events::{Event, EventInit};
 use raw_sync::Timeout;
 use shared_memory::ShmemConf;
 use std::fs::File;
 use std::process;
-use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
@@ -138,21 +137,21 @@ fn main() -> anyhow::Result<()> {
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let db: Db = rt.block_on(daemon::start(cfg, opts.detach))?;
+            let db = rt.block_on(daemon::start(cfg, opts.detach))?;
 
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs(10));
 
             db.flush()?;
-            let db_weak_ref = Arc::downgrade(&db.db);
+            // let db_weak_ref = Arc::downgrade(&db.db);
             drop(db);
 
-            if db_weak_ref.strong_count() != 0 {
-                error!(
-                    "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
-                    db_weak_ref.strong_count()
-                );
-            }
+            // if db_weak_ref.strong_count() != 0 {
+            //     error!(
+            //         "Dangling reference to DB detected: {}. Tracking issue: https://github.com/ChainSafe/forest/issues/1891",
+            //         db_weak_ref.strong_count()
+            //     );
+            // }
             info!("Forest finish shutdown");
         }
     }

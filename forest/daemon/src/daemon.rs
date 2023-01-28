@@ -13,8 +13,9 @@ use forest_cli_shared::chain_path;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
 };
+use forest_db::rolling::ProxyStore;
 use forest_db::{
-    db_engine::{db_path, open_db, Db},
+    db_engine::{db_path, open_proxy_db, Db},
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
@@ -65,7 +66,7 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 }
 
 /// Starts daemon process
-pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> {
+pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<ProxyStore<Db>> {
     let mut ctrlc_oneshot = set_sigint_handler();
 
     info!(
@@ -140,7 +141,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let keystore = Arc::new(RwLock::new(ks));
 
-    let db = open_db(&db_path(&chain_path(&config)), config.db_config())?;
+    let db = open_proxy_db(&db_path(&chain_path(&config)), config.db_config())?;
 
     let mut services = JoinSet::new();
 

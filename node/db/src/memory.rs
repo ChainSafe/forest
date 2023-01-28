@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, Store};
+use crate::{rolling::IndexedStore, Error, ReadStore, ReadWriteStore};
 use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
 use forest_libp2p_bitswap::BitswapStore;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 /// A thread-safe `HashMap` wrapper.
 #[derive(Debug, Default, Clone)]
@@ -16,7 +16,7 @@ pub struct MemoryDB {
     db: Arc<RwLock<HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
-impl Store for MemoryDB {
+impl ReadWriteStore for MemoryDB {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -35,7 +35,9 @@ impl Store for MemoryDB {
         self.db.write().remove(key.as_ref());
         Ok(())
     }
+}
 
+impl ReadStore for MemoryDB {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
@@ -74,5 +76,21 @@ impl BitswapStore for MemoryDB {
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> Result<()> {
         self.put_keyed(block.cid(), block.data())
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref ROLLING: Arc<RwLock<HashMap<usize, MemoryDB>>> = Default::default();
+}
+
+impl IndexedStore for MemoryDB {
+    fn open(_: PathBuf, index: usize) -> anyhow::Result<Self> {
+        if let Some(db) = ROLLING.read().get(&index) {
+            Ok(db.clone())
+        } else {
+            let db = MemoryDB::default();
+            ROLLING.write().insert(index, db.clone());
+            Ok(db)
+        }
     }
 }

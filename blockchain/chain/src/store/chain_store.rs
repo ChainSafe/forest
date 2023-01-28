@@ -13,7 +13,7 @@ use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
-use forest_db::Store;
+use forest_db::{ReadStore, ReadWriteStore, Store};
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::recurse_links;
@@ -148,7 +148,8 @@ where
 
     /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
-        self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
+        let db = self.db.persistent();
+        db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.lock() = ts.clone();
         if self.publisher.send(HeadChange::Apply(ts)).is_err() {
             debug!("did not publish head change, no active receivers");
@@ -158,10 +159,9 @@ where
 
     /// Writes genesis to `blockstore`.
     pub fn set_genesis(&self, header: &BlockHeader) -> Result<Cid, Error> {
-        self.blockstore()
-            .write(GENESIS_KEY, header.marshal_cbor()?)?;
-        self.blockstore()
-            .put_obj(&header, Blake2b256)
+        let db = self.blockstore().persistent();
+        db.write(GENESIS_KEY, header.marshal_cbor()?)?;
+        db.put_obj(&header, Blake2b256)
             .map_err(|e| Error::Other(e.to_string()))
     }
 
@@ -179,7 +179,7 @@ where
         // TODO: we could add the blocks of `ts` to the tipset tracker from here,
         // making `add_to_tipset_tracker` redundant and decreasing the number of
         // `blockstore` reads
-        persist_objects(self.blockstore(), ts.blocks())?;
+        persist_objects(self.blockstore().persistent(), ts.blocks())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
@@ -265,17 +265,17 @@ where
     }
 
     /// Checks store if block has already been validated. Key based on the block validation prefix.
-    pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
+    pub fn is_block_validated(&self, epoch: ChainEpoch, cid: &Cid) -> Result<bool, Error> {
         let key = block_validation_key(cid);
 
-        Ok(self.db.exists(key)?)
+        Ok(self.db.rolling_by_epoch(epoch).exists(key)?)
     }
 
     /// Marks block as validated in the store. This is retrieved using the block validation prefix.
-    pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
+    pub fn mark_block_as_validated(&self, epoch: ChainEpoch, cid: &Cid) -> Result<(), Error> {
         let key = block_validation_key(cid);
 
-        Ok(self.db.write(key, [])?)
+        Ok(self.db.rolling_by_epoch(epoch).write(key, [])?)
     }
 
     /// Returns the tipset behind `tsk` at a given `height`.

@@ -361,13 +361,13 @@ where
     {
         let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
 
-        let db = self.blockstore().clone();
+        let db = self.blockstore().rolling_by_epoch(epoch);
 
         let turbo_height = self.chain_config.epoch(Height::Turbo);
         let create_vm = |state_root, epoch| {
             VM::new(
                 state_root,
-                self.blockstore().clone(),
+                db.clone(),
                 epoch,
                 rand.clone(),
                 base_fee.clone(),
@@ -404,7 +404,7 @@ where
         let receipts = vm.apply_block_messages(messages, epoch, callback)?;
 
         // Construct receipt root from receipts
-        let receipt_root = Amt::new_from_iter(self.blockstore(), receipts)?;
+        let receipt_root = Amt::new_from_iter(&db, receipts)?;
 
         // Flush changes to blockstore
         let state_root = vm.flush()?;

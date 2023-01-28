@@ -82,6 +82,8 @@ where
         let cid = self
             .sm
             .blockstore()
+            // FIXME: Unable to get epoch with current API
+            .persistent()
             .put_obj(msg, Blake2b256)
             .map_err(|err| Error::Other(err.to_string()))?;
         Ok(cid)

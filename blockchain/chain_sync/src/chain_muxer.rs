@@ -468,9 +468,11 @@ where
             }
         };
 
+        let blockstore = chain_store.db.rolling_by_epoch(tipset.epoch());
+
         // Validate tipset
         if let Err(why) = TipsetValidator(&tipset).validate(
-            chain_store.clone(),
+            &blockstore,
             bad_block_cache.clone(),
             genesis.clone(),
             block_delay,
@@ -485,9 +487,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            forest_chain::persist_objects(&chain_store.db, &[block.header()])?;
-            forest_chain::persist_objects(&chain_store.db, block.bls_msgs())?;
-            forest_chain::persist_objects(&chain_store.db, block.secp_msgs())?;
+            forest_chain::persist_objects(&blockstore, &[block.header()])?;
+            forest_chain::persist_objects(&blockstore, block.bls_msgs())?;
+            forest_chain::persist_objects(&blockstore, block.secp_msgs())?;
         }
 
         // Update the peer head

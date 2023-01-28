@@ -5,6 +5,8 @@ mod errors;
 mod memory;
 mod metrics;
 
+pub mod rolling;
+
 #[cfg(feature = "rocksdb")]
 pub mod rocks;
 
@@ -14,24 +16,16 @@ pub mod parity_db;
 pub mod parity_db_config;
 pub mod rocks_config;
 
+use std::sync::Arc;
+
 pub use errors::Error;
 pub use memory::MemoryDB;
+use rolling::{ProxyStore, SplitStore};
 
-/// Store interface used as a KV store implementation
-pub trait Store {
+/// Read-only store interface used as a KV store implementation
+pub trait ReadStore {
     /// Read single value from data store and return `None` if key doesn't exist.
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
-    where
-        K: AsRef<[u8]>;
-
-    /// Write a single value to the data store.
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>;
-
-    /// Delete value at key.
-    fn delete<K>(&self, key: K) -> Result<(), Error>
     where
         K: AsRef<[u8]>;
 
@@ -47,6 +41,20 @@ pub trait Store {
     {
         keys.iter().map(|key| self.read(key)).collect()
     }
+}
+
+/// Store interface used as a KV store implementation
+pub trait ReadWriteStore: ReadStore {
+    /// Write a single value to the data store.
+    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>;
+
+    /// Delete value at key.
+    fn delete<K>(&self, key: K) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>;
 
     /// Write slice of KV pairs.
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
@@ -73,27 +81,21 @@ pub trait Store {
     }
 }
 
-impl<BS: Store> Store for &BS {
+pub trait Store: ReadWriteStore {
+    fn persistent(&self) -> &db_engine::Db;
+
+    fn rolling_by_epoch(
+        &self,
+        epoch: i64,
+    ) -> SplitStore<ProxyStore<crate::db_engine::Db>, crate::db_engine::Db>;
+}
+
+impl<BS: ReadStore> ReadStore for &BS {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
     {
         (*self).read(key)
-    }
-
-    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
-        (*self).write(key, value)
-    }
-
-    fn delete<K>(&self, key: K) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        (*self).delete(key)
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, Error>
@@ -108,6 +110,23 @@ impl<BS: Store> Store for &BS {
         K: AsRef<[u8]>,
     {
         (*self).bulk_read(keys)
+    }
+}
+
+impl<BS: ReadWriteStore> ReadWriteStore for &BS {
+    fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        (*self).write(key, value)
+    }
+
+    fn delete<K>(&self, key: K) -> Result<(), Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        (*self).delete(key)
     }
 
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
@@ -126,6 +145,22 @@ impl<BS: Store> Store for &BS {
     }
 }
 
+impl<BS: Store> Store for &BS
+where
+    BS: Sized,
+{
+    fn persistent(&self) -> &db_engine::Db {
+        (*self).persistent()
+    }
+
+    fn rolling_by_epoch(
+        &self,
+        epoch: i64,
+    ) -> SplitStore<ProxyStore<crate::db_engine::Db>, crate::db_engine::Db> {
+        (*self).rolling_by_epoch(epoch)
+    }
+}
+
 /// Traits for collecting DB stats
 pub trait DBStatistics {
     fn get_statistics(&self) -> Option<String> {
@@ -133,35 +168,52 @@ pub trait DBStatistics {
     }
 }
 
-#[cfg(feature = "rocksdb")]
-pub mod db_engine {
-    use std::path::{Path, PathBuf};
-
-    pub type Db = crate::rocks::RocksDb;
-    pub type DbConfig = crate::rocks_config::RocksDbConfig;
-
-    pub fn db_path(path: &Path) -> PathBuf {
-        path.join("rocksdb")
-    }
-
-    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
-        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
+impl<T: DBStatistics> DBStatistics for Arc<T> {
+    fn get_statistics(&self) -> Option<String> {
+        self.as_ref().get_statistics()
     }
 }
 
-#[cfg(feature = "paritydb")]
 pub mod db_engine {
     use std::path::{Path, PathBuf};
 
+    use crate::rolling::{ProxyStore, RollingStore};
+
+    #[cfg(feature = "rocksdb")]
+    pub type Db = crate::rocks::RocksDb;
+    #[cfg(feature = "paritydb")]
     pub type Db = crate::parity_db::ParityDb;
+    #[cfg(feature = "rocksdb")]
+    pub type DbConfig = crate::rocks_config::RocksDbConfig;
+    #[cfg(feature = "paritydb")]
     pub type DbConfig = crate::parity_db_config::ParityDbConfig;
 
+    #[cfg(feature = "rocksdb")]
+    const DIR_NAME: &str = "rocksdb";
+    #[cfg(feature = "paritydb")]
+    const DIR_NAME: &str = "paritydb";
+
     pub fn db_path(path: &Path) -> PathBuf {
-        path.join("paritydb")
+        path.join(DIR_NAME)
     }
 
+    #[cfg(feature = "rocksdb")]
     pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
-        use crate::parity_db::ParityDb;
-        ParityDb::open(path.to_owned(), config)
+        crate::rocks::RocksDb::open(path, config).map_err(Into::into)
+    }
+
+    #[cfg(feature = "paritydb")]
+    pub fn open_db(path: &std::path::Path, config: &DbConfig) -> anyhow::Result<Db> {
+        crate::parity_db::ParityDb::open(path.into(), config).map_err(Into::into)
+    }
+
+    pub fn open_proxy_db(
+        path: &std::path::Path,
+        config: &DbConfig,
+    ) -> anyhow::Result<ProxyStore<Db>> {
+        let persistent = open_db(path, config)?;
+        let rolling_path = path.join("..").join(format!("{DIR_NAME}_rolling"));
+        let rolling = RollingStore::new(7, rolling_path);
+        Ok(ProxyStore::new(persistent, rolling))
     }
 }

@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
 use crate::parity_db_config::ParityDbConfig;
-use crate::{DBStatistics, Store};
+use crate::rolling::IndexedStore;
+use crate::{DBStatistics, Error, ReadStore, ReadWriteStore};
 use anyhow::anyhow;
 use cid::Cid;
 use forest_libp2p_bitswap::BitswapStore;
@@ -58,7 +58,7 @@ impl ParityDb {
     }
 }
 
-impl Store for ParityDb {
+impl ReadStore for ParityDb {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>,
@@ -66,6 +66,18 @@ impl Store for ParityDb {
         self.db.get(0, key.as_ref()).map_err(Error::from)
     }
 
+    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.db
+            .get_size(0, key.as_ref())
+            .map(|size| size.is_some())
+            .map_err(Error::from)
+    }
+}
+
+impl ReadWriteStore for ParityDb {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -94,16 +106,6 @@ impl Store for ParityDb {
     {
         let tx = [(0, key.as_ref(), None)];
         self.db.commit(tx).map_err(Error::from)
-    }
-
-    fn exists<K>(&self, key: K) -> Result<bool, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        self.db
-            .get_size(0, key.as_ref())
-            .map(|size| size.is_some())
-            .map_err(Error::from)
     }
 }
 
@@ -167,6 +169,14 @@ impl DBStatistics for ParityDb {
                 None
             }
         }
+    }
+}
+
+impl IndexedStore for ParityDb {
+    fn open(mut path: PathBuf, index: usize) -> anyhow::Result<Self> {
+        path.push(index.to_string());
+        let config = ParityDbConfig::default();
+        Ok(ParityDb::open(path, &config)?)
     }
 }
 

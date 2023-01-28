@@ -789,7 +789,7 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
         // Persist the blocks from the synced Tipsets into the store
         tracker.write().set_stage(SyncStage::Headers);
         let headers: Vec<&BlockHeader> = parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
-        if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
+        if let Err(why) = persist_objects(chain_store.blockstore().persistent(), &headers) {
             tracker.write().error(why.to_string());
             return Err(why.into());
         };
@@ -970,7 +970,7 @@ fn sync_tipset<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consen
     Box::pin(async move {
         // Persist the blocks from the proposed tipsets into the store
         let headers: Vec<&BlockHeader> = proposed_head.blocks().iter().collect();
-        persist_objects(chain_store.blockstore(), &headers)?;
+        persist_objects(chain_store.blockstore().persistent(), &headers)?;
 
         // Sync and validate messages from the tipsets
         if let Err(e) = sync_messages_check_state(
@@ -1037,8 +1037,9 @@ async fn fetch_batch<DB: Blockstore + Store + Clone + Send + Sync + 'static, C: 
 
             // Persist the messages in the store
             if let Some(m) = bundle.messages {
-                forest_chain::persist_objects(chainstore.blockstore(), &m.bls_msgs)?;
-                forest_chain::persist_objects(chainstore.blockstore(), &m.secp_msgs)?;
+                let blockstore = chainstore.blockstore().rolling_by_epoch(head.epoch());
+                forest_chain::persist_objects(&blockstore, &m.bls_msgs)?;
+                forest_chain::persist_objects(&blockstore, &m.secp_msgs)?;
             } else {
                 warn!("ChainExchange request for messages returned null messages");
             }
@@ -1233,7 +1234,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
 
     // Check block validation cache in store
     let is_validated = chain_store
-        .is_block_validated(block_cid)
+        .is_block_validated(block.header().epoch(), block_cid)
         .map_err(|why| (*block_cid, why.into()))?;
     if is_validated {
         return Ok(block);
@@ -1388,7 +1389,7 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
     }
 
     chain_store
-        .mark_block_as_validated(block_cid)
+        .mark_block_as_validated(block.header().epoch(), block_cid)
         .map_err(|e| {
             (
                 *block_cid,
@@ -1418,9 +1419,8 @@ async fn check_block_messages<
     block: Arc<Block>,
     base_tipset: Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError<C>> {
-    let network_version = state_manager
-        .chain_config()
-        .network_version(block.header.epoch());
+    let epoch = block.header.epoch();
+    let network_version = state_manager.chain_config().network_version(epoch);
 
     // Do the initial loop here
     // check block message and signatures in them
@@ -1505,12 +1505,12 @@ async fn check_block_messages<
     };
 
     let mut account_sequences: HashMap<Address, u64> = HashMap::default();
-    let block_store = state_manager.blockstore();
+    let block_store = state_manager.blockstore().rolling_by_epoch(epoch);
     let (state_root, _) = state_manager
         .tipset_state(&base_tipset)
         .await
         .map_err(|e| TipsetRangeSyncerError::Calculation(format!("Could not update state: {e}")))?;
-    let tree = StateTree::new_from_root(block_store, &state_root).map_err(|e| {
+    let tree = StateTree::new_from_root(state_manager.blockstore(), &state_root).map_err(|e| {
         TipsetRangeSyncerError::Calculation(format!(
             "Could not load from new state root in state manager: {e}"
         ))
@@ -1545,7 +1545,7 @@ async fn check_block_messages<
 
     // Validate message root from header matches message root
     let msg_root =
-        TipsetValidator::compute_msg_root(block_store, block.bls_msgs(), block.secp_msgs())
+        TipsetValidator::compute_msg_root(&block_store, block.bls_msgs(), block.secp_msgs())
             .map_err(|err| TipsetRangeSyncerError::ComputingMessageRoot(err.to_string()))?;
     if block.header().messages() != &msg_root {
         return Err(TipsetRangeSyncerError::BlockMessageRootInvalid(

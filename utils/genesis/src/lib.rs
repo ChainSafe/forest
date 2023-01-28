@@ -83,8 +83,10 @@ where
 async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
 where
     R: AsyncRead + Send + Unpin,
-    BS: Blockstore + Store + Send + Sync,
+    BS: Store + Send + Sync,
 {
+    let db = db.persistent();
+
     // Load genesis state into the database and get the Cid
     let genesis_cids: Vec<Cid> = load_car(db, reader.compat()).await?;
     if genesis_cids.len() != 1 {
@@ -169,14 +171,14 @@ async fn load_and_retrieve_header<DB, R>(
     skip_load: bool,
 ) -> Result<Vec<Cid>, anyhow::Error>
 where
-    DB: Blockstore,
+    DB: Store,
     R: AsyncRead + Send + Unpin,
 {
     let mut compat = reader.compat();
     let result = if skip_load {
         CarReader::new(&mut compat).await?.header.roots
     } else {
-        load_car(store, &mut compat).await?
+        load_car(store.persistent(), &mut compat).await?
     };
     compat.into_inner().finish();
     Ok(result)

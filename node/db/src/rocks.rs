@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::errors::Error;
-use super::Store;
 use crate::rocks_config::RocksDbConfig;
-use crate::{metrics, DBStatistics};
+use crate::rolling::IndexedStore;
+use crate::{metrics, DBStatistics, ReadStore, ReadWriteStore};
 use anyhow::anyhow;
 use cid::Cid;
 use forest_libp2p_bitswap::BitswapStore;
@@ -13,7 +13,10 @@ use rocksdb::{
     BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
     Options, WriteBatch, WriteOptions, DB,
 };
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 lazy_static::lazy_static! {
     static ref WRITE_OPT_NO_WAL: WriteOptions = {
@@ -217,14 +220,7 @@ impl RocksDb {
     }
 }
 
-impl Store for RocksDb {
-    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        self.db.get(key).map_err(Error::from)
-    }
-
+impl ReadWriteStore for RocksDb {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), Error>
     where
         K: AsRef<[u8]>,
@@ -238,16 +234,6 @@ impl Store for RocksDb {
         K: AsRef<[u8]>,
     {
         Ok(self.db.delete(key)?)
-    }
-
-    fn exists<K>(&self, key: K) -> Result<bool, Error>
-    where
-        K: AsRef<[u8]>,
-    {
-        self.db
-            .get_pinned(key)
-            .map(|v| v.is_some())
-            .map_err(Error::from)
     }
 
     fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
@@ -264,6 +250,25 @@ impl Store for RocksDb {
 
     fn flush(&self) -> Result<(), Error> {
         self.db.flush().map_err(|e| Error::Other(e.to_string()))
+    }
+}
+
+impl ReadStore for RocksDb {
+    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.db.get(key).map_err(Error::from)
+    }
+
+    fn exists<K>(&self, key: K) -> Result<bool, Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.db
+            .get_pinned(key)
+            .map(|v| v.is_some())
+            .map_err(Error::from)
     }
 }
 
@@ -318,5 +323,17 @@ impl BitswapStore for RocksDb {
 impl DBStatistics for RocksDb {
     fn get_statistics(&self) -> Option<String> {
         self.options.get_statistics()
+    }
+}
+
+impl IndexedStore for RocksDb {
+    fn open(mut path: PathBuf, index: usize) -> anyhow::Result<Self> {
+        path.push(index.to_string());
+        let config = RocksDbConfig {
+            // 128MB for now
+            write_buffer_size: 128 * 1024 * 1024,
+            ..Default::default()
+        };
+        Ok(RocksDb::open(path, &config)?)
     }
 }
