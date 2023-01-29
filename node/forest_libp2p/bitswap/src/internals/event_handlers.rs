@@ -12,7 +12,7 @@ pub enum BitswapInboundResponseEvent {
 }
 
 // Note: This method performs db IO syncronously to reduce complexity
-pub fn handle_event_impl<S: BitswapStore>(
+pub fn handle_event_impl<S: BitswapStoreRead>(
     request_manager: &Arc<BitswapRequestManager>,
     bitswap: &mut BitswapBehaviour,
     store: &S,
@@ -66,7 +66,7 @@ pub fn handle_event_impl<S: BitswapStore>(
     Ok(())
 }
 
-fn handle_inbound_request<S: BitswapStore>(
+fn handle_inbound_request<S: BitswapStoreRead>(
     store: &S,
     request: &BitswapRequest,
 ) -> Option<BitswapResponse> {

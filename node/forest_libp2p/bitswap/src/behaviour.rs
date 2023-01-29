@@ -61,7 +61,7 @@ impl BitswapBehaviour {
         self.request_manager.clone()
     }
 
-    pub fn handle_event<S: BitswapStore>(
+    pub fn handle_event<S: BitswapStoreRead>(
         &mut self,
         store: &S,
         event: BitswapBehaviourEvent,

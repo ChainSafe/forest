@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#[cfg(feature = "request_manager")]
 #[cfg(test)]
 mod tests {
     use ahash::HashMap;
@@ -151,7 +150,7 @@ mod tests {
         swarm_event_opt: Option<
             SwarmEvent<BitswapBehaviourEvent, <<<BitswapBehaviour as NetworkBehaviour>::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::Error>,
         >,
-        store: &impl BitswapStore,
+        store: &impl BitswapStoreRead,
     ) -> Result<()> {
         match swarm_event_opt {
             Some(SwarmEvent::Behaviour(event)) => {
@@ -180,9 +179,7 @@ mod tests {
 
     type TestStore = Arc<TestStoreInner>;
 
-    impl BitswapStore for TestStoreInner {
-        type Params = libipld::DefaultParams;
-
+    impl BitswapStoreRead for TestStoreInner {
         fn contains(&self, cid: &libipld::Cid) -> anyhow::Result<bool> {
             Ok(self.0.read().contains_key(&cid.to_bytes()))
         }
@@ -190,6 +187,10 @@ mod tests {
         fn get(&self, cid: &libipld::Cid) -> anyhow::Result<Option<Vec<u8>>> {
             Ok(self.0.read().get(&cid.to_bytes()).cloned())
         }
+    }
+
+    impl BitswapStoreReadWrite for TestStoreInner {
+        type Params = libipld::DefaultParams;
 
         fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
             self.0

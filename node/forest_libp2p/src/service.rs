@@ -17,13 +17,15 @@ use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_libp2p_bitswap::{request_manager::BitswapRequestManager, BitswapStore};
+use forest_libp2p_bitswap::request_manager::BitswapRequestManager;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::SignedMessage;
 use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::clock::ChainEpoch;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
@@ -90,7 +92,7 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
-pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
+pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(10);
 
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
 
@@ -166,6 +168,7 @@ pub enum NetworkMessage {
         response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
     },
     BitswapRequest {
+        epoch: ChainEpoch,
         cid: Cid,
         response_channel: flume::Sender<bool>,
     },
@@ -199,7 +202,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: Blockstore + Store + BitswapStore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Store + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,
@@ -375,7 +378,7 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
 
 async fn handle_network_message(
     swarm: &mut Swarm<ForestBehaviour>,
-    store: Arc<impl BitswapStore>,
+    store: Arc<impl BitswapStoreReadWrite>,
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
@@ -424,6 +427,7 @@ async fn handle_network_message(
             .await;
         }
         NetworkMessage::BitswapRequest {
+            epoch: _,
             cid,
             response_channel,
         } => {
@@ -810,7 +814,7 @@ async fn handle_chain_exchange_event<DB>(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn handle_forest_behaviour_event<DB, P>(
+async fn handle_forest_behaviour_event<DB>(
     swarm: &mut Swarm<ForestBehaviour>,
     bitswap_request_manager: &Arc<BitswapRequestManager>,
     peer_manager: &Arc<PeerManager>,
@@ -828,7 +832,7 @@ async fn handle_forest_behaviour_event<DB, P>(
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
-    DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
+    DB: Blockstore + Store + BitswapStoreRead + Clone + Sync + Send + 'static,
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {

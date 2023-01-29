@@ -40,7 +40,7 @@ swarm.behaviour_mut().send_request(peer, request);
 swarm.behaviour_mut().send_response(peer, response);
 ```
 
-To use request manager, a data store that implements `BitswapStore` is required. Checkout `tests/request_manager.rs` for details
+To use request manager, a data store that implements `BitswapStoreRead` and `BitswapStoreReadWrite` is required. Checkout `tests/request_manager.rs` for details
 
 ```rust
 let behaviour = BitswapBehaviour::default();
