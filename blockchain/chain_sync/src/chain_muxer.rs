@@ -309,7 +309,7 @@ where
 
         let epoch = block.header.epoch();
 
-        log::info!(
+        log::debug!(
             "Getting messages of gossipblock, epoch: {epoch}, block: {}",
             block.header.cid()
         );
