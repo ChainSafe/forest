@@ -20,6 +20,8 @@ install-deps:
 install-lint-tools:
 	cargo install cargo-quickinstall
 	cargo quickinstall taplo-cli
+	which taplo
+	taplo --version
 	cargo quickinstall cargo-audit
 	cargo quickinstall cargo-spellcheck
 	cargo quickinstall cargo-udeps
@@ -27,6 +29,8 @@ install-lint-tools:
 install-doc-tools:
 	cargo install cargo-quickinstall
 	cargo quickinstall mdbook
+	which mdbook
+	mdbook --version
 	cargo quickinstall mdbook-linkcheck
 
 clean-all:
