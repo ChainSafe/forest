@@ -89,6 +89,8 @@ pub trait Store: ReadWriteStore {
         &self,
         epoch: i64,
     ) -> SplitStore<ProxyStore<crate::db_engine::Db>, TrackingStore<crate::db_engine::Db>>;
+
+    fn rolling_stats(&self) -> String;
 }
 
 impl<BS: ReadStore> ReadStore for &BS {
@@ -159,6 +161,10 @@ where
         epoch: i64,
     ) -> SplitStore<ProxyStore<crate::db_engine::Db>, TrackingStore<crate::db_engine::Db>> {
         (*self).rolling_by_epoch(epoch)
+    }
+
+    fn rolling_stats(&self) -> String {
+        (*self).rolling_stats()
     }
 }
 

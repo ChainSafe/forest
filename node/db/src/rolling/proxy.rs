@@ -146,6 +146,11 @@ impl Store for ProxyStore<crate::db_engine::Db> {
             w: self.rolling().get_writable_store(index as _).unwrap(),
         }
     }
+
+    fn rolling_stats(&self) -> String {
+        let stats = self.rolling().access_stats();
+        format!("{stats:?}")
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -115,6 +115,14 @@ where
             }
         }
     }
+
+    pub fn access_stats(&self) -> HashMap<usize, Instant> {
+        let mut map = HashMap::new();
+        for (&k, v) in self.cache.read().iter() {
+            map.insert(k, *v.last_valid_access.read());
+        }
+        map
+    }
 }
 
 impl<T> Default for RollingStore<T>

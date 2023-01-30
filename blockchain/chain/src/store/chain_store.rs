@@ -42,6 +42,7 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use std::time::Instant;
 use std::{collections::VecDeque, time::SystemTime};
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
@@ -505,6 +506,9 @@ where
         D: Digest,
         W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
     {
+        let dry_run = writer.is_none();
+        let start = Instant::now();
+
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
@@ -535,7 +539,7 @@ where
         });
 
         let global_pre_time = SystemTime::now();
-        info!("chain export started");
+        info!("chain export started, dry_run: {dry_run}");
 
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, |cid| {
@@ -546,7 +550,9 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
 
-                tx_clone.send_async((cid, block.clone())).await?;
+                if !dry_run {
+                    tx_clone.send_async((cid, block.clone())).await?;
+                }
                 Ok(block)
             }
         })
@@ -563,7 +569,15 @@ where
         let time = SystemTime::now()
             .duration_since(global_pre_time)
             .expect("time cannot go backwards");
-        info!("export finished, took {} seconds", time.as_secs());
+        info!(
+            "export finished, dry_run: {dry_run}, took {} seconds",
+            time.as_secs()
+        );
+
+        info!(
+            "chain export started at {start:?}, rolling store stats: {}",
+            self.blockstore().rolling_stats()
+        );
 
         if let Some(writer) = writer {
             let digest = writer.lock().await.get_mut().finalize();
