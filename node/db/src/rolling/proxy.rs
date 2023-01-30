@@ -136,15 +136,23 @@ impl Store for ProxyStore<crate::db_engine::Db> {
         self.persistent()
     }
 
+    fn rolling(&self) -> &RollingStore<crate::db_engine::Db> {
+        self.rolling()
+    }
+
     fn rolling_by_epoch(
         &self,
         epoch: i64,
     ) -> SplitStore<Self, TrackingStore<crate::db_engine::Db>> {
-        let index = epoch / EPOCHS_IN_DAY;
         SplitStore {
             r: self.clone(),
-            w: self.rolling().get_writable_store(index as _).unwrap(),
+            w: self.rolling_by_epoch_raw(epoch),
         }
+    }
+
+    fn rolling_by_epoch_raw(&self, epoch: i64) -> TrackingStore<crate::db_engine::Db> {
+        let index = epoch / EPOCHS_IN_DAY;
+        self.rolling().get_writable_store(index as _).unwrap()
     }
 
     fn rolling_stats(&self) -> String {

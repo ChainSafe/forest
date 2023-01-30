@@ -16,6 +16,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ParityDb {
     pub db: Arc<parity_db::Db>,
+    path: PathBuf,
     statistics_enabled: bool,
 }
 
@@ -50,9 +51,10 @@ impl ParityDb {
     }
 
     pub fn open(path: PathBuf, config: &ParityDbConfig) -> anyhow::Result<Self> {
-        let opts = Self::to_options(path, config)?;
+        let opts = Self::to_options(path.clone(), config)?;
         Ok(Self {
             db: Arc::new(Db::open_or_create(&opts)?),
+            path,
             statistics_enabled: opts.stats,
         })
     }
@@ -177,6 +179,16 @@ impl IndexedStore for ParityDb {
         path.push(index.to_string());
         let config = ParityDbConfig::default();
         ParityDb::open(path, &config)
+    }
+
+    fn delete_db(&self) -> anyhow::Result<()> {
+        let deleted_root = self.path.join("..").join("deleted");
+        if !deleted_root.exists() {
+            std::fs::create_dir_all(&deleted_root)?;
+        }
+        let new_path = deleted_root.join(self.path.components().last().unwrap());
+        std::fs::rename(&self.path, new_path)?;
+        Ok(())
     }
 }
 

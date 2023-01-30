@@ -123,6 +123,25 @@ where
         }
         map
     }
+
+    pub fn delete_on<F>(&self, f: F)
+    where
+        F: Fn(usize) -> bool,
+    {
+        let mut cache = self.cache.write();
+        let keys: Vec<_> = cache.keys().cloned().collect();
+        for k in keys {
+            if f(k) {
+                if let Some(db) = cache.remove(&k) {
+                    if let Err(err) = db.store.delete_db() {
+                        log::warn!("Err deleting db {k}: {err}");
+                    } else {
+                        log::warn!(" db {k} deleted");
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl<T> Default for RollingStore<T>

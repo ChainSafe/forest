@@ -93,4 +93,8 @@ impl IndexedStore for MemoryDB {
             Ok(db)
         }
     }
+
+    fn delete_db(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }

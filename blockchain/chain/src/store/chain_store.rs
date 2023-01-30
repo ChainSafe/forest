@@ -41,6 +41,7 @@ use lru::LruCache;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use std::{collections::VecDeque, time::SystemTime};
@@ -501,6 +502,7 @@ where
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         writer: Option<W>,
+        prune_db: bool,
     ) -> Result<Option<digest::Output<D>>, Error>
     where
         D: Digest,
@@ -541,14 +543,38 @@ where
         let global_pre_time = SystemTime::now();
         info!("chain export started, dry_run: {dry_run}");
 
+        let from_persistent = Arc::new(AtomicU64::new(0));
+        let from_latest_rolling = Arc::new(AtomicU64::new(0));
+        let from_old_rolling = Arc::new(AtomicU64::new(0));
         // Walks over tipset and historical data, sending all blocks visited into the car writer.
         Self::walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
+            let from_persistent = from_persistent.clone();
+            let from_latest_rolling = from_latest_rolling.clone();
+            let from_old_rolling = from_old_rolling.clone();
+            let proxy_store = self.blockstore();
+            let persistent_store = self.blockstore().persistent();
+            let latest_rolling_store = self.blockstore().rolling_by_epoch_raw(tipset.epoch());
             async move {
-                let block = self
-                    .blockstore()
-                    .get(&cid)?
-                    .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
+                let block = {
+                    if let Some(block) = Blockstore::get(persistent_store, &cid)? {
+                        from_persistent.fetch_add(1, Ordering::Relaxed);
+                        block
+                    } else if let Some(block) = Blockstore::get(&latest_rolling_store.store, &cid)?
+                    {
+                        from_latest_rolling.fetch_add(1, Ordering::Relaxed);
+                        block
+                    } else {
+                        from_old_rolling.fetch_add(1, Ordering::Relaxed);
+                        let block = proxy_store.get(&cid)?.ok_or_else(|| {
+                            Error::Other("Cid {cid} not found in blockstore".to_string())
+                        })?;
+                        if prune_db {
+                            latest_rolling_store.store.put_keyed(&cid, &block)?;
+                        }
+                        block
+                    }
+                };
 
                 if !dry_run {
                     tx_clone.send_async((cid, block.clone())).await?;
@@ -570,14 +596,23 @@ where
             .duration_since(global_pre_time)
             .expect("time cannot go backwards");
         info!(
-            "export finished, dry_run: {dry_run}, took {} seconds",
+            "export finished, dry_run: {dry_run}, prune_db: {prune_db}, took {} seconds",
             time.as_secs()
         );
 
         info!(
-            "chain export started at {start:?}, rolling store stats: {}",
-            self.blockstore().rolling_stats()
+            "chain export started at {start:?}, rolling store stats: {}, from_persistent: {}, from_latest_rolling: {}, from_old_rolling: {}",
+            self.blockstore().rolling_stats(),from_persistent.load(Ordering::Relaxed) ,from_latest_rolling.load(Ordering::Relaxed),from_old_rolling.load(Ordering::Relaxed)
         );
+
+        if prune_db {
+            info!("Start pruning DB");
+            let index_to_keep = (tipset.epoch() / EPOCHS_IN_DAY) as usize;
+            self.blockstore()
+                .rolling()
+                .delete_on(|index| index != index_to_keep);
+            info!("Finish pruning DB");
+        }
 
         if let Some(writer) = writer {
             let digest = writer.lock().await.get_mut().finalize();

@@ -9,4 +9,6 @@ where
     Self: ReadWriteStore + Sized,
 {
     fn open(root_path: PathBuf, index: usize) -> anyhow::Result<Self>;
+
+    fn delete_db(&self) -> anyhow::Result<()>;
 }

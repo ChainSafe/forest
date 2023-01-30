@@ -168,15 +168,19 @@ async fn snapshot_fetch_forest(
     let bucket_contents = bucket.list(snapshot_fetch_config.path.clone(), Some("/".to_string()))?;
 
     // Find the the last modified file that is not a directory or empty file
-    let last_modified = bucket_contents
+    let mut snapshots: Vec<_> = bucket_contents
         .first()
         .ok_or_else(|| anyhow::anyhow!("Couldn't list bucket"))?
         .contents
         .iter()
         .filter(|obj| obj.size > 0 && obj.key.rsplit_once('.').unwrap_or_default().1 == "car")
-        .max_by_key(|obj| DateTime::parse_from_rfc3339(&obj.last_modified).unwrap_or_default())
-        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve bucket contents"))?
-        .to_owned();
+        .collect();
+    snapshots.sort_by(|a, b| {
+        DateTime::parse_from_rfc3339(&b.last_modified)
+            .unwrap_or_default()
+            .cmp(&DateTime::parse_from_rfc3339(&a.last_modified).unwrap_or_default())
+    });
+    let last_modified = snapshots[5];
 
     // Grab the snapshot name and create requested directory tree.
     let filename = last_modified.key.rsplit_once('/').unwrap().1;
