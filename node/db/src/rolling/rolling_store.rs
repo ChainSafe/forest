@@ -4,13 +4,32 @@
 use super::*;
 use ahash::{HashMap, HashMapExt};
 use parking_lot::RwLock;
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc, time::Instant};
+
+#[derive(Debug, Clone)]
+pub struct TrackingStore<T> {
+    pub store: T,
+    pub last_valid_access: Arc<RwLock<Instant>>,
+}
+
+impl<T> TrackingStore<T> {
+    pub fn new(store: T) -> Self {
+        Self {
+            store,
+            last_valid_access: Arc::new(RwLock::new(Instant::now())),
+        }
+    }
+
+    pub(crate) fn track_access(&self) {
+        *self.last_valid_access.write() = Instant::now();
+    }
+}
 
 #[derive(Debug)]
 pub struct RollingStore<T> {
     capacity: usize,
     root_dir: PathBuf,
-    cache: Arc<RwLock<HashMap<usize, T>>>,
+    cache: Arc<RwLock<HashMap<usize, TrackingStore<T>>>>,
     // TODO: lookup in order
     // order: Arc<RwLock<BinaryHeap<usize>>>,
 }
@@ -43,7 +62,7 @@ where
                 let mut cache = cache.write();
                 index.into_iter().take(capacity).for_each(|i| {
                     if let Ok(store) = T::open(root_dir.clone(), i) {
-                        cache.insert(i, store);
+                        cache.insert(i, TrackingStore::new(store));
                     }
                 });
             }
@@ -56,7 +75,7 @@ where
         }
     }
 
-    pub fn get_writable_store(&self, index: usize) -> anyhow::Result<T> {
+    pub fn get_writable_store(&self, index: usize) -> anyhow::Result<TrackingStore<T>> {
         let store_opt = {
             let cache = self.cache.read();
             cache.get(&index).cloned()
@@ -70,13 +89,13 @@ where
                 // log::info!("get_writable_store {index} cache hit");
                 Ok(store)
             } else {
-                let store = T::open(self.root_dir.clone(), index)?;
+                let store = TrackingStore::new(T::open(self.root_dir.clone(), index)?);
 
                 while cache.len() > self.capacity - 1 {
                     // TODO: Optimize logic here with `BinaryHeap`
                     if let Some(min_index) = cache.keys().min().cloned() {
                         if let Some(db) = cache.remove(&min_index) {
-                            if let Err(err) = db.flush() {
+                            if let Err(err) = db.store.flush() {
                                 log::warn!("{err}");
                             }
                         }
@@ -144,4 +163,61 @@ where
     // {
     //     todo!()
     // }
+}
+
+impl<T> ReadStore for TrackingStore<T>
+where
+    T: ReadWriteStore + 'static,
+{
+    fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, crate::Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let opt = self.store.read(key)?;
+        if opt.is_some() {
+            self.track_access();
+        }
+        Ok(opt)
+    }
+
+    fn exists<K>(&self, key: K) -> Result<bool, crate::Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        let exists = self.store.exists(key)?;
+        if exists {
+            self.track_access();
+        }
+        Ok(exists)
+    }
+
+    // TODO: Merge results, use fallback implementation for now
+    // fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, crate::Error>
+    // where
+    //     K: AsRef<[u8]>,
+    // {
+    //     todo!()
+    // }
+}
+
+impl<T> ReadWriteStore for TrackingStore<T>
+where
+    T: ReadWriteStore + 'static,
+{
+    fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::Error>
+    where
+        K: AsRef<[u8]>,
+        V: AsRef<[u8]>,
+    {
+        self.track_access();
+        self.store.write(key, value)
+    }
+
+    fn delete<K>(&self, key: K) -> Result<(), crate::Error>
+    where
+        K: AsRef<[u8]>,
+    {
+        self.track_access();
+        self.store.delete(key)
+    }
 }

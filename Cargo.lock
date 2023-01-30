@@ -3077,6 +3077,7 @@ dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "cid",
+ "forest_actor_interface",
  "forest_libp2p_bitswap",
  "fvm_ipld_blockstore",
  "lazy_static",

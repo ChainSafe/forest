@@ -20,7 +20,8 @@ use std::sync::Arc;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
-use rolling::{ProxyStore, SplitStore};
+
+use rolling::{ProxyStore, SplitStore, TrackingStore};
 
 /// Read-only store interface used as a KV store implementation
 pub trait ReadStore {
@@ -87,7 +88,7 @@ pub trait Store: ReadWriteStore {
     fn rolling_by_epoch(
         &self,
         epoch: i64,
-    ) -> SplitStore<ProxyStore<crate::db_engine::Db>, crate::db_engine::Db>;
+    ) -> SplitStore<ProxyStore<crate::db_engine::Db>, TrackingStore<crate::db_engine::Db>>;
 }
 
 impl<BS: ReadStore> ReadStore for &BS {
@@ -156,7 +157,7 @@ where
     fn rolling_by_epoch(
         &self,
         epoch: i64,
-    ) -> SplitStore<ProxyStore<crate::db_engine::Db>, crate::db_engine::Db> {
+    ) -> SplitStore<ProxyStore<crate::db_engine::Db>, TrackingStore<crate::db_engine::Db>> {
         (*self).rolling_by_epoch(epoch)
     }
 }

@@ -176,7 +176,7 @@ impl IndexedStore for ParityDb {
     fn open(mut path: PathBuf, index: usize) -> anyhow::Result<Self> {
         path.push(index.to_string());
         let config = ParityDbConfig::default();
-        Ok(ParityDb::open(path, &config)?)
+        ParityDb::open(path, &config)
     }
 }
 

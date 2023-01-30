@@ -4,6 +4,7 @@
 use super::*;
 use crate::DBStatistics;
 use cid::Cid;
+use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_libp2p_bitswap::BitswapStore;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
@@ -135,8 +136,10 @@ impl Store for ProxyStore<crate::db_engine::Db> {
         self.persistent()
     }
 
-    fn rolling_by_epoch(&self, epoch: i64) -> SplitStore<Self, crate::db_engine::Db> {
-        const EPOCHS_IN_DAY: i64 = 2880;
+    fn rolling_by_epoch(
+        &self,
+        epoch: i64,
+    ) -> SplitStore<Self, TrackingStore<crate::db_engine::Db>> {
         let index = epoch / EPOCHS_IN_DAY;
         SplitStore {
             r: self.clone(),
