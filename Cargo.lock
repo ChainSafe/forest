@@ -2961,6 +2961,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.1",
  "serde",
+ "sha2 0.10.6",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -3251,6 +3252,7 @@ dependencies = [
  "quickcheck_macros",
  "serde",
  "serde_json",
+ "sha2 0.10.6",
  "thiserror",
  "tokio",
 ]

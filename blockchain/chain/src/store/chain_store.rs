@@ -16,7 +16,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::{ReadStore, ReadWriteStore, Store};
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
-use forest_ipld::recurse_links;
+use forest_ipld::recurse_links_hash;
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::BitswapStore;
 use forest_message::Message as MessageTrait;
@@ -598,13 +598,13 @@ where
         F: FnMut(Cid) -> T + Send,
         T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
     {
-        let mut seen = HashSet::<Cid>::new();
+        let mut seen = HashSet::<sha2::digest::Output<sha2::Sha256>>::new();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
         let mut current_min_height = tipset.epoch();
         let incl_roots_epoch = tipset.epoch() - recent_roots;
 
         while let Some(next) = blocks_to_walk.pop_front() {
-            if !seen.insert(next) {
+            if !seen.insert(sha2::Sha256::digest(next.to_bytes())) {
                 continue;
             }
 
@@ -620,7 +620,7 @@ where
             }
 
             if h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.messages(), &mut load_block).await?;
+                recurse_links_hash(&mut seen, *h.messages(), &mut load_block).await?;
             }
 
             if h.epoch() > 0 {
@@ -634,7 +634,7 @@ where
             }
 
             if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links(&mut seen, *h.state_root(), &mut load_block).await?;
+                recurse_links_hash(&mut seen, *h.state_root(), &mut load_block).await?;
             }
         }
 

@@ -21,6 +21,7 @@ libipld-macro.workspace = true
 libipld.workspace = true
 multibase.workspace = true
 serde = { workspace = true, features = ["derive"] }
+sha2 = { workspace = true, default-features = false }
 thiserror.workspace = true
 
 [dev-dependencies]
