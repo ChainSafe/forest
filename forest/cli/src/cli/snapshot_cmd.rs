@@ -51,6 +51,9 @@ pub enum SnapshotCommands {
         /// Skip creating the checksum file.
         #[structopt(long)]
         skip_checksum: bool,
+        /// Skip writing to `.car` file.
+        #[structopt(long)]
+        dry_run: bool,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
@@ -143,6 +146,7 @@ impl SnapshotCommands {
                 recent_stateroots,
                 output_path,
                 skip_checksum,
+                dry_run,
             } => {
                 let chain_head = match chain_head(&config.client.rpc_token).await {
                     Ok(head) => head.0,
@@ -188,6 +192,7 @@ impl SnapshotCommands {
                     output_path,
                     TipsetKeysJson(chain_head.key().clone()),
                     *skip_checksum,
+                    *dry_run,
                 );
 
                 let out = chain_export(params, &config.client.rpc_token)

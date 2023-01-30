@@ -55,7 +55,7 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
-    let (epoch, recent_roots, out, TipsetKeysJson(tsk), skip_checksum) = params;
+    let (epoch, recent_roots, out, TipsetKeysJson(tsk), skip_checksum, dry_run) = params;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
     if recent_roots < chain_finality {
@@ -65,8 +65,15 @@ where
     }
 
     let out_tmp = out.with_extension("car.tmp");
-    let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
-    let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
+    let writer = if dry_run {
+        None
+    } else {
+        let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
+        Some(AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(
+            file,
+        )))
+    };
+    // let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
 
     let head = data.chain_store.tipset_from_keys(&tsk)?;
 
@@ -77,12 +84,13 @@ where
         .export(&start_ts, recent_roots, writer)
         .await
     {
-        Ok(checksum) => {
+        Ok(Some(checksum)) => {
             std::fs::rename(&out_tmp, &out)?;
             if !skip_checksum {
                 save_checksum(&out, checksum).await?;
             }
         }
+        Ok(None) => {}
         Err(e) => {
             if let Err(e) = std::fs::remove_file(&out_tmp) {
                 error!(

@@ -107,7 +107,7 @@ where
                 cache.insert(index, store.clone());
 
                 log::info!(
-                    "get_writable_store {index} created at {}",
+                    "rolling store {index} opened from {}",
                     self.root_dir.display()
                 );
 
