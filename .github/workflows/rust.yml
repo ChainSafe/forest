@@ -48,7 +48,7 @@ jobs:
 
   lint-all:
     name: All lint checks (lint audit spellcheck udeps)
-    runs-on: ubuntu-22.04
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-latest]
+        os: [buildjet-8vcpu-ubuntu-2204, macos-latest]
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -120,7 +120,7 @@ jobs:
 
   calibnet-check:
     name: Calibnet sync check
-    runs-on: ubuntu-latest
+    runs-on: buildjet-8vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
@@ -167,7 +167,7 @@ jobs:
           sha256sum -c *.sha256sum
       - name: validate snapshot
         run: |
-          forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force && 
+          forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
           { echo "mainnet snapshot validation with calibnet snapshot should fail"; return 1; }
           forest-cli --chain calibnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force
       - name: print forest logs
@@ -184,7 +184,7 @@ jobs:
 
   dependencies-check:
     name: Check cargo files for duplicates
-    runs-on: ubuntu-22.04
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v3
       - name: Set up Ruby

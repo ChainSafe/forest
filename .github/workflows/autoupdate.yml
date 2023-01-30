@@ -7,7 +7,7 @@ on:
 jobs:
   autoupdate:
     name: autoupdate
-    runs-on: ubuntu-22.04
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - uses: docker://chinthakagodawita/autoupdate-action:v1
         env:

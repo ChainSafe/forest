@@ -16,7 +16,7 @@ env:
 jobs:
   check-publish-docs:
     name: Publish
-    runs-on: ubuntu-22.04
+    runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3
