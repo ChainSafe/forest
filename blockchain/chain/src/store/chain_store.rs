@@ -610,7 +610,7 @@ where
             let index_to_keep = (tipset.epoch() / EPOCHS_IN_DAY) as usize;
             self.blockstore()
                 .rolling()
-                .delete_on(|index| index != index_to_keep);
+                .delete_on(|index| index < index_to_keep);
             info!("Finish pruning DB");
         }
 
