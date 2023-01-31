@@ -1,8 +1,10 @@
 [package]
 name = "serialization_tests"
-version = "0.1.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [features]
 submodule_tests = []
