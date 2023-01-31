@@ -1,11 +1,11 @@
 [package]
 name = "forest_encoding"
 description = "Filecoin encoding and decoding utilities for use in Forest"
-license = "MIT OR Apache-2.0"
-version = "0.4.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 blake2b_simd.workspace = true

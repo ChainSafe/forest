@@ -1,8 +1,10 @@
 [package]
 name = "forest_auth"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 # Public
