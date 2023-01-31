@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod error;
+pub mod hashset;
+pub mod json;
 pub mod selector;
 pub mod util;
-
-pub mod json;
 
 pub use self::error::Error;
 pub use libipld::Path;

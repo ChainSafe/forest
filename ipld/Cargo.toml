@@ -12,20 +12,25 @@ ahash.workspace = true
 anyhow.workspace = true
 async-recursion = "1.0"
 async-trait.workspace = true
+blake3.workspace = true
 cid.workspace = true
+forest_db.workspace = true
+fs_extra.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+human-repr.workspace = true
 indexmap.workspace = true
 libipld-core = { workspace = true, features = ["serde-codec"] }
 libipld-macro.workspace = true
 libipld.workspace = true
+log.workspace = true
+md5 = "0.7"
 multibase.workspace = true
 serde = { workspace = true, features = ["derive"] }
-sha2 = { workspace = true, default-features = false }
+tempfile.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-forest_db.workspace = true
 forest_json.workspace = true
 forest_utils.workspace = true
 multihash = { workspace = true, default-features = false, features = ["identity"] }
