@@ -172,7 +172,6 @@ impl BitswapRequestManager {
                     }
                 },
                 Err(e) => {
-                    // TODO: log data
                     warn!("Failed to construct block: {e}, cid: {cid}");
                     false
                 }
