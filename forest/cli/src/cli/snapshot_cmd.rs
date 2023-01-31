@@ -18,6 +18,7 @@ use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_ipld_car::load_car;
 use fvm_shared::clock::ChainEpoch;
+use log::info;
 use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
@@ -380,6 +381,10 @@ async fn validate(
 
     if confirm {
         let tmp_db_path = TempDir::new()?;
+        info!(
+            "Creating temperaroy DB under {}",
+            tmp_db_path.path().display()
+        );
         let db_path = tmp_db_path.path().join(&config.chain.name);
         let db = open_proxy_db(&db_path, config.db_config())?;
 
@@ -395,7 +400,7 @@ async fn validate(
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
-            load_car(chain_store.blockstore(), reader.compat()).await?
+            load_car(chain_store.blockstore().persistent(), reader.compat()).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
