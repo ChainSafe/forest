@@ -180,7 +180,8 @@ async fn snapshot_fetch_forest(
             .unwrap_or_default()
             .cmp(&DateTime::parse_from_rfc3339(&a.last_modified).unwrap_or_default())
     });
-    let last_modified = snapshots[5];
+    // HACK: to get an older snapshot
+    let last_modified = snapshots[2];
 
     // Grab the snapshot name and create requested directory tree.
     let filename = last_modified.key.rsplit_once('/').unwrap().1;

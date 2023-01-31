@@ -161,9 +161,11 @@ jobs:
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
+          du -hS ~/.local/share/forest/calibnet
       - name: export snapshot
         run: |
-          forest-cli snapshot export
+          forest-cli snapshot export --prune-db
+          du -hS ~/.local/share/forest/calibnet
           sha256sum -c *.sha256sum
       - name: validate snapshot
         run: |

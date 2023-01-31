@@ -541,7 +541,7 @@ where
         });
 
         let global_pre_time = SystemTime::now();
-        info!("chain export started, dry_run: {dry_run}");
+        info!("chain export started, dry_run: {dry_run}, prune_db: {prune_db}");
 
         let from_persistent = Arc::new(AtomicU64::new(0));
         let from_latest_rolling = Arc::new(AtomicU64::new(0));
