@@ -147,6 +147,7 @@ impl Store for ProxyStore<crate::db_engine::Db> {
         SplitStore {
             r: self.clone(),
             w: self.rolling_by_epoch_raw(epoch),
+            carry_over: true,
         }
     }
 
@@ -164,24 +165,25 @@ impl Store for ProxyStore<crate::db_engine::Db> {
 #[derive(Debug, Clone)]
 pub struct SplitStore<R, W>
 where
-    R: ReadStore,
+    R: Store,
     W: ReadWriteStore,
 {
     r: R,
     w: W,
+    carry_over: bool,
 }
 
 impl<R, W> Blockstore for SplitStore<R, W>
 where
-    R: ReadStore,
+    R: Store,
     W: ReadWriteStore,
 {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.r.read(k.to_bytes()).map_err(|e| e.into())
+        self.read(k.to_bytes()).map_err(|e| e.into())
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.w.write(k.to_bytes(), block).map_err(|e| e.into())
+        self.write(k.to_bytes(), block).map_err(|e| e.into())
     }
 
     // FIXME
@@ -197,14 +199,25 @@ where
 
 impl<R, W> ReadStore for SplitStore<R, W>
 where
-    R: ReadStore,
+    R: Store,
     W: ReadWriteStore,
 {
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, crate::Error>
     where
         K: AsRef<[u8]>,
     {
-        self.r.read(key)
+        if let Ok(Some(data)) = self.r.persistent().read(key.as_ref()) {
+            Ok(Some(data))
+        } else if let Ok(Some(data)) = self.w.read(key.as_ref()) {
+            Ok(Some(data))
+        } else if let Some(data) = self.r.read(key.as_ref())? {
+            if self.carry_over {
+                self.w.write(key, &data)?;
+            }
+            Ok(Some(data))
+        } else {
+            Ok(None)
+        }
     }
 
     fn exists<K>(&self, key: K) -> Result<bool, crate::Error>
@@ -217,7 +230,7 @@ where
 
 impl<R, W> ReadWriteStore for SplitStore<R, W>
 where
-    R: ReadStore,
+    R: Store,
     W: ReadWriteStore,
 {
     fn write<K, V>(&self, key: K, value: V) -> Result<(), crate::Error>
