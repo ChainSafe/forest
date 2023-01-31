@@ -1,9 +1,11 @@
 [package]
 name = "forest_cli_shared"
-version = "0.4.1"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This crate contains shared utilities that power both cli and daemon."
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
