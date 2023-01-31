@@ -3,25 +3,43 @@
 
 use super::*;
 use ahash::{HashMap, HashMapExt};
+use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct TrackingStore<T> {
+    pub index: usize,
     pub store: T,
-    pub last_valid_access: Arc<RwLock<Instant>>,
+    pub last_read: Arc<RwLock<DateTime<Utc>>>,
+    pub last_write: Arc<RwLock<DateTime<Utc>>>,
 }
 
 impl<T> TrackingStore<T> {
-    pub fn new(store: T) -> Self {
+    pub fn new(index: usize, store: T) -> Self {
+        let now = Utc::now();
         Self {
+            index,
             store,
-            last_valid_access: Arc::new(RwLock::new(Instant::now())),
+            last_read: Arc::new(RwLock::new(now)),
+            last_write: Arc::new(RwLock::new(now)),
         }
     }
 
-    pub(crate) fn track_access(&self) {
-        *self.last_valid_access.write() = Instant::now();
+    pub(crate) fn track_read(&self) {
+        let now = Utc::now();
+        *self.last_read.write() = now;
+        metrics::ROLLING_DB_LAST_READ
+            .with_label_values(&[&self.index.to_string()])
+            .set(now.timestamp())
+    }
+
+    pub(crate) fn track_write(&self) {
+        let now = Utc::now();
+        *self.last_write.write() = now;
+        metrics::ROLLING_DB_LAST_WRITE
+            .with_label_values(&[&self.index.to_string()])
+            .set(now.timestamp())
     }
 }
 
@@ -62,7 +80,7 @@ where
                 let mut cache = cache.write();
                 index.into_iter().take(capacity).for_each(|i| {
                     if let Ok(store) = T::open(root_dir.clone(), i) {
-                        cache.insert(i, TrackingStore::new(store));
+                        cache.insert(i, TrackingStore::new(i, store));
                     }
                 });
             }
@@ -89,7 +107,7 @@ where
                 // log::info!("get_writable_store {index} cache hit");
                 Ok(store)
             } else {
-                let store = TrackingStore::new(T::open(self.root_dir.clone(), index)?);
+                let store = TrackingStore::new(index, T::open(self.root_dir.clone(), index)?);
 
                 while cache.len() > self.capacity - 1 {
                     // TODO: Optimize logic here with `BinaryHeap`
@@ -116,10 +134,10 @@ where
         }
     }
 
-    pub fn access_stats(&self) -> HashMap<usize, Instant> {
+    pub fn access_stats(&self) -> HashMap<usize, (DateTime<Utc>, DateTime<Utc>)> {
         let mut map = HashMap::new();
         for (&k, v) in self.cache.read().iter() {
-            map.insert(k, *v.last_valid_access.read());
+            map.insert(k, (*v.last_read.read(), *v.last_write.read()));
         }
         map
     }
@@ -202,7 +220,7 @@ where
     {
         let opt = self.store.read(key)?;
         if opt.is_some() {
-            self.track_access();
+            self.track_read();
         }
         Ok(opt)
     }
@@ -213,7 +231,7 @@ where
     {
         let exists = self.store.exists(key)?;
         if exists {
-            self.track_access();
+            self.track_read();
         }
         Ok(exists)
     }
@@ -236,7 +254,7 @@ where
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        self.track_access();
+        self.track_write();
         self.store.write(key, value)
     }
 
@@ -244,7 +262,7 @@ where
     where
         K: AsRef<[u8]>,
     {
-        self.track_access();
+        self.track_write();
         self.store.delete(key)
     }
 }

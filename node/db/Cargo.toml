@@ -24,6 +24,7 @@ paritydb = ["dep:parity-db"]
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
 cid.workspace = true
 forest_actor_interface.workspace = true
 forest_libp2p_bitswap.workspace = true

@@ -158,7 +158,13 @@ impl Store for ProxyStore<crate::db_engine::Db> {
 
     fn rolling_stats(&self) -> String {
         let stats = self.rolling().access_stats();
-        format!("{stats:?}")
+        let mut s = String::new();
+        for (index, (last_read, last_write)) in stats {
+            s.push_str(&format!(
+                "\nindex: {index}, last_read: {last_read}, last_write: {last_write}"
+            ));
+        }
+        s
     }
 }
 

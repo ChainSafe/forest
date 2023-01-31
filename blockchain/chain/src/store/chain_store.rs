@@ -8,6 +8,7 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
+use chrono::Utc;
 use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
@@ -43,7 +44,6 @@ use serde::Serialize;
 use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
 use std::{collections::VecDeque, time::SystemTime};
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
@@ -509,7 +509,7 @@ where
         W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
     {
         let dry_run = writer.is_none();
-        let start = Instant::now();
+        let start = Utc::now();
 
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
@@ -601,7 +601,7 @@ where
         );
 
         info!(
-            "chain export started at {start:?}, rolling store stats: {}, from_persistent: {}, from_latest_rolling: {}, from_old_rolling: {}",
+            "chain export started at {start}, rolling store stats: {}, from_persistent: {}, from_latest_rolling: {}, from_old_rolling: {}",
             self.blockstore().rolling_stats(),from_persistent.load(Ordering::Relaxed) ,from_latest_rolling.load(Ordering::Relaxed),from_old_rolling.load(Ordering::Relaxed)
         );
 
