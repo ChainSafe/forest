@@ -1,6 +1,6 @@
 # forest_libp2p_bitswap
 
-Another libp2p bitswap([SPEC](https://github.com/ipfs/specs/blob/main/BITSWAP.md)) implementation in rust.
+Another libp2p bitswap([SPEC](https://github.com/ipfs/specs/blob/main/BITSWAP.md)) implementation in Rust.
 
 ## Features
 
@@ -13,7 +13,7 @@ Another libp2p bitswap([SPEC](https://github.com/ipfs/specs/blob/main/BITSWAP.md
 
 - `tokio`, disabled by default. Use task API(s) from `tokio` instead of `async-std` inside this crate.
 
-Note: since `async-std` task API(s) are compatible with `tokio` runtime, so it still works fine with `tokio` runtime when this feature is disabled. But it won't work with `async-std` runtime if this feature is enabled.
+Note: since `async-std` task API(s) are compatible with `tokio` runtime, it still works fine with `tokio` runtime when this feature is disabled. But it won't work with `async-std` runtime if this feature is enabled.
 
 ## Usage
 
