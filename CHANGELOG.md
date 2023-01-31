@@ -18,6 +18,7 @@ Notable updates:
 * [libp2p] Properly cancel bitswap queries that are not responded to after a period. [#2399](https://github.com/ChainSafe/forest/pull/2399)
 * [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [#2403](https://github.com/ChainSafe/forest/pull/2403)
 * [forest daemon] forest daeamon crashes on sending bitswap requests. [#2419](https://github.com/ChainSafe/forest/pull/2419)
+* [version] The version shown in `--help` was stuck at `0.4.1`. Now all binaries and crates in the project will follow a standard version, based on the release tag. [#2487](https://github.com/ChainSafe/forest/pull/2487)
 
 ## Forest v0.6.0 (2023-01-06)
 
