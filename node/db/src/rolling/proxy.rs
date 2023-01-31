@@ -147,7 +147,7 @@ impl Store for ProxyStore<crate::db_engine::Db> {
         SplitStore {
             r: self.clone(),
             w: self.rolling_by_epoch_raw(epoch),
-            carry_over: true,
+            carry_over: false,
         }
     }
 
