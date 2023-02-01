@@ -131,7 +131,9 @@ mod tests {
 
         loop {
             select! {
+                // Hook libp2p swarm events
                 swarm_event_opt = swarm_stream.next() => {
+                    // `store` implements `BitswapStoreRead`
                     _ = handle_swarm_event(
                         swarm_stream.get_mut(),
                         swarm_event_opt,

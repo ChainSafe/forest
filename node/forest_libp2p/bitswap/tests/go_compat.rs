@@ -49,6 +49,7 @@ mod tests {
         let (inbound_response_tx, inbound_response_rx) = flume::unbounded();
         tokio::spawn(async move {
             loop {
+                // Swarm event loop
                 match swarm.select_next_some().await {
                     SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message }) => {
                         let bitswap = &mut swarm.behaviour_mut();
@@ -58,10 +59,13 @@ mod tests {
                                 request,
                                 channel,
                             } => {
+                                // Close the stream immediately, `go-bitswap` does not read response(s) from this stream
+                                // so they will be sent over another stream
                                 bitswap.inner_mut().send_response(channel, ()).unwrap();
                                 for message in request {
                                     match message {
                                         BitswapMessage::Request(r) => {
+                                            // Send a response to the go app
                                             bitswap.send_response(
                                                 &peer,
                                                 (r.cid, BitswapResponse::Have(false)),
@@ -69,7 +73,7 @@ mod tests {
                                             // 1. Get an inbound request from go app
                                             if r.cid == expected_inbound_request_cid {
                                                 inbound_request_tx.send_async(peer).await.unwrap();
-                                                // Then send a request to go app
+                                                // Send a request to the go app
                                                 bitswap.send_request(
                                                     &peer,
                                                     BitswapRequest::new_have(outbound_request_cid)

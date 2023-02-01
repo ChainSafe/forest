@@ -17,65 +17,26 @@ Note: since `async-std` task API(s) are compatible with `tokio` runtime, it stil
 
 ## Usage
 
-Basic usage of `BitswapBehaviour`, checkout `tests/go_compat.rs` for details
+Basic usage of `BitswapBehaviour`, for writing swarm event flow, sending or receiving a request or a response, checkout `tests/go_compat.rs`. Note that a request manager is needed for a real-world application.
 
 ```rust
+use forest_libp2p_bitswap::BitswapBehaviour;
+
 // Use default protocol ID(s), same with `go-bitswap` defaults
 let behaviour = BitswapBehaviour::default();
 
 // Use custom protocol ID(s)
 let behaviour = BitswapBehaviour::new(&[b"/test/ipfs/bitswap/1.2.0"], Default::default());
-
-// Swarm event
-match swarm.select_next_some().await {
-    SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message }) => {
-        // Custom logic
-    }
-}
-
-// Send bitswap request
-swarm.behaviour_mut().send_request(peer, request);
-
-// Send bitswap response
-swarm.behaviour_mut().send_response(peer, response);
 ```
 
-To use request manager, a data store that implements `BitswapStoreRead` and `BitswapStoreReadWrite` is required. Checkout `tests/request_manager.rs` for details
+To use the builtin request manager that is optimized for filecoin network, a data store that implements `BitswapStoreRead` and `BitswapStoreReadWrite` is required. For hooking request manager in swarm event flow, requesting a block via request manager API, checkout `tests/request_manager.rs`.
 
 ```rust
+use forest_libp2p_bitswap::BitswapBehaviour;
+
 let behaviour = BitswapBehaviour::default();
 // Gets the accociated request manager from the bitswap behaviour
 // Note: The response is of type Arc<BitswapRequestManager> so that
 // you can easily clone it, store it or send it around.
 let bitswap_request_manager = behaviour.request_manager();
-let swarm = ...;
-
-let mut outbound_request_rx_stream = request_manager.outbound_request_rx().stream().fuse();
-// Hook libp2p swarm events
-loop {
-    select! {
-        // Hook swarm event
-        swarm_event = match swarm.select_next_some() => match swarm_event {
-            SwarmEvent::Behaviour(BitswapBehaviourEvent::Message { peer, message }) => {
-                let bitswap = &mut swarm.behaviour_mut();
-                // `store` implements `BitswapStore`
-                if let Err(err) = bitswap.handle_event(store, event) {
-                    // log
-                }
-            }
-        },
-        // Hook request manager outgoing message
-        request_opt = outbound_request_rx_stream.next() => if let Some((peer, request)) = request_opt {
-            let bitswap = &mut swarm.behaviour_mut();
-            bitswap.send_request(&peer, request);
-        },
-    }
-}
-
-// request a block with `cid`
-let (tx, rx) = flume::bounded(1);
-// NOTE: `get_block` API does not block
-bitswap_request_manager.get_block(store, cid, timeout, Some(tx));
-let success = rx.recv()?;
-assert_eq!(store.contains(&cid), success);
 ```
