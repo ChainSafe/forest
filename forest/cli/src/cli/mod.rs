@@ -6,6 +6,7 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
+mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
@@ -19,6 +20,7 @@ mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
+pub(super) use self::attach_cmd::AttachCommand;
 pub(super) use self::auth_cmd::AuthCommands;
 pub(super) use self::chain_cmd::ChainCommands;
 pub(super) use self::db_cmd::DBCommands;
@@ -97,6 +99,9 @@ pub enum Subcommand {
 
     /// Database management
     DB(DBCommands),
+
+    /// Attach to daemon via a JavaScript console
+    Attach(AttachCommand),
 }
 
 /// Pretty-print a JSON-RPC error and exit
