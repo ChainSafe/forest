@@ -13,7 +13,7 @@ use forest_cli_shared::cli::{
 };
 use forest_db::{db_engine::open_db, Store};
 use forest_genesis::read_genesis_header;
-use forest_ipld::recurse_links;
+use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_ipld_car::load_car;
@@ -415,7 +415,7 @@ async fn validate_links_and_genesis_traversal<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
-    let mut seen = HashSet::<Cid>::new();
+    let mut seen = HashSet::<blake3::Hash>::new();
     let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();
@@ -456,8 +456,8 @@ where
             };
 
             for h in tipset.blocks() {
-                recurse_links(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
-                recurse_links(&mut seen, *h.messages(), &mut assert_cid_exists).await?;
+                recurse_links_hash(&mut seen, *h.state_root(), &mut assert_cid_exists).await?;
+                recurse_links_hash(&mut seen, *h.messages(), &mut assert_cid_exists).await?;
             }
         }
 

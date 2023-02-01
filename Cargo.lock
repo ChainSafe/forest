@@ -743,6 +743,7 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "constant_time_eq 0.2.4",
+ "digest 0.10.6",
 ]
 
 [[package]]
@@ -2730,6 +2731,7 @@ dependencies = [
  "assert_cmd",
  "atty",
  "base64 0.21.0",
+ "blake3",
  "cid",
  "dialoguer",
  "forest_auth",
@@ -2929,6 +2931,7 @@ dependencies = [
  "anyhow",
  "async-stream",
  "blake2b_simd",
+ "blake3",
  "bls-signatures",
  "cid",
  "digest 0.10.6",
@@ -3234,6 +3237,7 @@ dependencies = [
  "anyhow",
  "async-recursion",
  "async-trait",
+ "blake3",
  "cid",
  "forest_db",
  "forest_json",
