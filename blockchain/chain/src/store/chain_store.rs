@@ -17,8 +17,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::{ReadStore, ReadWriteStore, Store};
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
-use forest_ipld::hashset::CidHashSet;
-use forest_ipld::recurse_links_hash;
+use forest_ipld::{hashset::CidHashSet, recurse_links_hash2};
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::BitswapStore;
 use forest_message::Message as MessageTrait;
@@ -625,7 +624,7 @@ where
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
     /// This is tracked based on the callback function loading blocks.
-    async fn walk_snapshot<F, T>(
+    pub async fn walk_snapshot<F, T>(
         tipset: &Tipset,
         recent_roots: ChainEpoch,
         mut load_block: F,
@@ -656,7 +655,7 @@ where
             }
 
             if h.epoch() > incl_roots_epoch {
-                recurse_links_hash(&mut seen, *h.messages(), &mut load_block).await?;
+                recurse_links_hash2(&mut seen, *h.messages(), &mut load_block).await?;
             }
 
             if h.epoch() > 0 {
@@ -670,7 +669,7 @@ where
             }
 
             if h.epoch() == 0 || h.epoch() > incl_roots_epoch {
-                recurse_links_hash(&mut seen, *h.state_root(), &mut load_block).await?;
+                recurse_links_hash2(&mut seen, *h.state_root(), &mut load_block).await?;
             }
         }
 

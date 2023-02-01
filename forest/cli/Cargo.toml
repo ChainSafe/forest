@@ -12,6 +12,7 @@ ahash.workspace = true
 anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
+blake3.workspace = true
 cid.workspace = true
 dialoguer.workspace = true
 forest_auth.workspace = true
