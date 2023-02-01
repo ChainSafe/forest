@@ -3529,6 +3529,7 @@ dependencies = [
  "hex",
  "http",
  "jsonrpc-v2",
+ "lazy_static",
  "libipld-core 0.14.0",
  "log",
  "multibase",
