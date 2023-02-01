@@ -11,6 +11,7 @@ ahash.workspace = true
 anyhow.workspace = true
 async-stream = "0.3.3"
 blake2b_simd.workspace = true
+blake3.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
 digest.workspace = true
