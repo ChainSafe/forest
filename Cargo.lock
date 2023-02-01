@@ -743,7 +743,6 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "constant_time_eq 0.2.4",
- "digest 0.10.6",
 ]
 
 [[package]]
@@ -3238,28 +3237,22 @@ dependencies = [
  "anyhow",
  "async-recursion",
  "async-trait",
- "blake3",
  "cid",
  "forest_db",
  "forest_json",
  "forest_utils",
- "fs_extra",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
- "human-repr",
  "indexmap",
  "libipld",
  "libipld-core 0.14.0",
  "libipld-macro",
- "log",
- "md5",
  "multibase",
  "multihash",
  "quickcheck",
  "quickcheck_macros",
  "serde",
  "serde_json",
- "tempfile",
  "thiserror",
  "tokio",
 ]
@@ -3605,7 +3598,7 @@ name = "forest_shim"
 version = "0.6.0"
 dependencies = [
  "fvm_shared 2.0.0",
- "fvm_shared 3.0.0-alpha.17",
+ "fvm_shared 3.0.0-alpha.18",
  "num-bigint",
  "serde",
 ]
@@ -4161,9 +4154,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_shared"
-version = "3.0.0-alpha.17"
+version = "3.0.0-alpha.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3779876441e390f414161474701404b5641e02a5b9acfece9b212f6d24e482e1"
+checksum = "24913427042ec8d1bfd65eb739440a647c3539e51e6dbf3da104a6f54993b61c"
 dependencies = [
  "anyhow",
  "bitflags",

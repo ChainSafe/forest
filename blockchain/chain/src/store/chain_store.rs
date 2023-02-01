@@ -17,7 +17,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::{ReadStore, ReadWriteStore, Store};
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
-use forest_ipld::hashset::DbBackedHashSet;
+use forest_ipld::hashset::CidHashSet;
 use forest_ipld::recurse_links_hash;
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::BitswapStore;
@@ -634,13 +634,13 @@ where
         F: FnMut(Cid) -> T + Send,
         T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
     {
-        let mut seen = DbBackedHashSet::new()?;
+        let mut seen = CidHashSet::new()?;
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
         let mut current_min_height = tipset.epoch();
         let incl_roots_epoch = tipset.epoch() - recent_roots;
 
         while let Some(next) = blocks_to_walk.pop_front() {
-            if !seen.insert(next.to_bytes())? {
+            if !seen.insert(&next) {
                 continue;
             }
 

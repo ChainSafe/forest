@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{hashset::DbBackedHashSet, Ipld};
+use crate::{hashset::CidHashSet, Ipld};
 use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_encoding::from_slice;
@@ -83,7 +83,7 @@ where
 // to interact with the data.
 #[async_recursion::async_recursion]
 async fn traverse_ipld_links_hash<F, T>(
-    walked: &mut DbBackedHashSet,
+    walked: &mut CidHashSet,
     load_block: &mut F,
     ipld: &Ipld,
 ) -> Result<(), anyhow::Error>
@@ -105,13 +105,13 @@ where
         Ipld::Link(cid) => {
             // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
             if cid.codec() == fvm_shared::IPLD_RAW {
-                if !walked.insert(cid.to_bytes())? {
+                if !walked.insert(cid) {
                     return Ok(());
                 }
                 let _ = load_block(*cid).await?;
             }
             if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                if !walked.insert(cid.to_bytes())? {
+                if !walked.insert(cid) {
                     return Ok(());
                 }
                 let bytes = load_block(*cid).await?;
@@ -126,7 +126,7 @@ where
 
 // Load cids and call [traverse_ipld_links] to resolve recursively.
 pub async fn recurse_links_hash<F, T>(
-    walked: &mut DbBackedHashSet,
+    walked: &mut CidHashSet,
     root: Cid,
     load_block: &mut F,
 ) -> Result<(), anyhow::Error>
@@ -134,7 +134,7 @@ where
     F: FnMut(Cid) -> T + Send,
     T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
 {
-    if !walked.insert(root.to_bytes())? {
+    if !walked.insert(&root) {
         // Cid has already been traversed
         return Ok(());
     }
