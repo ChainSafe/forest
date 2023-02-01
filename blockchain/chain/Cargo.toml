@@ -1,14 +1,17 @@
 [package]
 name = "forest_chain"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
 async-stream = "0.3.3"
 blake2b_simd.workspace = true
+blake3.workspace = true
 bls-signatures.workspace = true
 cid.workspace = true
 digest.workspace = true

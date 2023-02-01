@@ -1,11 +1,11 @@
 [package]
 name = "forest_legacy_ipld_amt"
 description = "Sharded IPLD Array implementation."
-version = "0.2.0"
-license = "MIT OR Apache-2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
-repository = "https://github.com/ChainSafe/forest"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash = { workspace = true, optional = true }
