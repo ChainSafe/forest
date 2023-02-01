@@ -11,6 +11,7 @@ use crate::tipset_syncer::{
 };
 use crate::validation::{TipsetValidationError, TipsetValidator};
 use cid::Cid;
+use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_blocks::{
     Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
 };
@@ -384,6 +385,7 @@ where
                         return Err(why);
                     }
                 };
+
                 (tipset, source)
             }
             NetworkEvent::HelloRequestOutbound { .. } => {
@@ -467,6 +469,14 @@ where
                 return Ok(None);
             }
         };
+
+        if tipset.epoch() + EPOCHS_IN_DAY < chain_store.heaviest_tipset().epoch() {
+            debug!(
+                "Skip processing tipset at epoch {} from {source} that is too old",
+                tipset.epoch()
+            );
+            return Ok(None);
+        }
 
         let blockstore = chain_store.db.rolling_by_epoch(tipset.epoch());
 
