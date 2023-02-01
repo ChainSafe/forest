@@ -2731,6 +2731,7 @@ dependencies = [
  "assert_cmd",
  "atty",
  "base64 0.21.0",
+ "blake3",
  "cid",
  "dialoguer",
  "forest_auth",
@@ -3016,7 +3017,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cli_shared"
-version = "0.4.1"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
