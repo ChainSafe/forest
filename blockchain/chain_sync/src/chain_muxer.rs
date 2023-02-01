@@ -470,7 +470,7 @@ where
         };
 
         if tipset.epoch() + EPOCHS_IN_DAY < chain_store.heaviest_tipset().epoch() {
-            info!(
+            debug!(
                 "Skip processing tipset at epoch {} from {source} that is too old",
                 tipset.epoch()
             );
