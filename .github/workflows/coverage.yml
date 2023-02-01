@@ -11,7 +11,7 @@ env:
 jobs:
   codecov:
     name: Cover
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3

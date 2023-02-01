@@ -10,7 +10,7 @@ on:
 
 jobs:
   shellcheck:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
       env:
         SHELLCHECK_OPTS: --external-sources
   rubocop:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Set up Ruby
