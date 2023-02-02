@@ -4,4 +4,5 @@
 pub mod address;
 pub mod bigint;
 pub mod econ;
+pub mod randomness;
 pub mod version;
