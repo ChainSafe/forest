@@ -7,11 +7,11 @@ use cid::Cid;
 use forest_actor_interface::miner;
 use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
+use forest_shim::randomness::Randomness;
 use forest_shim::version::NetworkVersion;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-use fvm_shared::randomness::Randomness;
 use fvm_shared::sector::{RegisteredSealProof, SectorInfo};
 
 impl<DB> StateManager<DB>
@@ -76,7 +76,7 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids = generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
+        let ids = generate_winning_post_sector_challenge(wpt, m_id, rand.into(), num_prov_sect)?;
 
         let mut iter = proving_sectors.iter();
 

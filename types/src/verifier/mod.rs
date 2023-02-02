@@ -3,10 +3,10 @@
 
 use filecoin_proofs_api::{post, PublicReplicaInfo};
 use filecoin_proofs_api::{ProverId, SectorId};
+use forest_shim::randomness::{Randomness, Randomness_v3};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::address::Address;
 use fvm_shared::commcid::cid_to_replica_commitment_v1;
-use fvm_shared::randomness::Randomness;
 use fvm_shared::sector::{PoStProof, RegisteredPoStProof, SectorInfo};
 use std::collections::BTreeMap;
 use std::convert::TryInto;
@@ -18,7 +18,7 @@ use std::convert::TryInto;
 /// elected to mine a new block to verify a sector. A failed winning proof leads to a miner
 /// being slashed.
 pub fn verify_winning_post(
-    Randomness(mut randomness): Randomness,
+    Randomness(Randomness_v3(mut randomness)): Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
@@ -50,7 +50,7 @@ pub fn verify_winning_post(
 pub fn generate_winning_post_sector_challenge(
     proof: RegisteredPoStProof,
     prover_id: u64,
-    Randomness(mut randomness): Randomness,
+    Randomness(Randomness_v3(mut randomness)): Randomness,
     eligible_sector_count: u64,
 ) -> Result<Vec<u64>, anyhow::Error> {
     // Necessary to be valid bls12 381 element.

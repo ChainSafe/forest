@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::randomness::Randomness as Randomness_v2;
-use fvm_shared3::randomness::Randomness as Randomness_v3;
+pub use fvm_shared::randomness::Randomness as Randomness_v2;
+pub use fvm_shared3::randomness::Randomness as Randomness_v3;
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 #[derive(PartialEq, Eq, Default, Clone, Debug, Deserialize, Serialize)]
 #[serde(transparent)]
-pub struct Randomness(Randomness_v3);
+pub struct Randomness(pub Randomness_v3);
 
 impl Deref for Randomness {
     type Target = Randomness_v3;
