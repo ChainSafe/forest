@@ -76,7 +76,7 @@ where
 
         let m_id = miner_address.id()?;
 
-        let ids = generate_winning_post_sector_challenge(wpt, m_id, rand.into(), num_prov_sect)?;
+        let ids = generate_winning_post_sector_challenge(wpt, m_id, rand, num_prov_sect)?;
 
         let mut iter = proving_sectors.iter();
 
