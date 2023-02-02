@@ -37,6 +37,15 @@ const ON_INIT_SCRIPT: &str = r#"
         return netPeers().find((x) => x.ID == peerID);
     }
 
+    function disconnectPeers(count) {
+        let ids = netPeers().map((x) => x.ID).sort();
+        // clamp
+        let new_count = Math.min(count, ids.length);
+        for (var i = 0; i < new_count; i++) {
+            netDisconnect(ids[i]);
+        }
+    } 
+
     function isPeerConnected(peerID) {
         return netPeers().some((x) => x.ID == peerID);
     }
