@@ -154,12 +154,9 @@ mod tests {
         >,
         store: &impl BitswapStoreRead,
     ) -> Result<()> {
-        match swarm_event_opt {
-            Some(SwarmEvent::Behaviour(event)) => {
-                let bitswap = &mut swarm.behaviour_mut();
-                bitswap.handle_event(store, event)?;
-            }
-            _ => {}
+        if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {
+            let bitswap = &mut swarm.behaviour_mut();
+            bitswap.handle_event(store, event)?;
         };
 
         Ok(())
