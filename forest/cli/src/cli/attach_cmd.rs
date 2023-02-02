@@ -50,7 +50,7 @@ fn require(_: &JsValue, params: &[JsValue], context: &mut Context) -> JsResult<J
         .expect("Failed to convert to string")
         .to_string();
 
-    println!("Loading: {}", path);
+    println!("Loading: {path}");
     match read_to_string(path) {
         Ok(buffer) => {
             context.eval(&buffer).unwrap();
@@ -156,7 +156,7 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
 }
 
 impl AttachCommand {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub fn run(&self, config: Config) -> anyhow::Result<()> {
         let mut context = Context::default();
         setup_context(&mut context, &config.client.rpc_token);
 
@@ -191,7 +191,7 @@ impl AttachCommand {
                         editor.add_history_entry(&buffer);
                         match context.eval(buffer.trim_end()) {
                             Ok(v) => println!("{}", v.display()),
-                            Err(v) => eprintln!("Uncaught: {:?}", v),
+                            Err(v) => eprintln!("Uncaught: {v:?}"),
                         }
                         break;
                     }
@@ -203,7 +203,7 @@ impl AttachCommand {
                                 span: _,
                                 context: _,
                             } => {
-                                eprintln!("Expecting token {:?} but got {}", expected, found);
+                                eprintln!("Expecting token {expected:?} but got {found}");
                                 break 'main;
                             }
                             _ => {
