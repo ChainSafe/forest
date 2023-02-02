@@ -620,10 +620,11 @@ async fn handle_hello_event(
         },
         RequestResponseEvent::OutboundFailure {
             request_id,
-            peer: _,
+            peer,
             error: _,
         } => {
             hello.on_error(&request_id);
+            peer_manager.mark_peer_bad(peer).await;
         }
         RequestResponseEvent::InboundFailure {
             request_id,
