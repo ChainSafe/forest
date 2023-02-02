@@ -114,7 +114,7 @@ macro_rules! bind_func {
                 });
                 check_result(context, result)
             },
-            $token,
+            $token.clone(),
         )
         .name(js_func_name.clone())
         .build();
@@ -123,9 +123,7 @@ macro_rules! bind_func {
     };
 }
 
-fn init_context(token: &Option<String>) -> Context {
-    let mut context = Context::default();
-
+fn setup_context(context: &mut Context, token: &Option<String>) {
     // Disable tracing
     context.set_trace(false);
 
@@ -137,30 +135,30 @@ fn init_context(token: &Option<String>) -> Context {
     // Add custom object that mimics `module.exports`
     let moduleobj = JsObject::default();
     moduleobj
-        .set("exports", JsValue::from(" "), false, &mut context)
+        .set("exports", JsValue::from(" "), false, context)
         .unwrap();
     context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
 
-    context.eval(ON_INIT_SCRIPT).expect("ON_INIT_SCRIPT script should work");
+    context
+        .eval(ON_INIT_SCRIPT)
+        .expect("ON_INIT_SCRIPT script should work");
 
     // Bind net ops
-    // TODO: remove token clones
-    bind_func!(&mut context, token.clone(), net_addrs_listen);
-    bind_func!(&mut context, token.clone(), net_peers);
-    bind_func!(&mut context, token.clone(), net_disconnect);
-    bind_func!(&mut context, token.clone(), net_connect);
+    bind_func!(context, token, net_addrs_listen);
+    bind_func!(context, token, net_peers);
+    bind_func!(context, token, net_disconnect);
+    bind_func!(context, token, net_connect);
 
     // Bind sync ops
-    bind_func!(&mut context, token.clone(), sync_check_bad);
-    bind_func!(&mut context, token.clone(), sync_mark_bad);
-    bind_func!(&mut context, token.clone(), sync_status);
-
-    context
+    bind_func!(context, token, sync_check_bad);
+    bind_func!(context, token, sync_mark_bad);
+    bind_func!(context, token, sync_status);
 }
 
 impl AttachCommand {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
-        let mut context = init_context(&config.client.rpc_token);
+        let mut context = Context::default();
+        setup_context(&mut context, &config.client.rpc_token);
 
         let config = RustyLineConfig::builder()
             .keyseq_timeout(1)
