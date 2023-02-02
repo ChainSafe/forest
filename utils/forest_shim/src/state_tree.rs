@@ -39,13 +39,13 @@ pub struct ActorState(ActorStateV3);
 /// The usage is awkward but it avoids code duplication.
 ///
 /// ```ignore
-/// <ActorState as Derive>::FVM::new(params...);
+/// <ActorState as Inner>::FVM::new(params...);
 /// ```
-pub trait Derive {
+pub trait Inner {
     type FVM;
 }
 
-impl Derive for ActorState {
+impl Inner for ActorState {
     type FVM = ActorStateV3;
 }
 

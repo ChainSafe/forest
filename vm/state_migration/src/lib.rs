@@ -6,7 +6,7 @@
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use forest_shim::state_tree::{ActorState, Derive, StateTree};
+use forest_shim::state_tree::{ActorState, Inner, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
@@ -212,7 +212,7 @@ impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
 
         let migration_job_result = MigrationJobOutput {
             address: self.address,
-            actor_state: <ActorState as Derive>::FVM::new(
+            actor_state: <ActorState as Inner>::FVM::new(
                 result.new_code_cid,
                 result.new_head,
                 self.actor_state.balance.clone(),
