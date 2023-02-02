@@ -182,12 +182,17 @@ impl IndexedStore for ParityDb {
     }
 
     fn delete_db(&self) -> anyhow::Result<()> {
-        let deleted_root = self.path.join("..").join("deleted");
-        if !deleted_root.exists() {
-            std::fs::create_dir_all(&deleted_root)?;
+        const SOFT_DELETE: bool = true;
+        if SOFT_DELETE {
+            let deleted_root = self.path.join("..").join("deleted");
+            if !deleted_root.exists() {
+                std::fs::create_dir_all(&deleted_root)?;
+            }
+            let new_path = deleted_root.join(self.path.components().last().unwrap());
+            std::fs::rename(&self.path, new_path)?;
+        } else {
+            std::fs::remove_dir_all(&self.path)?;
         }
-        let new_path = deleted_root.join(self.path.components().last().unwrap());
-        std::fs::rename(&self.path, new_path)?;
         Ok(())
     }
 }

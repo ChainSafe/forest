@@ -26,6 +26,10 @@ use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;
 
+use tikv_jemallocator::Jemalloc;
+#[global_allocator]
+static GLOBAL_ALLOCATOR: Jemalloc = Jemalloc;
+
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
 lazy_static! {

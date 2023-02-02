@@ -16,6 +16,6 @@ impl CidHashSet {
 
     pub fn insert(&mut self, cid: &Cid) -> bool {
         let hash = cid.hash().digest();
-        self.mem.insert(hash.to_vec())
+        self.mem.insert(hash[..hash.len().min(16)].to_vec())
     }
 }

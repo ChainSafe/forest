@@ -45,7 +45,7 @@ impl<T> TrackingStore<T> {
 
 #[derive(Debug)]
 pub struct RollingStore<T> {
-    capacity: usize,
+    // capacity: usize,
     root_dir: PathBuf,
     cache: Arc<RwLock<HashMap<usize, TrackingStore<T>>>>,
     // TODO: lookup in order
@@ -56,8 +56,11 @@ impl<T> RollingStore<T>
 where
     T: ReadWriteStore + IndexedStore + Clone + 'static,
 {
-    pub fn new(capacity: usize, root_dir: PathBuf) -> Self {
-        let cache = Arc::new(RwLock::new(HashMap::with_capacity(capacity)));
+    pub fn new(
+        // capacity: usize,
+        root_dir: PathBuf,
+    ) -> Self {
+        let cache = Arc::new(RwLock::new(HashMap::new()));
         if let Ok(dir) = std::fs::read_dir(&root_dir) {
             let mut index: Vec<usize> = dir
                 .flatten()
@@ -78,16 +81,19 @@ where
             if !index.is_empty() {
                 index.sort_by(|a, b| b.cmp(a));
                 let mut cache = cache.write();
-                index.into_iter().take(capacity).for_each(|i| {
-                    if let Ok(store) = T::open(root_dir.clone(), i) {
-                        cache.insert(i, TrackingStore::new(i, store));
-                    }
-                });
+                index
+                    .into_iter()
+                    // .take(capacity)
+                    .for_each(|i| {
+                        if let Ok(store) = T::open(root_dir.clone(), i) {
+                            cache.insert(i, TrackingStore::new(i, store));
+                        }
+                    });
             }
         }
 
         Self {
-            capacity,
+            // capacity,
             root_dir,
             cache,
         }
@@ -109,18 +115,18 @@ where
             } else {
                 let store = TrackingStore::new(index, T::open(self.root_dir.clone(), index)?);
 
-                while cache.len() > self.capacity - 1 {
-                    // TODO: Optimize logic here with `BinaryHeap`
-                    if let Some(min_index) = cache.keys().min().cloned() {
-                        if let Some(db) = cache.remove(&min_index) {
-                            if let Err(err) = db.store.flush() {
-                                log::warn!("{err}");
-                            }
-                        }
-                    } else {
-                        break;
-                    }
-                }
+                // while cache.len() > self.capacity - 1 {
+                //     // TODO: Optimize logic here with `BinaryHeap`
+                //     if let Some(min_index) = cache.keys().min().cloned() {
+                //         if let Some(db) = cache.remove(&min_index) {
+                //             if let Err(err) = db.store.flush() {
+                //                 log::warn!("{err}");
+                //             }
+                //         }
+                //     } else {
+                //         break;
+                //     }
+                // }
 
                 cache.insert(index, store.clone());
 
@@ -169,7 +175,7 @@ where
     fn default() -> Self {
         let mut dir = std::env::temp_dir();
         dir.push(".forest");
-        Self::new(3, dir)
+        Self::new(dir)
     }
 }
 

@@ -232,7 +232,7 @@ pub mod db_engine {
     ) -> anyhow::Result<ProxyStore<Db>> {
         let persistent = open_db(path, config)?;
         let rolling_path = path.join("..").join(format!("{DIR_NAME}_rolling"));
-        let rolling = RollingStore::new(7, rolling_path);
+        let rolling = RollingStore::new(rolling_path);
         Ok(ProxyStore::new(persistent, rolling))
     }
 }
