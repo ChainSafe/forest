@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
@@ -362,7 +363,7 @@ where
                 response_channel: tx,
             })
             .await
-            .map_err(|_| anyhow::anyhow!("Failed to send hello request: receiver dropped"))?;
+            .context("Failed to send hello request: receiver dropped")?;
 
         const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
         let sent = SystemTime::now();
