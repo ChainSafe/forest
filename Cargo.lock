@@ -2884,6 +2884,7 @@ dependencies = [
  "cid",
  "convert_case 0.6.0",
  "dialoguer",
+ "directories",
  "forest_auth",
  "forest_blocks",
  "forest_chain",

@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fs::read_to_string;
-use std::io;
+use std::fs::{read_to_string, OpenOptions};
 
 use boa_engine::object::{FunctionBuilder, JsArray};
 use boa_engine::{prelude::JsObject, property::Attribute, syntax::parser::ParseError};
 use boa_engine::{Context, JsResult, JsValue};
 use convert_case::{Case, Casing};
+use directories::BaseDirs;
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -165,8 +165,25 @@ impl AttachCommand {
             .edit_mode(EditMode::Emacs)
             .build();
 
-        let mut editor: rustyline::Editor<()> =
-            Editor::with_config(config).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let mut editor: Editor<()> = Editor::with_config(config)?;
+
+        let history_path = if let Some(dirs) = BaseDirs::new() {
+            let path = dirs.home_dir().join(".forest_history");
+
+            // Check if the history file exists. If it does not, create it.
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(&path)?;
+
+            // This is safe to call at this point
+            editor.load_history(&path).unwrap();
+
+            Some(path)
+        } else {
+            None
+        };
 
         'main: loop {
             let mut prompt = "> ";
@@ -216,6 +233,13 @@ impl AttachCommand {
                 }
             }
         }
+
+        if let Some(path) = history_path {
+            editor
+                .save_history(&path)
+                .expect("save_history should work");
+        }
+
         Ok(())
     }
 }
