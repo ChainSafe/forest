@@ -18,10 +18,7 @@ use forest_blocks::{
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
 use forest_libp2p::PeerManager;
-use forest_libp2p::{
-    hello::HelloRequest, rpc::RequestResponseError, NetworkEvent, NetworkMessage, PeerId,
-    PubsubMessage,
-};
+use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PubsubMessage};
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
@@ -272,19 +269,9 @@ where
 
             // Update the peer metadata based on the response
             match response {
-                Some(Ok(_res)) => {
+                Some(_) => {
                     network.peer_manager().log_success(peer_id, dur).await;
                 }
-                Some(Err(why)) => match why {
-                    RequestResponseError::ConnectionClosed
-                    | RequestResponseError::DialFailure
-                    | RequestResponseError::UnsupportedProtocols => {
-                        network.peer_manager().mark_peer_bad(peer_id).await;
-                    }
-                    RequestResponseError::Timeout => {
-                        network.peer_manager().log_failure(peer_id, dur).await;
-                    }
-                },
                 None => {
                     network.peer_manager().log_failure(peer_id, dur).await;
                 }

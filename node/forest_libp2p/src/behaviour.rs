@@ -1,14 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::discovery::DiscoveryConfig;
 use crate::{
     chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName},
+    config::Libp2pConfig,
+    discovery::DiscoveryBehaviour,
     gossip_params::{build_peer_score_params, build_peer_score_threshold},
-};
-use crate::{config::Libp2pConfig, discovery::DiscoveryBehaviour};
-use crate::{
-    discovery::DiscoveryConfig,
-    hello::{HelloCodec, HelloProtocolName},
+    hello::HelloBehaviour,
 };
 use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
@@ -38,7 +37,7 @@ pub(crate) struct ForestBehaviour {
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
     identify: identify::Behaviour,
-    pub(super) hello: RequestResponse<HelloCodec>,
+    pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: RequestResponse<ChainExchangeCodec>,
     pub(super) bitswap: BitswapBehaviour,
 }
@@ -99,7 +98,6 @@ impl ForestBehaviour {
             // TODO allow configuring this through config.
             .discovery_limit(config.target_peer_count as u64);
 
-        let hp = std::iter::once((HelloProtocolName, ProtocolSupport::Full));
         let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
 
         let mut req_res_config = RequestResponseConfig::default();
@@ -115,7 +113,7 @@ impl ForestBehaviour {
                 local_key.public(),
             )),
             bitswap,
-            hello: RequestResponse::new(HelloCodec::default(), hp, req_res_config.clone()),
+            hello: HelloBehaviour::default(),
             chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
         }
     }
