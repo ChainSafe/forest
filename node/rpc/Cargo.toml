@@ -41,6 +41,7 @@ fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 http.workspace = true
 jsonrpc-v2.workspace = true
+lazy_static.workspace = true
 libipld-core.workspace = true
 log.workspace = true
 multibase.workspace = true
