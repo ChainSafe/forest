@@ -10,7 +10,7 @@ on:
 
 jobs:
   shellcheck:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
       env:
         SHELLCHECK_OPTS: --external-sources
   rubocop:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Set up Ruby
@@ -30,4 +30,3 @@ jobs:
         run: |
           gem install rubocop --no-document
           rubocop scripts/
-
