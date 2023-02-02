@@ -65,7 +65,7 @@ where
     let _locked = LOCK.try_lock();
     if _locked.is_err() {
         return Err(JsonRpcError::Provided {
-            code: -100,
+            code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
             message: "Another chain export job is still in progress",
         });
     }
