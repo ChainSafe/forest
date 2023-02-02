@@ -10,8 +10,13 @@ install: install-cli install-daemon
 
 # Installs Forest binaries with ParityDb backend
 install-with-paritydb:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb
-	cargo install --locked --path forest/cli --force --no-default-features --features paritydb
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,jemalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,jemalloc
+
+# Installs Forest binaries with Jemalloc global allocator
+install-with-jemalloc:
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,jemalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features jemalloc
 
 install-deps:
 	apt-get update -y

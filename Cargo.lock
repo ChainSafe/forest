@@ -2817,7 +2817,6 @@ dependencies = [
  "shared_memory",
  "structopt",
  "tempfile",
- "tikv-jemallocator",
  "time",
  "tokio",
 ]
@@ -3053,6 +3052,7 @@ dependencies = [
  "sha2 0.10.6",
  "structopt",
  "tempfile",
+ "tikv-jemallocator",
  "time",
  "tokio",
  "toml",

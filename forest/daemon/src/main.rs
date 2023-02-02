@@ -1,6 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#[cfg(feature = "jemalloc")]
+use forest_cli_shared::tikv_jemallocator::Jemalloc;
+
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 mod cli;
 mod daemon;
 
@@ -25,10 +32,6 @@ use std::time::Duration;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;
-
-use tikv_jemallocator::Jemalloc;
-#[global_allocator]
-static GLOBAL_ALLOCATOR: Jemalloc = Jemalloc;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
