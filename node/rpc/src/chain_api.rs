@@ -27,8 +27,11 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tokio::{fs::File, io::BufWriter};
-use tokio::{io::AsyncWriteExt, sync::Mutex};
+use tokio::{
+    fs::File,
+    io::{AsyncWriteExt, BufWriter},
+    sync::Mutex,
+};
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -62,7 +65,7 @@ where
     let _locked = LOCK.try_lock();
     if _locked.is_err() {
         return Err(JsonRpcError::Provided {
-            code: -100,
+            code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
             message: "Another chain export job is still in progress",
         });
     }
