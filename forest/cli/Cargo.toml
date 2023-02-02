@@ -1,15 +1,18 @@
 [package]
 name = "forest-cli"
-version = "0.6.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This crate contains all the subcommands except the daemon."
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
+blake3.workspace = true
 cid.workspace = true
 dialoguer.workspace = true
 forest_auth.workspace = true

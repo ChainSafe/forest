@@ -10,16 +10,12 @@ pub use pbr::Units;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum ProgressBarVisibility {
     Always,
+    #[default]
     Auto,
     Never,
-}
-
-impl Default for ProgressBarVisibility {
-    fn default() -> Self {
-        ProgressBarVisibility::Auto
-    }
 }
 
 impl FromStr for ProgressBarVisibility {
