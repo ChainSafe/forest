@@ -35,7 +35,7 @@ To use the builtin request manager that is optimized for filecoin network, a dat
 use forest_libp2p_bitswap::BitswapBehaviour;
 
 let behaviour = BitswapBehaviour::default();
-// Gets the accociated request manager from the bitswap behaviour
+// Gets the associated request manager from the bitswap behaviour
 // Note: The response is of type Arc<BitswapRequestManager> so that
 // you can easily clone it, store it or send it around.
 let bitswap_request_manager = behaviour.request_manager();

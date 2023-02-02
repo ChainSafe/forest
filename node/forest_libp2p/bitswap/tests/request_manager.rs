@@ -63,7 +63,7 @@ mod tests {
         let client_request_manager = client.behaviour().request_manager();
         let client_store = TestStore::default();
         joinset.spawn(run_swarm_loop(client, client_store.clone()));
-        // Wait for 1s to establish connection
+        // Wait for 1s to establish connections
         tokio::time::sleep(Duration::from_secs(1)).await;
 
         // 3. Get a block that does not exist on any server
@@ -159,10 +159,7 @@ mod tests {
                 let bitswap = &mut swarm.behaviour_mut();
                 bitswap.handle_event(store, event)?;
             }
-            Some(_e) => {
-                // eprintln!("{_e:?}");
-            }
-            None => {}
+            _ => {}
         };
 
         Ok(())

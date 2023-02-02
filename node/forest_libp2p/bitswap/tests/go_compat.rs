@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use forest_libp2p_bitswap::{
         BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
     };
@@ -137,7 +137,8 @@ mod tests {
             .args(["mod", "vendor"])
             .current_dir(GO_APP_DIR)
             .spawn()?
-            .wait()?;
+            .wait()
+            .context("Fail to compile `go-bitswap` test app, make sure you have `Go1.19.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>")?;
         Ok(())
     }
 
