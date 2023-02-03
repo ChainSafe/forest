@@ -9,12 +9,12 @@ use boa_engine::{prelude::JsObject, property::Attribute, syntax::parser::ParseEr
 use boa_engine::{Context, JsResult, JsValue};
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
+use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use num::{BigInt, Zero};
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use structopt::StructOpt;
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
-use num::{BigInt, Zero};
 
 use super::Config;
 use forest_json::message::json::MessageJson;
