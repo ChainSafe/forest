@@ -42,6 +42,7 @@ impl ParityDb {
             columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
                     compression,
+                    // btree_index: true,
                     ..Default::default()
                 })
                 .collect(),
@@ -75,16 +76,13 @@ impl Store for ParityDb {
         self.db.commit(tx).map_err(Error::from)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         let tx = values
-            .iter()
-            .map(|(k, v)| (0, k.as_ref(), Some(v.as_ref().to_owned())))
-            .collect::<Vec<_>>();
-
+            .into_iter()
+            .map(|(k, v)| (0, k.into(), Some(v.into())));
         self.db.commit(tx).map_err(Error::from)
     }
 
@@ -124,9 +122,9 @@ impl Blockstore for ParityDb {
     {
         let values = blocks
             .into_iter()
-            .map(|(k, v)| (k.to_bytes(), v))
+            .map(|(k, v)| (k.to_bytes(), v.as_ref().to_vec()))
             .collect::<Vec<_>>();
-        self.bulk_write(&values).map_err(|e| e.into())
+        self.bulk_write(values).map_err(|e| e.into())
     }
 }
 
