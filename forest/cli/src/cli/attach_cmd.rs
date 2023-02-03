@@ -203,6 +203,10 @@ impl AttachCommand {
                         if input == ":quit" {
                             break 'main;
                         }
+                        if input == ":clear" {
+                            editor.clear_history();
+                            break;
+                        }
                         if buffer.is_empty() && input.is_empty() {
                             // No-op
                             continue 'main;
