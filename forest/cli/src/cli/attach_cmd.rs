@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::fs::{read_to_string, OpenOptions};
+use std::str::FromStr;
 
 use boa_engine::object::{FunctionBuilder, JsArray};
 use boa_engine::{prelude::JsObject, property::Attribute, syntax::parser::ParseError};
@@ -12,8 +13,12 @@ use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 use structopt::StructOpt;
+use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use num::{BigInt, Zero};
 
 use super::Config;
+use forest_json::message::json::MessageJson;
+use forest_rpc_api::mpool_api::MpoolPushMessageResult;
 use forest_rpc_client::*;
 
 #[derive(Debug, StructOpt)]
@@ -187,7 +192,35 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
     bind_func!(context, token, wallet_balance);
     bind_func!(context, token, wallet_list);
     bind_func!(context, token, wallet_set_default);
+
+    // Bind mpool ops
+    bind_func!(context, token, mpool_push_message);
+
+    // Bind send_message
+    bind_func!(context, token, send_message);
 }
+
+type SendMessageParams = (String, String, String);
+
+async fn send_message(
+    params: SendMessageParams,
+    auth_token: &Option<String>,
+) -> Result<MpoolPushMessageResult, jsonrpc_v2::Error> {
+    let (from, to, value) = params;
+
+    let message = Message {
+        from: Address::from_str(&from)?,
+        to: Address::from_str(&to)?,
+        value: TokenAmount::from_atto(BigInt::from_str(&value)?),
+        method_num: METHOD_SEND,
+        gas_limit: 0,
+        gas_fee_cap: TokenAmount::from_atto(BigInt::zero()),
+        gas_premium: TokenAmount::from_atto(BigInt::zero()),
+        ..Default::default()
+    };
+
+    let json_message = MessageJson(message);
+    mpool_push_message((json_message, None), auth_token).await
 }
 
 impl AttachCommand {
