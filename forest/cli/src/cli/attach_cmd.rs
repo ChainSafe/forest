@@ -216,7 +216,10 @@ impl AttachCommand {
                         // println!("Parse tree:\n{:#?}", v);
                         editor.add_history_entry(&buffer);
                         match context.eval(buffer.trim_end()) {
-                            Ok(v) => println!("{}", v.display()),
+                            Ok(v) => match v {
+                                JsValue::Undefined => (),
+                                _ => println!("{}", v.display()),
+                            },
                             Err(v) => eprintln!("Uncaught: {v:?}"),
                         }
                         break;
