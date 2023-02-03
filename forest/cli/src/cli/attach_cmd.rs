@@ -56,15 +56,16 @@ const ON_INIT_SCRIPT: &str = r#"
     }
 
     function showWallet() {
-        let wl = walletList();
+        let addrs = walletList();
+        let defaultAddr = walletDefaultAddress();
         let buffer = "";
         buffer = buffer.concat("Address                                         Balance\n");
-        for (var i = 0; i < wl.length; i++) {
-            let isDefault = (walletDefaultAddress() == wl[i]);
+        for (var i = 0; i < addrs.length; i++) {
+            const isDefault = (defaultAddr == addrs[i]);
             if (isDefault) {
                 buffer += "\033[1m";
             }
-            buffer = buffer.concat(wl[i], "       ", walletBalance(wl[i]), " attoFIL\n");
+            buffer = buffer.concat(addrs[i], "       ", walletBalance(addrs[i]), " attoFIL\n");
             if (isDefault) {
                 buffer += "\033[0m";
             }
