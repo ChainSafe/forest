@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::fs::{read_to_string, OpenOptions};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use boa_engine::object::{FunctionBuilder, JsArray};
@@ -22,9 +23,13 @@ use forest_rpc_api::mpool_api::MpoolPushMessageResult;
 use forest_rpc_client::*;
 
 #[derive(Debug, StructOpt)]
-pub struct AttachCommand {}
+pub struct AttachCommand {
+    /// Set a library directory for the Javascript scripts
+    #[structopt(long)]
+    jspath: Option<PathBuf>,
+}
 
-const ON_INIT_SCRIPT: &str = r#"
+const PRELUDE: &str = r#"
     console.log("Welcome to the Forest Javascript console!\n\nTo exit, press ctrl-d or type :quit");
 
     // // Load filecoin module
@@ -172,10 +177,6 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
         .unwrap();
     context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
 
-    context
-        .eval(ON_INIT_SCRIPT)
-        .expect("ON_INIT_SCRIPT script should work");
-
     // Chain API
     bind_func!(context, token, chain_get_name);
 
@@ -229,9 +230,38 @@ async fn send_message(
 }
 
 impl AttachCommand {
+    fn source_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
+        if let Some(jspath) = &self.jspath {
+            let prelude_path = jspath.join("prelude.js");
+
+            if prelude_path.exists() {
+                match read_to_string(prelude_path) {
+                    Ok(buffer) => {
+                        let result = context.eval(&buffer);
+                        if let Err(err) = result {
+                            return Err(anyhow::anyhow!("error {err:?}"));
+                        }
+                        return Ok(());
+                    }
+                    Err(err) => {
+                        return Err(anyhow::anyhow!("error {err}"));
+                    }
+                }
+            }
+        }
+        // Use builtin prelude
+        context
+            .eval(PRELUDE)
+            .expect("prelude script should compile");
+
+        Ok(())
+    }
+
     pub fn run(&self, config: Config) -> anyhow::Result<()> {
         let mut context = Context::default();
         setup_context(&mut context, &config.client.rpc_token);
+
+        self.source_prelude(&mut context)?;
 
         let config = RustyLineConfig::builder()
             .keyseq_timeout(1)
