@@ -250,14 +250,13 @@ impl Store for RocksDb {
             .map_err(Error::from)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         let mut batch = WriteBatch::default();
         for (k, v) in values {
-            batch.put(k, v);
+            batch.put(k.into(), v.into());
         }
         Ok(self.db.write_without_wal(batch)?)
     }
