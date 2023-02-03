@@ -175,18 +175,21 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
         .eval(ON_INIT_SCRIPT)
         .expect("ON_INIT_SCRIPT script should work");
 
-    // Bind net ops
+    // Chain API
+    bind_func!(context, token, chain_get_name);
+
+    // Net API
     bind_func!(context, token, net_addrs_listen);
     bind_func!(context, token, net_peers);
     bind_func!(context, token, net_disconnect);
     bind_func!(context, token, net_connect);
 
-    // Bind sync ops
+    // Sync API
     bind_func!(context, token, sync_check_bad);
     bind_func!(context, token, sync_mark_bad);
     bind_func!(context, token, sync_status);
 
-    // Bind wallet ops
+    // Wallet API
     // TODO: bind wallet_export, wallet_import, wallet_has, wallet_sign, wallet_verify
     bind_func!(context, token, wallet_new);
     bind_func!(context, token, wallet_default_address);
@@ -194,7 +197,7 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
     bind_func!(context, token, wallet_list);
     bind_func!(context, token, wallet_set_default);
 
-    // Bind mpool ops
+    // Message Pool API
     bind_func!(context, token, mpool_push_message);
 
     // Bind send_message
