@@ -50,7 +50,7 @@ const PRELUDE: &str = r#"
 
     function disconnectPeers(count) {
         let ids = netPeers().map((x) => x.ID).sort();
-        // clamp
+        // clamp count
         let new_count = Math.min(count, ids.length);
         for (var i = 0; i < new_count; i++) {
             netDisconnect(ids[i]);
@@ -86,7 +86,7 @@ const PRELUDE: &str = r#"
         console.log(`Stage:  ${stage}`);
         console.log(`Height: ${height}`);
     }
-    
+
     function sendFIL(to, amount) {
         let from = walletDefaultAddress();
         return sendMessage(from, to, amount.toString());
