@@ -36,6 +36,7 @@ const ON_INIT_SCRIPT: &str = r#"
             let id = ids[i];
             console.log(`${i}:\t${id}`);
         }
+        console.log("");
     }
 
     function getPeer(peerID) {
