@@ -7,6 +7,7 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
+use forest_shim::error::{ExitCode, Inner};
 use fvm::executor::{ApplyRet, DefaultExecutor};
 use fvm::externs::Rand;
 use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
@@ -15,7 +16,6 @@ use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
-use fvm_shared::error::ExitCode;
 use fvm_shared::message::Message;
 use fvm_shared::receipt::Receipt;
 use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
@@ -207,7 +207,7 @@ where
                     );
                 }
                 // This is more of a sanity check, this should not be able to be hit.
-                if ret.msg_receipt.exit_code != ExitCode::OK {
+                if !ret.msg_receipt.exit_code.is_success() {
                     anyhow::bail!(
                         "reward application message failed (exit: {:?})",
                         ret.msg_receipt.exit_code
@@ -256,7 +256,7 @@ where
 
         if !exit_code.is_success() {
             match exit_code.value() {
-                1..=ExitCode::FIRST_USER_EXIT_CODE => {
+                1..=<ExitCode as Inner>::FVM::FIRST_USER_EXIT_CODE => {
                     log::debug!(
                         "Internal message execution failure. Exit code was {}",
                         exit_code
