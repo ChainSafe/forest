@@ -192,7 +192,7 @@ where
     DB: Store,
 {
     // 1GB
-    const BUFFER_CAPCITY_BYTES: usize = 1 * 1024 * 1024 * 1024;
+    const BUFFER_CAPCITY_BYTES: usize = 1024 * 1024 * 1024;
 
     let mut car_reader = CarReader::new(reader).await?;
     let mut estimated_size = 0;

@@ -9,7 +9,7 @@ use cid::Cid;
 use forest_libp2p_bitswap::BitswapStore;
 use fvm_ipld_blockstore::Blockstore;
 use log::warn;
-use parity_db::{CompressionType, Db, Options};
+use parity_db::{CompressionType, Db, Operation, Options};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -72,18 +72,38 @@ impl Store for ParityDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        let tx = [(0, key.as_ref(), Some(value.as_ref().to_owned()))];
+        let tx = [(0, key.as_ref(), Some(value.as_ref().to_vec()))];
         self.db.commit(tx).map_err(Error::from)
     }
 
+    /// [ParityDB::commit] API is doing extra allocations on keys,
+    /// See <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
     fn bulk_write(
         &self,
         values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
     ) -> Result<(), Error> {
         let tx = values
             .into_iter()
-            .map(|(k, v)| (0, k.into(), Some(v.into())));
-        self.db.commit(tx).map_err(Error::from)
+            .map(|(k, v)| (0, Operation::Set(k.into(), v.into())));
+        self.db.commit_changes(tx).map_err(Error::from)
+        // <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
+        // ```
+        // fn commit<I, K>(&self, tx: I) -> Result<()>
+        // where
+        //     I: IntoIterator<Item = (ColId, K, Option<Value>)>,
+        //     K: AsRef<[u8]>,
+        // {
+        //     self.commit_changes(tx.into_iter().map(|(c, k, v)| {
+        //         (
+        //             c,
+        //             match v {
+        //                 Some(v) => Operation::Set(k.as_ref().to_vec(), v),
+        //                 None => Operation::Dereference(k.as_ref().to_vec()),
+        //             },
+        //         )
+        //     }))
+        // }
+        // ```
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>
