@@ -49,6 +49,23 @@ const ON_INIT_SCRIPT: &str = r#"
     function isPeerConnected(peerID) {
         return netPeers().some((x) => x.ID == peerID);
     }
+
+    function showWallet() {
+        let wl = walletList();
+        let buffer = "";
+        buffer = buffer.concat("Address                                         Balance\n");
+        for (var i = 0; i < wl.length; i++) {
+            let isDefault = (walletDefaultAddress() == wl[i]);
+            if (isDefault) {
+                buffer += "\033[1m";
+            }
+            buffer = buffer.concat(wl[i], "       ", walletBalance(wl[i]), " attoFIL\n");
+            if (isDefault) {
+                buffer += "\033[0m";
+            }
+        }
+        console.log(buffer);
+    }
 "#;
 
 fn require(_: &JsValue, params: &[JsValue], context: &mut Context) -> JsResult<JsValue> {
@@ -162,6 +179,15 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
     bind_func!(context, token, sync_check_bad);
     bind_func!(context, token, sync_mark_bad);
     bind_func!(context, token, sync_status);
+
+    // Bind wallet ops
+    // TODO: bind wallet_export, wallet_import, wallet_has, wallet_sign, wallet_verify
+    bind_func!(context, token, wallet_new);
+    bind_func!(context, token, wallet_default_address);
+    bind_func!(context, token, wallet_balance);
+    bind_func!(context, token, wallet_list);
+    bind_func!(context, token, wallet_set_default);
+}
 }
 
 impl AttachCommand {

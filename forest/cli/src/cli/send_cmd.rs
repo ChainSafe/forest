@@ -35,7 +35,7 @@ impl SendCommand {
             from
         } else {
             Address::from_str(
-                &wallet_default_address(&config.client.rpc_token)
+                &wallet_default_address((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?,
             )?
