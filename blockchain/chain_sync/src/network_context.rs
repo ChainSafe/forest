@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
@@ -348,18 +349,11 @@ where
         &self,
         peer_id: PeerId,
         request: HelloRequest,
-    ) -> Result<
-        (
-            PeerId,
-            SystemTime,
-            Option<Result<HelloResponse, RequestResponseError>>,
-        ),
-        &'static str,
-    > {
+    ) -> anyhow::Result<(PeerId, SystemTime, Option<HelloResponse>)> {
         trace!("Sending Hello Message to {}", peer_id);
 
         // Create oneshot channel for receiving response from sent hello.
-        let (tx, rx) = oneshot_channel();
+        let (tx, rx) = flume::bounded(1);
 
         // Send request into libp2p service
         self.network_send
@@ -369,18 +363,13 @@ where
                 response_channel: tx,
             })
             .await
-            .map_err(|_| "Failed to send hello request: receiver dropped")?;
+            .context("Failed to send hello request: receiver dropped")?;
 
+        const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
         let sent = SystemTime::now();
-
-        // Add timeout and create future to be polled asynchronously.
-        let rx = timeout(Duration::from_secs(10), rx);
-        let res = rx.await;
-        match res {
-            // Convert timeout error into `Option` and wrap `Ok` with the PeerId and sent time.
-            Ok(received) => Ok((peer_id, sent, received.ok())),
-            // Timeout on response, this doesn't matter to us, can safely ignore.
-            Err(_) => Ok((peer_id, sent, None)),
-        }
+        let res = tokio::task::spawn_blocking(move || rx.recv_timeout(HELLO_TIMEOUT))
+            .await?
+            .ok();
+        Ok((peer_id, sent, res))
     }
 }

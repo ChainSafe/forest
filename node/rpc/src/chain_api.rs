@@ -27,8 +27,11 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tokio::io::AsyncWriteExt;
-use tokio::{fs::File, io::BufWriter};
+use tokio::{
+    fs::File,
+    io::{AsyncWriteExt, BufWriter},
+    sync::Mutex,
+};
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,
@@ -55,6 +58,18 @@ where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
 {
+    lazy_static::lazy_static! {
+        static ref LOCK: Mutex<()> = Mutex::new(());
+    }
+
+    let _locked = LOCK.try_lock();
+    if _locked.is_err() {
+        return Err(JsonRpcError::Provided {
+            code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
+            message: "Another chain export job is still in progress",
+        });
+    }
+
     let (epoch, recent_roots, out, TipsetKeysJson(tsk), skip_checksum) = params;
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;

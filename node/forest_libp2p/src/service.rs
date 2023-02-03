@@ -6,6 +6,7 @@ use super::chain_exchange::{
 };
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::discovery::DiscoveryOut;
+use crate::hello::HelloBehaviour;
 use crate::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
@@ -51,7 +52,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_stream::wrappers::IntervalStream;
 
-mod metrics {
+pub(crate) mod metrics {
     use lazy_static::lazy_static;
     use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
     lazy_static! {
@@ -93,9 +94,6 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
 
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
-
-type HelloRequestTable =
-    HashMap<RequestId, OneShotSender<Result<HelloResponse, RequestResponseError>>>;
 
 type CxRequestTable =
     HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>;
@@ -163,7 +161,7 @@ pub enum NetworkMessage {
     HelloRequest {
         peer_id: PeerId,
         request: HelloRequest,
-        response_channel: OneShotSender<Result<HelloResponse, RequestResponseError>>,
+        response_channel: flume::Sender<HelloResponse>,
     },
     BitswapRequest {
         cid: Cid,
@@ -269,7 +267,6 @@ where
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
-        let mut hello_request_table = HashMap::new();
         let mut cx_request_table = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
         let (bitswap_outbound_request_tx, bitswap_outbound_request_rx) = flume::unbounded();
@@ -296,7 +293,6 @@ where
                             &self.cs,
                             &self.genesis_cid,
                             &self.network_sender_out,
-                            &mut hello_request_table,
                             &mut cx_request_table,
                             cx_response_tx.clone(),
                             &pubsub_block_str,
@@ -314,7 +310,6 @@ where
                             bitswap_request_manager.clone(),
                             message,
                             &self.network_sender_out,
-                            &mut hello_request_table,
                             &mut cx_request_table).await;
                     }
                     None => { break; }
@@ -378,7 +373,6 @@ async fn handle_network_message(
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
-    hello_request_table: &mut HelloRequestTable,
     cx_request_table: &mut CxRequestTable,
 ) {
     match message {
@@ -392,11 +386,11 @@ async fn handle_network_message(
             request,
             response_channel,
         } => {
-            let request_id = swarm.behaviour_mut().hello.send_request(&peer_id, request);
-            hello_request_table.insert(request_id, response_channel);
-            metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                .set(hello_request_table.capacity() as u64);
+            let request_id =
+                swarm
+                    .behaviour_mut()
+                    .hello
+                    .send_request(&peer_id, request, response_channel);
             emit_event(
                 network_sender_out,
                 NetworkEvent::HelloRequestOutbound { request_id },
@@ -547,15 +541,13 @@ async fn handle_gossip_event(
 }
 
 async fn handle_hello_event(
-    rr_event: RequestResponseEvent<HelloRequest, HelloResponse, HelloResponse>,
-    swarm: &mut Swarm<ForestBehaviour>,
+    hello: &mut HelloBehaviour,
+    event: RequestResponseEvent<HelloRequest, HelloResponse, HelloResponse>,
     peer_manager: &Arc<PeerManager>,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
-    hello_request_table: &mut HelloRequestTable,
 ) {
-    let behaviour = swarm.behaviour_mut();
-    match rr_event {
+    match event {
         RequestResponseEvent::Message { peer, message } => match message {
             RequestResponseMessage::Request {
                 request,
@@ -600,10 +592,7 @@ async fn handle_hello_event(
 
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
-                    if let Err(e) = behaviour
-                        .hello
-                        .send_response(channel, HelloResponse { arrival, sent })
-                    {
+                    if let Err(e) = hello.send_response(channel, HelloResponse { arrival, sent }) {
                         warn!("Failed to send HelloResponse: {e:?}");
                     } else {
                         emit_event(
@@ -621,52 +610,28 @@ async fn handle_hello_event(
                 request_id,
                 response,
             } => {
-                // Send the successful response through channel out.
-                if let Some(tx) = hello_request_table.remove(&request_id) {
-                    metrics::NETWORK_CONTAINER_CAPACITIES
-                        .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                        .set(hello_request_table.capacity() as u64);
-                    if tx.send(Ok(response)).is_err() {
-                        warn!("Fail to send Hello response");
-                    } else {
-                        emit_event(
-                            network_sender_out,
-                            NetworkEvent::HelloResponseInbound { request_id },
-                        )
-                        .await;
-                    }
-                } else {
-                    warn!("RPCResponse receive failed: channel not found");
-                };
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::HelloResponseInbound { request_id },
+                )
+                .await;
+                hello.handle_response(&request_id, response).await;
             }
         },
         RequestResponseEvent::OutboundFailure {
-            peer,
             request_id,
-            error,
+            peer,
+            error: _,
         } => {
-            debug!(
-                "Hello outbound error (peer: {:?}) (id: {:?}): {:?}",
-                peer, request_id, error
-            );
-
-            // Send error through channel out.
-            let tx = hello_request_table.remove(&request_id);
-            if let Some(tx) = tx {
-                metrics::NETWORK_CONTAINER_CAPACITIES
-                    .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-                    .set(hello_request_table.capacity() as u64);
-                if tx.send(Err(error.into())).is_err() {
-                    warn!("RPCResponse receive failed");
-                }
-            }
+            hello.on_error(&request_id);
+            peer_manager.mark_peer_bad(peer).await;
         }
         RequestResponseEvent::InboundFailure {
-            peer,
-            error,
-            request_id: _,
+            request_id,
+            peer: _,
+            error: _,
         } => {
-            debug!("Hello inbound error (peer: {:?}): {:?}", peer, error);
+            hello.on_error(&request_id);
         }
         RequestResponseEvent::ResponseSent { .. } => (),
     }
@@ -821,7 +786,6 @@ async fn handle_forest_behaviour_event<DB, P>(
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
-    hello_request_table: &mut HelloRequestTable,
     cx_request_table: &mut CxRequestTable,
     cx_response_tx: Sender<(
         RequestId,
@@ -842,12 +806,11 @@ async fn handle_forest_behaviour_event<DB, P>(
         }
         ForestBehaviourEvent::Hello(rr_event) => {
             handle_hello_event(
+                &mut swarm.behaviour_mut().hello,
                 rr_event,
-                swarm,
                 peer_manager,
                 genesis_cid,
                 network_sender_out,
-                hello_request_table,
             )
             .await
         }
