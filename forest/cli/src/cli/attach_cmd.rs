@@ -78,6 +78,19 @@ const PRELUDE: &str = r#"
         }
         console.log(buffer);
     }
+
+    function showSyncStatus() {
+        let stage = syncStatus().ActiveSyncs[0].Stage;
+        let height = syncStatus().ActiveSyncs[0].Epoch;
+        console.log("sync status:");
+        console.log(`Stage:  ${stage}`);
+        console.log(`Height: ${height}`);
+    }
+    
+    function sendFIL(to, amount) {
+        let from = walletDefaultAddress();
+        return sendMessage(from, to, amount.toString());
+    }
 "#;
 
 fn require(_: &JsValue, params: &[JsValue], context: &mut Context) -> JsResult<JsValue> {
