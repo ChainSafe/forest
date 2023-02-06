@@ -27,6 +27,10 @@ pub struct AttachCommand {
     /// Set a library directory for the Javascript scripts
     #[structopt(long)]
     jspath: Option<PathBuf>,
+
+    /// Execute Javascript code non-interactively
+    #[structopt(long)]
+    exec: Option<String>,
 }
 
 const PRELUDE: &str = include_str!("./prelude.js");
@@ -211,6 +215,18 @@ impl AttachCommand {
     pub fn run(&self, config: Config) -> anyhow::Result<()> {
         let mut context = Context::default();
         setup_context(&mut context, &config.client.rpc_token);
+
+        // If only a short execution was requested, evaluate and return
+        if let Some(code) = &self.exec {
+            match context.eval(code) {
+                Ok(v) => match v {
+                    JsValue::Undefined => (),
+                    _ => println!("{}", v.display()),
+                },
+                Err(v) => eprintln!("Uncaught: {v:?}"),
+            }
+            return Ok(());
+        }
 
         self.source_prelude(&mut context)?;
 
