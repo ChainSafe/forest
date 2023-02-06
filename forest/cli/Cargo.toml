@@ -45,7 +45,6 @@ rpassword.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 strfmt = "0.2.2"
-structopt.workspace = true
 clap.workspace = true
 tempfile.workspace = true
 ticker = "0.1"
