@@ -89,7 +89,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut ks = if config.client.encrypt_keystore {
+    let mut ks = if config.client.encrypt_keystore && atty::is(atty::Stream::Stdin) {
         loop {
             print!("Enter the keystore passphrase: ");
             std::io::stdout().flush()?;
