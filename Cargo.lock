@@ -2752,7 +2752,6 @@ dependencies = [
  "forest_utils",
  "fs_extra",
  "fvm_ipld_blockstore",
- "fvm_ipld_car",
  "fvm_shared 2.0.0",
  "hex",
  "human-repr",
