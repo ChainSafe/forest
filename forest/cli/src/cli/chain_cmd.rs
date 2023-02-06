@@ -11,8 +11,8 @@ use std::str::FromStr;
 
 #[derive(clap::Parser)]
 pub struct ChainCommandsStruct {
-         #[command(subcommand)]
-        pub chain_commands: ChainCommands,
+    #[command(subcommand)]
+    pub chain_commands: ChainCommands,
 }
 
 #[derive(Debug, Subcommand)]

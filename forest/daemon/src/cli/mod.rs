@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use anes::execute;
+use clap::Parser;
 use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};
@@ -10,7 +11,6 @@ use std::io::Write;
 use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use clap::Parser;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]

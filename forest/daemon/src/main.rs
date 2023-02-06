@@ -7,6 +7,7 @@ mod daemon;
 use cli::Cli;
 
 use anyhow::Context;
+use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
     cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
@@ -23,7 +24,6 @@ use std::fs::File;
 use std::process;
 use std::sync::Arc;
 use std::time::Duration;
-use clap::Parser;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;
 

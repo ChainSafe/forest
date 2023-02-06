@@ -32,7 +32,6 @@ serde = { workspace = true, features = ["derive"] }
 serde_with.workspace = true
 sha2.workspace = true
 clap.workspace = true
-structopt.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true

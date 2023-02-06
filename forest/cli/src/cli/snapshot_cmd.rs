@@ -30,7 +30,7 @@ pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
 
 #[derive(clap::Parser)]
 pub struct SnapshotCommandsStruct {
-     #[command(subcommand)]
+    #[command(subcommand)]
     pub snapshot_commands: SnapshotCommands,
 }
 
@@ -66,11 +66,7 @@ pub enum SnapshotCommands {
         #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
         /// Snapshot trusted source
-        #[arg(
-            short,
-            long,
-            value_enum,
-        )]
+        #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[arg(long)]

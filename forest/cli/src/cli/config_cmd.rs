@@ -3,7 +3,7 @@
 
 use crate::cli::Config;
 use anyhow::Context;
-use clap::{Subcommand, Parser};
+use clap::{Parser, Subcommand};
 use std::io::Write;
 
 #[derive(Parser)]

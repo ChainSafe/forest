@@ -23,7 +23,6 @@ use std::{
 
 use super::handle_rpc_err;
 
-
 #[derive(clap::Parser)]
 pub struct WalletCommandsStruct {
     #[command(subcommand)]

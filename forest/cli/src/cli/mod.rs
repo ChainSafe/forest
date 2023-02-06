@@ -19,9 +19,14 @@ mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
-use self::{auth_cmd::AuthCommandsStruct, chain_cmd::ChainCommandsStruct, snapshot_cmd::SnapshotCommandsStruct, config_cmd::ConfigCommandsStruct, state_cmd::StateCommandsStruct, wallet_cmd::WalletCommandsStruct, db_cmd::DBCommandsStruct, net_cmd::NetCommandsStruct, sync_cmd::SyncCommandsStruct, mpool_cmd::MpoolCommandsStruct};
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::send_cmd::SendCommand;
+use self::{
+    auth_cmd::AuthCommandsStruct, chain_cmd::ChainCommandsStruct, config_cmd::ConfigCommandsStruct,
+    db_cmd::DBCommandsStruct, mpool_cmd::MpoolCommandsStruct, net_cmd::NetCommandsStruct,
+    snapshot_cmd::SnapshotCommandsStruct, state_cmd::StateCommandsStruct,
+    sync_cmd::SyncCommandsStruct, wallet_cmd::WalletCommandsStruct,
+};
 use clap::Parser;
 pub(crate) use forest_cli_shared::cli::Config;
 

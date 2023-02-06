@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use directories::ProjectDirs;
 use clap::Parser;
+use directories::ProjectDirs;
 use forest_db::db_engine::{db_path, open_db, DbConfig};
 
 use cid::Cid;
@@ -25,17 +25,22 @@ use forest_statediff::print_state_diff;
 impl crate::Subcommand {
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
-            Subcommand::ChainCommand { pre, post, chain, depth } => {
+            Subcommand::ChainCommand {
+                pre,
+                post,
+                chain,
+                depth,
+            } => {
                 let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
                     .ok_or(anyhow::Error::msg("no such path"))?;
                 let chain_path = dir.data_dir().join(&chain);
                 let blockstore = open_db(&db_path(&chain_path), &DbConfig::default())?;
-        
+
                 if let Err(err) = print_state_diff(&blockstore, &pre, &post, *depth) {
                     eprintln!("Failed to print state diff: {err}");
                 }
                 Ok(())
-            },
+            }
         }
     }
 }
@@ -69,7 +74,7 @@ enum Subcommand {
         /// The depth at which IPLD links are resolved
         #[arg(short, long)]
         depth: Option<u64>,
-    }
+    },
 }
 
 #[tokio::main]

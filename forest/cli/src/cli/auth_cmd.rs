@@ -12,12 +12,12 @@ use forest_auth::*;
 
 #[derive(clap::Parser)]
 pub struct AuthCommandsStruct {
-        #[command(subcommand)]
-        pub auth_commands: AuthCommands,
+    #[command(subcommand)]
+    pub auth_commands: AuthCommands,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum  AuthCommands {
+pub enum AuthCommands {
     /// Create a new Authentication token with given permission
     CreateToken {
         /// permission to assign to the token, one of: read, write, sign, admin

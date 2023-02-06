@@ -10,6 +10,7 @@ use crate::logger::LoggingColor;
 
 use ahash::HashSet;
 use byte_unit::Byte;
+use clap::Parser;
 use directories::ProjectDirs;
 use forest_networks::ChainConfig;
 use forest_utils::io::{read_file_to_string, read_toml, ProgressBarVisibility};
@@ -20,7 +21,6 @@ use once_cell::sync::Lazy;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use clap::Parser;
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
@@ -82,10 +82,7 @@ pub struct CliOpts {
     #[arg(long)]
     pub encrypt_keystore: Option<bool>,
     /// Choose network chain to sync to
-    #[arg(
-        long,
-        default_value = "mainnet",
-    )]
+    #[arg(long, default_value = "mainnet")]
     pub chain: String,
     /// Daemonize Forest process
     #[arg(long)]
