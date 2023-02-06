@@ -1509,7 +1509,7 @@ dependencies = [
  "itertools 0.10.5",
  "log",
  "smallvec",
- "wasmparser",
+ "wasmparser 0.92.0",
  "wasmtime-types",
 ]
 
@@ -1920,7 +1920,16 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d07adf7be193b71cc36b193d0f5fe60b918a3a9db4dad0449f57bcfd519704a3"
 dependencies = [
- "derive_builder_macro",
+ "derive_builder_macro 0.11.2",
+]
+
+[[package]]
+name = "derive_builder"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d67778784b508018359cbc8696edb3db78160bab2c2a28ba7f56ef6932997f8"
+dependencies = [
+ "derive_builder_macro 0.12.0",
 ]
 
 [[package]]
@@ -1936,12 +1945,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_builder_core"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "derive_builder_macro"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f0314b72bed045f3a68671b3c86328386762c93f82d98c65c3cb5e5f573dd68"
 dependencies = [
- "derive_builder_core",
+ "derive_builder_core 0.11.2",
+ "syn",
+]
+
+[[package]]
+name = "derive_builder_macro"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebcda35c7a396850a55ffeac740804b40ffec779b98fffbb1738f4033f0ee79e"
+dependencies = [
+ "derive_builder_core 0.12.0",
  "syn",
 ]
 
@@ -2410,7 +2441,7 @@ dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "log",
  "num-derive",
@@ -2428,7 +2459,7 @@ dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "log",
  "num-derive",
@@ -2447,7 +2478,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "libipld-core 0.14.0",
  "log",
@@ -2467,7 +2498,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "integer-encoding",
  "libipld-core 0.14.0",
@@ -2486,11 +2517,11 @@ dependencies = [
  "byteorder",
  "cid",
  "fil_actors_runtime_v8",
- "fvm_ipld_amt",
+ "fvm_ipld_amt 0.4.2",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "itertools 0.10.5",
  "lazy_static",
@@ -2510,11 +2541,11 @@ dependencies = [
  "byteorder",
  "cid",
  "fil_actors_runtime_v9",
- "fvm_ipld_amt",
+ "fvm_ipld_amt 0.4.2",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "itertools 0.10.5",
  "lazy_static",
@@ -2538,7 +2569,7 @@ dependencies = [
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "indexmap",
  "integer-encoding",
@@ -2558,7 +2589,7 @@ dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "integer-encoding",
  "lazy_static",
@@ -2578,7 +2609,7 @@ dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "integer-encoding",
  "lazy_static",
@@ -2596,7 +2627,7 @@ dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "lazy_static",
  "log",
@@ -2613,7 +2644,7 @@ dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "lazy_static",
  "log",
@@ -2648,10 +2679,10 @@ dependencies = [
  "byteorder",
  "cid",
  "fil_actors_runtime_v9",
- "fvm_ipld_amt",
+ "fvm_ipld_amt 0.4.2",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "getrandom 0.2.8",
  "itertools 0.10.5",
@@ -2680,10 +2711,10 @@ dependencies = [
  "blake2b_simd",
  "byteorder",
  "cid",
- "fvm_ipld_amt",
+ "fvm_ipld_amt 0.4.2",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "getrandom 0.2.8",
  "itertools 0.10.5",
@@ -2927,8 +2958,8 @@ dependencies = [
  "fil_actor_reward_v9",
  "fil_actors_runtime_v9",
  "forest_json",
+ "forest_shim",
  "forest_utils",
- "fvm",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
@@ -2984,7 +3015,7 @@ dependencies = [
  "ahash 0.8.3",
  "base64 0.21.0",
  "cid",
- "derive_builder",
+ "derive_builder 0.11.2",
  "forest_beacon",
  "forest_crypto",
  "forest_encoding",
@@ -3036,7 +3067,6 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "futures",
- "fvm",
  "fvm_ipld_blockstore",
  "fvm_ipld_car",
  "fvm_ipld_encoding 0.2.3",
@@ -3075,11 +3105,12 @@ dependencies = [
  "forest_message",
  "forest_message_pool",
  "forest_networks",
+ "forest_shim",
  "forest_state_manager",
  "forest_test_utils",
  "forest_utils",
  "futures",
- "fvm",
+ "fvm 2.2.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3242,7 +3273,6 @@ dependencies = [
  "forest_shim",
  "forest_state_manager",
  "futures",
- "fvm",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3306,7 +3336,7 @@ dependencies = [
  "forest_message",
  "forest_networks",
  "forest_shim",
- "fvm",
+ "fvm 2.2.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3360,7 +3390,7 @@ dependencies = [
  "forest_shim",
  "forest_test_utils",
  "forest_utils",
- "fvm",
+ "fvm 2.2.0",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
  "multihash",
@@ -3492,7 +3522,7 @@ dependencies = [
  "cid",
  "forest_encoding",
  "forest_shim",
- "fvm",
+ "fvm 2.2.0",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
  "rand 0.8.5",
@@ -3516,10 +3546,11 @@ dependencies = [
  "forest_libp2p",
  "forest_message",
  "forest_networks",
+ "forest_shim",
  "forest_state_manager",
  "forest_utils",
  "futures",
- "fvm",
+ "fvm 2.2.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3615,7 +3646,6 @@ dependencies = [
  "forest_state_manager",
  "forest_utils",
  "futures",
- "fvm",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -3691,6 +3721,9 @@ dependencies = [
 name = "forest_shim"
 version = "0.6.0"
 dependencies = [
+ "cid",
+ "fvm 2.2.0",
+ "fvm 3.0.0-alpha.22",
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.18",
  "num-bigint",
@@ -3723,7 +3756,7 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "futures",
- "fvm",
+ "fvm 2.2.0",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
@@ -3746,7 +3779,7 @@ dependencies = [
  "ahash 0.8.3",
  "cid",
  "crossbeam-channel",
- "fvm",
+ "forest_shim",
  "fvm_ipld_blockstore",
  "fvm_shared 2.0.0",
  "log",
@@ -3776,8 +3809,8 @@ dependencies = [
  "forest_db",
  "forest_ipld",
  "forest_json",
+ "forest_shim",
  "forest_utils",
- "fvm",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
@@ -4052,14 +4085,14 @@ dependencies = [
  "byteorder",
  "cid",
  "derive-getters",
- "derive_builder",
+ "derive_builder 0.11.2",
  "derive_more",
  "filecoin-proofs-api",
- "fvm-wasm-instrument",
- "fvm_ipld_amt",
+ "fvm-wasm-instrument 0.2.0",
+ "fvm_ipld_amt 0.4.2",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt",
+ "fvm_ipld_hamt 0.5.1",
  "fvm_shared 2.0.0",
  "lazy_static",
  "log",
@@ -4079,12 +4112,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm"
+version = "3.0.0-alpha.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a035a0565a2b03637894573dbcfe28fcc855f9c0bfb1e183d54e0857e2fbc4c5"
+dependencies = [
+ "anyhow",
+ "blake2b_simd",
+ "byteorder",
+ "cid",
+ "derive-getters",
+ "derive_builder 0.12.0",
+ "derive_more",
+ "filecoin-proofs-api",
+ "fvm-wasm-instrument 0.4.0",
+ "fvm_ipld_amt 0.5.1",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "fvm_ipld_hamt 0.6.1",
+ "fvm_shared 3.0.0-alpha.18",
+ "lazy_static",
+ "log",
+ "minstant",
+ "multihash",
+ "num-derive",
+ "num-traits",
+ "num_cpus",
+ "once_cell",
+ "rand 0.8.5",
+ "rayon",
+ "replace_with",
+ "serde",
+ "serde_repr",
+ "serde_tuple",
+ "thiserror",
+ "wasmtime",
+ "wasmtime-environ",
+ "wasmtime-runtime",
+ "yastl",
+]
+
+[[package]]
 name = "fvm-wasm-instrument"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06fb20587460d9ecd3c804c02a68240f132ec19c9a47c07afc418bff01f33a30"
 dependencies = [
  "parity-wasm",
+]
+
+[[package]]
+name = "fvm-wasm-instrument"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddd62c1cbb59244314d761b57cb5d2bcc35e8b7bc8f3082d56980f69145c1be8"
+dependencies = [
+ "anyhow",
+ "wasm-encoder",
+ "wasmparser 0.95.0",
+ "wasmprinter",
 ]
 
 [[package]]
@@ -4098,6 +4184,22 @@ dependencies = [
  "cid",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
+ "itertools 0.10.5",
+ "once_cell",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "fvm_ipld_amt"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e84f16d6927ce342ef86bd20fcc2d5bd498ed33ae6d7a22fea7a1b453488ec88"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
  "itertools 0.10.5",
  "once_cell",
  "serde",
@@ -4199,6 +4301,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "fvm_ipld_hamt"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c942494dde990aeac314311bde34c787be99cab7d0836397a75556cbaa2c3e7"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "cid",
+ "forest_hash_utils",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding 0.3.3",
+ "libipld-core 0.14.0",
+ "multihash",
+ "once_cell",
+ "serde",
+ "sha2 0.10.6",
+ "thiserror",
+]
+
+[[package]]
 name = "fvm_sdk"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4255,13 +4377,16 @@ dependencies = [
  "anyhow",
  "bitflags",
  "blake2b_simd",
+ "bls-signatures",
  "byteorder",
  "cid",
  "data-encoding",
  "data-encoding-macro",
+ "filecoin-proofs-api",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.3.3",
  "lazy_static",
+ "libsecp256k1",
  "log",
  "multihash",
  "num-bigint",
@@ -4986,6 +5111,12 @@ name = "lazycell"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
+
+[[package]]
+name = "leb128"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
@@ -5771,6 +5902,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "memfd"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b20a59d985586e4a5aef64564ac77299f8586d8be6cf9106a5a40207e8908efb"
+dependencies = [
+ "rustix 0.36.8",
+]
+
+[[package]]
 name = "memmap"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5871,6 +6011,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b275950c28b37e794e8c55d88aeb5e139d0ce23fdbbeda68f8d7174abdf9e8fa"
 dependencies = [
  "adler",
+]
+
+[[package]]
+name = "minstant"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc5dcfca9a0725105ac948b84cfeb69c3942814c696326743797215413f854b9"
+dependencies = [
+ "ctor",
+ "libc",
+ "wasi 0.7.0",
 ]
 
 [[package]]
@@ -9265,6 +9416,12 @@ dependencies = [
 
 [[package]]
 name = "wasi"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b89c3ce4ce14bdc6fb6beaf9ec7928ca331de5df7e5ea278375642a2f478570d"
+
+[[package]]
+name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
@@ -9342,6 +9499,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0046fef7e28c3804e5e38bfa31ea2a0f73905319b677e57ebe37e49358989b5d"
 
 [[package]]
+name = "wasm-encoder"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05632e0a66a6ed8cca593c24223aabd6262f256c3693ad9822c315285f010614"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
 name = "wasm-timer"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9366,6 +9532,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmparser"
+version = "0.95.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2ea896273ea99b15132414be1da01ab0d8836415083298ecaffbe308eaac87a"
+dependencies = [
+ "indexmap",
+ "url",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.99.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ef3b717afc67f848f412d4f02c127dd3e35a0eecd58c684580414df4fde01d3"
+dependencies = [
+ "indexmap",
+ "url",
+]
+
+[[package]]
+name = "wasmprinter"
+version = "0.2.49"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27c13dff901f9354fa9a6a877152d9c5642513645985635c9b83bcca99e40ea1"
+dependencies = [
+ "anyhow",
+ "wasmparser 0.99.0",
+]
+
+[[package]]
 name = "wasmtime"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9384,7 +9580,7 @@ dependencies = [
  "rayon",
  "serde",
  "target-lexicon",
- "wasmparser",
+ "wasmparser 0.92.0",
  "wasmtime-cranelift",
  "wasmtime-environ",
  "wasmtime-jit",
@@ -9418,7 +9614,7 @@ dependencies = [
  "object 0.29.0",
  "target-lexicon",
  "thiserror",
- "wasmparser",
+ "wasmparser 0.92.0",
  "wasmtime-environ",
 ]
 
@@ -9437,7 +9633,7 @@ dependencies = [
  "serde",
  "target-lexicon",
  "thiserror",
- "wasmparser",
+ "wasmparser 0.92.0",
  "wasmtime-types",
 ]
 
@@ -9487,6 +9683,7 @@ dependencies = [
  "libc",
  "log",
  "mach",
+ "memfd",
  "memoffset 0.6.5",
  "paste",
  "rand 0.8.5",
@@ -9507,7 +9704,7 @@ dependencies = [
  "cranelift-entity",
  "serde",
  "thiserror",
- "wasmparser",
+ "wasmparser 0.92.0",
 ]
 
 [[package]]
@@ -9597,7 +9794,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ef36a4d12baa6e842582fe9ec16a57184ba35e1a09308307b67d43ec8883100"
 dependencies = [
  "bytes 1.4.0",
- "derive_builder",
+ "derive_builder 0.11.2",
  "log",
  "thiserror",
  "tokio",
@@ -9691,7 +9888,7 @@ checksum = "ee2a3c157a040324e5049bcbd644ffc9079e6738fa2cfab2bcff64e5cc4c00d7"
 dependencies = [
  "byteorder",
  "bytes 1.4.0",
- "derive_builder",
+ "derive_builder 0.11.2",
  "displaydoc",
  "rand 0.8.5",
  "rtp",

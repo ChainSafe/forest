@@ -16,7 +16,7 @@ use forest_crypto::VRFProof;
 use forest_message::ChainMessage;
 use forest_message::Message as MessageTrait;
 use forest_message::SignedMessage;
-use fvm::state_tree::ActorState;
+use forest_shim::state_tree::ActorState;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
@@ -148,8 +148,14 @@ impl Provider for TestApi {
             }
             sequence += 1;
         }
-        let actor = ActorState::new(Cid::default(), Cid::default(), balance, sequence);
-        Ok(actor)
+        let actor = <ActorState as forest_shim::Inner>::FVM::new(
+            Cid::default(),
+            Cid::default(),
+            forest_shim::econ::TokenAmount::from(balance).into(),
+            sequence,
+            None,
+        );
+        Ok(actor.into())
     }
 
     fn messages_for_block(

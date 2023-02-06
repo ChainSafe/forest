@@ -6,10 +6,10 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
+use forest_shim::state_tree::StateTree;
 use forest_shim::version::NetworkVersion;
 use fvm::externs::{Consensus, Externs, Rand};
 use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
-use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::tracking::{BSStats, TrackingBlockstore};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
@@ -69,7 +69,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
 
         let tbs = TrackingBlockstore::new(&self.db);
 
-        let ms = forest_actor_interface::miner::State::load(&tbs, &actor)?;
+        let ms = forest_actor_interface::miner::State::load(&tbs, &actor.into())?;
 
         let worker = ms.info(&tbs)?.worker;
 

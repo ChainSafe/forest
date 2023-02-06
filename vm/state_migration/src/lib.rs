@@ -6,7 +6,8 @@
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use fvm::state_tree::{ActorState, StateTree};
+use forest_shim::state_tree::{ActorState, StateTree};
+use forest_shim::Inner;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
@@ -119,8 +120,8 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     let migrator = self.migrations.get(&state.code).cloned().unwrap();
                     scope.spawn(move |_| {
                         let job = MigrationJob {
-                            address,
-                            actor_state: state,
+                            address: forest_shim::address::Address::from(address).into(),
+                            actor_state: state.into(),
                             actor_migration: migrator,
                         };
 
@@ -144,7 +145,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     actor_state,
                 } = job_output;
                 actors_out
-                    .set_actor(&address, actor_state)
+                    .set_actor(&address, actor_state.into())
                     .unwrap_or_else(|e| {
                         panic!(
                             "Failed setting new actor state at given address: {address}, Reason: {e}"
@@ -198,7 +199,7 @@ impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
                 store,
                 ActorMigrationInput {
                     address: self.address,
-                    balance: self.actor_state.balance.clone(),
+                    balance: forest_shim::econ::TokenAmount::from(&self.actor_state.balance).into(),
                     head: self.actor_state.state,
                     prior_epoch,
                 },
@@ -212,12 +213,14 @@ impl<BS: Blockstore + Send + Sync> MigrationJob<BS> {
 
         let migration_job_result = MigrationJobOutput {
             address: self.address,
-            actor_state: ActorState::new(
+            actor_state: <ActorState as Inner>::FVM::new(
                 result.new_code_cid,
                 result.new_head,
                 self.actor_state.balance.clone(),
                 self.actor_state.sequence,
-            ),
+                None,
+            )
+            .into(),
         };
 
         Ok(migration_job_result)
