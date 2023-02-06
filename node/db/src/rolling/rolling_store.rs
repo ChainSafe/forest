@@ -4,6 +4,8 @@
 use super::*;
 use ahash::{HashMap, HashMapExt};
 use chrono::{DateTime, Utc};
+use cid::Cid;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use parking_lot::RwLock;
 use std::{path::PathBuf, sync::Arc};
 
@@ -40,6 +42,30 @@ impl<T> TrackingStore<T> {
         metrics::ROLLING_DB_LAST_WRITE
             .with_label_values(&[&self.index.to_string()])
             .set(now.timestamp())
+    }
+}
+
+impl<T> BitswapStoreRead for TrackingStore<T>
+where
+    T: ReadStore + BitswapStoreRead,
+{
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
+        self.store.contains(cid)
+    }
+
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.store.get(cid)
+    }
+}
+
+impl<T> BitswapStoreReadWrite for TrackingStore<T>
+where
+    T: ReadWriteStore + BitswapStoreReadWrite,
+{
+    type Params = <T as BitswapStoreReadWrite>::Params;
+
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+        self.store.insert(block)
     }
 }
 

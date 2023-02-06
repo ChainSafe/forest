@@ -5,7 +5,7 @@ use super::*;
 use crate::DBStatistics;
 use cid::Cid;
 use forest_actor_interface::EPOCHS_IN_DAY;
-use forest_libp2p_bitswap::BitswapStore;
+use forest_libp2p_bitswap::BitswapStoreRead;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
 
@@ -75,23 +75,16 @@ where
     }
 }
 
-// FIXME: It should not be the persistent one, maybe use the latest rolling one
-impl<T> BitswapStore for ProxyStore<T>
+impl<T> BitswapStoreRead for ProxyStore<T>
 where
-    T: BitswapStore,
+    T: BitswapStoreRead,
 {
-    type Params = <T as BitswapStore>::Params;
-
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         self.persistent().contains(cid)
     }
 
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         self.persistent().get(cid)
-    }
-
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
-        self.persistent().insert(block)
     }
 }
 
