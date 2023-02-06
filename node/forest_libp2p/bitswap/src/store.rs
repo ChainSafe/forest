@@ -5,13 +5,19 @@ use crate::*;
 use libipld::Block;
 
 /// Trait implemented by a block store.
-pub trait BitswapStore: Send + Sync + 'static {
-    /// The store parameters.
-    type Params: StoreParams;
+pub trait BitswapStoreRead {
     /// A have query needs to know if the block store contains the block.
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool>;
+
     /// A block query needs to retrieve the block from the store.
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>>;
+}
+
+/// Trait implemented by a block store.
+pub trait BitswapStoreReadWrite: BitswapStoreRead + Send + Sync + 'static {
+    /// The store parameters.
+    type Params: StoreParams;
+
     /// A block response needs to insert the block into the store.
     fn insert(&self, block: &Block<Self::Params>) -> anyhow::Result<()>;
 }
