@@ -39,7 +39,6 @@ struct Cli {
 
 #[derive(clap::Subcommand)]
 enum Subcommand {
-    /// does testing things
     #[command(name = "chain")]
     ChainCommand {
         /// The previous CID state root
