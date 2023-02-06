@@ -18,10 +18,10 @@ impl crate::Subcommand {
             } => {
                 let dir = ProjectDirs::from("com", "ChainSafe", "Forest")
                     .ok_or(anyhow::Error::msg("no such path"))?;
-                let chain_path = dir.data_dir().join(&chain);
+                let chain_path = dir.data_dir().join(chain);
                 let blockstore = open_db(&db_path(&chain_path), &DbConfig::default())?;
 
-                if let Err(err) = print_state_diff(&blockstore, &pre, &post, *depth) {
+                if let Err(err) = print_state_diff(&blockstore, pre, post, *depth) {
                     eprintln!("Failed to print state diff: {err}");
                 }
                 Ok(())
