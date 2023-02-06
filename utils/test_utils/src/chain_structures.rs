@@ -12,8 +12,7 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_ipld_encoding::to_vec;
-use fvm_ipld_encoding::DAG_CBOR;
+use fvm_ipld_encoding::{to_vec, DAG_CBOR};
 use fvm_shared::address::Address;
 use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;

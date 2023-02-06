@@ -3,7 +3,8 @@
 
 use super::cli::set_sigint_handler;
 use anyhow::Context;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::Confirm;
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
@@ -13,15 +14,13 @@ use forest_cli_shared::chain_path;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
 };
-use forest_db::{
-    db_engine::{db_path, open_db, Db},
-    Store,
-};
+use forest_db::db_engine::{db_path, open_db, Db};
+use forest_db::Store;
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
-use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
-use forest_key_management::{KeyStore, KeyStoreConfig};
-use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
-use forest_libp2p::{PeerId, PeerManager};
+use forest_key_management::{KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME};
+use forest_libp2p::{
+    ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
+};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -33,26 +32,25 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use std::net::TcpListener;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::task::JoinSet;
-
 use std::io::prelude::*;
+use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time;
+use std::time::Duration;
+use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
 
 // Default consensus
-#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
-use forest_fil_cns::composition as cns;
 // Custom consensus.
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
+#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
+use forest_fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = super::ipc_shmem_conf().open()?;

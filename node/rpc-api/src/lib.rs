@@ -140,16 +140,15 @@ pub mod beacon_api {
 
 /// Chain API
 pub mod chain_api {
-    use std::path::PathBuf;
-
     use crate::data_types::BlockMessages;
-    use forest_blocks::{
-        header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
-        TipsetKeys,
-    };
+    use forest_blocks::header::json::BlockHeaderJson;
+    use forest_blocks::tipset_json::TipsetJson;
+    use forest_blocks::tipset_keys_json::TipsetKeysJson;
+    use forest_blocks::TipsetKeys;
     use forest_json::cid::CidJson;
     use forest_json::message::json::MessageJson;
     use fvm_shared::clock::ChainEpoch;
+    use std::path::PathBuf;
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
     pub type ChainGetMessageParams = (CidJson,);
@@ -207,10 +206,10 @@ pub mod chain_api {
 /// Message Pool API
 pub mod mpool_api {
     use crate::data_types::MessageSendSpec;
-    use forest_json::signed_message::json::SignedMessageJson;
-    use forest_json::{cid::CidJson, message::json::MessageJson};
-
     use forest_json::cid::vec::CidJsonVec;
+    use forest_json::cid::CidJson;
+    use forest_json::message::json::MessageJson;
+    use forest_json::signed_message::json::SignedMessageJson;
     use forest_message::SignedMessage;
 
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
@@ -247,7 +246,8 @@ pub mod sync_api {
 /// Wallet API
 pub mod wallet_api {
     use forest_json::address::json::AddressJson;
-    use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
+    use forest_json::signature::json::signature_type::SignatureTypeJson;
+    use forest_json::signature::json::SignatureJson;
     use forest_key_management::json::KeyInfoJson;
 
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";

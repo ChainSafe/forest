@@ -3,10 +3,9 @@
 
 use crate::errors::Error;
 use async_trait::async_trait;
-use cid::{multihash::Code::Blake2b256, Cid};
-use forest_blocks::BlockHeader;
-use forest_blocks::Tipset;
-use forest_blocks::TipsetKeys;
+use cid::multihash::Code::Blake2b256;
+use cid::Cid;
+use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_db::Store;
 use forest_message::{ChainMessage, SignedMessage};

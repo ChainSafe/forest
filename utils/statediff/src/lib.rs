@@ -6,21 +6,6 @@ mod resolve;
 use ahash::HashMap;
 use cid::Cid;
 use colored::*;
-use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_json::cid::CidJson;
-use forest_shim::state_tree::{ActorState, StateTree};
-use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use libipld_core::ipld::Ipld;
-use resolve::resolve_cids_recursive;
-use serde::{Deserialize, Serialize};
-use similar::ChangeTag;
-use similar::TextDiff;
-
-use std::fmt::Write as FmtWrite;
-use std::io::stdout;
-use std::io::Write;
-
 use fil_actor_account_v9::State as AccountState;
 use fil_actor_cron_v9::State as CronState;
 use fil_actor_init_v9::State as InitState;
@@ -30,6 +15,17 @@ use fil_actor_multisig_v9::State as MultiSigState;
 use fil_actor_power_v9::State as PowerState;
 use fil_actor_reward_v9::State as RewardState;
 use fil_actor_system_v9::State as SystemState;
+use forest_ipld::json::{IpldJson, IpldJsonRef};
+use forest_json::cid::CidJson;
+use forest_shim::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::address::Address;
+use libipld_core::ipld::Ipld;
+use resolve::resolve_cids_recursive;
+use serde::{Deserialize, Serialize};
+use similar::{ChangeTag, TextDiff};
+use std::fmt::Write as FmtWrite;
+use std::io::{stdout, Write};
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {

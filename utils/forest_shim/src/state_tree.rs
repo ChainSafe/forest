@@ -1,15 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::ops::{Deref, DerefMut};
-
-use crate::{econ::TokenAmount, Inner};
+use crate::econ::TokenAmount;
+use crate::Inner;
 use fvm::state_tree::ActorState as ActorStateV2;
-use fvm3::state_tree::ActorState as ActorStateV3;
-use serde::{Deserialize, Serialize};
-
 /// Re-use `StateTree` from FVM2 directly, without wrapping. Moving forward, we should use
 /// `StateTree` from FVM3. Unfortunately, for the time being, we are blocked by lack of migrations.
 pub use fvm::state_tree::StateTree;
+use fvm3::state_tree::ActorState as ActorStateV3;
+use serde::{Deserialize, Serialize};
+use std::ops::{Deref, DerefMut};
 
 /// Newtype to wrap different versions of `fvm::state_tree::ActorState`
 ///

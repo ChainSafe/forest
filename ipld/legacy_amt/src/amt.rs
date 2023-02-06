@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::ValueMut;
-use crate::{
-    init_sized_vec,
-    node::{CollapsedNode, Link},
-    nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
-};
-use cid::{multihash::Code::Blake2b256, Cid};
+use crate::node::{CollapsedNode, Link};
+use crate::{init_sized_vec, nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX};
+use cid::multihash::Code::Blake2b256;
+use cid::Cid;
 use forest_db::Store;
-use forest_encoding::{de::DeserializeOwned, ser::Serialize};
+use forest_encoding::de::DeserializeOwned;
+use forest_encoding::ser::Serialize;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::sorted;

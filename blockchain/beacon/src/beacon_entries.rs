@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::{serde_byte_array, tuple::*};
+use forest_encoding::serde_byte_array;
+use forest_encoding::tuple::*;
 
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of
@@ -40,7 +41,8 @@ impl quickcheck::Arbitrary for BeaconEntry {
 
 pub mod json {
     use super::*;
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `BeaconEntry` from JSON.

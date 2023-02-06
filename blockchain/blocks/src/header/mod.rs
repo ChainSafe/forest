@@ -444,12 +444,12 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::{errors::Error, BlockHeader};
+    use crate::errors::Error;
+    use crate::BlockHeader;
     use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_shim::version::NetworkVersion;
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
-
     use std::sync::Arc;
     use std::time::Duration;
 

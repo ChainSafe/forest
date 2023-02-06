@@ -3,12 +3,12 @@
 
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
-
 use cid::Cid;
 use fvm_ipld_encoding::{Cbor, Error, RawBytes};
+use fvm_shared::address::Address;
+use fvm_shared::econ::TokenAmount;
 use fvm_shared::message::Message;
 use fvm_shared::MethodNum;
-use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::{Deserialize, Serialize};
 
 /// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types

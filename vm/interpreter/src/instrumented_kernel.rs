@@ -1,14 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use crate::{metrics, ForestMachine};
 use cid::Cid;
 use fvm::call_manager::CallManager;
-use fvm::gas::Gas;
-use fvm::gas::PriceList;
-use fvm::kernel::BlockRegistry;
-use fvm::kernel::Result;
+use fvm::gas::{Gas, PriceList};
 use fvm::kernel::{
-    BlockId, BlockStat, DebugOps, GasOps, MessageOps, NetworkOps, RandomnessOps, SelfOps, SendOps,
-    SendResult,
+    BlockId, BlockRegistry, BlockStat, DebugOps, GasOps, MessageOps, NetworkOps, RandomnessOps,
+    Result, SelfOps, SendOps, SendResult,
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
@@ -22,9 +20,6 @@ use fvm_shared::sector::*;
 use fvm_shared::{ActorID, MethodNum};
 use std::time;
 use stdext::function_name;
-
-use crate::metrics;
-use crate::ForestMachine;
 
 /// Calls the supplied lambda and updates the corresponding Prometheus metrics - call count and
 /// total call duration.

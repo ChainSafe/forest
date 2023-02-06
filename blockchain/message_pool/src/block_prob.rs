@@ -104,8 +104,7 @@ fn test_block_probability() {
 #[test]
 #[cfg(feature = "slow_tests")]
 fn test_winner_probability() {
-    use rand::thread_rng;
-    use rand::Rng;
+    use rand::{thread_rng, Rng};
     let n = 1_000_000;
     let winner_prob = no_winners_prob();
     let mut sum = 0.0;

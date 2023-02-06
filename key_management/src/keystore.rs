@@ -17,7 +17,8 @@ use std::fs::{self, create_dir, File};
 use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use xsalsa20poly1305::aead::{generic_array::GenericArray, Aead};
+use xsalsa20poly1305::aead::generic_array::GenericArray;
+use xsalsa20poly1305::aead::Aead;
 use xsalsa20poly1305::{KeyInit, XSalsa20Poly1305, NONCE_SIZE};
 
 pub const KEYSTORE_NAME: &str = "keystore.json";

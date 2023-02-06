@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::index::checkpoint_tipsets;
-use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
+use super::index::{checkpoint_tipsets, ChainIndex};
+use super::tipset_tracker::TipsetTracker;
+use super::Error;
 use crate::Scale;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::multihash::Code::Blake2b256;
+use cid::Cid;
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -19,8 +21,7 @@ use forest_interpreter::BlockMessages;
 use forest_ipld::{recurse_links_hash, InsertHash};
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_message::Message as MessageTrait;
-use forest_message::{ChainMessage, SignedMessage};
+use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
 use forest_shim::state_tree::StateTree;
@@ -40,9 +41,10 @@ use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::Serialize;
+use std::collections::VecDeque;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use std::{collections::VecDeque, time::SystemTime};
+use std::time::SystemTime;
 use tokio::io::AsyncWrite;
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tokio::sync::Mutex as TokioMutex;

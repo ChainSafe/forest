@@ -1,12 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use serde::Deserialize;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
-
-use serde::Deserialize;
 use syn::{
     AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Item, ItemConst, ItemMod,
     ItemType, Lit, Path, PathArguments, PathSegment, Type, TypePath, TypeTuple,

@@ -28,7 +28,8 @@ impl VRFProof {
 
 pub mod json {
     use super::*;
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::borrow::Cow;
 

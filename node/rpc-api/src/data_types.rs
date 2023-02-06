@@ -4,7 +4,8 @@
 use cid::Cid;
 use forest_actor_interface::market::{DealProposal, DealState};
 use forest_beacon::{Beacon, BeaconSchedule};
-use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset};
+use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_blocks::Tipset;
 use forest_chain::ChainStore;
 use forest_chain_sync::{BadBlockCache, SyncState};
 use forest_ipld::json::IpldJson;

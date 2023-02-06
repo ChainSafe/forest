@@ -1,10 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_blocks::{
-    tipset::tipset_json::{TipsetJson, TipsetJsonRef},
-    Tipset,
-};
+use forest_blocks::tipset::tipset_json::{TipsetJson, TipsetJsonRef};
+use forest_blocks::Tipset;
 use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -284,10 +282,9 @@ pub mod json {
 }
 
 pub mod vec {
-    use serde::ser::SerializeSeq;
-
     use super::json::SyncStateRef;
     use super::*;
+    use serde::ser::SerializeSeq;
 
     #[derive(Serialize)]
     #[serde(transparent)]

@@ -5,19 +5,24 @@ use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
-use dialoguer::{theme::ColorfulTheme, Confirm};
-use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::Confirm;
+use forest_blocks::tipset_keys_json::TipsetKeysJson;
+use forest_blocks::{Tipset, TipsetKeys};
 use forest_chain::ChainStore;
 use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
-use forest_db::{db_engine::open_db, Store};
+use forest_db::db_engine::open_db;
+use forest_db::Store;
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_shared::clock::ChainEpoch;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
 use strfmt::strfmt;
 use structopt::StructOpt;
 use tempfile::TempDir;

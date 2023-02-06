@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use filecoin_proofs_api::{post, PublicReplicaInfo};
-use filecoin_proofs_api::{ProverId, SectorId};
+use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::address::Address;
 use fvm_shared::commcid::cid_to_replica_commitment_v1;

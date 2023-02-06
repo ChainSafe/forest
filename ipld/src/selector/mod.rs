@@ -4,7 +4,6 @@
 mod empty_map;
 mod walk;
 pub use self::walk::*;
-
 use super::Ipld;
 use fvm_ipld_encoding::Cbor;
 use indexmap::IndexMap;

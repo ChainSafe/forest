@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use lazy_static::lazy_static;
-use prometheus::{core::Opts, Histogram, HistogramOpts, HistogramVec};
+use prometheus::core::Opts;
+use prometheus::{Histogram, HistogramOpts, HistogramVec};
 
 lazy_static! {
     pub static ref CONSENSUS_BLOCK_VALIDATION_TIME: Box<Histogram> = {

@@ -11,12 +11,10 @@ use super::provider::Provider;
 use crate::msg_chain::{create_message_chains, Chains, NodeKey};
 use crate::msg_pool::MsgSet;
 use crate::msgpool::MIN_GAS;
-use crate::Error;
-use crate::{add_to_selected_msgs, remove_from_selected_msgs};
+use crate::{add_to_selected_msgs, remove_from_selected_msgs, Error};
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
-use forest_message::Message;
-use forest_message::SignedMessage;
+use forest_message::{Message, SignedMessage};
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use parking_lot::RwLock;
@@ -667,7 +665,6 @@ where
 #[cfg(test)]
 mod test_selection {
     use super::*;
-
     use crate::head_change;
     use crate::msgpool::test_provider::{mock_block, TestApi};
     use crate::msgpool::tests::create_smsg;

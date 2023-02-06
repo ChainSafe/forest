@@ -75,11 +75,10 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use crate::ArbitraryCid;
-
     use super::tipset_json::{TipsetJson, TipsetJsonRef};
     use super::tipset_keys_json::TipsetKeysJson;
     use super::{Tipset, TipsetKeys};
+    use crate::ArbitraryCid;
     use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;

@@ -3,16 +3,15 @@
 
 use super::ValueMut;
 use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::multihash::Code::Blake2b256;
+use cid::Cid;
 use forest_encoding::cs_serde_bytes;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesSer;
 use once_cell::unsync::OnceCell;
-use serde::{
-    de::{self, DeserializeOwned},
-    ser, Deserialize, Serialize,
-};
+use serde::de::{self, DeserializeOwned};
+use serde::{ser, Deserialize, Serialize};
 use std::error::Error as StdError;
 
 /// This represents a link to another Node

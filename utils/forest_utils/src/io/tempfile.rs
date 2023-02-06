@@ -1,10 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use log::warn;
 use std::fs;
 use std::path::PathBuf;
-
-use log::warn;
 
 /// Wrapper of temporary file that deletes file on drop
 #[derive(Debug, Clone)]

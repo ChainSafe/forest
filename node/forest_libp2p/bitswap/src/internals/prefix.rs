@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::*;
-use libipld::cid::{
-    multihash::{Code, MultihashDigest},
-    Version,
-};
+use libipld::cid::multihash::{Code, MultihashDigest};
+use libipld::cid::Version;
 use std::convert::TryFrom;
 use unsigned_varint::{decode as varint_decode, encode as varint_encode};
 

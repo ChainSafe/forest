@@ -30,12 +30,11 @@ pub(super) use self::snapshot_cmd::SnapshotCommands;
 pub(super) use self::state_cmd::StateCommands;
 pub(super) use self::sync_cmd::SyncCommands;
 pub(super) use self::wallet_cmd::WalletCommands;
-pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
-
 use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::cli::CliOpts;
+pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;

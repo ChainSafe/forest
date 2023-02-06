@@ -18,7 +18,6 @@ pub(crate) use self::behaviour::*;
 pub use self::config::*;
 pub use self::peer_manager::*;
 pub use self::service::*;
-
 // Re-export some libp2p types
 pub use libp2p::core::PeerId;
 pub use libp2p::identity::{ed25519, Keypair};

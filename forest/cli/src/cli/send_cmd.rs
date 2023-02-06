@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{handle_rpc_err, Config};
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use fvm_shared::address::Address;
+use fvm_shared::econ::TokenAmount;
+use fvm_shared::message::Message;
+use fvm_shared::METHOD_SEND;
 use num::BigInt;
 use std::str::FromStr;
 use structopt::StructOpt;
-
-use super::{handle_rpc_err, Config};
 
 #[derive(Debug, StructOpt)]
 pub struct SendCommand {

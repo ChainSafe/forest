@@ -5,9 +5,10 @@ mod client;
 mod config;
 mod snapshot_fetch;
 
-pub use self::{client::*, config::*, snapshot_fetch::*};
+pub use self::client::*;
+pub use self::config::*;
+pub use self::snapshot_fetch::*;
 use crate::logger::LoggingColor;
-
 use ahash::HashSet;
 use byte_unit::Byte;
 use directories::ProjectDirs;

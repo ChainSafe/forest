@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use forest_encoding::de;
     use fvm_shared::crypto::signature::{Signature, SignatureType};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};

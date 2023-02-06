@@ -8,7 +8,8 @@ use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
-use tokio::{sync::RwLock, task::JoinSet};
+use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 
 pub type FullConsensus = FilecoinConsensus<DrandBeacon>;
 

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::multihash::Code::Blake2b256;
+use cid::Cid;
 use forest_db::MemoryDB;
 use forest_ipld::json::{self, IpldJson};
 use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
@@ -61,8 +62,7 @@ mod path_json {
 }
 
 mod last_block_json {
-    use super::LastBlockInfo;
-    use super::Path;
+    use super::{LastBlockInfo, Path};
     use cid::Cid;
     use serde::{Deserialize, Deserializer};
 

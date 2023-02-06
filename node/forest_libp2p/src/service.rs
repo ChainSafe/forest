@@ -6,11 +6,8 @@ use super::chain_exchange::{
 };
 use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
 use crate::discovery::DiscoveryOut;
-use crate::hello::HelloBehaviour;
-use crate::{
-    hello::{HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-};
+use crate::hello::{HelloBehaviour, HelloRequest, HelloResponse};
+use crate::rpc::RequestResponseError;
 use crate::{PeerManager, PeerOperation};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
@@ -27,9 +24,12 @@ use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
+use libp2p::core::muxing::StreamMuxerBox;
+use libp2p::core::transport::Boxed;
+use libp2p::core::Multiaddr;
 use libp2p::gossipsub::GossipsubEvent;
-pub use libp2p::gossipsub::IdentTopic;
-pub use libp2p::gossipsub::Topic;
+pub use libp2p::gossipsub::{IdentTopic, Topic};
+use libp2p::identity::{ed25519, Keypair};
 use libp2p::metrics::{Metrics, Recorder};
 use libp2p::multiaddr::Protocol;
 use libp2p::multihash::Multihash;
@@ -37,17 +37,9 @@ use libp2p::ping::{self};
 use libp2p::request_response::{
     RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
 };
-use libp2p::{
-    core,
-    core::muxing::StreamMuxerBox,
-    core::transport::Boxed,
-    identity::{ed25519, Keypair},
-    noise,
-    swarm::{ConnectionLimits, SwarmEvent},
-    yamux::YamuxConfig,
-    PeerId, Swarm, Transport,
-};
-use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
+use libp2p::swarm::{ConnectionLimits, SwarmBuilder, SwarmEvent};
+use libp2p::yamux::YamuxConfig;
+use libp2p::{core, noise, PeerId, Swarm, Transport};
 use log::{debug, error, info, trace, warn};
 use std::path::Path;
 use std::sync::Arc;

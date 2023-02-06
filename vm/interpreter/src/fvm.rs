@@ -255,7 +255,8 @@ fn cal_gas_used_from_stats(
 mod tests {
     use super::*;
     use anyhow::ensure;
-    use std::{cell::RefCell, iter::repeat};
+    use std::cell::RefCell;
+    use std::iter::repeat;
 
     #[test]
     fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {

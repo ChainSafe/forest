@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::FilterEstimate;
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
@@ -12,8 +13,6 @@ use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
 use fvm_shared::sector::StoragePower;
 use serde::{Deserialize, Serialize};
-
-use anyhow::Context;
 
 /// Power actor address.
 // TODO: Select address based on actors version

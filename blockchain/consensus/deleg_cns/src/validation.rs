@@ -1,16 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
-
+use crate::DelegatedConsensusError;
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_db::Store;
 use forest_networks::ChainConfig;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
-
-use crate::DelegatedConsensusError;
+use std::sync::Arc;
 
 /// Validates block semantically according to the rules of Delegated Consensus.
 /// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.

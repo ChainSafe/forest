@@ -2,17 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
-use axum::{
-    extract::{
-        ws::{Message, WebSocket},
-        WebSocketUpgrade,
-    },
-    response::IntoResponse,
-};
+use axum::extract::ws::{Message, WebSocket};
+use axum::extract::WebSocketUpgrade;
+use axum::response::IntoResponse;
 use crossbeam::atomic::AtomicCell;
 use forest_beacon::Beacon;
 use forest_rpc_api::data_types::JsonRpcServerState;
-use futures::{stream::SplitSink, SinkExt, StreamExt};
+use futures::stream::SplitSink;
+use futures::{SinkExt, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use http::{HeaderMap, HeaderValue};
 use log::{debug, error, info, warn};

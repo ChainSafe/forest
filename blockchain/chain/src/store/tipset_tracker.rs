@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::Error;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset};
 use forest_networks::ChainConfig;
@@ -9,9 +10,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, warn};
 use parking_lot::Mutex;
-use std::{collections::BTreeMap, sync::Arc};
-
-use super::Error;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
@@ -115,9 +115,8 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
 #[cfg(test)]
 mod test {
-    use forest_db::MemoryDB;
-
     use super::*;
+    use forest_db::MemoryDB;
 
     #[test]
     fn ensure_tipset_is_bounded() {

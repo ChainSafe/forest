@@ -4,7 +4,8 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use forest_json::{message, signature};

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::HashMap;
-use backoff::{future::retry, ExponentialBackoff};
+use backoff::future::retry;
+use backoff::ExponentialBackoff;
 use blake2b_simd::{Hash, State as Blake2b};
 use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;

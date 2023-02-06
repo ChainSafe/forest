@@ -88,8 +88,7 @@ pub mod go_vec_visitor {
 
 #[cfg(test)]
 mod tests {
-    use super::go_vec_visitor;
-    use super::*;
+    use super::{go_vec_visitor, *};
     use serde::{Deserialize, Deserializer};
     use serde_json::from_str;
 

@@ -1,17 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{event_handlers::*, *};
+use crate::event_handlers::*;
+use crate::*;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use flume::TryRecvError;
-use libipld::Block;
-use libipld::Cid;
+use libipld::{Block, Cid};
 use libp2p::PeerId;
 use parking_lot::RwLock;
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 

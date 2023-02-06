@@ -4,13 +4,11 @@
 pub mod cli;
 pub mod logger;
 
-#[cfg(feature = "jemalloc")]
-pub use tikv_jemallocator;
-
 #[cfg(feature = "mimalloc")]
 pub use mimalloc;
-
 use std::path::PathBuf;
+#[cfg(feature = "jemalloc")]
+pub use tikv_jemallocator;
 
 /// Gets chain data directory
 pub fn chain_path(config: &crate::cli::Config) -> PathBuf {

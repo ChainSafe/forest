@@ -2,21 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use anyhow::anyhow;
 use async_trait::async_trait;
-use std::fmt::Debug;
-use std::sync::Arc;
-use thiserror::Error;
-
 use forest_beacon::{Beacon, BeaconSchedule};
 use forest_blocks::{Block, Tipset};
-use forest_chain::Weight;
-use forest_chain::{Error as ChainStoreError, Scale};
+use forest_chain::{Error as ChainStoreError, Scale, Weight};
 use forest_chain_sync::Consensus;
 use forest_db::Store;
-use forest_state_manager::Error as StateManagerError;
-use forest_state_manager::StateManager;
+use forest_state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
+use std::fmt::Debug;
+use std::sync::Arc;
+use thiserror::Error;
 
 mod metrics;
 mod validation;

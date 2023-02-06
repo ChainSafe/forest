@@ -1,12 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::ops::{Deref, DerefMut};
-
+use crate::Inner;
 use fvm_shared::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use serde::{Deserialize, Serialize};
-
-use crate::Inner;
+use std::ops::{Deref, DerefMut};
 
 /// Newtype wrapper for FVM `ExitCode`.
 ///

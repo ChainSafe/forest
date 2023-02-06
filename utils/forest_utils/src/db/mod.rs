@@ -1,11 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::{
-    multihash::{Code, MultihashDigest},
-    Cid,
-};
-use forest_encoding::{de::DeserializeOwned, ser::Serialize};
+use cid::multihash::{Code, MultihashDigest};
+use cid::Cid;
+use forest_encoding::de::DeserializeOwned;
+use forest_encoding::ser::Serialize;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
 

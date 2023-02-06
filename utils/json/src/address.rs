@@ -5,8 +5,7 @@ use fvm_shared::address::Address;
 
 pub mod json {
     use super::*;
-    use serde::{de, Serialize};
-    use serde::{Deserialize, Deserializer, Serializer};
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::borrow::Cow;
     use std::str::FromStr;
 
@@ -48,8 +47,7 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::*;
-        use super::{AddressJson, AddressJsonRef};
+        use super::{AddressJson, AddressJsonRef, *};
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 

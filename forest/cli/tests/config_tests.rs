@@ -5,7 +5,10 @@ use forest_cli_shared::cli::{Client, Config};
 use rand::Rng;
 #[cfg(feature = "slow_tests")]
 use std::fs::read_dir;
-use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+use std::io::Write;
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::str::FromStr;
 #[cfg(feature = "slow_tests")]
 use tempfile::TempDir;
 

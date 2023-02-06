@@ -5,24 +5,23 @@ use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
 use forest_encoding::de::DeserializeOwned;
-use forest_libp2p::{
-    chain_exchange::{
-        ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
-        MESSAGES,
-    },
-    hello::{HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-    NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
+use forest_libp2p::chain_exchange::{
+    ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS, MESSAGES,
 };
+use forest_libp2p::hello::{HelloRequest, HelloResponse};
+use forest_libp2p::rpc::RequestResponseError;
+use forest_libp2p::{NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT};
 use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
-use std::sync::{atomic::Ordering, Arc};
+use std::convert::TryFrom;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use std::{convert::TryFrom, sync::atomic::AtomicU64};
-use tokio::{task::JoinSet, time::timeout};
+use tokio::task::JoinSet;
+use tokio::time::timeout;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers timing out

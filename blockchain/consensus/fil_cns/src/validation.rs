@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::{metrics, FilecoinConsensusError};
 use cid::Cid;
 use fil_actors_runtime::runtime::DomainSeparationTag;
 use forest_actor_interface::power;
@@ -21,8 +22,6 @@ use fvm_shared::randomness::Randomness;
 use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
 use nonempty::NonEmpty;
 use std::sync::Arc;
-
-use crate::{metrics, FilecoinConsensusError};
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
     NonEmpty::new(e.into())

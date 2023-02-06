@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{prefix::Prefix, *};
+use crate::prefix::Prefix;
+use crate::*;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RequestType {

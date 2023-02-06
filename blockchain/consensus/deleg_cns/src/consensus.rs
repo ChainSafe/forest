@@ -1,30 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use crate::DelegatedProposer;
 use anyhow::anyhow;
 use async_trait::async_trait;
+use forest_blocks::{Block, Tipset};
+use forest_chain::{Error as ChainStoreError, Scale, Weight};
+use forest_chain_sync::consensus::Consensus;
+use forest_db::Store;
 use forest_key_management::KeyStore;
+use forest_state_manager::{Error as StateManagerError, StateManager};
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::Error as ForestEncodingError;
+use fvm_shared::address::Address;
 use log::info;
+use nonempty::NonEmpty;
+use num::BigInt;
 use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-
-use forest_blocks::{Block, Tipset};
-use forest_chain::Error as ChainStoreError;
-use forest_chain::Scale;
-use forest_chain::Weight;
-use forest_chain_sync::consensus::Consensus;
-use forest_db::Store;
-use forest_state_manager::Error as StateManagerError;
-use forest_state_manager::StateManager;
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::Error as ForestEncodingError;
-use fvm_shared::address::Address;
-use nonempty::NonEmpty;
-use num::BigInt;
-
-use crate::DelegatedProposer;
 
 #[derive(Debug, Error)]
 pub enum DelegatedConsensusError {

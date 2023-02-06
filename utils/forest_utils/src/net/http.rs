@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use hyper::{client::HttpConnector, Body};
+use hyper::client::HttpConnector;
+use hyper::Body;
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 
 /// Constructs [hyper::Client] that supports both `http` and `https`.

@@ -6,12 +6,10 @@ pub mod json {
     use base64::prelude::BASE64_STANDARD;
     use base64::Engine;
     use cid::Cid;
-    use fvm_ipld_encoding::Cbor;
-    use fvm_ipld_encoding::RawBytes;
+    use fvm_ipld_encoding::{Cbor, RawBytes};
     use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
-    use serde::{de, ser};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a Message from JSON.
     #[derive(Deserialize, Serialize, Debug)]

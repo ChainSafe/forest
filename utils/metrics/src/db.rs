@@ -3,8 +3,7 @@
 
 use log::error;
 use prometheus::core::{Collector, Desc};
-use prometheus::proto;
-use prometheus::{Gauge, Opts};
+use prometheus::{proto, Gauge, Opts};
 use std::path::PathBuf;
 
 pub struct DBCollector {

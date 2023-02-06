@@ -1,13 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::cli_error_and_die;
 use crate::cli::Config;
-use structopt::StructOpt;
-
 use forest_paramfetch::{get_params_default, SectorSizeOpt};
 use fvm_shared::sector::SectorSize;
-
-use super::cli_error_and_die;
+use structopt::StructOpt;
 
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]

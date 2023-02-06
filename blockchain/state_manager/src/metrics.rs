@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use lazy_static::lazy_static;
-use prometheus::{core::Opts, Histogram, HistogramOpts};
+use prometheus::core::Opts;
+use prometheus::{Histogram, HistogramOpts};
 
 lazy_static! {
     pub static ref APPLY_BLOCKS_TIME: Box<Histogram> =

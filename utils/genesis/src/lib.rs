@@ -14,8 +14,7 @@ use log::{debug, info};
 use std::sync::Arc;
 use std::time;
 use tokio::fs::File;
-use tokio::io::AsyncRead;
-use tokio::io::BufReader;
+use tokio::io::{AsyncRead, BufReader};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 

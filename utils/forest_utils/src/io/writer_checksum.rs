@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use std::{pin::Pin, task::Poll};
-
 use digest::{Digest, Output};
 use pin_project_lite::pin_project;
+use std::pin::Pin;
+use std::task::Poll;
 use tokio::io::AsyncWrite;
 
 pin_project! {

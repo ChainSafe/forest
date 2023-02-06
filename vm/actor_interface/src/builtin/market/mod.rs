@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use anyhow::Context;
 use cid::Cid;
 use forest_shim::state_tree::ActorState;
 use forest_utils::db::BlockstoreExt;
@@ -12,8 +13,6 @@ use fvm_shared::piece::PaddedPieceSize;
 use num::BigInt;
 use serde::Serialize;
 use std::marker::PhantomData;
-
-use anyhow::Context;
 
 /// Market actor address.
 pub const ADDRESS: Address = Address::new_id(5);

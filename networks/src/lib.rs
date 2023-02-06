@@ -5,7 +5,6 @@ use fil_actors_runtime::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 

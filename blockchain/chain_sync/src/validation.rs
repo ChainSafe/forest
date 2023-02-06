@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::bad_block_cache::BadBlockCache;
-
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::multihash::Code::Blake2b256;
+use cid::Cid;
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
 use forest_chain::ChainStore;
 use forest_legacy_ipld_amt::{Amt, Error as IpldAmtError};
@@ -12,10 +12,8 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
 use fvm_shared::message::Message;
-
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-
 use thiserror::Error;
 
 const MAX_HEIGHT_DRIFT: u64 = 5;

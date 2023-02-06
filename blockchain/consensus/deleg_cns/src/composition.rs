@@ -9,7 +9,8 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::econ::TokenAmount;
 use log::info;
 use std::sync::Arc;
-use tokio::{sync::RwLock, task::JoinSet};
+use tokio::sync::RwLock;
+use tokio::task::JoinSet;
 
 pub type FullConsensus = DelegatedConsensus;
 

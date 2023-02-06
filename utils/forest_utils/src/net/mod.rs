@@ -6,7 +6,5 @@ mod http;
 
 pub use self::download::*;
 pub use self::http::*;
-
 // re-exports hyper
-pub use hyper;
-pub use hyper_rustls;
+pub use {hyper, hyper_rustls};

@@ -7,22 +7,19 @@ mod tests {
     use anyhow::Result;
     use forest_libp2p_bitswap::*;
     use futures::StreamExt;
-    use libipld::{
-        multihash::{self, MultihashDigest},
-        Block, Cid,
-    };
-    use libp2p::{
-        core,
-        identity::Keypair,
-        multiaddr::Protocol,
-        noise,
-        swarm::{ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, SwarmEvent},
-        tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
-    };
+    use libipld::multihash::{self, MultihashDigest};
+    use libipld::{Block, Cid};
+    use libp2p::identity::Keypair;
+    use libp2p::multiaddr::Protocol;
+    use libp2p::swarm::{ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, SwarmEvent};
+    use libp2p::{core, noise, tcp, yamux, Multiaddr, PeerId, Swarm, Transport};
     use parking_lot::RwLock;
-    use rand::{rngs::OsRng, Rng};
-    use std::{sync::Arc, time::Duration};
-    use tokio::{select, task::JoinSet};
+    use rand::rngs::OsRng;
+    use rand::Rng;
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::select;
+    use tokio::task::JoinSet;
 
     const TIMEOUT: Duration = Duration::from_secs(5);
     const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";

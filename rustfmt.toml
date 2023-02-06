@@ -1,1 +1,5 @@
 edition = "2021"
+
+imports_granularity="Module"
+group_imports="One"
+hex_literal_case="Lower"

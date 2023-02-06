@@ -13,7 +13,8 @@ use rocksdb::{
     BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
     Options, WriteBatch, WriteOptions, DB,
 };
-use std::{path::Path, sync::Arc};
+use std::path::Path;
+use std::sync::Arc;
 
 lazy_static::lazy_static! {
     static ref WRITE_OPT_NO_WAL: WriteOptions = {

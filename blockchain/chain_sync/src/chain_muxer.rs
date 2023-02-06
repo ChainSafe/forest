@@ -17,25 +17,24 @@ use forest_blocks::{
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
-use forest_libp2p::PeerManager;
-use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PubsubMessage};
+use forest_libp2p::hello::HelloRequest;
+use forest_libp2p::{NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage};
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
+use futures::future::{try_join_all, Future};
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
-use futures::{future::try_join_all, future::Future, try_join};
+use futures::{try_join, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
-use std::task::{Context, Poll};
-use thiserror::Error;
-
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::SystemTime;
+use thiserror::Error;
 
 pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
@@ -912,17 +911,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use crate::validation::TipsetValidator;
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use cid::Cid;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
     use forest_test_utils::construct_messages;
-    use fvm_shared::{address::Address, message::Message};
+    use fvm_shared::address::Address;
+    use fvm_shared::message::Message;
+    use std::convert::TryFrom;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {

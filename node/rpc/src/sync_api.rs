@@ -71,8 +71,10 @@ mod tests {
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use serde_json::from_str;
-    use std::{sync::Arc, time::Duration};
-    use tokio::{sync::RwLock, task::JoinSet};
+    use std::sync::Arc;
+    use std::time::Duration;
+    use tokio::sync::RwLock;
+    use tokio::task::JoinSet;
 
     const TEST_NET_NAME: &str = "test";
 

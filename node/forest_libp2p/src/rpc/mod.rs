@@ -2,13 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod decoder;
-use decoder::DagCborDecodingReader;
-
 use async_trait::async_trait;
+use decoder::DagCborDecodingReader;
 use futures::prelude::*;
 use libp2p::core::ProtocolName;
-use libp2p::request_response::OutboundFailure;
-use libp2p::request_response::RequestResponseCodec;
+use libp2p::request_response::{OutboundFailure, RequestResponseCodec};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;

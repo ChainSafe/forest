@@ -6,12 +6,12 @@ mod tempfile;
 mod writer_checksum;
 
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
+use std::fs::{create_dir_all, File};
+use std::io::prelude::*;
+use std::io::Result;
+use std::path::Path;
 pub use tempfile::*;
 pub use writer_checksum::*;
-
-use std::fs::{create_dir_all, File};
-use std::io::{prelude::*, Result};
-use std::path::Path;
 
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]

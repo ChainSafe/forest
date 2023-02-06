@@ -5,7 +5,8 @@ use fvm_shared::receipt::Receipt;
 
 pub mod json {
     use super::*;
-    use base64::{prelude::BASE64_STANDARD, Engine};
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use forest_shim::error::ExitCode;
     use fvm_ipld_encoding::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};

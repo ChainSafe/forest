@@ -9,9 +9,8 @@ pub mod json;
 
 pub use self::error::Error;
 pub use libipld::Path;
-pub use util::*;
-
 pub use libipld_core::ipld::Ipld;
+pub use util::*;
 
 fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
     match ipld {
@@ -21,5 +20,4 @@ fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
     }
 }
 
-pub use libipld_core::serde::from_ipld;
-pub use libipld_core::serde::to_ipld;
+pub use libipld_core::serde::{from_ipld, to_ipld};

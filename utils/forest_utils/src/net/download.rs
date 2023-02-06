@@ -11,8 +11,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::fs::File;
-use tokio::io::AsyncRead;
-use tokio::io::{BufReader, ReadBuf};
+use tokio::io::{AsyncRead, BufReader, ReadBuf};
 use tokio_util::compat::{Compat, FuturesAsyncReadCompatExt};
 use url::Url;
 

@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
+use super::drand::DRAND_MAINNET;
+use super::{DrandPoint, Height, HeightInfo};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
