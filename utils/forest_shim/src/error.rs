@@ -6,6 +6,8 @@ use fvm_shared::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use serde::{Deserialize, Serialize};
 
+use crate::Inner;
+
 /// Newtype wrapper for FVM `ExitCode`.
 ///
 /// # Examples
@@ -23,17 +25,6 @@ use serde::{Deserialize, Serialize};
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ExitCode(ExitCodeV3);
-
-/// Helper trait to re-use static methods and constants from the `ExitCodeV3`.
-/// The usage is awkward but it avoids code duplication.
-///
-/// ```
-/// use forest_shim::error::{ExitCode, Inner};
-/// <ExitCode as Inner>::FVM::new(0);
-/// ```
-pub trait Inner {
-    type FVM;
-}
 
 impl Inner for ExitCode {
     type FVM = ExitCodeV3;
