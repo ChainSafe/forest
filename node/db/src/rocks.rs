@@ -7,7 +7,7 @@ use crate::rocks_config::RocksDbConfig;
 use crate::{metrics, DBStatistics};
 use anyhow::anyhow;
 use cid::Cid;
-use forest_libp2p_bitswap::BitswapStore;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use rocksdb::{
     BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
@@ -297,11 +297,7 @@ impl Blockstore for RocksDb {
     }
 }
 
-impl BitswapStore for RocksDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
-
+impl BitswapStoreRead for RocksDb {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
@@ -309,6 +305,12 @@ impl BitswapStore for RocksDb {
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
+}
+
+impl BitswapStoreReadWrite for RocksDb {
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
+    /// under feature `dag-cbor`
+    type Params = libipld::DefaultParams;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())

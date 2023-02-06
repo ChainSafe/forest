@@ -74,10 +74,14 @@ udeps:
 spellcheck:
 	cargo spellcheck --code 1
 
-lint: license clean
+lint: license clean lint-clippy
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
+
+lint-clippy:
+	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
+	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 
@@ -113,6 +117,7 @@ test:
 	cargo nextest run -p forest_message --features blst --no-default-features
 	cargo nextest run -p forest_db --no-default-features --features paritydb
 	cargo nextest run -p forest_db --no-default-features --features rocksdb
+	cargo nextest run -p forest_libp2p_bitswap --all-features
 	cargo check --tests --features slow_tests
 
 test-slow:
@@ -156,4 +161,4 @@ mdbook-build:
 rustdoc:
 	cargo doc --workspace --no-deps
 
-.PHONY: clean clean-all lint build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc
+.PHONY: clean clean-all lint lint-clippy build release test test-all test-all-release test-release license test-vectors run-vectors pull-serialization-tests install-cli install-daemon install install-deps install-lint-tools docs run-serialization-vectors rustdoc

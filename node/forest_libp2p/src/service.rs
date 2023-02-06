@@ -18,13 +18,15 @@ use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_libp2p_bitswap::{BitswapRequestManager, BitswapStore};
+use forest_libp2p_bitswap::request_manager::BitswapRequestManager;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::SignedMessage;
 use forest_utils::io::read_file_to_vec;
 use futures::channel::oneshot::Sender as OneShotSender;
 use futures::select;
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::clock::ChainEpoch;
 use libp2p::gossipsub::GossipsubEvent;
 pub use libp2p::gossipsub::IdentTopic;
 pub use libp2p::gossipsub::Topic;
@@ -91,7 +93,7 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
-pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(5);
+pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(10);
 
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
 
@@ -164,6 +166,7 @@ pub enum NetworkMessage {
         response_channel: flume::Sender<HelloResponse>,
     },
     BitswapRequest {
+        epoch: ChainEpoch,
         cid: Cid,
         response_channel: flume::Sender<bool>,
     },
@@ -197,7 +200,7 @@ pub struct Libp2pService<DB> {
 
 impl<DB> Libp2pService<DB>
 where
-    DB: Blockstore + Store + BitswapStore + Clone + Sync + Send + 'static,
+    DB: Blockstore + Store + BitswapStoreReadWrite + Clone + Sync + Send + 'static,
 {
     pub fn new(
         config: Libp2pConfig,
@@ -260,6 +263,7 @@ where
             warn!("Failed to bootstrap with Kademlia: {e}");
         }
 
+        let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
         let mut swarm_stream = self.swarm.fuse();
         let mut network_stream = self.network_receiver_in.stream().fuse();
         let mut interval =
@@ -269,12 +273,12 @@ where
 
         let mut cx_request_table = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
-        let (bitswap_outbound_request_tx, bitswap_outbound_request_rx) = flume::unbounded();
-        let bitswap_request_manager =
-            Arc::new(BitswapRequestManager::new(bitswap_outbound_request_tx));
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
-        let mut bitswap_outbound_request_rx_stream = bitswap_outbound_request_rx.stream().fuse();
+        let mut bitswap_outbound_request_rx_stream = bitswap_request_manager
+            .outbound_request_rx()
+            .stream()
+            .fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -369,7 +373,7 @@ fn handle_peer_ops(swarm: &mut Swarm<ForestBehaviour>, peer_ops: PeerOperation) 
 
 async fn handle_network_message(
     swarm: &mut Swarm<ForestBehaviour>,
-    store: Arc<impl BitswapStore>,
+    store: Arc<impl BitswapStoreReadWrite>,
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
@@ -417,6 +421,7 @@ async fn handle_network_message(
             .await;
         }
         NetworkMessage::BitswapRequest {
+            epoch: _,
             cid,
             response_channel,
         } => {
@@ -469,19 +474,15 @@ async fn handle_network_message(
 
 async fn handle_discovery_event(
     discovery_out: DiscoveryOut,
-    bitswap_request_manager: &Arc<BitswapRequestManager>,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
     match discovery_out {
         DiscoveryOut::Connected(peer_id, _) => {
             debug!("Peer connected, {:?}", peer_id);
-            // TODO: Maybe better to add after hello
-            bitswap_request_manager.on_peer_connected(peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryOut::Disconnected(peer_id, _) => {
             debug!("Peer disconnected, {:?}", peer_id);
-            bitswap_request_manager.on_peer_disconnected(&peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
     }
@@ -778,7 +779,7 @@ async fn handle_chain_exchange_event<DB>(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn handle_forest_behaviour_event<DB, P>(
+async fn handle_forest_behaviour_event<DB>(
     swarm: &mut Swarm<ForestBehaviour>,
     bitswap_request_manager: &Arc<BitswapRequestManager>,
     peer_manager: &Arc<PeerManager>,
@@ -795,11 +796,11 @@ async fn handle_forest_behaviour_event<DB, P>(
     pubsub_block_str: &str,
     pubsub_msg_str: &str,
 ) where
-    DB: Blockstore + Store + BitswapStore<Params = P> + Clone + Sync + Send + 'static,
+    DB: Blockstore + Store + BitswapStoreRead + Clone + Sync + Send + 'static,
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
-            handle_discovery_event(discovery_out, bitswap_request_manager, network_sender_out).await
+            handle_discovery_event(discovery_out, network_sender_out).await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
             handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
