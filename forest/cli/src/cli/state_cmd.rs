@@ -18,12 +18,6 @@ struct VestingScheduleEntry {
     amount: TokenAmount,
 }
 
-#[derive(clap::Parser)]
-pub struct StateCommandsStruct {
-    #[command(subcommand)]
-    pub state_commands: StateCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum StateCommands {}
 

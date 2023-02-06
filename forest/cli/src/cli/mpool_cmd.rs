@@ -5,12 +5,6 @@ use clap::Subcommand;
 
 use super::Config;
 
-#[derive(clap::Parser)]
-pub struct MpoolCommandsStruct {
-    #[command(subcommand)]
-    pub mpool_commands: MpoolCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum MpoolCommands {}
 

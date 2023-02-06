@@ -3,14 +3,8 @@
 
 use crate::cli::Config;
 use anyhow::Context;
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 use std::io::Write;
-
-#[derive(Parser)]
-pub struct ConfigCommandsStruct {
-    #[command(subcommand)]
-    pub config_commands: ConfigCommands,
-}
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {

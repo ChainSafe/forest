@@ -27,12 +27,6 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
 
-#[derive(clap::Parser)]
-pub struct SnapshotCommandsStruct {
-    #[command(subcommand)]
-    pub snapshot_commands: SnapshotCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`

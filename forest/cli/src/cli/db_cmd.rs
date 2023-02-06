@@ -1,18 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use clap::{Parser, Subcommand};
+use clap::Subcommand;
 use forest_cli_shared::{chain_path, cli::Config};
 use forest_db::db_engine::db_path;
 use log::error;
 
 use crate::cli::prompt_confirm;
-
-#[derive(Parser)]
-pub struct DBCommandsStruct {
-    #[command(subcommand)]
-    pub db_commands: DBCommands,
-}
 
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {

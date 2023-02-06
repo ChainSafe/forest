@@ -15,12 +15,6 @@ use ticker::Ticker;
 
 use crate::cli::{format_vec_pretty, handle_rpc_err};
 
-#[derive(clap::Parser)]
-pub struct SyncCommandsStruct {
-    #[command(subcommand)]
-    pub sync_commands: SyncCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {
     /// Display continuous sync data until sync is complete

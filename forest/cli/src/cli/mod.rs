@@ -22,10 +22,10 @@ mod wallet_cmd;
 pub(super) use self::fetch_params_cmd::FetchCommands;
 pub(super) use self::send_cmd::SendCommand;
 use self::{
-    auth_cmd::AuthCommandsStruct, chain_cmd::ChainCommandsStruct, config_cmd::ConfigCommandsStruct,
-    db_cmd::DBCommandsStruct, mpool_cmd::MpoolCommandsStruct, net_cmd::NetCommandsStruct,
-    snapshot_cmd::SnapshotCommandsStruct, state_cmd::StateCommandsStruct,
-    sync_cmd::SyncCommandsStruct, wallet_cmd::WalletCommandsStruct,
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
+    db_cmd::DBCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
+    wallet_cmd::WalletCommands,
 };
 use clap::Parser;
 pub(crate) use forest_cli_shared::cli::Config;
@@ -55,37 +55,47 @@ pub enum Subcommand {
     Fetch(FetchCommands),
 
     /// Interact with Filecoin blockchain
-    Chain(ChainCommandsStruct),
+    #[command(subcommand)]
+    Chain(ChainCommands),
 
     /// Manage RPC permissions
-    Auth(AuthCommandsStruct),
+    #[command(subcommand)]
+    Auth(AuthCommands),
 
     /// Manage P2P network
-    Net(NetCommandsStruct),
+    #[command(subcommand)]
+    Net(NetCommands),
 
     /// Manage wallet
-    Wallet(WalletCommandsStruct),
+    #[command(subcommand)]
+    Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
-    Sync(SyncCommandsStruct),
+    #[command(subcommand)]
+    Sync(SyncCommands),
 
     /// Interact with the message pool
-    Mpool(MpoolCommandsStruct),
+    #[command(subcommand)]
+    Mpool(MpoolCommands),
 
     /// Interact with and query Filecoin chain state
-    State(StateCommandsStruct),
+    #[command(subcommand)]
+    State(StateCommands),
 
     /// Manage node configuration
-    Config(ConfigCommandsStruct),
+    #[command(subcommand)]
+    Config(ConfigCommands),
 
     /// Manage snapshots
-    Snapshot(SnapshotCommandsStruct),
+    #[command(subcommand)]
+    Snapshot(SnapshotCommands),
 
     /// Send funds between accounts
     Send(SendCommand),
 
     /// Database management
-    DB(DBCommandsStruct),
+    #[command(subcommand)]
+    DB(DBCommands),
 }
 
 /// Pretty-print a JSON-RPC error and exit

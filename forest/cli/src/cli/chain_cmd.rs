@@ -9,11 +9,11 @@ use forest_json::cid::CidJson;
 use forest_rpc_client::chain_ops::*;
 use std::str::FromStr;
 
-#[derive(clap::Parser)]
-pub struct ChainCommandsStruct {
-    #[command(subcommand)]
-    pub chain_commands: ChainCommands,
-}
+// #[derive(clap::Parser)]
+// pub struct ChainCommandsStruct {
+//     #[command(subcommand)]
+//     pub chain_commands: ChainCommands,
+// }
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {

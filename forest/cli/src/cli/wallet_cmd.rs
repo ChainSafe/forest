@@ -23,12 +23,6 @@ use std::{
 
 use super::handle_rpc_err;
 
-#[derive(clap::Parser)]
-pub struct WalletCommandsStruct {
-    #[command(subcommand)]
-    pub wallet_commands: WalletCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
     /// Create a new wallet

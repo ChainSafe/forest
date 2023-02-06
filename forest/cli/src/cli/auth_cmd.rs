@@ -10,12 +10,6 @@ use jsonrpc_v2::Error as JsonRpcError;
 
 use forest_auth::*;
 
-#[derive(clap::Parser)]
-pub struct AuthCommandsStruct {
-    #[command(subcommand)]
-    pub auth_commands: AuthCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum AuthCommands {
     /// Create a new Authentication token with given permission

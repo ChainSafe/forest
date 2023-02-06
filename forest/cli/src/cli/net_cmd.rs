@@ -9,12 +9,6 @@ use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::data_types::AddrInfo;
 use forest_rpc_client::net_ops::*;
 
-#[derive(clap::Parser)]
-pub struct NetCommandsStruct {
-    #[command(subcommand)]
-    pub net_commands: NetCommands,
-}
-
 #[derive(Debug, Subcommand)]
 pub enum NetCommands {
     /// Lists `libp2p` swarm listener addresses
