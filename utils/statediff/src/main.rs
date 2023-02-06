@@ -45,13 +45,6 @@ impl crate::Subcommand {
     }
 }
 
-// /// statediff binary sub-commands available.
-// #[derive(Parser)]
-// enum Subcommand {
-//     #[command(name = "chain")]
-//     Chain(ChainCommand),
-// }
-
 /// CLI structure generated when interacting with the statediff tool
 #[derive(Parser)]
 struct Cli {
