@@ -3357,6 +3357,7 @@ dependencies = [
  "data-encoding",
  "forest_encoding",
  "forest_message",
+ "forest_shim",
  "forest_test_utils",
  "forest_utils",
  "fvm",

@@ -4,4 +4,17 @@
 pub mod address;
 pub mod bigint;
 pub mod econ;
+pub mod error;
 pub mod version;
+///
+/// Helper trait to re-use static methods and constants.
+/// The usage is awkward but it avoids code duplication.
+///
+/// ```
+/// use forest_shim::Inner;
+/// use forest_shim::error::ExitCode;
+/// <ExitCode as Inner>::FVM::new(0);
+/// ```
+pub trait Inner {
+    type FVM;
+}
