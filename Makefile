@@ -15,13 +15,13 @@ install-with-paritydb:
 
 # Installs Forest binaries with Jemalloc global allocator
 install-with-jemalloc:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,jemalloc
-	cargo install --locked --path forest/cli --force --no-default-features --features jemalloc
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,jemalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,jemalloc
 
 # Installs Forest binaries with MiMalloc global allocator
 install-with-mimalloc:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,mimalloc
-	cargo install --locked --path forest/cli --force --no-default-features --features mimalloc
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,mimalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,mimalloc
 
 install-deps:
 	apt-get update -y
