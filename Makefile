@@ -15,8 +15,13 @@ install-with-paritydb:
 
 # Installs Forest binaries with Jemalloc global allocator
 install-with-jemalloc:
-	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,jemalloc
-	cargo install --locked --path forest/cli --force --no-default-features --features jemalloc
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,jemalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,jemalloc
+
+# Installs Forest binaries with MiMalloc global allocator
+install-with-mimalloc:
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb,mimalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features paritydb,mimalloc
 
 install-deps:
 	apt-get update -y
@@ -78,8 +83,10 @@ lint: license clean lint-clippy
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
-
+	
 lint-clippy:
+	cargo clippy --features mimalloc
+	cargo clippy --features jemalloc
 	cargo clippy -p forest_libp2p_bitswap --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy -p forest_libp2p_bitswap --all-targets --features tokio -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else

@@ -3,10 +3,15 @@
 
 #[cfg(feature = "jemalloc")]
 use forest_cli_shared::tikv_jemallocator::Jemalloc;
-
 #[cfg(feature = "jemalloc")]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
+
+#[cfg(feature = "mimalloc")]
+use forest_cli_shared::mimalloc::MiMalloc;
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 mod cli;
 mod subcommand;
