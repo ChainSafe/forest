@@ -18,6 +18,11 @@ install-with-jemalloc:
 	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,jemalloc
 	cargo install --locked --path forest/cli --force --no-default-features --features jemalloc
 
+# Installs Forest binaries with MiMalloc global allocator
+install-with-mimalloc:
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,mimalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features mimalloc
+
 install-deps:
 	apt-get update -y
 	apt-get install --no-install-recommends -y build-essential clang protobuf-compiler ocl-icd-opencl-dev aria2 cmake
@@ -78,6 +83,8 @@ lint: license clean
 	cargo fmt --all --check
 	taplo fmt --check
 	taplo lint
+	cargo clippy --features mimalloc
+	cargo clippy --features jemalloc
 	cargo clippy --features slow_tests,submodule_tests --all-targets -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 	cargo clippy --all-targets --no-default-features --features forest_deleg_cns,paritydb,instrumented_kernel -- -D warnings -W clippy::unused_async -W clippy::redundant_else
 

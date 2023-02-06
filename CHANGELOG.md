@@ -3,7 +3,8 @@ Notable updates:
 
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
-
+* [forest-daemon] support jemalloc as optional global allocator [#2477](https://github.com/ChainSafe/forest/pull/2477)
+* [forest-daemon] support mimalloc as optional global allocator [#2506](https://github.com/ChainSafe/forest/pull/2506)
 
 ### Changed
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
