@@ -10,7 +10,7 @@ use forest_chain_sync::collect_errs;
 use forest_db::Store;
 use forest_fil_types::verifier::verify_winning_post;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::randomness::{Randomness, Randomness_v3};
+use forest_shim::randomness::Randomness;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
@@ -386,12 +386,12 @@ fn verify_winning_post_proof<DB: Blockstore + Store + Clone + Send + Sync + 'sta
             lookback_state,
             network_version,
             header.miner_address(),
-            Randomness(Randomness_v3(rand.to_vec())),
+            Randomness::new(rand.to_vec()),
         )
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
-        Randomness(Randomness_v3(rand.to_vec())),
+        Randomness::new(rand.to_vec()),
         header.winning_post_proof(),
         &sectors,
         id,
