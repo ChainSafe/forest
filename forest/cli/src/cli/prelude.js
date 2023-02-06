@@ -3,6 +3,8 @@
 
 console.log("Welcome to the Forest Javascript console!\n\nTo exit, press ctrl-d or type :quit");
 
+// You can easily modify the script and see changes by running: `$ ./target/release/forest-cli --token $TOKEN attach --jspath ./forest/cli/src/cli`
+
 // // Load filecoin module
 // let filecoin = require("./filecoin.js");
 
