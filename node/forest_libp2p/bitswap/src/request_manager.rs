@@ -34,7 +34,7 @@ pub struct BitswapRequestManager {
 
 impl BitswapRequestManager {
     /// A receiver channel of the outbound `bitswap` network events that the [BitswapRequestManager] emits.
-    /// This channel needs to be properly handled to make `get_block` working
+    /// The messages from this channel need to be sent with [BitswapBehaviour::send_request] to make [BitswapRequestManager::get_block] work.
     pub fn outbound_request_rx(&self) -> &flume::Receiver<(PeerId, BitswapRequest)> {
         &self.outbound_request_rx
     }

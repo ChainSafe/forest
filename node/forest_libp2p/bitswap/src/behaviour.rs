@@ -63,7 +63,7 @@ impl BitswapBehaviour {
 
 // Request Manager related API(s)
 impl BitswapBehaviour {
-    /// Gets the ossociated [BitswapRequestManager]
+    /// Gets the associated [BitswapRequestManager]
     pub fn request_manager(&self) -> Arc<BitswapRequestManager> {
         self.request_manager.clone()
     }
