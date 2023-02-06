@@ -16,7 +16,7 @@ env:
 jobs:
   check-publish-docs:
     name: Publish
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v3

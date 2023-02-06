@@ -13,21 +13,24 @@ install-with-paritydb:
 	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,paritydb
 	cargo install --locked --path forest/cli --force --no-default-features --features paritydb
 
+# Installs Forest binaries with Jemalloc global allocator
+install-with-jemalloc:
+	cargo install --locked --path forest/daemon --force --no-default-features --features forest_fil_cns,jemalloc
+	cargo install --locked --path forest/cli --force --no-default-features --features jemalloc
+
 install-deps:
 	apt-get update -y
 	apt-get install --no-install-recommends -y build-essential clang protobuf-compiler ocl-icd-opencl-dev aria2 cmake
 
 install-lint-tools:
-	cargo install cargo-quickinstall
-	cargo quickinstall taplo-cli
-	cargo quickinstall cargo-audit
-	cargo quickinstall cargo-spellcheck
-	cargo quickinstall cargo-udeps
+	cargo install --locked taplo-cli
+	cargo install --locked cargo-audit
+	cargo install --locked cargo-spellcheck
+	cargo install --locked cargo-udeps
 
 install-doc-tools:
-	cargo install cargo-quickinstall
-	cargo quickinstall mdbook
-	cargo quickinstall mdbook-linkcheck
+	cargo install --locked mdbook
+	cargo install --locked mdbook-linkcheck
 
 clean-all:
 	cargo clean

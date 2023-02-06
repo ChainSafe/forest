@@ -1,8 +1,10 @@
 [package]
 name = "forest_rpc"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
@@ -39,6 +41,7 @@ fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true
 http.workspace = true
 jsonrpc-v2.workspace = true
+lazy_static.workspace = true
 libipld-core.workspace = true
 log.workspace = true
 multibase.workspace = true

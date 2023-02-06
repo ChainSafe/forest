@@ -1,9 +1,11 @@
 [package]
 name = "forest-daemon"
-version = "0.6.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This command will start the daemon process."
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [[bin]]
 name = "forest"
@@ -63,3 +65,4 @@ forest_fil_cns = ["dep:forest_fil_cns"]
 forest_deleg_cns = ["dep:forest_deleg_cns"]
 slow_tests = []
 instrumented_kernel = ["forest_interpreter/instrumented_kernel"]
+jemalloc = ["forest_cli_shared/jemalloc"]

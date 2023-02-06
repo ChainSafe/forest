@@ -271,6 +271,13 @@ class ParityDbBenchmark < Benchmark
   end
 end
 
+# Benchmark class for ParityDb with Jemalloc
+class JemallocBenchmark < Benchmark
+  def build_command
+    ['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc']
+  end
+end
+
 def run_benchmarks(benchmarks, options)
   bench_metrics = {}
   benchmarks.each do |bench|
@@ -288,7 +295,8 @@ end
 BENCHMARKS = [
   Benchmark.new(name: 'baseline'),
   Benchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
-  ParityDbBenchmark.new(name: 'paritydb')
+  ParityDbBenchmark.new(name: 'paritydb'),
+  JemallocBenchmark.new(name: 'paritydb-jemalloc')
 ].freeze
 
 options = {

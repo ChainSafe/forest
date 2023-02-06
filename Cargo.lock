@@ -743,6 +743,7 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "constant_time_eq 0.2.4",
+ "digest 0.10.6",
 ]
 
 [[package]]
@@ -2767,6 +2768,7 @@ dependencies = [
  "assert_cmd",
  "atty",
  "base64 0.21.0",
+ "blake3",
  "cid",
  "clap 4.1.4",
  "dialoguer",
@@ -2859,7 +2861,7 @@ dependencies = [
 
 [[package]]
 name = "forest_actor_interface"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -2891,7 +2893,7 @@ dependencies = [
 
 [[package]]
 name = "forest_auth"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "forest_key_management",
@@ -2906,7 +2908,7 @@ dependencies = [
 
 [[package]]
 name = "forest_beacon"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -2930,7 +2932,7 @@ dependencies = [
 
 [[package]]
 name = "forest_blocks"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "base64 0.21.0",
@@ -2961,12 +2963,13 @@ dependencies = [
 
 [[package]]
 name = "forest_chain"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "async-stream",
  "blake2b_simd",
+ "blake3",
  "bls-signatures",
  "cid",
  "digest 0.10.6",
@@ -3006,7 +3009,7 @@ dependencies = [
 
 [[package]]
 name = "forest_chain_sync"
-version = "0.2.1"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3052,7 +3055,7 @@ dependencies = [
 
 [[package]]
 name = "forest_cli_shared"
-version = "0.4.1"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3086,6 +3089,7 @@ dependencies = [
  "serde_with",
  "sha2 0.10.6",
  "tempfile",
+ "tikv-jemallocator",
  "time",
  "tokio",
  "toml",
@@ -3110,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "forest_db"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3132,7 +3136,7 @@ dependencies = [
 
 [[package]]
 name = "forest_deleg_cns"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3158,7 +3162,7 @@ dependencies = [
 
 [[package]]
 name = "forest_encoding"
-version = "0.4.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -3171,7 +3175,7 @@ dependencies = [
 
 [[package]]
 name = "forest_fil_cns"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3205,7 +3209,7 @@ dependencies = [
 
 [[package]]
 name = "forest_fil_types"
-version = "0.4.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "filecoin-proofs-api",
@@ -3215,7 +3219,7 @@ dependencies = [
 
 [[package]]
 name = "forest_genesis"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -3243,7 +3247,7 @@ dependencies = [
 
 [[package]]
 name = "forest_interpreter"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3266,12 +3270,13 @@ dependencies = [
 
 [[package]]
 name = "forest_ipld"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
  "async-recursion",
  "async-trait",
+ "blake3",
  "cid",
  "forest_db",
  "forest_json",
@@ -3294,7 +3299,7 @@ dependencies = [
 
 [[package]]
 name = "forest_json"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "arbitrary",
@@ -3319,7 +3324,7 @@ dependencies = [
 
 [[package]]
 name = "forest_key_management"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3345,7 +3350,7 @@ dependencies = [
 
 [[package]]
 name = "forest_legacy_ipld_amt"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3363,7 +3368,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3408,7 +3413,7 @@ dependencies = [
 
 [[package]]
 name = "forest_libp2p_bitswap"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3428,7 +3433,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message"
-version = "0.8.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -3443,7 +3448,7 @@ dependencies = [
 
 [[package]]
 name = "forest_message_pool"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3481,7 +3486,7 @@ dependencies = [
 
 [[package]]
 name = "forest_metrics"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3497,7 +3502,7 @@ dependencies = [
 
 [[package]]
 name = "forest_networks"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v9",
@@ -3510,7 +3515,7 @@ dependencies = [
 
 [[package]]
 name = "forest_paramfetch"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3528,7 +3533,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3564,6 +3569,7 @@ dependencies = [
  "hex",
  "http",
  "jsonrpc-v2",
+ "lazy_static",
  "libipld-core 0.14.0",
  "log",
  "multibase",
@@ -3581,7 +3587,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-api"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3615,7 +3621,7 @@ dependencies = [
 
 [[package]]
 name = "forest_rpc-client"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "forest_libp2p",
  "forest_rpc-api",
@@ -3630,7 +3636,7 @@ dependencies = [
 
 [[package]]
 name = "forest_shim"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.18",
@@ -3640,7 +3646,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_manager"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3682,7 +3688,7 @@ dependencies = [
 
 [[package]]
 name = "forest_state_migration"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "cid",
@@ -3698,7 +3704,7 @@ dependencies = [
 
 [[package]]
 name = "forest_statediff"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "ahash 0.8.3",
  "anyhow",
@@ -3732,7 +3738,7 @@ dependencies = [
 
 [[package]]
 name = "forest_test_utils"
-version = "0.2.0"
+version = "0.6.0"
 dependencies = [
  "base64 0.21.0",
  "cid",
@@ -3747,7 +3753,7 @@ dependencies = [
 
 [[package]]
 name = "forest_utils"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5783,9 +5789,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.6.2"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b275950c28b37e794e8c55d88aeb5e139d0ce23fdbbeda68f8d7174abdf9e8fa"
+checksum = "f2e212582ede878b109755efd0773a4f0f4ec851584cf0aefbeb4d9ecc114822"
 dependencies = [
  "adler",
 ]
@@ -7837,7 +7843,7 @@ dependencies = [
 
 [[package]]
 name = "serialization_tests"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "base64 0.21.0",
  "bls-signatures",
@@ -8507,6 +8513,27 @@ name = "ticker"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f6821a2afe2700471d4572a25bcbfc091d6d596902a279ed41af139f350b76e"
+
+[[package]]
+name = "tikv-jemalloc-sys"
+version = "0.5.2+5.3.0-patched"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec45c14da997d0925c7835883e4d5c181f196fa142f8c19d7643d1e9af2592c3"
+dependencies = [
+ "cc",
+ "fs_extra",
+ "libc",
+]
+
+[[package]]
+name = "tikv-jemallocator"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20612db8a13a6c06d57ec83953694185a367e16945f66565e8028d2c0bd76979"
+dependencies = [
+ "libc",
+ "tikv-jemalloc-sys",
+]
 
 [[package]]
 name = "time"

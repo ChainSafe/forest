@@ -1,9 +1,11 @@
 [package]
 name = "forest_cli_shared"
-version = "0.4.1"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
 description = "Filecoin implementation in Rust. This crate contains shared utilities that power both cli and daemon."
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
@@ -32,6 +34,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_with.workspace = true
 sha2.workspace = true
 clap.workspace = true
+tikv-jemallocator = { version = "0.5", optional = true }
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true
@@ -54,3 +57,4 @@ tower-http = { workspace = true, features = ["fs"] }
 [features]
 rocksdb = []
 paritydb = []
+jemalloc = ["dep:tikv-jemallocator"]
