@@ -25,7 +25,7 @@ use std::ops::{Deref, DerefMut};
 /// ```
 #[derive(PartialEq, Eq, Default, Clone, Debug, Deserialize, Serialize)]
 #[serde(transparent)]
-pub struct Randomness(pub Randomness_v3);
+pub struct Randomness(Randomness_v3);
 
 impl Randomness {
     pub fn new(rand: Vec<u8>) -> Self {

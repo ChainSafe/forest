@@ -7,7 +7,6 @@ use forest_shim::randomness::Randomness;
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::address::Address;
 use fvm_shared::commcid::cid_to_replica_commitment_v1;
-use fvm_shared::randomness::Randomness as Randomness_v2;
 use fvm_shared::sector::{PoStProof, RegisteredPoStProof, SectorInfo};
 use std::collections::BTreeMap;
 use std::convert::TryInto;
@@ -19,14 +18,13 @@ use std::convert::TryInto;
 /// elected to mine a new block to verify a sector. A failed winning proof leads to a miner
 /// being slashed.
 pub fn verify_winning_post(
-    rand: Randomness,
+    mut rand: Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
 ) -> Result<(), anyhow::Error> {
-    let Randomness_v2(mut randomness): Randomness_v2 = rand.into();
     // Necessary to be valid bls12 381 element.
-    randomness[31] &= 0x3f;
+    rand.0[31] &= 0x3f;
 
     // Convert sector info into public replica
     let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)
@@ -42,7 +40,7 @@ pub fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    if !post::verify_winning_post(&bytes_32(&randomness), &proof_bytes, &replicas, prover_id)? {
+    if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }
     Ok(())
@@ -52,16 +50,15 @@ pub fn verify_winning_post(
 pub fn generate_winning_post_sector_challenge(
     proof: RegisteredPoStProof,
     prover_id: u64,
-    rand: Randomness,
+    mut rand: Randomness,
     eligible_sector_count: u64,
 ) -> Result<Vec<u64>, anyhow::Error> {
-    let Randomness_v2(mut randomness): Randomness_v2 = rand.into();
     // Necessary to be valid bls12 381 element.
-    randomness[31] &= 0x3f;
+    rand.0[31] &= 0x3f;
 
     post::generate_winning_post_sector_challenge(
         proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
-        &bytes_32(&randomness),
+        &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),
     )
