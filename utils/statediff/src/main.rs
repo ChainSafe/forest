@@ -7,21 +7,6 @@ use forest_db::db_engine::{db_path, open_db, DbConfig};
 use cid::Cid;
 use forest_statediff::print_state_diff;
 
-// /// Examine the state delta
-// #[derive(clap::Subcommand)]
-// pub struct ChainCommand {
-//     /// The previous CID state root
-//     pre: Cid,
-//     /// The post CID state root
-//     post: Cid,
-//     /// The name of the chain
-//     #[arg(short, long, default_value = "mainnet")]
-//     chain: String,
-//     /// The depth at which IPLD links are resolved
-//     #[arg(short, long)]
-//     depth: Option<u64>,
-// }
-
 impl crate::Subcommand {
     pub fn run(&self) -> anyhow::Result<()> {
         match self {
