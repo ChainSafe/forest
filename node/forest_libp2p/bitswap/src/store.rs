@@ -4,7 +4,7 @@
 use crate::*;
 use libipld::Block;
 
-/// Trait implemented by a block store.
+/// Trait implemented by a block store for reading.
 pub trait BitswapStoreRead {
     /// A have query needs to know if the block store contains the block.
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool>;
@@ -13,7 +13,7 @@ pub trait BitswapStoreRead {
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>>;
 }
 
-/// Trait implemented by a block store.
+/// Trait implemented by a block store for reading and writing.
 pub trait BitswapStoreReadWrite: BitswapStoreRead + Send + Sync + 'static {
     /// The store parameters.
     type Params: StoreParams;
