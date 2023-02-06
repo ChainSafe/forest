@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
-use crate::econ::TokenAmount;
+use crate::{econ::TokenAmount, Inner};
 use fvm::state_tree::ActorState as ActorStateV2;
 use fvm3::state_tree::ActorState as ActorStateV3;
 use serde::{Deserialize, Serialize};
@@ -34,16 +34,6 @@ pub use fvm::state_tree::StateTree;
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ActorState(ActorStateV3);
-
-/// Helper trait to re-use static methods from the `ActorStateV3`.
-/// The usage is awkward but it avoids code duplication.
-///
-/// ```ignore
-/// <ActorState as Inner>::FVM::new(params...);
-/// ```
-pub trait Inner {
-    type FVM;
-}
 
 impl Inner for ActorState {
     type FVM = ActorStateV3;

@@ -148,7 +148,7 @@ impl Provider for TestApi {
             }
             sequence += 1;
         }
-        let actor = <ActorState as forest_shim::state_tree::Inner>::FVM::new(
+        let actor = <ActorState as forest_shim::Inner>::FVM::new(
             Cid::default(),
             Cid::default(),
             forest_shim::econ::TokenAmount::from(balance).into(),

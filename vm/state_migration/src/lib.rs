@@ -6,7 +6,8 @@
 
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use forest_shim::state_tree::{ActorState, Inner, StateTree};
+use forest_shim::state_tree::{ActorState, StateTree};
+use forest_shim::Inner;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::clock::ChainEpoch;
