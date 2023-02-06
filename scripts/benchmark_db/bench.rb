@@ -115,34 +115,42 @@ def exec_command(command, dry_run)
   metrics
 end
 
+# rubocop:disable Metrics/MethodLength, Metrics/AbcSize
 def write_import_table(metrics)
-  result = "Bench | Import Time | Import RSS | DB Size\n"
-  result += "-|-|-|-\n"
+  result = "Bench | Import Time | Import RSS | Import VSZ | DB Size\n"
+  result += "-|-|-|-|-\n"
 
   metrics.each do |key, value|
     elapsed = value[:import][:elapsed] || 'n/a'
     rss = value[:import][:rss]
     rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
+    vsz = value[:import][:vsz]
+    vsz_max = vsz ? (vsz.max * 1024).to_bibyte : 'n/a'
     db_size = value[:import][:db_size] || 'n/a'
-    result += "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
+    result += "#{key} | #{elapsed} | #{rss_max} | #{vsz_max} | #{db_size}\n"
   end
 
   result
 end
+# rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 
+# rubocop:disable Metrics/MethodLength
 def write_validate_table(metrics)
-  result = "Bench | Validate Time | Validate RSS\n"
-  result += "-|-|-\n"
+  result = "Bench | Validate Time | Validate RSS | Validate VSZ\n"
+  result += "-|-|-|-\n"
 
   metrics.each do |key, value|
     elapsed = value[:validate][:elapsed] || 'n/a'
     rss = value[:validate][:rss]
     rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
-    result += "#{key} | #{elapsed} | #{rss_max}\n"
+    vsz = value[:validate][:vsz]
+    vsz_max = vsz ? (vsz.max * 1024).to_bibyte : 'n/a'
+    result += "#{key} | #{elapsed} | #{rss_max} | {#{vsz_max}}\n"
   end
 
   result
 end
+# rubocop:enable Metrics/MethodLength
 
 def write_result(metrics)
   # Output file is a suite of markdown tables
@@ -214,7 +222,7 @@ class Benchmark
   private :build_substitution_hash
 
   def build_artefacts(dry_run)
-    exec_command(%w[cargo clean], dry_run)
+    # exec_command(%w[cargo clean], dry_run)
     exec_command(build_command, dry_run)
 
     build_config_file unless dry_run
@@ -278,6 +286,13 @@ class JemallocBenchmark < Benchmark
   end
 end
 
+# Benchmark class for ParityDb with MiMalloc
+class MiMallocBenchmark < Benchmark
+  def build_command
+    ['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc']
+  end
+end
+
 def run_benchmarks(benchmarks, options)
   bench_metrics = {}
   benchmarks.each do |bench|
@@ -296,7 +311,8 @@ BENCHMARKS = [
   Benchmark.new(name: 'baseline'),
   Benchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
   ParityDbBenchmark.new(name: 'paritydb'),
-  JemallocBenchmark.new(name: 'paritydb-jemalloc')
+  JemallocBenchmark.new(name: 'paritydb-jemalloc'),
+  MiMallocBenchmark.new(name: 'paritydb-mimalloc')
 ].freeze
 
 options = {
