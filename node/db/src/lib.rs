@@ -58,14 +58,13 @@ pub trait ReadWriteStore: ReadStore {
         K: AsRef<[u8]>;
 
     /// Write slice of KV pairs.
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         values
-            .iter()
-            .try_for_each(|(key, value)| self.write(key, value))
+            .into_iter()
+            .try_for_each(|(key, value)| self.write(key.into(), value.into()))
     }
 
     /// Bulk delete keys from the data store.
@@ -136,11 +135,10 @@ impl<BS: ReadWriteStore> ReadWriteStore for &BS {
         (*self).delete(key)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         (*self).bulk_write(values)
     }
 

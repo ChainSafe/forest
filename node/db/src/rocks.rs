@@ -236,14 +236,23 @@ impl ReadWriteStore for RocksDb {
         Ok(self.db.delete(key)?)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
+    fn exists<K>(&self, key: K) -> Result<bool, Error>
     where
         K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
     {
+        self.db
+            .get_pinned(key)
+            .map(|v| v.is_some())
+            .map_err(Error::from)
+    }
+
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         let mut batch = WriteBatch::default();
         for (k, v) in values {
-            batch.put(k, v);
+            batch.put(k.into(), v.into());
         }
         Ok(self.db.write_without_wal(batch)?)
     }

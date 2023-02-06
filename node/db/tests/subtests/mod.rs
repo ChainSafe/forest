@@ -62,7 +62,7 @@ where
     DB: Store,
 {
     let values = [([0], [0]), ([1], [1]), ([2], [2])];
-    db.bulk_write(&values).unwrap();
+    db.bulk_write(values).unwrap();
     for (k, _) in values.iter() {
         let res = db.exists(*k).unwrap();
         assert!(res);
@@ -75,8 +75,12 @@ where
 {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
-    let kvs: Vec<_> = keys.iter().zip(values.iter()).collect();
-    db.bulk_write(&kvs).unwrap();
+    let kvs: Vec<_> = keys
+        .iter()
+        .zip(values.iter())
+        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+        .collect();
+    db.bulk_write(kvs).unwrap();
     let results = db.bulk_read(&keys).unwrap();
     for (result, value) in results.iter().zip(values.iter()) {
         match result {
@@ -92,8 +96,12 @@ where
 {
     let keys = [[0], [1], [2]];
     let values = [[0], [1], [2]];
-    let kvs: Vec<_> = keys.iter().zip(values.iter()).collect();
-    db.bulk_write(&kvs).unwrap();
+    let kvs: Vec<_> = keys
+        .iter()
+        .zip(values.iter())
+        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+        .collect();
+    db.bulk_write(kvs).unwrap();
     db.bulk_delete(&keys).unwrap();
     for k in keys.iter() {
         let res = db.exists(*k).unwrap();

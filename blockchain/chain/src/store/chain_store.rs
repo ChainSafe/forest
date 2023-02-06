@@ -19,7 +19,6 @@ use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::{hashset::CidHashSet, recurse_links_hash2};
 use forest_legacy_ipld_amt::Amt;
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_metrics::metrics;

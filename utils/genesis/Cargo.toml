@@ -16,6 +16,7 @@ forest_blocks.workspace = true
 forest_db.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
+futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 log.workspace = true
