@@ -8,11 +8,12 @@ console.log("Welcome to the Forest Javascript console!\n\nTo exit, press ctrl-d 
 
 function showPeers() {
     let ids = netPeers().map((x) => x.ID).sort();
+    let buffer = "";
     for (var i = 0; i < ids.length; i++) {
         let id = ids[i];
-        console.log(`${i}:\t${id}`);
+        buffer += `${i}:\t${id}\n`;
     }
-    console.log("");
+    console.log(buffer);
 }
 
 function getPeer(peerID) {
@@ -35,16 +36,14 @@ function isPeerConnected(peerID) {
 function showWallet() {
     let addrs = walletList();
     let defaultAddr = walletDefaultAddress();
-    let buffer = "";
-    buffer = buffer.concat("Address                                         Balance\n");
+    let buffer = "Address                                         Balance\n";
     for (var i = 0; i < addrs.length; i++) {
-        const isDefault = (defaultAddr == addrs[i]);
-        if (isDefault) {
-            buffer += "\033[1m";
-        }
-        buffer = buffer.concat(addrs[i], "       ", walletBalance(addrs[i]), " attoFIL\n");
-        if (isDefault) {
-            buffer += "\033[0m";
+        const addr = addrs[i];
+        const line = `${addr}       ${walletBalance(addr)} attoFIL\n`;
+        if (addr == defaultAddr) {
+            buffer = buffer.concat("\033[1m", line, "\033[0m")
+        } else {
+            buffer = buffer.concat(line);
         }
     }
     console.log(buffer);
