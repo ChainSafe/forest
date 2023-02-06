@@ -6,7 +6,7 @@ use crate::parity_db_config::ParityDbConfig;
 use crate::{DBStatistics, Store};
 use anyhow::anyhow;
 use cid::Cid;
-use forest_libp2p_bitswap::BitswapStore;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use log::warn;
 use parity_db::{CompressionType, Db, Options};
@@ -130,11 +130,7 @@ impl Blockstore for ParityDb {
     }
 }
 
-impl BitswapStore for ParityDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
-
+impl BitswapStoreRead for ParityDb {
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
@@ -142,6 +138,12 @@ impl BitswapStore for ParityDb {
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
+}
+
+impl BitswapStoreReadWrite for ParityDb {
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
+    /// under feature `dag-cbor`
+    type Params = libipld::DefaultParams;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())

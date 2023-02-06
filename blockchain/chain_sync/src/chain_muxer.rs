@@ -295,18 +295,24 @@ where
             source,
         );
 
+        let epoch = block.header.epoch();
+
+        log::debug!(
+            "Getting messages of gossipblock, epoch: {epoch}, block: {}",
+            block.header.cid()
+        );
         // Get bls_message in the store or over Bitswap
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<Message>(m))
+            .map(|m| network.bitswap_get::<Message>(epoch, m))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
         let secp_messages: Vec<_> = block
             .secpk_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<SignedMessage>(m))
+            .map(|m| network.bitswap_get::<SignedMessage>(epoch, m))
             .collect();
 
         let (bls_messages, secp_messages) =
