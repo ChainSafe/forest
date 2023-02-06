@@ -58,8 +58,9 @@ assert_cmd.workspace = true
 rand.workspace = true
 
 [features]
-default = ["paritydb", "jemalloc"]
+default = ["paritydb", "mimalloc"]
 rocksdb = ["forest_cli_shared/rocksdb", "forest_db/rocksdb"]
 paritydb = ["forest_cli_shared/paritydb", "forest_db/paritydb"]
 slow_tests = []
 jemalloc = ["forest_cli_shared/jemalloc"]
+mimalloc = ["forest_cli_shared/mimalloc"]

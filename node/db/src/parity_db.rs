@@ -182,7 +182,7 @@ impl IndexedStore for ParityDb {
     }
 
     fn delete_db(&self) -> anyhow::Result<()> {
-        const SOFT_DELETE: bool = true;
+        const SOFT_DELETE: bool = false;
         if SOFT_DELETE {
             let deleted_root = self.path.join("..").join("deleted");
             if !deleted_root.exists() {

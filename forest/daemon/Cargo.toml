@@ -57,7 +57,7 @@ tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 [dev-dependencies]
 
 [features]
-default = ["forest_fil_cns", "paritydb", "jemalloc"]
+default = ["forest_fil_cns", "paritydb", "mimalloc"]
 rocksdb = ["forest_db/rocksdb", "forest_cli_shared/rocksdb"]
 paritydb = ["forest_db/paritydb", "forest_cli_shared/paritydb"]
 insecure_post = ["forest_fil_cns/insecure_post"]
@@ -66,3 +66,4 @@ forest_deleg_cns = ["dep:forest_deleg_cns"]
 slow_tests = []
 instrumented_kernel = ["forest_interpreter/instrumented_kernel"]
 jemalloc = ["forest_cli_shared/jemalloc"]
+mimalloc = ["forest_cli_shared/mimalloc"]
