@@ -147,11 +147,14 @@ fn setup_context(context: &mut Context, token: &Option<String>) {
     bind_func!(context, token, sync_status);
 
     // Wallet API
-    // TODO: bind wallet_export, wallet_import, wallet_has, wallet_sign, wallet_verify
+    // TODO: bind wallet_sign, wallet_verify
     bind_func!(context, token, wallet_new);
     bind_func!(context, token, wallet_default_address);
     bind_func!(context, token, wallet_balance);
+    bind_func!(context, token, wallet_export);
+    bind_func!(context, token, wallet_import);
     bind_func!(context, token, wallet_list);
+    bind_func!(context, token, wallet_has);
     bind_func!(context, token, wallet_set_default);
 
     // Message Pool API
@@ -218,7 +221,7 @@ impl AttachCommand {
 
         // If only a short execution was requested, evaluate and return
         if let Some(code) = &self.exec {
-            match context.eval(code) {
+            match context.eval(code.trim_end()) {
                 Ok(v) => match v {
                     JsValue::Undefined => (),
                     _ => println!("{}", v.display()),
