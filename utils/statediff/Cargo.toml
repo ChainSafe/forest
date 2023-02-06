@@ -10,6 +10,7 @@ edition.workspace = true
 ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
+clap.workspace = true
 colored = "2.0"
 directories.workspace = true
 fil_actor_account_v9.workspace = true
@@ -33,7 +34,6 @@ libipld-core.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 similar = "2.2.1"
-clap.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [features]
