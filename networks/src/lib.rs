@@ -196,10 +196,9 @@ pub fn default_network_version() -> NetworkVersion {
 }
 
 pub mod de_network_version {
-    use std::borrow::Cow;
-
     use forest_shim::version::NetworkVersion;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use std::borrow::Cow;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
     where

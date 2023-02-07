@@ -3,7 +3,8 @@
 
 //! Request manager implementation that is optimized for `filecoin` network usage
 
-use crate::{event_handlers::*, *};
+use crate::event_handlers::*;
+use crate::*;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use flume::TryRecvError;
 use libipld::{Block, Cid};
