@@ -182,7 +182,6 @@ impl SubAssign<u64> for RecursionLimit {
 ///   - in `Matcher`, to determine if a node is selected.
 ///   - in `ExploreRecursive`, to halt exploration.
 ///   - in `ExploreConditional`,
-///
 // TODO -- Condition is very skeletal and incomplete.
 // TODO -- The place where Condition appears in other structures is correct;
 // TODO -- the rest of the details inside it are not final nor even completely drafted.
