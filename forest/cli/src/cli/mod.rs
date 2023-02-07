@@ -32,7 +32,7 @@ pub(crate) use forest_cli_shared::cli::Config;
 
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_cli_shared::cli::CliOpts;
+use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
@@ -40,6 +40,12 @@ use std::io::{self, Write};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
+#[clap(
+    name = env!("CARGO_PKG_NAME"),
+    version = FOREST_VERSION_STRING.as_str(),
+    about = env!("CARGO_PKG_DESCRIPTION"),
+    author = env!("CARGO_PKG_AUTHORS")
+)]
 pub struct Cli {
     #[command(flatten)]
     pub opts: CliOpts,
