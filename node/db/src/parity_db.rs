@@ -1,17 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use crate::parity_db_config::ParityDbConfig;
-use crate::{DBStatistics, Store};
+use std::{path::PathBuf, sync::Arc};
+
 use anyhow::anyhow;
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use log::warn;
 use parity_db::{CompressionType, Db, Operation, Options};
-use std::path::PathBuf;
-use std::sync::Arc;
+
+use super::errors::Error;
+use crate::{parity_db_config::ParityDbConfig, DBStatistics, Store};
 
 #[derive(Clone)]
 pub struct ParityDb {
@@ -159,8 +159,8 @@ impl BitswapStoreRead for ParityDb {
 }
 
 impl BitswapStoreReadWrite for ParityDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
+    /// [`libipld::DefaultParams`] under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
@@ -192,8 +192,9 @@ impl DBStatistics for ParityDb {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use parity_db::CompressionType;
+
+    use super::*;
 
     #[test]
     fn compression_type_from_str_test() {

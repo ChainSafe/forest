@@ -1,18 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::str::FromStr;
+
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use num::BigInt;
-use std::str::FromStr;
 use structopt::StructOpt;
 
 use super::{handle_rpc_err, Config};
 
 #[derive(Debug, StructOpt)]
 pub struct SendCommand {
-    /// optionally specify the account to send funds from (otherwise the default one will be used)
+    /// optionally specify the account to send funds from (otherwise the default
+    /// one will be used)
     #[structopt(long)]
     from: Option<Address>,
     target_address: Address,

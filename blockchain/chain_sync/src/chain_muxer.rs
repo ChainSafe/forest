@@ -1,15 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::bad_block_cache::BadBlockCache;
-use crate::consensus::Consensus;
-use crate::metrics;
-use crate::network_context::SyncNetworkContext;
-use crate::sync_state::SyncState;
-use crate::tipset_syncer::{
-    TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
+use std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::SystemTime,
 };
-use crate::validation::{TipsetValidationError, TipsetValidator};
+
 use cid::Cid;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_blocks::{
@@ -17,25 +15,35 @@ use forest_blocks::{
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
-use forest_libp2p::PeerManager;
-use forest_libp2p::{hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PubsubMessage};
+use forest_libp2p::{
+    hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
+};
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
-use futures::{future::try_join_all, future::Future, try_join};
+use futures::{
+    future::{try_join_all, Future},
+    stream::FuturesUnordered,
+    try_join, StreamExt,
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use thiserror::Error;
 
-use std::sync::Arc;
-use std::time::SystemTime;
+use crate::{
+    bad_block_cache::BadBlockCache,
+    consensus::Consensus,
+    metrics,
+    network_context::SyncNetworkContext,
+    sync_state::SyncState,
+    tipset_syncer::{
+        TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
+    },
+    validation::{TipsetValidationError, TipsetValidator},
+};
 
 pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
@@ -70,7 +78,8 @@ pub enum ChainMuxerError<C: Consensus> {
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
-    /// Sample size of tipsets to acquire before determining what the network head is
+    /// Sample size of tipsets to acquire before determining what the network
+    /// head is
     pub tipset_sample_size: usize,
 }
 
@@ -107,7 +116,8 @@ enum PubsubMessageProcessingStrategy {
     DoNotProcess,
 }
 
-/// The `ChainMuxer` handles events from the P2P network and orchestrates the chain synchronization.
+/// The `ChainMuxer` handles events from the P2P network and orchestrates the
+/// chain synchronization.
 pub struct ChainMuxer<DB, M, C: Consensus> {
     /// State of the `ChainSyncer` `Future` implementation
     state: ChainMuxerState<C>,
@@ -128,7 +138,8 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
     genesis: Arc<Tipset>,
 
     /// Bad blocks cache, updates based on invalid state transitions.
-    /// Will mark any invalid blocks and all children as bad in this bounded cache
+    /// Will mark any invalid blocks and all children as bad in this bounded
+    /// cache
     bad_blocks: Arc<BadBlockCache>,
 
     /// Incoming network events to be handled by synchronizer
@@ -188,7 +199,8 @@ where
         })
     }
 
-    /// Returns a clone of the bad blocks cache to be used outside of chain sync.
+    /// Returns a clone of the bad blocks cache to be used outside of chain
+    /// sync.
     pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
         self.bad_blocks.clone()
     }
@@ -672,8 +684,9 @@ where
         tasks.push(stream_processor);
 
         Box::pin(async move {
-            // The stream processor will not return unless the p2p event stream is closed. In this case it will return with an error.
-            // Only wait for one task to complete before returning to the caller
+            // The stream processor will not return unless the p2p event stream is closed.
+            // In this case it will return with an error. Only wait for one task
+            // to complete before returning to the caller
             match tasks.next().await {
                 Some(Ok(_)) => Ok(()),
                 Some(Err(e)) => Err(e),
@@ -837,7 +850,8 @@ where
             match self.state {
                 ChainMuxerState::Idle => {
                     if self.sync_config.tipset_sample_size == 0 {
-                        // A standalone node might use this option to not be stuck waiting for P2P messages.
+                        // A standalone node might use this option to not be stuck waiting for P2P
+                        // messages.
                         info!("Skip evaluating network head, assume in-sync.");
                         self.state = ChainMuxerState::Follow(self.follow(None));
                     } else {
@@ -914,7 +928,6 @@ where
 mod tests {
     use std::convert::TryFrom;
 
-    use crate::validation::TipsetValidator;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest_blocks::{BlockHeader, Tipset};
@@ -923,6 +936,8 @@ mod tests {
     use forest_networks::{ChainConfig, Height};
     use forest_test_utils::construct_messages;
     use fvm_shared::{address::Address, message::Message};
+
+    use crate::validation::TipsetValidator;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {

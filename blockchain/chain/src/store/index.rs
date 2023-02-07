@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{tipset_from_keys, Error, TipsetCache};
+use std::{num::NonZeroUsize, sync::Arc};
+
 use forest_blocks::{Tipset, TipsetKeys};
 use forest_metrics::metrics;
 use forest_utils::io::ProgressBar;
@@ -10,22 +11,25 @@ use fvm_shared::clock::ChainEpoch;
 use log::info;
 use lru::LruCache;
 use parking_lot::Mutex;
-use std::num::NonZeroUsize;
-use std::sync::Arc;
+
+use crate::{tipset_from_keys, Error, TipsetCache};
 
 const DEFAULT_CHAIN_INDEX_CACHE_SIZE: NonZeroUsize =
     forest_utils::const_option!(NonZeroUsize::new(32 << 10));
 
-/// Configuration which sets the length of tipsets to skip in between each cached entry.
+/// Configuration which sets the length of tipsets to skip in between each
+/// cached entry.
 const SKIP_LENGTH: ChainEpoch = 20;
 
-// This module helps speed up boot times for forest by checkpointing previously seen tipsets from snapshots.
+// This module helps speed up boot times for forest by checkpointing previously
+// seen tipsets from snapshots.
 pub(super) mod checkpoint_tipsets {
+    use std::str::FromStr;
+
     use ahash::{HashMap, HashMapExt, HashSet};
     use cid::Cid;
     use forest_blocks::TipsetKeys;
     use once_cell::sync::Lazy;
-    use std::str::FromStr;
 
     macro_rules! add_calibnet {
         ($map: ident, $key_hash:expr) => {
@@ -51,15 +55,17 @@ pub(super) mod checkpoint_tipsets {
         };
     }
 
-    // The hashes for these checkpoints is obtained by passing the tipset keys' cids (tipset.cids())
-    // through a blake2b hasher.
+    // The hashes for these checkpoints is obtained by passing the tipset keys' cids
+    // (tipset.cids()) through a blake2b hasher.
     type TipsetKeyHash = &'static str;
     type GenesisTipsetCids = TipsetKeys;
-    // Represents a static map of validated tipset hashes which helps to remove the need to validate the tipset
-    // back to genesis if it has been validated before, thereby reducing boot times.
-    // NB: Add desired tipset checkpoints below this by using RPC command: forest-cli chain tipset-hash <cid keys>
-    // and one can use forest-cli chain validate-tipset-checkpoints to validate tipset hashes
-    // for entries that fall within the range of epochs in current downloaded snapshot file.
+    // Represents a static map of validated tipset hashes which helps to remove the
+    // need to validate the tipset back to genesis if it has been validated
+    // before, thereby reducing boot times. NB: Add desired tipset checkpoints
+    // below this by using RPC command: forest-cli chain tipset-hash <cid keys>
+    // and one can use forest-cli chain validate-tipset-checkpoints to validate
+    // tipset hashes for entries that fall within the range of epochs in current
+    // downloaded snapshot file.
     type TipsetCheckpointsRegistry = HashMap<TipsetKeyHash, GenesisTipsetCids>;
     pub static CALIBNET_CHECKPOINTS: Lazy<TipsetCheckpointsRegistry> = Lazy::new(|| {
         let mut map = HashMap::new();
@@ -121,7 +127,8 @@ pub(super) mod checkpoint_tipsets {
     }
 }
 
-/// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when doing `lookbacks`.
+/// `Lookback` entry to cache in the `ChainIndex`. Stores all relevant info when
+/// doing `lookbacks`.
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct LookbackEntry {
     tipset: Arc<Tipset>,
@@ -130,8 +137,8 @@ pub(crate) struct LookbackEntry {
     target: TipsetKeys,
 }
 
-/// Keeps look-back tipsets in cache at a given interval `skip_length` and can be used to look-back
-/// at the chain to retrieve an old tipset.
+/// Keeps look-back tipsets in cache at a given interval `skip_length` and can
+/// be used to look-back at the chain to retrieve an old tipset.
 pub(crate) struct ChainIndex<BS> {
     /// Cache of look-back entries to speed up lookup.
     skip_cache: Mutex<LruCache<TipsetKeys, Arc<LookbackEntry>>>,
@@ -156,8 +163,8 @@ impl<BS: Blockstore> ChainIndex<BS> {
         tipset_from_keys(self.ts_cache.as_ref(), &self.db, tsk)
     }
 
-    /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or loading parents
-    /// from the `blockstore`.
+    /// Loads tipset at `to` [`ChainEpoch`], loading from sparse cache and/or
+    /// loading parents from the `blockstore`.
     pub(crate) fn get_tipset_by_height(
         &self,
         from: Arc<Tipset>,
@@ -275,7 +282,8 @@ impl<BS: Blockstore> ChainIndex<BS> {
         (height / SKIP_LENGTH) * SKIP_LENGTH
     }
 
-    /// Gets the closest rounded sparse index and returns the loaded tipset at that index.
+    /// Gets the closest rounded sparse index and returns the loaded tipset at
+    /// that index.
     fn round_down(&self, ts: Arc<Tipset>) -> Result<Arc<Tipset>, Error> {
         let target = self.round_height(ts.epoch());
 

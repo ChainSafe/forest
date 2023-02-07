@@ -8,15 +8,15 @@ mod instrumented_kernel;
 mod metrics;
 mod vm;
 
-pub use self::vm::*;
-
 use forest_actor_interface::account;
 use forest_shim::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::{Address, Protocol};
 
-/// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
-/// identified by `addr`.
+pub use self::vm::*;
+
+/// returns the public key type of address (`BLS`/`SECP256K1`) of an account
+/// actor identified by `addr`.
 pub fn resolve_to_key_addr<BS, S>(
     st: &StateTree<S>,
     store: &BS,

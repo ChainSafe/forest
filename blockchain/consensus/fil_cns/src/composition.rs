@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::FilecoinConsensus;
+use std::sync::Arc;
+
 use forest_beacon::DrandBeacon;
 use forest_chain_sync::consensus::{MessagePoolApi, SyncGossipSubmitter};
 use forest_db::Store;
 use forest_key_management::KeyStore;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
 use tokio::{sync::RwLock, task::JoinSet};
+
+use crate::FilecoinConsensus;
 
 pub type FullConsensus = FilecoinConsensus<DrandBeacon>;
 

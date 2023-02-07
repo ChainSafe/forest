@@ -1,9 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{request_manager::*, *};
-use libp2p::{request_response::RequestResponseMessage, PeerId};
 use std::sync::Arc;
+
+use libp2p::{request_response::RequestResponseMessage, PeerId};
+
+use crate::{request_manager::*, *};
 
 #[derive(Debug, Clone)]
 pub enum BitswapInboundResponseEvent {
@@ -25,8 +27,8 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
                 request,
                 channel,
             } => {
-                // Close inbound stream immediately since `go-bitswap` does not read this stream.
-                // responses will be sent over a new outbound request
+                // Close inbound stream immediately since `go-bitswap` does not read this
+                // stream. responses will be sent over a new outbound request
                 _ = bitswap.inner_mut().send_response(channel, ());
                 for message in request {
                     match message {

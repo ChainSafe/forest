@@ -1,17 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use cid::Cid;
+use fvm_ipld_encoding::{Cbor, Error, RawBytes};
+use fvm_shared::{address::Address, econ::TokenAmount, message::Message, MethodNum};
+use serde::{Deserialize, Serialize};
+
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-use cid::Cid;
-use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::message::Message;
-use fvm_shared::MethodNum;
-use fvm_shared::{address::Address, econ::TokenAmount};
-use serde::{Deserialize, Serialize};
-
-/// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types
+/// `Enum` to encapsulate signed and unsigned messages. Useful when working with
+/// both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 #[serde(untagged)]
 pub enum ChainMessage {

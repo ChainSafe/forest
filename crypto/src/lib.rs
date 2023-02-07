@@ -4,5 +4,4 @@
 mod signer;
 pub mod vrf;
 
-pub use self::signer::Signer;
-pub use self::vrf::*;
+pub use self::{signer::Signer, vrf::*};

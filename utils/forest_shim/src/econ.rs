@@ -1,11 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::ops::{Add, AddAssign, Deref, DerefMut, Mul};
+
 use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Deref, DerefMut, Mul};
 
 // FIXME: Transparent Debug trait impl
 // FIXME: Consider 'type TokenAmount = TokenAmount_v3'

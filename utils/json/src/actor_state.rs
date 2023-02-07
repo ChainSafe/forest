@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
+    use std::str::FromStr;
+
     use cid::Cid;
     use fvm::state_tree::ActorState;
     use fvm_shared::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-    use std::str::FromStr;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -81,11 +82,12 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use crate::actor_state::json::{ActorStateJson, ActorStateJsonRef};
     use cid::Cid;
     use fvm::state_tree::ActorState;
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
+
+    use crate::actor_state::json::{ActorStateJson, ActorStateJsonRef};
 
     #[derive(Clone, Debug)]
     struct ActorStateWrapper {

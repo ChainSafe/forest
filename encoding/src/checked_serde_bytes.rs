@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::BYTE_ARRAY_MAX_LEN;
 use cs_serde_bytes::{Deserialize, Serialize};
 use serde::{de, ser, Deserializer, Serializer};
+
+use crate::BYTE_ARRAY_MAX_LEN;
 
 /// `serde_bytes` with max length check
 pub mod serde_byte_array {
@@ -45,10 +46,11 @@ pub mod serde_byte_array {
 
 #[cfg(test)]
 mod tests {
-    use super::serde_byte_array;
-    use crate::BYTE_ARRAY_MAX_LEN;
     use anyhow::{ensure, Result};
     use serde::{Deserialize, Serialize};
+
+    use super::serde_byte_array;
+    use crate::BYTE_ARRAY_MAX_LEN;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     struct ByteArray {

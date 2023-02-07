@@ -1,25 +1,29 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{ElectionProof, Error, Ticket, TipsetKeys};
-use cid::multihash::Code::Blake2b256;
-use cid::multihash::MultihashDigest;
-use cid::Cid;
+use std::fmt;
+
+use cid::{
+    multihash::{Code::Blake2b256, MultihashDigest},
+    Cid,
+};
 use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
-use forest_shim::bigint::{BigIntDe, BigIntSer};
-use forest_shim::econ::TokenAmount;
-use forest_shim::version::NetworkVersion;
+use forest_shim::{
+    bigint::{BigIntDe, BigIntSer},
+    econ::TokenAmount,
+    version::NetworkVersion,
+};
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::crypto::signature::Signature;
-use fvm_shared::sector::PoStProof;
+use fvm_shared::{
+    address::Address, clock::ChainEpoch, crypto::signature::Signature, sector::PoStProof,
+};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
+
+use super::{ElectionProof, Error, Ticket, TipsetKeys};
 
 pub mod json;
 
@@ -88,15 +92,18 @@ pub struct BlockHeader {
     miner_address: Address,
 
     // STATE
-    /// `messages` contains the `cid` to the Merkle links for `bls_messages` and `secp_messages`
+    /// `messages` contains the `cid` to the Merkle links for `bls_messages` and
+    /// `secp_messages`
     #[builder(default)]
     messages: Cid,
 
-    /// `message_receipts` is the `cid` of the root of an array of `MessageReceipts`
+    /// `message_receipts` is the `cid` of the root of an array of
+    /// `MessageReceipts`
     #[builder(default)]
     message_receipts: Cid,
 
-    /// `state_root` is a `cid` pointer to the parent state root after calculating parent tipset.
+    /// `state_root` is a `cid` pointer to the parent state root after
+    /// calculating parent tipset.
     #[builder(default)]
     state_root: Cid,
 
@@ -110,7 +117,8 @@ pub struct BlockHeader {
     election_proof: Option<ElectionProof>,
 
     // CONSENSUS
-    /// timestamp, in seconds since the Unix epoch, at which this block was created
+    /// timestamp, in seconds since the Unix epoch, at which this block was
+    /// created
     #[builder(default)]
     timestamp: u64,
     /// the ticket submitted with this block
@@ -128,7 +136,8 @@ pub struct BlockHeader {
     #[builder(default, setter(skip))]
     cached_cid: OnceCell<Cid>,
 
-    /// stores the hashed bytes of the block after the first call to `cached_bytes()`
+    /// stores the hashed bytes of the block after the first call to
+    /// `cached_bytes()`
     #[builder(default, setter(skip))]
     cached_bytes: OnceCell<Vec<u8>>,
 
@@ -348,7 +357,8 @@ impl BlockHeader {
         Ok(())
     }
 
-    /// Validates if the current header's Beacon entries are valid to ensure randomness was generated correctly
+    /// Validates if the current header's Beacon entries are valid to ensure
+    /// randomness was generated correctly
     pub fn validate_block_drand<B: Beacon>(
         &self,
         network_version: NetworkVersion,
@@ -421,16 +431,19 @@ impl BlockHeader {
         Ok(())
     }
 
-    /// Serializes the header to bytes for signing purposes i.e. without the signature field
+    /// Serializes the header to bytes for signing purposes i.e. without the
+    /// signature field
     pub fn to_signing_bytes(&self) -> Vec<u8> {
         let mut blk = self.clone();
         blk.signature = None;
 
-        // This isn't required now, but future proofs for if the encoding ever uses a cache.
+        // This isn't required now, but future proofs for if the encoding ever uses a
+        // cache.
         blk.cached_bytes = Default::default();
         blk.cached_cid = Default::default();
 
-        // * Intentionally not using cache here, to avoid using cached bytes with signature encoded.
+        // * Intentionally not using cache here, to avoid using cached bytes with
+        //   signature encoded.
         fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
 }
@@ -444,14 +457,14 @@ impl fmt::Display for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use crate::{errors::Error, BlockHeader};
+    use std::{sync::Arc, time::Duration};
+
     use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_shim::version::NetworkVersion;
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
 
-    use std::sync::Arc;
-    use std::time::Duration;
+    use crate::{errors::Error, BlockHeader};
 
     #[test]
     fn symmetric_header_encoding() {
@@ -460,9 +473,9 @@ mod tests {
         let header = BlockHeader::unmarshal_cbor(&bz).unwrap();
         assert_eq!(header.marshal_cbor().unwrap(), bz);
 
-        // Verify the signature of this block header using the resolved address used to sign.
-        // This is a valid signature, but if the block header vector changes, the address should
-        // need to as well.
+        // Verify the signature of this block header using the resolved address used to
+        // sign. This is a valid signature, but if the block header vector
+        // changes, the address should need to as well.
         header
             .check_block_signature(
                 &"f3vfs6f7tagrcpnwv65wq3leznbajqyg77bmijrpvoyjv3zjyi3urq25vigfbs3ob6ug5xdihajumtgsxnz2pa"

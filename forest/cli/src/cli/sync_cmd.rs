@@ -1,18 +1,19 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Config;
-use cid::Cid;
-use forest_chain_sync::SyncStage;
-use forest_json::cid::CidJson;
-use forest_rpc_client::*;
 use std::{
     io::{stdout, Write},
     time::Duration,
 };
+
+use cid::Cid;
+use forest_chain_sync::SyncStage;
+use forest_json::cid::CidJson;
+use forest_rpc_client::*;
 use structopt::StructOpt;
 use ticker::Ticker;
 
+use super::Config;
 use crate::cli::{format_vec_pretty, handle_rpc_err};
 
 #[derive(Debug, StructOpt)]

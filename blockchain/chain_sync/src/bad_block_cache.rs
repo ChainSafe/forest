@@ -1,13 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::num::NonZeroUsize;
+
 use cid::Cid;
 use lru::LruCache;
 use parking_lot::Mutex;
-use std::num::NonZeroUsize;
 
 /// Thread-safe cache for tracking bad blocks.
-/// This cache is checked before validating a block, to ensure no duplicate work.
+/// This cache is checked before validating a block, to ensure no duplicate
+/// work.
 #[derive(Debug)]
 pub struct BadBlockCache {
     cache: Mutex<LruCache<Cid, String>>,

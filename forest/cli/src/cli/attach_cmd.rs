@@ -1,15 +1,24 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fs::{read_to_string, OpenOptions};
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{
+    fs::{read_to_string, OpenOptions},
+    path::PathBuf,
+    str::FromStr,
+};
 
-use boa_engine::object::{FunctionBuilder, JsArray};
-use boa_engine::{prelude::JsObject, property::Attribute, syntax::parser::ParseError};
-use boa_engine::{Context, JsResult, JsValue};
+use boa_engine::{
+    object::{FunctionBuilder, JsArray},
+    prelude::JsObject,
+    property::Attribute,
+    syntax::parser::ParseError,
+    Context, JsResult, JsValue,
+};
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
+use forest_json::message::json::MessageJson;
+use forest_rpc_api::mpool_api::MpoolPushMessageResult;
+use forest_rpc_client::*;
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use num::{BigInt, Zero};
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
@@ -18,9 +27,6 @@ use serde_json::Value as JsonValue;
 use structopt::StructOpt;
 
 use super::Config;
-use forest_json::message::json::MessageJson;
-use forest_rpc_api::mpool_api::MpoolPushMessageResult;
-use forest_rpc_client::*;
 
 #[derive(Debug, StructOpt)]
 pub struct AttachCommand {
