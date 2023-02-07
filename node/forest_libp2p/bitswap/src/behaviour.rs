@@ -16,7 +16,8 @@ use crate::{codec::*, protocol::*, request_manager::*, *};
 /// `libp2p` swarm network behaviour event of `bitswap`
 pub type BitswapBehaviourEvent = RequestResponseEvent<Vec<BitswapMessage>, ()>;
 
-/// A `go-bitswap` compatible protocol that is built on top of [RequestResponse].
+/// A `go-bitswap` compatible protocol that is built on top of
+/// [RequestResponse].
 pub struct BitswapBehaviour {
     inner: RequestResponse<BitswapRequestResponseCodec>,
     request_manager: Arc<BitswapRequestManager>,

@@ -61,7 +61,8 @@ where
 
         if request.include_blocks() {
             // TODO Cloning blocks isn't ideal, this can maybe be switched to serialize this
-            // data in the function. This may not be possible without overriding rpc in libp2p
+            // data in the function. This may not be possible without overriding rpc in
+            // libp2p
             tipset_bundle.blocks = tipset.blocks().to_vec();
         }
 
@@ -208,7 +209,8 @@ mod tests {
         assert_eq!(ts_39_msgs.secp_msgs.len(), 22);
         // ... 12 unsigned messages
         assert_eq!(ts_39_msgs.bls_msgs.len(), 12);
-        // Compacted message will contain 1 secp_includes array (since only 1 block in tipset).
+        // Compacted message will contain 1 secp_includes array (since only 1 block in
+        // tipset).
         assert_eq!(ts_39_msgs.secp_msg_includes.len(), 1);
         // and 1 bls_includes.
         assert_eq!(ts_39_msgs.bls_msg_includes.len(), 1);
@@ -230,7 +232,8 @@ mod tests {
         assert_eq!(ts_38_msgs.secp_msg_includes.len(), 2);
         assert_eq!(ts_38_msgs.bls_msg_includes.len(), 2);
 
-        // Since the messages are duplicated in blocks, each `include` will have them all
+        // Since the messages are duplicated in blocks, each `include` will have them
+        // all
         assert_eq!(ts_38_msgs.secp_msg_includes[0].len(), 1);
         assert_eq!(ts_38_msgs.bls_msg_includes[0].len(), 11);
         assert_eq!(ts_38_msgs.secp_msg_includes[1].len(), 1);

@@ -19,18 +19,21 @@ use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 use crate::errors::Error;
 
-/// Provider Trait. This trait will be used by the message pool to interact with some medium in order to do
-/// the operations that are listed below that are required for the message pool.
+/// Provider Trait. This trait will be used by the message pool to interact with
+/// some medium in order to do the operations that are listed below that are
+/// required for the message pool.
 #[async_trait]
 pub trait Provider {
     /// Update `Mpool`'s `cur_tipset` whenever there is a change to the provider
     fn subscribe_head_changes(&self) -> Subscriber<HeadChange>;
     /// Get the heaviest Tipset in the provider
     fn get_heaviest_tipset(&self) -> Arc<Tipset>;
-    /// Add a message to the `MpoolProvider`, return either Cid or Error depending on successful put
+    /// Add a message to the `MpoolProvider`, return either Cid or Error
+    /// depending on successful put
     fn put_message(&self, msg: &ChainMessage) -> Result<Cid, Error>;
-    /// Return state actor for given address given the tipset that the a temp `StateTree` will be rooted
-    /// at. Return `ActorState` or Error depending on whether or not `ActorState` is found
+    /// Return state actor for given address given the tipset that the a temp
+    /// `StateTree` will be rooted at. Return `ActorState` or Error
+    /// depending on whether or not `ActorState` is found
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error>;
     /// Return the signed messages for given block header
     fn messages_for_block(
@@ -45,7 +48,8 @@ pub trait Provider {
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
 }
 
-/// This is the default Provider implementation that will be used for the `mpool` RPC.
+/// This is the default Provider implementation that will be used for the
+/// `mpool` RPC.
 pub struct MpoolRpcProvider<DB> {
     subscriber: Publisher<HeadChange>,
     sm: Arc<StateManager<DB>>,

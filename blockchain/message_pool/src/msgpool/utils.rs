@@ -38,7 +38,8 @@ pub(crate) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: i64) -> f64 {
     a.to_f64().unwrap()
 }
 
-/// Attempt to get a signed message that corresponds to an unsigned message in `bls_sig_cache`.
+/// Attempt to get a signed message that corresponds to an unsigned message in
+/// `bls_sig_cache`.
 pub(crate) fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
     msg: Message,

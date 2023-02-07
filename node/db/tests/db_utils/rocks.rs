@@ -12,8 +12,8 @@ pub struct TempRocksDB {
 }
 
 impl TempRocksDB {
-    /// Creates a new DB in a temporary path that gets wiped out when the variable
-    /// gets out of scope.
+    /// Creates a new DB in a temporary path that gets wiped out when the
+    /// variable gets out of scope.
     pub fn new() -> TempRocksDB {
         let dir = tempfile::Builder::new()
             .tempdir()

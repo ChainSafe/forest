@@ -51,17 +51,19 @@ impl PeerInfo {
     }
 }
 
-/// Peer tracking sets, these are handled together to avoid race conditions or deadlocks
-/// when updating state.
+/// Peer tracking sets, these are handled together to avoid race conditions or
+/// deadlocks when updating state.
 #[derive(Default)]
 struct PeerSets {
     /// Map of full peers available.
     full_peers: HashMap<PeerId, PeerInfo>,
-    /// Set of peers to ignore for being incompatible/ failing to accept connections.
+    /// Set of peers to ignore for being incompatible/ failing to accept
+    /// connections.
     bad_peers: HashSet<PeerId>,
 }
 
-/// Thread safe peer manager which handles peer management for the `ChainExchange` protocol.
+/// Thread safe peer manager which handles peer management for the
+/// `ChainExchange` protocol.
 pub struct PeerManager {
     /// Full and bad peer sets.
     peers: RwLock<PeerSets>,
@@ -89,8 +91,8 @@ impl Default for PeerManager {
 }
 
 impl PeerManager {
-    /// Updates peer's heaviest tipset. If the peer does not exist in the set, a new `PeerInfo`
-    /// will be generated.
+    /// Updates peer's heaviest tipset. If the peer does not exist in the set, a
+    /// new `PeerInfo` will be generated.
     pub async fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
         let mut peers = self.peers.write().await;
         trace!("Updating head for PeerId {}", &peer_id);
@@ -108,7 +110,8 @@ impl PeerManager {
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
     }
 
-    /// Sort peers based on a score function with the success rate and latency of requests.
+    /// Sort peers based on a score function with the success rate and latency
+    /// of requests.
     pub(crate) async fn sorted_peers(&self) -> Vec<PeerId> {
         let peer_lk = self.peers.read().await;
         let average_time = self.avg_global_time.read().await;
@@ -133,8 +136,8 @@ impl PeerManager {
         peers.into_iter().map(|(p, _)| p).cloned().collect()
     }
 
-    /// Return shuffled slice of ordered peers from the peer manager. Ordering is based
-    /// on failure rate and latency of the peer.
+    /// Return shuffled slice of ordered peers from the peer manager. Ordering
+    /// is based on failure rate and latency of the peer.
     pub async fn top_peers_shuffled(&self) -> Vec<PeerId> {
         let mut peers: Vec<_> = self
             .sorted_peers()
@@ -149,7 +152,8 @@ impl PeerManager {
         peers
     }
 
-    /// Logs a global request success. This just updates the average for the peer manager.
+    /// Logs a global request success. This just updates the average for the
+    /// peer manager.
     pub async fn log_global_success(&self, dur: Duration) {
         debug!("logging global success");
         let mut avg_global = self.avg_global_time.write().await;
@@ -164,7 +168,8 @@ impl PeerManager {
         }
     }
 
-    /// Logs a success for the given peer, and updates the average request duration.
+    /// Logs a success for the given peer, and updates the average request
+    /// duration.
     pub async fn log_success(&self, peer: PeerId, dur: Duration) {
         debug!("logging success for {:?}", peer);
         let mut peers = self.peers.write().await;
@@ -181,7 +186,8 @@ impl PeerManager {
         log_time(peer_stats, dur);
     }
 
-    /// Logs a failure for the given peer, and updates the average request duration.
+    /// Logs a failure for the given peer, and updates the average request
+    /// duration.
     pub async fn log_failure(&self, peer: PeerId, dur: Duration) {
         debug!("logging failure for {:?}", peer);
         let mut peers = self.peers.write().await;
@@ -196,7 +202,8 @@ impl PeerManager {
         }
     }
 
-    /// Removes a peer from the set and returns true if the value was present previously
+    /// Removes a peer from the set and returns true if the value was present
+    /// previously
     pub async fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
         let mut peers = self.peers.write().await;
         let removed = remove_peer(&mut peers, &peer_id);

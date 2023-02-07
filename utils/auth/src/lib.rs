@@ -86,7 +86,7 @@ pub fn has_perms(header_raw: String, required: &str, key: &[u8]) -> Result<(), J
 
 pub fn generate_priv_key() -> KeyInfo {
     let priv_key = rand::thread_rng().gen::<[u8; 32]>();
-    // TODO temp use of bls key as placeholder, need to update keyinfo to use string instead of keyinfo
-    // for key type
+    // TODO temp use of bls key as placeholder, need to update keyinfo to use string
+    // instead of keyinfo for key type
     KeyInfo::new(SignatureType::BLS, priv_key.to_vec())
 }

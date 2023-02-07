@@ -121,7 +121,8 @@ impl State {
         }
     }
 
-    /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
+    /// Loads sectors corresponding to the bitfield. If no bitfield is passed
+    /// in, return all.
     pub fn load_sectors<BS: Blockstore>(
         &self,
         store: &BS,
@@ -355,10 +356,12 @@ pub struct SectorOnChainInfo {
     /// Pledge collected to commit this sector
     #[serde(with = "forest_json::token_amount::json")]
     pub initial_pledge: TokenAmount,
-    /// Expected one day projection of reward for sector computed at activation time
+    /// Expected one day projection of reward for sector computed at activation
+    /// time
     #[serde(with = "forest_json::token_amount::json")]
     pub expected_day_reward: TokenAmount,
-    /// Expected twenty day projection of reward for sector computed at activation time
+    /// Expected twenty day projection of reward for sector computed at
+    /// activation time
     #[serde(with = "forest_json::token_amount::json")]
     pub expected_storage_pledge: TokenAmount,
 }

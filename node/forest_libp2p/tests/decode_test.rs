@@ -116,7 +116,8 @@ fn tipset_bundle_to_full_tipset() {
     );
 
     if let Some(m) = tsb.messages.as_mut() {
-        // Invalidate tipset bundle by not having includes same length as number of blocks
+        // Invalidate tipset bundle by not having includes same length as number of
+        // blocks
         m.secp_msg_includes = vec![vec![0]];
     }
     assert!(

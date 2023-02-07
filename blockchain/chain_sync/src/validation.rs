@@ -72,8 +72,9 @@ impl<'a> TipsetValidator<'a> {
         self.validate_epoch(genesis_tipset, block_delay)?;
 
         // Validate each block in the tipset by:
-        // 1. Calculating the message root using all of the messages to ensure it matches the mst root in the block header
-        // 2. Ensuring it has not previously been seen in the bad blocks cache
+        // 1. Calculating the message root using all of the messages to ensure it
+        // matches the mst root in the block header 2. Ensuring it has not
+        // previously been seen in the bad blocks cache
         for block in self.0.blocks() {
             self.validate_msg_root(&chainstore.db, block)?;
             if let Some(bad) = bad_block_cache.peek(block.cid()) {

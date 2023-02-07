@@ -39,7 +39,8 @@ pub struct ApiInfo {
 }
 
 pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
-    // Get API_INFO environment variable if exists, otherwise, use default multiaddress
+    // Get API_INFO environment variable if exists, otherwise, use default
+    // multiaddress
     let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
 
     let (multiaddr, token) = match api_info.split_once(':') {
@@ -153,7 +154,8 @@ where
     debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
     let client = https_client();
-    // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
+    // Split the JWT off if present, format multiaddress as URL, then post RPC
+    // request to URL
     let mut request =
         hyper::Request::post(&api_url).body(serde_json::to_string(&rpc_req)?.into())?;
     let headers_mut = request.headers_mut();

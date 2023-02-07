@@ -47,13 +47,16 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         self.prune_entries(header.epoch());
     }
 
-    /// Checks if there are multiple blocks from the same miner at the same height.
+    /// Checks if there are multiple blocks from the same miner at the same
+    /// height.
     ///
-    /// This should never happen. Something is weird as it's against the protocol rules for a
-    /// miner to produce multiple blocks at the same height.
+    /// This should never happen. Something is weird as it's against the
+    /// protocol rules for a miner to produce multiple blocks at the same
+    /// height.
     fn check_multiple_blocks_from_same_miner(&self, cids: &[Cid], header: &BlockHeader) {
         for cid in cids.iter() {
-            // TODO: maybe cache the miner address to avoid having to do a `blockstore` lookup here
+            // TODO: maybe cache the miner address to avoid having to do a `blockstore`
+            // lookup here
             if let Ok(Some(block)) = self.db.get_obj::<BlockHeader>(cid) {
                 if header.miner_address() == block.miner_address() {
                     warn!(
@@ -68,7 +71,8 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         }
     }
 
-    /// Deletes old entries in the `TipsetTracker` that are past the chain finality.
+    /// Deletes old entries in the `TipsetTracker` that are past the chain
+    /// finality.
     fn prune_entries(&self, header_epoch: ChainEpoch) {
         let cut_off_epoch = header_epoch - self.chain_config.policy.chain_finality;
         let mut entries = self.entries.lock();
@@ -93,7 +97,8 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                     continue;
                 }
 
-                // TODO: maybe cache the parents tipset keys to avoid having to do a `blockstore` lookup here
+                // TODO: maybe cache the parents tipset keys to avoid having to do a
+                // `blockstore` lookup here
                 let h = self
                     .db
                     .get_obj::<BlockHeader>(&cid)

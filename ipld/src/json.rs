@@ -3,8 +3,9 @@
 
 //! Differences between serializers
 //!
-//! The serializer created here uses `multihash` and `libipld-json` uses plain `base64`.
-//! That means one has an extra `m` in front of all the encoded byte values, using our serializer.
+//! The serializer created here uses `multihash` and `libipld-json` uses plain
+//! `base64`. That means one has an extra `m` in front of all the encoded byte
+//! values, using our serializer.
 //!
 //! For example:
 //!

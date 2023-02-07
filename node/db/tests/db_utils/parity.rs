@@ -12,8 +12,8 @@ pub struct TempParityDB {
 }
 
 impl TempParityDB {
-    /// Creates a new DB in a temporary path that gets wiped out when the variable
-    /// gets out of scope.
+    /// Creates a new DB in a temporary path that gets wiped out when the
+    /// variable gets out of scope.
     pub fn new() -> TempParityDB {
         let dir = tempfile::Builder::new()
             .tempdir()

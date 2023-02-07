@@ -30,10 +30,10 @@ pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
 type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
 
-// TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
-// jwt secret
-/// `KeyInfo` structure, this contains the type of key (stored as a string) and the private key.
-/// Note how the private key is stored as a byte vector
+// TODO need to update keyinfo to not use SignatureType, use string instead to
+// save keys like jwt secret
+/// `KeyInfo` structure, this contains the type of key (stored as a string) and
+/// the private key. Note how the private key is stored as a byte vector
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
@@ -162,7 +162,8 @@ pub enum EncryptedKeyStoreError {
     /// An error occurred while encrypting keys
     #[error("Error encrypting data")]
     EncryptionError,
-    /// Unlock called without `encrypted_keystore` being enabled in `config.toml`
+    /// Unlock called without `encrypted_keystore` being enabled in
+    /// `config.toml`
     #[error("Error with forest configuration")]
     ConfigurationError,
 }

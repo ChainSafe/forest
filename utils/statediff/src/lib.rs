@@ -72,16 +72,16 @@ fn root_to_state_map<BS: Blockstore>(
 
 /// Tries to resolve state tree actors, if all data exists in store.
 /// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
-/// This function will only print the actors that are added, removed, or changed so it
-/// can be used on large state trees.
+/// This function will only print the actors that are added, removed, or changed
+/// so it can be used on large state trees.
 fn try_print_actor_states<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
 ) -> Result<(), anyhow::Error> {
-    // For now, resolving to a map, because we need to use go implementation's inefficient caching
-    // this would probably be faster in most cases.
+    // For now, resolving to a map, because we need to use go implementation's
+    // inefficient caching this would probably be faster in most cases.
     let mut e_state = root_to_state_map(bs, expected_root)?;
 
     // Compare state with expected

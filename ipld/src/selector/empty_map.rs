@@ -3,7 +3,8 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-// This is only used as a utility because go impl serializes no data as an empty map
+// This is only used as a utility because go impl serializes no data as an empty
+// map
 
 #[derive(Serialize, Deserialize)]
 struct EmptyMap {}

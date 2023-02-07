@@ -84,8 +84,9 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         }
     }?;
 
-    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
-    // Useful if others want to use this node to bootstrap from.
+    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
+    // peer's multiaddress. Useful if others want to use this node to bootstrap
+    // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut ks = if config.client.encrypt_keystore {
@@ -160,7 +161,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Read Genesis file
-    // * When snapshot command implemented, this genesis does not need to be initialized
+    // * When snapshot command implemented, this genesis does not need to be
+    //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -191,8 +193,10 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         false
     };
 
-    // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
-    // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
+    // Reward calculation is needed by the VM to calculate state, which can happen
+    // essentially anywhere the `StateManager` is called. It is consensus
+    // specific, but threading it through the type system would be a nightmare,
+    // which is why dynamic dispatch is used.
     let reward_calc = cns::reward_calc();
 
     // Initialize StateManager
@@ -258,7 +262,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let mpool = Arc::new(mpool);
 
-    // For consensus types that do mining, create a component to submit their proposals.
+    // For consensus types that do mining, create a component to submit their
+    // proposals.
     let submitter = SyncGossipSubmitter::new(
         network_name.clone(),
         network_send.clone(),
@@ -311,7 +316,9 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: rpc_state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
+                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
+                                                                  * this itself from the
+                                                                  * StateManager */
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),
@@ -392,7 +399,8 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
     }
 }
 
-/// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
+/// Optionally fetches the snapshot. Returns the configuration (modified
+/// accordingly if a snapshot was fetched).
 async fn maybe_fetch_snapshot(
     should_fetch_snapshot: bool,
     config: Config,
@@ -413,8 +421,8 @@ async fn maybe_fetch_snapshot(
     }
 }
 
-/// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
-/// exits the process.
+/// Last resort in case a snapshot is needed. If it is not to be downloaded,
+/// this method fails and exits the process.
 fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);

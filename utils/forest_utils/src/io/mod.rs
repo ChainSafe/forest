@@ -37,8 +37,9 @@ pub fn set_user_perm(file: &File) -> Result<()> {
     Ok(())
 }
 
-/// Writes a string to a specified file. Creates the desired path if it does not exist.
-/// Note: `path` and `filename` are appended to produce the resulting file path.
+/// Writes a string to a specified file. Creates the desired path if it does not
+/// exist. Note: `path` and `filename` are appended to produce the resulting
+/// file path.
 pub fn write_to_file(message: &[u8], path: &Path, file_name: &str) -> Result<File> {
     // Create path if it doesn't exist
     create_dir_all(path)?;

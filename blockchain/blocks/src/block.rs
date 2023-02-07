@@ -11,7 +11,8 @@ use super::BlockHeader;
 /// Limit of BLS and SECP messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 
-/// A complete Filecoin block. This contains the block header as well as all BLS and SECP messages.
+/// A complete Filecoin block. This contains the block header as well as all BLS
+/// and SECP messages.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
     pub header: BlockHeader,
@@ -32,7 +33,8 @@ impl Block {
     pub fn secp_msgs(&self) -> &[SignedMessage] {
         &self.secp_messages
     }
-    /// Returns block's `cid`. This `cid` is the same as the [`BlockHeader::cid`].
+    /// Returns block's `cid`. This `cid` is the same as the
+    /// [`BlockHeader::cid`].
     pub fn cid(&self) -> &Cid {
         self.header.cid()
     }

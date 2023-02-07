@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
 use super::{Block, BlockHeader, Error, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
-/// Equal keys will have equivalent iteration order, but note that the `CIDs` are *not* maintained in
-/// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
+/// Equal keys will have equivalent iteration order, but note that the `CIDs`
+/// are *not* maintained in the same order as the canonical iteration order of
+/// blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TipsetKeys {
@@ -125,9 +126,10 @@ impl From<FullTipset> for Tipset {
 #[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
-    /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
-    /// specify identical epoch, parents, weight, height, state root, receipt root;
-    /// content-id for headers are supposed to be distinct but until encoding is added will be equal.
+    /// A valid tipset contains a non-empty collection of blocks that have
+    /// distinct miners and all specify identical epoch, parents, weight,
+    /// height, state root, receipt root; content-id for headers are
+    /// supposed to be distinct but until encoding is added will be equal.
     pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
@@ -197,7 +199,8 @@ impl Tipset {
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
-    /// Returns true if self wins according to the Filecoin tie-break rule (FIP-0023)
+    /// Returns true if self wins according to the Filecoin tie-break rule
+    /// (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
@@ -220,7 +223,8 @@ impl Tipset {
     }
 }
 
-/// `FullTipset` is an expanded version of a tipset that contains all the blocks and messages
+/// `FullTipset` is an expanded version of a tipset that contains all the blocks
+/// and messages
 #[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
@@ -237,8 +241,8 @@ impl FullTipset {
     pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
 
-        // sort blocks on creation to allow for more seamless conversions between FullTipset
-        // and Tipset
+        // sort blocks on creation to allow for more seamless conversions between
+        // FullTipset and Tipset
         blocks.sort_by_cached_key(|block| block.header().to_sort_key());
         Ok(Self {
             blocks,
@@ -258,7 +262,8 @@ impl FullTipset {
     pub fn into_blocks(self) -> Vec<Block> {
         self.blocks
     }
-    /// Converts the full tipset into a [Tipset] which removes the messages attached.
+    /// Converts the full tipset into a [Tipset] which removes the messages
+    /// attached.
     pub fn into_tipset(self) -> Tipset {
         Tipset::from(self)
     }
@@ -519,7 +524,8 @@ mod test {
         );
     }
 
-    // specifically test the case when we are distinct from miner_address 0, but not 1
+    // specifically test the case when we are distinct from miner_address 0, but not
+    // 1
     #[test]
     fn ensure_multiple_miner_addresses_are_distinct() {
         let h0 = BlockHeader::builder()

@@ -15,8 +15,8 @@ use fvm_shared::address::{Address, Protocol};
 
 pub use self::vm::*;
 
-/// returns the public key type of address (`BLS`/`SECP256K1`) of an account actor
-/// identified by `addr`.
+/// returns the public key type of address (`BLS`/`SECP256K1`) of an account
+/// actor identified by `addr`.
 pub fn resolve_to_key_addr<BS, S>(
     st: &StateTree<S>,
     store: &BS,

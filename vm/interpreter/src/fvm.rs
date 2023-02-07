@@ -131,10 +131,12 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
     ) -> anyhow::Result<(Option<ConsensusFault>, i64)> {
         let mut total_gas: i64 = 0;
 
-        // Note that block syntax is not validated. Any validly signed block will be accepted pursuant to the below conditions.
-        // Whether or not it could ever have been accepted in a chain is not checked/does not matter here.
-        // for that reason when checking block parent relationships, rather than instantiating a Tipset to do so
-        // (which runs a syntactic check), we do it directly on the CIDs.
+        // Note that block syntax is not validated. Any validly signed block will be
+        // accepted pursuant to the below conditions. Whether or not it could
+        // ever have been accepted in a chain is not checked/does not matter here.
+        // for that reason when checking block parent relationships, rather than
+        // instantiating a Tipset to do so (which runs a syntactic check), we do
+        // it directly on the CIDs.
 
         // (0) cheap preliminary checks
 
@@ -162,7 +164,8 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                 bh_2.miner_address()
             );
         };
-        // block a must be earlier or equal to block b, epoch wise (ie at least as early in the chain).
+        // block a must be earlier or equal to block b, epoch wise (ie at least as early
+        // in the chain).
         if bh_2.epoch() < bh_1.epoch() {
             bail!(
                 "first block must not be of higher height than second: {:?}, {:?}",
@@ -181,16 +184,17 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
         };
 
         // (b) time-offset mining fault
-        // strictly speaking no need to compare heights based on double fork mining check above,
-        // but at same height this would be a different fault.
+        // strictly speaking no need to compare heights based on double fork mining
+        // check above, but at same height this would be a different fault.
         if bh_1.parents() == bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
             fault_type = Some(ConsensusFaultType::TimeOffsetMining);
         };
 
         // (c) parent-grinding fault
-        // Here extra is the "witness", a third block that shows the connection between A and B as
-        // A's sibling and B's parent.
-        // Specifically, since A is of lower height, it must be that B was mined omitting A from its tipset
+        // Here extra is the "witness", a third block that shows the connection between
+        // A and B as A's sibling and B's parent.
+        // Specifically, since A is of lower height, it must be that B was mined
+        // omitting A from its tipset
         if !extra.is_empty() {
             let bh_3 = BlockHeader::unmarshal_cbor(extra)?;
             if bh_1.parents() == bh_3.parents()

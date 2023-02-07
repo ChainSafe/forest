@@ -78,7 +78,8 @@ pub enum ChainMuxerError<C: Consensus> {
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
     pub req_window: i64,
-    /// Sample size of tipsets to acquire before determining what the network head is
+    /// Sample size of tipsets to acquire before determining what the network
+    /// head is
     pub tipset_sample_size: usize,
 }
 
@@ -115,7 +116,8 @@ enum PubsubMessageProcessingStrategy {
     DoNotProcess,
 }
 
-/// The `ChainMuxer` handles events from the P2P network and orchestrates the chain synchronization.
+/// The `ChainMuxer` handles events from the P2P network and orchestrates the
+/// chain synchronization.
 pub struct ChainMuxer<DB, M, C: Consensus> {
     /// State of the `ChainSyncer` `Future` implementation
     state: ChainMuxerState<C>,
@@ -136,7 +138,8 @@ pub struct ChainMuxer<DB, M, C: Consensus> {
     genesis: Arc<Tipset>,
 
     /// Bad blocks cache, updates based on invalid state transitions.
-    /// Will mark any invalid blocks and all children as bad in this bounded cache
+    /// Will mark any invalid blocks and all children as bad in this bounded
+    /// cache
     bad_blocks: Arc<BadBlockCache>,
 
     /// Incoming network events to be handled by synchronizer
@@ -196,7 +199,8 @@ where
         })
     }
 
-    /// Returns a clone of the bad blocks cache to be used outside of chain sync.
+    /// Returns a clone of the bad blocks cache to be used outside of chain
+    /// sync.
     pub fn bad_blocks_cloned(&self) -> Arc<BadBlockCache> {
         self.bad_blocks.clone()
     }
@@ -680,8 +684,9 @@ where
         tasks.push(stream_processor);
 
         Box::pin(async move {
-            // The stream processor will not return unless the p2p event stream is closed. In this case it will return with an error.
-            // Only wait for one task to complete before returning to the caller
+            // The stream processor will not return unless the p2p event stream is closed.
+            // In this case it will return with an error. Only wait for one task
+            // to complete before returning to the caller
             match tasks.next().await {
                 Some(Ok(_)) => Ok(()),
                 Some(Err(e)) => Err(e),
@@ -845,7 +850,8 @@ where
             match self.state {
                 ChainMuxerState::Idle => {
                     if self.sync_config.tipset_sample_size == 0 {
-                        // A standalone node might use this option to not be stuck waiting for P2P messages.
+                        // A standalone node might use this option to not be stuck waiting for P2P
+                        // messages.
                         info!("Skip evaluating network head, assume in-sync.");
                         self.state = ChainMuxerState::Follow(self.follow(None));
                     } else {

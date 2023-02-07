@@ -9,10 +9,11 @@ use libp2p::gossipsub::{
 
 use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
 
-// All these parameters are copied from what Lotus has set for their Topic scores.
-// They are currently unused because enabling them causes GossipSub blocks to come
-// delayed usually by 1 second compared to when we have these parameters disabled.
-// Leaving these here so that we can enable and fix these parameters when they are needed.
+// All these parameters are copied from what Lotus has set for their Topic
+// scores. They are currently unused because enabling them causes GossipSub
+// blocks to come delayed usually by 1 second compared to when we have these
+// parameters disabled. Leaving these here so that we can enable and fix these
+// parameters when they are needed.
 
 fn build_msg_topic_config() -> TopicScoreParams {
     TopicScoreParams {
@@ -26,7 +27,7 @@ fn build_msg_topic_config() -> TopicScoreParams {
 
         // deliveries decay after 10min, cap at 100 tx
         first_message_deliveries_weight: 0.5,
-        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), // 10mins
+        first_message_deliveries_decay: score_parameter_decay(Duration::from_secs(10 * 60)), /* 10mins */
         // 100 blocks in an hour
         first_message_deliveries_cap: 100.0,
 

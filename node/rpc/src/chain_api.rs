@@ -114,8 +114,8 @@ where
     Ok(out)
 }
 
-/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file with the same
-/// name but with a `.sha256sum` extension.
+/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
+/// with the same name but with a `.sha256sum` extension.
 async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     let encoded_hash = format!("{} {}", hash.encode_hex::<String>(), source.display());
 

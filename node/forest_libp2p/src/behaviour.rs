@@ -31,7 +31,8 @@ use crate::{
     hello::HelloBehaviour,
 };
 
-/// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
+/// Libp2p behavior for the Forest node. This handles all sub protocols needed
+/// for a Filecoin node.
 #[derive(NetworkBehaviour)]
 pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,

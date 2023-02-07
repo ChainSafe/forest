@@ -27,8 +27,8 @@ pub fn handle_event_impl<S: BitswapStoreRead>(
                 request,
                 channel,
             } => {
-                // Close inbound stream immediately since `go-bitswap` does not read this stream.
-                // responses will be sent over a new outbound request
+                // Close inbound stream immediately since `go-bitswap` does not read this
+                // stream. responses will be sent over a new outbound request
                 _ = bitswap.inner_mut().send_response(channel, ());
                 for message in request {
                     match message {

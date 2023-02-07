@@ -60,7 +60,8 @@ mod tests {
                                 request,
                                 channel,
                             } => {
-                                // Close the stream immediately, `go-bitswap` does not read response(s) from this stream
+                                // Close the stream immediately, `go-bitswap` does not read
+                                // response(s) from this stream
                                 // so they will be sent over another stream
                                 bitswap.inner_mut().send_response(channel, ()).unwrap();
                                 for message in request {

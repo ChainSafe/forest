@@ -21,7 +21,8 @@ struct TestVector {
     result_selector: Option<Selector>,
 }
 
-// Just needed because cannot deserialize the current selector position in recursive selectors
+// Just needed because cannot deserialize the current selector position in
+// recursive selectors
 fn test_equal(s1: &Option<Selector>, s2: &Option<Selector>) -> bool {
     use Selector::*;
     if let (

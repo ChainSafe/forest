@@ -36,7 +36,8 @@ type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
 #[cfg(feature = "instrumented_kernel")]
 type ForestExecutor<DB> = DefaultExecutor<crate::instrumented_kernel::ForestInstrumentedKernel<DB>>;
 
-/// Contains all messages to process through the VM as well as miner information for block rewards.
+/// Contains all messages to process through the VM as well as miner information
+/// for block rewards.
 #[derive(Debug)]
 pub struct BlockMessages {
     pub miner: Address,
@@ -46,7 +47,8 @@ pub struct BlockMessages {
 
 /// Allows the generation of a reward message based on gas fees and penalties.
 ///
-/// This should facilitate custom consensus protocols using their own economic incentives.
+/// This should facilitate custom consensus protocols using their own economic
+/// incentives.
 pub trait RewardCalc: Send + Sync + 'static {
     /// Construct a reward message, if rewards are applicable.
     fn reward_message(
@@ -59,8 +61,8 @@ pub trait RewardCalc: Send + Sync + 'static {
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
-/// Interpreter which handles execution of state transitioning messages and returns receipts
-/// from the VM execution.
+/// Interpreter which handles execution of state transitioning messages and
+/// returns receipts from the VM execution.
 pub struct VM<DB: Blockstore + 'static> {
     fvm_executor: ForestExecutor<DB>,
     reward_calc: Arc<dyn RewardCalc>,
@@ -241,7 +243,8 @@ where
     }
 
     /// Applies the state transition for a single message.
-    /// Returns `ApplyRet` structure which contains the message receipt and some meta data.
+    /// Returns `ApplyRet` structure which contains the message receipt and some
+    /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
         check_message(msg.message())?;
 
@@ -339,8 +342,9 @@ impl RewardCalc for NoRewardCalc {
     }
 }
 
-/// Giving a fixed amount of coins for each block produced directly to the miner,
-/// on top of the gas spent, so the circulating supply isn't burned. Ignores penalties.
+/// Giving a fixed amount of coins for each block produced directly to the
+/// miner, on top of the gas spent, so the circulating supply isn't burned.
+/// Ignores penalties.
 pub struct FixedRewardCalc {
     pub reward: TokenAmount,
 }

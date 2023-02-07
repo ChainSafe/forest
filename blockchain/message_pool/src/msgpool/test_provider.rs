@@ -24,7 +24,8 @@ use crate::{
     Error,
 };
 
-/// Structure used for creating a provider when writing tests involving message pool
+/// Structure used for creating a provider when writing tests involving message
+/// pool
 pub struct TestApi {
     pub inner: Mutex<TestApiInner>,
     pub publisher: Publisher<HeadChange>,

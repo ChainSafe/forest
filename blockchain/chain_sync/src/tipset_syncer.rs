@@ -126,7 +126,8 @@ impl<C: Consensus> From<tokio::task::JoinError> for TipsetRangeSyncerError<C> {
 }
 
 impl<C: Consensus> TipsetRangeSyncerError<C> {
-    /// Concatenate all validation error messages into one comma separated version.
+    /// Concatenate all validation error messages into one comma separated
+    /// version.
     fn concat(errs: NonEmpty<TipsetRangeSyncerError<C>>) -> Self {
         let msg = errs
             .iter()
@@ -242,12 +243,14 @@ impl TipsetGroup {
 }
 
 /// The `TipsetProcessor` receives and prioritizes a stream of Tipsets
-/// for syncing from the `ChainMuxer` and the `SyncSubmitBlock` API before syncing.
-/// Each unique Tipset, by epoch and parents, is mapped into a Tipset range which will be synced into the Chain Store.
+/// for syncing from the `ChainMuxer` and the `SyncSubmitBlock` API before
+/// syncing. Each unique Tipset, by epoch and parents, is mapped into a Tipset
+/// range which will be synced into the Chain Store.
 pub(crate) struct TipsetProcessor<DB, C: Consensus> {
     state: TipsetProcessorState<DB, C>,
     tracker: crate::chain_muxer::WorkerState,
-    /// Tipsets pushed into this stream _must_ be validated beforehand by the `TipsetValidator`
+    /// Tipsets pushed into this stream _must_ be validated beforehand by the
+    /// `TipsetValidator`
     tipsets: Pin<Box<dyn futures::Stream<Item = Arc<Tipset>> + Send>>,
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -356,15 +359,17 @@ where
         trace!("Polling TipsetProcessor");
 
         // TODO: Determine if polling the tipset stream before the state machine
-        //       introduces a DOS attack vector where peers send duplicate, valid tipsets over
-        //       GossipSub to divert resources away from syncing tipset ranges.
-        // First, gather the tipsets off of the channel. Reading off the receiver will return immediately.
-        // Ensure that the task will wake up when the stream has a new item by registering it for wakeup.
+        //       introduces a DOS attack vector where peers send duplicate, valid
+        // tipsets over       GossipSub to divert resources away from syncing
+        // tipset ranges. First, gather the tipsets off of the channel. Reading
+        // off the receiver will return immediately. Ensure that the task will
+        // wake up when the stream has a new item by registering it for wakeup.
         // As a tipset is received through the stream we assume:
         //   1. Tipset has at least 1 block
         //   2. Tipset epoch is not behind the current max epoch in the store
-        //   3. Tipset is heavier than the heaviest tipset in the store at the time when it was queued
-        //   4. Tipset message roots were calculated and integrity checks were run
+        //   3. Tipset is heavier than the heaviest tipset in the store at the time when
+        // it was queued   4. Tipset message roots were calculated and integrity
+        // checks were run
 
         // Read all of the tipsets available on the stream
         let mut grouped_tipsets: HashMap<(i64, TipsetKeys), TipsetGroup> = HashMap::new();
@@ -394,11 +399,13 @@ where
 
         trace!("Tipsets received through stream: {}", grouped_tipsets.len());
 
-        // Consume the tipsets read off of the stream and attempt to update the state machine
+        // Consume the tipsets read off of the stream and attempt to update the state
+        // machine
         match self.state {
             TipsetProcessorState::Idle => {
                 // Set the state to FindRange if we have a tipset to sync towards
-                // Consume the tipsets received, start syncing the heaviest tipset group, and discard the rest
+                // Consume the tipsets received, start syncing the heaviest tipset group, and
+                // discard the rest
                 if let Some(((epoch, parents), heaviest_tipset_group)) = grouped_tipsets
                     .into_iter()
                     .max_by(|(_, a), (_, b)| a.weight_cmp(b))
@@ -448,7 +455,8 @@ where
                                 // Both tipsets groups have the same epoch & parents, so merge them
                                 ns.merge(heaviest_tipset_group);
                             } else if heaviest_tipset_group.is_heavier_than(ns) {
-                                // The tipset group received is heavier than the one saved, replace it.
+                                // The tipset group received is heavier than the one saved, replace
+                                // it.
                                 *next_sync = Some(heaviest_tipset_group);
                             }
                             // Otherwise, drop the heaviest tipset group
@@ -495,7 +503,8 @@ where
                                 // Both tipsets groups have the same epoch & parents, so merge them
                                 ns.merge(heaviest_tipset_group);
                             } else if heaviest_tipset_group.is_heavier_than(ns) {
-                                // The tipset group received is heavier than the one saved, replace it.
+                                // The tipset group received is heavier than the one saved, replace
+                                // it.
                                 *next_sync = Some(heaviest_tipset_group);
                             } else {
                                 // Otherwise, drop the heaviest tipset group
@@ -748,9 +757,10 @@ where
     }
 }
 
-/// Sync headers backwards from the proposed head to the current one, requesting missing tipsets from the network.
-/// Once headers are available, download messages going forward on the chain and validate each extension.
-/// Finally set the proposed head as the heaviest tipset.
+/// Sync headers backwards from the proposed head to the current one, requesting
+/// missing tipsets from the network. Once headers are available, download
+/// messages going forward on the chain and validate each extension. Finally set
+/// the proposed head as the heaviest tipset.
 #[allow(clippy::too_many_arguments)]
 fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consensus>(
     proposed_head: Arc<Tipset>,
@@ -816,7 +826,8 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
         };
         tracker.write().set_stage(SyncStage::Complete);
 
-        // At this point the head is synced and it can be set in the store as the heaviest
+        // At this point the head is synced and it can be set in the store as the
+        // heaviest
         debug!(
             "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {:?}",
             proposed_head.epoch(),
@@ -836,9 +847,9 @@ fn sync_tipset_range<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: 
     })
 }
 
-/// Download headers between the proposed head and the current one available locally.
-/// If they turn out to be on different forks, download more headers up to a certain limit
-/// to try to find a common ancestor.
+/// Download headers between the proposed head and the current one available
+/// locally. If they turn out to be on different forks, download more headers up
+/// to a certain limit to try to find a common ancestor.
 async fn sync_headers_in_reverse<
     DB: Blockstore + Store + Clone + Sync + Send + 'static,
     C: Consensus,
@@ -946,7 +957,8 @@ async fn sync_headers_in_reverse<
                 if fork_length > FORK_LENGTH_THRESHOLD {
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsMaximum);
                 }
-                // If we have not found a common ancestor by the last iteration, then return an error
+                // If we have not found a common ancestor by the last iteration, then return an
+                // error
                 if i == (fork_tipsets.len() - 1) {
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
                 }
@@ -992,8 +1004,9 @@ fn sync_tipset<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consen
             return Err(e);
         }
 
-        // Add the tipset to the store. The tipset will be expanded with other blocks with
-        // the same [epoch, parents] before updating the heaviest Tipset in the store.
+        // Add the tipset to the store. The tipset will be expanded with other blocks
+        // with the same [epoch, parents] before updating the heaviest Tipset in
+        // the store.
         if let Err(why) = chain_store.put_tipset::<C>(&proposed_head) {
             error!(
                 "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
@@ -1051,8 +1064,9 @@ async fn fetch_batch<DB: Blockstore + Store + Clone + Send + Sync + 'static, C: 
     Ok(())
 }
 
-/// Going forward along the tipsets, try to load the messages in them from the `BlockStore`,
-/// or download them from the network, then validate the full tipset on each epoch.
+/// Going forward along the tipsets, try to load the messages in them from the
+/// `BlockStore`, or download them from the network, then validate the full
+/// tipset on each epoch.
 #[allow(clippy::too_many_arguments)]
 async fn sync_messages_check_state<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
@@ -1127,9 +1141,10 @@ async fn sync_messages_check_state<
     handle.await?
 }
 
-/// Validates full blocks in the tipset in parallel (since the messages are not executed),
-/// adding the successful ones to the tipset tracker, and the failed ones to the bad block cache,
-/// depending on strategy. Any bad block fails validation.
+/// Validates full blocks in the tipset in parallel (since the messages are not
+/// executed), adding the successful ones to the tipset tracker, and the failed
+/// ones to the bad block cache, depending on strategy. Any bad block fails
+/// validation.
 async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static, C: Consensus>(
     consensus: Arc<C>,
     state_manager: Arc<StateManager<DB>>,
@@ -1201,8 +1216,9 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
     Ok(())
 }
 
-/// Validate the block according to the rules specific to the consensus being used,
-/// and the common rules that pertain to the assumptions of the `ChainSync` protocol.
+/// Validate the block according to the rules specific to the consensus being
+/// used, and the common rules that pertain to the assumptions of the
+/// `ChainSync` protocol.
 ///
 /// Returns the validated block if `Ok`.
 /// Returns the block CID (for marking bad) and `Error` if invalid (`Err`).
@@ -1216,7 +1232,8 @@ async fn validate_tipset<DB: Blockstore + Store + Clone + Send + Sync + 'static,
 /// * NB: This is where the messages in the *parent* tipset are executed.
 ///
 /// Consensus specific validation should include:
-/// * Checking that the messages in the block correspond to the agreed upon total ordering
+/// * Checking that the messages in the block correspond to the agreed upon
+///   total ordering
 /// * That the block is a deterministic derivative of the underlying consensus
 async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, C: Consensus>(
     consensus: Arc<C>,
@@ -1410,7 +1427,8 @@ async fn validate_block<DB: Blockstore + Store + Clone + Sync + Send + 'static, 
 /// * account nonce values
 /// * the message root in the header
 ///
-/// NB: This loads/computes the state resulting from the execution of the parent tipset.
+/// NB: This loads/computes the state resulting from the execution of the parent
+/// tipset.
 async fn check_block_messages<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     C: Consensus,

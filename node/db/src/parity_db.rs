@@ -159,8 +159,8 @@ impl BitswapStoreRead for ParityDb {
 }
 
 impl BitswapStoreReadWrite for ParityDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
+    /// [`libipld::DefaultParams`] under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {

@@ -13,7 +13,8 @@ use fvm_shared::address::Address;
 use crate::DelegatedConsensusError;
 
 /// Validates block semantically according to the rules of Delegated Consensus.
-/// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
+/// Returns all encountered errors, so they can be merged with the common
+/// validations performed by the synchronizer.
 ///
 /// Validation includes:
 /// * Sanity checks
@@ -63,7 +64,8 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), Box<DelegatedConsensu
     Ok(())
 }
 
-/// Check the timestamp corresponds exactly to the number of epochs since the parents.
+/// Check the timestamp corresponds exactly to the number of epochs since the
+/// parents.
 ///
 /// This is the same as in the default `FilecoinConsensus`.
 fn block_timestamp_checks(

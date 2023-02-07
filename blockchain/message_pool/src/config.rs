@@ -77,7 +77,8 @@ impl MpoolConfig {
         Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
     }
 
-    /// Load `config` from store, if exists. If there is no `config`, uses default.
+    /// Load `config` from store, if exists. If there is no `config`, uses
+    /// default.
     pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
         match store.read(MPOOL_CONFIG_KEY)? {
             Some(v) => Ok(from_slice(&v)?),

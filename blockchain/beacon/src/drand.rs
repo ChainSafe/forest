@@ -17,7 +17,8 @@ use sha2::Digest;
 
 use super::beacon_entries::BeaconEntry;
 
-/// Environmental Variable to ignore `Drand`. Lotus parallel is `LOTUS_IGNORE_DRAND`
+/// Environmental Variable to ignore `Drand`. Lotus parallel is
+/// `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
 /// Coefficients of the publicly available `Drand` keys.
@@ -35,8 +36,8 @@ impl DrandPublic {
     }
 }
 
-/// Type of the `drand` network. In general only `mainnet` and its chain information
-/// should be considered stable.
+/// Type of the `drand` network. In general only `mainnet` and its chain
+/// information should be considered stable.
 #[derive(PartialEq, Eq, Clone)]
 pub enum DrandNetwork {
     Mainnet,
@@ -54,7 +55,8 @@ pub struct DrandConfig<'a> {
     pub network_type: DrandNetwork,
 }
 
-/// Contains the vector of `BeaconPoint`, which are mappings of epoch to the `Randomness` beacons used.
+/// Contains the vector of `BeaconPoint`, which are mappings of epoch to the
+/// `Randomness` beacons used.
 pub struct BeaconSchedule<T>(pub Vec<BeaconPoint<T>>);
 
 impl<T> BeaconSchedule<T>
@@ -67,8 +69,8 @@ where
     }
 
     /// Returns the beacon entries for a given epoch.
-    /// When the beacon for the given epoch is on a new beacon, randomness entries are taken
-    /// from the last two rounds.
+    /// When the beacon for the given epoch is on a new beacon, randomness
+    /// entries are taken from the last two rounds.
     pub async fn beacon_entries_for_block(
         &self,
         network_version: NetworkVersion,
@@ -92,7 +94,8 @@ where
             // return no beacon entries for this epoch.
             return Ok(vec![]);
         }
-        // TODO: this is a sketchy way to handle the genesis block not having a beacon entry
+        // TODO: this is a sketchy way to handle the genesis block not having a beacon
+        // entry
         let prev_round = if prev.round() == 0 {
             max_round - 1
         } else {
@@ -122,14 +125,16 @@ where
     }
 }
 
-/// Contains height at which the beacon is activated, as well as the beacon itself.
+/// Contains height at which the beacon is activated, as well as the beacon
+/// itself.
 pub struct BeaconPoint<T> {
     pub height: ChainEpoch,
     pub beacon: Arc<T>,
 }
 
 #[async_trait]
-/// Trait used as the interface to be able to retrieve bytes from a randomness beacon.
+/// Trait used as the interface to be able to retrieve bytes from a randomness
+/// beacon.
 pub trait Beacon
 where
     Self: Sized + Send + Sync + 'static,
@@ -172,8 +177,8 @@ pub struct BeaconEntryJson {
     previous_signature: String,
 }
 
-/// `Drand` randomness beacon that can be used to generate randomness for the Filecoin chain.
-/// Primary use is to satisfy the [Beacon] trait.
+/// `Drand` randomness beacon that can be used to generate randomness for the
+/// Filecoin chain. Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
     url: &'static str,
 

@@ -13,7 +13,8 @@ use super::{handle_rpc_err, Config};
 
 #[derive(Debug, StructOpt)]
 pub struct SendCommand {
-    /// optionally specify the account to send funds from (otherwise the default one will be used)
+    /// optionally specify the account to send funds from (otherwise the default
+    /// one will be used)
     #[structopt(long)]
     from: Option<Address>,
     target_address: Address,

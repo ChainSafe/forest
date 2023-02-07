@@ -4,8 +4,8 @@
 use forest_encoding::{serde_byte_array, tuple::*};
 
 /// The result from getting an entry from `Drand`.
-/// The entry contains the round, or epoch as well as the BLS signature for that round of
-/// randomness.
+/// The entry contains the round, or epoch as well as the BLS signature for that
+/// round of randomness.
 /// This beacon entry is stored on chain in the block header.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple)]
 pub struct BeaconEntry {

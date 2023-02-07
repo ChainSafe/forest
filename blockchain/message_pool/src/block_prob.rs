@@ -26,8 +26,8 @@ fn no_winners_prob() -> Vec<f64> {
         .collect()
 }
 
-/// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`], assuming at least
-/// one winner.
+/// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`],
+/// assuming at least one winner.
 fn no_winners_prob_assuming_more_than_one() -> Vec<f64> {
     let cond = (E.powf(5.0) - 1.0).log(E);
     (0..MAX_BLOCKS)

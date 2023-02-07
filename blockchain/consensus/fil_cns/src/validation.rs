@@ -30,7 +30,8 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 }
 
 /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-/// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
+/// Returns all encountered errors, so they can be merged with the common
+/// validations performed by the synchronizer.
 ///
 /// Validation includes:
 /// * Sanity checks
@@ -180,7 +181,8 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusErro
     Ok(())
 }
 
-/// Check the timestamp corresponds exactly to the number of epochs since the parents.
+/// Check the timestamp corresponds exactly to the number of epochs since the
+/// parents.
 fn block_timestamp_checks(
     header: &BlockHeader,
     base_tipset: &Tipset,

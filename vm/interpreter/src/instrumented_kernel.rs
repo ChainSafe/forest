@@ -21,8 +21,8 @@ use stdext::function_name;
 
 use crate::{metrics, ForestMachine};
 
-/// Calls the supplied lambda and updates the corresponding Prometheus metrics - call count and
-/// total call duration.
+/// Calls the supplied lambda and updates the corresponding Prometheus metrics -
+/// call count and total call duration.
 macro_rules! forward_instrumented {
     ($call:expr) => {{
         let stopwatch = time::Instant::now();
@@ -42,8 +42,8 @@ macro_rules! forward_instrumented {
     }};
 }
 
-/// Instrumented Kernel flavor. Having overhead of additional metrics, it provides general
-/// information of its method usage via Prometheus.
+/// Instrumented Kernel flavor. Having overhead of additional metrics, it
+/// provides general information of its method usage via Prometheus.
 pub struct ForestInstrumentedKernel<DB: Blockstore + 'static>(
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>,
     Option<TokenAmount>,

@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-/// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types
+/// `Enum` to encapsulate signed and unsigned messages. Useful when working with
+/// both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 #[serde(untagged)]
 pub enum ChainMessage {

@@ -31,7 +31,8 @@ fn compute_next_base_fee(
     let mut delta: i64 = if epoch > smoke_height {
         (gas_limit_used / no_of_blocks as i64) - BLOCK_GAS_TARGET
     } else {
-        // Yes the denominator and numerator are intentionally flipped here. We are matching go.
+        // Yes the denominator and numerator are intentionally flipped here. We are
+        // matching go.
         (PACKING_EFFICIENCY_DENOM * gas_limit_used / (no_of_blocks as i64 * PACKING_EFFICIENCY_NUM))
             - BLOCK_GAS_TARGET
     };

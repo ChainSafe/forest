@@ -38,8 +38,9 @@ where
     where
         S: ser::Serializer,
     {
-        // This serialization is here for legacy reasons only. For new AMTs it should not be used.
-        // (&self.bit_width, &self.height, &self.count, &self.node).serialize(s)
+        // This serialization is here for legacy reasons only. For new AMTs it should
+        // not be used. (&self.bit_width, &self.height, &self.count,
+        // &self.node).serialize(s)
         (&self.height, &self.count, &self.node).serialize(s)
     }
 }

@@ -76,11 +76,13 @@ impl Default for FilecoinSnapshotFetchConfig {
     fn default() -> Self {
         // unfallible unwrap as we know that the value is correct
         Self {
-            /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
-            /// `sha256sum` file with the same URL (but different extension).
+            /// Default `mainnet` snapshot URL. The assumption is that it will
+            /// redirect once and will contain a `sha256sum` file
+            /// with the same URL (but different extension).
             mainnet: Url::try_from("https://snapshots.mainnet.filops.net/minimal/latest").unwrap(),
-            /// Default `calibnet` snapshot URL. The assumption is that it will redirect once and will contain a
-            /// `sha256sum` file with the same URL (but different extension).
+            /// Default `calibnet` snapshot URL. The assumption is that it will
+            /// redirect once and will contain a `sha256sum` file
+            /// with the same URL (but different extension).
             calibnet: Url::try_from("https://snapshots.calibrationnet.filops.net/minimal/latest")
                 .unwrap(),
         }
@@ -196,8 +198,8 @@ mod test {
 
     use super::*;
 
-    /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
-    /// Debug)
+    /// Partial configuration, as some parts of the proper one don't implement
+    /// required traits (i.e. Debug)
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,

@@ -21,8 +21,8 @@ impl InsertHash for HashSet<blake3::Hash> {
     }
 }
 
-/// Traverses all Cid links, hashing and loading all unique values and using the callback function
-/// to interact with the data.
+/// Traverses all Cid links, hashing and loading all unique values and using the
+/// callback function to interact with the data.
 #[async_recursion::async_recursion]
 async fn traverse_ipld_links_hash<F, T, H>(
     walked: &mut H,

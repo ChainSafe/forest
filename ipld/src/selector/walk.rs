@@ -11,8 +11,9 @@ use super::{
 };
 
 impl Selector {
-    /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
-    /// IPLD node. An optional link loader/resolver is passed in to be able to traverse links.
+    /// Walks all nodes visited (not just matched nodes) and executes callback
+    /// with progress and IPLD node. An optional link loader/resolver is
+    /// passed in to be able to traverse links.
     pub async fn walk_all<L, F>(
         self,
         ipld: &Ipld,
@@ -32,8 +33,9 @@ impl Selector {
         .await
     }
 
-    /// Walks a graph of IPLD nodes, executing the callback only on the nodes "matched".
-    /// If a resolver is passed in, links will be able to be traversed.
+    /// Walks a graph of IPLD nodes, executing the callback only on the nodes
+    /// "matched". If a resolver is passed in, links will be able to be
+    /// traversed.
     pub async fn walk_matching<L, F>(
         self,
         ipld: &Ipld,
@@ -76,7 +78,8 @@ impl LinkResolver for () {
     }
 }
 
-/// Contains progress of traversal and last block information from link traversals.
+/// Contains progress of traversal and last block information from link
+/// traversals.
 #[derive(Debug, Default)]
 pub struct Progress<L = ()> {
     resolver: Option<L>,
@@ -84,7 +87,8 @@ pub struct Progress<L = ()> {
     last_block: Option<LastBlockInfo>,
 }
 
-/// Contains information about the last block that was traversed in walking of the IPLD graph.
+/// Contains information about the last block that was traversed in walking of
+/// the IPLD graph.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LastBlockInfo {
     pub path: Path,
@@ -184,8 +188,8 @@ where
         }
     }
 
-    /// Utility function just to reduce duplicate logic. Can't do with a closure because
-    /// async closures are currently unstable: https://github.com/rust-lang/rust/issues/62290
+    /// Utility function just to reduce duplicate logic. Can't do with a closure
+    /// because async closures are currently unstable: https://github.com/rust-lang/rust/issues/62290
     async fn traverse_node<F>(
         &mut self,
         ipld: &Ipld,

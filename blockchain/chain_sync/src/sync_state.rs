@@ -129,7 +129,8 @@ impl quickcheck::Arbitrary for SyncState {
 }
 
 impl SyncState {
-    /// Initializes the syncing state with base and target tipsets and sets start time.
+    /// Initializes the syncing state with base and target tipsets and sets
+    /// start time.
     pub fn init(&mut self, base: Arc<Tipset>, target: Arc<Tipset>) {
         *self = Self {
             target: Some(target),
@@ -170,7 +171,8 @@ impl SyncState {
         }
     }
 
-    /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
+    /// Sets the sync stage for the syncing state. If setting to complete, sets
+    /// end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
             self.end = Some(OffsetDateTime::now_utc());

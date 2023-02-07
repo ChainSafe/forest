@@ -9,7 +9,8 @@ use forest_encoding::tuple::*;
 /// by the miner of a block using a `VRF` and a `VDF`.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct Ticket {
-    /// A proof output by running a `VRF` on the `VDFResult` of the parent ticket
+    /// A proof output by running a `VRF` on the `VDFResult` of the parent
+    /// ticket
     pub vrfproof: VRFProof,
 }
 

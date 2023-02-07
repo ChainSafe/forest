@@ -118,8 +118,8 @@ pub fn is_car_or_tmp(path: &Path) -> bool {
     ext == "car" || ext == "tmp" || ext == "aria2"
 }
 
-/// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
-/// from configuration.
+/// Fetches snapshot from a trusted location and saves it to the given
+/// directory. Chain is inferred from configuration.
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
@@ -147,9 +147,9 @@ pub fn is_aria2_installed() -> bool {
     which::which("aria2c").is_ok()
 }
 
-/// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
-/// saved in the given directory. In case of failure (e.g. connection interrupted) it will not be
-/// removed.
+/// Fetches snapshot for `calibnet` from a default, trusted location. On
+/// success, the snapshot will be saved in the given directory. In case of
+/// failure (e.g. connection interrupted) it will not be removed.
 async fn snapshot_fetch_forest(
     snapshot_out_dir: &Path,
     config: &Config,
@@ -186,9 +186,9 @@ async fn snapshot_fetch_forest(
     create_dir_all(snapshot_out_dir).await?;
 
     // Download the file
-    // It'd be better to use the bucket directly with `get_object_stream`, but at the time
-    // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
-    // https://github.com/durch/rust-s3/issues/275
+    // It'd be better to use the bucket directly with `get_object_stream`, but at
+    // the time of writing this code the Stream API is a bit lacking, making
+    // adding a progress bar a pain. https://github.com/durch/rust-s3/issues/275
     let client = https_client();
     let snapshot_spaces_url = &snapshot_fetch_config.snapshot_spaces_url;
     let path = &snapshot_fetch_config.path;
@@ -212,9 +212,9 @@ async fn snapshot_fetch_forest(
     Ok(snapshot_path)
 }
 
-/// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
-/// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
-/// not be removed.
+/// Fetches snapshot for `mainnet` from a default, trusted location. On success,
+/// the snapshot will be saved in the given directory. In case of failure (e.g.
+/// checksum verification fiasco) it will not be removed.
 async fn snapshot_fetch_filecoin(
     snapshot_out_dir: &Path,
     config: &Config,
@@ -271,7 +271,8 @@ async fn snapshot_fetch_filecoin(
     Ok(snapshot_path)
 }
 
-/// Downloads snapshot to a file with a progress bar. Returns the digest of the downloaded file.
+/// Downloads snapshot to a file with a progress bar. Returns the digest of the
+/// downloaded file.
 async fn download_snapshot_and_validate_checksum<C>(
     client: hyper::Client<C>,
     url: Url,
@@ -406,9 +407,10 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
 }
 
 /// Returns a normalized snapshot name
-/// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`.
-/// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`.
-/// # Example
+/// Filecoin snapshot files are named in the format of
+/// `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`. Normalized snapshot name are in the
+/// format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.
+/// car`. # Example
 /// ```
 /// # use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
 /// let actual_name = "64050_2022_11_24T00_00_00Z.car";
@@ -459,9 +461,9 @@ fn replace_extension_url(mut url: Url, extension: &str) -> anyhow::Result<Url> {
     Ok(url)
 }
 
-/// Fetches the relevant checksum for the snapshot, compares it with the result one. Fails if they
-/// don't match. The checksum is expected to be located in the same location as the snapshot but
-/// with a `.sha256sum` extension.
+/// Fetches the relevant checksum for the snapshot, compares it with the result
+/// one. Fails if they don't match. The checksum is expected to be located in
+/// the same location as the snapshot but with a `.sha256sum` extension.
 async fn fetch_checksum_and_validate<C>(
     client: hyper::Client<C>,
     url: Url,
@@ -478,8 +480,8 @@ where
     }
 
     let checksum_bytes = hyper::body::to_bytes(checksum_expected_file.into_body()).await?;
-    // checksum file is hex-encoded with optionally trailing `- ` at the end. Take only what's needed, i.e.
-    // encoded digest, for SHA256 it's 32 bytes.
+    // checksum file is hex-encoded with optionally trailing `- ` at the end. Take
+    // only what's needed, i.e. encoded digest, for SHA256 it's 32 bytes.
     let checksum_expected = checksum_from_file(&checksum_bytes, Sha256::output_size())?;
 
     validate_checksum(&checksum_expected, snapshot_checksum)?;
@@ -512,8 +514,10 @@ fn checksum_from_file(content: &[u8], digest_length: usize) -> anyhow::Result<Ve
 }
 
 /// Validates checksum
-/// * `expected_checksum` - expected checksum, e.g. provided along with the snapshot file.
-/// * `actual_checksum` - actual checksum, e.g. obtained by running a hasher over a snapshot.
+/// * `expected_checksum` - expected checksum, e.g. provided along with the
+///   snapshot file.
+/// * `actual_checksum` - actual checksum, e.g. obtained by running a hasher
+///   over a snapshot.
 fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow::Result<()> {
     if actual_checksum != expected_checksum {
         bail!(

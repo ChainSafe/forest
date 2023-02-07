@@ -3,8 +3,9 @@
 use std::ops::{Deref, DerefMut};
 
 use fvm::state_tree::ActorState as ActorStateV2;
-/// Re-use `StateTree` from FVM2 directly, without wrapping. Moving forward, we should use
-/// `StateTree` from FVM3. Unfortunately, for the time being, we are blocked by lack of migrations.
+/// Re-use `StateTree` from FVM2 directly, without wrapping. Moving forward, we
+/// should use `StateTree` from FVM3. Unfortunately, for the time being, we are
+/// blocked by lack of migrations.
 pub use fvm::state_tree::StateTree;
 use fvm3::state_tree::ActorState as ActorStateV3;
 use serde::{Deserialize, Serialize};
@@ -29,7 +30,6 @@ use crate::{econ::TokenAmount, Inner};
 /// let state_shim = forest_shim::state_tree::ActorState::from(fvm2_actor_state.clone());
 /// assert_eq!(fvm3_actor_state, *state_shim);
 /// assert_eq!(fvm2_actor_state, state_shim.into());
-///
 /// ```
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]

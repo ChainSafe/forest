@@ -111,7 +111,8 @@ fn main() -> anyhow::Result<()> {
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 
-    // Run forest as a daemon if no other subcommands are used. Otherwise, run the subcommand.
+    // Run forest as a daemon if no other subcommands are used. Otherwise, run the
+    // subcommand.
 
     let (loki_task,) = logger::setup_logger(&cfg.log, &opts);
     ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);

@@ -72,7 +72,8 @@ pub enum WalletCommands {
         #[structopt(short)]
         address: String,
     },
-    /// Verify the signature of a message. Returns true if the signature matches the message and address
+    /// Verify the signature of a message. Returns true if the signature matches
+    /// the message and address
     Verify {
         /// The address used to sign the message
         #[structopt(short)]

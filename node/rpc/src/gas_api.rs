@@ -208,8 +208,8 @@ where
             if rct.exit_code.value() != 0 {
                 return Ok(-1);
             }
-            // TODO: Figure out why we always under estimate the gas calculation so we dont need to add 200000
-            // https://github.com/ChainSafe/forest/issues/901
+            // TODO: Figure out why we always under estimate the gas calculation so we dont
+            // need to add 200000 https://github.com/ChainSafe/forest/issues/901
             Ok(rct.gas_used + 200000)
         }
         None => Ok(-1),

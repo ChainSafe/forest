@@ -26,10 +26,12 @@ pub enum ChainCommands {
     /// Prints out the canonical head of the chain
     Head,
 
-    /// Prints a BLAKE2b hash of the tipset given its keys. Useful for setting checkpoints to speed up boot times from a snapshot
+    /// Prints a BLAKE2b hash of the tipset given its keys. Useful for setting
+    /// checkpoints to speed up boot times from a snapshot
     TipsetHash { cids: Vec<String> },
 
-    /// Runs through all epochs back to 0 and validates the tipset checkpoint hashes
+    /// Runs through all epochs back to 0 and validates the tipset checkpoint
+    /// hashes
     ValidateTipsetCheckpoints,
 
     /// Reads and prints out a message referenced by the specified CID from the
@@ -40,8 +42,8 @@ pub enum ChainCommands {
         cid: String,
     },
 
-    /// Reads and prints out IPLD nodes referenced by the specified CID from chain
-    /// block store and returns raw bytes
+    /// Reads and prints out IPLD nodes referenced by the specified CID from
+    /// chain block store and returns raw bytes
     ReadObj {
         /// Input a valid CID
         #[structopt(short)]

@@ -53,8 +53,8 @@ where
         }
     }
 
-    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
-    /// Entropy from the ticket chain.
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
+    /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the ticket chain.
     pub fn get_chain_randomness(
         &self,
         blocks: &TipsetKeys,
@@ -123,8 +123,9 @@ where
         draw_randomness(beacon_entry.data(), pers, round, entropy)
     }
 
-    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the `DomainSeparationTag`, `ChainEpoch`,
-    /// Entropy from the latest beacon entry.
+    /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
+    /// `DomainSeparationTag`, `ChainEpoch`, Entropy from the latest beacon
+    /// entry.
     pub fn get_beacon_randomness(
         &self,
         blocks: &TipsetKeys,

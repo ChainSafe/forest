@@ -8,7 +8,8 @@ use lru::LruCache;
 use parking_lot::Mutex;
 
 /// Thread-safe cache for tracking bad blocks.
-/// This cache is checked before validating a block, to ensure no duplicate work.
+/// This cache is checked before validating a block, to ensure no duplicate
+/// work.
 #[derive(Debug)]
 pub struct BadBlockCache {
     cache: Mutex<LruCache<Cid, String>>,

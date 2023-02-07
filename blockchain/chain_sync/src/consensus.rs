@@ -35,7 +35,8 @@ use tokio::task::JoinSet;
 pub trait Consensus: Scale + Debug + Send + Sync + Unpin + 'static {
     type Error: Debug + Display + Send + Sync;
 
-    /// Perform block validation asynchronously and return all encountered errors if failed.
+    /// Perform block validation asynchronously and return all encountered
+    /// errors if failed.
     ///
     /// Being asynchronous gives the method a chance to construct a pipeline of
     /// validations, i.e. do some common ones before branching out.
@@ -97,8 +98,8 @@ pub trait Proposer {
     /// The method returns a vector of handles so that it can start unspecified
     /// number of background tasks, which can all be canceled by the main thread
     /// if the application needs to exit. The method is async so that it can
-    /// use async operations to initialize itself, during which it might encounter
-    /// some errors.
+    /// use async operations to initialize itself, during which it might
+    /// encounter some errors.
     async fn spawn<DB, MP>(
         self,
         // NOTE: We will need access to the `ChainStore` as well, or, ideally
@@ -117,22 +118,24 @@ pub trait Proposer {
         MP: MessagePoolApi + Sync + Send + 'static;
 }
 
-/// The `MessagePoolApi` is the window of consensus to the contents of the `MessagePool`.
+/// The `MessagePoolApi` is the window of consensus to the contents of the
+/// `MessagePool`.
 ///
-/// It exists to narrow down the possible operations that a consensus engine can do with
-/// the `MessagePool` to only those that it should reasonably exercise, which are mostly
-/// read-only queries to get transactions which can be expected to be put in the next
-/// block, based on their account nonce values and the current state.
+/// It exists to narrow down the possible operations that a consensus engine can
+/// do with the `MessagePool` to only those that it should reasonably exercise,
+/// which are mostly read-only queries to get transactions which can be expected
+/// to be put in the next block, based on their account nonce values and the
+/// current state.
 ///
-/// The `MessagePool` is still expected to monitor the chain growth and remove messages
-/// which were included in blocks on its own.
+/// The `MessagePool` is still expected to monitor the chain growth and remove
+/// messages which were included in blocks on its own.
 pub trait MessagePoolApi {
-    /// Select the set of suitable signed messages based on a tipset we are about
-    /// to build the next block on.
+    /// Select the set of suitable signed messages based on a tipset we are
+    /// about to build the next block on.
     ///
-    /// The result is a `Cow` in case the source can avoid cloning messages and just
-    /// return a reference. They will be sent to the data store for storage, but a
-    /// reference is enough for that.
+    /// The result is a `Cow` in case the source can avoid cloning messages and
+    /// just return a reference. They will be sent to the data store for
+    /// storage, but a reference is enough for that.
     fn select_signed<DB>(
         &self,
         state_manager: &StateManager<DB>,
@@ -160,9 +163,11 @@ where
     }
 }
 
-/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the local chain synchronizer.
+/// `SyncGossipSubmitter` dispatches proposed blocks to the network and the
+/// local chain synchronizer.
 ///
-/// Similar to `sync_api::sync_submit_block` but assumes that the block is correct and already persisted.
+/// Similar to `sync_api::sync_submit_block` but assumes that the block is
+/// correct and already persisted.
 pub struct SyncGossipSubmitter {
     network_name: String,
     network_tx: flume::Sender<NetworkMessage>,
