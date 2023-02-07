@@ -11,14 +11,17 @@ use libp2p::{
 };
 use std::sync::Arc;
 
+/// `libp2p` swarm network behaviour event of `bitswap`
 pub type BitswapBehaviourEvent = RequestResponseEvent<Vec<BitswapMessage>, ()>;
 
+/// A `go-bitswap` compatible protocol that is built on top of [RequestResponse].
 pub struct BitswapBehaviour {
     inner: RequestResponse<BitswapRequestResponseCodec>,
     request_manager: Arc<BitswapRequestManager>,
 }
 
 impl BitswapBehaviour {
+    /// Creates a [BitswapBehaviour] instance
     pub fn new(protocols: &[&'static [u8]], cfg: RequestResponseConfig) -> Self {
         assert!(!protocols.is_empty(), "protocols cannot be empty");
 
@@ -32,10 +35,12 @@ impl BitswapBehaviour {
         }
     }
 
+    /// Gets mutable borrow of the inner [RequestResponse]
     pub fn inner_mut(&mut self) -> &mut RequestResponse<BitswapRequestResponseCodec> {
         &mut self.inner
     }
 
+    /// Sends a [BitswapRequest] to a peer
     pub fn send_request(&mut self, peer: &PeerId, request: BitswapRequest) -> RequestId {
         match request.ty {
             RequestType::Have => metrics::message_counter_outbound_request_have().inc(),
@@ -45,6 +50,7 @@ impl BitswapBehaviour {
             .send_request(peer, vec![BitswapMessage::Request(request)])
     }
 
+    /// Sends a [BitswapResponse] to a peer
     pub fn send_response(&mut self, peer: &PeerId, response: (Cid, BitswapResponse)) -> RequestId {
         match response.1 {
             BitswapResponse::Have(..) => metrics::message_counter_outbound_response_have().inc(),
@@ -57,10 +63,12 @@ impl BitswapBehaviour {
 
 // Request Manager related API(s)
 impl BitswapBehaviour {
+    /// Gets the associated [BitswapRequestManager]
     pub fn request_manager(&self) -> Arc<BitswapRequestManager> {
         self.request_manager.clone()
     }
 
+    /// Hook the `bitswap` network event into its [BitswapRequestManager]
     pub fn handle_event<S: BitswapStoreRead>(
         &mut self,
         store: &S,

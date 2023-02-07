@@ -29,6 +29,8 @@ mod store;
 pub use store::*;
 
 pub mod task {
+    //! Re-exports API(s) from the chosen task library
+
     cfg_if::cfg_if! {
         if #[cfg(feature = "tokio")] {
             pub use tokio::{spawn, task::spawn_blocking, time::{sleep, timeout}};

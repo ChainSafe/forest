@@ -3,12 +3,14 @@
 
 use crate::{prefix::Prefix, *};
 
+/// Type of a `bitswap` request
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RequestType {
     Have,
     Block,
 }
 
+/// `Bitswap` request type
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BitswapRequest {
     pub ty: RequestType,
@@ -39,12 +41,14 @@ impl BitswapRequest {
     }
 }
 
+/// `Bitswap` response type
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BitswapResponse {
     Have(bool),
     Block(Vec<u8>),
 }
 
+/// `Bitswap` message enum type that is either a [BitswapRequest] or a [BitswapResponse]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BitswapMessage {
     Request(BitswapRequest),
