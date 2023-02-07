@@ -10,7 +10,7 @@ edition.workspace = true
 ahash.workspace = true
 cid.workspace = true
 crossbeam-channel = "0.5"
-fvm.workspace = true
+forest_shim.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 log.workspace = true

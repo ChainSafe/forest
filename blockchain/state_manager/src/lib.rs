@@ -22,12 +22,12 @@ use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
+use forest_shim::state_tree::{ActorState, StateTree};
 use forest_shim::version::NetworkVersion;
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm::executor::ApplyRet;
 use fvm::externs::Rand;
-use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
@@ -243,9 +243,9 @@ where
     }
 
     /// Gets actor from given [`Cid`], if it exists.
-    pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> Result<Option<ActorState>, Error> {
+    pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
         let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
-        Ok(state.get_actor(addr)?)
+        Ok(state.get_actor(addr)?.map(|v| v.into()))
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -295,13 +295,15 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore(), &state_cid)?;
+        let state = StateTree::new_from_root(self.blockstore(), &state_cid)
+            .map_err(|e| Error::Other(e.to_string()))?;
 
         let act = state
-            .get_actor(addr)?
+            .get_actor(addr)
+            .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act)?;
+        let ms = miner::State::load(self.blockstore(), &act.into())?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
@@ -1046,7 +1048,8 @@ where
         addr: &Address,
         state_cid: Cid,
     ) -> Result<[u8; BLS_PUB_LEN], Error> {
-        let state = StateTree::new_from_root(db, &state_cid)?;
+        let state =
+            StateTree::new_from_root(db, &state_cid).map_err(|e| Error::Other(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
@@ -1068,14 +1071,19 @@ where
     pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
-        Ok(actor.balance)
+        let balance = forest_shim::econ::TokenAmount::from(&actor.balance);
+        Ok(balance.into())
     }
 
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        Ok(state_tree.lookup_id(addr)?.map(Address::new_id))
+        let address = forest_shim::address::Address::from(addr);
+        Ok(state_tree
+            .lookup_id(&address.into())
+            .map_err(|e| Error::Other(e.to_string()))?
+            .map(Address::new_id))
     }
 
     /// Retrieves market balance in escrow and locked tables.

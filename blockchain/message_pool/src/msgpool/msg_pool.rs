@@ -421,7 +421,7 @@ where
     /// if this actor does not exist, return an error.
     fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
         let actor = self.api.get_actor_after(addr, ts)?;
-        Ok(actor.balance)
+        Ok(forest_shim::econ::TokenAmount::from(&actor.balance).into())
     }
 
     /// Remove a message given a sequence and address from the message pool.
