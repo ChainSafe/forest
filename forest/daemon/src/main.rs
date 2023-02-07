@@ -147,6 +147,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             let rt = RuntimeBuilder::new_multi_thread()
+                .enable_io()
                 .worker_threads(cfg.tokio.worker_threads_number)
                 .max_blocking_threads(cfg.tokio.max_number_of_blocking_threads)
                 .thread_keep_alive(cfg.tokio.blocking_thread_keep_alive_timeout)

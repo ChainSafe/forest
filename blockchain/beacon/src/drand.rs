@@ -235,6 +235,7 @@ impl DrandBeacon {
             let tokio_config = config.tokio.clone();
             let remote_chain_info = std::thread::spawn(move || {
                 let rt = tokio::runtime::Builder::new_multi_thread()
+                    .enable_io()
                     .worker_threads(tokio_config.worker_threads_number)
                     .max_blocking_threads(tokio_config.max_number_of_blocking_threads)
                     .thread_keep_alive(tokio_config.blocking_thread_keep_alive_timeout)
