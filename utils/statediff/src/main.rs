@@ -32,6 +32,12 @@ impl crate::Subcommand {
 
 /// CLI structure generated when interacting with the statediff tool
 #[derive(Parser)]
+#[command(
+    name = env!("CARGO_PKG_NAME"),
+    version = env!("CARGO_PKG_VERSION"),
+    about = env!("CARGO_PKG_DESCRIPTION"),
+    author = env!("CARGO_PKG_AUTHORS")
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Subcommand,
