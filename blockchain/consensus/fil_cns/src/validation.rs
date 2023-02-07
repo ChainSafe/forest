@@ -18,8 +18,7 @@ use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
-    address::Address, crypto::signature::ops::verify_bls_sig, randomness::Randomness,
-    TICKET_RANDOMNESS_LOOKBACK,
+    address::Address, crypto::signature::ops::verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
 };
 use nonempty::NonEmpty;
 
