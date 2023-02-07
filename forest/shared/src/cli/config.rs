@@ -219,6 +219,7 @@ mod test {
                 daemon: DaemonConfig::default(),
                 log: Default::default(),
                 snapshot_fetch: Default::default(),
+                tokio: Default::default(),
             }
         }
     }

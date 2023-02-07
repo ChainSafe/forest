@@ -56,13 +56,25 @@ pub struct DrandConfig<'a> {
     pub tokio: TokioConfig,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Default, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 pub struct TokioConfig {
     pub worker_threads_number: usize,
     pub max_number_of_blocking_threads: usize,
     pub blocking_thread_keep_alive_timeout: Duration,
     pub thread_stack_size: usize,
     pub global_queue_interval: u32,
+}
+
+impl Default for TokioConfig {
+    fn default() -> Self {
+        Self {
+            worker_threads_number: 4,
+            max_number_of_blocking_threads: 512,
+            blocking_thread_keep_alive_timeout: Duration::from_secs(10),
+            thread_stack_size: 2 * 1024 * 1024,
+            global_queue_interval: 61,
+        }
+    }
 }
 
 /// Contains the vector of `BeaconPoint`, which are mappings of epoch to the `Randomness` beacons used.
