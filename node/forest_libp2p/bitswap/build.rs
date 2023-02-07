@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
+
 use protobuf_codegen::Customize;
 use walkdir::WalkDir;
 
@@ -18,14 +20,14 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_inputs() -> anyhow::Result<Vec<String>> {
+fn get_inputs() -> anyhow::Result<Vec<PathBuf>> {
     let mut inputs = Vec::new();
     for entry in WalkDir::new(PROTO_DIR).into_iter().flatten() {
         let path = entry.path();
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext == "proto" {
-                    inputs.push(path.display().to_string());
+                    inputs.push(path.into());
                 }
             }
         }
