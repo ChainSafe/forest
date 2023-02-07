@@ -12,11 +12,10 @@ use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 use forest_db::{db_engine::open_db, Store};
-use forest_genesis::read_genesis_header;
+use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
-use fvm_ipld_car::load_car;
 use fvm_shared::clock::ChainEpoch;
 use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
@@ -385,7 +384,7 @@ async fn validate(
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
-            load_car(chain_store.blockstore(), reader.compat()).await?
+            forest_load_car(chain_store.blockstore(), reader.compat()).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;

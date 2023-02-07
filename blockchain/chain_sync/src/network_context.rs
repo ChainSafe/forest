@@ -17,6 +17,7 @@ use forest_libp2p::{
 use forest_utils::db::BlockstoreExt;
 use futures::channel::oneshot::channel as oneshot_channel;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
 use std::sync::{atomic::Ordering, Arc};
 use std::time::{Duration, SystemTime};
@@ -121,6 +122,7 @@ where
     /// exist in the `BlockStore`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
+        epoch: ChainEpoch,
         content: Cid,
     ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
@@ -133,6 +135,7 @@ where
 
         self.network_send
             .send_async(NetworkMessage::BitswapRequest {
+                epoch,
                 cid: content,
                 response_channel: tx,
             })

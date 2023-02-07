@@ -12,6 +12,7 @@ default = []
 
 rocksdb = ["dep:rocksdb", "lz4"]
 lz4 = ["rocksdb?/lz4"]
+jemalloc = ["rocksdb?/jemalloc"]
 # not included by default to reduce build time
 # uncomment when it needs to be used by other crates
 # snappy = ["rocksdb?/snappy"]
@@ -31,12 +32,14 @@ lazy_static.workspace = true
 libipld.workspace = true
 log.workspace = true
 num_cpus.workspace = true
-parity-db = { version = "0.4", default-features = false, optional = true }
 parking_lot.workspace = true
 prometheus = { workspace = true }
-rocksdb = { version = "0.19", default-features = false, optional = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
+
+# optional
+parity-db = { version = "0.4", default-features = false, optional = true }
+rocksdb = { version = "0.19", default-features = false, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
