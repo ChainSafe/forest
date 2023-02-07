@@ -12,17 +12,22 @@ pub enum RequestType {
     Block,
 }
 
+impl From<bitswap_pb::message::wantlist::WantType> for RequestType {
+    fn from(value: bitswap_pb::message::wantlist::WantType) -> Self {
+        match value {
+            bitswap_pb::message::wantlist::WantType::Have => RequestType::Have,
+            bitswap_pb::message::wantlist::WantType::Block => RequestType::Block,
+        }
+    }
+}
+
 impl TryFrom<EnumOrUnknown<bitswap_pb::message::wantlist::WantType>> for RequestType {
     type Error = i32;
 
     fn try_from(
         value: EnumOrUnknown<bitswap_pb::message::wantlist::WantType>,
     ) -> Result<Self, Self::Error> {
-        match value.enum_value() {
-            Ok(bitswap_pb::message::wantlist::WantType::Have) => Ok(RequestType::Have),
-            Ok(bitswap_pb::message::wantlist::WantType::Block) => Ok(RequestType::Block),
-            Err(e) => Err(e),
-        }
+        value.enum_value().map(Into::into)
     }
 }
 
@@ -89,7 +94,7 @@ pub enum BitswapMessage {
 
 impl BitswapMessage {
     pub fn to_bytes(&self) -> IOResult<Vec<u8>> {
-        let mut msg = bitswap_pb::Message::default();
+        let mut msg = bitswap_pb::Message::new();
         match self {
             Self::Request(BitswapRequest {
                 ty,
