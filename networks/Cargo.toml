@@ -15,4 +15,4 @@ fvm_shared = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-toml = "0.5"
+toml = "0.7"
