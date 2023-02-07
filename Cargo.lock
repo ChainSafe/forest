@@ -268,7 +268,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]
@@ -284,7 +284,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]
@@ -480,7 +480,7 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "thiserror",
- "time 0.3.17",
+ "time",
  "url",
 ]
 
@@ -859,8 +859,7 @@ dependencies = [
 [[package]]
 name = "boa_engine"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ad1e1e9d5af81e5051138a3a17dade32a899ebca3bf007678ea245bb8ef3fcd"
+source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
 dependencies = [
  "bitflags",
  "boa_gc",
@@ -889,8 +888,7 @@ dependencies = [
 [[package]]
 name = "boa_gc"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca7b8b2de06b105e2515b4ec1906dfd9ce882d8337e8e10484ced8ba9d8cb83f"
+source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
 dependencies = [
  "gc",
 ]
@@ -898,8 +896,7 @@ dependencies = [
 [[package]]
 name = "boa_interner"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45609e07dcbc9315bbd10e2a6499da4469b2caddc1374bcc823ac5720d8b9dc5"
+source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
 dependencies = [
  "phf",
  "rustc-hash",
@@ -909,14 +906,12 @@ dependencies = [
 [[package]]
 name = "boa_profiler"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16acab52167770e9e6dc5c5fd3029750830ecaf1e8012575816a214846d22b7c"
+source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
 
 [[package]]
 name = "boa_unicode"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f7df6584b38b34a6bdb457bff1c96eadb01362d43420e61a89b301a5f3db2c1"
+source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
 dependencies = [
  "unicode-general-category",
 ]
@@ -1103,12 +1098,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-integer",
  "num-traits",
  "serde",
- "time 0.1.45",
- "wasm-bindgen",
  "winapi",
 ]
 
@@ -2920,7 +2912,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "ticker",
- "time 0.3.17",
+ "time",
  "tokio",
  "tokio-util",
  "toml",
@@ -2969,7 +2961,7 @@ dependencies = [
  "shared_memory",
  "structopt",
  "tempfile",
- "time 0.3.17",
+ "time",
  "tokio",
 ]
 
@@ -3163,7 +3155,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "time 0.3.17",
+ "time",
  "tokio",
 ]
 
@@ -3204,7 +3196,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "tikv-jemallocator",
- "time 0.3.17",
+ "time",
  "tokio",
  "toml",
  "tower-http",
@@ -7295,7 +7287,7 @@ checksum = "6413f3de1edee53342e6138e75b56d32e7bc6e332b3bd62d497b1929d4cfbcdd"
 dependencies = [
  "pem",
  "ring",
- "time 0.3.17",
+ "time",
  "x509-parser 0.13.2",
  "yasna",
 ]
@@ -7308,7 +7300,7 @@ checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
  "pem",
  "ring",
- "time 0.3.17",
+ "time",
  "yasna",
 ]
 
@@ -7616,7 +7608,7 @@ dependencies = [
  "serde_derive",
  "sha2 0.10.6",
  "thiserror",
- "time 0.3.17",
+ "time",
  "url",
 ]
 
@@ -7973,9 +7965,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.91"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877c235533714907a8c2464236f5c4b2a17262ef1bd71f38f35ea592c8da6883"
+checksum = "7434af0dc1cbd59268aa98b4c22c131c0584d2232f6fb166efb993e2832e896a"
 dependencies = [
  "itoa",
  "ryu",
@@ -8048,7 +8040,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros",
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]
@@ -8256,7 +8248,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "thiserror",
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]
@@ -8771,17 +8763,6 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi",
-]
-
-[[package]]
-name = "time"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
@@ -9041,7 +9022,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d48f71a791638519505cefafe162606f706c25592e4bde4d97600c0195312e"
 dependencies = [
  "crossbeam-channel",
- "time 0.3.17",
+ "time",
  "tracing-subscriber",
 ]
 
@@ -9448,12 +9429,6 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
-
-[[package]]
-name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
@@ -9758,7 +9733,7 @@ dependencies = [
  "sha2 0.10.6",
  "stun",
  "thiserror",
- "time 0.3.17",
+ "time",
  "tokio",
  "turn",
  "url",
@@ -10264,7 +10239,7 @@ dependencies = [
  "ring",
  "rusticata-macros",
  "thiserror",
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]
@@ -10282,7 +10257,7 @@ dependencies = [
  "oid-registry 0.6.1",
  "rusticata-macros",
  "thiserror",
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]
@@ -10330,7 +10305,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aed2e7a52e3744ab4d0c05c20aa065258e84c49fd4226f5191b2ed29712710b4"
 dependencies = [
- "time 0.3.17",
+ "time",
 ]
 
 [[package]]

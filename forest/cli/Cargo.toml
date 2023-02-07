@@ -13,7 +13,7 @@ anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
 blake3.workspace = true
-boa_engine = { version = "0.16.0", features = ["console"] }
+boa_engine = { git = "https://github.com/elmattic/boa", branch = "fix-rustsec", features = ["console"] }
 cid.workspace = true
 convert_case = "0.6.0"
 dialoguer.workspace = true
