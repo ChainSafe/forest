@@ -3,6 +3,8 @@
 
 use async_trait::async_trait;
 use libp2p::{core::upgrade, request_response::RequestResponseCodec};
+use pb::bitswap_pb;
+use protobuf::Message;
 
 use crate::{prefix::Prefix, protocol::*, *};
 
@@ -27,7 +29,7 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
         metrics::inbound_stream_count().inc();
         metrics::inbound_bytes().inc_by(data.len() as _);
 
-        let pb_msg = proto::Message::decode(&data[..]).map_err(map_io_err)?;
+        let pb_msg = bitswap_pb::Message::parse_from_bytes(data.as_slice()).map_err(map_io_err)?;
         let mut parts = vec![];
         for entry in pb_msg.wantlist.unwrap_or_default().entries {
             // TODO: Implement cancellation
@@ -35,18 +37,17 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
                 continue;
             }
             let cid = Cid::try_from(entry.block).map_err(map_io_err)?;
-            let ty = match entry.want_type {
-                ty if proto::message::wantlist::WantType::Have as i32 == ty => RequestType::Have,
-                ty if proto::message::wantlist::WantType::Block as i32 == ty => RequestType::Block,
-                ty => {
-                    tracing::error!("Skipping invalid request type: {ty}");
+            let ty = match entry.wantType.try_into() {
+                Ok(ty) => ty,
+                Err(e) => {
+                    tracing::error!("Skipping invalid request type: {e}");
                     continue;
                 }
             };
             parts.push(BitswapMessage::Request(BitswapRequest {
                 ty,
                 cid,
-                send_dont_have: entry.send_dont_have,
+                send_dont_have: entry.sendDontHave,
             }));
         }
         for payload in pb_msg.payload {
@@ -57,13 +58,13 @@ impl RequestResponseCodec for BitswapRequestResponseCodec {
                 BitswapResponse::Block(payload.data.to_vec()),
             ));
         }
-        for presence in pb_msg.block_presences {
+        for presence in pb_msg.blockPresences {
             let cid = Cid::try_from(presence.cid).map_err(map_io_err)?;
-            let have = match presence.r#type {
-                ty if proto::message::BlockPresenceType::Have as i32 == ty => true,
-                ty if proto::message::BlockPresenceType::DontHave as i32 == ty => false,
-                _ => {
-                    error!("invalid block presence type: skipping");
+            let have = match presence.type_.enum_value() {
+                Ok(bitswap_pb::message::BlockPresenceType::Have) => true,
+                Ok(bitswap_pb::message::BlockPresenceType::DontHave) => false,
+                Err(e) => {
+                    error!("Skipping invalid block presence type {e}");
                     continue;
                 }
             };
