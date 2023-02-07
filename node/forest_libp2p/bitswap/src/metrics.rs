@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use lazy_static::lazy_static;
-use prometheus::{
-    core::{AtomicU64, GenericCounter, GenericGauge, GenericGaugeVec},
-    Histogram, HistogramOpts, IntCounterVec, Opts, Registry,
-};
+use prometheus::{core::*, *};
 
 lazy_static! {
     static ref MESSAGE_SIZE: IntCounterVec = IntCounterVec::new(

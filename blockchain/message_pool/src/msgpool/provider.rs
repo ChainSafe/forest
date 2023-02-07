@@ -11,9 +11,9 @@ use forest_chain::HeadChange;
 use forest_db::Store;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
+use forest_shim::state_tree::{ActorState, StateTree};
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
-use fvm::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
@@ -90,10 +90,13 @@ where
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.sm.blockstore(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
+
         let actor = state
             .get_actor(addr)
             .map_err(|e| Error::Other(e.to_string()))?;
-        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
+        actor
+            .map(|v| v.into())
+            .ok_or_else(|| Error::Other("No actor state".to_owned()))
     }
 
     fn messages_for_block(

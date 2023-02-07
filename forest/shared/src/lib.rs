@@ -7,6 +7,9 @@ pub mod logger;
 #[cfg(feature = "jemalloc")]
 pub use tikv_jemallocator;
 
+#[cfg(feature = "mimalloc")]
+pub use mimalloc;
+
 use std::path::PathBuf;
 
 /// Gets chain data directory

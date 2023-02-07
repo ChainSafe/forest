@@ -18,15 +18,15 @@ use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
 use forest_ipld::{recurse_links_hash, InsertHash};
 use forest_legacy_ipld_amt::Amt;
-use forest_libp2p_bitswap::BitswapStore;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::Message as MessageTrait;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
+use forest_shim::state_tree::StateTree;
 use forest_utils::db::BlockstoreExt;
 use forest_utils::io::Checksum;
 use futures::Future;
-use fvm::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
@@ -89,12 +89,10 @@ pub struct ChainStore<DB> {
     tipset_tracker: TipsetTracker<DB>,
 }
 
-impl<DB> BitswapStore for ChainStore<DB>
+impl<DB> BitswapStoreRead for ChainStore<DB>
 where
-    DB: BitswapStore,
+    DB: BitswapStoreRead,
 {
-    type Params = <DB as BitswapStore>::Params;
-
     fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         self.db.contains(cid)
     }
@@ -102,6 +100,13 @@ where
     fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         self.db.get(cid)
     }
+}
+
+impl<DB> BitswapStoreReadWrite for ChainStore<DB>
+where
+    DB: BitswapStoreReadWrite,
+{
+    type Params = <DB as BitswapStoreReadWrite>::Params;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.db.insert(block)
