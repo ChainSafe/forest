@@ -2374,7 +2374,7 @@ checksum = "a214f5bb88731d436478f3ae1f8a277b62124089ba9fb67f4f93fb100ef73c90"
 [[package]]
 name = "fil_actor_account_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2388,7 +2388,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_account_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v9",
@@ -2404,7 +2404,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
@@ -2419,7 +2419,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
@@ -2434,14 +2434,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "log",
  "num-derive",
@@ -2452,14 +2452,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "log",
  "num-derive",
@@ -2470,7 +2470,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
@@ -2478,7 +2478,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "libipld-core 0.14.0",
  "log",
@@ -2490,7 +2490,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
@@ -2498,7 +2498,7 @@ dependencies = [
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "integer-encoding",
  "libipld-core 0.14.0",
@@ -2511,17 +2511,17 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "byteorder",
  "cid",
  "fil_actors_runtime_v8",
- "fvm_ipld_amt 0.4.2",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "itertools 0.10.5",
  "lazy_static",
@@ -2535,17 +2535,17 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "byteorder",
  "cid",
  "fil_actors_runtime_v9",
- "fvm_ipld_amt 0.4.2",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "itertools 0.10.5",
  "lazy_static",
@@ -2561,7 +2561,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
@@ -2569,7 +2569,7 @@ dependencies = [
  "frc42_dispatch",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "indexmap",
  "integer-encoding",
@@ -2582,14 +2582,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "integer-encoding",
  "lazy_static",
@@ -2602,14 +2602,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "integer-encoding",
  "lazy_static",
@@ -2622,12 +2622,12 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "fil_actors_runtime_v8",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "lazy_static",
  "log",
@@ -2639,12 +2639,12 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "fil_actors_runtime_v9",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "lazy_static",
  "log",
@@ -2656,7 +2656,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "cid",
@@ -2671,7 +2671,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v8"
 version = "8.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -2679,10 +2679,10 @@ dependencies = [
  "byteorder",
  "cid",
  "fil_actors_runtime_v9",
- "fvm_ipld_amt 0.4.2",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "getrandom 0.2.8",
  "itertools 0.10.5",
@@ -2704,17 +2704,17 @@ dependencies = [
 [[package]]
 name = "fil_actors_runtime_v9"
 version = "9.0.3"
-source = "git+https://github.com/ChainSafe/fil-actor-states#d9eda1eb3b6cf416683e731e7a1a7357852539ab"
+source = "git+https://github.com/ChainSafe/fil-actor-states#35081ea27470c8f3c6b725ff1d8855063e0c6388"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
  "blake2b_simd",
  "byteorder",
  "cid",
- "fvm_ipld_amt 0.4.2",
+ "fvm_ipld_amt 0.5.1",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_ipld_hamt 0.5.1",
+ "fvm_ipld_hamt 0.6.1",
  "fvm_shared 2.0.0",
  "getrandom 0.2.8",
  "itertools 0.10.5",
@@ -2830,7 +2830,7 @@ dependencies = [
  "futures-sink",
  "nanorand",
  "pin-project",
- "spin 0.9.4",
+ "spin 0.9.5",
 ]
 
 [[package]]
@@ -2887,7 +2887,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-util",
- "toml 0.7.1",
+ "toml 0.7.2",
 ]
 
 [[package]]
@@ -3169,7 +3169,7 @@ dependencies = [
  "tikv-jemallocator",
  "time",
  "tokio",
- "toml 0.7.1",
+ "toml 0.7.2",
  "tower-http",
  "tracing-appender",
  "tracing-loki",
@@ -3507,11 +3507,13 @@ dependencies = [
  "libp2p",
  "parking_lot 0.12.1",
  "prometheus",
- "prost 0.11.6",
+ "protobuf 3.2.0",
+ "protobuf-codegen",
  "rand 0.8.5",
  "tokio",
  "tracing",
  "unsigned-varint",
+ "walkdir",
 ]
 
 [[package]]
@@ -3594,7 +3596,7 @@ dependencies = [
  "forest_shim",
  "fvm_shared 2.0.0",
  "serde",
- "toml 0.7.1",
+ "toml 0.7.2",
 ]
 
 [[package]]
@@ -3865,7 +3867,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "toml 0.7.1",
+ "toml 0.7.2",
  "url",
 ]
 
@@ -4179,7 +4181,6 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48d09e5aa7de45452676d18fcb70b750acd65faae7a4fe18fe784b4c85f869fb"
 dependencies = [
- "ahash 0.7.6",
  "anyhow",
  "cid",
  "fvm_ipld_blockstore",
@@ -6999,7 +7000,7 @@ dependencies = [
  "memchr",
  "parking_lot 0.12.1",
  "procfs",
- "protobuf",
+ "protobuf 2.28.0",
  "thiserror",
 ]
 
@@ -7132,6 +7133,57 @@ name = "protobuf"
 version = "2.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
+
+[[package]]
+name = "protobuf"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b55bad9126f378a853655831eb7363b7b01b81d19f8cb1218861086ca4a1a61e"
+dependencies = [
+ "once_cell",
+ "protobuf-support",
+ "thiserror",
+]
+
+[[package]]
+name = "protobuf-codegen"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dd418ac3c91caa4032d37cb80ff0d44e2ebe637b2fb243b6234bf89cdac4901"
+dependencies = [
+ "anyhow",
+ "once_cell",
+ "protobuf 3.2.0",
+ "protobuf-parse",
+ "regex",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "protobuf-parse"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d39b14605eaa1f6a340aec7f320b34064feb26c93aec35d6a9a2272a8ddfa49"
+dependencies = [
+ "anyhow",
+ "indexmap",
+ "log",
+ "protobuf 3.2.0",
+ "protobuf-support",
+ "tempfile",
+ "thiserror",
+ "which",
+]
+
+[[package]]
+name = "protobuf-support"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5d4d7b8601c814cfb36bcebb79f0e61e45e1e93640cf778837833bbed05c372"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "psm"
@@ -7823,6 +7875,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "same-file"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8357,9 +8418,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "spin"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f6002a767bff9e83f8eeecf883ecb8011875a21ae8da43bffb817a57e78cc09"
+checksum = "7dccf47db1b41fa1573ed27ccf5e08e3ca771cb994f776668c5ebda893b248fc"
 dependencies = [
  "lock_api",
 ]
@@ -8928,9 +8989,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "772c1426ab886e7362aedf4abc9c0d1348a979517efedfc25862944d10137af0"
+checksum = "f7afcae9e3f0fe2c370fd4657108972cbb2fa9db1b9f84849cefd80741b01cb6"
 dependencies = [
  "serde",
  "serde_spanned",
@@ -8949,9 +9010,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.19.2"
+version = "0.19.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f35c303ea3e062b6131be4de16debe23860b9d3f2396658f13b7af1987fb473"
+checksum = "5e6a7712b49e1775fb9a7b998de6635b299237f48b404dde71704f2e0e7f37e5"
 dependencies = [
  "indexmap",
  "nom8",
@@ -9455,6 +9516,17 @@ name = "waker-fn"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d5b2c62b4012a3e1eca5a7e077d13b3bf498c4073e33ccd58626607748ceeca"
+
+[[package]]
+name = "walkdir"
+version = "2.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "808cf2735cd4b6866113f648b791c6adc5714537bc222d9347bb203386ffda56"
+dependencies = [
+ "same-file",
+ "winapi",
+ "winapi-util",
+]
 
 [[package]]
 name = "want"
