@@ -3,6 +3,8 @@
 
 #[cfg(test)]
 mod tests {
+    use std::{process::Command, time::Duration};
+
     use anyhow::{Context, Result};
     use forest_libp2p_bitswap::{
         BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
@@ -15,7 +17,6 @@ mod tests {
         core, futures::StreamExt, identity, noise, request_response::RequestResponseMessage,
         swarm::SwarmEvent, tcp, yamux, PeerId, Swarm, Transport,
     };
-    use std::{process::Command, time::Duration};
 
     const TIMEOUT: Duration = Duration::from_secs(60);
     const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
@@ -59,7 +60,8 @@ mod tests {
                                 request,
                                 channel,
                             } => {
-                                // Close the stream immediately, `go-bitswap` does not read response(s) from this stream
+                                // Close the stream immediately, `go-bitswap` does not read
+                                // response(s) from this stream
                                 // so they will be sent over another stream
                                 bitswap.inner_mut().send_response(channel, ()).unwrap();
                                 for message in request {

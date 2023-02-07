@@ -1,7 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::bad_block_cache::BadBlockCache;
+use std::{
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::{Block, FullTipset, Tipset, TxMeta};
@@ -11,11 +14,9 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, Error as EncodingError};
 use fvm_shared::message::Message;
-
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use thiserror::Error;
+
+use crate::bad_block_cache::BadBlockCache;
 
 const MAX_HEIGHT_DRIFT: u64 = 5;
 
@@ -70,9 +71,9 @@ impl<'a> TipsetValidator<'a> {
         self.validate_epoch(genesis_tipset, block_delay)?;
 
         // Validate each block in the tipset by:
-        // 1. Calculating the message root using all of the messages to ensure it matches the mst root in the block header
+        // 1. Calculating the message root using all of the messages to ensure it
+        // matches the mst root in the block header
         // 2. Ensuring it has not previously been seen in the bad blocks cache
-
         for block in self.0.blocks() {
             self.validate_msg_root(&blockstore, block)?;
             if let Some(bad) = bad_block_cache.peek(block.cid()) {

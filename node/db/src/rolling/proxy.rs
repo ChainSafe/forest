@@ -1,13 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
-use crate::DBStatistics;
+use std::sync::Arc;
+
 use cid::Cid;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_libp2p_bitswap::BitswapStoreRead;
 use fvm_ipld_blockstore::Blockstore;
-use std::sync::Arc;
+
+use super::*;
+use crate::DBStatistics;
 
 #[derive(Debug)]
 struct ProxyStoreInner<T> {
@@ -57,9 +59,9 @@ where
         Ok(self.persistent().exists(key.as_ref())? || self.rolling().exists(key)?)
     }
 
-    // TODO: Merge results from persistent and rolling, use fallback implementation for now
-    // fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, crate::Error>
-    // where
+    // TODO: Merge results from persistent and rolling, use fallback implementation
+    // for now fn bulk_read<K>(&self, keys: &[K]) ->
+    // Result<Vec<Option<Vec<u8>>>, crate::Error> where
     //     K: AsRef<[u8]>,
     // {
     //

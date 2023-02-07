@@ -1,13 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
+use std::{path::PathBuf, sync::Arc};
+
 use ahash::{HashMap, HashMapExt};
 use chrono::{DateTime, Utc};
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use parking_lot::RwLock;
-use std::{path::PathBuf, sync::Arc};
+
+use super::*;
 
 #[derive(Debug, Clone)]
 pub struct TrackingStore<T> {
@@ -234,8 +236,8 @@ where
     }
 
     // TODO: Merge results, use fallback implementation for now
-    // fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, crate::Error>
-    // where
+    // fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>,
+    // crate::Error> where
     //     K: AsRef<[u8]>,
     // {
     //     todo!()
@@ -269,8 +271,8 @@ where
     }
 
     // TODO: Merge results, use fallback implementation for now
-    // fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>, crate::Error>
-    // where
+    // fn bulk_read<K>(&self, keys: &[K]) -> Result<Vec<Option<Vec<u8>>>,
+    // crate::Error> where
     //     K: AsRef<[u8]>,
     // {
     //     todo!()

@@ -4,11 +4,12 @@
 use fvm_shared::receipt::Receipt;
 
 pub mod json {
-    use super::*;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use forest_shim::error::ExitCode;
     use fvm_ipld_encoding::RawBytes;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -73,9 +74,10 @@ pub mod json {
         })
     }
     pub mod vec {
-        use super::*;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::*;
 
         pub fn serialize<S>(m: &[Receipt], serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -136,10 +138,13 @@ impl quickcheck::Arbitrary for MessageReceiptWrapper {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{ReceiptJson, ReceiptJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::{
+        json::{ReceiptJson, ReceiptJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn message_receipt_roundtrip(message_receipt: MessageReceiptWrapper) {

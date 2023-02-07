@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::fs;
+
 use anyhow::{ensure, Result};
 use assert_cmd::Command;
-use std::fs;
 use tempfile::TempDir;
 
 #[test]

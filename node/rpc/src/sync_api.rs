@@ -5,8 +5,10 @@
 use forest_beacon::Beacon;
 use forest_chain_sync::SyncState;
 use forest_json::cid::CidJson;
-use forest_rpc_api::data_types::{RPCState, RPCSyncState};
-use forest_rpc_api::sync_api::*;
+use forest_rpc_api::{
+    data_types::{RPCState, RPCSyncState},
+    sync_api::*,
+};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use parking_lot::RwLock;
@@ -57,7 +59,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{sync::Arc, time::Duration};
+
     use forest_beacon::{BeaconPoint, BeaconSchedule, MockBeacon};
     use forest_blocks::{BlockHeader, Tipset};
     use forest_chain::ChainStore;
@@ -71,8 +74,9 @@ mod tests {
     use fvm_ipld_encoding::Cbor;
     use fvm_shared::address::Address;
     use serde_json::from_str;
-    use std::{sync::Arc, time::Duration};
     use tokio::{sync::RwLock, task::JoinSet};
+
+    use super::*;
 
     const TEST_NET_NAME: &str = "test";
 

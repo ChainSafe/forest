@@ -1,11 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{hashset::CidHashSet, Ipld};
+use std::future::Future;
+
 use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_encoding::from_slice;
-use std::future::Future;
+
+use crate::{hashset::CidHashSet, Ipld};
 
 /// Basic trait to abstract way the hashing details to the trait implementation.
 pub trait InsertHash {
@@ -19,8 +21,8 @@ impl InsertHash for HashSet<blake3::Hash> {
     }
 }
 
-/// Traverses all Cid links, hashing and loading all unique values and using the callback function
-/// to interact with the data.
+/// Traverses all Cid links, hashing and loading all unique values and using the
+/// callback function to interact with the data.
 #[async_recursion::async_recursion]
 async fn traverse_ipld_links_hash<F, T, H>(
     walked: &mut H,
@@ -93,8 +95,8 @@ where
 }
 
 //
-// Traverses all Cid links, loading all unique values and using the callback function
-// to interact with the data.
+// Traverses all Cid links, loading all unique values and using the callback
+// function to interact with the data.
 #[async_recursion::async_recursion]
 async fn traverse_ipld_links_hash2<F, T>(
     walked: &mut CidHashSet,

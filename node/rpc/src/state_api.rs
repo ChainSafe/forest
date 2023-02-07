@@ -19,7 +19,8 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 
-// TODO handle using configurable verification implementation in RPC (all defaulting to Full).
+// TODO handle using configurable verification implementation in RPC (all
+// defaulting to Full).
 
 /// runs the given message and returns its result without any persisted changes.
 pub(crate) async fn state_call<
@@ -39,7 +40,8 @@ pub(crate) async fn state_call<
     Ok(state_manager.call(&mut message, Some(tipset))?)
 }
 
-/// returns the result of executing the indicated message, assuming it was executed in the indicated tipset.
+/// returns the result of executing the indicated message, assuming it was
+/// executed in the indicated tipset.
 pub(crate) async fn state_replay<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,
@@ -90,7 +92,8 @@ pub(crate) async fn state_get_network_version<
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
-/// looks up the Escrow and Locked balances of the given address in the Storage Market
+/// looks up the Escrow and Locked balances of the given address in the Storage
+/// Market
 pub(crate) async fn state_market_balance<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
     B: Beacon,

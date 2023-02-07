@@ -2,20 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // Contains the implementation of Message Pool component.
-// The Message Pool is the component of forest that handles pending messages for inclusion
-// in the chain. Messages are added either directly for locally published messages
-// or through pubsub propagation.
+// The Message Pool is the component of forest that handles pending messages for
+// inclusion in the chain. Messages are added either directly for locally
+// published messages or through pubsub propagation.
 
-use crate::config::MpoolConfig;
-use crate::errors::Error;
-use crate::head_change;
-use crate::msgpool::recover_sig;
-use crate::msgpool::BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE;
-use crate::msgpool::PROPAGATION_DELAY_SECS;
-use crate::msgpool::{republish_pending_messages, select_messages_for_block};
-use crate::msgpool::{RBF_DENOM, RBF_NUM};
-use crate::provider::Provider;
-use crate::utils::get_base_fee_lower_bound;
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Context;
 use cid::Cid;
@@ -23,33 +15,41 @@ use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::{HeadChange, MINIMUM_BASE_FEE};
 use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
-use forest_message::message::valid_for_block_inclusion;
-use forest_message::{ChainMessage, Message, SignedMessage};
+use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use forest_utils::const_option;
 use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{
+    address::Address,
+    crypto::signature::{Signature, SignatureType},
+    econ::TokenAmount,
+};
 use log::warn;
 use lru::LruCache;
 use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::broadcast::error::RecvError;
-use tokio::task::JoinSet;
-use tokio::time::interval;
+use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
+
+use crate::{
+    config::MpoolConfig,
+    errors::Error,
+    head_change,
+    msgpool::{
+        recover_sig, republish_pending_messages, select_messages_for_block,
+        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, PROPAGATION_DELAY_SECS, RBF_DENOM, RBF_NUM,
+    },
+    provider::Provider,
+    utils::get_base_fee_lower_bound,
+};
 
 // LruCache sizes have been taken from the lotus implementation
 const BLS_SIG_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(40000));
 const SIG_VAL_CACHE_SIZE: NonZeroUsize = const_option!(NonZeroUsize::new(32000));
 
-/// Simple structure that contains a hash-map of messages where k: a message from address, v: a message
-/// which corresponds to that address.
+/// Simple structure that contains a hash-map of messages where k: a message
+/// from address, v: a message which corresponds to that address.
 #[derive(Clone, Default, Debug)]
 pub struct MsgSet {
     pub(crate) msgs: HashMap<u64, SignedMessage>,
@@ -57,7 +57,8 @@ pub struct MsgSet {
 }
 
 impl MsgSet {
-    /// Generate a new `MsgSet` with an empty hash-map and setting the sequence specifically.
+    /// Generate a new `MsgSet` with an empty hash-map and setting the sequence
+    /// specifically.
     pub fn new(sequence: u64) -> Self {
         MsgSet {
             msgs: HashMap::new(),
@@ -65,8 +66,8 @@ impl MsgSet {
         }
     }
 
-    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the message has a
-    /// sequence greater than any existing message sequence.
+    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
+    /// message has a sequence greater than any existing message sequence.
     pub fn add(&mut self, m: SignedMessage) -> Result<(), Error> {
         if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
             self.next_sequence = m.sequence() + 1;
@@ -88,7 +89,8 @@ impl MsgSet {
         Ok(())
     }
 
-    /// Removes message with the given sequence. If applied, update the set's next sequence.
+    /// Removes message with the given sequence. If applied, update the set's
+    /// next sequence.
     pub fn rm(&mut self, sequence: u64, applied: bool) {
         if self.msgs.remove(&sequence).is_none() {
             if applied && sequence >= self.next_sequence {
@@ -118,7 +120,8 @@ impl MsgSet {
 }
 
 /// This contains all necessary information needed for the message pool.
-/// Keeps track of messages to apply, as well as context needed for verifying transactions.
+/// Keeps track of messages to apply, as well as context needed for verifying
+/// transactions.
 pub struct MessagePool<T> {
     /// The local address of the client
     local_addrs: Arc<SyncRwLock<Vec<Address>>>,
@@ -128,7 +131,8 @@ pub struct MessagePool<T> {
     pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
-    /// The minimum gas price needed for executing the transaction based on number of included blocks
+    /// The minimum gas price needed for executing the transaction based on
+    /// number of included blocks
     pub min_gas_price: BigInt,
     /// This is max number of messages in the pool.
     pub max_tx_pool_size: i64,
@@ -142,7 +146,8 @@ pub struct MessagePool<T> {
     pub sig_val_cache: Arc<Mutex<LruCache<Cid, ()>>>,
     /// A set of republished messages identified by their Cid
     pub republished: Arc<SyncRwLock<HashSet<Cid>>>,
-    /// Acts as a signal to republish messages from the republished set of messages
+    /// Acts as a signal to republish messages from the republished set of
+    /// messages
     pub repub_trigger: flume::Sender<()>,
     // TODO look into adding a cap to `local_msgs`
     local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
@@ -327,8 +332,8 @@ where
         self.verify_msg_sig(msg)
     }
 
-    /// This is a helper to push that will help to make sure that the message fits the parameters
-    /// to be pushed to the `MessagePool`.
+    /// This is a helper to push that will help to make sure that the message
+    /// fits the parameters to be pushed to the `MessagePool`.
     pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
         self.check_message(&msg)?;
 
@@ -338,8 +343,9 @@ where
         Ok(())
     }
 
-    /// Verify the message signature. first check if it has already been verified and put into
-    /// cache. If it has not, then manually verify it then put it into cache for future use.
+    /// Verify the message signature. first check if it has already been
+    /// verified and put into cache. If it has not, then manually verify it
+    /// then put it into cache for future use.
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
         let cid = msg.cid()?;
 
@@ -354,8 +360,9 @@ where
         Ok(())
     }
 
-    /// Verify the `state_sequence` and balance for the sender of the message given then
-    /// call `add_locked` to finish adding the `signed_message` to pending.
+    /// Verify the `state_sequence` and balance for the sender of the message
+    /// given then call `add_locked` to finish adding the `signed_message`
+    /// to pending.
     fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(msg.from(), cur_ts)?;
 
@@ -375,9 +382,10 @@ where
         Ok(publish)
     }
 
-    /// Finish verifying signed message before adding it to the pending `mset` hash-map. If an entry
-    /// in the hash-map does not yet exist, create a new `mset` that will correspond to the from
-    /// message and push it to the pending hash-map.
+    /// Finish verifying signed message before adding it to the pending `mset`
+    /// hash-map. If an entry in the hash-map does not yet exist, create a
+    /// new `mset` that will correspond to the from message and push it to
+    /// the pending hash-map.
     fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
         let from = *msg.from();
         let cur_ts = self.cur_tipset.lock().clone();
@@ -390,8 +398,8 @@ where
         )
     }
 
-    /// Get the sequence for a given address, return Error if there is a failure to retrieve
-    /// the respective sequence.
+    /// Get the sequence for a given address, return Error if there is a failure
+    /// to retrieve the respective sequence.
     pub fn get_sequence(&self, addr: &Address) -> Result<u64, Error> {
         let cur_ts = self.cur_tipset.lock().clone();
 
@@ -417,8 +425,8 @@ where
         Ok(actor.sequence)
     }
 
-    /// Get the state balance for the actor that corresponds to the supplied address and tipset,
-    /// if this actor does not exist, return an error.
+    /// Get the state balance for the actor that corresponds to the supplied
+    /// address and tipset, if this actor does not exist, return an error.
     fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
         let actor = self.api.get_actor_after(addr, ts)?;
         Ok(forest_shim::econ::TokenAmount::from(&actor.balance).into())
@@ -429,8 +437,8 @@ where
         remove(from, self.pending.as_ref(), sequence, applied)
     }
 
-    /// Return a tuple that contains a vector of all signed messages and the current tipset for
-    /// self.
+    /// Return a tuple that contains a vector of all signed messages and the
+    /// current tipset for self.
     pub fn pending(&self) -> Result<(Vec<SignedMessage>, Arc<Tipset>), Error> {
         let mut out: Vec<SignedMessage> = Vec::new();
         let pending = self.pending.read().clone();
@@ -448,8 +456,9 @@ where
         Ok((out, cur_ts))
     }
 
-    /// Return a Vector of signed messages for a given from address. This vector will be sorted by
-    /// each `messsage`'s sequence. If no corresponding messages found, return None result type.
+    /// Return a Vector of signed messages for a given from address. This vector
+    /// will be sorted by each `messsage`'s sequence. If no corresponding
+    /// messages found, return None result type.
     pub fn pending_for(&self, a: &Address) -> Option<Vec<SignedMessage>> {
         let pending = self.pending.read();
         let mset = pending.get(a)?;
@@ -480,8 +489,8 @@ where
         Ok(msg_vec)
     }
 
-    /// Return gas price estimate this has been translated from lotus, a more smart implementation will
-    /// most likely need to be implemented.
+    /// Return gas price estimate this has been translated from lotus, a more
+    /// smart implementation will most likely need to be implemented.
     // TODO: UPDATE https://github.com/ChainSafe/forest/issues/901
     pub fn estimate_gas_premium(
         &self,
@@ -512,8 +521,9 @@ where
 
         Ok(())
     }
-    /// If `local = true`, the local messages will be removed as well as pending messages.
-    /// If `local = false`, pending messages will be removed while retaining local messages.
+    /// If `local = true`, the local messages will be removed as well as pending
+    /// messages. If `local = false`, pending messages will be removed while
+    /// retaining local messages.
     pub fn clear(&mut self, local: bool) {
         if local {
             for a in self.local_addrs.read().iter() {
@@ -545,7 +555,8 @@ where
         Ok(())
     }
 
-    /// Select messages that can be included in a block built on a given base tipset.
+    /// Select messages that can be included in a block built on a given base
+    /// tipset.
     pub fn select_messages_for_block(&self, base: &Tipset) -> Result<Vec<SignedMessage>, Error> {
         // Take a snapshot of the pending messages.
         let pending: HashMap<Address, HashMap<u64, SignedMessage>> = {
@@ -568,9 +579,10 @@ where
 
 // Helpers for MessagePool
 
-/// Finish verifying signed message before adding it to the pending `mset` hash-map. If an entry
-/// in the hash-map does not yet exist, create a new `mset` that will correspond to the from message
-/// and push it to the pending hash-map.
+/// Finish verifying signed message before adding it to the pending `mset`
+/// hash-map. If an entry in the hash-map does not yet exist, create a new
+/// `mset` that will correspond to the from message and push it to the pending
+/// hash-map.
 pub(crate) fn add_helper<T>(
     api: &T,
     bls_sig_cache: &Mutex<LruCache<Cid, Signature>>,

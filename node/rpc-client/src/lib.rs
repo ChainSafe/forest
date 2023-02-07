@@ -10,16 +10,15 @@ pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
 
+use std::env;
+
 use forest_libp2p::{Multiaddr, Protocol};
-use forest_utils::net::hyper::http::HeaderValue;
-use forest_utils::net::{https_client, hyper, HyperBodyExt};
+use forest_utils::net::{https_client, hyper, hyper::http::HeaderValue, HyperBodyExt};
 /// Filecoin HTTP JSON-RPC client methods
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use log::{debug, error};
 use once_cell::sync::Lazy;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use std::env;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
@@ -30,13 +29,9 @@ pub const DEFAULT_PROTOCOL: &str = "http";
 pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/rpc/v0";
 pub const RPC_ENDPOINT: &str = "rpc/v0";
 
-pub use self::auth_ops::*;
-pub use self::chain_ops::*;
-pub use self::mpool_ops::*;
-pub use self::net_ops::*;
-pub use self::state_ops::*;
-pub use self::sync_ops::*;
-pub use self::wallet_ops::*;
+pub use self::{
+    auth_ops::*, chain_ops::*, mpool_ops::*, net_ops::*, state_ops::*, sync_ops::*, wallet_ops::*,
+};
 
 pub struct ApiInfo {
     pub multiaddr: Multiaddr,
@@ -44,7 +39,8 @@ pub struct ApiInfo {
 }
 
 pub static API_INFO: Lazy<RwLock<ApiInfo>> = Lazy::new(|| {
-    // Get API_INFO environment variable if exists, otherwise, use default multiaddress
+    // Get API_INFO environment variable if exists, otherwise, use default
+    // multiaddress
     let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
 
     let (multiaddr, token) = match api_info.split_once(':') {
@@ -158,7 +154,8 @@ where
     debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
     let client = https_client();
-    // Split the JWT off if present, format multiaddress as URL, then post RPC request to URL
+    // Split the JWT off if present, format multiaddress as URL, then post RPC
+    // request to URL
     let mut request =
         hyper::Request::post(&api_url).body(serde_json::to_string(&rpc_req)?.into())?;
     let headers_mut = request.headers_mut();

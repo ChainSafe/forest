@@ -20,12 +20,12 @@ use std::sync::Arc;
 
 pub use errors::Error;
 pub use memory::MemoryDB;
-
 use rolling::{ProxyStore, RollingStore, SplitStore, TrackingStore};
 
 /// Read-only store interface used as a KV store implementation
 pub trait ReadStore {
-    /// Read single value from data store and return `None` if key doesn't exist.
+    /// Read single value from data store and return `None` if key doesn't
+    /// exist.
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>;

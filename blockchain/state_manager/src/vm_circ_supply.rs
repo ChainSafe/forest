@@ -10,9 +10,7 @@ use forest_chain::*;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
@@ -88,8 +86,8 @@ impl GenesisInfo {
     }
 }
 
-/// Vesting schedule info. These states are lazily filled, to avoid doing until needed
-/// to calculate circulating supply.
+/// Vesting schedule info. These states are lazily filled, to avoid doing until
+/// needed to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
     genesis: Vec<(ChainEpoch, TokenAmount)>,
@@ -246,7 +244,8 @@ fn setup_calico_vesting_schedule(
         .collect()
 }
 
-// This exact code (bugs and all) has to be used. The results are locked into the blockchain.
+// This exact code (bugs and all) has to be used. The results are locked into
+// the blockchain.
 /// Returns amount locked in multisig contract
 fn v0_amount_locked(
     unlock_duration: ChainEpoch,

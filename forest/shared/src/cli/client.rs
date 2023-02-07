@@ -1,17 +1,18 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+};
+
 use chrono::Duration;
 use directories::ProjectDirs;
 use forest_rpc_client::DEFAULT_PORT;
 use forest_utils::io::ProgressBarVisibility;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::PathBuf,
-    str::FromStr,
-};
 
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

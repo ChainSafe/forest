@@ -3,24 +3,14 @@
 
 mod resolve;
 
+use std::{
+    fmt::Write as FmtWrite,
+    io::{stdout, Write},
+};
+
 use ahash::HashMap;
 use cid::Cid;
 use colored::*;
-use forest_ipld::json::{IpldJson, IpldJsonRef};
-use forest_json::cid::CidJson;
-use forest_shim::state_tree::{ActorState, StateTree};
-use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use libipld_core::ipld::Ipld;
-use resolve::resolve_cids_recursive;
-use serde::{Deserialize, Serialize};
-use similar::ChangeTag;
-use similar::TextDiff;
-
-use std::fmt::Write as FmtWrite;
-use std::io::stdout;
-use std::io::Write;
-
 use fil_actor_account_v9::State as AccountState;
 use fil_actor_cron_v9::State as CronState;
 use fil_actor_init_v9::State as InitState;
@@ -30,6 +20,15 @@ use fil_actor_multisig_v9::State as MultiSigState;
 use fil_actor_power_v9::State as PowerState;
 use fil_actor_reward_v9::State as RewardState;
 use fil_actor_system_v9::State as SystemState;
+use forest_ipld::json::{IpldJson, IpldJsonRef};
+use forest_json::cid::CidJson;
+use forest_shim::state_tree::{ActorState, StateTree};
+use fvm_ipld_blockstore::Blockstore;
+use fvm_shared::address::Address;
+use libipld_core::ipld::Ipld;
+use resolve::resolve_cids_recursive;
+use serde::{Deserialize, Serialize};
+use similar::{ChangeTag, TextDiff};
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {
@@ -73,16 +72,16 @@ fn root_to_state_map<BS: Blockstore>(
 
 /// Tries to resolve state tree actors, if all data exists in store.
 /// The actors HAMT is hard to parse in a diff, so this attempts to remedy this.
-/// This function will only print the actors that are added, removed, or changed so it
-/// can be used on large state trees.
+/// This function will only print the actors that are added, removed, or changed
+/// so it can be used on large state trees.
 fn try_print_actor_states<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
     expected_root: &Cid,
     depth: Option<u64>,
 ) -> Result<(), anyhow::Error> {
-    // For now, resolving to a map, because we need to use go implementation's inefficient caching
-    // this would probably be faster in most cases.
+    // For now, resolving to a map, because we need to use go implementation's
+    // inefficient caching this would probably be faster in most cases.
     let mut e_state = root_to_state_map(bs, expected_root)?;
 
     // Compare state with expected

@@ -2,21 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod decoder;
-use decoder::DagCborDecodingReader;
+use std::{io, marker::PhantomData, time::Duration};
 
 use async_trait::async_trait;
+use decoder::DagCborDecodingReader;
 use futures::prelude::*;
-use libp2p::core::ProtocolName;
-use libp2p::request_response::OutboundFailure;
-use libp2p::request_response::RequestResponseCodec;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::io;
-use std::marker::PhantomData;
-use std::time::Duration;
+use libp2p::{
+    core::ProtocolName,
+    request_response::{OutboundFailure, RequestResponseCodec},
+};
+use serde::{de::DeserializeOwned, Serialize};
 
-/// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy [`RequestResponseCodec`]
-/// for Hello and `ChainExchange` protocols without duplication.
+/// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy
+/// [`RequestResponseCodec`] for Hello and `ChainExchange` protocols without
+/// duplication.
 #[derive(Clone)]
 pub struct CborRequestResponse<P, RQ, RS> {
     protocol: PhantomData<P>,
@@ -34,11 +33,12 @@ impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
     }
 }
 
-/// Libp2p request response outbound error type. This indicates a failure sending a request to
-/// a peer. This is different from a failure response from a node, as this is an error that
-/// prevented a response.
+/// Libp2p request response outbound error type. This indicates a failure
+/// sending a request to a peer. This is different from a failure response from
+/// a node, as this is an error that prevented a response.
 ///
-/// This type mirrors the internal libp2p type, but this avoids having to expose that internal type.
+/// This type mirrors the internal libp2p type, but this avoids having to expose
+/// that internal type.
 #[derive(Debug)]
 pub enum RequestResponseError {
     /// The request could not be sent because a dialing attempt failed.
@@ -140,8 +140,8 @@ where
 // 3. close response stream, which sends `FIN` header over `yamux` protocol
 // and we call `io.ReadToEnd` after `FIN` is sent, it will not deadlock
 //
-// Note: `FIN` - Performs a half-close of a stream. May be sent with a data message or window update.
-// See <https://github.com/libp2p/go-yamux/blob/master/spec.md#flag-field>
+// Note: `FIN` - Performs a half-close of a stream. May be sent with a data
+// message or window update. See <https://github.com/libp2p/go-yamux/blob/master/spec.md#flag-field>
 //
 // `io` is essentially [yamux::Stream](https://docs.rs/yamux/0.11.0/yamux/struct.Stream.html)
 //
@@ -155,8 +155,8 @@ where
 
     // Currently the protocol does not send length encoded message,
     // and we use `decode-success-with-no-trailing-data` to detect end of frame
-    // just like what `FramedRead` does, so it's possible to cause deadlock at `io.poll_ready`
-    // Adding timeout here to mitigate the issue
+    // just like what `FramedRead` does, so it's possible to cause deadlock at
+    // `io.poll_ready` Adding timeout here to mitigate the issue
     match tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await {
         Ok(r) => r,
         Err(_) => {

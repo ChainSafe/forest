@@ -1,35 +1,41 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use crate::provider::Provider;
-use crate::utils::{get_gas_perf, get_gas_reward};
+use std::{
+    cmp::Ordering,
+    mem,
+    ops::{Index, IndexMut},
+};
+
 use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
-use std::cmp::Ordering;
-use std::mem;
-use std::ops::{Index, IndexMut};
+
+use super::errors::Error;
+use crate::{
+    provider::Provider,
+    utils::{get_gas_perf, get_gas_reward},
+};
 
 new_key_type! {
     pub struct NodeKey;
 }
 
 /// Chains is an abstraction of a list of message chain nodes.
-/// It wraps a `SlotMap` instance. `key_vec` is an additional requirement in order to satisfy
-/// optimal `msg` selection use cases, such as iteration in insertion order.
-/// The `SlotMap` serves as a lookup table for nodes to get around the borrow checker rules.
-/// Each `MsgChainNode` contains only pointers as `NodeKey` to the entries in the map
-/// With this design, we get around the borrow checker rule issues when
-/// implementing the optimal selection algorithm.
+/// It wraps a `SlotMap` instance. `key_vec` is an additional requirement in
+/// order to satisfy optimal `msg` selection use cases, such as iteration in
+/// insertion order. The `SlotMap` serves as a lookup table for nodes to get
+/// around the borrow checker rules. Each `MsgChainNode` contains only pointers
+/// as `NodeKey` to the entries in the map With this design, we get around the
+/// borrow checker rule issues when implementing the optimal selection
+/// algorithm.
 pub(crate) struct Chains {
     pub map: SlotMap<NodeKey, MsgChainNode>,
     pub key_vec: Vec<NodeKey>,
@@ -43,13 +49,15 @@ impl Chains {
         }
     }
 
-    /// Pushes a `msg` chain node into slot map and places the key in the `node_vec` passed as parameter.
+    /// Pushes a `msg` chain node into slot map and places the key in the
+    /// `node_vec` passed as parameter.
     pub(crate) fn push_with(&mut self, cur_chain: MsgChainNode, node_vec: &mut Vec<NodeKey>) {
         let key = self.map.insert(cur_chain);
         node_vec.push(key);
     }
 
-    /// Sorts the chains with `compare` method. If rev is true, sorts in descending order.
+    /// Sorts the chains with `compare` method. If rev is true, sorts in
+    /// descending order.
     pub(crate) fn sort(&mut self, rev: bool) {
         // replace dance to get around borrow checker
         let mut chains = mem::take(&mut self.key_vec);
@@ -93,8 +101,9 @@ impl Chains {
         self.map.get_mut(k)
     }
 
-    /// Retrieves the `msg` chain node by the given `NodeKey` along with the data
-    /// required from previous chain (if exists) to set effective performance of this node.
+    /// Retrieves the `msg` chain node by the given `NodeKey` along with the
+    /// data required from previous chain (if exists) to set effective
+    /// performance of this node.
     pub(crate) fn get_mut_with_prev_eff(
         &mut self,
         k: NodeKey,
@@ -151,8 +160,8 @@ impl Chains {
         self.map.len()
     }
 
-    /// Returns true is the chain is empty and otherwise. We check the map as the source of truth
-    /// as `key_vec` can be extended time to time.
+    /// Returns true is the chain is empty and otherwise. We check the map as
+    /// the source of truth as `key_vec` can be extended time to time.
     pub(crate) fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
@@ -347,12 +356,13 @@ where
     msgs.sort_by_key(|v| v.sequence());
 
     // sanity checks:
-    // - there can be no gaps in nonces, starting from the current actor nonce
-    //   if there is a gap, drop messages after the gap, we can't include them
-    // - all messages must have minimum gas and the total gas for the candidate messages
-    //   cannot exceed the block limit; drop all messages that exceed the limit
-    // - the total gasReward cannot exceed the actor's balance; drop all messages that exceed
-    //   the balance
+    // - there can be no gaps in nonces, starting from the current actor nonce if
+    //   there is a gap, drop messages after the gap, we can't include them
+    // - all messages must have minimum gas and the total gas for the candidate
+    //   messages cannot exceed the block limit; drop all messages that exceed the
+    //   limit
+    // - the total gasReward cannot exceed the actor's balance; drop all messages
+    //   that exceed the balance
     let actor_state = api.get_actor_after(actor, ts)?;
     let mut cur_seq = actor_state.sequence;
     let mut balance: TokenAmount =
@@ -437,7 +447,8 @@ where
         }
     };
 
-    // creates msg chain nodes in chunks based on gas_perf obtained from the current chain's gas limit.
+    // creates msg chain nodes in chunks based on gas_perf obtained from the current
+    // chain's gas limit.
     for (i, m) in msgs.into_iter().enumerate() {
         if i == 0 {
             cur_chain = new_chain(m, i);
@@ -448,8 +459,8 @@ where
         let gas_limit = cur_chain.gas_limit + m.gas_limit();
         let gas_perf = get_gas_perf(&gas_reward, gas_limit);
 
-        // try to add the message to the current chain -- if it decreases the gasPerf, then make a
-        // new chain
+        // try to add the message to the current chain -- if it decreases the gasPerf,
+        // then make a new chain
         if gas_perf < cur_chain.gas_perf {
             chains.push_with(cur_chain, &mut node_vec);
             cur_chain = new_chain(m, i);

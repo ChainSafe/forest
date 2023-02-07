@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use fil_actors_runtime::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 pub mod calibnet;
 mod drand;
@@ -267,8 +267,9 @@ pub mod de_network_version {
 
 #[cfg(test)]
 pub mod test {
-    use super::*;
     use toml::de;
+
+    use super::*;
 
     fn remove_whitespace(s: String) -> String {
         s.chars().filter(|c| !c.is_whitespace()).collect()

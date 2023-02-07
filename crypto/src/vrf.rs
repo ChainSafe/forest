@@ -27,10 +27,12 @@ impl VRFProof {
 }
 
 pub mod json {
-    use super::*;
+    use std::borrow::Cow;
+
     use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-    use std::borrow::Cow;
+
+    use super::*;
 
     pub fn serialize<S>(m: &VRFProof, serializer: S) -> Result<S::Ok, S::Error>
     where

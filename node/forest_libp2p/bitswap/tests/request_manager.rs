@@ -3,6 +3,8 @@
 
 #[cfg(test)]
 mod tests {
+    use std::{sync::Arc, time::Duration};
+
     use ahash::HashMap;
     use anyhow::Result;
     use forest_libp2p_bitswap::*;
@@ -21,7 +23,6 @@ mod tests {
     };
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
-    use std::{sync::Arc, time::Duration};
     use tokio::{select, task::JoinSet};
 
     const TIMEOUT: Duration = Duration::from_secs(5);
