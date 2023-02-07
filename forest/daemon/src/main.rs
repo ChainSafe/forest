@@ -37,7 +37,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
-use tokio::runtime::Runtime;
+use tokio::runtime::Builder as RuntimeBuilder;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
@@ -146,7 +146,14 @@ fn main() -> anyhow::Result<()> {
                 build_daemon(&cfg.daemon)?.start()?;
             }
 
-            let rt = Runtime::new()?;
+            let rt = RuntimeBuilder::new_multi_thread()
+                .worker_threads(cfg.tokio.worker_threads_number)
+                .max_blocking_threads(cfg.tokio.max_number_of_blocking_threads)
+                .thread_keep_alive(cfg.tokio.blocking_thread_keep_alive_timeout)
+                .thread_stack_size(cfg.tokio.thread_stack_size)
+                .global_queue_interval(cfg.tokio.global_queue_interval)
+                .build()?;
+
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
