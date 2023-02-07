@@ -4,8 +4,8 @@
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
+use forest_shim::state_tree::ActorState;
 use forest_utils::db::BlockstoreExt;
-use fvm::state_tree::ActorState;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
