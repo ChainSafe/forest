@@ -1,16 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::*;
+use std::{
+    cmp::Ordering,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
 use forest_blocks::Tipset;
 use log::{debug, trace, warn};
 use rand::seq::SliceRandom;
-use std::cmp::Ordering;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+
+use crate::*;
 
 /// New peer multiplier slightly less than 1 to incentivize choosing new peers.
 const NEW_PEER_MUL: f64 = 0.9;

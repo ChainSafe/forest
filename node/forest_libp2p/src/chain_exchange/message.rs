@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{convert::TryFrom, sync::Arc};
+
 use cid::Cid;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
 use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::convert::TryFrom;
-use std::sync::Arc;
 
 /// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;
@@ -263,9 +263,10 @@ fn fts_from_bundle_parts(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::*;
 
     #[quickcheck]
     fn chain_exchange_response_status_roundtrip(status: ChainExchangeResponseStatus) {

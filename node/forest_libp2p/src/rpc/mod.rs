@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod decoder;
+use std::{io, marker::PhantomData, time::Duration};
+
 use async_trait::async_trait;
 use decoder::DagCborDecodingReader;
 use futures::prelude::*;
-use libp2p::core::ProtocolName;
-use libp2p::request_response::{OutboundFailure, RequestResponseCodec};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::io;
-use std::marker::PhantomData;
-use std::time::Duration;
+use libp2p::{
+    core::ProtocolName,
+    request_response::{OutboundFailure, RequestResponseCodec},
+};
+use serde::{de::DeserializeOwned, Serialize};
 
 /// Generic `Cbor` `RequestResponse` type. This is just needed to satisfy [`RequestResponseCodec`]
 /// for Hello and `ChainExchange` protocols without duplication.

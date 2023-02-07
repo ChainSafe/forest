@@ -7,10 +7,11 @@ pub mod util;
 
 pub mod json;
 
-pub use self::error::Error;
 pub use libipld::Path;
 pub use libipld_core::ipld::Ipld;
 pub use util::*;
+
+pub use self::error::Error;
 
 fn lookup_segment<'a>(ipld: &'a Ipld, segment: &str) -> Option<&'a Ipld> {
     match ipld {

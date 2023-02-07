@@ -1,11 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
+use std::time::Duration;
+
 use libp2p::gossipsub::{
     score_parameter_decay, IdentTopic, PeerScoreParams, PeerScoreThresholds, TopicScoreParams,
 };
-use std::time::Duration;
+
+use crate::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
 
 // All these parameters are copied from what Lotus has set for their Topic scores.
 // They are currently unused because enabling them causes GossipSub blocks to come

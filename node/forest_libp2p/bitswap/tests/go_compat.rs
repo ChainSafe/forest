@@ -3,18 +3,20 @@
 
 #[cfg(test)]
 mod tests {
+    use std::{process::Command, time::Duration};
+
     use anyhow::{Context, Result};
     use forest_libp2p_bitswap::{
         BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
     };
-    use libipld::multihash::{self, MultihashDigest};
-    use libipld::Cid;
-    use libp2p::futures::StreamExt;
-    use libp2p::request_response::RequestResponseMessage;
-    use libp2p::swarm::SwarmEvent;
-    use libp2p::{core, identity, noise, tcp, yamux, PeerId, Swarm, Transport};
-    use std::process::Command;
-    use std::time::Duration;
+    use libipld::{
+        multihash::{self, MultihashDigest},
+        Cid,
+    };
+    use libp2p::{
+        core, futures::StreamExt, identity, noise, request_response::RequestResponseMessage,
+        swarm::SwarmEvent, tcp, yamux, PeerId, Swarm, Transport,
+    };
 
     const TIMEOUT: Duration = Duration::from_secs(60);
     const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";

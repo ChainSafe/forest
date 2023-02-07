@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_encoding::serde_byte_array;
-use forest_encoding::tuple::*;
+use forest_encoding::{serde_byte_array, tuple::*};
 
 /// The result from getting an entry from `Drand`.
 /// The entry contains the round, or epoch as well as the BLS signature for that round of
@@ -40,10 +39,10 @@ impl quickcheck::Arbitrary for BeaconEntry {
 }
 
 pub mod json {
-    use super::*;
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `BeaconEntry` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -92,9 +91,10 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::*;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::*;
 
         pub fn serialize<S>(m: &[BeaconEntry], serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -118,9 +118,12 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{BeaconEntryJson, BeaconEntryJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::{
+        json::{BeaconEntryJson, BeaconEntryJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn beacon_entry_roundtrip(entry: BeaconEntry) {

@@ -10,8 +10,10 @@ use forest_blocks::tipset_keys_json::TipsetKeysJson;
 use forest_db::Store;
 use forest_ipld::json::IpldJson;
 use forest_json::cid::CidJson;
-use forest_rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
-use forest_rpc_api::state_api::*;
+use forest_rpc_api::{
+    data_types::{MarketDeal, MessageLookup, RPCState},
+    state_api::*,
+};
 use forest_state_manager::InvocResult;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};

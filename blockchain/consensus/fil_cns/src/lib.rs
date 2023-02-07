@@ -1,5 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use std::{fmt::Debug, sync::Arc};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use forest_beacon::{Beacon, BeaconSchedule};
@@ -11,8 +13,6 @@ use forest_state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
 use nonempty::NonEmpty;
-use std::fmt::Debug;
-use std::sync::Arc;
 use thiserror::Error;
 
 mod metrics;

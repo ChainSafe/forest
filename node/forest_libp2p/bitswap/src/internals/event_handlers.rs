@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::request_manager::*;
-use crate::*;
-use libp2p::request_response::RequestResponseMessage;
-use libp2p::PeerId;
 use std::sync::Arc;
+
+use libp2p::{request_response::RequestResponseMessage, PeerId};
+
+use crate::{request_manager::*, *};
 
 #[derive(Debug, Clone)]
 pub enum BitswapInboundResponseEvent {

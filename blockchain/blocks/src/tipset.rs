@@ -1,16 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Block, BlockHeader, Error, Ticket};
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
+use fvm_shared::{address::Address, clock::ChainEpoch};
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+
+use super::{Block, BlockHeader, Error, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs` are *not* maintained in
@@ -75,13 +75,16 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use super::tipset_json::{TipsetJson, TipsetJsonRef};
-    use super::tipset_keys_json::TipsetKeysJson;
-    use super::{Tipset, TipsetKeys};
-    use crate::ArbitraryCid;
     use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::{
+        tipset_json::{TipsetJson, TipsetJsonRef},
+        tipset_keys_json::TipsetKeysJson,
+        Tipset, TipsetKeys,
+    };
+    use crate::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -320,8 +323,9 @@ where
 }
 
 pub mod tipset_keys_json {
-    use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     #[serde(transparent)]
@@ -357,9 +361,11 @@ pub mod tipset_keys_json {
 }
 
 pub mod tipset_json {
-    use super::*;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::Arc;
+
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `Tipset` from JSON.
     #[derive(Debug, Deserialize, Serialize)]
@@ -430,14 +436,16 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod test {
-    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
-    use cid::Cid;
+    use cid::{
+        multihash::{Code::Identity, MultihashDigest},
+        Cid,
+    };
     use forest_crypto::VRFProof;
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
     use num_bigint::BigInt;
+
+    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);

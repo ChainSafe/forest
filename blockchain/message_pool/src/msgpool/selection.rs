@@ -6,23 +6,23 @@
 //! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
 //! See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-use super::msg_pool::MessagePool;
-use super::provider::Provider;
-use crate::msg_chain::{create_message_chains, Chains, NodeKey};
-use crate::msg_pool::MsgSet;
-use crate::msgpool::MIN_GAS;
-use crate::{add_to_selected_msgs, remove_from_selected_msgs, Error};
+use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
+
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
-use rand::prelude::SliceRandom;
-use rand::thread_rng;
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
-use std::sync::Arc;
+use rand::{prelude::SliceRandom, thread_rng};
+
+use super::{msg_pool::MessagePool, provider::Provider};
+use crate::{
+    add_to_selected_msgs,
+    msg_chain::{create_message_chains, Chains, NodeKey},
+    msg_pool::MsgSet,
+    msgpool::MIN_GAS,
+    remove_from_selected_msgs, Error,
+};
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 
@@ -664,16 +664,22 @@ where
 
 #[cfg(test)]
 mod test_selection {
-    use super::*;
-    use crate::head_change;
-    use crate::msgpool::test_provider::{mock_block, TestApi};
-    use crate::msgpool::tests::create_smsg;
+    use std::sync::Arc;
+
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
-    use std::sync::Arc;
     use tokio::task::JoinSet;
+
+    use super::*;
+    use crate::{
+        head_change,
+        msgpool::{
+            test_provider::{mock_block, TestApi},
+            tests::create_smsg,
+        },
+    };
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 

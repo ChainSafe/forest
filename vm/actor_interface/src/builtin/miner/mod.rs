@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::power::Claim;
+use std::borrow::Cow;
+
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
@@ -11,15 +12,18 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::deal::DealID;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize};
+use fvm_shared::{
+    address::Address,
+    clock::ChainEpoch,
+    deal::DealID,
+    econ::TokenAmount,
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize},
+};
 use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+
+use crate::power::Claim;
 /// Miner actor method.
 pub type Method = fil_actor_miner_v8::Method;
 
@@ -316,8 +320,9 @@ impl Partition<'_> {
 }
 
 mod peer_id_json {
-    use super::*;
     use serde::Serializer;
+
+    use super::*;
 
     pub fn serialize<S>(m: &Option<PeerId>, serializer: S) -> Result<S::Ok, S::Error>
     where

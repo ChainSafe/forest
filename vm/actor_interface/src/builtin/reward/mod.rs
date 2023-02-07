@@ -6,8 +6,7 @@ use cid::Cid;
 use forest_shim::state_tree::ActorState;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use serde::Serialize;
 
 /// Reward actor address.

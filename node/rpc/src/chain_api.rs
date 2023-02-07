@@ -2,31 +2,35 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
 use anyhow::Result;
 use forest_beacon::Beacon;
-use forest_blocks::header::json::BlockHeaderJson;
-use forest_blocks::tipset_json::TipsetJson;
-use forest_blocks::tipset_keys_json::TipsetKeysJson;
-use forest_blocks::{BlockHeader, Tipset};
+use forest_blocks::{
+    header::json::BlockHeaderJson, tipset_json::TipsetJson, tipset_keys_json::TipsetKeysJson,
+    BlockHeader, Tipset,
+};
 use forest_db::Store;
-use forest_json::cid::CidJson;
-use forest_json::message::json::MessageJson;
-use forest_rpc_api::chain_api::*;
-use forest_rpc_api::data_types::{BlockMessages, RPCState};
-use forest_utils::db::BlockstoreExt;
-use forest_utils::io::AsyncWriterWithChecksum;
+use forest_json::{cid::CidJson, message::json::MessageJson};
+use forest_rpc_api::{
+    chain_api::*,
+    data_types::{BlockMessages, RPCState},
+};
+use forest_utils::{db::BlockstoreExt, io::AsyncWriterWithChecksum};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
-use sha2::digest::Output;
-use sha2::Sha256;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::sync::Mutex;
+use sha2::{digest::Output, Sha256};
+use tokio::{
+    fs::File,
+    io::{AsyncWriteExt, BufWriter},
+    sync::Mutex,
+};
 
 pub(crate) async fn chain_get_message<DB, B>(
     data: Data<RPCState<DB, B>>,

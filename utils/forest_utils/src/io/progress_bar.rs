@@ -1,12 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+use std::{cell::RefCell, io::Stdout, str::FromStr, sync::RwLock, time::Duration};
+
 pub use pbr::Units;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
-use std::io::Stdout;
-use std::str::FromStr;
-use std::sync::RwLock;
-use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

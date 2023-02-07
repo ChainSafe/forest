@@ -4,9 +4,10 @@
 pub mod cli;
 pub mod logger;
 
+use std::path::PathBuf;
+
 #[cfg(feature = "mimalloc")]
 pub use mimalloc;
-use std::path::PathBuf;
 #[cfg(feature = "jemalloc")]
 pub use tikv_jemallocator;
 

@@ -30,10 +30,10 @@ impl quickcheck::Arbitrary for Ticket {
 }
 
 pub mod json {
-    use super::*;
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
@@ -74,8 +74,9 @@ pub mod json {
     }
 
     pub mod opt {
-        use super::*;
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::*;
 
         pub fn serialize<S>(v: &Option<Ticket>, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -96,9 +97,12 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{TicketJson, TicketJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::{
+        json::{TicketJson, TicketJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn ticket_round_trip(ticket: Ticket) {

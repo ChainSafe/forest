@@ -1,23 +1,29 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::resolve_to_key_addr;
+use std::{cell::Ref, sync::Arc};
+
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
-use forest_shim::state_tree::StateTree;
-use forest_shim::version::NetworkVersion;
-use fvm::externs::{Consensus, Externs, Rand};
-use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
-use fvm_ipld_blockstore::tracking::{BSStats, TrackingBlockstore};
-use fvm_ipld_blockstore::Blockstore;
+use forest_shim::{state_tree::StateTree, version::NetworkVersion};
+use fvm::{
+    externs::{Consensus, Externs, Rand},
+    gas::{price_list_by_network_version, Gas, GasTracker},
+};
+use fvm_ipld_blockstore::{
+    tracking::{BSStats, TrackingBlockstore},
+    Blockstore,
+};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::consensus::{ConsensusFault, ConsensusFaultType};
-use std::cell::Ref;
-use std::sync::Arc;
+use fvm_shared::{
+    address::Address,
+    clock::ChainEpoch,
+    consensus::{ConsensusFault, ConsensusFaultType},
+};
+
+use crate::resolve_to_key_addr;
 
 pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
@@ -253,10 +259,11 @@ fn cal_gas_used_from_stats(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{cell::RefCell, iter::repeat};
+
     use anyhow::ensure;
-    use std::cell::RefCell;
-    use std::iter::repeat;
+
+    use super::*;
 
     #[test]
     fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {

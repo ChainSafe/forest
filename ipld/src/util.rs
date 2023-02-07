@@ -1,11 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Ipld;
+use std::future::Future;
+
 use ahash::HashSet;
 use cid::Cid;
 use fvm_ipld_encoding::from_slice;
-use std::future::Future;
+
+use crate::Ipld;
 
 /// Basic trait to abstract way the hashing details to the trait implementation.
 pub trait InsertHash {

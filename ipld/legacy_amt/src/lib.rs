@@ -12,11 +12,8 @@ mod node;
 mod root;
 mod value_mut;
 
-pub use self::amt::Amt;
-pub use self::error::Error;
-pub(crate) use self::node::Node;
-pub(crate) use self::root::Root;
-pub use self::value_mut::ValueMut;
+pub use self::{amt::Amt, error::Error, value_mut::ValueMut};
+pub(crate) use self::{node::Node, root::Root};
 
 const DEFAULT_BIT_WIDTH: usize = 3;
 const MAX_HEIGHT: usize = 64;

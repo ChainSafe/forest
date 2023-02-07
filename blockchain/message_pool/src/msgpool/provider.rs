@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::errors::Error;
+use std::sync::Arc;
+
 use async_trait::async_trait;
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use cid::{multihash::Code::Blake2b256, Cid};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_db::Store;
@@ -14,11 +14,10 @@ use forest_shim::state_tree::{ActorState, StateTree};
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use std::sync::Arc;
+use fvm_shared::{address::Address, econ::TokenAmount, message::Message};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
+
+use crate::errors::Error;
 
 /// Provider Trait. This trait will be used by the message pool to interact with some medium in order to do
 /// the operations that are listed below that are required for the message pool.

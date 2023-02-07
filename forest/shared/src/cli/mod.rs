@@ -5,10 +5,12 @@ mod client;
 mod config;
 mod snapshot_fetch;
 
-pub use self::client::*;
-pub use self::config::*;
-pub use self::snapshot_fetch::*;
-use crate::logger::LoggingColor;
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
 use ahash::HashSet;
 use byte_unit::Byte;
 use directories::ProjectDirs;
@@ -18,10 +20,10 @@ use git_version::git_version;
 use log::error;
 use num::BigInt;
 use once_cell::sync::Lazy;
-use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use structopt::StructOpt;
+
+pub use self::{client::*, config::*, snapshot_fetch::*};
+use crate::logger::LoggingColor;
 
 const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallback = "unknown");
 
@@ -316,8 +318,9 @@ pub fn to_size_string(input: &BigInt) -> anyhow::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use num::Zero;
+
+    use super::*;
 
     #[test]
     fn to_size_string_valid_input() {

@@ -1,21 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    fs::File as SyncFile,
+    io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
 use ahash::HashMap;
-use backoff::future::retry;
-use backoff::ExponentialBackoff;
+use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
 use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;
 use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
-use std::fs::File as SyncFile;
-use std::io::{self, copy as sync_copy, BufReader as SyncBufReader, ErrorKind};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use tokio::fs::{self, File};
-use tokio::io::BufWriter;
+use tokio::{
+    fs::{self, File},
+    io::BufWriter,
+};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";

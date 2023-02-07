@@ -26,10 +26,10 @@ pub struct HelloResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
+    use cid::multihash::{Code::Identity, MultihashDigest};
     use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
+
+    use super::*;
 
     #[test]
     fn hello_default_ser() {

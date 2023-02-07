@@ -7,9 +7,7 @@ pub mod signed_message;
 
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::MethodNum;
+use fvm_shared::{address::Address, econ::TokenAmount, MethodNum};
 pub use signed_message::SignedMessage;
 
 /// Message interface to interact with Signed and unsigned messages in a generic context.

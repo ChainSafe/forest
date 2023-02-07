@@ -1,11 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::BlockHeader;
 use cid::Cid;
 use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
+
+use super::BlockHeader;
 
 /// Limit of BLS and SECP messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;

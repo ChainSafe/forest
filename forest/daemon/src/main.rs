@@ -16,23 +16,24 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod cli;
 mod daemon;
 
+use std::{fs::File, process, sync::Arc, time::Duration};
+
 use anyhow::Context;
 use cli::Cli;
 use daemonize_me::{Daemon, Group, User};
-use forest_cli_shared::cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig};
-use forest_cli_shared::logger;
-use forest_db::db_engine::Db;
-use forest_db::Store;
+use forest_cli_shared::{
+    cli::{check_for_unknown_keys, cli_error_and_die, ConfigPath, DaemonConfig},
+    logger,
+};
+use forest_db::{db_engine::Db, Store};
 use forest_utils::io::ProgressBar;
 use lazy_static::lazy_static;
 use log::{error, info, warn};
-use raw_sync::events::{Event, EventInit};
-use raw_sync::Timeout;
+use raw_sync::{
+    events::{Event, EventInit},
+    Timeout,
+};
 use shared_memory::ShmemConf;
-use std::fs::File;
-use std::process;
-use std::sync::Arc;
-use std::time::Duration;
 use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;

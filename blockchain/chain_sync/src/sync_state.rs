@@ -1,12 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_blocks::tipset::tipset_json::{TipsetJson, TipsetJsonRef};
-use forest_blocks::Tipset;
+use std::{fmt, sync::Arc};
+
+use forest_blocks::{
+    tipset::tipset_json::{TipsetJson, TipsetJsonRef},
+    Tipset,
+};
 use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
-use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.
@@ -263,8 +265,9 @@ impl<'de> Deserialize<'de> for SyncState {
 }
 
 pub mod json {
-    use super::SyncState;
     use serde::{Deserialize, Serialize};
+
+    use super::SyncState;
 
     #[derive(Serialize, Deserialize, Debug)]
     #[serde(transparent)]
@@ -282,9 +285,9 @@ pub mod json {
 }
 
 pub mod vec {
-    use super::json::SyncStateRef;
-    use super::*;
     use serde::ser::SerializeSeq;
+
+    use super::{json::SyncStateRef, *};
 
     #[derive(Serialize)]
     #[serde(transparent)]
@@ -304,8 +307,9 @@ pub mod vec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::*;
 
     #[quickcheck]
     fn sync_state_roundtrip(ss: SyncState) {

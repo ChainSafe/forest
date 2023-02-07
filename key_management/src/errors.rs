@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::io;
+
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]

@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_crypto::VRFProof;
-use forest_encoding::blake2b_256;
-use forest_encoding::tuple::*;
+use forest_encoding::{blake2b_256, tuple::*};
 use fvm_shared::BLOCKS_PER_EPOCH;
 use lazy_static::lazy_static;
-use num::bigint::{ParseBigIntError, Sign};
-use num::{BigInt, Integer};
+use num::{
+    bigint::{ParseBigIntError, Sign},
+    BigInt, Integer,
+};
 
 const PRECISION: u64 = 256;
 const MAX_WIN_COUNT: i64 = 3 * BLOCKS_PER_EPOCH as i64;
@@ -181,9 +182,10 @@ impl quickcheck::Arbitrary for ElectionProof {
 }
 
 pub mod json {
-    use super::*;
     use forest_crypto::vrf;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `ElectionProof` from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -235,8 +237,9 @@ pub mod json {
     }
 
     pub mod opt {
-        use super::{ElectionProof, ElectionProofJson, ElectionProofJsonRef};
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::{ElectionProof, ElectionProofJson, ElectionProofJsonRef};
 
         pub fn serialize<S>(v: &Option<ElectionProof>, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -257,9 +260,12 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{ElectionProofJson, ElectionProofJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::{
+        json::{ElectionProofJson, ElectionProofJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn election_proof_roundtrip(proof: ElectionProof) {

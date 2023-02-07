@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::call;
 use forest_rpc_api::auth_api::*;
 use jsonrpc_v2::Error as JsonRpcError;
+
+use crate::call;
 
 /// Creates a new JWT Token
 pub async fn auth_new(

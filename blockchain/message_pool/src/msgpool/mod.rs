@@ -7,10 +7,8 @@ mod selection;
 pub mod test_provider;
 pub(crate) mod utils;
 
-use super::errors::Error;
-use crate::msg_chain::{create_message_chains, Chains};
-use crate::msg_pool::{add_helper, remove, MsgSet};
-use crate::provider::Provider;
+use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use forest_blocks::Tipset;
@@ -18,16 +16,19 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
+use fvm_shared::{address::Address, crypto::signature::Signature};
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
-use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use utils::{get_base_fee_lower_bound, recover_sig};
+
+use super::errors::Error;
+use crate::{
+    msg_chain::{create_message_chains, Chains},
+    msg_pool::{add_helper, remove, MsgSet},
+    provider::Provider,
+};
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -308,27 +309,28 @@ pub(crate) fn add_to_selected_msgs(
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
     #[cfg(feature = "slow_tests")]
-    use crate::msg_chain::{create_message_chains, Chains};
-    use crate::msg_pool::MessagePool;
+    use std::borrow::BorrowMut;
+    #[cfg(feature = "slow_tests")]
+    use std::time::Duration;
+
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use fvm_shared::address::Address;
-    use fvm_shared::crypto::signature::SignatureType;
-    use fvm_shared::econ::TokenAmount;
-    use fvm_shared::message::Message;
+    use fvm_shared::{
+        address::Address, crypto::signature::SignatureType, econ::TokenAmount, message::Message,
+    };
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
-    #[cfg(feature = "slow_tests")]
-    use std::borrow::BorrowMut;
-    #[cfg(feature = "slow_tests")]
-    use std::time::Duration;
     use test_provider::*;
     use tokio::task::JoinSet;
+
+    use super::*;
+    #[cfg(feature = "slow_tests")]
+    use crate::msg_chain::{create_message_chains, Chains};
+    use crate::msg_pool::MessagePool;
 
     pub fn create_smsg(
         to: &Address,

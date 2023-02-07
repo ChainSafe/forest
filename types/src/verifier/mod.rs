@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{collections::BTreeMap, convert::TryInto};
+
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
 use fvm_ipld_encoding::bytes_32;
-use fvm_shared::address::Address;
-use fvm_shared::commcid::cid_to_replica_commitment_v1;
-use fvm_shared::randomness::Randomness;
-use fvm_shared::sector::{PoStProof, RegisteredPoStProof, SectorInfo};
-use std::collections::BTreeMap;
-use std::convert::TryInto;
+use fvm_shared::{
+    address::Address,
+    commcid::cid_to_replica_commitment_v1,
+    randomness::Randomness,
+    sector::{PoStProof, RegisteredPoStProof, SectorInfo},
+};
 
 /// Functionality for verification of seal, winning PoSt and window PoSt proofs.
 /// Proof verification will be full validation by default.

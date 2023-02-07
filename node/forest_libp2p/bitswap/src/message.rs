@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::prefix::Prefix;
-use crate::*;
+use crate::{prefix::Prefix, *};
 
 /// Type of a `bitswap` request
 #[derive(Clone, Debug, Eq, PartialEq)]

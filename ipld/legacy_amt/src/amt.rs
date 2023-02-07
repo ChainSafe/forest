@@ -1,18 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ValueMut;
-use crate::node::{CollapsedNode, Link};
-use crate::{init_sized_vec, nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX};
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use std::error::Error as StdError;
+
+use cid::{multihash::Code::Blake2b256, Cid};
 use forest_db::Store;
-use forest_encoding::de::DeserializeOwned;
-use forest_encoding::ser::Serialize;
+use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::sorted;
-use std::error::Error as StdError;
+
+use super::ValueMut;
+use crate::{
+    init_sized_vec,
+    node::{CollapsedNode, Link},
+    nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
+};
 
 /// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
 ///

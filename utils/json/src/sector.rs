@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use fvm_shared::sector::{
         PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorNumber,
@@ -80,9 +79,10 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::*;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::*;
 
         pub fn serialize<S>(m: &[PoStProof], serializer: S) -> Result<S::Ok, S::Error>
         where

@@ -1,18 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ValueMut;
-use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use std::error::Error as StdError;
+
+use cid::{multihash::Code::Blake2b256, Cid};
 use forest_encoding::cs_serde_bytes;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesSer;
 use once_cell::unsync::OnceCell;
-use serde::de::{self, DeserializeOwned};
-use serde::{ser, Deserialize, Serialize};
-use std::error::Error as StdError;
+use serde::{
+    de::{self, DeserializeOwned},
+    ser, Deserialize, Serialize,
+};
+
+use super::ValueMut;
+use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 
 /// This represents a link to another Node
 #[derive(Debug)]
@@ -552,8 +555,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use fvm_ipld_encoding::{from_slice, to_vec};
+
+    use super::*;
 
     #[test]
     fn serialize_node_symmetric() {

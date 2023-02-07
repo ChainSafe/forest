@@ -1,10 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::node::CollapsedNode;
-use crate::{init_sized_vec, Node, DEFAULT_BIT_WIDTH};
-use serde::de::{self, Deserialize};
-use serde::ser::{self, Serialize};
+use serde::{
+    de::{self, Deserialize},
+    ser::{self, Serialize},
+};
+
+use crate::{init_sized_vec, node::CollapsedNode, Node, DEFAULT_BIT_WIDTH};
 
 /// Root of an AMT vector, can be serialized and keeps track of height and count
 #[derive(PartialEq, Debug)]

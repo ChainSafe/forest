@@ -1,9 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::drand::{DRAND_INCENTINET, DRAND_MAINNET};
-use super::{DrandPoint, Height, HeightInfo};
 use fvm_shared::clock::ChainEpoch;
+
+use super::{
+    drand::{DRAND_INCENTINET, DRAND_MAINNET},
+    DrandPoint, Height, HeightInfo,
+};
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
 

@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use super::{wallet_helpers, KeyInfo, KeyStore};
+use std::{convert::TryFrom, str::FromStr};
+
 use ahash::{HashMap, HashMapExt};
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::{
+    address::Address,
+    crypto::signature::{Signature, SignatureType},
+};
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::str::FromStr;
+
+use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};
 
 /// A key, this contains a `KeyInfo`, an address, and a public key.
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
@@ -223,11 +225,12 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Addr
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{generate, KeyStoreConfig};
     use anyhow::ensure;
     use forest_encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
+
+    use super::*;
+    use crate::{generate, KeyStoreConfig};
 
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();

@@ -4,10 +4,11 @@
 use fvm_shared::address::Address;
 
 pub mod json {
-    use super::*;
+    use std::{borrow::Cow, str::FromStr};
+
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-    use std::borrow::Cow;
-    use std::str::FromStr;
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -47,9 +48,10 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::{AddressJson, AddressJsonRef, *};
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::{AddressJson, AddressJsonRef, *};
 
         /// Wrapper for serializing and de-serializing a Cid vector from JSON.
         #[derive(Deserialize, Serialize)]
@@ -81,9 +83,11 @@ pub mod json {
     }
 
     pub mod opt {
-        use super::*;
-        use serde::{self, Deserialize, Deserializer, Serializer};
         use std::borrow::Cow;
+
+        use serde::{self, Deserialize, Deserializer, Serializer};
+
+        use super::*;
 
         const UNDEF_ADDR_STRING: &str = "<empty>";
 
@@ -115,9 +119,10 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::*;
 
     #[cfg(test)]
     #[derive(Clone, Debug, PartialEq)]

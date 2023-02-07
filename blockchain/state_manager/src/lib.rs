@@ -7,7 +7,11 @@ mod metrics;
 mod utils;
 mod vm_circ_supply;
 
-pub use self::errors::*;
+use std::{
+    num::NonZeroUsize,
+    sync::{Arc, Mutex as StdMutex},
+};
+
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -22,30 +26,31 @@ use forest_json::message_receipt;
 use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
-use forest_shim::state_tree::{ActorState, StateTree};
-use forest_shim::version::NetworkVersion;
+use forest_shim::{
+    state_tree::{ActorState, StateTree},
+    version::NetworkVersion,
+};
 use forest_utils::db::BlockstoreExt;
-use futures::channel::oneshot;
-use futures::{select, FutureExt};
-use fvm::executor::ApplyRet;
-use fvm::externs::Rand;
+use futures::{channel::oneshot, select, FutureExt};
+use fvm::{executor::ApplyRet, externs::Rand};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::{Address, Payload, Protocol, BLS_PUB_LEN};
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::receipt::Receipt;
+use fvm_shared::{
+    address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    clock::ChainEpoch,
+    econ::TokenAmount,
+    message::Message,
+    receipt::Receipt,
+};
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroUsize;
-use std::sync::{Arc, Mutex as StdMutex};
-use tokio::sync::broadcast::error::RecvError;
-use tokio::sync::{Mutex as TokioMutex, RwLock};
+use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
 use vm_circ_supply::GenesisInfo;
+
+pub use self::errors::*;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
     forest_utils::const_option!(NonZeroUsize::new(1024));

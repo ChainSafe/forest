@@ -9,10 +9,10 @@ pub mod error {
     };
 }
 
-pub use self::checked_serde_bytes::serde_byte_array;
-pub use self::hash::*;
 pub use cs_serde_bytes;
 pub use serde::{de, ser};
+
+pub use self::{checked_serde_bytes::serde_byte_array, hash::*};
 
 pub mod tuple {
     pub use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};

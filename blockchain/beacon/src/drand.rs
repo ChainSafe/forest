@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::beacon_entries::BeaconEntry;
+use std::{borrow::Cow, sync::Arc};
+
 use ahash::HashMap;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -13,8 +14,8 @@ use fvm_shared::clock::ChainEpoch;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
-use std::borrow::Cow;
-use std::sync::Arc;
+
+use super::beacon_entries::BeaconEntry;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";

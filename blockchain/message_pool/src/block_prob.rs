@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use statrs::function::gamma::ln_gamma;
 use std::f64::consts::E;
+
+use statrs::function::gamma::ln_gamma;
 
 const MAX_BLOCKS: usize = 15;
 const MU: f64 = 5.0;

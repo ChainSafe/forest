@@ -1,16 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::index::{checkpoint_tipsets, ChainIndex};
-use super::tipset_tracker::TipsetTracker;
-use super::Error;
-use crate::Scale;
+use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::multihash::Code::Blake2b256;
-use cid::Cid;
+use cid::{multihash::Code::Blake2b256, Cid};
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -25,30 +22,38 @@ use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
 use forest_shim::state_tree::StateTree;
-use forest_utils::db::BlockstoreExt;
-use forest_utils::io::Checksum;
+use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::receipt::Receipt;
+use fvm_shared::{
+    address::Address,
+    clock::ChainEpoch,
+    crypto::signature::{Signature, SignatureType},
+    econ::TokenAmount,
+    message::Message,
+    receipt::Receipt,
+};
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::Serialize;
-use std::collections::VecDeque;
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::time::SystemTime;
-use tokio::io::AsyncWrite;
-use tokio::sync::broadcast::{self, Sender as Publisher};
-use tokio::sync::Mutex as TokioMutex;
+use tokio::{
+    io::AsyncWrite,
+    sync::{
+        broadcast::{self, Sender as Publisher},
+        Mutex as TokioMutex,
+    },
+};
 use tokio_util::compat::TokioAsyncWriteCompatExt;
+
+use super::{
+    index::{checkpoint_tipsets, ChainIndex},
+    tipset_tracker::TipsetTracker,
+    Error,
+};
+use crate::Scale;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -853,9 +858,10 @@ where
 }
 
 pub mod headchange_json {
-    use super::*;
     use forest_blocks::tipset_json::TipsetJson;
     use serde::{Deserialize, Serialize};
+
+    use super::*;
 
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(rename_all = "lowercase")]
@@ -952,12 +958,17 @@ pub fn persist_block_messages<DB: Blockstore>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use cid::multihash::Code::{Blake2b256, Identity};
-    use cid::multihash::MultihashDigest;
-    use cid::Cid;
+    use cid::{
+        multihash::{
+            Code::{Blake2b256, Identity},
+            MultihashDigest,
+        },
+        Cid,
+    };
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
+
+    use super::*;
 
     #[test]
     fn genesis_test() {

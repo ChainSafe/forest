@@ -1,13 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
+use libp2p::{
+    request_response::{ProtocolSupport, RequestId, RequestResponse, ResponseChannel},
+    swarm::NetworkBehaviour,
+    PeerId,
+};
+use log::warn;
+
 use super::*;
 use crate::service::metrics;
-use ahash::HashMap;
-use libp2p::request_response::{ProtocolSupport, RequestId, RequestResponse, ResponseChannel};
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::PeerId;
-use log::warn;
 
 type InnerBehaviour = RequestResponse<HelloCodec>;
 

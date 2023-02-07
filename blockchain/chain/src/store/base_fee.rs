@@ -7,8 +7,7 @@ use forest_message::Message;
 use forest_shim::econ::TokenAmount;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::BLOCK_GAS_LIMIT;
+use fvm_shared::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
 
 /// Used in calculating the base fee change.
 pub const BLOCK_GAS_TARGET: i64 = BLOCK_GAS_LIMIT / 2;
@@ -100,8 +99,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use forest_networks::{ChainConfig, Height};
+
+    use super::*;
 
     fn construct_tests() -> Vec<(i64, i64, usize, i64, i64)> {
         // (base_fee, limit_used, no_of_blocks, output)

@@ -1,11 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::super::{lookup_segment, Error, Ipld, Path};
-use super::Selector;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use cid::Cid;
+
+use super::{
+    super::{lookup_segment, Error, Ipld, Path},
+    Selector,
+};
 
 impl Selector {
     /// Walks all nodes visited (not just matched nodes) and executes callback with progress and
@@ -206,11 +209,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use indexmap::IndexMap;
     use libipld_macro::ipld;
-    use multihash::Code::Blake2b256;
-    use multihash::MultihashDigest;
+    use multihash::{Code::Blake2b256, MultihashDigest};
+
+    use super::*;
 
     #[tokio::test]
     async fn basic_walk() {

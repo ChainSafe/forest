@@ -3,13 +3,15 @@
 
 mod empty_map;
 mod walk;
-pub use self::walk::*;
-use super::Ipld;
+use std::ops::SubAssign;
+
 use fvm_ipld_encoding::Cbor;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::ops::SubAssign;
 use Selector::*;
+
+pub use self::walk::*;
+use super::Ipld;
 
 /// Selectors are expressions that identify and select a subset of data from an IPLD DAG.
 /// Selectors are themselves IPLD and can be serialized and de-serialized as such.

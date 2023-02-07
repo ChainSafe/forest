@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use lazy_static::lazy_static;
-use prometheus::core::{
-    AtomicI64, AtomicU64, GenericCounter, GenericCounterVec, GenericGauge, GenericGaugeVec, Opts,
+use prometheus::{
+    core::{
+        AtomicI64, AtomicU64, GenericCounter, GenericCounterVec, GenericGauge, GenericGaugeVec,
+        Opts,
+    },
+    Histogram, HistogramOpts, HistogramVec,
 };
-use prometheus::{Histogram, HistogramOpts, HistogramVec};
 
 lazy_static! {
     pub static ref TIPSET_PROCESSING_TIME: Box<Histogram> = {
@@ -223,8 +226,9 @@ pub mod values {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use prometheus::core::Metric;
+
+    use super::*;
 
     macro_rules! test_counter {
         ($name:ident) => {

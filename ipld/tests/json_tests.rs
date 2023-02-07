@@ -1,8 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_ipld::json::{self, IpldJson, IpldJsonRef};
-use forest_ipld::Ipld;
+use forest_ipld::{
+    json::{self, IpldJson, IpldJsonRef},
+    Ipld,
+};
 use libipld_macro::ipld;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string};

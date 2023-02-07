@@ -1,12 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::bad_block_cache::BadBlockCache;
-use crate::consensus::{collect_errs, Consensus};
-use crate::metrics;
-use crate::network_context::SyncNetworkContext;
-use crate::sync_state::SyncStage;
-use crate::validation::TipsetValidator;
+use std::{
+    cmp::{min, Ordering},
+    convert::TryFrom,
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use forest_actor_interface::is_account_actor;
@@ -16,33 +20,32 @@ use forest_blocks::{
 use forest_chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use forest_db::Store;
 use forest_libp2p::chain_exchange::TipsetBundle;
-use forest_message::message::valid_for_block_inclusion;
-use forest_message::Message as MessageTrait;
+use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
 use forest_shim::state_tree::StateTree;
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
-use futures::stream::FuturesUnordered;
-use futures::{Stream, StreamExt, TryFutureExt};
+use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm::gas::price_list_by_network_version;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::crypto::signature::ops::verify_bls_aggregate;
-use fvm_shared::message::Message;
-use fvm_shared::{ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT};
+use fvm_shared::{
+    address::Address, clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate,
+    message::Message, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
+};
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
 use num::BigInt;
-use std::cmp::{min, Ordering};
-use std::convert::TryFrom;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
 use thiserror::Error;
+
+use crate::{
+    bad_block_cache::BadBlockCache,
+    consensus::{collect_errs, Consensus},
+    metrics,
+    network_context::SyncNetworkContext,
+    sync_state::SyncStage,
+    validation::TipsetValidator,
+};
 
 const MAX_TIPSETS_TO_REQUEST: u64 = 100;
 
@@ -1616,12 +1619,13 @@ fn validate_tipset_against_cache<C: Consensus>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_crypto::VRFProof;
     use fvm_shared::address::Address;
     use num_bigint::BigInt;
+
+    use super::*;
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);

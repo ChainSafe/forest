@@ -1,28 +1,35 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName};
-use crate::config::Libp2pConfig;
-use crate::discovery::{DiscoveryBehaviour, DiscoveryConfig};
-use crate::gossip_params::{build_peer_score_params, build_peer_score_threshold};
-use crate::hello::HelloBehaviour;
+use std::time::Duration;
+
 use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
-use libp2p::core::identity::Keypair;
-use libp2p::core::PeerId;
-use libp2p::gossipsub::error::{PublishError, SubscriptionError};
-use libp2p::gossipsub::{
-    Gossipsub, GossipsubConfigBuilder, GossipsubMessage, IdentTopic as Topic, MessageAuthenticity,
-    MessageId, ValidationMode,
+use libp2p::{
+    core::{identity::Keypair, PeerId},
+    gossipsub::{
+        error::{PublishError, SubscriptionError},
+        Gossipsub, GossipsubConfigBuilder, GossipsubMessage, IdentTopic as Topic,
+        MessageAuthenticity, MessageId, ValidationMode,
+    },
+    identify,
+    kad::QueryId,
+    metrics::{Metrics, Recorder},
+    ping,
+    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
+    swarm::NetworkBehaviour,
+    Multiaddr,
 };
-use libp2p::kad::QueryId;
-use libp2p::metrics::{Metrics, Recorder};
-use libp2p::request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig};
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::{identify, ping, Multiaddr};
 use log::warn;
-use std::time::Duration;
+
+use crate::{
+    chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName},
+    config::Libp2pConfig,
+    discovery::{DiscoveryBehaviour, DiscoveryConfig},
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
+    hello::HelloBehaviour,
+};
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
 #[derive(NetworkBehaviour)]

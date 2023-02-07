@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::DelegatedProposer;
+use std::{fmt::Debug, str::FromStr, sync::Arc};
+
 use anyhow::anyhow;
 use async_trait::async_trait;
 use forest_blocks::{Block, Tipset};
@@ -15,11 +16,10 @@ use fvm_shared::address::Address;
 use log::info;
 use nonempty::NonEmpty;
 use num::BigInt;
-use std::fmt::Debug;
-use std::str::FromStr;
-use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
+
+use crate::DelegatedProposer;
 
 #[derive(Debug, Error)]
 pub enum DelegatedConsensusError {

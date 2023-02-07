@@ -1,21 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::set_sigint_handler;
+use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+
 use anyhow::Context;
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::Confirm;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
-use forest_chain_sync::consensus::SyncGossipSubmitter;
-use forest_chain_sync::ChainMuxer;
-use forest_cli_shared::chain_path;
-use forest_cli_shared::cli::{
-    default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
+use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
+use forest_cli_shared::{
+    chain_path,
+    cli::{
+        default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+        FOREST_VERSION_STRING,
+    },
 };
-use forest_db::db_engine::{db_path, open_db, Db};
-use forest_db::Store;
+use forest_db::{
+    db_engine::{db_path, open_db, Db},
+    Store,
+};
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
 use forest_key_management::{KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME};
 use forest_libp2p::{
@@ -32,14 +36,9 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use std::io::prelude::*;
-use std::net::TcpListener;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::task::JoinSet;
+use tokio::{sync::RwLock, task::JoinSet};
+
+use super::cli::set_sigint_handler;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
@@ -483,11 +482,12 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
+
+    use super::*;
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {

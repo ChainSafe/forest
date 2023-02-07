@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_beacon::{ChainInfo, DrandConfig, DrandNetwork};
 use std::borrow::Cow;
+
+use forest_beacon::{ChainInfo, DrandConfig, DrandNetwork};
 
 pub(super) static DRAND_MAINNET: DrandConfig<'static> = DrandConfig {
     server: "https://api.drand.sh",

@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_beacon::Beacon;
-use forest_rpc_api::auth_api::*;
-use forest_rpc_api::data_types::JsonRpcServerState;
-use forest_rpc_api::{check_access, ACCESS_MAP};
+use forest_rpc_api::{auth_api::*, check_access, data_types::JsonRpcServerState, ACCESS_MAP};
 use fvm_ipld_blockstore::Blockstore;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use log::{debug, error};

@@ -3,6 +3,11 @@
 
 mod resolve;
 
+use std::{
+    fmt::Write as FmtWrite,
+    io::{stdout, Write},
+};
+
 use ahash::HashMap;
 use cid::Cid;
 use colored::*;
@@ -24,8 +29,6 @@ use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
-use std::fmt::Write as FmtWrite;
-use std::io::{stdout, Write};
 
 #[derive(Serialize, Deserialize)]
 struct ActorStateResolved {

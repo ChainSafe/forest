@@ -1,10 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use serde::de::{self, SeqAccess, Visitor};
-use serde::Deserialize;
-use std::fmt;
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
+
+use serde::{
+    de::{self, SeqAccess, Visitor},
+    Deserialize,
+};
 
 /// Helper visitor to match Go's default behavior of serializing uninitialized slices as null.
 /// This will be able to de-serialize null as empty Vectors of the type.
@@ -61,9 +63,12 @@ where
 }
 
 pub mod go_vec_visitor {
+    use serde::{
+        de::{Deserialize, Deserializer},
+        ser::{Serialize, SerializeSeq, Serializer},
+    };
+
     use super::*;
-    use serde::de::{Deserialize, Deserializer};
-    use serde::ser::{Serialize, SerializeSeq, Serializer};
 
     pub fn serialize<S, T>(m: &[T], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -88,9 +93,10 @@ pub mod go_vec_visitor {
 
 #[cfg(test)]
 mod tests {
-    use super::{go_vec_visitor, *};
     use serde::{Deserialize, Deserializer};
     use serde_json::from_str;
+
+    use super::{go_vec_visitor, *};
 
     #[test]
     fn test_json_basic() {

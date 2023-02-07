@@ -1,23 +1,28 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use crate::provider::Provider;
-use crate::utils::{get_gas_perf, get_gas_reward};
+use std::{
+    cmp::Ordering,
+    mem,
+    ops::{Index, IndexMut},
+};
+
 use ahash::HashMap;
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
 use forest_networks::ChainConfig;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, econ::TokenAmount};
 use log::warn;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
-use std::cmp::Ordering;
-use std::mem;
-use std::ops::{Index, IndexMut};
+
+use super::errors::Error;
+use crate::{
+    provider::Provider,
+    utils::{get_gas_perf, get_gas_reward},
+};
 
 new_key_type! {
     pub struct NodeKey;

@@ -1,28 +1,35 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::Config;
-use crate::cli::to_size_string;
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+    str::FromStr,
+    time::Duration,
+};
+
 use anyhow::bail;
 use chrono::DateTime;
-use forest_utils::io::progress_bar::Units;
-use forest_utils::io::{ProgressBar, TempFile};
-use forest_utils::net::https_client;
-use forest_utils::net::hyper::client::connect::Connect;
-use forest_utils::net::hyper::{self, Body, Response};
+use forest_utils::{
+    io::{progress_bar::Units, ProgressBar, TempFile},
+    net::{
+        https_client,
+        hyper::{self, client::connect::Connect, Body, Response},
+    },
+};
 use hex::{FromHex, ToHex};
 use log::info;
 use regex::Regex;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::str::FromStr;
-use std::time::Duration;
-use time::format_description::well_known::Iso8601;
-use time::{format_description, Date};
-use tokio::fs::{create_dir_all, File};
-use tokio::io::{AsyncWriteExt, BufWriter};
+use time::{format_description, format_description::well_known::Iso8601, Date};
+use tokio::{
+    fs::{create_dir_all, File},
+    io::{AsyncWriteExt, BufWriter},
+};
 use url::Url;
+
+use super::Config;
+use crate::cli::to_size_string;
 
 /// Snapshot fetch service provider
 #[derive(Debug)]
@@ -521,18 +528,17 @@ fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::{env::temp_dir, net::TcpListener};
+
     use anyhow::{ensure, Result};
-    use axum::routing::get_service;
-    use axum::Router;
+    use axum::{routing::get_service, Router};
     use http::StatusCode;
     use quickcheck_macros::quickcheck;
-    use rand::distributions::Alphanumeric;
-    use rand::Rng;
-    use std::env::temp_dir;
-    use std::net::TcpListener;
+    use rand::{distributions::Alphanumeric, Rng};
     use tempfile::TempDir;
     use tower_http::services::ServeDir;
+
+    use super::*;
 
     #[test]
     fn checksum_from_file_test() {

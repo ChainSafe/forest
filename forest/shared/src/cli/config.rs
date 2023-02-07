@@ -1,16 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::client::Client;
+use std::{path::PathBuf, sync::Arc};
+
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::Arc;
 use url::Url;
+
+use super::client::Client;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 pub struct LogConfig {
@@ -182,14 +183,18 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::{
+        net::{Ipv4Addr, SocketAddr},
+        path::PathBuf,
+    };
+
     use chrono::Duration;
     use forest_utils::io::ProgressBarVisibility;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
-    use std::net::{Ipv4Addr, SocketAddr};
-    use std::path::PathBuf;
     use tracing_subscriber::EnvFilter;
+
+    use super::*;
 
     /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
     /// Debug)

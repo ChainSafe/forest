@@ -3,15 +3,18 @@
 
 //! Request manager implementation that is optimized for `filecoin` network usage
 
-use crate::event_handlers::*;
-use crate::*;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use flume::TryRecvError;
 use libipld::{Block, Cid};
 use libp2p::PeerId;
 use parking_lot::RwLock;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+
+use crate::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 

@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use cid::multihash::Code;
-use cid::{Cid, Error, Version};
+use std::convert::TryFrom;
+
+use cid::{multihash::Code, Cid, Error, Version};
 use fvm_ipld_encoding::DAG_CBOR;
 use multihash::{self, MultihashDigest};
-use std::convert::TryFrom;
 
 #[test]
 fn basic_marshalling() {

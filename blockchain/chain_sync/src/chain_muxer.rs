@@ -1,15 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::bad_block_cache::BadBlockCache;
-use crate::consensus::Consensus;
-use crate::metrics;
-use crate::network_context::SyncNetworkContext;
-use crate::sync_state::SyncState;
-use crate::tipset_syncer::{
-    TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
+use std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::SystemTime,
 };
-use crate::validation::{TipsetValidationError, TipsetValidator};
+
 use cid::Cid;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_blocks::{
@@ -17,24 +15,35 @@ use forest_blocks::{
 };
 use forest_chain::{ChainStore, Error as ChainStoreError};
 use forest_db::Store;
-use forest_libp2p::hello::HelloRequest;
-use forest_libp2p::{NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage};
+use forest_libp2p::{
+    hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
+};
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
 use forest_state_manager::StateManager;
-use futures::future::{try_join_all, Future};
-use futures::stream::FuturesUnordered;
-use futures::{try_join, StreamExt};
+use futures::{
+    future::{try_join_all, Future},
+    stream::FuturesUnordered,
+    try_join, StreamExt,
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::SystemTime;
 use thiserror::Error;
+
+use crate::{
+    bad_block_cache::BadBlockCache,
+    consensus::Consensus,
+    metrics,
+    network_context::SyncNetworkContext,
+    sync_state::SyncState,
+    tipset_syncer::{
+        TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
+    },
+    validation::{TipsetValidationError, TipsetValidator},
+};
 
 pub(crate) type WorkerState = Arc<RwLock<SyncState>>;
 
@@ -911,18 +920,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::validation::TipsetValidator;
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine;
+    use std::convert::TryFrom;
+
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest_blocks::{BlockHeader, Tipset};
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
     use forest_test_utils::construct_messages;
-    use fvm_shared::address::Address;
-    use fvm_shared::message::Message;
-    use std::convert::TryFrom;
+    use fvm_shared::{address::Address, message::Message};
+
+    use crate::validation::TipsetValidator;
 
     #[test]
     fn compute_msg_meta_given_msgs_test() {

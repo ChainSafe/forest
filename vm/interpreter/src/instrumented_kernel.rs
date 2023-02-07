@@ -1,25 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use crate::{metrics, ForestMachine};
+use std::time;
+
 use cid::Cid;
-use fvm::call_manager::CallManager;
-use fvm::gas::{Gas, PriceList};
-use fvm::kernel::{
-    BlockId, BlockRegistry, BlockStat, DebugOps, GasOps, MessageOps, NetworkOps, RandomnessOps,
-    Result, SelfOps, SendOps, SendResult,
+use fvm::{
+    call_manager::CallManager,
+    gas::{Gas, PriceList},
+    kernel::{
+        BlockId, BlockRegistry, BlockStat, DebugOps, GasOps, MessageOps, NetworkOps, RandomnessOps,
+        Result, SelfOps, SendOps, SendResult,
+    },
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::consensus::ConsensusFault;
-use fvm_shared::crypto::signature::SignatureType;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::piece::PieceInfo;
-use fvm_shared::randomness::RANDOMNESS_LENGTH;
-use fvm_shared::sector::*;
-use fvm_shared::{ActorID, MethodNum};
-use std::time;
+use fvm_shared::{
+    address::Address, clock::ChainEpoch, consensus::ConsensusFault,
+    crypto::signature::SignatureType, econ::TokenAmount, piece::PieceInfo,
+    randomness::RANDOMNESS_LENGTH, sector::*, ActorID, MethodNum,
+};
 use stdext::function_name;
+
+use crate::{metrics, ForestMachine};
 
 /// Calls the supplied lambda and updates the corresponding Prometheus metrics - call count and
 /// total call duration.

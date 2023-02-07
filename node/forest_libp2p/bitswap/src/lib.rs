@@ -3,11 +3,11 @@
 
 #![doc = include_str!("../README.md")]
 
-use futures::prelude::*;
-use libipld::cid::Cid;
-use libipld::prelude::*;
-use prost::Message;
 use std::io::Result as IOResult;
+
+use futures::prelude::*;
+use libipld::{cid::Cid, prelude::*};
+use prost::Message;
 use tracing::*;
 
 mod proto;

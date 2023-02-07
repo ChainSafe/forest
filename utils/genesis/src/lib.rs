@@ -1,20 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{sync::Arc, time};
+
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_db::Store;
 use forest_state_manager::StateManager;
-use forest_utils::db::BlockstoreExt;
-use forest_utils::net::FetchProgress;
+use forest_utils::{db::BlockstoreExt, net::FetchProgress};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
-use std::sync::Arc;
-use std::time;
-use tokio::fs::File;
-use tokio::io::{AsyncRead, BufReader};
+use tokio::{
+    fs::File,
+    io::{AsyncRead, BufReader},
+};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 

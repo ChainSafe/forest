@@ -1,13 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use forest_encoding::blake2b_256;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::{
+    address::Address,
+    crypto::signature::{Signature, SignatureType},
+};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
+
+use super::errors::Error;
 
 /// Return the public key for a given private key and `SignatureType`
 pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>, Error> {

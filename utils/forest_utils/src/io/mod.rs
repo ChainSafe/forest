@@ -5,19 +5,22 @@ pub mod progress_bar;
 mod tempfile;
 mod writer_checksum;
 
+use std::{
+    fs::{create_dir_all, File},
+    io::{prelude::*, Result},
+    path::Path,
+};
+
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
-use std::fs::{create_dir_all, File};
-use std::io::prelude::*;
-use std::io::Result;
-use std::path::Path;
 pub use tempfile::*;
 pub use writer_checksum::*;
 
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]
 pub fn set_user_perm(file: &File) -> Result<()> {
-    use log::info;
     use std::os::unix::fs::PermissionsExt;
+
+    use log::info;
 
     let mut perm = file.metadata()?.permissions();
     #[allow(clippy::useless_conversion)] // Otherwise it does not build on macos

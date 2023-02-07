@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{io::Write, sync::Arc};
+
 use anyhow::{bail, Context};
 use blake2b_simd::Params;
 use byteorder::{BigEndian, WriteBytesExt};
@@ -13,8 +15,6 @@ use forest_networks::ChainConfig;
 use fvm::externs::Rand;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
-use std::io::Write;
-use std::sync::Arc;
 
 /// Allows for deriving the randomness from a particular tipset.
 pub struct ChainRand<DB> {

@@ -1,27 +1,28 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::fvm::ForestExterns;
+use std::sync::Arc;
+
 use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::error::ExitCode;
-use forest_shim::Inner;
-use fvm::executor::{ApplyRet, DefaultExecutor};
-use fvm::externs::Rand;
-use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
+use forest_shim::{error::ExitCode, Inner};
+use fvm::{
+    executor::{ApplyRet, DefaultExecutor},
+    externs::Rand,
+    machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig},
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::receipt::Receipt;
-use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
+use fvm_shared::{
+    address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt,
+    BLOCK_GAS_LIMIT, METHOD_SEND,
+};
 use num::Zero;
-use std::sync::Arc;
+
+use crate::fvm::ForestExterns;
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
 
