@@ -2481,7 +2481,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28c0190ff0bd3b28bfdd4d0cf9f92faa12880fb0b8ae2054723dd6c76a4efd42"
 dependencies = [
  "cfg-if 1.0.0",
- "rustix 0.36.7",
+ "rustix 0.36.8",
  "windows-sys 0.42.0",
 ]
 
