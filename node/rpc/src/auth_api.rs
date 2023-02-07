@@ -1,12 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-
 use forest_auth::*;
 use forest_beacon::Beacon;
 use forest_rpc_api::{auth_api::*, data_types::RPCState};
 use fvm_ipld_blockstore::Blockstore;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// RPC call to create a new JWT Token
 pub(crate) async fn auth_new<DB, B>(

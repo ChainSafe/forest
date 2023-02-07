@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use statrs::function::gamma::ln_gamma;
 use std::f64::consts::E;
+
+use statrs::function::gamma::ln_gamma;
 
 const MAX_BLOCKS: usize = 15;
 const MU: f64 = 5.0;
@@ -25,8 +26,8 @@ fn no_winners_prob() -> Vec<f64> {
         .collect()
 }
 
-/// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`], assuming at least
-/// one winner.
+/// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`],
+/// assuming at least one winner.
 fn no_winners_prob_assuming_more_than_one() -> Vec<f64> {
     let cond = (E.powf(5.0) - 1.0).log(E);
     (0..MAX_BLOCKS)
@@ -104,8 +105,7 @@ fn test_block_probability() {
 #[test]
 #[cfg(feature = "slow_tests")]
 fn test_winner_probability() {
-    use rand::thread_rng;
-    use rand::Rng;
+    use rand::{thread_rng, Rng};
     let n = 1_000_000;
     let winner_prob = no_winners_prob();
     let mut sum = 0.0;

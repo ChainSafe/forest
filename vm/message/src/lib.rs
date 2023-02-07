@@ -7,13 +7,11 @@ pub mod signed_message;
 
 pub use chain_message::ChainMessage;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, econ::TokenAmount, MethodNum};
 pub use signed_message::SignedMessage;
 
-use fvm_shared::address::Address;
-use fvm_shared::MethodNum;
-
-/// Message interface to interact with Signed and unsigned messages in a generic context.
+/// Message interface to interact with Signed and unsigned messages in a generic
+/// context.
 pub trait Message {
     /// Returns the from address of the message.
     fn from(&self) -> &Address;

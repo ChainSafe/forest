@@ -3,8 +3,9 @@
 
 //! Differences between serializers
 //!
-//! The serializer created here uses `multihash` and `libipld-json` uses plain `base64`.
-//! That means one has an extra `m` in front of all the encoded byte values, using our serializer.
+//! The serializer created here uses `multihash` and `libipld-json` uses plain
+//! `base64`. That means one has an extra `m` in front of all the encoded byte
+//! values, using our serializer.
 //!
 //! For example:
 //!
@@ -17,12 +18,13 @@
 //! Since `Lotus` is also using `multihash-base64` and we're trying to be
 //! compatible, we cannot switch to `libipld-json`. It may be worthwhile
 //! to reconsider whether we want to stay compatible with Lotus in the future.
-use super::Ipld;
+use std::{collections::BTreeMap, fmt};
+
 use libipld_macro::ipld;
 use multibase::Base;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::BTreeMap;
-use std::fmt;
+
+use super::Ipld;
 
 const BYTES_JSON_KEY: &str = "bytes";
 const INT_JSON_KEY: &str = "int";
@@ -238,10 +240,11 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::*;
 
     #[derive(Clone, Debug, PartialEq)]
     struct IpldWrapper {

@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
 use anyhow::Result;
 use forest_beacon::Beacon;
 use forest_blocks::{
@@ -9,24 +14,18 @@ use forest_blocks::{
     BlockHeader, Tipset,
 };
 use forest_db::Store;
-use forest_json::cid::CidJson;
-use forest_json::message::json::MessageJson;
+use forest_json::{cid::CidJson, message::json::MessageJson};
 use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
-use forest_utils::db::BlockstoreExt;
-use forest_utils::io::AsyncWriterWithChecksum;
+use forest_utils::{db::BlockstoreExt, io::AsyncWriterWithChecksum};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use log::{debug, error};
 use sha2::{digest::Output, Sha256};
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
@@ -115,8 +114,8 @@ where
     Ok(out)
 }
 
-/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file with the same
-/// name but with a `.sha256sum` extension.
+/// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
+/// with the same name but with a `.sha256sum` extension.
 async fn save_checksum(source: &Path, hash: Output<Sha256>) -> Result<()> {
     let encoded_hash = format!("{} {}", hash.encode_hex::<String>(), source.display());
 

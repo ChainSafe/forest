@@ -1,9 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::index::checkpoint_tipsets;
-use super::{index::ChainIndex, tipset_tracker::TipsetTracker, Error};
-use crate::Scale;
+use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
@@ -19,34 +18,42 @@ use forest_interpreter::BlockMessages;
 use forest_ipld::{recurse_links_hash, InsertHash};
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use forest_message::Message as MessageTrait;
-use forest_message::{ChainMessage, SignedMessage};
+use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
 use forest_shim::state_tree::StateTree;
-use forest_utils::db::BlockstoreExt;
-use forest_utils::io::Checksum;
+use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::receipt::Receipt;
+use fvm_shared::{
+    address::Address,
+    clock::ChainEpoch,
+    crypto::signature::{Signature, SignatureType},
+    econ::TokenAmount,
+    message::Message,
+    receipt::Receipt,
+};
 use log::{debug, info, trace, warn};
 use lru::LruCache;
 use parking_lot::Mutex;
 use serde::Serialize;
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::{collections::VecDeque, time::SystemTime};
-use tokio::io::AsyncWrite;
-use tokio::sync::broadcast::{self, Sender as Publisher};
-use tokio::sync::Mutex as TokioMutex;
+use tokio::{
+    io::AsyncWrite,
+    sync::{
+        broadcast::{self, Sender as Publisher},
+        Mutex as TokioMutex,
+    },
+};
 use tokio_util::compat::TokioAsyncWriteCompatExt;
+
+use super::{
+    index::{checkpoint_tipsets, ChainIndex},
+    tipset_tracker::TipsetTracker,
+    Error,
+};
+use crate::Scale;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -58,7 +65,8 @@ const SINK_CAP: usize = 200;
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize =
     forest_utils::const_option!(NonZeroUsize::new(8192));
 
-/// `Enum` for `pubsub` channel that defines message type variant and data contained in message type.
+/// `Enum` for `pubsub` channel that defines message type variant and data
+/// contained in message type.
 #[derive(Clone, Debug)]
 pub enum HeadChange {
     Current(Arc<Tipset>),
@@ -66,9 +74,9 @@ pub enum HeadChange {
     Revert(Arc<Tipset>),
 }
 
-/// Stores chain data such as heaviest tipset and cached tipset info at each epoch.
-/// This structure is thread-safe, and all caches are wrapped in a mutex to allow a consistent
-/// `ChainStore` to be shared across tasks.
+/// Stores chain data such as heaviest tipset and cached tipset info at each
+/// epoch. This structure is thread-safe, and all caches are wrapped in a mutex
+/// to allow a consistent `ChainStore` to be shared across tasks.
 pub struct ChainStore<DB> {
     /// Publisher for head change events
     publisher: Publisher<HeadChange>,
@@ -139,7 +147,8 @@ where
             heaviest: Mutex::new(genesis_ts.clone()),
         };
 
-        // Result intentionally ignored, doesn't matter if heaviest doesn't exist in store yet
+        // Result intentionally ignored, doesn't matter if heaviest doesn't exist in
+        // store yet
         let _ = cs.load_heaviest_tipset();
 
         cs.set_genesis(genesis_block_header)?;
@@ -151,7 +160,8 @@ where
         Ok(cs)
     }
 
-    /// Sets heaviest tipset within `ChainStore` and store its tipset keys under `HEAD_KEY`
+    /// Sets heaviest tipset within `ChainStore` and store its tipset keys under
+    /// `HEAD_KEY`
     pub fn set_heaviest_tipset(&self, ts: Arc<Tipset>) -> Result<(), Error> {
         self.db.write(HEAD_KEY, ts.key().marshal_cbor()?)?;
         *self.heaviest.lock() = ts.clone();
@@ -170,13 +180,14 @@ where
             .map_err(|e| Error::Other(e.to_string()))
     }
 
-    /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid headers.
+    /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
+    /// headers.
     pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
         self.tipset_tracker.add(header);
     }
 
-    /// Writes tipset block headers to data store and updates heaviest tipset with other
-    /// compatible tracked headers.
+    /// Writes tipset block headers to data store and updates heaviest tipset
+    /// with other compatible tracked headers.
     pub fn put_tipset<S>(&self, ts: &Tipset) -> Result<(), Error>
     where
         S: Scale,
@@ -192,12 +203,14 @@ where
         Ok(())
     }
 
-    /// Expands tipset to tipset with all other headers in the same epoch using the tipset tracker.
+    /// Expands tipset to tipset with all other headers in the same epoch using
+    /// the tipset tracker.
     fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
         self.tipset_tracker.expand(header)
     }
 
-    /// Loads heaviest tipset from `datastore` and sets as heaviest in `chainstore`.
+    /// Loads heaviest tipset from `datastore` and sets as heaviest in
+    /// `chainstore`.
     fn load_heaviest_tipset(&self) -> Result<(), Error> {
         let heaviest_ts = match self.db.read(HEAD_KEY)? {
             Some(bz) => self.tipset_from_keys(&from_slice(&bz)?)?,
@@ -250,7 +263,8 @@ where
         checkpoint_tipsets::tipset_hash(tsk)
     }
 
-    /// Determines if provided tipset is heavier than existing known heaviest tipset
+    /// Determines if provided tipset is heavier than existing known heaviest
+    /// tipset
     fn update_heaviest<S>(&self, ts: Arc<Tipset>) -> Result<(), Error>
     where
         S: Scale,
@@ -269,14 +283,16 @@ where
         Ok(())
     }
 
-    /// Checks store if block has already been validated. Key based on the block validation prefix.
+    /// Checks store if block has already been validated. Key based on the block
+    /// validation prefix.
     pub fn is_block_validated(&self, cid: &Cid) -> Result<bool, Error> {
         let key = block_validation_key(cid);
 
         Ok(self.db.exists(key)?)
     }
 
-    /// Marks block as validated in the store. This is retrieved using the block validation prefix.
+    /// Marks block as validated in the store. This is retrieved using the block
+    /// validation prefix.
     pub fn mark_block_as_validated(&self, cid: &Cid) -> Result<(), Error> {
         let key = block_validation_key(cid);
 
@@ -288,7 +304,8 @@ where
     /// - If `prev` is `true`, the tipset before the null round is returned.
     /// - If `prev` is `false`, the tipset following the null round is returned.
     ///
-    /// Returns `None` if the tipset provided was the tipset at the given height.
+    /// Returns `None` if the tipset provided was the tipset at the given
+    /// height.
     pub fn tipset_by_height(
         &self,
         height: ChainEpoch,
@@ -410,7 +427,8 @@ where
         ))
     }
 
-    /// Constructs and returns a full tipset if messages from storage exists - non self version
+    /// Constructs and returns a full tipset if messages from storage exists -
+    /// non self version
     pub fn fill_tipset(&self, ts: &Tipset) -> Option<FullTipset>
     where
         DB: Blockstore,
@@ -492,14 +510,15 @@ where
             .collect()
     }
 
-    /// Retrieves ordered valid messages from a `Tipset`. This will only include messages that will
-    /// be passed through the VM.
+    /// Retrieves ordered valid messages from a `Tipset`. This will only include
+    /// messages that will be passed through the VM.
     pub fn messages_for_tipset(&self, ts: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let bmsgs = self.block_msgs_for_tipset(ts)?;
         Ok(bmsgs.into_iter().flat_map(|bm| bm.messages).collect())
     }
 
-    /// Exports a range of tipsets, as well as the state roots based on the `recent_roots`.
+    /// Exports a range of tipsets, as well as the state roots based on the
+    /// `recent_roots`.
     pub async fn export<W, D>(
         &self,
         tipset: &Tipset,
@@ -537,7 +556,8 @@ where
         let global_pre_time = SystemTime::now();
         info!("chain export started");
 
-        // Walks over tipset and historical data, sending all blocks visited into the car writer.
+        // Walks over tipset and historical data, sending all blocks visited into the
+        // car writer.
         Self::walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
@@ -552,7 +572,8 @@ where
         })
         .await?;
 
-        // Drop sender, to close the channel to write task, which will end when finished writing
+        // Drop sender, to close the channel to write task, which will end when finished
+        // writing
         drop(tx);
 
         // Await on values being written.
@@ -752,8 +773,8 @@ where
     Ok(cids)
 }
 
-/// Attempts to de-serialize to unsigned message or signed message and then returns it as a
-/// [`ChainMessage`].
+/// Attempts to de-serialize to unsigned message or signed message and then
+/// returns it as a [`ChainMessage`].
 pub fn get_chain_message<DB>(db: &DB, key: &Cid) -> Result<ChainMessage, Error>
 where
     DB: Blockstore,
@@ -851,9 +872,10 @@ where
 }
 
 pub mod headchange_json {
-    use super::*;
     use forest_blocks::tipset_json::TipsetJson;
     use serde::{Deserialize, Serialize};
+
+    use super::*;
 
     #[derive(Debug, Deserialize, Serialize)]
     #[serde(rename_all = "lowercase")]
@@ -877,9 +899,11 @@ pub mod headchange_json {
     }
 }
 
-/// Result of persisting a vector of `SignedMessage`s that are to be included in a block.
+/// Result of persisting a vector of `SignedMessage`s that are to be included in
+/// a block.
 ///
-/// The fields are public so they can be partially moved, but they should not be modified.
+/// The fields are public so they can be partially moved, but they should not be
+/// modified.
 pub struct PersistedBlockMessages {
     /// Overall CID to be included in the `BlockHeader`.
     pub msg_cid: Cid,
@@ -887,13 +911,15 @@ pub struct PersistedBlockMessages {
     pub secp_cids: Vec<Cid>,
     /// All CIDs of BLS messages, to be included in `BlockMsg`.
     pub bls_cids: Vec<Cid>,
-    /// Aggregated signature of all BLS messages, to be included in the `BlockHeader`.
+    /// Aggregated signature of all BLS messages, to be included in the
+    /// `BlockHeader`.
     pub bls_agg: Signature,
 }
 
-/// Partition the messages into SECP and BLS variants, store them individually in the IPLD store,
-/// and the corresponding `TxMeta` as well, returning its CID so that it can be put in a block header.
-/// Also return the aggregated BLS signature of all BLS messages.
+/// Partition the messages into SECP and BLS variants, store them individually
+/// in the IPLD store, and the corresponding `TxMeta` as well, returning its CID
+/// so that it can be put in a block header. Also return the aggregated BLS
+/// signature of all BLS messages.
 pub fn persist_block_messages<DB: Blockstore>(
     db: &DB,
     messages: Vec<&SignedMessage>,
@@ -950,12 +976,17 @@ pub fn persist_block_messages<DB: Blockstore>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use cid::multihash::Code::{Blake2b256, Identity};
-    use cid::multihash::MultihashDigest;
-    use cid::Cid;
+    use cid::{
+        multihash::{
+            Code::{Blake2b256, Identity},
+            MultihashDigest,
+        },
+        Cid,
+    };
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
+
+    use super::*;
 
     #[test]
     fn genesis_test() {

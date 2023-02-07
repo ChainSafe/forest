@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{handle_rpc_err, print_rpc_res_bytes, Config};
+use forest_auth::*;
 use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::auth_api::AuthNewParams;
 use forest_rpc_client::auth_new;
 use jsonrpc_v2::Error as JsonRpcError;
 use structopt::StructOpt;
 
-use forest_auth::*;
+use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 
 #[derive(Debug, StructOpt)]
 pub enum AuthCommands {
