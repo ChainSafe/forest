@@ -76,7 +76,7 @@ pub fn read_file_to_string(path: &Path) -> Result<String> {
 /// let config: Config = read_toml(toml_string).unwrap();
 /// assert_eq!(config.name, "forest");
 /// ```
-pub fn read_toml<S>(toml_string: &str) -> Result<S>
+pub fn read_toml<S>(toml_string: &str) -> anyhow::Result<S>
 where
     for<'de> S: serde::de::Deserialize<'de>,
 {
