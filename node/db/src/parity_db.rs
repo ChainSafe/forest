@@ -35,7 +35,7 @@ impl ParityDb {
         let compression = compression_type_from_str(&config.compression_type)?;
         Ok(Options {
             path,
-            sync_wal: true,
+            sync_wal: false,
             sync_data: true,
             stats: config.enable_statistics,
             salt: None,
