@@ -1,5 +1,3 @@
-edition = "2021"
-
 # Doc: https://rust-lang.github.io/rustfmt/
 imports_granularity="Crate"
 group_imports="StdExternalCrate"

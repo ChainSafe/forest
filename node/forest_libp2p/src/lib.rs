@@ -15,8 +15,8 @@ pub mod rpc;
 mod service;
 
 // Re-export some libp2p types
-pub use libp2p::core::PeerId;
 pub use libp2p::{
+    core::PeerId,
     identity::{ed25519, Keypair},
     multiaddr::{Multiaddr, Protocol},
 };
