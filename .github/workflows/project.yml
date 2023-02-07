@@ -3,7 +3,7 @@ name: Add bugs to bugs project
 on:
   issues:
     types:
-      - opened
+      - closed
 
 jobs:
   add-to-project:
@@ -14,5 +14,3 @@ jobs:
         with:
           project-url: https://github.com/orgs/ChainSafe/projects/11
           github-token: ${{ secrets.ACTIONS_PAT }}
-          labeled: bug, needs-triage
-          label-operator: OR
