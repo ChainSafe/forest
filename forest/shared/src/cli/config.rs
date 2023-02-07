@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use core::time::Duration;
+use forest_beacon::TokioConfig;
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
@@ -154,15 +154,6 @@ impl Default for DaemonConfig {
             pid_file: None,
         }
     }
-}
-
-#[derive(Deserialize, Serialize, PartialEq, Eq, Default)]
-pub struct TokioConfig {
-    pub worker_threads_number: usize,
-    pub max_number_of_blocking_threads: usize,
-    pub blocking_thread_keep_alive_timeout: Duration,
-    pub thread_stack_size: usize,
-    pub global_queue_interval: u32,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Default)]

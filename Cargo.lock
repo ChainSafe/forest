@@ -3143,6 +3143,7 @@ dependencies = [
  "chrono",
  "console-subscriber",
  "directories",
+ "forest_beacon",
  "forest_chain_sync",
  "forest_db",
  "forest_libp2p",

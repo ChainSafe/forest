@@ -7,6 +7,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
+use core::time::Duration;
 use forest_shim::version::NetworkVersion;
 use forest_utils::net::{https_client, HyperBodyExt};
 use fvm_shared::clock::ChainEpoch;
@@ -51,6 +52,17 @@ pub struct DrandConfig<'a> {
     pub chain_info: ChainInfo<'a>,
     /// Network type
     pub network_type: DrandNetwork,
+    // Tokio Runtime config
+    pub tokio: TokioConfig,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Default, Clone)]
+pub struct TokioConfig {
+    pub worker_threads_number: usize,
+    pub max_number_of_blocking_threads: usize,
+    pub blocking_thread_keep_alive_timeout: Duration,
+    pub thread_stack_size: usize,
+    pub global_queue_interval: u32,
 }
 
 /// Contains the vector of `BeaconPoint`, which are mappings of epoch to the `Randomness` beacons used.
@@ -202,8 +214,16 @@ impl DrandBeacon {
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
             let server = config.server;
+            let tokio_config = config.tokio.clone();
             let remote_chain_info = std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new()?;
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(tokio_config.worker_threads_number)
+                    .max_blocking_threads(tokio_config.max_number_of_blocking_threads)
+                    .thread_keep_alive(tokio_config.blocking_thread_keep_alive_timeout)
+                    .thread_stack_size(tokio_config.thread_stack_size)
+                    .global_queue_interval(tokio_config.global_queue_interval)
+                    .build()?;
+
                 rt.block_on(async {
                     let client = https_client();
                     let remote_chain_info: ChainInfo = client
