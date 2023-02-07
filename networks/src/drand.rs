@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Cow;
-use std::time::Duration;
+use std::{borrow::Cow, time::Duration};
 
 use forest_beacon::{ChainInfo, DrandConfig, DrandNetwork, TokioConfig};
 

@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_beacon::TokioConfig;
 use std::{path::PathBuf, sync::Arc};
 
+use forest_beacon::TokioConfig;
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;

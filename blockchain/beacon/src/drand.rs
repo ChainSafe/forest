@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use core::time::Duration;
 use std::{borrow::Cow, sync::Arc};
 
 use ahash::HashMap;
@@ -8,7 +9,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};
-use core::time::Duration;
 use forest_shim::version::NetworkVersion;
 use forest_utils::net::{https_client, HyperBodyExt};
 use fvm_shared::clock::ChainEpoch;
