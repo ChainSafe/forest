@@ -8,7 +8,7 @@ use cid::Cid;
 use colored::*;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
-use fvm::state_tree::{ActorState, StateTree};
+use forest_shim::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use libipld_core::ipld::Ipld;
@@ -60,8 +60,11 @@ fn root_to_state_map<BS: Blockstore>(
 ) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
     let mut actors = HashMap::default();
     let state_tree = StateTree::new_from_root(bs, root)?;
-    state_tree.for_each(|addr: Address, actor: &ActorState| {
-        actors.insert(addr, actor.clone());
+    state_tree.for_each(|addr: Address, actor| {
+        actors.insert(
+            addr,
+            forest_shim::state_tree::ActorState::from(actor.clone()),
+        );
         Ok(())
     })?;
 
@@ -85,11 +88,12 @@ fn try_print_actor_states<BS: Blockstore>(
     // Compare state with expected
     let state_tree = StateTree::new_from_root(bs, root)?;
 
-    state_tree.for_each(|addr: Address, actor: &ActorState| {
-        let calc_pp = pp_actor_state(bs, actor, depth)?;
+    state_tree.for_each(|addr: Address, actor| {
+        let actor = forest_shim::state_tree::ActorState::from(actor.clone());
+        let calc_pp = pp_actor_state(bs, &actor, depth)?;
 
         if let Some(other) = e_state.remove(&addr) {
-            if &other != actor {
+            if other != actor {
                 let comma = ",";
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
                 let expected = expected_pp.split(comma).collect::<Vec<&str>>();

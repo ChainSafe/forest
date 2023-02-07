@@ -13,7 +13,7 @@ use forest_db::Store;
 use forest_json::address::json::AddressJson;
 use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_rpc_api::{data_types::RPCState, wallet_api::*};
-use fvm::state_tree::StateTree;
+use forest_shim::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
 use fvm_shared::econ::TokenAmount;
