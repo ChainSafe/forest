@@ -197,6 +197,8 @@ pub fn default_network_version() -> NetworkVersion {
 }
 
 pub mod de_network_version {
+    use std::borrow::Cow;
+
     use forest_shim::version::NetworkVersion;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -204,7 +206,7 @@ pub mod de_network_version {
     where
         D: Deserializer<'de>,
     {
-        let version: &str = Deserialize::deserialize(deserializer)?;
+        let version: Cow<str> = Deserialize::deserialize(deserializer)?;
         let version = version.to_lowercase();
 
         match version.as_str() {
