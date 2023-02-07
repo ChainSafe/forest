@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::str::FromStr;
+
 use data_encoding::{DecodeError, DecodeKind};
 use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::address::{
-    checksum, validate_checksum, Address, Protocol, BLS_PUB_LEN, SECP_PUB_LEN,
+    checksum, validate_checksum, Address, Error, Network, Protocol, BLS_PUB_LEN, SECP_PUB_LEN,
 };
-use fvm_shared::address::{Error, Network};
-use std::str::FromStr;
 
 #[test]
 fn bytes() {
@@ -15,7 +15,8 @@ fn bytes() {
     let new_addr = Address::new_secp256k1(&data).unwrap();
     let encoded_bz = new_addr.to_bytes();
 
-    // Assert decoded address equals the original address and a new one with the same data
+    // Assert decoded address equals the original address and a new one with the
+    // same data
     let decoded_addr = Address::from_bytes(&encoded_bz).unwrap();
     assert!(decoded_addr == new_addr);
     assert!(decoded_addr == Address::new_secp256k1(&data).unwrap());

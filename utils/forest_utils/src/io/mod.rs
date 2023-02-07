@@ -5,19 +5,22 @@ pub mod progress_bar;
 mod tempfile;
 mod writer_checksum;
 
+use std::{
+    fs::{create_dir_all, File},
+    io::{prelude::*, Result},
+    path::Path,
+};
+
 pub use progress_bar::{ProgressBar, ProgressBarVisibility};
 pub use tempfile::*;
 pub use writer_checksum::*;
 
-use std::fs::{create_dir_all, File};
-use std::io::{prelude::*, Result};
-use std::path::Path;
-
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]
 pub fn set_user_perm(file: &File) -> Result<()> {
-    use log::info;
     use std::os::unix::fs::PermissionsExt;
+
+    use log::info;
 
     let mut perm = file.metadata()?.permissions();
     #[allow(clippy::useless_conversion)] // Otherwise it does not build on macos
@@ -34,8 +37,9 @@ pub fn set_user_perm(file: &File) -> Result<()> {
     Ok(())
 }
 
-/// Writes a string to a specified file. Creates the desired path if it does not exist.
-/// Note: `path` and `filename` are appended to produce the resulting file path.
+/// Writes a string to a specified file. Creates the desired path if it does not
+/// exist. Note: `path` and `filename` are appended to produce the resulting
+/// file path.
 pub fn write_to_file(message: &[u8], path: &Path, file_name: &str) -> Result<File> {
     // Create path if it doesn't exist
     create_dir_all(path)?;

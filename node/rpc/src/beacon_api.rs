@@ -1,14 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-
-use forest_beacon::json::BeaconEntryJson;
-use forest_beacon::Beacon;
+use forest_beacon::{json::BeaconEntryJson, Beacon};
 use forest_db::Store;
-use forest_rpc_api::beacon_api::*;
-use forest_rpc_api::data_types::RPCState;
+use forest_rpc_api::{beacon_api::*, data_types::RPCState};
 use fvm_ipld_blockstore::Blockstore;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry

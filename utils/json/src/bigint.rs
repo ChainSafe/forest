@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
+    use std::str::FromStr;
+
     use num_bigint::BigInt;
     use serde::{Deserialize, Serialize};
-    use std::str::FromStr;
 
     /// Serializes `BigInt` as String
     pub fn serialize<S>(int: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
@@ -24,8 +25,9 @@ pub mod json {
     }
 
     pub mod option {
-        use super::*;
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::*;
 
         pub fn serialize<S>(v: &Option<BigInt>, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -51,9 +53,10 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use num::BigInt;
     use quickcheck_macros::quickcheck;
+
+    use super::*;
 
     #[quickcheck]
     fn bigint_roundtrip(bigint: BigInt) {

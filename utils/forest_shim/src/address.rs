@@ -1,13 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::address::Address as Address_v2;
-use fvm_shared3::address::Address as Address_v3;
-use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
 };
+
+use fvm_shared::address::Address as Address_v2;
+use fvm_shared3::address::Address as Address_v3;
+use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]

@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, Store};
+use std::sync::Arc;
+
 use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
-use std::sync::Arc;
+
+use super::{Error, Store};
 
 /// A thread-safe `HashMap` wrapper.
 #[derive(Debug, Default, Clone)]

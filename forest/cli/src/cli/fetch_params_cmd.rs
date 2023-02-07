@@ -1,13 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::Config;
-use structopt::StructOpt;
-
 use forest_paramfetch::{get_params_default, SectorSizeOpt};
 use fvm_shared::sector::SectorSize;
+use structopt::StructOpt;
 
 use super::cli_error_and_die;
+use crate::cli::Config;
 
 #[allow(missing_docs)]
 #[derive(Debug, StructOpt)]
@@ -45,7 +44,8 @@ impl FetchCommands {
 
 /// Converts a human readable string to a `u64` size.
 fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
-    // * there is no library to do this, but if other sector sizes are supported in future
+    // * there is no library to do this, but if other sector sizes are supported in
+    //   future
     // this should probably be changed to parse from string to `SectorSize`
     let mut trimmed = size.trim_end_matches('B');
     trimmed = trimmed.trim_end_matches('b');

@@ -1,16 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::convert::TryFrom;
+
 use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
-use fvm_shared::message::Message;
+use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
 use num::BigInt;
-use std::convert::TryFrom;
 
 #[test]
 fn convert_single_tipset_bundle() {
@@ -117,7 +116,8 @@ fn tipset_bundle_to_full_tipset() {
     );
 
     if let Some(m) = tsb.messages.as_mut() {
-        // Invalidate tipset bundle by not having includes same length as number of blocks
+        // Invalidate tipset bundle by not having includes same length as number of
+        // blocks
         m.secp_msg_includes = vec![vec![0]];
     }
     assert!(

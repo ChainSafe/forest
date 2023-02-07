@@ -1,6 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Cow;
+
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
@@ -9,16 +12,16 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::deal::DealID;
-use fvm_shared::sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize};
-use fvm_shared::{address::Address, econ::TokenAmount};
+use fvm_shared::{
+    address::Address,
+    clock::ChainEpoch,
+    deal::DealID,
+    econ::TokenAmount,
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize},
+};
 use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
-
-use anyhow::Context;
 
 use crate::power::Claim;
 /// Miner actor method.
@@ -118,7 +121,8 @@ impl State {
         }
     }
 
-    /// Loads sectors corresponding to the bitfield. If no bitfield is passed in, return all.
+    /// Loads sectors corresponding to the bitfield. If no bitfield is passed
+    /// in, return all.
     pub fn load_sectors<BS: Blockstore>(
         &self,
         store: &BS,
@@ -317,8 +321,9 @@ impl Partition<'_> {
 }
 
 mod peer_id_json {
-    use super::*;
     use serde::Serializer;
+
+    use super::*;
 
     pub fn serialize<S>(m: &Option<PeerId>, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -351,10 +356,12 @@ pub struct SectorOnChainInfo {
     /// Pledge collected to commit this sector
     #[serde(with = "forest_json::token_amount::json")]
     pub initial_pledge: TokenAmount,
-    /// Expected one day projection of reward for sector computed at activation time
+    /// Expected one day projection of reward for sector computed at activation
+    /// time
     #[serde(with = "forest_json::token_amount::json")]
     pub expected_day_reward: TokenAmount,
-    /// Expected twenty day projection of reward for sector computed at activation time
+    /// Expected twenty day projection of reward for sector computed at
+    /// activation time
     #[serde(with = "forest_json::token_amount::json")]
     pub expected_storage_pledge: TokenAmount,
 }

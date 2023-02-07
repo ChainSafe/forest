@@ -1,10 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{
-    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
-    TipsetBundle,
-};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use forest_blocks::{Tipset, TipsetKeys};
@@ -12,6 +8,11 @@ use forest_chain::{ChainStore, Error as ChainError};
 use forest_db::Store;
 use fvm_ipld_blockstore::Blockstore;
 use log::debug;
+
+use super::{
+    ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
+    TipsetBundle,
+};
 
 /// Builds chain exchange response out of chain data.
 pub fn make_chain_exchange_response<DB>(
@@ -60,7 +61,8 @@ where
 
         if request.include_blocks() {
             // TODO Cloning blocks isn't ideal, this can maybe be switched to serialize this
-            // data in the function. This may not be possible without overriding rpc in libp2p
+            // data in the function. This may not be possible without overriding rpc in
+            // libp2p
             tipset_bundle.blocks = tipset.blocks().to_vec();
         }
 
@@ -146,17 +148,21 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::{HEADERS, MESSAGES};
-    use super::*;
+    use std::sync::Arc;
+
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
     use forest_networks::ChainConfig;
     use fvm_ipld_car::load_car;
     use fvm_shared::address::Address;
-    use std::sync::Arc;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
+
+    use super::{
+        super::{HEADERS, MESSAGES},
+        *,
+    };
 
     async fn populate_db() -> (Vec<Cid>, MemoryDB) {
         let db = MemoryDB::default();
@@ -203,7 +209,8 @@ mod tests {
         assert_eq!(ts_39_msgs.secp_msgs.len(), 22);
         // ... 12 unsigned messages
         assert_eq!(ts_39_msgs.bls_msgs.len(), 12);
-        // Compacted message will contain 1 secp_includes array (since only 1 block in tipset).
+        // Compacted message will contain 1 secp_includes array (since only 1 block in
+        // tipset).
         assert_eq!(ts_39_msgs.secp_msg_includes.len(), 1);
         // and 1 bls_includes.
         assert_eq!(ts_39_msgs.bls_msg_includes.len(), 1);
@@ -225,7 +232,8 @@ mod tests {
         assert_eq!(ts_38_msgs.secp_msg_includes.len(), 2);
         assert_eq!(ts_38_msgs.bls_msg_includes.len(), 2);
 
-        // Since the messages are duplicated in blocks, each `include` will have them all
+        // Since the messages are duplicated in blocks, each `include` will have them
+        // all
         assert_eq!(ts_38_msgs.secp_msg_includes[0].len(), 1);
         assert_eq!(ts_38_msgs.bls_msg_includes[0].len(), 11);
         assert_eq!(ts_38_msgs.secp_msg_includes[1].len(), 1);

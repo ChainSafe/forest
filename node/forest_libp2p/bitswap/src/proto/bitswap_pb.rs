@@ -59,17 +59,20 @@ pub mod message {
             Have = 1,
         }
         impl WantType {
-            /// String value of the enum field names used in the ProtoBuf definition.
+            /// String value of the enum field names used in the ProtoBuf
+            /// definition.
             ///
-            /// The values are not transformed in any way and thus are considered stable
-            /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+            /// The values are not transformed in any way and thus are
+            /// considered stable (if the ProtoBuf definition does
+            /// not change) and safe for programmatic use.
             pub fn as_str_name(&self) -> &'static str {
                 match self {
                     WantType::Block => "Block",
                     WantType::Have => "Have",
                 }
             }
-            /// Creates an enum from field names used in the ProtoBuf definition.
+            /// Creates an enum from field names used in the ProtoBuf
+            /// definition.
             pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
                 match value {
                     "Block" => Some(Self::Block),
@@ -82,7 +85,8 @@ pub mod message {
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct Block {
-        /// CID prefix (cid version, multicodec and multihash prefix (type + length)
+        /// CID prefix (cid version, multicodec and multihash prefix (type +
+        /// length)
         #[prost(bytes = "vec", tag = "1")]
         pub prefix: ::prost::alloc::vec::Vec<u8>,
         #[prost(bytes = "vec", tag = "2")]
@@ -103,10 +107,12 @@ pub mod message {
         DontHave = 1,
     }
     impl BlockPresenceType {
-        /// String value of the enum field names used in the ProtoBuf definition.
+        /// String value of the enum field names used in the ProtoBuf
+        /// definition.
         ///
-        /// The values are not transformed in any way and thus are considered stable
-        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        /// The values are not transformed in any way and thus are considered
+        /// stable (if the ProtoBuf definition does not change) and safe
+        /// for programmatic use.
         pub fn as_str_name(&self) -> &'static str {
             match self {
                 BlockPresenceType::Have => "Have",

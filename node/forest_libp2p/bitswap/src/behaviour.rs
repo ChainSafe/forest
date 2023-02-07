@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{codec::*, protocol::*, request_manager::*, *};
+use std::sync::Arc;
+
 use libp2p::{
     request_response::{
         ProtocolSupport, RequestId, RequestResponse, RequestResponseConfig, RequestResponseEvent,
@@ -9,12 +10,14 @@ use libp2p::{
     swarm::NetworkBehaviour,
     PeerId,
 };
-use std::sync::Arc;
+
+use crate::{codec::*, protocol::*, request_manager::*, *};
 
 /// `libp2p` swarm network behaviour event of `bitswap`
 pub type BitswapBehaviourEvent = RequestResponseEvent<Vec<BitswapMessage>, ()>;
 
-/// A `go-bitswap` compatible protocol that is built on top of [RequestResponse].
+/// A `go-bitswap` compatible protocol that is built on top of
+/// [RequestResponse].
 pub struct BitswapBehaviour {
     inner: RequestResponse<BitswapRequestResponseCodec>,
     request_manager: Arc<BitswapRequestManager>,
