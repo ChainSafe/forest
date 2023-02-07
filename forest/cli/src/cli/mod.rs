@@ -19,28 +19,24 @@ mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
-pub(super) use self::auth_cmd::AuthCommands;
-pub(super) use self::chain_cmd::ChainCommands;
-pub(super) use self::db_cmd::DBCommands;
-pub(super) use self::fetch_params_cmd::FetchCommands;
-pub(super) use self::mpool_cmd::MpoolCommands;
-pub(super) use self::net_cmd::NetCommands;
-pub(super) use self::send_cmd::SendCommand;
-pub(super) use self::snapshot_cmd::SnapshotCommands;
-pub(super) use self::state_cmd::StateCommands;
-pub(super) use self::sync_cmd::SyncCommands;
-pub(super) use self::wallet_cmd::WalletCommands;
-pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
+use std::io::{self, Write};
 
-use crate::cli::config_cmd::ConfigCommands;
 use cid::Cid;
 use forest_blocks::tipset_json::TipsetJson;
 use forest_cli_shared::cli::CliOpts;
+pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
-use std::io::{self, Write};
 use structopt::StructOpt;
+
+pub(super) use self::{
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, db_cmd::DBCommands,
+    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+};
+use crate::cli::config_cmd::ConfigCommands;
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(StructOpt)]

@@ -2,29 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Contains routines for message selection APIs.
-//! Whenever a miner is ready to create a block for a tipset, it invokes the `select_messages` API
-//! which selects an appropriate set of messages such that it optimizes miner reward and chain capacity.
-//! See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
+//! Whenever a miner is ready to create a block for a tipset, it invokes the
+//! `select_messages` API which selects an appropriate set of messages such that
+//! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-use super::msg_pool::MessagePool;
-use super::provider::Provider;
-use crate::msg_chain::{create_message_chains, Chains, NodeKey};
-use crate::msg_pool::MsgSet;
-use crate::msgpool::MIN_GAS;
-use crate::Error;
-use crate::{add_to_selected_msgs, remove_from_selected_msgs};
+use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
+
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
-use forest_message::Message;
-use forest_message::SignedMessage;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
+use forest_message::{Message, SignedMessage};
+use fvm_shared::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
-use rand::prelude::SliceRandom;
-use rand::thread_rng;
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
-use std::sync::Arc;
+use rand::{prelude::SliceRandom, thread_rng};
+
+use super::{msg_pool::MessagePool, provider::Provider};
+use crate::{
+    add_to_selected_msgs,
+    msg_chain::{create_message_chains, Chains, NodeKey},
+    msg_pool::MsgSet,
+    msgpool::MIN_GAS,
+    remove_from_selected_msgs, Error,
+};
 
 type Pending = HashMap<Address, HashMap<u64, SignedMessage>>;
 
@@ -41,10 +39,11 @@ where
     /// This method selects messages for including in a block.
     pub fn select_messages(&self, ts: &Tipset, tq: f64) -> Result<Vec<SignedMessage>, Error> {
         let cur_ts = self.cur_tipset.lock().clone();
-        // if the ticket quality is high enough that the first block has higher probability
-        // than any other block, then we don't bother with optimal selection because the
-        // first block will always have higher effective performance. Otherwise we select
-        // message optimally based on effective performance of chains.
+        // if the ticket quality is high enough that the first block has higher
+        // probability than any other block, then we don't bother with optimal
+        // selection because the first block will always have higher effective
+        // performance. Otherwise we select message optimally based on effective
+        // performance of chains.
         let mut msgs = if tq > 0.84 {
             self.select_messages_greedy(&cur_ts, ts)
         } else {
@@ -65,8 +64,8 @@ where
     ) -> Result<Vec<SignedMessage>, Error> {
         let base_fee = self.api.chain_compute_base_fee(ts)?;
 
-        // 0. Load messages from the target tipset; if it is the same as the current tipset in
-        //    the mpool, then this is just the pending messages
+        // 0. Load messages from the target tipset; if it is the same as the current
+        // tipset in    the mpool, then this is just the pending messages
         let mut pending = self.get_pending_messages(cur_ts, ts)?;
 
         if pending.is_empty() {
@@ -80,7 +79,8 @@ where
             return Ok(result);
         }
 
-        // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
+        // 1. Create a list of dependent message chains with maximal gas reward per
+        // limit consumed
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
             create_message_chains(
@@ -106,8 +106,8 @@ where
     ) -> Result<Vec<SignedMessage>, Error> {
         let base_fee = self.api.chain_compute_base_fee(target_tipset)?;
 
-        // 0. Load messages from the target tipset; if it is the same as the current tipset in
-        //    the mpool, then this is just the pending messages
+        // 0. Load messages from the target tipset; if it is the same as the current
+        // tipset in    the mpool, then this is just the pending messages
         let mut pending = self.get_pending_messages(cur_ts, target_tipset)?;
 
         if pending.is_empty() {
@@ -123,7 +123,8 @@ where
             return Ok(result);
         }
 
-        // 1. Create a list of dependent message chains with maximal gas reward per limit consumed
+        // 1. Create a list of dependent message chains with maximal gas reward per
+        // limit consumed
         let mut chains = Chains::new();
         for (actor, mset) in pending.into_iter() {
             create_message_chains(
@@ -149,8 +150,9 @@ where
         }
 
         // 3. Partition chains into blocks (without trimming)
-        //    we use the full block_gas_limit (as opposed to the residual `gas_limit` from the
-        //    priority message selection) as we have to account for what other miners are doing
+        //    we use the full block_gas_limit (as opposed to the residual `gas_limit`
+        // from the    priority message selection) as we have to account for
+        // what other miners are doing
         let mut next_chain = 0;
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
@@ -168,8 +170,9 @@ where
             i += 1;
         }
 
-        // 4. Compute effective performance for each chain, based on the partition they fall into
-        //    The effective performance is the gas_perf of the chain * block probability
+        // 4. Compute effective performance for each chain, based on the partition they
+        // fall into    The effective performance is the gas_perf of the chain *
+        // block probability
         let block_prob = crate::block_probabilities(ticket_quality);
         let mut eff_chains = 0;
         for i in 0..MAX_BLOCKS {
@@ -191,10 +194,10 @@ where
         // 5. Re-sort the chains based on effective performance
         chains.sort_effective();
 
-        // 6. Merge the head chains to produce the list of messages selected for inclusion
-        //    subject to the residual gas limit
-        //    When a chain is merged in, all its previous dependent chains *must* also be
-        //    merged in or we'll have a broken block
+        // 6. Merge the head chains to produce the list of messages selected for
+        // inclusion    subject to the residual gas limit
+        //    When a chain is merged in, all its previous dependent chains *must* also
+        // be    merged in or we'll have a broken block
         let mut last = chains.len();
         for i in 0..chains.len() {
             // did we run out of performing chains?
@@ -207,7 +210,8 @@ where
                 continue;
             }
 
-            // compute the dependencies that must be merged and the gas limit including dependencies
+            // compute the dependencies that must be merged and the gas limit including
+            // dependencies
             let mut chain_gas_limit = chains[i].gas_limit;
             let mut chain_deps = vec![];
             let mut cur_chain = chains[i].prev;
@@ -259,25 +263,27 @@ where
                 result.extend(chains[i].msgs.clone());
                 gas_limit -= chain_gas_limit;
 
-                // re-sort to account for already merged chains and effective performance adjustments
-                // the sort *must* be stable or we end up getting negative gasPerfs pushed up.
+                // re-sort to account for already merged chains and effective performance
+                // adjustments the sort *must* be stable or we end up getting
+                // negative gasPerfs pushed up.
                 chains.sort_range_effective(i + 1..);
 
                 continue;
             }
 
-            // we can't fit this chain and its dependencies because of block gasLimit -- we are
-            // at the edge
+            // we can't fit this chain and its dependencies because of block gasLimit -- we
+            // are at the edge
             last = i;
             break;
         }
 
-        // 7. We have reached the edge of what can fit wholesale; if we still hae available
-        //    gasLimit to pack some more chains, then trim the last chain and push it down.
-        //    Trimming invalidaates subsequent dependent chains so that they can't be selected
-        //    as their dependency cannot be (fully) included.
-        //    We do this in a loop because the blocker might have been inordinately large and
-        //    we might have to do it multiple times to satisfy tail packing
+        // 7. We have reached the edge of what can fit wholesale; if we still hae
+        // available    gasLimit to pack some more chains, then trim the last
+        // chain and push it down.    Trimming invalidaates subsequent dependent
+        // chains so that they can't be selected    as their dependency cannot
+        // be (fully) included.    We do this in a loop because the blocker
+        // might have been inordinately large and    we might have to do it
+        // multiple times to satisfy tail packing
         'tail_loop: while gas_limit >= MIN_GAS && last < chains.len() {
             // trim if necessary
             if chains[last].gas_limit > gas_limit {
@@ -344,8 +350,8 @@ where
                     }
                 }
 
-                // it doesn't all fit; now we have to take into account the dependent chains before
-                // making a decision about trimming or invalidating.
+                // it doesn't all fit; now we have to take into account the dependent chains
+                // before making a decision about trimming or invalidating.
                 // if the dependencies exceed the gas limit, then we must invalidate the chain
                 // as it can never be included.
                 // Otherwise we can just trim and continue
@@ -362,13 +368,14 @@ where
                 continue 'tail_loop;
             }
 
-            // the merge loop ended after processing all the chains and we we probably have still
-            // gas to spare; end the loop.
+            // the merge loop ended after processing all the chains and we we probably have
+            // still gas to spare; end the loop.
             break;
         }
 
-        // if we have gasLimit to spare, pick some random (non-negative) chains to fill the block
-        // we pick randomly so that we minimize the probability of duplication among all miners
+        // if we have gasLimit to spare, pick some random (non-negative) chains to fill
+        // the block we pick randomly so that we minimize the probability of
+        // duplication among all miners
         if gas_limit >= MIN_GAS {
             let mut random_count = 0;
 
@@ -542,7 +549,8 @@ fn merge_and_trim(
         return (Vec::new(), gas_limit);
     }
 
-    // 3. Merge chains until the block limit, as long as they have non-negative gas performance
+    // 3. Merge chains until the block limit, as long as they have non-negative gas
+    // performance
     let mut last = chains.len();
     let chain_len = chains.len();
     for i in 0..chain_len {
@@ -622,7 +630,8 @@ pub(crate) fn run_head_change<T>(
 where
     T: Provider,
 {
-    // TODO: This logic should probably be implemented in the ChainStore. It handles reorgs.
+    // TODO: This logic should probably be implemented in the ChainStore. It handles
+    // reorgs.
     let mut left = Arc::new(from);
     let mut right = Arc::new(to);
     let mut left_chain = Vec::new();
@@ -666,17 +675,22 @@ where
 
 #[cfg(test)]
 mod test_selection {
-    use super::*;
+    use std::sync::Arc;
 
-    use crate::head_change;
-    use crate::msgpool::test_provider::{mock_block, TestApi};
-    use crate::msgpool::tests::create_smsg;
     use forest_db::MemoryDB;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::Message;
     use fvm_shared::crypto::signature::SignatureType;
-    use std::sync::Arc;
     use tokio::task::JoinSet;
+
+    use super::*;
+    use crate::{
+        head_change,
+        msgpool::{
+            test_provider::{mock_block, TestApi},
+            tests::create_smsg,
+        },
+    };
 
     const TEST_GAS_LIMIT: i64 = 6955002;
 
@@ -734,8 +748,9 @@ mod test_selection {
         api.set_state_balance_raw(&a1, TokenAmount::from_whole(1));
         api.set_state_balance_raw(&a2, TokenAmount::from_whole(1));
 
-        // we create 10 messages from each actor to another, with the first actor paying higher
-        // gas prices than the second; we expect message selection to order his messages first
+        // we create 10 messages from each actor to another, with the first actor paying
+        // higher gas prices than the second; we expect message selection to
+        // order his messages first
         for i in 0..10 {
             let m = create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1);
             mpool.add(m).unwrap();
@@ -821,9 +836,9 @@ mod test_selection {
                 .add(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1))
                 .unwrap();
         }
-        // select messages in the last tipset; this should include the missed messages as well as
-        // the last messages we added, with the first actor's messages first
-        // first we need to update the nonce on the api
+        // select messages in the last tipset; this should include the missed messages
+        // as well as the last messages we added, with the first actor's
+        // messages first first we need to update the nonce on the api
         mpool.api.set_state_sequence(&a1, 10);
         mpool.api.set_state_sequence(&a2, 10);
         let msgs = mpool.select_messages(&ts3, 1.0).unwrap();
@@ -1075,8 +1090,9 @@ mod test_selection {
 
         let n_msgs = 10 * fvm_shared::BLOCK_GAS_LIMIT / TEST_GAS_LIMIT;
 
-        // we create 10 messages from each actor to another, with the first actor paying higher
-        // gas prices than the second; we expect message selection to order his messages first
+        // we create 10 messages from each actor to another, with the first actor paying
+        // higher gas prices than the second; we expect message selection to
+        // order his messages first
         for i in 0..(n_msgs as usize) {
             let bias = (n_msgs as usize - i) / 3;
             let m = create_smsg(
@@ -1114,8 +1130,8 @@ mod test_selection {
         let mut joinset = JoinSet::new();
         // this test uses two actors sending messages to each other, with the first
         // actor paying (much) higher gas premium than the second.
-        // We select with a low ticket quality; the chain depenent merging algorithm should pick
-        // messages from the second actor from the start
+        // We select with a low ticket quality; the chain depenent merging algorithm
+        // should pick messages from the second actor from the start
         let mpool = make_test_mpool(&mut joinset);
 
         // create two actors
@@ -1224,10 +1240,11 @@ mod test_selection {
     #[tokio::test]
     async fn test_optimal_message_selection3() {
         let mut joinset = JoinSet::new();
-        // this test uses 10 actors sending a block of messages to each other, with the the first
-        // actors paying higher gas premium than the subsequent actors.
-        // We select with a low ticket quality; the chain depenent merging algorithm should pick
-        // messages from the median actor from the start
+        // this test uses 10 actors sending a block of messages to each other, with the
+        // the first actors paying higher gas premium than the subsequent
+        // actors. We select with a low ticket quality; the chain depenent
+        // merging algorithm should pick messages from the median actor from the
+        // start
         let mpool = make_test_mpool(&mut joinset);
 
         let n_actors = 10;
@@ -1306,7 +1323,8 @@ mod test_selection {
                     return i;
                 }
             }
-            // Lotus has -1, but since we don't have -ve indexes, set it some unrealistic number
+            // Lotus has -1, but since we don't have -ve indexes, set it some unrealistic
+            // number
             9999999
         };
 

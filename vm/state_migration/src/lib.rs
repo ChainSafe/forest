@@ -4,16 +4,17 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
+use std::sync::Arc;
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
-use forest_shim::state_tree::{ActorState, StateTree};
-use forest_shim::Inner;
+use forest_shim::{
+    state_tree::{ActorState, StateTree},
+    Inner,
+};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use rayon::ThreadPoolBuildError;
-use std::sync::Arc;
 
 // pub mod nv12;
 

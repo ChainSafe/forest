@@ -1,9 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{prefix::Prefix, *};
 use pb::bitswap_pb;
 use protobuf::{EnumOrUnknown, Message};
+
+use crate::{prefix::Prefix, *};
 
 /// Type of a `bitswap` request
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -85,7 +86,8 @@ pub enum BitswapResponse {
     Block(Vec<u8>),
 }
 
-/// `Bitswap` message enum type that is either a [BitswapRequest] or a [BitswapResponse]
+/// `Bitswap` message enum type that is either a [BitswapRequest] or a
+/// [BitswapResponse]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BitswapMessage {
     Request(BitswapRequest),

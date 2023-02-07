@@ -1,34 +1,39 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
+use std::{
+    fmt::Display,
+    fs::{self, create_dir, File},
+    io::{BufReader, BufWriter, ErrorKind, Read, Write},
+    path::{Path, PathBuf},
+};
+
 use ahash::{HashMap, HashMapExt};
-use argon2::password_hash::SaltString;
-use argon2::{Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN};
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
+use argon2::{
+    password_hash::SaltString, Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN,
+};
+use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_shared::crypto::signature::SignatureType;
 use log::{error, warn};
-use rand::rngs::OsRng;
-use rand::RngCore;
+use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-use std::fs::{self, create_dir, File};
-use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
-use std::path::{Path, PathBuf};
 use thiserror::Error;
-use xsalsa20poly1305::aead::{generic_array::GenericArray, Aead};
-use xsalsa20poly1305::{KeyInit, XSalsa20Poly1305, NONCE_SIZE};
+use xsalsa20poly1305::{
+    aead::{generic_array::GenericArray, Aead},
+    KeyInit, XSalsa20Poly1305, NONCE_SIZE,
+};
+
+use super::errors::Error;
 
 pub const KEYSTORE_NAME: &str = "keystore.json";
 pub const ENCRYPTED_KEYSTORE_NAME: &str = "keystore";
 
 type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
 
-// TODO need to update keyinfo to not use SignatureType, use string instead to save keys like
-// jwt secret
-/// `KeyInfo` structure, this contains the type of key (stored as a string) and the private key.
-/// Note how the private key is stored as a byte vector
+// TODO need to update keyinfo to not use SignatureType, use string instead to
+// save keys like jwt secret
+/// `KeyInfo` structure, this contains the type of key (stored as a string) and
+/// the private key. Note how the private key is stored as a byte vector
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
 pub struct KeyInfo {
     key_type: SignatureType,
@@ -63,9 +68,10 @@ impl KeyInfo {
 }
 
 pub mod json {
-    use super::*;
     use forest_json::signature::json::signature_type::SignatureTypeJson;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `KeyInfo` from JSON.
     #[derive(Clone, Deserialize, Serialize, Debug, PartialEq, Eq)]
@@ -156,7 +162,8 @@ pub enum EncryptedKeyStoreError {
     /// An error occurred while encrypting keys
     #[error("Error encrypting data")]
     EncryptionError,
-    /// Unlock called without `encrypted_keystore` being enabled in `config.toml`
+    /// Unlock called without `encrypted_keystore` being enabled in
+    /// `config.toml`
     #[error("Error with forest configuration")]
     ConfigurationError,
 }
@@ -486,13 +493,15 @@ fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::json::{KeyInfoJson, KeyInfoJsonRef};
-    use crate::wallet;
     use anyhow::*;
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use quickcheck_macros::quickcheck;
+
+    use super::*;
+    use crate::{
+        json::{KeyInfoJson, KeyInfoJsonRef},
+        wallet,
+    };
 
     const PASSPHRASE: &str = "foobarbaz";
 

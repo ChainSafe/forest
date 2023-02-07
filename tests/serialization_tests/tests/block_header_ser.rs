@@ -3,13 +3,13 @@
 
 #![cfg(feature = "submodule_tests")]
 
+use std::{fs::File, io::prelude::*};
+
 use cid::Cid;
 use forest_blocks::{header, BlockHeader};
 use fvm_ipld_encoding::to_vec;
 use hex::encode;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::prelude::*;
 
 #[derive(Deserialize)]
 struct BlockHeaderVector {

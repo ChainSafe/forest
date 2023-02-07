@@ -1,10 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{ArbitraryCid, BlockHeader};
 use cid::Cid;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::Cbor;
+
+use crate::{ArbitraryCid, BlockHeader};
 
 /// Block message used as serialized `gossipsub` messages for blocks topic.
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -33,9 +34,10 @@ impl quickcheck::Arbitrary for GossipBlock {
 impl Cbor for GossipBlock {}
 
 pub mod json {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
     use super::*;
     use crate::header;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// Wrapper for serializing and de-serializing a `GossipBlock` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -98,9 +100,12 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{GossipBlockJson, GossipBlockJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::{
+        json::{GossipBlockJson, GossipBlockJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn gossip_block_roundtrip(block: GossipBlock) {

@@ -69,9 +69,10 @@ impl<D: Digest, W> AsyncWriterWithChecksum<D, W> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use sha2::{Sha256, Sha512};
     use tokio::io::{AsyncWriteExt, BufWriter};
+
+    use super::*;
 
     #[tokio::test]
     async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum() {

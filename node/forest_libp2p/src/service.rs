@@ -1,58 +1,56 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::chain_exchange::{
-    make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
+use std::{
+    path::Path,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
-use crate::discovery::DiscoveryOut;
-use crate::hello::HelloBehaviour;
-use crate::{
-    hello::{HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-};
-use crate::{PeerManager, PeerOperation};
+
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_libp2p_bitswap::request_manager::BitswapRequestManager;
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use forest_libp2p_bitswap::{
+    request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
+};
 use forest_message::SignedMessage;
 use forest_utils::io::read_file_to_vec;
-use futures::channel::oneshot::Sender as OneShotSender;
-use futures::select;
+use futures::{channel::oneshot::Sender as OneShotSender, select};
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
-use libp2p::gossipsub::GossipsubEvent;
-pub use libp2p::gossipsub::IdentTopic;
-pub use libp2p::gossipsub::Topic;
-use libp2p::metrics::{Metrics, Recorder};
-use libp2p::multiaddr::Protocol;
-use libp2p::multihash::Multihash;
-use libp2p::ping::{self};
-use libp2p::request_response::{
-    RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
-};
+pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     core,
-    core::muxing::StreamMuxerBox,
-    core::transport::Boxed,
+    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    gossipsub::GossipsubEvent,
     identity::{ed25519, Keypair},
+    metrics::{Metrics, Recorder},
+    multiaddr::Protocol,
+    multihash::Multihash,
     noise,
-    swarm::{ConnectionLimits, SwarmEvent},
+    ping::{self},
+    request_response::{RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel},
+    swarm::{ConnectionLimits, SwarmBuilder, SwarmEvent},
     yamux::YamuxConfig,
     PeerId, Swarm, Transport,
 };
-use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
-use std::path::Path;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_stream::wrappers::IntervalStream;
+
+use super::{
+    chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
+    ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
+};
+use crate::{
+    discovery::DiscoveryOut,
+    hello::{HelloBehaviour, HelloRequest, HelloResponse},
+    rpc::RequestResponseError,
+    PeerManager, PeerOperation,
+};
 
 pub(crate) mod metrics {
     use lazy_static::lazy_static;
@@ -254,7 +252,8 @@ where
         }
     }
 
-    /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
+    /// Starts the libp2p service networking stack. This Future resolves when
+    /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
         Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr)?;

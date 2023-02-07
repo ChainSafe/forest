@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::time::SystemTimeError as TimeErr;
+
 use thiserror::Error;
 
 /// Blockchain blocks error

@@ -1,17 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::Error;
 use cid::Cid;
 use forest_chain::MINIMUM_BASE_FEE;
 use forest_message::{Message as MessageTrait, SignedMessage};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::crypto::signature::Signature;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
+use fvm_shared::{crypto::signature::Signature, econ::TokenAmount, message::Message};
 use lru::LruCache;
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
+
+use crate::Error;
 
 pub(crate) fn get_base_fee_lower_bound(base_fee: &TokenAmount, factor: i64) -> TokenAmount {
     let base_fee_lower_bound = base_fee.div_floor(factor);
@@ -39,7 +38,8 @@ pub(crate) fn get_gas_perf(gas_reward: &TokenAmount, gas_limit: i64) -> f64 {
     a.to_f64().unwrap()
 }
 
-/// Attempt to get a signed message that corresponds to an unsigned message in `bls_sig_cache`.
+/// Attempt to get a signed message that corresponds to an unsigned message in
+/// `bls_sig_cache`.
 pub(crate) fn recover_sig(
     bls_sig_cache: &mut LruCache<Cid, Signature>,
     msg: Message,

@@ -1,13 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{handle_rpc_err, print_stdout, Config};
-use crate::cli::cli_error_and_die;
 use ahash::HashSet;
 use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::data_types::AddrInfo;
 use forest_rpc_client::net_ops::*;
 use structopt::StructOpt;
+
+use super::{handle_rpc_err, print_stdout, Config};
+use crate::cli::cli_error_and_die;
 
 #[derive(Debug, StructOpt)]
 pub enum NetCommands {

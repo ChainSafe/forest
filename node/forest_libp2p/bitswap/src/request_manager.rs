@@ -1,19 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Request manager implementation that is optimized for `filecoin` network usage
+//! Request manager implementation that is optimized for `filecoin` network
+//! usage
 
-use crate::{event_handlers::*, *};
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use flume::TryRecvError;
-use libipld::Block;
-use libipld::Cid;
-use libp2p::PeerId;
-use parking_lot::RwLock;
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use flume::TryRecvError;
+use libipld::{Block, Cid};
+use libp2p::PeerId;
+use parking_lot::RwLock;
+
+use crate::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -23,7 +25,8 @@ struct ResponseChannels {
     block_received: flume::Sender<Option<Vec<u8>>>,
 }
 
-/// Request manager implementation that is optimized for `filecoin` network usage
+/// Request manager implementation that is optimized for `filecoin` network
+/// usage
 #[derive(Debug)]
 pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
@@ -33,8 +36,10 @@ pub struct BitswapRequestManager {
 }
 
 impl BitswapRequestManager {
-    /// A receiver channel of the outbound `bitswap` network events that the [BitswapRequestManager] emits.
-    /// The messages from this channel need to be sent with [BitswapBehaviour::send_request] to make [BitswapRequestManager::get_block] work.
+    /// A receiver channel of the outbound `bitswap` network events that the
+    /// [BitswapRequestManager] emits. The messages from this channel need
+    /// to be sent with [BitswapBehaviour::send_request] to make
+    /// [BitswapRequestManager::get_block] work.
     pub fn outbound_request_rx(&self) -> &flume::Receiver<(PeerId, BitswapRequest)> {
         &self.outbound_request_rx
     }
@@ -63,8 +68,9 @@ impl BitswapRequestManager {
         handle_event_impl(self, bitswap, store, event)
     }
 
-    /// Gets a block, writing it to the given block store that implements [BitswapStoreReadWrite] and respond to the channel.
-    /// Note: this method is a non-blocking, it is intended to return immediately.
+    /// Gets a block, writing it to the given block store that implements
+    /// [BitswapStoreReadWrite] and respond to the channel. Note: this
+    /// method is a non-blocking, it is intended to return immediately.
     pub fn get_block(
         self: Arc<Self>,
         store: Arc<impl BitswapStoreReadWrite>,

@@ -19,7 +19,8 @@ pub use memory::MemoryDB;
 
 /// Store interface used as a KV store implementation
 pub trait Store {
-    /// Read single value from data store and return `None` if key doesn't exist.
+    /// Read single value from data store and return `None` if key doesn't
+    /// exist.
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>;

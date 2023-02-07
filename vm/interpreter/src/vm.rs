@@ -1,27 +1,28 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::fvm::ForestExterns;
+use std::sync::Arc;
+
 use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::error::ExitCode;
-use forest_shim::Inner;
-use fvm::executor::{ApplyRet, DefaultExecutor};
-use fvm::externs::Rand;
-use fvm::machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig};
+use forest_shim::{error::ExitCode, Inner};
+use fvm::{
+    executor::{ApplyRet, DefaultExecutor},
+    externs::Rand,
+    machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig},
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::receipt::Receipt;
-use fvm_shared::{BLOCK_GAS_LIMIT, METHOD_SEND};
+use fvm_shared::{
+    address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt,
+    BLOCK_GAS_LIMIT, METHOD_SEND,
+};
 use num::Zero;
-use std::sync::Arc;
+
+use crate::fvm::ForestExterns;
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
 
@@ -35,7 +36,8 @@ type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
 #[cfg(feature = "instrumented_kernel")]
 type ForestExecutor<DB> = DefaultExecutor<crate::instrumented_kernel::ForestInstrumentedKernel<DB>>;
 
-/// Contains all messages to process through the VM as well as miner information for block rewards.
+/// Contains all messages to process through the VM as well as miner information
+/// for block rewards.
 #[derive(Debug)]
 pub struct BlockMessages {
     pub miner: Address,
@@ -45,7 +47,8 @@ pub struct BlockMessages {
 
 /// Allows the generation of a reward message based on gas fees and penalties.
 ///
-/// This should facilitate custom consensus protocols using their own economic incentives.
+/// This should facilitate custom consensus protocols using their own economic
+/// incentives.
 pub trait RewardCalc: Send + Sync + 'static {
     /// Construct a reward message, if rewards are applicable.
     fn reward_message(
@@ -58,8 +61,8 @@ pub trait RewardCalc: Send + Sync + 'static {
     ) -> Result<Option<Message>, anyhow::Error>;
 }
 
-/// Interpreter which handles execution of state transitioning messages and returns receipts
-/// from the VM execution.
+/// Interpreter which handles execution of state transitioning messages and
+/// returns receipts from the VM execution.
 pub struct VM<DB: Blockstore + 'static> {
     fvm_executor: ForestExecutor<DB>,
     reward_calc: Arc<dyn RewardCalc>,
@@ -240,7 +243,8 @@ where
     }
 
     /// Applies the state transition for a single message.
-    /// Returns `ApplyRet` structure which contains the message receipt and some meta data.
+    /// Returns `ApplyRet` structure which contains the message receipt and some
+    /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
         check_message(msg.message())?;
 
@@ -338,8 +342,9 @@ impl RewardCalc for NoRewardCalc {
     }
 }
 
-/// Giving a fixed amount of coins for each block produced directly to the miner,
-/// on top of the gas spent, so the circulating supply isn't burned. Ignores penalties.
+/// Giving a fixed amount of coins for each block produced directly to the
+/// miner, on top of the gas spent, so the circulating supply isn't burned.
+/// Ignores penalties.
 pub struct FixedRewardCalc {
     pub reward: TokenAmount,
 }

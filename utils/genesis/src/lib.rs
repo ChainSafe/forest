@@ -1,29 +1,29 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{sync::Arc, time};
+
 use anyhow::bail;
 use cid::Cid;
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
 use forest_db::Store;
 use forest_state_manager::StateManager;
-use forest_utils::db::BlockstoreExt;
-use forest_utils::net::FetchProgress;
+use forest_utils::{db::BlockstoreExt, net::FetchProgress};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::{load_car, CarReader};
 use log::{debug, info};
-use std::sync::Arc;
-use std::time;
-use tokio::fs::File;
-use tokio::io::AsyncRead;
-use tokio::io::BufReader;
+use tokio::{
+    fs::File,
+    io::{AsyncRead, BufReader},
+};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 use url::Url;
 
 #[cfg(feature = "testing")]
 pub const EXPORT_SR_40: &[u8] = std::include_bytes!("export40.car");
 
-/// Uses an optional file path or the default genesis to parse the genesis and determine if
-/// chain store has existing data for the given genesis.
+/// Uses an optional file path or the default genesis to parse the genesis and
+/// determine if chain store has existing data for the given genesis.
 pub async fn read_genesis_header<DB>(
     genesis_fp: Option<&String>,
     genesis_bytes: Option<&[u8]>,
@@ -98,8 +98,8 @@ where
     Ok(genesis_block)
 }
 
-/// Import a chain from a CAR file. If the snapshot boolean is set, it will not verify the chain
-/// state and instead accept the largest height as genesis.
+/// Import a chain from a CAR file. If the snapshot boolean is set, it will not
+/// verify the chain state and instead accept the largest height as genesis.
 pub async fn import_chain<DB>(
     sm: &Arc<StateManager<DB>>,
     path: &str,
@@ -162,7 +162,8 @@ where
     Ok(())
 }
 
-/// Loads car file into database, and returns the block header CIDs from the CAR header.
+/// Loads car file into database, and returns the block header CIDs from the CAR
+/// header.
 async fn load_and_retrieve_header<DB, R>(
     store: &DB,
     reader: FetchProgress<R>,
@@ -184,8 +185,9 @@ where
 }
 
 /// Optimizations:
-/// 1. ParityDB could benefit from a larger buffer. It's hard coded as 1000 blocks in [fvm_ipld_car::load_car]
-/// 2. Use [Store::bulk_write] instead of [Blockstore] to avoid tons of unneccesary allocations
+/// 1. ParityDB could benefit from a larger buffer. It's hard coded as 1000
+/// blocks in [fvm_ipld_car::load_car] 2. Use [Store::bulk_write] instead of
+/// [Blockstore] to avoid tons of unneccesary allocations
 pub async fn forest_load_car<DB, R>(store: DB, reader: R) -> anyhow::Result<Vec<Cid>>
 where
     R: futures::AsyncRead + Send + Unpin,

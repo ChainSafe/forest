@@ -1,27 +1,30 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::set_sigint_handler;
+use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
-use forest_chain_sync::consensus::SyncGossipSubmitter;
-use forest_chain_sync::ChainMuxer;
-use forest_cli_shared::chain_path;
-use forest_cli_shared::cli::{
-    default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
+use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
+use forest_cli_shared::{
+    chain_path,
+    cli::{
+        default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+        FOREST_VERSION_STRING,
+    },
 };
 use forest_db::{
     db_engine::{db_path, open_db, Db},
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
-use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
-use forest_key_management::{KeyStore, KeyStoreConfig};
-use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
-use forest_libp2p::{PeerId, PeerManager};
+use forest_key_management::{KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME};
+use forest_libp2p::{
+    ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
+};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -33,26 +36,20 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use std::net::TcpListener;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::task::JoinSet;
+use tokio::{sync::RwLock, task::JoinSet};
 
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time;
+use super::cli::set_sigint_handler;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
 
 // Default consensus
-#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
-use forest_fil_cns::composition as cns;
 // Custom consensus.
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
+#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
+use forest_fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = super::ipc_shmem_conf().open()?;
@@ -87,8 +84,9 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         }
     }?;
 
-    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
-    // Useful if others want to use this node to bootstrap from.
+    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
+    // peer's multiaddress. Useful if others want to use this node to bootstrap
+    // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut ks = if config.client.encrypt_keystore {
@@ -163,7 +161,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Read Genesis file
-    // * When snapshot command implemented, this genesis does not need to be initialized
+    // * When snapshot command implemented, this genesis does not need to be
+    //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -194,8 +193,10 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         false
     };
 
-    // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
-    // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
+    // Reward calculation is needed by the VM to calculate state, which can happen
+    // essentially anywhere the `StateManager` is called. It is consensus
+    // specific, but threading it through the type system would be a nightmare,
+    // which is why dynamic dispatch is used.
     let reward_calc = cns::reward_calc();
 
     // Initialize StateManager
@@ -261,7 +262,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let mpool = Arc::new(mpool);
 
-    // For consensus types that do mining, create a component to submit their proposals.
+    // For consensus types that do mining, create a component to submit their
+    // proposals.
     let submitter = SyncGossipSubmitter::new(
         network_name.clone(),
         network_send.clone(),
@@ -314,7 +316,9 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: rpc_state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
+                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
+                                                                  * this itself from the
+                                                                  * StateManager */
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),
@@ -395,7 +399,8 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
     }
 }
 
-/// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
+/// Optionally fetches the snapshot. Returns the configuration (modified
+/// accordingly if a snapshot was fetched).
 async fn maybe_fetch_snapshot(
     should_fetch_snapshot: bool,
     config: Config,
@@ -416,8 +421,8 @@ async fn maybe_fetch_snapshot(
     }
 }
 
-/// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
-/// exits the process.
+/// Last resort in case a snapshot is needed. If it is not to be downloaded,
+/// this method fails and exits the process.
 fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
@@ -485,11 +490,12 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
     use fvm_shared::address::Address;
+
+    use super::*;
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {
