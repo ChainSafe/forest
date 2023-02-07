@@ -30,6 +30,7 @@ lazy_static! {
     .expect("Infallible");
 }
 
+/// Register bitswap metrics
 pub fn register_metrics(registry: &Registry) -> anyhow::Result<()> {
     registry.register(Box::new(MESSAGE_SIZE.clone()))?;
     registry.register(Box::new(MESSAGE_COUNTER.clone()))?;

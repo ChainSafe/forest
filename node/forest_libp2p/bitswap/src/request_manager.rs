@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Request manager implementation that is optimized for `filecoin` network usage
+
 use crate::{event_handlers::*, *};
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use flume::TryRecvError;
@@ -21,7 +23,7 @@ struct ResponseChannels {
     block_received: flume::Sender<Option<Vec<u8>>>,
 }
 
-// TODO: Use message queue like `go-bitswap`
+/// Request manager implementation that is optimized for `filecoin` network usage
 #[derive(Debug)]
 pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
@@ -31,6 +33,8 @@ pub struct BitswapRequestManager {
 }
 
 impl BitswapRequestManager {
+    /// A receiver channel of the outbound `bitswap` network events that the [BitswapRequestManager] emits.
+    /// The messages from this channel need to be sent with [BitswapBehaviour::send_request] to make [BitswapRequestManager::get_block] work.
     pub fn outbound_request_rx(&self) -> &flume::Receiver<(PeerId, BitswapRequest)> {
         &self.outbound_request_rx
     }
@@ -49,6 +53,7 @@ impl Default for BitswapRequestManager {
 }
 
 impl BitswapRequestManager {
+    /// Hook the `bitswap` network event into the [BitswapRequestManager]
     pub fn handle_event<S: BitswapStoreRead>(
         self: &Arc<Self>,
         bitswap: &mut BitswapBehaviour,
@@ -58,6 +63,8 @@ impl BitswapRequestManager {
         handle_event_impl(self, bitswap, store, event)
     }
 
+    /// Gets a block, writing it to the given block store that implements [BitswapStoreReadWrite] and respond to the channel.
+    /// Note: this method is a non-blocking, it is intended to return immediately.
     pub fn get_block(
         self: Arc<Self>,
         store: Arc<impl BitswapStoreReadWrite>,
