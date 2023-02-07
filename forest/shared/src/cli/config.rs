@@ -7,6 +7,7 @@ use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use time::Duration;
 use std::path::PathBuf;
 use std::sync::Arc;
 use url::Url;
@@ -155,6 +156,15 @@ impl Default for DaemonConfig {
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Eq, Default)]
+pub struct TokioConfig {
+    pub worker_threads_number: usize,
+    pub max_number_of_blocking_threads: usize,
+    pub blocking_thread_keep_alive_timeout: Duration,
+    pub thread_stack_size: usize,
+    pub global_queue_interval: u32,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
@@ -167,6 +177,7 @@ pub struct Config {
     pub daemon: DaemonConfig,
     pub log: LogConfig,
     pub snapshot_fetch: SnapshotFetchConfig,
+    pub tokio: TokioConfig,
 }
 
 impl Config {
