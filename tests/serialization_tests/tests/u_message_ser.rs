@@ -4,13 +4,13 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
+use std::{fs::File, io::prelude::*};
+
 use forest_json::message;
 use fvm_ipld_encoding::to_vec;
 use fvm_shared::message::Message;
 use hex::encode;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::prelude::*;
 
 #[derive(Deserialize)]
 struct TestVector {

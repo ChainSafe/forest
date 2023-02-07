@@ -1,18 +1,23 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    fs::File,
+    io::BufReader,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
 use async_trait::async_trait;
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_db::MemoryDB;
-use forest_ipld::json::{self, IpldJson};
-use forest_ipld::selector::{LastBlockInfo, LinkResolver, Selector, VisitReason};
+use forest_ipld::{
+    json::{self, IpldJson},
+    selector::{LastBlockInfo, LinkResolver, Selector, VisitReason},
+};
 use forest_utils::db::BlockstoreExt;
 use libipld::Path;
 use libipld_core::ipld::Ipld;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::BufReader;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Type to ignore the specifics of a list or map for JSON tests
 #[derive(Deserialize, Debug, Clone)]
@@ -48,8 +53,9 @@ struct ExpectVisit {
 }
 
 mod path_json {
-    use super::Path;
     use serde::{Deserialize, Deserializer};
+
+    use super::Path;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Path, D::Error>
     where
@@ -61,10 +67,10 @@ mod path_json {
 }
 
 mod last_block_json {
-    use super::LastBlockInfo;
-    use super::Path;
     use cid::Cid;
     use serde::{Deserialize, Deserializer};
+
+    use super::{LastBlockInfo, Path};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<LastBlockInfo>, D::Error>
     where

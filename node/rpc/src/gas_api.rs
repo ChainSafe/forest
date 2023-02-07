@@ -2,26 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use num_traits::{FromPrimitive, Zero};
-use rand_distr::{Distribution, Normal};
-
 use forest_beacon::Beacon;
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use forest_db::Store;
-use forest_json::address::json::AddressJson;
-use forest_json::message::json::MessageJson;
+use forest_json::{address::json::AddressJson, message::json::MessageJson};
 use forest_message::ChainMessage;
 use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::BLOCK_GAS_LIMIT;
+use fvm_shared::{econ::TokenAmount, message::Message, BLOCK_GAS_LIMIT};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
+use num_traits::{FromPrimitive, Zero};
+use rand_distr::{Distribution, Normal};
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -212,8 +208,8 @@ where
             if rct.exit_code.value() != 0 {
                 return Ok(-1);
             }
-            // TODO: Figure out why we always under estimate the gas calculation so we dont need to add 200000
-            // https://github.com/ChainSafe/forest/issues/901
+            // TODO: Figure out why we always under estimate the gas calculation so we dont
+            // need to add 200000 https://github.com/ChainSafe/forest/issues/901
             Ok(rct.gas_used + 200000)
         }
         None => Ok(-1),

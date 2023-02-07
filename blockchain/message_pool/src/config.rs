@@ -1,11 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::time::Duration;
+
 use forest_db::Store;
 use fvm_ipld_encoding::{from_slice, to_vec};
 use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 const MPOOL_CONFIG_KEY: &[u8] = b"/mpool/config";
 const SIZE_LIMIT_LOW: i64 = 20000;
@@ -76,7 +77,8 @@ impl MpoolConfig {
         Ok(store.write(MPOOL_CONFIG_KEY, to_vec(&self)?)?)
     }
 
-    /// Load `config` from store, if exists. If there is no `config`, uses default.
+    /// Load `config` from store, if exists. If there is no `config`, uses
+    /// default.
     pub fn load_config<DB: Store>(store: &DB) -> Result<Self, anyhow::Error> {
         match store.read(MPOOL_CONFIG_KEY)? {
             Some(v) => Ok(from_slice(&v)?),

@@ -1,11 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::{CliOpts, LogConfig};
-use atty::Stream;
 use std::str::FromStr;
-use tracing_subscriber::filter::{EnvFilter, LevelFilter};
-use tracing_subscriber::prelude::*;
+
+use atty::Stream;
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    prelude::*,
+};
+
+use crate::cli::{CliOpts, LogConfig};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LoggingColor {

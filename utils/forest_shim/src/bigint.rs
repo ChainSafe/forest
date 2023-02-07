@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared3::bigint::bigint_ser;
-pub use fvm_shared3::bigint::bigint_ser::{BigIntDe, BigIntSer};
-use fvm_shared3::bigint::BigInt as BigInt_v3;
-use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
+
+pub use fvm_shared3::bigint::bigint_ser::{BigIntDe, BigIntSer};
+use fvm_shared3::bigint::{bigint_ser, BigInt as BigInt_v3};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]

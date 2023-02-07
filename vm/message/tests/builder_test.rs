@@ -2,11 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_message::SignedMessage;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
-use fvm_shared::message::Message;
-use rand::rngs::OsRng;
-use rand::RngCore;
+use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
+use rand::{rngs::OsRng, RngCore};
 
 #[test]
 fn generate_signed_message() {

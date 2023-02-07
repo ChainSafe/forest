@@ -1,14 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Message as MessageTrait;
 use forest_encoding::tuple::*;
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::MethodNum;
+use fvm_shared::{
+    address::Address,
+    crypto::signature::{Signature, SignatureType},
+    econ::TokenAmount,
+    message::Message,
+    MethodNum,
+};
+
+use super::Message as MessageTrait;
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]

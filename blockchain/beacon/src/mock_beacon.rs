@@ -1,12 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{Beacon, BeaconEntry};
+use std::time::Duration;
+
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use forest_encoding::blake2b_256;
 use forest_shim::version::NetworkVersion;
-use std::time::Duration;
+
+use crate::{Beacon, BeaconEntry};
 
 /// Mock beacon used for testing. Deterministic based on an interval.
 pub struct MockBeacon {

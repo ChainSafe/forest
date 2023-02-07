@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
-use crate::cli::{cli_error_and_die, handle_rpc_err};
+use std::{fs, path::PathBuf, sync::Arc};
+
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -17,12 +17,14 @@ use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_shared::clock::ChainEpoch;
-use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
 use structopt::StructOpt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio_util::compat::TokioAsyncReadCompatExt;
+
+use super::*;
+use crate::cli::{cli_error_and_die, handle_rpc_err};
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -37,7 +39,8 @@ pub enum SnapshotCommands {
         /// Specify the number of recent state roots to include in the export.
         #[structopt(short, long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
+        /// Snapshot output path. Default to
+        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
         /// Arguments:
         ///  - chain - chain name e.g. `mainnet`
@@ -54,8 +57,8 @@ pub enum SnapshotCommands {
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
     Fetch {
-        /// Directory to which the snapshot should be downloaded. If not provided, it will be saved
-        /// in default Forest data location.
+        /// Directory to which the snapshot should be downloaded. If not
+        /// provided, it will be saved in default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
         /// Snapshot trusted source
@@ -75,8 +78,8 @@ pub enum SnapshotCommands {
 
     /// List local snapshots
     List {
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
     },
@@ -86,8 +89,8 @@ pub enum SnapshotCommands {
         /// Snapshot filename to remove
         filename: PathBuf,
 
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
 
@@ -97,11 +100,12 @@ pub enum SnapshotCommands {
     },
 
     /// Prune local snapshot, keeps the latest only.
-    /// Note that file names that do not match forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
+    /// Note that file names that do not match
+    /// forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
     /// pattern will be ignored
     Prune {
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
 
@@ -112,8 +116,8 @@ pub enum SnapshotCommands {
 
     /// Clean all local snapshots, use with care.
     Clean {
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
         #[structopt(short, long)]
         snapshot_dir: Option<PathBuf>,
 
@@ -424,11 +428,12 @@ where
     pb.message("Validating tipsets: ");
     pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
-    // Security: Recursive snapshots are difficult to create but not impossible. This
-    // limits the amount of recursion we do.
+    // Security: Recursive snapshots are difficult to create but not impossible.
+    // This limits the amount of recursion we do.
     let mut prev_epoch = ts.epoch();
     loop {
-        // if we reach 0 here, it means parent traversal didn't end up reaching genesis properly, bail with error.
+        // if we reach 0 here, it means parent traversal didn't end up reaching genesis
+        // properly, bail with error.
         if prev_epoch <= 0 {
             bail!("Broken invariant: no genesis tipset in snapshot.");
         }

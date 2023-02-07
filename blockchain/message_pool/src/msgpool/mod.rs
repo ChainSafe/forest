@@ -7,11 +7,8 @@ mod selection;
 pub mod test_provider;
 pub(crate) mod utils;
 
-use super::errors::Error;
-use crate::msg_chain::{create_message_chains, Chains};
-use crate::msg_pool::MsgSet;
-use crate::msg_pool::{add_helper, remove};
-use crate::provider::Provider;
+use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use forest_blocks::Tipset;
@@ -19,15 +16,19 @@ use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
+use fvm_shared::{address::Address, crypto::signature::Signature};
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
-use std::sync::Arc;
-use std::{borrow::BorrowMut, cmp::Ordering};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 use utils::{get_base_fee_lower_bound, recover_sig};
+
+use super::errors::Error;
+use crate::{
+    msg_chain::{create_message_chains, Chains},
+    msg_pool::{add_helper, remove, MsgSet},
+    provider::Provider,
+};
 
 const REPLACE_BY_FEE_RATIO: f32 = 1.25;
 const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
@@ -39,7 +40,8 @@ const PROPAGATION_DELAY_SECS: u64 = 6;
 // TODO: Implement guess gas module
 const MIN_GAS: i64 = 1298450;
 
-/// Get the state of the `base_sequence` for a given address in the current Tipset
+/// Get the state of the `base_sequence` for a given address in the current
+/// Tipset
 fn get_state_sequence<T>(api: &T, addr: &Address, cur_ts: &Tipset) -> Result<u64, Error>
 where
     T: Provider,
@@ -69,7 +71,8 @@ where
 
     republished.write().clear();
 
-    // Only republish messages from local addresses, ie. transactions which were sent to this node directly.
+    // Only republish messages from local addresses, ie. transactions which were
+    // sent to this node directly.
     for actor in local_addrs.read().iter() {
         if let Some(mset) = pending.read().get(actor) {
             if mset.msgs.is_empty() {
@@ -105,9 +108,10 @@ where
     Ok(())
 }
 
-/// Select messages from the mempool to be included in the next block that builds on
-/// a given base tipset. The messages should be eligible for inclusion based on their
-/// sequences and the overall number of them should observe block gas limits.
+/// Select messages from the mempool to be included in the next block that
+/// builds on a given base tipset. The messages should be eligible for inclusion
+/// based on their sequences and the overall number of them should observe block
+/// gas limits.
 fn select_messages_for_block<T>(
     api: &T,
     chain_config: &ChainConfig,
@@ -166,8 +170,8 @@ where
 
         // check if fits in block
         if chain.gas_limit <= gas_limit {
-            // check the baseFee lower bound -- only republish messages that can be included in the chain
-            // within the next 20 blocks.
+            // check the baseFee lower bound -- only republish messages that can be included
+            // in the chain within the next 20 blocks.
             for m in chain.msgs.iter() {
                 if m.gas_fee_cap() < &base_fee_lower_bound {
                     let key = chains.get_key_at(i);
@@ -198,8 +202,9 @@ where
     Ok(msgs)
 }
 
-/// This function will revert and/or apply tipsets to the message pool. This function should be
-/// called every time that there is a head change in the message pool.
+/// This function will revert and/or apply tipsets to the message pool. This
+/// function should be called every time that there is a head change in the
+/// message pool.
 #[allow(clippy::too_many_arguments)]
 pub async fn head_change<T>(
     api: &T,
@@ -271,8 +276,9 @@ where
     Ok(())
 }
 
-/// This is a helper function for `head_change`. This method will remove a sequence for a from address
-/// from the messages selected by priority hash-map. It also removes the 'from' address and sequence from the `MessagePool`.
+/// This is a helper function for `head_change`. This method will remove a
+/// sequence for a from address from the messages selected by priority hash-map.
+/// It also removes the 'from' address and sequence from the `MessagePool`.
 pub(crate) fn remove_from_selected_msgs(
     from: &Address,
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
@@ -291,8 +297,8 @@ pub(crate) fn remove_from_selected_msgs(
     Ok(())
 }
 
-/// This is a helper function for `head_change`. This method will add a signed message to
-/// the given messages selected by priority `HashMap`.
+/// This is a helper function for `head_change`. This method will add a signed
+/// message to the given messages selected by priority `HashMap`.
 pub(crate) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
@@ -308,27 +314,28 @@ pub(crate) fn add_to_selected_msgs(
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
     #[cfg(feature = "slow_tests")]
-    use crate::msg_chain::{create_message_chains, Chains};
-    use crate::msg_pool::MessagePool;
+    use std::borrow::BorrowMut;
+    #[cfg(feature = "slow_tests")]
+    use std::time::Duration;
+
     use forest_blocks::Tipset;
     use forest_key_management::{KeyStore, KeyStoreConfig, Wallet};
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use fvm_shared::address::Address;
-    use fvm_shared::crypto::signature::SignatureType;
-    use fvm_shared::econ::TokenAmount;
-    use fvm_shared::message::Message;
+    use fvm_shared::{
+        address::Address, crypto::signature::SignatureType, econ::TokenAmount, message::Message,
+    };
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
-    #[cfg(feature = "slow_tests")]
-    use std::borrow::BorrowMut;
-    #[cfg(feature = "slow_tests")]
-    use std::time::Duration;
     use test_provider::*;
     use tokio::task::JoinSet;
+
+    use super::*;
+    #[cfg(feature = "slow_tests")]
+    use crate::msg_chain::{create_message_chains, Chains};
+    use crate::msg_pool::MessagePool;
 
     pub fn create_smsg(
         to: &Address,
@@ -665,8 +672,9 @@ pub mod tests {
             );
         }
 
-        // Test 3a: 10 messages from a1 to a2, with gasPerf increasing in groups of 3; it should
-        //          merge them in two chains, one with 9 messages and one with the last message
+        // Test 3a: 10 messages from a1 to a2, with gasPerf increasing in groups of 3;
+        // it should          merge them in two chains, one with 9 messages and
+        // one with the last message
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -702,9 +710,10 @@ pub mod tests {
             }
         }
 
-        // Test 3b: 10 messages from a1 to a2, with gasPerf decreasing in groups of 3 with a bias for the
-        //          earlier chains; it should make 4 chains, the first 3 with 3 messages and the last with
-        //          a single message
+        // Test 3b: 10 messages from a1 to a2, with gasPerf decreasing in groups of 3
+        // with a bias for the          earlier chains; it should make 4 chains,
+        // the first 3 with 3 messages and the last with          a single
+        // message
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -760,8 +769,8 @@ pub mod tests {
         }
 
         // --- Test Chain Breaks ---
-        // Test 4: 10 messages with non-consecutive nonces; it should make a single chain with just
-        //         the first message
+        // Test 4: 10 messages with non-consecutive nonces; it should make a single
+        // chain with just         the first message
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         for i in 0..10 {
@@ -792,8 +801,9 @@ pub mod tests {
             );
         }
 
-        // Test 5: 10 messages with increasing gasLimit, except for the 6th message which has less than
-        //         the epoch gasLimit; it should create a single chain with the first 5 messages
+        // Test 5: 10 messages with increasing gasLimit, except for the 6th message
+        // which has less than         the epoch gasLimit; it should create a
+        // single chain with the first 5 messages
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         tma.set_state_balance_raw(&a1, TokenAmount::from_atto(1_000_000_000_000_000_000_u64));
@@ -829,8 +839,9 @@ pub mod tests {
             );
         }
 
-        // Test 6: one more message than what can fit in a block according to gas limit, with increasing
-        //         gasPerf; it should create a single chain with the max messages
+        // Test 6: one more message than what can fit in a block according to gas limit,
+        // with increasing         gasPerf; it should create a single chain with
+        // the max messages
         let mut mset = HashMap::new();
         let mut smsg_vec = Vec::new();
         let max_messages = fvm_shared::BLOCK_GAS_LIMIT / gas_limit;

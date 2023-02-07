@@ -1,36 +1,38 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::discovery::DiscoveryConfig;
-use crate::{
-    chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName},
-    config::Libp2pConfig,
-    discovery::DiscoveryBehaviour,
-    gossip_params::{build_peer_score_params, build_peer_score_threshold},
-    hello::HelloBehaviour,
-};
+use std::time::Duration;
+
 use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::{core::identity::Keypair, kad::QueryId};
-use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
 use libp2p::{
+    core::{identity::Keypair, PeerId},
     gossipsub::{
-        error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
-        IdentTopic as Topic, MessageAuthenticity, MessageId, ValidationMode,
+        error::{PublishError, SubscriptionError},
+        Gossipsub, GossipsubConfigBuilder, GossipsubMessage, IdentTopic as Topic,
+        MessageAuthenticity, MessageId, ValidationMode,
     },
+    identify,
+    kad::QueryId,
+    metrics::{Metrics, Recorder},
+    ping,
+    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
+    swarm::NetworkBehaviour,
     Multiaddr,
 };
-use libp2p::{identify, ping};
-use libp2p::{
-    metrics::{Metrics, Recorder},
-    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
-};
 use log::warn;
-use std::time::Duration;
 
-/// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
+use crate::{
+    chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName},
+    config::Libp2pConfig,
+    discovery::{DiscoveryBehaviour, DiscoveryConfig},
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
+    hello::HelloBehaviour,
+};
+
+/// Libp2p behavior for the Forest node. This handles all sub protocols needed
+/// for a Filecoin node.
 #[derive(NetworkBehaviour)]
 pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,

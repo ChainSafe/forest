@@ -226,8 +226,9 @@ pub mod values {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use prometheus::core::Metric;
+
+    use super::*;
 
     macro_rules! test_counter {
         ($name:ident) => {

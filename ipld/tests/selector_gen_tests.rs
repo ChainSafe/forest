@@ -4,7 +4,6 @@
 use forest_ipld::selector::{RecursionLimit, Selector};
 use indexmap::IndexMap;
 use serde_json::{from_str, to_string};
-
 // For readability of tests
 use Selector::*;
 

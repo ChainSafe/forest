@@ -26,7 +26,8 @@ where
     Ok(ipld)
 }
 
-/// Resolves [`Ipld`] links recursively, building an [`Ipld`] structure with no hash links.
+/// Resolves [`Ipld`] links recursively, building an [`Ipld`] structure with no
+/// hash links.
 fn resolve_ipld<BS>(bs: &BS, ipld: &mut Ipld, mut depth: Option<u64>) -> Result<(), anyhow::Error>
 where
     BS: Blockstore,

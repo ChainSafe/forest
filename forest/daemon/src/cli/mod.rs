@@ -1,15 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    cell::RefCell,
+    io::Write,
+    process,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
+
 use anes::execute;
 use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};
-use std::cell::RefCell;
-use std::io::Write;
-use std::process;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use structopt::StructOpt;
 
 /// CLI structure generated when interacting with Forest binary

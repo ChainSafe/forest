@@ -1,20 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Block, BlockHeader, Error, Ticket};
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
+use fvm_shared::{address::Address, clock::ChainEpoch};
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
+use super::{Block, BlockHeader, Error, Ticket};
+
 /// A set of `CIDs` forming a unique key for a Tipset.
-/// Equal keys will have equivalent iteration order, but note that the `CIDs` are *not* maintained in
-/// the same order as the canonical iteration order of blocks in a tipset (which is by ticket)
+/// Equal keys will have equivalent iteration order, but note that the `CIDs`
+/// are *not* maintained in the same order as the canonical iteration order of
+/// blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TipsetKeys {
@@ -75,14 +76,16 @@ impl quickcheck::Arbitrary for Tipset {
 
 #[cfg(test)]
 mod property_tests {
-    use crate::ArbitraryCid;
-
-    use super::tipset_json::{TipsetJson, TipsetJsonRef};
-    use super::tipset_keys_json::TipsetKeysJson;
-    use super::{Tipset, TipsetKeys};
     use cid::Cid;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::{
+        tipset_json::{TipsetJson, TipsetJsonRef},
+        tipset_keys_json::TipsetKeysJson,
+        Tipset, TipsetKeys,
+    };
+    use crate::ArbitraryCid;
 
     impl quickcheck::Arbitrary for TipsetKeys {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -123,9 +126,10 @@ impl From<FullTipset> for Tipset {
 #[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
-    /// A valid tipset contains a non-empty collection of blocks that have distinct miners and all
-    /// specify identical epoch, parents, weight, height, state root, receipt root;
-    /// content-id for headers are supposed to be distinct but until encoding is added will be equal.
+    /// A valid tipset contains a non-empty collection of blocks that have
+    /// distinct miners and all specify identical epoch, parents, weight,
+    /// height, state root, receipt root; content-id for headers are
+    /// supposed to be distinct but until encoding is added will be equal.
     pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
@@ -195,7 +199,8 @@ impl Tipset {
     pub fn weight(&self) -> &BigInt {
         self.min_ticket_block().weight()
     }
-    /// Returns true if self wins according to the Filecoin tie-break rule (FIP-0023)
+    /// Returns true if self wins according to the Filecoin tie-break rule
+    /// (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
@@ -218,7 +223,8 @@ impl Tipset {
     }
 }
 
-/// `FullTipset` is an expanded version of a tipset that contains all the blocks and messages
+/// `FullTipset` is an expanded version of a tipset that contains all the blocks
+/// and messages
 #[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
@@ -235,8 +241,8 @@ impl FullTipset {
     pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
         verify_blocks(blocks.iter().map(Block::header))?;
 
-        // sort blocks on creation to allow for more seamless conversions between FullTipset
-        // and Tipset
+        // sort blocks on creation to allow for more seamless conversions between
+        // FullTipset and Tipset
         blocks.sort_by_cached_key(|block| block.header().to_sort_key());
         Ok(Self {
             blocks,
@@ -256,7 +262,8 @@ impl FullTipset {
     pub fn into_blocks(self) -> Vec<Block> {
         self.blocks
     }
-    /// Converts the full tipset into a [Tipset] which removes the messages attached.
+    /// Converts the full tipset into a [Tipset] which removes the messages
+    /// attached.
     pub fn into_tipset(self) -> Tipset {
         Tipset::from(self)
     }
@@ -321,8 +328,9 @@ where
 }
 
 pub mod tipset_keys_json {
-    use super::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     #[serde(transparent)]
@@ -358,9 +366,11 @@ pub mod tipset_keys_json {
 }
 
 pub mod tipset_json {
-    use super::*;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::Arc;
+
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `Tipset` from JSON.
     #[derive(Debug, Deserialize, Serialize)]
@@ -431,14 +441,16 @@ pub mod tipset_json {
 
 #[cfg(test)]
 mod test {
-    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
-    use cid::Cid;
+    use cid::{
+        multihash::{Code::Identity, MultihashDigest},
+        Cid,
+    };
     use forest_crypto::VRFProof;
     use fvm_ipld_encoding::DAG_CBOR;
     use fvm_shared::address::Address;
     use num_bigint::BigInt;
+
+    use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
         let addr = Address::new_id(id);
@@ -512,7 +524,8 @@ mod test {
         );
     }
 
-    // specifically test the case when we are distinct from miner_address 0, but not 1
+    // specifically test the case when we are distinct from miner_address 0, but not
+    // 1
     #[test]
     fn ensure_multiple_miner_addresses_are_distinct() {
         let h0 = BlockHeader::builder()

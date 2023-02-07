@@ -1,13 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::*;
+use std::convert::TryFrom;
+
 use libipld::cid::{
     multihash::{Code, MultihashDigest},
     Version,
 };
-use std::convert::TryFrom;
 use unsigned_varint::{decode as varint_decode, encode as varint_encode};
+
+use crate::*;
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
