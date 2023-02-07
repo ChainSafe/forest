@@ -19,7 +19,7 @@ libipld = { workspace = true, default-features = false }
 libp2p = { workspace = true, default-features = false, features = ["request-response", "macros"] }
 parking_lot.workspace = true
 prometheus.workspace = true
-prost.workspace = true
+protobuf = "3.2"
 tracing.workspace = true
 unsigned-varint.workspace = true
 
@@ -37,6 +37,11 @@ libp2p = { workspace = true, default-features = false, features = [
 ] }
 rand.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time", "macros"] }
+
+[build-dependencies]
+anyhow.workspace = true
+protobuf-codegen = "3.2"
+walkdir = "2.3"
 
 [package.metadata.cargo-udeps.ignore]
 normal = ["async-std"]
