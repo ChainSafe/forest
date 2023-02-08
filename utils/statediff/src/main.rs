@@ -5,7 +5,6 @@ use clap::Parser;
 use directories::ProjectDirs;
 use forest_db::db_engine::{db_path, open_db, DbConfig};
 use forest_statediff::print_state_diff;
-use structopt::StructOpt;
 
 impl crate::Subcommand {
     pub fn run(&self) -> anyhow::Result<()> {
