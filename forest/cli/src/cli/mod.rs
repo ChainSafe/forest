@@ -40,12 +40,23 @@ use std::io::{self, Write};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
-#[clap(
-    name = env!("CARGO_PKG_NAME"),
-    version = FOREST_VERSION_STRING.as_str(),
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    author = env!("CARGO_PKG_AUTHORS")
-)]
+#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(help_template(
+    "\
+{name} {version}
+{author}
+{about}
+
+USAGE:
+  {usage}
+
+SUBCOMMANDS:
+{subcommands}
+
+OPTIONS:
+{options}
+"
+))]
 pub struct Cli {
     #[command(flatten)]
     pub opts: CliOpts,

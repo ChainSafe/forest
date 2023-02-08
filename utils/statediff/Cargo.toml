@@ -1,5 +1,7 @@
 [package]
 name = "forest_statediff"
+description = "statediff binary sub-commands available"
+
 license.workspace = true
 repository.workspace = true
 version.workspace = true
