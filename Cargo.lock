@@ -3157,7 +3157,6 @@ dependencies = [
  "log",
  "mimalloc",
  "num",
- "num_cpus",
  "once_cell",
  "quickcheck",
  "quickcheck_macros",
