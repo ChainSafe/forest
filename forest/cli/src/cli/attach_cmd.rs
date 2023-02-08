@@ -122,54 +122,6 @@ macro_rules! bind_func {
     };
 }
 
-fn setup_context(context: &mut Context, token: &Option<String>) {
-    // Disable tracing
-    context.set_trace(false);
-
-    context.register_global_property("_BOA_VERSION", "0.16.0", Attribute::default());
-
-    // Add custom implementation that mimics `require`
-    context.register_global_function("require", 0, require);
-
-    // Add custom object that mimics `module.exports`
-    let moduleobj = JsObject::default();
-    moduleobj
-        .set("exports", JsValue::from(" "), false, context)
-        .unwrap();
-    context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
-
-    // Chain API
-    bind_func!(context, token, chain_get_name);
-
-    // Net API
-    bind_func!(context, token, net_addrs_listen);
-    bind_func!(context, token, net_peers);
-    bind_func!(context, token, net_disconnect);
-    bind_func!(context, token, net_connect);
-
-    // Sync API
-    bind_func!(context, token, sync_check_bad);
-    bind_func!(context, token, sync_mark_bad);
-    bind_func!(context, token, sync_status);
-
-    // Wallet API
-    // TODO: bind wallet_sign, wallet_verify
-    bind_func!(context, token, wallet_new);
-    bind_func!(context, token, wallet_default_address);
-    bind_func!(context, token, wallet_balance);
-    bind_func!(context, token, wallet_export);
-    bind_func!(context, token, wallet_import);
-    bind_func!(context, token, wallet_list);
-    bind_func!(context, token, wallet_has);
-    bind_func!(context, token, wallet_set_default);
-
-    // Message Pool API
-    bind_func!(context, token, mpool_push_message);
-
-    // Bind send_message
-    bind_func!(context, token, send_message);
-}
-
 type SendMessageParams = (String, String, String);
 
 async fn send_message(
@@ -194,6 +146,54 @@ async fn send_message(
 }
 
 impl AttachCommand {
+    fn setup_context(&self, context: &mut Context, token: &Option<String>) {
+        // Disable tracing
+        context.set_trace(false);
+    
+        context.register_global_property("_BOA_VERSION", "0.16.0", Attribute::default());
+    
+        // Add custom implementation that mimics `require`
+        context.register_global_function("require", 0, require);
+    
+        // Add custom object that mimics `module.exports`
+        let moduleobj = JsObject::default();
+        moduleobj
+            .set("exports", JsValue::from(" "), false, context)
+            .unwrap();
+        context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
+    
+        // Chain API
+        bind_func!(context, token, chain_get_name);
+    
+        // Net API
+        bind_func!(context, token, net_addrs_listen);
+        bind_func!(context, token, net_peers);
+        bind_func!(context, token, net_disconnect);
+        bind_func!(context, token, net_connect);
+    
+        // Sync API
+        bind_func!(context, token, sync_check_bad);
+        bind_func!(context, token, sync_mark_bad);
+        bind_func!(context, token, sync_status);
+    
+        // Wallet API
+        // TODO: bind wallet_sign, wallet_verify
+        bind_func!(context, token, wallet_new);
+        bind_func!(context, token, wallet_default_address);
+        bind_func!(context, token, wallet_balance);
+        bind_func!(context, token, wallet_export);
+        bind_func!(context, token, wallet_import);
+        bind_func!(context, token, wallet_list);
+        bind_func!(context, token, wallet_has);
+        bind_func!(context, token, wallet_set_default);
+    
+        // Message Pool API
+        bind_func!(context, token, mpool_push_message);
+    
+        // Bind send_message
+        bind_func!(context, token, send_message);
+    }
+
     fn source_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
         if let Some(jspath) = &self.jspath {
             let prelude_path = jspath.join("prelude.js");
@@ -223,16 +223,12 @@ impl AttachCommand {
 
     pub fn run(&self, config: Config) -> anyhow::Result<()> {
         let mut context = Context::default();
-        setup_context(&mut context, &config.client.rpc_token);
+        self.setup_context(&mut context, &config.client.rpc_token);
 
         // If only a short execution was requested, evaluate and return
         if let Some(code) = &self.exec {
-            match context.eval(code.trim_end()) {
-                Ok(v) => match v {
-                    JsValue::Undefined => (),
-                    _ => println!("{}", v.display()),
-                },
-                Err(v) => eprintln!("Uncaught: {v:?}"),
+            if let Err(v) = context.eval(code.trim_end()) {
+                eprintln!("Uncaught: {v:?}");
             }
             return Ok(());
         }
