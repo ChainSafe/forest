@@ -158,7 +158,7 @@ impl Default for DaemonConfig {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct TokioConfig {
     pub worker_threads: usize,
     pub max_blocking_threads: usize,
