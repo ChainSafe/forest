@@ -3291,6 +3291,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "filecoin-proofs-api",
+ "forest_shim",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
 ]
