@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{borrow::Cow, time::Duration};
+use std::borrow::Cow;
 
-use forest_beacon::{ChainInfo, DrandConfig, DrandNetwork, TokioConfig};
+use forest_beacon::{ChainInfo, DrandConfig, DrandNetwork};
 
 pub(super) static DRAND_MAINNET: DrandConfig<'static> = DrandConfig {
     server: "https://api.drand.sh",
@@ -16,7 +16,6 @@ pub(super) static DRAND_MAINNET: DrandConfig<'static> = DrandConfig {
         group_hash: Cow::Borrowed("176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a"),
     },
     network_type: DrandNetwork::Mainnet,
-    tokio: TokioConfig { worker_threads: 4, max_blocking_threads: 512, thread_keep_alive: Duration::from_secs(10), thread_stack_size: 2 * 1024 * 1024, global_queue_interval: 61 },
 };
 
 pub(super) static DRAND_INCENTINET: DrandConfig<'static> = DrandConfig {
@@ -30,5 +29,4 @@ pub(super) static DRAND_INCENTINET: DrandConfig<'static> = DrandConfig {
         group_hash: Cow::Borrowed("d9406aaed487f7af71851b4399448e311f2328923d454e971536c05398ce2d9b"),
     },
     network_type: DrandNetwork::Incentinet,
-    tokio: TokioConfig { worker_threads: 4, max_blocking_threads: 512, thread_keep_alive: Duration::from_secs(10), thread_stack_size: 2 * 1024 * 1024, global_queue_interval: 61 },
 };

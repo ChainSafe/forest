@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use core::time::Duration;
 use std::{borrow::Cow, sync::Arc};
 
 use ahash::HashMap;
@@ -54,29 +53,6 @@ pub struct DrandConfig<'a> {
     pub chain_info: ChainInfo<'a>,
     /// Network type
     pub network_type: DrandNetwork,
-    // Tokio Runtime config
-    pub tokio: TokioConfig,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
-pub struct TokioConfig {
-    pub worker_threads: usize,
-    pub max_blocking_threads: usize,
-    pub thread_keep_alive: Duration,
-    pub thread_stack_size: usize,
-    pub global_queue_interval: u32,
-}
-
-impl Default for TokioConfig {
-    fn default() -> Self {
-        Self {
-            worker_threads: num_cpus::get(),
-            max_blocking_threads: 512,
-            thread_keep_alive: Duration::from_secs(10),
-            thread_stack_size: 2 * 1024 * 1024,
-            global_queue_interval: 61,
-        }
-    }
 }
 
 /// Contains the vector of `BeaconPoint`, which are mappings of epoch to the
@@ -232,18 +208,8 @@ impl DrandBeacon {
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
             let server = config.server;
-            let tokio_config = config.tokio.clone();
             let remote_chain_info = std::thread::spawn(move || {
-                let rt = tokio::runtime::Builder::new_multi_thread()
-                    .enable_io()
-                    .enable_time()
-                    .worker_threads(tokio_config.worker_threads)
-                    .max_blocking_threads(tokio_config.max_blocking_threads)
-                    .thread_keep_alive(tokio_config.thread_keep_alive)
-                    .thread_stack_size(tokio_config.thread_stack_size)
-                    .global_queue_interval(tokio_config.global_queue_interval)
-                    .build()?;
-
+                let rt = tokio::runtime::Runtime::new()?;
                 rt.block_on(async {
                     let client = https_client();
                     let remote_chain_info: ChainInfo = client

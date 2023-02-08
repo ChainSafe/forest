@@ -15,7 +15,6 @@ byte-unit = "4.0"
 chrono.workspace = true
 console-subscriber.workspace = true
 directories.workspace = true
-forest_beacon.workspace = true
 forest_chain_sync.workspace = true
 forest_db.workspace = true
 forest_libp2p.workspace = true
@@ -28,6 +27,7 @@ git-version.workspace = true
 hex.workspace = true
 log = { workspace = true, features = ["serde"] }
 num.workspace = true
+num_cpus.workspace = true
 once_cell.workspace = true
 regex.workspace = true
 s3 = { package = "rust-s3", version = "0.32", default-features = false, features = ["sync-rustls-tls", "tags"] }

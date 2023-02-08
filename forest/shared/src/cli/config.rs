@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use core::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
-use forest_beacon::TokioConfig;
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
@@ -154,6 +154,27 @@ impl Default for DaemonConfig {
             stderr: "forest.err".into(),
             work_dir: ".".into(),
             pid_file: None,
+        }
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
+pub struct TokioConfig {
+    pub worker_threads: usize,
+    pub max_blocking_threads: usize,
+    pub thread_keep_alive: Duration,
+    pub thread_stack_size: usize,
+    pub global_queue_interval: u32,
+}
+
+impl Default for TokioConfig {
+    fn default() -> Self {
+        Self {
+            worker_threads: num_cpus::get(),
+            max_blocking_threads: 512,
+            thread_keep_alive: Duration::from_secs(10),
+            thread_stack_size: 2 * 1024 * 1024,
+            global_queue_interval: 61,
         }
     }
 }
