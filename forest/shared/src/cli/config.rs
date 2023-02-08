@@ -158,25 +158,13 @@ impl Default for DaemonConfig {
     }
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default)]
 pub struct TokioConfig {
-    pub worker_threads: usize,
-    pub max_blocking_threads: usize,
-    pub thread_keep_alive: Duration,
-    pub thread_stack_size: usize,
-    pub global_queue_interval: u32,
-}
-
-impl Default for TokioConfig {
-    fn default() -> Self {
-        Self {
-            worker_threads: num_cpus::get(),
-            max_blocking_threads: 512,
-            thread_keep_alive: Duration::from_secs(10),
-            thread_stack_size: 2 * 1024 * 1024,
-            global_queue_interval: 61,
-        }
-    }
+    pub worker_threads: Option<usize>,
+    pub max_blocking_threads: Option<usize>,
+    pub thread_keep_alive: Option<Duration>,
+    pub thread_stack_size: Option<usize>,
+    pub global_queue_interval: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Default)]

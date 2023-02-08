@@ -146,15 +146,26 @@ fn main() -> anyhow::Result<()> {
                 build_daemon(&cfg.daemon)?.start()?;
             }
 
-            let rt = RuntimeBuilder::new_multi_thread()
-                .enable_io()
-                .enable_time()
-                .worker_threads(cfg.tokio.worker_threads)
-                .max_blocking_threads(cfg.tokio.max_blocking_threads)
-                .thread_keep_alive(cfg.tokio.thread_keep_alive)
-                .thread_stack_size(cfg.tokio.thread_stack_size)
-                .global_queue_interval(cfg.tokio.global_queue_interval)
-                .build()?;
+            let mut builder = RuntimeBuilder::new_multi_thread();
+            builder.enable_io().enable_time();
+
+            if let Some(worker_threads) = cfg.tokio.worker_threads {
+                builder.worker_threads(worker_threads);
+            }
+            if let Some(max_blocking_threads) = cfg.tokio.max_blocking_threads {
+                builder.max_blocking_threads(max_blocking_threads);
+            }
+            if let Some(thread_keep_alive) = cfg.tokio.thread_keep_alive {
+                builder.thread_keep_alive(thread_keep_alive);
+            }
+            if let Some(thread_stack_size) = cfg.tokio.thread_stack_size {
+                builder.thread_stack_size(thread_stack_size);
+            }
+            if let Some(global_queue_interval) = cfg.tokio.global_queue_interval {
+                builder.global_queue_interval(global_queue_interval);
+            }
+
+            let rt = builder.build()?;
 
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
