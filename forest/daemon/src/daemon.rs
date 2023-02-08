@@ -12,8 +12,8 @@ use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
     cli::{
-        cli_error_and_die, default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client,
-        Config, FOREST_VERSION_STRING,
+        default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
+        FOREST_VERSION_STRING,
     },
 };
 use forest_db::{
@@ -461,7 +461,7 @@ fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
 
     // encrypted keystore, headless
     if config.client.encrypt_keystore && passphrase.is_err() && !is_interactive {
-        cli_error_and_die(format!("Passphrase for the keystore was not provided and the encryption was not explicitly disabled. Please set the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable and re-run the command"), 1);
+        anyhow::bail!("Passphrase for the keystore was not provided and the encryption was not explicitly disabled. Please set the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable and re-run the command");
     // encrypted keystore, either headless or interactive, passphrase provided
     } else if config.client.encrypt_keystore && passphrase.is_ok() {
         let passphrase = passphrase.unwrap();
