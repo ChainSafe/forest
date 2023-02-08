@@ -2896,6 +2896,7 @@ version = "0.6.0"
 dependencies = [
  "anes",
  "anyhow",
+ "assert_cmd",
  "atty",
  "ctrlc",
  "daemonize-me",
