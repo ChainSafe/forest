@@ -41,15 +41,25 @@ pub struct AttachCommand {
 
 const PRELUDE: &str = include_str!("./prelude.js");
 
-fn require(_: &JsValue, params: &[JsValue], context: &mut Context) -> JsResult<JsValue> {
+fn require(
+    _: &JsValue,
+    params: &[JsValue],
+    context: &mut Context,
+    jspath: &Option<PathBuf>,
+) -> JsResult<JsValue> {
+    if params.is_empty() {
+        return context.throw_error("expecting string argument");
+    }
     let param = params.get(0).unwrap();
 
-    let path = param
-        .to_string(context)
-        .expect("Failed to convert to string")
-        .to_string();
+    let module_name = param.to_string(context)?.to_string();
+    let path = if let Some(path) = jspath {
+        path.join(module_name)
+    } else {
+        PathBuf::from(module_name)
+    };
 
-    println!("Loading: {path}");
+    println!("Loading: {}", path.display());
     match read_to_string(path) {
         Ok(buffer) => {
             context.eval(&buffer).unwrap();
@@ -149,33 +159,40 @@ impl AttachCommand {
     fn setup_context(&self, context: &mut Context, token: &Option<String>) {
         // Disable tracing
         context.set_trace(false);
-    
+
         context.register_global_property("_BOA_VERSION", "0.16.0", Attribute::default());
-    
+
         // Add custom implementation that mimics `require`
-        context.register_global_function("require", 0, require);
-    
+        let require_func = FunctionBuilder::closure_with_captures(
+            context,
+            |_this, params, jspath, context| require(_this, params, context, jspath),
+            self.jspath.clone(),
+        )
+        .build();
+        let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
+        context.register_global_property("require", require_func, attr);
+
         // Add custom object that mimics `module.exports`
         let moduleobj = JsObject::default();
         moduleobj
             .set("exports", JsValue::from(" "), false, context)
             .unwrap();
         context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
-    
+
         // Chain API
         bind_func!(context, token, chain_get_name);
-    
+
         // Net API
         bind_func!(context, token, net_addrs_listen);
         bind_func!(context, token, net_peers);
         bind_func!(context, token, net_disconnect);
         bind_func!(context, token, net_connect);
-    
+
         // Sync API
         bind_func!(context, token, sync_check_bad);
         bind_func!(context, token, sync_mark_bad);
         bind_func!(context, token, sync_status);
-    
+
         // Wallet API
         // TODO: bind wallet_sign, wallet_verify
         bind_func!(context, token, wallet_new);
@@ -186,10 +203,10 @@ impl AttachCommand {
         bind_func!(context, token, wallet_list);
         bind_func!(context, token, wallet_has);
         bind_func!(context, token, wallet_set_default);
-    
+
         // Message Pool API
         bind_func!(context, token, mpool_push_message);
-    
+
         // Bind send_message
         bind_func!(context, token, send_message);
     }
