@@ -4,11 +4,11 @@
 use std::{collections::BTreeMap, convert::TryInto};
 
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
+use forest_shim::randomness::Randomness;
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::{
     address::Address,
     commcid::cid_to_replica_commitment_v1,
-    randomness::Randomness,
     sector::{PoStProof, RegisteredPoStProof, SectorInfo},
 };
 
@@ -19,13 +19,13 @@ use fvm_shared::{
 /// miners that are elected to mine a new block to verify a sector. A failed
 /// winning proof leads to a miner being slashed.
 pub fn verify_winning_post(
-    Randomness(mut randomness): Randomness,
+    mut rand: Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
 ) -> Result<(), anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    randomness[31] &= 0x3f;
+    rand.0[31] &= 0x3f;
 
     // Convert sector info into public replica
     let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)
@@ -41,7 +41,7 @@ pub fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    if !post::verify_winning_post(&bytes_32(&randomness), &proof_bytes, &replicas, prover_id)? {
+    if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }
     Ok(())
@@ -51,15 +51,15 @@ pub fn verify_winning_post(
 pub fn generate_winning_post_sector_challenge(
     proof: RegisteredPoStProof,
     prover_id: u64,
-    Randomness(mut randomness): Randomness,
+    mut rand: Randomness,
     eligible_sector_count: u64,
 ) -> Result<Vec<u64>, anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    randomness[31] &= 0x3f;
+    rand.0[31] &= 0x3f;
 
     post::generate_winning_post_sector_challenge(
         proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
-        &bytes_32(&randomness),
+        &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),
     )
