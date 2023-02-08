@@ -53,6 +53,8 @@ resolver = "2"
 # get rid of RUSTSEC-2020-0071, the fix is in place but not published to crates.io
 # tracking issue: https://github.com/ChainSafe/forest/issues/2251
 pbr = { git = "https://github.com/a8m/pb", rev = "09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd" }
+# patch it until the memory usage fix from https://github.com/paritytech/parity-db/pull/178 is released
+parity-db = { git = "https://github.com/paritytech/parity-db", rev = "753b6938cdb1afa37920ff1c96fb171b065cecd6" }
 
 [workspace.dependencies]
 ahash = "0.8"
@@ -115,6 +117,7 @@ num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
+parity-db = { version = "0.4.3", default-features = false }
 parking_lot = "0.12"
 pin-project-lite = "0.2"
 prometheus = "0.13"
