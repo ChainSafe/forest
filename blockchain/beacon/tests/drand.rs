@@ -17,7 +17,6 @@ fn new_beacon() -> DrandBeacon {
                 ..Default::default()
             },
             network_type: forest_beacon::DrandNetwork::Incentinet,
-            tokio: Default::default(),
         },
     )
     .unwrap()
