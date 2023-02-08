@@ -9,7 +9,8 @@ use forest_encoding::tuple::*;
 /// by the miner of a block using a `VRF` and a `VDF`.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize_tuple, Deserialize_tuple)]
 pub struct Ticket {
-    /// A proof output by running a `VRF` on the `VDFResult` of the parent ticket
+    /// A proof output by running a `VRF` on the `VDFResult` of the parent
+    /// ticket
     pub vrfproof: VRFProof,
 }
 
@@ -30,9 +31,10 @@ impl quickcheck::Arbitrary for Ticket {
 }
 
 pub mod json {
-    use super::*;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
@@ -73,8 +75,9 @@ pub mod json {
     }
 
     pub mod opt {
-        use super::*;
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::*;
 
         pub fn serialize<S>(v: &Option<Ticket>, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -95,9 +98,12 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{TicketJson, TicketJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::{
+        json::{TicketJson, TicketJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn ticket_round_trip(ticket: Ticket) {

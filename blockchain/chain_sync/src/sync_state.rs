@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{fmt, sync::Arc};
+
 use forest_blocks::{
     tipset::tipset_json::{TipsetJson, TipsetJsonRef},
     Tipset,
 };
 use fvm_shared::clock::ChainEpoch;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
-use std::sync::Arc;
 use time::{Duration, OffsetDateTime};
 
 /// Current state of the `ChainSyncer` using the `ChainExchange` protocol.
@@ -129,7 +129,8 @@ impl quickcheck::Arbitrary for SyncState {
 }
 
 impl SyncState {
-    /// Initializes the syncing state with base and target tipsets and sets start time.
+    /// Initializes the syncing state with base and target tipsets and sets
+    /// start time.
     pub fn init(&mut self, base: Arc<Tipset>, target: Arc<Tipset>) {
         *self = Self {
             target: Some(target),
@@ -170,7 +171,8 @@ impl SyncState {
         }
     }
 
-    /// Sets the sync stage for the syncing state. If setting to complete, sets end timer to now.
+    /// Sets the sync stage for the syncing state. If setting to complete, sets
+    /// end timer to now.
     pub fn set_stage(&mut self, stage: SyncStage) {
         if let SyncStage::Complete = stage {
             self.end = Some(OffsetDateTime::now_utc());
@@ -265,8 +267,9 @@ impl<'de> Deserialize<'de> for SyncState {
 }
 
 pub mod json {
-    use super::SyncState;
     use serde::{Deserialize, Serialize};
+
+    use super::SyncState;
 
     #[derive(Serialize, Deserialize, Debug)]
     #[serde(transparent)]
@@ -286,8 +289,7 @@ pub mod json {
 pub mod vec {
     use serde::ser::SerializeSeq;
 
-    use super::json::SyncStateRef;
-    use super::*;
+    use super::{json::SyncStateRef, *};
 
     #[derive(Serialize)]
     #[serde(transparent)]
@@ -307,8 +309,9 @@ pub mod vec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck_macros::quickcheck;
+
+    use super::*;
 
     #[quickcheck]
     fn sync_state_roundtrip(ss: SyncState) {

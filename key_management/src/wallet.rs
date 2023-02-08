@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use super::{wallet_helpers, KeyInfo, KeyStore};
+use std::{convert::TryFrom, str::FromStr};
+
 use ahash::{HashMap, HashMapExt};
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
+use fvm_shared::{
+    address::Address,
+    crypto::signature::{Signature, SignatureType},
+};
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::str::FromStr;
+
+use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};
 
 /// A key, this contains a `KeyInfo`, an address, and a public key.
 #[derive(Clone, PartialEq, Debug, Eq, Serialize, Deserialize)]
@@ -36,7 +38,8 @@ impl TryFrom<KeyInfo> for Key {
 // This is a Wallet, it contains 2 HashMaps:
 // - keys which is a HashMap of Keys resolved by their Address
 // - keystore which is a HashMap of KeyInfos resolved by their Address
-/// A wallet is a collection of private keys with optional persistence and optional encryption.
+/// A wallet is a collection of private keys with optional persistence and
+/// optional encryption.
 #[derive(Clone, PartialEq, Debug, Eq)]
 pub struct Wallet {
     keys: HashMap<Address, Key>,
@@ -84,8 +87,8 @@ impl Wallet {
 
     /// Return the resultant `Signature` after signing a given message
     pub fn sign(&mut self, addr: &Address, msg: &[u8]) -> Result<Signature, Error> {
-        // this will return an error if the key cannot be found in either the keys hashmap or it
-        // is not found in the keystore
+        // this will return an error if the key cannot be found in either the keys
+        // hashmap or it is not found in the keystore
         let key = self.find_key(addr).map_err(|_| Error::KeyNotExists)?;
         wallet_helpers::sign(*key.key_info.key_type(), key.key_info.private_key(), msg)
     }
@@ -96,7 +99,8 @@ impl Wallet {
         Ok(k.key_info)
     }
 
-    /// Add `KeyInfo` to the wallet, return the address that resolves to this newly added `KeyInfo`
+    /// Add `KeyInfo` to the wallet, return the address that resolves to this
+    /// newly added `KeyInfo`
     pub fn import(&mut self, key_info: KeyInfo) -> Result<Address, Error> {
         let k = Key::try_from(key_info)?;
         let addr = format!("wallet-{}", k.address);
@@ -104,7 +108,8 @@ impl Wallet {
         Ok(k.address)
     }
 
-    /// Return a vector that contains all of the addresses in the wallet's `KeyStore`
+    /// Return a vector that contains all of the addresses in the wallet's
+    /// `KeyStore`
     pub fn list_addrs(&self) -> Result<Vec<Address>, Error> {
         list_addrs(&self.keystore)
     }
@@ -121,13 +126,17 @@ impl Wallet {
         let addr_string = format!("wallet-{addr}");
         let key_info = self.keystore.get(&addr_string)?;
         if self.keystore.get("default").is_ok() {
-            self.keystore.remove("default".to_string())?; // This line should unregister current default key then continue
+            self.keystore.remove("default".to_string())?; // This line should
+                                                          // unregister current
+                                                          // default key then
+                                                          // continue
         }
         self.keystore.put("default".to_string(), key_info)?;
         Ok(())
     }
 
-    /// Generate a new address that fits the requirement of the given `SignatureType`
+    /// Generate a new address that fits the requirement of the given
+    /// `SignatureType`
     pub fn generate_addr(&mut self, typ: SignatureType) -> anyhow::Result<Address> {
         let key = generate_key(typ)?;
         let addr = format!("wallet-{}", key.address);
@@ -143,7 +152,8 @@ impl Wallet {
         Ok(key.address)
     }
 
-    /// Return whether or not the Wallet contains a key that is resolved by the supplied address
+    /// Return whether or not the Wallet contains a key that is resolved by the
+    /// supplied address
     pub fn has_key(&mut self, addr: &Address) -> bool {
         self.find_key(addr).is_ok()
     }
@@ -156,7 +166,8 @@ pub fn get_default(keystore: &KeyStore) -> Result<Address, Error> {
     Ok(k.address)
 }
 
-/// Return vector of addresses sorted by their string representation in `KeyStore`
+/// Return vector of addresses sorted by their string representation in
+/// `KeyStore`
 pub fn list_addrs(keystore: &KeyStore) -> Result<Vec<Address>, Error> {
     let mut all = keystore.list();
     all.sort();
@@ -223,11 +234,12 @@ pub fn import(key_info: KeyInfo, keystore: &mut KeyStore) -> anyhow::Result<Addr
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{generate, KeyStoreConfig};
     use anyhow::ensure;
     use forest_encoding::blake2b_256;
     use libsecp256k1::{Message as SecpMessage, SecretKey as SecpPrivate};
+
+    use super::*;
+    use crate::{generate, KeyStoreConfig};
 
     fn construct_priv_keys() -> Vec<Key> {
         let mut secp_keys = Vec::new();
@@ -274,8 +286,8 @@ mod tests {
 
         // test to see if the new key has been created and added to the wallet
         assert!(!wallet.has_key(&address));
-        // test to make sure that the newly made key cannot be added to the wallet because it is not
-        // found in the keystore
+        // test to make sure that the newly made key cannot be added to the wallet
+        // because it is not found in the keystore
         assert_eq!(wallet.find_key(&address).unwrap_err(), Error::KeyInfo);
         // sanity check to make sure that the key has not been added to the wallet
         assert!(!wallet.has_key(&address));
@@ -328,7 +340,8 @@ mod tests {
         assert!(wallet.import(test_key_info.clone()).is_ok());
 
         let duplicate_error = wallet.import(test_key_info).unwrap_err();
-        // make sure that error is thrown when attempted to re-import a duplicate key_info
+        // make sure that error is thrown when attempted to re-import a duplicate
+        // key_info
         ensure!(duplicate_error == Error::KeyExists);
         Ok(())
     }
@@ -369,7 +382,8 @@ mod tests {
         let mut wallet = generate_wallet();
         let addr = wallet.generate_addr(SignatureType::BLS).unwrap();
         let key = wallet.keystore.get("default").unwrap();
-        // make sure that the newly generated key is the default key - checking by key type
+        // make sure that the newly generated key is the default key - checking by key
+        // type
         assert_eq!(&SignatureType::BLS, key.key_type());
 
         let address = format!("wallet-{addr}");
@@ -377,7 +391,8 @@ mod tests {
         let key_info = wallet.keystore.get(&address).unwrap();
         let key = wallet.keys.get(&addr).unwrap();
 
-        // these assertions will make sure that the key has actually been added to the wallet
+        // these assertions will make sure that the key has actually been added to the
+        // wallet
         assert_eq!(key_info.key_type(), &SignatureType::BLS);
         assert_eq!(key.address, addr);
     }
@@ -402,7 +417,8 @@ mod tests {
         // check to make sure that the set_default function completed without error
         assert!(wallet.set_default(test_addr).is_ok());
 
-        // check to make sure that the test_addr is actually the default addr for the wallet
+        // check to make sure that the test_addr is actually the default addr for the
+        // wallet
         assert_eq!(wallet.get_default().unwrap(), test_addr);
     }
 

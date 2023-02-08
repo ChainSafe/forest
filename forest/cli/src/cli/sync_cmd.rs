@@ -13,6 +13,7 @@ use std::{
 };
 use ticker::Ticker;
 
+use super::Config;
 use crate::cli::{format_vec_pretty, handle_rpc_err};
 
 #[derive(Debug, Subcommand)]

@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 pub mod json {
-    use crate::{message, signature};
     use cid::Cid;
     use forest_message::SignedMessage;
     use fvm_ipld_encoding::Cbor;
-    use fvm_shared::crypto::signature::Signature;
-    use fvm_shared::message::Message;
+    use fvm_shared::{crypto::signature::Signature, message::Message};
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
+
+    use crate::{message, signature};
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -70,9 +70,10 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::*;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::*;
 
         pub fn serialize<S>(m: &[SignedMessage], serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -96,19 +97,20 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{SignedMessageJson, SignedMessageJsonRef};
-    use crate::message;
-    use crate::message::json::{MessageJson, MessageJsonRef};
     use forest_message::{self, SignedMessage};
     use fvm_ipld_encoding::RawBytes;
-    use fvm_shared::address::Address;
-    use fvm_shared::crypto::signature::Signature;
-    use fvm_shared::econ::TokenAmount;
-    use fvm_shared::message::Message;
+    use fvm_shared::{
+        address::Address, crypto::signature::Signature, econ::TokenAmount, message::Message,
+    };
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
-    use serde_json;
-    use serde_json::{from_str, to_string};
+    use serde_json::{self, from_str, to_string};
+
+    use super::json::{SignedMessageJson, SignedMessageJsonRef};
+    use crate::{
+        message,
+        message::json::{MessageJson, MessageJsonRef},
+    };
 
     #[derive(Clone, Debug, PartialEq)]
     struct SignedMessageWrapper(SignedMessage);

@@ -3,13 +3,11 @@
 
 #![doc = include_str!("../README.md")]
 
+use std::io::Result as IOResult;
+
 use futures::prelude::*;
 use libipld::{cid::Cid, prelude::*};
-use prost::Message;
-use std::io::Result as IOResult;
 use tracing::*;
-
-mod proto;
 
 mod internals;
 use internals::*;
@@ -28,7 +26,13 @@ pub mod request_manager;
 mod store;
 pub use store::*;
 
+mod pb {
+    include!(concat!(env!("OUT_DIR"), "/proto/mod.rs"));
+}
+
 pub mod task {
+    //! Re-exports API(s) from the chosen task library
+
     cfg_if::cfg_if! {
         if #[cfg(feature = "tokio")] {
             pub use tokio::{spawn, task::spawn_blocking, time::{sleep, timeout}};

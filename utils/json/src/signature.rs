@@ -48,8 +48,9 @@ pub mod json {
     }
 
     pub mod opt {
-        use super::{Signature, SignatureJson, SignatureJsonRef};
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::{Signature, SignatureJson, SignatureJsonRef};
 
         pub fn serialize<S>(v: &Option<Signature>, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -68,8 +69,9 @@ pub mod json {
     }
 
     pub mod signature_type {
-        use super::*;
         use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::*;
 
         #[derive(Debug, Deserialize, Serialize)]
         #[serde(rename_all = "lowercase")]
@@ -110,11 +112,11 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::json::signature_type::SignatureTypeJson;
-    use super::json::{SignatureJson, SignatureJsonRef};
     use fvm_shared::crypto::signature::{Signature, SignatureType};
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::json::{signature_type::SignatureTypeJson, SignatureJson, SignatureJsonRef};
 
     #[derive(Clone, Debug, PartialEq)]
     struct SignatureWrapper {

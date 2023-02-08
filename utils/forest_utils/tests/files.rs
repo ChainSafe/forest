@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_utils::io::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
-
-use serde_derive::Deserialize;
 use std::{
     fs::remove_dir_all,
     path::{Path, PathBuf},
 };
+
+use forest_utils::io::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
+use serde_derive::Deserialize;
 
 // Please use with caution, remove_dir_all will completely delete a directory
 fn cleanup_file(path: &Path) {

@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{path::PathBuf, sync::Arc};
+
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::Arc;
 use url::Url;
 
 use super::client::Client;
@@ -76,11 +76,13 @@ impl Default for FilecoinSnapshotFetchConfig {
     fn default() -> Self {
         // unfallible unwrap as we know that the value is correct
         Self {
-            /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
-            /// `sha256sum` file with the same URL (but different extension).
+            /// Default `mainnet` snapshot URL. The assumption is that it will
+            /// redirect once and will contain a `sha256sum` file
+            /// with the same URL (but different extension).
             mainnet: Url::try_from("https://snapshots.mainnet.filops.net/minimal/latest").unwrap(),
-            /// Default `calibnet` snapshot URL. The assumption is that it will redirect once and will contain a
-            /// `sha256sum` file with the same URL (but different extension).
+            /// Default `calibnet` snapshot URL. The assumption is that it will
+            /// redirect once and will contain a `sha256sum` file
+            /// with the same URL (but different extension).
             calibnet: Url::try_from("https://snapshots.calibrationnet.filops.net/minimal/latest")
                 .unwrap(),
         }
@@ -183,19 +185,21 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use chrono::Duration;
-    use forest_utils::io::ProgressBarVisibility;
-    use quickcheck::Arbitrary;
-    use quickcheck_macros::quickcheck;
     use std::{
         net::{Ipv4Addr, SocketAddr},
         path::PathBuf,
     };
+
+    use chrono::Duration;
+    use forest_utils::io::ProgressBarVisibility;
+    use quickcheck::Arbitrary;
+    use quickcheck_macros::quickcheck;
     use tracing_subscriber::EnvFilter;
 
-    /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
-    /// Debug)
+    use super::*;
+
+    /// Partial configuration, as some parts of the proper one don't implement
+    /// required traits (i.e. Debug)
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,

@@ -21,7 +21,7 @@ use std::{
     str::{self, FromStr},
 };
 
-use super::handle_rpc_err;
+use super::{handle_rpc_err, Config};
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
@@ -69,7 +69,8 @@ pub enum WalletCommands {
         #[arg(short)]
         address: String,
     },
-    /// Verify the signature of a message. Returns true if the signature matches the message and address
+    /// Verify the signature of a message. Returns true if the signature matches
+    /// the message and address
     Verify {
         /// The address used to sign the message
         #[arg(short)]

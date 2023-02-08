@@ -148,6 +148,12 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 Forest can also send telemetry to the endpoint of a Loki instance or a Loki agent (see [Grafana Cloud](https://grafana.com/oss/loki/)). Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
 
 ### Testing
+First, install the [`nextest`](https://nexte.st/) test runner.
+
+```bash
+cargo install cargo-nextest --locked
+```
+
 ```bash
 # To run base tests
 cargo nextest run # use `make test-release` for longer compilation but faster execution
@@ -183,9 +189,6 @@ cargo install cargo-udeps --locked
 
 # Spellcheck
 cargo install cargo-spellcheck
-
-# Test runner
-cargo install cargo-nextest --locked
 ```
 After everything is installed, you can run `make lint-all`.
 

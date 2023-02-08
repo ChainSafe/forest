@@ -3,12 +3,13 @@
 
 use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 use clap::Subcommand;
+use forest_auth::*;
 use forest_libp2p::{Multiaddr, Protocol};
 use forest_rpc_api::auth_api::AuthNewParams;
 use forest_rpc_client::auth_new;
 use jsonrpc_v2::Error as JsonRpcError;
 
-use forest_auth::*;
+use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 
 #[derive(Debug, Subcommand)]
 pub enum AuthCommands {

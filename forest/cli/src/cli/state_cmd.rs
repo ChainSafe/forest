@@ -7,6 +7,8 @@ use forest_encoding::tuple::*;
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::econ::TokenAmount;
 
+use super::Config;
+
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingSchedule {
     entries: Vec<VestingScheduleEntry>,

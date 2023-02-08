@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
+    use std::str::FromStr;
+
     use fvm_shared::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{Deserialize, Serialize};
-    use std::str::FromStr;
 
     /// Serializes `TokenAmount` as String
     pub fn serialize<S>(token_amount: &TokenAmount, serializer: S) -> Result<S::Ok, S::Error>
@@ -27,8 +28,9 @@ pub mod json {
     }
 
     pub mod option {
-        use super::*;
         use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+        use super::*;
 
         pub fn serialize<S>(v: &Option<TokenAmount>, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -56,9 +58,10 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use fvm_shared::econ::TokenAmount;
     use quickcheck_macros::quickcheck;
+
+    use super::*;
 
     #[quickcheck]
     fn bigint_roundtrip(n: u64) {

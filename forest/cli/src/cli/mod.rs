@@ -38,6 +38,14 @@ use log::error;
 use serde::Serialize;
 use std::io::{self, Write};
 
+pub(super) use self::{
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, db_cmd::DBCommands,
+    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+};
+use crate::cli::config_cmd::ConfigCommands;
+
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]

@@ -1,9 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use futures::channel::oneshot;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use log::error;
+use std::str::FromStr;
 
 use forest_beacon::Beacon;
 use forest_db::Store;
@@ -12,9 +10,10 @@ use forest_rpc_api::{
     data_types::{AddrInfo, RPCState},
     net_api::*,
 };
+use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-
-use std::str::FromStr;
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use log::error;
 
 pub(crate) async fn net_addrs_listen<
     DB: Blockstore + Store + Clone + Send + Sync + 'static,

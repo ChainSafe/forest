@@ -18,7 +18,6 @@ mod subcommand;
 
 use clap::Parser;
 use cli::{cli_error_and_die, Cli};
-
 use forest_cli_shared::{cli::LogConfig, logger};
 use forest_utils::io::ProgressBar;
 
