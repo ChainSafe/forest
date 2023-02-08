@@ -60,9 +60,9 @@ pub struct DrandConfig<'a> {
 
 #[derive(serde::Deserialize, serde::Serialize, PartialEq, Eq, Clone)]
 pub struct TokioConfig {
-    pub worker_threads_number: usize,
-    pub max_number_of_blocking_threads: usize,
-    pub blocking_thread_keep_alive_timeout: Duration,
+    pub worker_threads: usize,
+    pub max_blocking_threads: usize,
+    pub thread_keep_alive: Duration,
     pub thread_stack_size: usize,
     pub global_queue_interval: u32,
 }
@@ -70,9 +70,9 @@ pub struct TokioConfig {
 impl Default for TokioConfig {
     fn default() -> Self {
         Self {
-            worker_threads_number: 4,
-            max_number_of_blocking_threads: 512,
-            blocking_thread_keep_alive_timeout: Duration::from_secs(10),
+            worker_threads: num_cpus::get(),
+            max_blocking_threads: 512,
+            thread_keep_alive: Duration::from_secs(10),
             thread_stack_size: 2 * 1024 * 1024,
             global_queue_interval: 61,
         }
@@ -237,9 +237,9 @@ impl DrandBeacon {
                 let rt = tokio::runtime::Builder::new_multi_thread()
                     .enable_io()
                     .enable_time()
-                    .worker_threads(tokio_config.worker_threads_number)
-                    .max_blocking_threads(tokio_config.max_number_of_blocking_threads)
-                    .thread_keep_alive(tokio_config.blocking_thread_keep_alive_timeout)
+                    .worker_threads(tokio_config.worker_threads)
+                    .max_blocking_threads(tokio_config.max_blocking_threads)
+                    .thread_keep_alive(tokio_config.thread_keep_alive)
                     .thread_stack_size(tokio_config.thread_stack_size)
                     .global_queue_interval(tokio_config.global_queue_interval)
                     .build()?;
