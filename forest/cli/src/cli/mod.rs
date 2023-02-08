@@ -30,7 +30,7 @@ use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
 
-use self::{
+pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
     db_cmd::DBCommands, fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands,
     net_cmd::NetCommands, send_cmd::SendCommand, snapshot_cmd::SnapshotCommands,
