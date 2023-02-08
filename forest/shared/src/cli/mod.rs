@@ -21,9 +21,6 @@ use git_version::git_version;
 use log::error;
 use num::BigInt;
 use once_cell::sync::Lazy;
-use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 pub use self::{client::*, config::*, snapshot_fetch::*};
 use crate::logger::LoggingColor;

@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::Config;
-
 use forest_paramfetch::{get_params_default, SectorSizeOpt};
 use fvm_shared::sector::SectorSize;
 use structopt::StructOpt;

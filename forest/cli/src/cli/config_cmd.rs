@@ -1,10 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::Config;
+use std::io::Write;
+
 use anyhow::Context;
 use clap::Subcommand;
-use std::io::Write;
+
+use crate::cli::Config;
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {

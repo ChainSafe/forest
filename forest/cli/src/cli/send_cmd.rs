@@ -7,7 +7,6 @@ use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
 use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
 use num::BigInt;
-use std::str::FromStr;
 
 use super::{handle_rpc_err, Config};
 

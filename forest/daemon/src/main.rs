@@ -35,10 +35,6 @@ use raw_sync::{
     Timeout,
 };
 use shared_memory::ShmemConf;
-use std::fs::File;
-use std::process;
-use std::sync::Arc;
-use std::time::Duration;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Runtime;
 

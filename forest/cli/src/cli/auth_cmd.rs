@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{handle_rpc_err, print_rpc_res_bytes, Config};
 use clap::Subcommand;
 use forest_auth::*;
 use forest_libp2p::{Multiaddr, Protocol};

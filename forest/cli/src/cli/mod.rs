@@ -19,25 +19,23 @@ mod state_cmd;
 mod sync_cmd;
 mod wallet_cmd;
 
-pub(super) use self::fetch_params_cmd::FetchCommands;
-pub(super) use self::send_cmd::SendCommand;
+use std::io::{self, Write};
+
+use cid::Cid;
+use clap::Parser;
+use forest_blocks::tipset_json::TipsetJson;
+pub(crate) use forest_cli_shared::cli::Config;
+use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
+use jsonrpc_v2::Error as JsonRpcError;
+use log::error;
+use serde::Serialize;
+
 use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
     db_cmd::DBCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
     snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
     wallet_cmd::WalletCommands,
 };
-use clap::Parser;
-pub(crate) use forest_cli_shared::cli::Config;
-
-use cid::Cid;
-use forest_blocks::tipset_json::TipsetJson;
-use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
-use jsonrpc_v2::Error as JsonRpcError;
-use log::error;
-use serde::Serialize;
-use std::io::{self, Write};
-
 pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, db_cmd::DBCommands,
     fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
