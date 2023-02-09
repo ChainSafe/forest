@@ -78,21 +78,21 @@ impl Address {
     }
 
     pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
-        todo!()
+        Ok(Address(Address_v3::new_secp256k1(pubkey)?))
     }
 
     pub fn new_bls(pubkey: &[u8]) -> Result<Self, Error> {
-        todo!()
+        Ok(Address(Address_v3::new_bls(pubkey)?))
     }
 
     pub fn new_actor(data: &[u8]) -> Self {
-        todo!()
+        Address(Address_v3::new_actor(data))
     }
 }
 
 impl FromStr for Address {
     type Err = Error;
     fn from_str(addr: &str) -> Result<Self, Error> {
-        todo!()
+        Ok(Address(Address_v3::from_str(addr)?))
     }
 }
