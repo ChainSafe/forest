@@ -4,8 +4,8 @@ pub mod json {
     use crate::{message, signature};
     use cid::Cid;
     use forest_message::SignedMessage;
+    use forest_shim::crypto::Signature;
     use fvm_ipld_encoding::Cbor;
-    use fvm_shared::crypto::signature::Signature;
     use fvm_shared::message::Message;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -47,7 +47,7 @@ pub mod json {
         }
         SignedMessageSer {
             message: &m.message,
-            signature: &m.signature,
+            signature: &m.signature.clone().into(),
             cid: Some(m.cid().map_err(ser::Error::custom)?),
         }
         .serialize(serializer)
@@ -66,7 +66,10 @@ pub mod json {
             signature: Signature,
         }
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
-        Ok(SignedMessage { message, signature })
+        Ok(SignedMessage {
+            message,
+            signature: signature.into(),
+        })
     }
 
     pub mod vec {
@@ -100,9 +103,9 @@ mod tests {
     use crate::message;
     use crate::message::json::{MessageJson, MessageJsonRef};
     use forest_message::{self, SignedMessage};
+    use forest_shim::crypto::Signature;
     use fvm_ipld_encoding::RawBytes;
     use fvm_shared::address::Address;
-    use fvm_shared::crypto::signature::Signature;
     use fvm_shared::econ::TokenAmount;
     use fvm_shared::message::Message;
     use quickcheck_macros::quickcheck;

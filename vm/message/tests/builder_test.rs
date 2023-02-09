@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_message::SignedMessage;
+use forest_shim::crypto::Signature;
 use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
 use fvm_shared::message::Message;
 use rand::rngs::OsRng;
 use rand::RngCore;

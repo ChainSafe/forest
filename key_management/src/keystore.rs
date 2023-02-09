@@ -7,7 +7,7 @@ use argon2::password_hash::SaltString;
 use argon2::{Argon2, ParamsBuilder, PasswordHasher, RECOMMENDED_SALT_LEN};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use fvm_shared::crypto::signature::SignatureType;
+use forest_shim::crypto::SignatureType;
 use log::{error, warn};
 use rand::rngs::OsRng;
 use rand::RngCore;
@@ -598,8 +598,8 @@ mod test {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
                 .choose(&[
-                    fvm_shared::crypto::signature::SignatureType::BLS,
-                    fvm_shared::crypto::signature::SignatureType::Secp256k1,
+                    forest_shim::crypto::SignatureType::BLS,
+                    forest_shim::crypto::SignatureType::SECP256K1,
                 ])
                 .unwrap();
             KeyInfo {

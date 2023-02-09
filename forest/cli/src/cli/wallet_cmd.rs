@@ -9,9 +9,9 @@ use forest_json::address::json::AddressJson;
 use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
 use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
+use forest_shim::crypto::{Signature, SignatureType};
 use forest_utils::io::read_file_to_string;
 use fvm_shared::address::{Address, Protocol};
-use fvm_shared::crypto::signature::{Signature, SignatureType};
 use fvm_shared::econ::TokenAmount;
 use num::BigInt;
 use rpassword::read_password;
@@ -88,7 +88,7 @@ impl WalletCommands {
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
-                    "secp256k1" => SignatureType::Secp256k1,
+                    "secp256k1" => SignatureType::SECP256K1,
                     _ => SignatureType::BLS,
                 };
 

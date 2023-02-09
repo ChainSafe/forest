@@ -4,7 +4,7 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use forest_encoding::de;
-    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use forest_shim::crypto::{Signature, SignatureType};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     // Wrapper for serializing and deserializing a Signature from JSON.
@@ -30,7 +30,7 @@ pub mod json {
         S: Serializer,
     {
         JsonHelper {
-            sig_type: m.sig_type,
+            sig_type: m.sig_type.into(),
             bytes: BASE64_STANDARD.encode(&m.bytes),
         }
         .serialize(serializer)
@@ -41,10 +41,10 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let JsonHelper { sig_type, bytes } = Deserialize::deserialize(deserializer)?;
-        Ok(Signature {
-            sig_type,
-            bytes: BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
-        })
+        Ok(Signature::new(
+            sig_type.into(),
+            BASE64_STANDARD.decode(bytes).map_err(de::Error::custom)?,
+        ))
     }
 
     pub mod opt {
@@ -87,8 +87,8 @@ pub mod json {
             S: Serializer,
         {
             let json = match m {
-                SignatureType::BLS => JsonHelperEnum::Bls,
-                SignatureType::Secp256k1 => JsonHelperEnum::Secp256k1,
+                &SignatureType::BLS => JsonHelperEnum::Bls,
+                &SignatureType::SECP256K1 => JsonHelperEnum::Secp256k1,
             };
             json.serialize(serializer)
         }
@@ -101,7 +101,7 @@ pub mod json {
 
             let signature_type = match json_enum {
                 JsonHelperEnum::Bls => SignatureType::BLS,
-                JsonHelperEnum::Secp256k1 => SignatureType::Secp256k1,
+                JsonHelperEnum::Secp256k1 => SignatureType::SECP256K1,
             };
             Ok(signature_type)
         }
@@ -112,7 +112,7 @@ pub mod json {
 mod tests {
     use super::json::signature_type::SignatureTypeJson;
     use super::json::{SignatureJson, SignatureJsonRef};
-    use fvm_shared::crypto::signature::{Signature, SignatureType};
+    use forest_shim::crypto::{Signature, SignatureType};
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -140,7 +140,7 @@ mod tests {
     impl quickcheck::Arbitrary for SignatureTypeWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let sigtype = g
-                .choose(&[SignatureType::Secp256k1, SignatureType::BLS])
+                .choose(&[SignatureType::SECP256K1, SignatureType::BLS])
                 .unwrap();
             SignatureTypeWrapper { sigtype: *sigtype }
         }

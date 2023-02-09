@@ -3,11 +3,11 @@
 
 pub mod address;
 pub mod bigint;
+pub mod crypto;
 pub mod econ;
 pub mod error;
 pub mod state_tree;
 pub mod version;
-pub mod crypto;
 
 ///
 /// Helper trait to re-use static methods and constants.

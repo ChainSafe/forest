@@ -4,8 +4,8 @@
 use super::errors::Error;
 use super::{wallet_helpers, KeyInfo, KeyStore};
 use ahash::{HashMap, HashMapExt};
+use forest_shim::crypto::{Signature, SignatureType};
 use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::str::FromStr;
@@ -233,8 +233,8 @@ mod tests {
         let mut secp_keys = Vec::new();
         let mut bls_keys = Vec::new();
         for _ in 1..5 {
-            let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
-            let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
+            let secp_priv_key = generate(SignatureType::SECP256K1).unwrap();
+            let secp_key_info = KeyInfo::new(SignatureType::SECP256K1, secp_priv_key);
             let secp_key = Key::try_from(secp_key_info).unwrap();
             secp_keys.push(secp_key);
 
@@ -315,15 +315,15 @@ mod tests {
         // test to see if export returns the correct key_info
         assert_eq!(key_info, key.key_info);
 
-        let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
+        let new_priv_key = generate(SignatureType::SECP256K1).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_public(SignatureType::SECP256K1, new_priv_key.as_slice()).unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
         let key_info_err = wallet.export(&test_addr).unwrap_err();
         // test to make sure that an error is raised when an incorrect address is added
         assert_eq!(key_info_err, Error::KeyInfo);
 
-        let test_key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
+        let test_key_info = KeyInfo::new(SignatureType::SECP256K1, new_priv_key);
         // make sure that key_info has been imported to wallet
         assert!(wallet.import(test_key_info.clone()).is_ok());
 
@@ -389,12 +389,12 @@ mod tests {
         // check to make sure that there is no default
         assert_eq!(wallet.get_default().unwrap_err(), Error::KeyInfo);
 
-        let new_priv_key = generate(SignatureType::Secp256k1).unwrap();
+        let new_priv_key = generate(SignatureType::SECP256K1).unwrap();
         let pub_key =
-            wallet_helpers::to_public(SignatureType::Secp256k1, new_priv_key.as_slice()).unwrap();
+            wallet_helpers::to_public(SignatureType::SECP256K1, new_priv_key.as_slice()).unwrap();
         let test_addr = Address::new_secp256k1(pub_key.as_slice()).unwrap();
 
-        let key_info = KeyInfo::new(SignatureType::Secp256k1, new_priv_key);
+        let key_info = KeyInfo::new(SignatureType::SECP256K1, new_priv_key);
         let test_addr_string = format!("wallet-{test_addr}");
 
         wallet.keystore.put(test_addr_string, key_info).unwrap();
@@ -408,8 +408,8 @@ mod tests {
 
     #[test]
     fn secp_verify() {
-        let secp_priv_key = generate(SignatureType::Secp256k1).unwrap();
-        let secp_key_info = KeyInfo::new(SignatureType::Secp256k1, secp_priv_key);
+        let secp_priv_key = generate(SignatureType::SECP256K1).unwrap();
+        let secp_key_info = KeyInfo::new(SignatureType::SECP256K1, secp_priv_key);
         let secp_key = Key::try_from(secp_key_info).unwrap();
         let addr = secp_key.address;
         let key_store = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -421,7 +421,7 @@ mod tests {
         sig.verify(&msg, &addr).unwrap();
 
         // invalid verify check
-        let invalid_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
+        let invalid_addr = wallet.generate_addr(SignatureType::SECP256K1).unwrap();
         assert!(sig.verify(&msg, &invalid_addr).is_err())
     }
 

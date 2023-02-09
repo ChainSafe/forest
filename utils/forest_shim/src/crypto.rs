@@ -3,13 +3,26 @@
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-pub use fvm_shared::crypto::signature::{Signature as Signature_v2, SignatureType as SignatureType_v2};
-pub use fvm_shared3::crypto::signature::{Signature as Signature_v3, SignatureType as SignatureType_v3};
+pub use fvm_shared::crypto::signature::{
+    Signature as Signature_v2, SignatureType as SignatureType_v2,
+};
+pub use fvm_shared3::crypto::signature::{
+    Signature as Signature_v3, SignatureType as SignatureType_v3,
+};
 
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, Hash)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct Signature(pub Signature_v3);
+
+impl Signature {
+    pub fn new(sig_type: SignatureType, bytes: Vec<u8>) -> Self {
+        Signature(Signature_v3 {
+            sig_type: *sig_type,
+            bytes,
+        })
+    }
+}
 
 impl Deref for Signature {
     type Target = Signature_v3;
@@ -27,7 +40,7 @@ impl DerefMut for Signature {
 impl From<Signature_v2> for Signature {
     fn from(value: Signature_v2) -> Self {
         let sig_type: SignatureType = value.signature_type().into();
-        let sig: Signature_v3  = Signature_v3{
+        let sig: Signature_v3 = Signature_v3 {
             sig_type: sig_type.into(),
             bytes: value.bytes().into(),
         };
@@ -53,7 +66,7 @@ impl From<Signature> for Signature_v3 {
 impl From<Signature> for Signature_v2 {
     fn from(other: Signature) -> Signature_v2 {
         let sig_type: SignatureType = other.signature_type().into();
-        let sig: Signature_v2  = Signature_v2{
+        let sig: Signature_v2 = Signature_v2 {
             sig_type: sig_type.into(),
             bytes: other.bytes().into(),
         };
@@ -61,12 +74,15 @@ impl From<Signature> for Signature_v2 {
     }
 }
 
-// ----------------------------- SignatureType
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct SignatureType(pub SignatureType_v3);
+
+impl SignatureType {
+    pub const BLS: Self = Self(SignatureType_v3::BLS);
+    pub const SECP256K1: Self = Self(SignatureType_v3::Secp256k1);
+}
 
 impl Deref for SignatureType {
     type Target = SignatureType_v3;

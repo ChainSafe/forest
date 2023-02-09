@@ -2975,6 +2975,7 @@ version = "0.6.0"
 dependencies = [
  "chrono",
  "forest_key_management",
+ "forest_shim",
  "fvm_shared 2.0.0",
  "jsonrpc-v2",
  "jsonwebtoken",
@@ -3187,6 +3188,7 @@ dependencies = [
  "anyhow",
  "base64 0.21.0",
  "forest_encoding",
+ "forest_shim",
  "fvm_shared 2.0.0",
  "serde",
 ]
@@ -3413,6 +3415,7 @@ dependencies = [
  "bls-signatures",
  "forest_encoding",
  "forest_json",
+ "forest_shim",
  "forest_utils",
  "fvm_shared 2.0.0",
  "libsecp256k1",

@@ -9,6 +9,7 @@ edition.workspace = true
 [dependencies]
 # Public
 chrono.workspace = true
+forest_shim.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 jsonrpc-v2.workspace = true
 jsonwebtoken = "8.1"

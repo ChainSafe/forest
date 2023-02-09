@@ -4,8 +4,8 @@
 use super::errors::Error;
 use bls_signatures::{PrivateKey as BlsPrivate, Serialize};
 use forest_encoding::blake2b_256;
+use forest_shim::crypto::{Signature, SignatureType};
 use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
 use libsecp256k1::{Message as SecpMessage, PublicKey as SecpPublic, SecretKey as SecpPrivate};
 use rand::rngs::OsRng;
 
@@ -16,7 +16,7 @@ pub fn to_public(sig_type: SignatureType, private_key: &[u8]) -> Result<Vec<u8>,
             .map_err(|err| Error::Other(err.to_string()))?
             .public_key()
             .as_bytes()),
-        SignatureType::Secp256k1 => {
+        SignatureType::SECP256K1 => {
             let private_key = SecpPrivate::parse_slice(private_key)
                 .map_err(|err| Error::Other(err.to_string()))?;
             let public_key = SecpPublic::from_secret_key(&private_key);
@@ -32,7 +32,7 @@ pub fn new_address(sig_type: SignatureType, public_key: &[u8]) -> Result<Address
             let addr = Address::new_bls(public_key).map_err(|err| Error::Other(err.to_string()))?;
             Ok(addr)
         }
-        SignatureType::Secp256k1 => {
+        SignatureType::SECP256K1 => {
             let addr =
                 Address::new_secp256k1(public_key).map_err(|err| Error::Other(err.to_string()))?;
             Ok(addr)
@@ -48,10 +48,10 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
                 BlsPrivate::from_bytes(private_key).map_err(|err| Error::Other(err.to_string()))?;
             // this returns a signature from bls-signatures, so we need to convert this to a crypto signature
             let sig = priv_key.sign(msg);
-            let crypto_sig = Signature::new_bls(sig.as_bytes());
+            let crypto_sig = Signature::new(SignatureType::BLS, sig.as_bytes());
             Ok(crypto_sig)
         }
-        SignatureType::Secp256k1 => {
+        SignatureType::SECP256K1 => {
             let priv_key = SecpPrivate::parse_slice(private_key)
                 .map_err(|err| Error::Other(err.to_string()))?;
             let msg_hash = blake2b_256(msg);
@@ -60,7 +60,7 @@ pub fn sign(sig_type: SignatureType, private_key: &[u8], msg: &[u8]) -> Result<S
             let mut new_bytes = [0; 65];
             new_bytes[..64].copy_from_slice(&sig.serialize());
             new_bytes[64] = recovery_id.serialize();
-            let crypto_sig = Signature::new_secp256k1(new_bytes.to_vec());
+            let crypto_sig = Signature::new(SignatureType::SECP256K1, new_bytes.to_vec());
             Ok(crypto_sig)
         }
     }
@@ -74,7 +74,7 @@ pub fn generate(sig_type: SignatureType) -> Result<Vec<u8>, Error> {
             let key = BlsPrivate::generate(rng);
             Ok(key.as_bytes())
         }
-        SignatureType::Secp256k1 => {
+        SignatureType::SECP256K1 => {
             let key = SecpPrivate::random(rng);
             Ok(key.serialize().to_vec())
         }
