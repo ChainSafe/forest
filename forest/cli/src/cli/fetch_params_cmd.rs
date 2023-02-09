@@ -26,7 +26,7 @@ impl FetchCommands {
             SectorSizeOpt::All
         } else if let Some(size) = &self.params_size {
             let sector_size = ram_to_int(size)?;
-            SectorSizeOpt::Size(sector_size.into())
+            SectorSizeOpt::Size(sector_size)
         } else if self.keys {
             SectorSizeOpt::Keys
         } else {
@@ -66,13 +66,37 @@ mod tests {
 
     #[test]
     fn ram_str_conversions() {
-        assert_eq!(ram_to_int("2048").unwrap(), SectorSize::_2KiB);
-        assert_eq!(ram_to_int("2048B").unwrap(), SectorSize::_2KiB);
-        assert_eq!(ram_to_int("2kib").unwrap(), SectorSize::_2KiB);
-        assert_eq!(ram_to_int("8Mib").unwrap(), SectorSize::_8MiB);
-        assert_eq!(ram_to_int("512MiB").unwrap(), SectorSize::_512MiB);
-        assert_eq!(ram_to_int("32Gi").unwrap(), SectorSize::_32GiB);
-        assert_eq!(ram_to_int("32GiB").unwrap(), SectorSize::_32GiB);
-        assert_eq!(ram_to_int("64Gib").unwrap(), SectorSize::_64GiB);
+        assert_eq!(
+            ram_to_int("2048").unwrap(),
+            <SectorSize as Inner>::FVM::_2KiB.into()
+        );
+        assert_eq!(
+            ram_to_int("2048B").unwrap(),
+            <SectorSize as Inner>::FVM::_2KiB.into()
+        );
+        assert_eq!(
+            ram_to_int("2kib").unwrap(),
+            <SectorSize as Inner>::FVM::_2KiB.into()
+        );
+        assert_eq!(
+            ram_to_int("8Mib").unwrap(),
+            <SectorSize as Inner>::FVM::_8MiB.into()
+        );
+        assert_eq!(
+            ram_to_int("512MiB").unwrap(),
+            <SectorSize as Inner>::FVM::_512MiB.into()
+        );
+        assert_eq!(
+            ram_to_int("32Gi").unwrap(),
+            <SectorSize as Inner>::FVM::_32GiB.into()
+        );
+        assert_eq!(
+            ram_to_int("32GiB").unwrap(),
+            <SectorSize as Inner>::FVM::_32GiB.into()
+        );
+        assert_eq!(
+            ram_to_int("64Gib").unwrap(),
+            <SectorSize as Inner>::FVM::_64GiB.into()
+        );
     }
 }

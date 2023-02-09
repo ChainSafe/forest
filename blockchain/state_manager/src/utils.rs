@@ -7,7 +7,7 @@ use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
 use forest_shim::{
     randomness::Randomness,
-    sector::{RegisteredSealProof, SectorInfo},
+    sector::{RegisteredSealProof, SectorInfo, SectorSize},
     version::NetworkVersion,
     Inner,
 };
@@ -72,7 +72,7 @@ where
 
         let info = mas.info(store)?;
 
-        let sector_size: forest_shim::sector::SectorSize = info.sector_size().into();
+        let sector_size: SectorSize = info.sector_size();
 
         let spt = <forest_shim::sector::RegisteredSealProof as Inner>::FVM::from_sector_size(
             *sector_size,
