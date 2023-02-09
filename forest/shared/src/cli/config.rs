@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use core::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
 use forest_chain_sync::SyncConfig;
@@ -157,6 +158,15 @@ impl Default for DaemonConfig {
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default)]
+pub struct TokioConfig {
+    pub worker_threads: Option<usize>,
+    pub max_blocking_threads: Option<usize>,
+    pub thread_keep_alive: Option<Duration>,
+    pub thread_stack_size: Option<usize>,
+    pub global_queue_interval: Option<u32>,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
@@ -169,6 +179,7 @@ pub struct Config {
     pub daemon: DaemonConfig,
     pub log: LogConfig,
     pub snapshot_fetch: SnapshotFetchConfig,
+    pub tokio: TokioConfig,
 }
 
 impl Config {
@@ -221,6 +232,7 @@ mod test {
                 daemon: DaemonConfig::default(),
                 log: Default::default(),
                 snapshot_fetch: Default::default(),
+                tokio: Default::default(),
             }
         }
     }
