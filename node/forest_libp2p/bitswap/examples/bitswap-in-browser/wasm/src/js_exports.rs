@@ -25,7 +25,6 @@ pub fn set_event_emitter(e: EventEmitter) {
 
 #[wasm_bindgen]
 pub async fn connect(addr: &str) -> Result<Connection, JsError> {
-    log::info!("Connecting");
     let addr = addr.parse().map_err(err_to_js_error)?;
     connect_async(addr).await.map_err(err_to_js_error)
 }

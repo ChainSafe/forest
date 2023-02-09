@@ -3,6 +3,7 @@
 1. Start the server, the program will print its address and some random block CIDs that are available in its in-memory blockstore
 
 ```console
+➜  bitswap-in-browser git:(hm/bitswap-example-wasm)
 cargo run
 ```
 
@@ -11,6 +12,10 @@ cargo run
 ```console
 # Install pnpm(https://pnpm.io/)
 # npm i -g pnpm or yarn global add pnpm
+# Install wasm-pack
+# cargo install --locked wasm-pack
+➜  bitswap-in-browser git:(hm/bitswap-example-wasm)
+cd wasm
 pnpm i
 pnpm run build
 pnpm run start
