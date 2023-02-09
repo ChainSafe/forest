@@ -42,7 +42,7 @@ def syscall(*command, chdir: '.')
 end
 
 def forest_version
-  syscall('./target/release/forest', '--version')
+  syscall(TEMP_DIR + '/forest/target/release/forest', '--version')
 end
 
 def hr(seconds)
@@ -263,6 +263,7 @@ class Benchmark
   private :build_substitution_hash
 
   def build_artefacts(dry_run)
+    clone_command(dry_run)
     clean_command(dry_run)
     build_command(dry_run)
 
@@ -323,7 +324,7 @@ end
 # Forest benchmark class
 class ForestBenchmark < Benchmark
   def default_config
-    toml_str = syscall('./target/release/forest-cli', '--chain', @chain, 'config', 'dump')
+    toml_str = syscall(TEMP_DIR + '/forest/target/release/forest-cli', '--chain', @chain, 'config', 'dump')
 
     default = Tomlrb.parse(toml_str)
     default['client']['data_dir'] = TEMP_DIR
@@ -333,7 +334,7 @@ class ForestBenchmark < Benchmark
   def db_size
     config_path = "#{TEMP_DIR}/#{@name}.toml"
 
-    line = syscall('./target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
+    line = syscall(TEMP_DIR + '/forest/target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
     match = line.match(/Database size: (.+)/)
     match[1]
   end
@@ -343,23 +344,33 @@ class ForestBenchmark < Benchmark
 
     config_path = "#{TEMP_DIR}/#{@name}.toml"
 
-    syscall('./target/release/forest-cli', '-c', config_path, 'db', 'clean', '--force') unless dry_run
+    syscall(TEMP_DIR + '/forest/target/release/forest-cli', '-c', config_path, 'db', 'clean', '--force') unless dry_run
   end
 
   def target
-    './target/release/forest'
+    TEMP_DIR + '/forest/target/release/forest'
   end
 
   def target_cli
-    './target/release/forest-cli'
+    TEMP_DIR + '/forest/target/release/forest-cli'
+  end
+
+  def clone_command(dry_run)
+    Dir.chdir(TEMP_DIR) do
+      exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git'], dry_run)
+    end
   end
 
   def clean_command(dry_run)
-    exec_command(%w[cargo clean], dry_run)
+    Dir.chdir(TEMP_DIR + '/forest') do
+      exec_command(%w[cargo clean], dry_run)
+    end
   end
 
   def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release'], dry_run)
+    Dir.chdir(TEMP_DIR + '/forest') do
+      exec_command(['cargo', 'build', '--release'], dry_run)
+    end
   end
 
   def epoch_command
@@ -434,20 +445,29 @@ class LotusBenchmark < Benchmark
   private :build_config_file
 
   def target
-    '../lotus/lotus'
+    TEMP_DIR + '/lotus/lotus'
+  end
+
+  def clone_command(dry_run)
+    Dir.chdir(TEMP_DIR) do
+      exec_command(['git', 'clone', 'https://github.com/filecoin-project/lotus.git'], dry_run)
+    end
+    Dir.chdir(TEMP_DIR + '/lotus') do
+      exec_command(['git', 'checkout', 'releases'], dry_run)
+    end
   end
 
   def clean_command(dry_run)
     # TODO: handle build both client in a tmpdir
-    Dir.chdir('../lotus') do
-      exec_command(%w[make clean], dry_run)
+    Dir.chdir(TEMP_DIR + '/lotus') do
+      exec_command(['make', 'clean', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
     end
   end
 
   def build_command(dry_run)
     # TODO: handle build both client in a tmpdir
-    Dir.chdir('../lotus') do
-      exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
+    Dir.chdir(TEMP_DIR) do
+      exec_command(['make', 'install'], dry_run)
     end
   end
 
@@ -541,7 +561,7 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    ForestBenchmark.new(name: 'forest'),
+    #ForestBenchmark.new(name: 'forest'),
     LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
