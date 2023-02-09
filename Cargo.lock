@@ -3621,7 +3621,6 @@ dependencies = [
  "forest_shim",
  "forest_utils",
  "futures",
- "fvm_shared 2.0.0",
  "log",
  "serde",
  "serde_json",
@@ -3735,7 +3734,6 @@ dependencies = [
 name = "forest_shim"
 version = "0.6.0"
 dependencies = [
- "base64 0.21.0",
  "cid",
  "fvm 2.2.0",
  "fvm 3.0.0-rc.1",
