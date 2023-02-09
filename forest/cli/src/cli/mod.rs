@@ -22,76 +22,80 @@ mod wallet_cmd;
 use std::io::{self, Write};
 
 use cid::Cid;
+use clap::Parser;
 use forest_blocks::tipset_json::TipsetJson;
-use forest_cli_shared::cli::CliOpts;
-pub(crate) use forest_cli_shared::cli::{Config, FOREST_VERSION_STRING};
+pub(crate) use forest_cli_shared::cli::Config;
+use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING, HELP_MESSAGE};
 use jsonrpc_v2::Error as JsonRpcError;
 use log::error;
 use serde::Serialize;
-use structopt::StructOpt;
 
 pub(super) use self::{
-    auth_cmd::AuthCommands, chain_cmd::ChainCommands, db_cmd::DBCommands,
-    fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
-    send_cmd::SendCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
+    db_cmd::DBCommands, fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands,
+    net_cmd::NetCommands, send_cmd::SendCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
 };
-use crate::cli::config_cmd::ConfigCommands;
 
 /// CLI structure generated when interacting with Forest binary
-#[derive(StructOpt)]
-#[structopt(
-    name = env!("CARGO_PKG_NAME"),
-    version = FOREST_VERSION_STRING.as_str(),
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    author = env!("CARGO_PKG_AUTHORS")
-)]
+#[derive(Parser)]
+#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
-    #[structopt(flatten)]
+    #[command(flatten)]
     pub opts: CliOpts,
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     pub cmd: Subcommand,
 }
 
 /// Forest binary sub-commands available.
-#[derive(StructOpt)]
-#[structopt(setting = structopt::clap::AppSettings::VersionlessSubcommands)]
+#[derive(clap::Subcommand)]
 pub enum Subcommand {
     /// Download parameters for generating and verifying proofs for given size
-    #[structopt(name = "fetch-params")]
+    #[command(name = "fetch-params")]
     Fetch(FetchCommands),
 
     /// Interact with Filecoin blockchain
+    #[command(subcommand)]
     Chain(ChainCommands),
 
     /// Manage RPC permissions
+    #[command(subcommand)]
     Auth(AuthCommands),
 
     /// Manage P2P network
+    #[command(subcommand)]
     Net(NetCommands),
 
     /// Manage wallet
+    #[command(subcommand)]
     Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
+    #[command(subcommand)]
     Sync(SyncCommands),
 
     /// Interact with the message pool
+    #[command(subcommand)]
     Mpool(MpoolCommands),
 
     /// Interact with and query Filecoin chain state
+    #[command(subcommand)]
     State(StateCommands),
 
     /// Manage node configuration
+    #[command(subcommand)]
     Config(ConfigCommands),
 
     /// Manage snapshots
+    #[command(subcommand)]
     Snapshot(SnapshotCommands),
 
     /// Send funds between accounts
     Send(SendCommand),
 
     /// Database management
+    #[command(subcommand)]
     DB(DBCommands),
 }
 

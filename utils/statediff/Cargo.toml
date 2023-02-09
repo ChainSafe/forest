@@ -1,5 +1,7 @@
 [package]
 name = "forest_statediff"
+description = "Utility tool for debugging Filecoin state differences."
+
 license.workspace = true
 repository.workspace = true
 version.workspace = true
@@ -10,6 +12,7 @@ edition.workspace = true
 ahash.workspace = true
 anyhow.workspace = true
 cid.workspace = true
+clap.workspace = true
 colored = "2.0"
 directories.workspace = true
 fil_actor_account_v9.workspace = true
@@ -21,6 +24,7 @@ fil_actor_multisig_v9.workspace = true
 fil_actor_power_v9.workspace = true
 fil_actor_reward_v9.workspace = true
 fil_actor_system_v9.workspace = true
+forest_cli_shared.workspace = true
 forest_db.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
@@ -33,7 +37,6 @@ libipld-core.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 similar = "2.2.1"
-structopt.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [features]

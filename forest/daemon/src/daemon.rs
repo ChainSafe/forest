@@ -21,7 +21,9 @@ use forest_db::{
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
-use forest_key_management::{KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME};
+use forest_key_management::{
+    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
+};
 use forest_libp2p::{
     ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
 };
@@ -89,54 +91,19 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut ks = if config.client.encrypt_keystore {
-        loop {
-            print!("Enter the keystore passphrase: ");
-            std::io::stdout().flush()?;
+    let mut keystore = create_keystore(&config)?;
 
-            let passphrase = read_password()?;
-
-            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
-            if !data_dir.exists() {
-                print!("Confirm passphrase: ");
-                std::io::stdout().flush()?;
-
-                if passphrase != read_password()? {
-                    error!("Passphrases do not match. Please retry.");
-                    continue;
-                }
-            }
-
-            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
-                PathBuf::from(&config.client.data_dir),
-                passphrase,
-            ));
-
-            match key_store_init_result {
-                Ok(ks) => break ks,
-                Err(_) => {
-                    error!("Incorrect passphrase entered. Please try again.")
-                }
-            };
-        }
-    } else {
-        warn!("Warning: Keystore encryption disabled!");
-        KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(
-            &config.client.data_dir,
-        )))?
-    };
-
-    if ks.get(JWT_IDENTIFIER).is_err() {
-        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
+    if keystore.get(JWT_IDENTIFIER).is_err() {
+        keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
     }
 
     // Print admin token
-    let ki = ks.get(JWT_IDENTIFIER)?;
+    let ki = keystore.get(JWT_IDENTIFIER)?;
     let token_exp = config.client.token_exp;
     let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
     info!("Admin token: {}", token);
 
-    let keystore = Arc::new(RwLock::new(ks));
+    let keystore = Arc::new(RwLock::new(keystore));
 
     let db = open_db(&db_path(&chain_path(&config)), config.db_config())?;
 
@@ -485,6 +452,62 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
         "testnetnet" => "mainnet",
         "calibrationnet" => "calibnet",
         _ => internal_network_name,
+    }
+}
+
+fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
+    let passphrase = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
+    let is_interactive = atty::is(atty::Stream::Stdin);
+
+    // encrypted keystore, headless
+    if config.client.encrypt_keystore && passphrase.is_err() && !is_interactive {
+        anyhow::bail!("Passphrase for the keystore was not provided and the encryption was not explicitly disabled. Please set the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable and re-run the command");
+    // encrypted keystore, either headless or interactive, passphrase provided
+    } else if config.client.encrypt_keystore && passphrase.is_ok() {
+        let passphrase = passphrase.unwrap();
+
+        let keystore = KeyStore::new(KeyStoreConfig::Encrypted(
+            PathBuf::from(&config.client.data_dir),
+            passphrase,
+        ));
+
+        keystore.map_err(|_| anyhow::anyhow!("Incorrect passphrase. Please verify the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable."))
+    // encrypted keystore, interactive, passphrase not provided
+    } else if config.client.encrypt_keystore && passphrase.is_err() && is_interactive {
+        loop {
+            print!("Enter the keystore passphrase: ");
+            std::io::stdout().flush()?;
+
+            let passphrase = read_password()?;
+
+            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
+            if !data_dir.exists() {
+                print!("Confirm passphrase: ");
+                std::io::stdout().flush()?;
+
+                if passphrase != read_password()? {
+                    error!("Passphrases do not match. Please retry.");
+                    continue;
+                }
+            }
+
+            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
+                config.client.data_dir.clone(),
+                passphrase,
+            ));
+
+            match key_store_init_result {
+                Ok(ks) => break Ok(ks),
+                Err(_) => {
+                    error!("Incorrect passphrase entered. Please try again.")
+                }
+            };
+        }
+    } else {
+        warn!("Warning: Keystore encryption disabled!");
+        Ok(KeyStore::new(KeyStoreConfig::Persistent(
+            config.client.data_dir.clone(),
+        ))?)
     }
 }
 

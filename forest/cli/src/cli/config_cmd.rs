@@ -4,11 +4,11 @@
 use std::io::Write;
 
 use anyhow::Context;
-use structopt::StructOpt;
+use clap::Subcommand;
 
 use crate::cli::Config;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
     /// Dump current configuration to standard output
     Dump,

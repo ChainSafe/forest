@@ -16,9 +16,10 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod cli;
 mod daemon;
 
-use std::{fs::File, process, sync::Arc, time::Duration};
+use std::{cmp::max, fs::File, process, sync::Arc, time::Duration};
 
 use anyhow::Context;
+use clap::Parser;
 use cli::Cli;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
@@ -34,9 +35,8 @@ use raw_sync::{
     Timeout,
 };
 use shared_memory::ShmemConf;
-use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
-use tokio::runtime::Runtime;
+use tokio::runtime::Builder as RuntimeBuilder;
 
 const EVENT_TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(20));
 
@@ -107,7 +107,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 
 fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::from_args();
+    let Cli { opts, cmd } = Cli::parse();
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 
@@ -146,7 +146,27 @@ fn main() -> anyhow::Result<()> {
                 build_daemon(&cfg.daemon)?.start()?;
             }
 
-            let rt = Runtime::new()?;
+            let mut builder = RuntimeBuilder::new_multi_thread();
+            builder.enable_io().enable_time();
+
+            if let Some(worker_threads) = cfg.tokio.worker_threads {
+                builder.worker_threads(max(1, worker_threads));
+            }
+            if let Some(max_blocking_threads) = cfg.tokio.max_blocking_threads {
+                builder.max_blocking_threads(max(1, max_blocking_threads));
+            }
+            if let Some(thread_keep_alive) = cfg.tokio.thread_keep_alive {
+                builder.thread_keep_alive(thread_keep_alive);
+            }
+            if let Some(thread_stack_size) = cfg.tokio.thread_stack_size {
+                builder.thread_stack_size(thread_stack_size);
+            }
+            if let Some(global_queue_interval) = cfg.tokio.global_queue_interval {
+                builder.global_queue_interval(global_queue_interval);
+            }
+
+            let rt = builder.build()?;
+
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
