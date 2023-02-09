@@ -1,21 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use clap::Subcommand;
 use forest_cli_shared::{chain_path, cli::Config};
 use forest_db::db_engine::db_path;
 use log::error;
-use structopt::StructOpt;
 
 use crate::cli::prompt_confirm;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum DBCommands {
     /// Show DB stats
     Stats,
     /// DB Clean up
     Clean {
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 }

@@ -16,15 +16,15 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod cli;
 mod subcommand;
 
+use clap::Parser;
 use cli::{cli_error_and_die, Cli};
 use forest_cli_shared::{cli::LogConfig, logger};
 use forest_utils::io::ProgressBar;
-use structopt::StructOpt;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::from_args();
+    let Cli { opts, cmd } = Cli::parse();
 
     match opts.to_config() {
         Ok((cfg, _)) => {

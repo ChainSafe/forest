@@ -19,6 +19,7 @@ mod daemon;
 use std::{cmp::max, fs::File, process, sync::Arc, time::Duration};
 
 use anyhow::Context;
+use clap::Parser;
 use cli::Cli;
 use daemonize_me::{Daemon, Group, User};
 use forest_cli_shared::{
@@ -34,7 +35,6 @@ use raw_sync::{
     Timeout,
 };
 use shared_memory::ShmemConf;
-use structopt::StructOpt;
 use tempfile::{Builder, TempPath};
 use tokio::runtime::Builder as RuntimeBuilder;
 
@@ -107,7 +107,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
 
 fn main() -> anyhow::Result<()> {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::from_args();
+    let Cli { opts, cmd } = Cli::parse();
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
 

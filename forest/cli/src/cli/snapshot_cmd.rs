@@ -5,6 +5,7 @@ use std::{fs, path::PathBuf, sync::Arc};
 
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
+use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
@@ -18,7 +19,6 @@ use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_shared::clock::ChainEpoch;
 use strfmt::strfmt;
-use structopt::StructOpt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio_util::compat::TokioAsyncReadCompatExt;
@@ -29,15 +29,15 @@ use crate::cli::{cli_error_and_die, handle_rpc_err};
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
         /// Tipset to start the export from, default is the chain head
-        #[structopt(short, long)]
+        #[arg(short, long)]
         tipset: Option<i64>,
         /// Specify the number of recent state roots to include in the export.
-        #[structopt(short, long, default_value = "2000")]
+        #[arg(short, long, default_value = "2000")]
         recent_stateroots: i64,
         /// Snapshot output path. Default to
         /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
@@ -48,10 +48,10 @@ pub enum SnapshotCommands {
         ///  - month
         ///  - day
         ///  - height - the epoch
-        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
+        #[arg(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
         output_path: PathBuf,
         /// Skip creating the checksum file.
-        #[structopt(long)]
+        #[arg(long)]
         skip_checksum: bool,
     },
 
@@ -59,17 +59,13 @@ pub enum SnapshotCommands {
     Fetch {
         /// Directory to which the snapshot should be downloaded. If not
         /// provided, it will be saved in default Forest data location.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
         /// Snapshot trusted source
-        #[structopt(
-            short,
-            long,
-            possible_values = &["forest", "filecoin"],
-        )]
+        #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
-        #[structopt(long)]
+        #[arg(long)]
         aria2: bool,
     },
 
@@ -80,7 +76,7 @@ pub enum SnapshotCommands {
     List {
         /// Directory to which the snapshots are downloaded. If not provided, it
         /// will be the default Forest data location.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
     },
 
@@ -91,11 +87,11 @@ pub enum SnapshotCommands {
 
         /// Directory to which the snapshots are downloaded. If not provided, it
         /// will be the default Forest data location.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 
@@ -106,11 +102,11 @@ pub enum SnapshotCommands {
     Prune {
         /// Directory to which the snapshots are downloaded. If not provided, it
         /// will be the default Forest data location.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 
@@ -118,22 +114,22 @@ pub enum SnapshotCommands {
     Clean {
         /// Directory to which the snapshots are downloaded. If not provided, it
         /// will be the default Forest data location.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
     /// Validates the snapshot.
     Validate {
         /// Number of block headers to validate from the tip
-        #[structopt(long, default_value = "2000")]
+        #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
         /// Path to snapshot file
         snapshot: PathBuf,
         /// Force validation and answers yes to all prompts.
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 }

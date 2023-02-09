@@ -1,11 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use structopt::StructOpt;
+use clap::Subcommand;
 
 use super::Config;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum MpoolCommands {}
 
 impl MpoolCommands {

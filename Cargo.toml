@@ -71,6 +71,7 @@ byteorder = "1.4.3"
 bytes = "1.2"
 chrono = { version = "0.4", default-features = false, features = [] }
 cid = { version = "0.8", default-features = false, features = ["std"] }
+clap = { version = "4.0", features = ["derive"] }
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
 cs_serde_bytes = "0.12.2"
 derive_builder = "0.11"
@@ -131,7 +132,6 @@ serde_json = "1.0"
 serde_repr = "0.1.8"
 serde_with = { version = "2.0.1", features = ["chrono_0_4"] }
 sha2 = { version = "0.10.5", default-features = false }
-structopt = "0.3"
 tempfile = "3.3"
 thiserror = "1.0"
 time = "0.3"
