@@ -109,6 +109,11 @@ make install # install forest daemon and cli
 
 ### Config
 
+#### Keystore
+To encrypt the keystore while in headless mode, set the `FOREST_KEYSTORE_PHRASE` environmental variable. Otherwise, skip the encryption (not recommended in production environments) with `--encrypt-keystore false`.
+
+
+#### Network
 Run the node with custom config and bootnodes
 
 ```bash
@@ -127,6 +132,8 @@ bootstrap_peers = ["<multiaddress>"]
 ```
 
 Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
+
+#### Configuration sources
 
 Forest will look for config files in the following order and priority:
  * Paths passed to the command line via the `--config` flag.
