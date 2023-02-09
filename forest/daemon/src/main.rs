@@ -16,7 +16,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod cli;
 mod daemon;
 
-use std::{fs::File, process, sync::Arc, time::Duration};
+use std::{cmp::max, fs::File, process, sync::Arc, time::Duration};
 
 use anyhow::Context;
 use cli::Cli;
@@ -150,10 +150,10 @@ fn main() -> anyhow::Result<()> {
             builder.enable_io().enable_time();
 
             if let Some(worker_threads) = cfg.tokio.worker_threads {
-                builder.worker_threads(worker_threads);
+                builder.worker_threads(max(1, worker_threads));
             }
             if let Some(max_blocking_threads) = cfg.tokio.max_blocking_threads {
-                builder.max_blocking_threads(max_blocking_threads);
+                builder.max_blocking_threads(max(1, max_blocking_threads));
             }
             if let Some(thread_keep_alive) = cfg.tokio.thread_keep_alive {
                 builder.thread_keep_alive(thread_keep_alive);
