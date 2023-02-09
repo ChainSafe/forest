@@ -7,7 +7,6 @@ use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
 use forest_shim::sector::{RegisteredSealProof, SectorInfo};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, randomness::Randomness};
-// >>>>>>> 9aaea1d2 (sectorinfo v2-v3)
 
 /// Functionality for verification of seal, winning PoSt and window PoSt proofs.
 /// Proof verification will be full validation by default.

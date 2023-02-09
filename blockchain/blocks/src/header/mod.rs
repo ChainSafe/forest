@@ -13,6 +13,7 @@ use forest_encoding::blake2b_256;
 use forest_shim::{
     bigint::{BigIntDe, BigIntSer},
     econ::TokenAmount,
+    sector::PoStProof,
     version::NetworkVersion,
 };
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
@@ -83,7 +84,7 @@ pub struct BlockHeader {
 
     /// `PoStProofs` are the winning post proofs
     #[builder(default)]
-    winning_post_proof: Vec<forest_shim::sector::PoStProof>,
+    winning_post_proof: Vec<PoStProof>,
 
     // MINER INFO
     /// `miner_address` is the address of the miner actor that mined this block
@@ -270,7 +271,7 @@ impl BlockHeader {
         &self.beacon_entries
     }
     /// Get winning `PoSt` proof
-    pub fn winning_post_proof(&self) -> &[forest_shim::sector::PoStProof] {
+    pub fn winning_post_proof(&self) -> &[PoStProof] {
         &self.winning_post_proof
     }
     /// Get `BlockHeader.miner_address`

@@ -3,6 +3,7 @@
 
 use forest_beacon::beacon_entries;
 use forest_json::{sector, signature};
+use forest_shim::sector::PoStProof;
 use serde::{de, Deserialize, Serialize};
 
 use super::*;
@@ -39,7 +40,7 @@ where
         #[serde(with = "beacon_entries::json::vec")]
         beacon_entries: &'a [BeaconEntry],
         #[serde(rename = "WinPoStProof", with = "sector::json::vec")]
-        winning_post_proof: &'a [forest_shim::sector::PoStProof],
+        winning_post_proof: &'a [PoStProof],
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: &'a TipsetKeys,
         #[serde(rename = "ParentWeight")]
@@ -97,7 +98,7 @@ where
         #[serde(default, with = "beacon_entries::json::vec")]
         beacon_entries: Vec<BeaconEntry>,
         #[serde(default, rename = "WinPoStProof", with = "sector::json::vec")]
-        winning_post_proof: Vec<forest_shim::sector::PoStProof>,
+        winning_post_proof: Vec<PoStProof>,
         #[serde(rename = "Parents", with = "tipset_keys_json")]
         parents: TipsetKeys,
         #[serde(rename = "ParentWeight")]

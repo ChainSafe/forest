@@ -84,15 +84,13 @@ pub mod json {
     }
 
     pub mod vec {
+        use forest_shim::sector::PoStProof;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
 
         use super::*;
 
-        pub fn serialize<S>(
-            m: &[forest_shim::sector::PoStProof],
-            serializer: S,
-        ) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(m: &[PoStProof], serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
@@ -103,16 +101,11 @@ pub mod json {
             seq.end()
         }
 
-        pub fn deserialize<'de, D>(
-            deserializer: D,
-        ) -> Result<Vec<forest_shim::sector::PoStProof>, D::Error>
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<PoStProof>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            deserializer
-                .deserialize_any(
-                    GoVecVisitor::<forest_shim::sector::PoStProof, PoStProofJson>::new(),
-                )
+            deserializer.deserialize_any(GoVecVisitor::<PoStProof, PoStProofJson>::new())
         }
     }
 }
