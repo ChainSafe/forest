@@ -6,9 +6,9 @@ use std::sync::Arc;
 use forest_blocks::{Block, BlockHeader, Tipset};
 use forest_db::Store;
 use forest_networks::ChainConfig;
+use forest_shim::address::Address;
 use forest_state_manager::StateManager;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
 
 use crate::DelegatedConsensusError;
 

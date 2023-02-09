@@ -7,7 +7,7 @@ use anyhow::bail;
 use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
-use forest_shim::{state_tree::StateTree, version::NetworkVersion};
+use forest_shim::{address::Address, state_tree::StateTree, version::NetworkVersion};
 use fvm::{
     externs::{Consensus, Externs, Rand},
     gas::{price_list_by_network_version, Gas, GasTracker},
@@ -18,7 +18,6 @@ use fvm_ipld_blockstore::{
 };
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
-    address::Address,
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
@@ -70,7 +69,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
-            .get_actor(miner_addr)?
+            .get_actor(&(*miner_addr).into())?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tbs = TrackingBlockstore::new(&self.db);
@@ -81,7 +80,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
 
         let state = StateTree::new_from_root(&self.db, &self.root)?;
 
-        let addr = resolve_to_key_addr(&state, &tbs, &worker)?;
+        let addr = resolve_to_key_addr(&state, &tbs, &worker.into())?;
 
         let network_version = self.chain_config.network_version(self.epoch);
         let gas_used = cal_gas_used_from_stats(tbs.stats.borrow(), network_version)?;
@@ -221,8 +220,9 @@ impl<DB: Blockstore> Consensus for ForestExterns<DB> {
                     total_gas += gas_used;
                     if let Ok(gas_used) = self.verify_block_signature(&bh_2) {
                         total_gas += gas_used;
+                        let addr = *bh_1.miner_address();
                         let ret = Some(ConsensusFault {
-                            target: *bh_1.miner_address(),
+                            target: addr.into(),
                             epoch: bh_2.epoch(),
                             fault_type,
                         });

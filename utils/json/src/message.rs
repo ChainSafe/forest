@@ -60,8 +60,8 @@ pub mod json {
     {
         JsonHelper {
             version: m.version,
-            to: m.to.into(),
-            from: m.from.into(),
+            to: todo!(),   //m.to.into(),
+            from: todo!(), //m.from.into(),
             sequence: m.sequence,
             value: m.value.clone(),
             gas_limit: m.gas_limit,
@@ -81,8 +81,8 @@ pub mod json {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
         Ok(Message {
             version: m.version,
-            to: m.to.into(),
-            from: m.from.into(),
+            to: todo!(),   //m.to.into(),
+            from: todo!(), //m.from.into(),
             sequence: m.sequence,
             value: m.value,
             gas_limit: m.gas_limit,
@@ -125,7 +125,8 @@ pub mod json {
 
 #[cfg(test)]
 pub mod tests {
-    use fvm_shared::{address::Address, econ::TokenAmount, message::Message};
+    use forest_shim::address::Address;
+    use fvm_shared::{econ::TokenAmount, message::Message};
     use quickcheck_macros::quickcheck;
     use serde_json;
 
@@ -139,8 +140,8 @@ pub mod tests {
     impl quickcheck::Arbitrary for MessageWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let msg = Message {
-                to: Address::new_id(u64::arbitrary(g)),
-                from: Address::new_id(u64::arbitrary(g)),
+                to: Address::new_id(u64::arbitrary(g)).into(),
+                from: Address::new_id(u64::arbitrary(g)).into(),
                 version: i64::arbitrary(g),
                 sequence: u64::arbitrary(g),
                 value: TokenAmount::from_atto(u64::arbitrary(g)),

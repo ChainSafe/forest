@@ -5,7 +5,8 @@ use std::str::FromStr;
 
 use forest_json::message::json::MessageJson;
 use forest_rpc_client::{mpool_push_message, wallet_default_address};
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, METHOD_SEND};
+use forest_shim::address::Address;
+use fvm_shared::{econ::TokenAmount, message::Message, METHOD_SEND};
 use num::BigInt;
 use structopt::StructOpt;
 
@@ -44,8 +45,8 @@ impl SendCommand {
         };
 
         let message = Message {
-            from,
-            to: self.target_address,
+            from: from.into(),
+            to: self.target_address.into(),
             value: TokenAmount::from_atto(self.amount.clone()),
             method_num: METHOD_SEND,
             gas_limit: self.gas_limit.unwrap_or_default(),

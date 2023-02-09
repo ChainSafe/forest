@@ -16,6 +16,7 @@ base64.workspace = true
 forest_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 serde = { workspace = true, features = ["derive"] }
+forest_shim.workspace = true
 
 [dev-dependencies]
 

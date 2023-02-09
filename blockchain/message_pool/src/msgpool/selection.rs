@@ -11,7 +11,8 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use fvm_shared::{address::Address, econ::TokenAmount};
+use forest_shim::address::Address;
+use fvm_shared::econ::TokenAmount;
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
@@ -666,7 +667,12 @@ where
                 remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from.into(),
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
             }
         }
     }

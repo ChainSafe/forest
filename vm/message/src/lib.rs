@@ -6,8 +6,9 @@ pub mod message;
 pub mod signed_message;
 
 pub use chain_message::ChainMessage;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::{address::Address, econ::TokenAmount, MethodNum};
+use fvm_shared::{econ::TokenAmount, MethodNum};
 pub use signed_message::SignedMessage;
 
 /// Message interface to interact with Signed and unsigned messages in a generic

@@ -98,10 +98,9 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use forest_message::{self, SignedMessage};
+    use forest_shim::address::Address;
     use fvm_ipld_encoding::RawBytes;
-    use fvm_shared::{
-        address::Address, crypto::signature::Signature, econ::TokenAmount, message::Message,
-    };
+    use fvm_shared::{crypto::signature::Signature, econ::TokenAmount, message::Message};
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
     use serde_json::{self, from_str, to_string};
@@ -159,8 +158,8 @@ mod tests {
     fn message_json_annotations() {
         let message = Message {
             version: 10,
-            from: Address::new_id(34),
-            to: Address::new_id(12),
+            from: Address::new_id(34).into(),
+            to: Address::new_id(12).into(),
             sequence: 5,
             value: TokenAmount::from_atto(6),
             method_num: 7,

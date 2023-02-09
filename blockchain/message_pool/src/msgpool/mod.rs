@@ -15,8 +15,9 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, crypto::signature::Signature};
+use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
@@ -251,7 +252,12 @@ where
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from.into(),
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
@@ -324,9 +330,8 @@ pub mod tests {
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use fvm_shared::{
-        address::Address, crypto::signature::SignatureType, econ::TokenAmount, message::Message,
-    };
+    use forest_shim::address::Address;
+    use fvm_shared::{crypto::signature::SignatureType, econ::TokenAmount, message::Message};
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;
@@ -346,8 +351,8 @@ pub mod tests {
         gas_price: u64,
     ) -> SignedMessage {
         let umsg = Message {
-            to: *to,
-            from: *from,
+            to: (*to).into(),
+            from: (*from).into(),
             sequence,
             gas_limit,
             gas_fee_cap: TokenAmount::from_atto(gas_price + 100),
@@ -355,7 +360,9 @@ pub mod tests {
             ..Message::default()
         };
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
-        let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
+        let sig = wallet
+            .sign(from.into(), msg_signing_bytes.as_slice())
+            .unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
     }
 

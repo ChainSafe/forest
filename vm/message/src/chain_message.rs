@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, MethodNum};
+use fvm_shared::{econ::TokenAmount, message::Message, MethodNum};
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
@@ -31,13 +32,13 @@ impl MessageTrait for ChainMessage {
     fn from(&self) -> &Address {
         match self {
             Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => &t.from,
+            Self::Unsigned(t) => todo!(), //&t.from.into(),
         }
     }
     fn to(&self) -> &Address {
         match self {
             Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => &t.to,
+            Self::Unsigned(t) => todo!(), //&t.to.into(),
         }
     }
     fn sequence(&self) -> u64 {

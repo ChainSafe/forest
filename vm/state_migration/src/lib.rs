@@ -9,11 +9,12 @@ use std::sync::Arc;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use cid::Cid;
 use forest_shim::{
+    address::Address,
     state_tree::{ActorState, StateTree},
     Inner,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
+use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
 use rayon::ThreadPoolBuildError;
 
 // pub mod nv12;
@@ -75,89 +76,90 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
         actors_in: StateTree<BS>,
         mut actors_out: StateTree<BS>,
     ) -> MigrationResult<Cid> {
-        if self.migrations.len() + self.deferred_code_ids.len() != ACTORS_COUNT {
-            return Err(MigrationError::IncompleteMigrationSpec(
-                self.migrations.len(),
-            ));
-        }
+        // if self.migrations.len() + self.deferred_code_ids.len() != ACTORS_COUNT {
+        //     return Err(MigrationError::IncompleteMigrationSpec(
+        //         self.migrations.len(),
+        //     ));
+        // }
 
-        let cpus = num_cpus::get();
-        let chan_size = cpus / 2;
+        // let cpus = num_cpus::get();
+        // let chan_size = cpus / 2;
 
-        log::info!(
-            "Using {} CPUs for migration and channel size of {}",
-            cpus,
-            chan_size
-        );
+        // log::info!(
+        //     "Using {} CPUs for migration and channel size of {}",
+        //     cpus,
+        //     chan_size
+        // );
 
-        let pool = rayon::ThreadPoolBuilder::new()
-            .thread_name(|id| format!("nv12 migration thread: {id}"))
-            .num_threads(cpus)
-            .build()
-            .map_err(MigrationError::ThreadPoolCreation)?;
+        // let pool = rayon::ThreadPoolBuilder::new()
+        //     .thread_name(|id| format!("nv12 migration thread: {id}"))
+        //     .num_threads(cpus)
+        //     .build()
+        //     .map_err(MigrationError::ThreadPoolCreation)?;
 
-        let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
-        let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
+        // let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
+        // let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
 
-        pool.scope(|s| {
-            let store_clone = store.clone();
+        // pool.scope(|s| {
+        //     let store_clone = store.clone();
 
-            s.spawn(move |_| {
-                // TODO: actors_in (StateTree) could use an iterator here.
-                actors_in
-                    .for_each(|addr, state| {
-                        state_tx
-                            .send((addr, state.clone()))
-                            .expect("failed sending actor state through channel");
-                        Ok(())
-                    })
-                    .expect("Failed iterating over actor state");
-            });
+        //     s.spawn(move |_| {
+        //         // TODO: actors_in (StateTree) could use an iterator here.
+        //         actors_in
+        //             .for_each(|addr, state| {
+        //                 state_tx
+        //                     .send((addr, state.clone()))
+        //                     .expect("failed sending actor state through channel");
+        //                 Ok(())
+        //             })
+        //             .expect("Failed iterating over actor state");
+        //     });
 
-            s.spawn(move |scope| {
-                while let Ok((address, state)) = state_rx.recv() {
-                    let job_tx = job_tx.clone();
-                    let store_clone = store_clone.clone();
-                    let migrator = self.migrations.get(&state.code).cloned().unwrap();
-                    scope.spawn(move |_| {
-                        let job = MigrationJob {
-                            address: forest_shim::address::Address::from(address).into(),
-                            actor_state: state.into(),
-                            actor_migration: migrator,
-                        };
+        //     s.spawn(move |scope| {
+        //         while let Ok((address, state)) = state_rx.recv() {
+        //             let job_tx = job_tx.clone();
+        //             let store_clone = store_clone.clone();
+        //             let migrator =
+        // self.migrations.get(&state.code).cloned().unwrap();
+        // scope.spawn(move |_| {                 let job = MigrationJob {
+        //                     address: todo!(),
+        //                     actor_state: state.into(),
+        //                     actor_migration: migrator,
+        //                 };
 
-                        let job_output = job.run(store_clone, prior_epoch).unwrap_or_else(|e| {
-                            panic!(
-                                "failed executing job for address: {address}, Reason: {e}"
-                            )
-                        });
+        //                 let job_output = job.run(store_clone,
+        // prior_epoch).unwrap_or_else(|e| {                     panic!(
+        //                         "failed executing job for address: {address}, Reason:
+        // {e}"                     )
+        //                 });
 
-                        job_tx.send(job_output).unwrap_or_else(|_| {
-                            panic!("failed sending job output for address: {address}")
-                        });
-                    });
-                }
-                drop(job_tx);
-            });
+        //                 job_tx.send(job_output).unwrap_or_else(|_| {
+        //                     panic!("failed sending job output for address:
+        // {address}")                 });
+        //             });
+        //         }
+        //         drop(job_tx);
+        //     });
 
-            while let Ok(job_output) = job_rx.recv() {
-                let MigrationJobOutput {
-                    address,
-                    actor_state,
-                } = job_output;
-                actors_out
-                    .set_actor(&address, actor_state.into())
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "Failed setting new actor state at given address: {address}, Reason: {e}"
-                        )
-                    });
-            }
-        });
+        //     while let Ok(job_output) = job_rx.recv() {
+        //         let MigrationJobOutput {
+        //             address,
+        //             actor_state,
+        //         } = job_output;
+        //         actors_out
+        //             .set_actor(&address, actor_state.into())
+        //             .unwrap_or_else(|e| {
+        //                 panic!(
+        //                     "Failed setting new actor state at given address:
+        // {address}, Reason: {e}"                 )
+        //             });
+        //     }
+        // });
 
-        actors_out
-            .flush()
-            .map_err(|e| MigrationError::FlushFailed(e.to_string()))
+        // actors_out
+        //     .flush()
+        //     .map_err(|e| MigrationError::FlushFailed(e.to_string()))
+        todo!()
     }
 }
 

@@ -27,6 +27,7 @@ use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
+    address::{Address, Payload, Protocol, BLS_PUB_LEN},
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
@@ -35,13 +36,7 @@ use futures::{channel::oneshot, select, FutureExt};
 use fvm::{executor::ApplyRet, externs::Rand};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    address::{Address, Payload, Protocol, BLS_PUB_LEN},
-    clock::ChainEpoch,
-    econ::TokenAmount,
-    message::Message,
-    receipt::Receipt,
-};
+use fvm_shared::{clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt};
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
@@ -250,7 +245,8 @@ where
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
         let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
-        Ok(state.get_actor(addr)?.map(|v| v.into()))
+        let addr: fvm_shared::address::Address = (*addr).into();
+        Ok(state.get_actor(&addr)?.map(|v| v.into()))
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -305,8 +301,9 @@ where
         let state = StateTree::new_from_root(self.blockstore(), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
 
+        let addr: fvm_shared::address::Address = (*addr).into();
         let act = state
-            .get_actor(addr)
+            .get_actor(&addr)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
@@ -484,7 +481,7 @@ where
         }
 
         let actor = self
-            .get_actor(&msg.from, *bstate)?
+            .get_actor(&msg.from.into(), *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
         let apply_ret = vm.apply_implicit_message(msg)?;
@@ -856,8 +853,9 @@ where
             let state = StateTree::new_from_root(self.blockstore(), current.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
+            let addr: fvm_shared::address::Address = (*message_from_address).into();
             if let Some(actor_state) = state
-                .get_actor(message_from_address)
+                .get_actor(&addr)
                 .map_err(|e| Error::State(e.to_string()))?
             {
                 if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
@@ -1094,9 +1092,9 @@ where
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
-        let address = forest_shim::address::Address::from(addr);
+        let addr: fvm_shared::address::Address = (*addr).into();
         Ok(state_tree
-            .lookup_id(&address.into())
+            .lookup_id(&addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
     }

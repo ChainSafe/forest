@@ -190,7 +190,7 @@ impl WalletCommands {
                 let key =
                     Address::from_str(key).with_context(|| format!("Invalid address: {key}"))?;
 
-                let key_json = AddressJson(key);
+                let key_json = AddressJson(key.into());
                 wallet_set_default((key_json,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -204,7 +204,7 @@ impl WalletCommands {
                 let message = BASE64_STANDARD.encode(message);
 
                 let response = wallet_sign(
-                    (AddressJson(address), message.into_bytes()),
+                    (AddressJson(address.into()), message.into_bytes()),
                     &config.client.rpc_token,
                 )
                 .await
@@ -229,7 +229,7 @@ impl WalletCommands {
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
                 let response = wallet_verify(
-                    (AddressJson(address), msg, SignatureJson(signature)),
+                    (AddressJson(address.into()), msg, SignatureJson(signature)),
                     &config.client.rpc_token,
                 )
                 .await

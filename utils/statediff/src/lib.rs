@@ -22,9 +22,11 @@ use fil_actor_reward_v9::State as RewardState;
 use fil_actor_system_v9::State as SystemState;
 use forest_ipld::json::{IpldJson, IpldJsonRef};
 use forest_json::cid::CidJson;
-use forest_shim::state_tree::{ActorState, StateTree};
+use forest_shim::{
+    address::Address,
+    state_tree::{ActorState, StateTree},
+};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
 use libipld_core::ipld::Ipld;
 use resolve::resolve_cids_recursive;
 use serde::{Deserialize, Serialize};
@@ -57,17 +59,18 @@ fn root_to_state_map<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
 ) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
-    let mut actors = HashMap::default();
-    let state_tree = StateTree::new_from_root(bs, root)?;
-    state_tree.for_each(|addr: Address, actor| {
-        actors.insert(
-            addr,
-            forest_shim::state_tree::ActorState::from(actor.clone()),
-        );
-        Ok(())
-    })?;
+    // let mut actors = HashMap::default();
+    // let state_tree = StateTree::new_from_root(bs, root)?;
+    // state_tree.for_each(|addr: Address, actor| {
+    //     actors.insert(
+    //         addr,
+    //         forest_shim::state_tree::ActorState::from(actor.clone()),
+    //     );
+    //     Ok(())
+    // })?;
 
-    Ok(actors)
+    // Ok(actors)
+    todo!()
 }
 
 /// Tries to resolve state tree actors, if all data exists in store.
@@ -80,42 +83,42 @@ fn try_print_actor_states<BS: Blockstore>(
     expected_root: &Cid,
     depth: Option<u64>,
 ) -> Result<(), anyhow::Error> {
-    // For now, resolving to a map, because we need to use go implementation's
-    // inefficient caching this would probably be faster in most cases.
-    let mut e_state = root_to_state_map(bs, expected_root)?;
+    // // For now, resolving to a map, because we need to use go implementation's
+    // // inefficient caching this would probably be faster in most cases.
+    // let mut e_state = root_to_state_map(bs, expected_root)?;
 
-    // Compare state with expected
-    let state_tree = StateTree::new_from_root(bs, root)?;
+    // // Compare state with expected
+    // let state_tree = StateTree::new_from_root(bs, root)?;
 
-    state_tree.for_each(|addr: Address, actor| {
-        let actor = forest_shim::state_tree::ActorState::from(actor.clone());
-        let calc_pp = pp_actor_state(bs, &actor, depth)?;
+    // state_tree.for_each(|addr: Address, actor| {
+    //     let actor = forest_shim::state_tree::ActorState::from(actor.clone());
+    //     let calc_pp = pp_actor_state(bs, &actor, depth)?;
 
-        if let Some(other) = e_state.remove(&addr) {
-            if other != actor {
-                let comma = ",";
-                let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let expected = expected_pp.split(comma).collect::<Vec<&str>>();
-                let calculated = calc_pp.split(comma).collect::<Vec<&str>>();
-                let diffs = TextDiff::from_slices(&expected, &calculated);
-                let stdout = stdout();
-                let mut handle = stdout.lock();
-                writeln!(handle, "Address {addr} changed: ")?;
-                print_diffs(&mut handle, diffs)?;
-            }
-        } else {
-            // Added actor, print out the json format actor state.
-            println!("{}", format!("+ Address {addr}:\n{calc_pp}").green());
-        }
+    //     if let Some(other) = e_state.remove(&addr) {
+    //         if other != actor {
+    //             let comma = ",";
+    //             let expected_pp = pp_actor_state(bs, &other, depth)?;
+    //             let expected = expected_pp.split(comma).collect::<Vec<&str>>();
+    //             let calculated = calc_pp.split(comma).collect::<Vec<&str>>();
+    //             let diffs = TextDiff::from_slices(&expected, &calculated);
+    //             let stdout = stdout();
+    //             let mut handle = stdout.lock();
+    //             writeln!(handle, "Address {addr} changed: ")?;
+    //             print_diffs(&mut handle, diffs)?;
+    //         }
+    //     } else {
+    //         // Added actor, print out the json format actor state.
+    //         println!("{}", format!("+ Address {addr}:\n{calc_pp}").green());
+    //     }
 
-        Ok(())
-    })?;
+    //     Ok(())
+    // })?;
 
-    // Print all addresses that no longer have actor state
-    for (addr, state) in e_state.into_iter() {
-        let expected_json = serde_json::to_string_pretty(&actor_to_resolved(bs, &state, depth))?;
-        println!("{}", format!("- Address {addr}:\n{expected_json}").red())
-    }
+    // // Print all addresses that no longer have actor state
+    // for (addr, state) in e_state.into_iter() {
+    //     let expected_json = serde_json::to_string_pretty(&actor_to_resolved(bs,
+    // &state, depth))?;     println!("{}", format!("- Address
+    // {addr}:\n{expected_json}").red()) }
 
     Ok(())
 }

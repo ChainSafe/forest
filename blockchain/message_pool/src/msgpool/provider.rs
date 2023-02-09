@@ -10,11 +10,14 @@ use forest_chain::HeadChange;
 use forest_db::Store;
 use forest_message::{ChainMessage, SignedMessage};
 use forest_networks::Height;
-use forest_shim::state_tree::{ActorState, StateTree};
+use forest_shim::{
+    address::Address,
+    state_tree::{ActorState, StateTree},
+};
 use forest_state_manager::StateManager;
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message};
+use fvm_shared::{econ::TokenAmount, message::Message};
 use tokio::sync::broadcast::{Receiver as Subscriber, Sender as Publisher};
 
 use crate::errors::Error;
@@ -94,7 +97,7 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let actor = state
-            .get_actor(addr)
+            .get_actor(&(*addr).into())
             .map_err(|e| Error::Other(e.to_string()))?;
         actor
             .map(|v| v.into())

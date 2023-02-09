@@ -3,10 +3,9 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::state_tree::ActorState;
+use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
 use serde::Serialize;
 
 /// Init actor address.

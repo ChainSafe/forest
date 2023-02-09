@@ -4,10 +4,9 @@
 use std::{collections::BTreeMap, convert::TryInto};
 
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
-use forest_shim::randomness::Randomness;
+use forest_shim::{address::Address, randomness::Randomness};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::{
-    address::Address,
     commcid::cid_to_replica_commitment_v1,
     sector::{PoStProof, RegisteredPoStProof, SectorInfo},
 };

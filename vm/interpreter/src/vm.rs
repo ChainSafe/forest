@@ -8,7 +8,7 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::{error::ExitCode, Inner};
+use forest_shim::{address::Address, error::ExitCode, Inner};
 use fvm::{
     executor::{ApplyRet, DefaultExecutor},
     externs::Rand,
@@ -17,8 +17,8 @@ use fvm::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::{
-    address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt,
-    BLOCK_GAS_LIMIT, METHOD_SEND,
+    clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt, BLOCK_GAS_LIMIT,
+    METHOD_SEND,
 };
 use num::Zero;
 
@@ -115,7 +115,7 @@ where
         &self,
         addr: &Address,
     ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
-        Ok(self.fvm_executor.state_tree().get_actor(addr)?)
+        Ok(self.fvm_executor.state_tree().get_actor(&(*addr).into())?)
     }
 
     pub fn run_cron(
@@ -126,8 +126,8 @@ where
         >,
     ) -> Result<(), anyhow::Error> {
         let cron_msg = Message {
-            from: system::ADDRESS,
-            to: cron::ADDRESS,
+            from: system::ADDRESS.into(),
+            to: cron::ADDRESS.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
@@ -302,15 +302,15 @@ impl RewardCalc for RewardActorMessageCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
-            miner,
+            miner: miner.into(),
             penalty,
             gas_reward,
             win_count,
         })?;
 
         let rew_msg = Message {
-            from: system::ADDRESS,
-            to: reward::ADDRESS,
+            from: system::ADDRESS.into(),
+            to: reward::ADDRESS.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
             // Epoch as sequence is intentional
@@ -359,8 +359,8 @@ impl RewardCalc for FixedRewardCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message {
-            from: reward::ADDRESS,
-            to: miner,
+            from: reward::ADDRESS.into(),
+            to: miner.into(),
             method_num: METHOD_SEND,
             params: Default::default(),
             // Epoch as sequence is intentional

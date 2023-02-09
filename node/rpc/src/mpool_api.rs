@@ -15,9 +15,9 @@ use forest_json::{
 };
 use forest_message::SignedMessage;
 use forest_rpc_api::{data_types::RPCState, mpool_api::*};
+use forest_shim::address::Protocol;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Protocol;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use super::gas_api::estimate_message_gas;
@@ -109,7 +109,7 @@ where
 {
     let (MessageJson(umsg), spec) = params;
 
-    let from = umsg.from;
+    let from: forest_shim::address::Address = umsg.from.into();
 
     let mut keystore = data.keystore.as_ref().write().await;
     let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
@@ -129,7 +129,7 @@ where
     }
 
     if from.protocol() == Protocol::ID {
-        umsg.from = key_addr;
+        umsg.from = key_addr.into();
     }
     let nonce = data.mpool.get_sequence(&from)?;
     umsg.sequence = nonce;

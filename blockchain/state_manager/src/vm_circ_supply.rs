@@ -9,9 +9,12 @@ use forest_actor_interface::{
 use forest_chain::*;
 use forest_db::Store;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::state_tree::{ActorState, StateTree};
+use forest_shim::{
+    address::Address,
+    state_tree::{ActorState, StateTree},
+};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
+use fvm_shared::{clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
@@ -110,8 +113,9 @@ fn get_actor_state<DB: Blockstore>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
+    let addr: fvm_shared::address::Address = (*addr).into();
     state_tree
-        .get_actor(addr)?
+        .get_actor(&addr)?
         .map(|v| v.into())
         .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {addr}"))
 }
@@ -151,7 +155,7 @@ fn get_fil_mined<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(&reward::ADDRESS)?
+        .get_actor(&reward::ADDRESS.into())?
         .context("Reward actor address could not be resolved")?;
     let state = reward::State::load(state_tree.store(), &actor.into())?;
 
@@ -162,7 +166,7 @@ fn get_fil_market_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(&market::ADDRESS)?
+        .get_actor(&market::ADDRESS.into())?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
     let state = market::State::load(state_tree.store(), &actor.into())?;
 
@@ -173,7 +177,7 @@ fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
-        .get_actor(&power::ADDRESS)?
+        .get_actor(&power::ADDRESS.into())?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
     let state = power::State::load(state_tree.store(), &actor.into())?;
 
@@ -202,7 +206,7 @@ fn get_fil_locked<DB: Blockstore + Store + Clone>(
 fn get_fil_burnt<DB: Blockstore + Store + Clone>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let burnt_actor = get_actor_state(state_tree, &BURNT_FUNDS_ACTOR_ADDR)?;
+    let burnt_actor = get_actor_state(state_tree, &BURNT_FUNDS_ACTOR_ADDR.into())?;
 
     Ok(forest_shim::econ::TokenAmount::from(&burnt_actor.balance).into())
 }

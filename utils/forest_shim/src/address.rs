@@ -4,10 +4,12 @@
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut},
+    str::FromStr,
 };
 
 use fvm_shared::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
+pub use fvm_shared3::address::{Error, Payload, Protocol, BLS_PUB_LEN};
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -67,5 +69,30 @@ impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
         Address_v2::from_bytes(&other.to_bytes())
             .expect("Couldn't convert between FVM2 and FVM3 addresses")
+    }
+}
+
+impl Address {
+    pub const fn new_id(id: u64) -> Self {
+        Address(Address_v3::new_id(id))
+    }
+
+    pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
+        todo!()
+    }
+
+    pub fn new_bls(pubkey: &[u8]) -> Result<Self, Error> {
+        todo!()
+    }
+
+    pub fn new_actor(data: &[u8]) -> Self {
+        todo!()
+    }
+}
+
+impl FromStr for Address {
+    type Err = Error;
+    fn from_str(addr: &str) -> Result<Self, Error> {
+        todo!()
     }
 }

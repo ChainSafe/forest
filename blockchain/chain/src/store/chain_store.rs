@@ -21,14 +21,13 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
-use forest_shim::state_tree::StateTree;
+use forest_shim::{address::Address, state_tree::StateTree};
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::{
-    address::Address,
     clock::ChainEpoch,
     crypto::signature::{Signature, SignatureType},
     econ::TokenAmount,
@@ -805,7 +804,7 @@ where
             let from_address = message.from();
             if applied.contains_key(from_address) {
                 let actor_state = state
-                    .get_actor(from_address)
+                    .get_actor(&(*from_address).into())
                     .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
@@ -983,8 +982,8 @@ mod tests {
         },
         Cid,
     };
+    use forest_shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_shared::address::Address;
 
     use super::*;
 

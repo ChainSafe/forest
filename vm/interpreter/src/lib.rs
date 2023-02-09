@@ -9,9 +9,11 @@ mod metrics;
 mod vm;
 
 use forest_actor_interface::account;
-use forest_shim::state_tree::StateTree;
+use forest_shim::{
+    address::{Address, Protocol},
+    state_tree::StateTree,
+};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::{Address, Protocol};
 
 pub use self::vm::*;
 
@@ -30,8 +32,9 @@ where
         return Ok(*addr);
     }
 
+    let addr: fvm_shared::address::Address = (*addr).into();
     let act = st
-        .get_actor(addr)?
+        .get_actor(&addr)?
         .ok_or_else(|| anyhow::anyhow!("Failed to retrieve actor: {}", addr))?;
 
     let acc_st = account::State::load(store, &act.into())?;
