@@ -55,6 +55,7 @@ time.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 
 [dev-dependencies]
+assert_cmd.workspace = true
 
 [features]
 default = ["forest_fil_cns", "rocksdb"]
