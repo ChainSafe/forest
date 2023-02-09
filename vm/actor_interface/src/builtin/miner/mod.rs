@@ -15,15 +15,6 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
-// <<<<<<< HEAD
-// use fvm_shared::{
-//     address::Address,
-//     clock::ChainEpoch,
-//     deal::DealID,
-//     econ::TokenAmount,
-//     sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize},
-// };
-// =======
 use fvm_shared::clock::ChainEpoch;
 use fvm_shared::{address::Address, deal::DealID, econ::TokenAmount, sector::SectorNumber};
 use libp2p::PeerId;
