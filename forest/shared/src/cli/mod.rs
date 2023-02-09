@@ -30,6 +30,21 @@ const GIT_HASH: &str = git_version!(args = ["--always", "--exclude", "*"], fallb
 pub static FOREST_VERSION_STRING: Lazy<String> =
     Lazy::new(|| format!("{}+git.{}", env!("CARGO_PKG_VERSION"), GIT_HASH));
 
+pub static HELP_MESSAGE: &str = "\
+{name} {version}
+{author}
+{about}
+
+USAGE:
+  {usage}
+
+SUBCOMMANDS:
+{subcommands}
+
+OPTIONS:
+{options}
+";
+
 /// CLI options
 #[derive(Debug, Parser)]
 pub struct CliOpts {

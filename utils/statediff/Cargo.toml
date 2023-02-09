@@ -1,6 +1,6 @@
 [package]
 name = "forest_statediff"
-description = "statediff binary sub-commands available"
+description = "Utility tool for debugging Filecoin state differences."
 
 license.workspace = true
 repository.workspace = true
@@ -28,6 +28,7 @@ forest_db.workspace = true
 forest_ipld.workspace = true
 forest_json.workspace = true
 forest_shim.workspace = true
+forest_cli_shared.workspace = true
 forest_utils.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true

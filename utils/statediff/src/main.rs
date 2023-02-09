@@ -3,6 +3,7 @@
 use cid::Cid;
 use clap::Parser;
 use directories::ProjectDirs;
+use forest_cli_shared::cli::HELP_MESSAGE;
 use forest_db::db_engine::{db_path, open_db, DbConfig};
 use forest_statediff::print_state_diff;
 
@@ -32,22 +33,7 @@ impl crate::Subcommand {
 /// CLI structure generated when interacting with the statediff tool
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = env!("CARGO_PKG_VERSION"), about = env!("CARGO_PKG_DESCRIPTION"))]
-#[command(help_template(
-    "\
-{name} {version}
-{author}
-{about}
-
-USAGE:
-  {usage}
-
-SUBCOMMANDS:
-{subcommands}
-
-OPTIONS:
-{options}
-"
-))]
+#[command(help_template(HELP_MESSAGE))]
 struct Cli {
     #[command(subcommand)]
     cmd: Subcommand,
