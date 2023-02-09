@@ -59,18 +59,17 @@ fn root_to_state_map<BS: Blockstore>(
     bs: &BS,
     root: &Cid,
 ) -> Result<HashMap<Address, ActorState>, anyhow::Error> {
-    // let mut actors = HashMap::default();
-    // let state_tree = StateTree::new_from_root(bs, root)?;
-    // state_tree.for_each(|addr: Address, actor| {
-    //     actors.insert(
-    //         addr,
-    //         forest_shim::state_tree::ActorState::from(actor.clone()),
-    //     );
-    //     Ok(())
-    // })?;
+    let mut actors = HashMap::default();
+    let state_tree = StateTree::new_from_root(bs, root)?;
+    state_tree.for_each(|addr: fvm_shared::address::Address, actor| {
+        actors.insert(
+            addr.into(),
+            forest_shim::state_tree::ActorState::from(actor.clone()),
+        );
+        Ok(())
+    })?;
 
-    // Ok(actors)
-    todo!()
+    Ok(actors)
 }
 
 /// Tries to resolve state tree actors, if all data exists in store.
