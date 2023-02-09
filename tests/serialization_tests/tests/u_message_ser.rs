@@ -7,8 +7,8 @@
 use std::{fs::File, io::prelude::*};
 
 use forest_json::message;
+use forest_shim::message::Message;
 use fvm_ipld_encoding::to_vec;
-use fvm_shared::message::Message;
 use hex::encode;
 use serde::Deserialize;
 

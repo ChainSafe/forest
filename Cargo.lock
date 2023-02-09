@@ -3726,8 +3726,10 @@ name = "forest_shim"
 version = "0.6.0"
 dependencies = [
  "cid",
+ "fil_actors_runtime_v9",
  "fvm 2.2.0",
  "fvm 3.0.0-alpha.23",
+ "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.20",
  "num-bigint",
@@ -3836,6 +3838,7 @@ dependencies = [
  "forest_crypto",
  "forest_libp2p",
  "forest_message",
+ "forest_shim",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
  "num",
