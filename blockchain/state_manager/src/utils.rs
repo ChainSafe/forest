@@ -5,12 +5,11 @@ use cid::Cid;
 use forest_actor_interface::miner;
 use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
-use forest_shim::version::NetworkVersion;
+use forest_shim::{randomness::Randomness, version::NetworkVersion};
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{
     address::Address,
-    randomness::Randomness,
     sector::{RegisteredSealProof, SectorInfo},
 };
 

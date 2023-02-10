@@ -15,6 +15,7 @@ base64.workspace = true
 blake3.workspace = true
 boa_engine = { git = "https://github.com/elmattic/boa", branch = "fix-rustsec", features = ["console"] }
 cid.workspace = true
+clap.workspace = true
 convert_case = "0.6.0"
 dialoguer.workspace = true
 directories.workspace = true
@@ -48,7 +49,6 @@ rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 strfmt = "0.2.2"
-structopt.workspace = true
 tempfile.workspace = true
 ticker = "0.1"
 time.workspace = true

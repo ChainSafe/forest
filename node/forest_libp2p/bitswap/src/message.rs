@@ -1,13 +1,51 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use pb::bitswap_pb;
+use protobuf::{EnumOrUnknown, Message};
+
 use crate::{prefix::Prefix, *};
 
 /// Type of a `bitswap` request
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum RequestType {
     Have,
     Block,
+}
+
+impl From<bitswap_pb::message::wantlist::WantType> for RequestType {
+    fn from(value: bitswap_pb::message::wantlist::WantType) -> Self {
+        match value {
+            bitswap_pb::message::wantlist::WantType::Have => RequestType::Have,
+            bitswap_pb::message::wantlist::WantType::Block => RequestType::Block,
+        }
+    }
+}
+
+impl TryFrom<EnumOrUnknown<bitswap_pb::message::wantlist::WantType>> for RequestType {
+    type Error = i32;
+
+    fn try_from(
+        value: EnumOrUnknown<bitswap_pb::message::wantlist::WantType>,
+    ) -> Result<Self, Self::Error> {
+        value.enum_value().map(Into::into)
+    }
+}
+
+impl From<RequestType> for bitswap_pb::message::wantlist::WantType {
+    fn from(value: RequestType) -> Self {
+        match value {
+            RequestType::Have => bitswap_pb::message::wantlist::WantType::Have,
+            RequestType::Block => bitswap_pb::message::wantlist::WantType::Block,
+        }
+    }
+}
+
+impl From<RequestType> for EnumOrUnknown<bitswap_pb::message::wantlist::WantType> {
+    fn from(value: RequestType) -> Self {
+        let want_type: bitswap_pb::message::wantlist::WantType = value.into();
+        want_type.into()
+    }
 }
 
 /// `Bitswap` request type
@@ -58,48 +96,49 @@ pub enum BitswapMessage {
 
 impl BitswapMessage {
     pub fn to_bytes(&self) -> IOResult<Vec<u8>> {
-        let mut msg = proto::Message::default();
+        let mut msg = bitswap_pb::Message::new();
         match self {
             Self::Request(BitswapRequest {
                 ty,
                 cid,
                 send_dont_have,
             }) => {
-                let mut wantlist = proto::message::Wantlist::default();
-                let entry = proto::message::wantlist::Entry {
-                    block: cid.to_bytes(),
-                    want_type: match ty {
-                        RequestType::Have => proto::message::wantlist::WantType::Have,
-                        RequestType::Block => proto::message::wantlist::WantType::Block,
-                    } as _,
-                    send_dont_have: *send_dont_have,
-                    cancel: false,
-                    priority: 1,
-                };
-                wantlist.entries.push(entry);
-                msg.wantlist = Some(wantlist);
+                let mut wantlist = bitswap_pb::message::Wantlist::new();
+
+                wantlist.entries.push({
+                    let mut entry = bitswap_pb::message::wantlist::Entry::new();
+                    entry.block = cid.to_bytes();
+                    entry.wantType = (*ty).into();
+                    entry.sendDontHave = *send_dont_have;
+                    entry.cancel = false;
+                    entry.priority = 1;
+                    entry
+                });
+
+                msg.wantlist = Some(wantlist).into();
             }
             Self::Response(cid, BitswapResponse::Have(have)) => {
-                let block_presence = proto::message::BlockPresence {
-                    cid: cid.to_bytes(),
-                    r#type: if *have {
-                        proto::message::BlockPresenceType::Have
-                    } else {
-                        proto::message::BlockPresenceType::DontHave
-                    } as _,
-                };
-                msg.block_presences.push(block_presence);
+                let mut block_presence = bitswap_pb::message::BlockPresence::new();
+
+                block_presence.cid = cid.to_bytes();
+                block_presence.type_ = if *have {
+                    bitswap_pb::message::BlockPresenceType::Have
+                } else {
+                    bitswap_pb::message::BlockPresenceType::DontHave
+                }
+                .into();
+
+                msg.blockPresences.push(block_presence);
             }
             Self::Response(cid, BitswapResponse::Block(bytes)) => {
-                let payload = proto::message::Block {
-                    prefix: Prefix::from(cid).to_bytes(),
-                    data: bytes.to_vec(),
-                };
+                let mut payload = bitswap_pb::message::Block::new();
+
+                payload.prefix = Prefix::from(cid).to_bytes();
+                payload.data = bytes.to_vec();
+
                 msg.payload.push(payload);
             }
         }
-        let mut bytes = Vec::with_capacity(msg.encoded_len());
-        msg.encode(&mut bytes).map_err(map_io_err)?;
-        Ok(bytes)
+        msg.write_to_bytes().map_err(map_io_err)
     }
 }

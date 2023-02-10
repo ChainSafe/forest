@@ -32,7 +32,7 @@ use super::Config;
 use crate::cli::to_size_string;
 
 /// Snapshot fetch service provider
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SnapshotServer {
     Forest,
     Filecoin,

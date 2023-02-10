@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::Context;
 use base64::{prelude::BASE64_STANDARD, Engine};
+use clap::Subcommand;
 use forest_json::{
     address::json::AddressJson,
     signature::json::{signature_type::SignatureTypeJson, SignatureJson},
@@ -22,16 +23,15 @@ use fvm_shared::{
 };
 use num::BigInt;
 use rpassword::read_password;
-use structopt::StructOpt;
 
 use super::{handle_rpc_err, Config};
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum WalletCommands {
     /// Create a new wallet
     New {
         /// The signature type to use. One of SECP256k1, or BLS
-        #[structopt(default_value = "secp256k1")]
+        #[arg(default_value = "secp256k1")]
         signature_type: String,
     },
     /// Get account balance
@@ -66,23 +66,23 @@ pub enum WalletCommands {
     /// Sign a message
     Sign {
         /// The hex encoded message to sign
-        #[structopt(short)]
+        #[arg(short)]
         message: String,
         /// The address to be used to sign the message
-        #[structopt(short)]
+        #[arg(short)]
         address: String,
     },
     /// Verify the signature of a message. Returns true if the signature matches
     /// the message and address
     Verify {
         /// The address used to sign the message
-        #[structopt(short)]
+        #[arg(short)]
         address: String,
         /// The message to verify
-        #[structopt(short)]
+        #[arg(short)]
         message: String,
         /// The signature of the message to verify
-        #[structopt(short)]
+        #[arg(short)]
         signature: String,
     },
 }

@@ -12,21 +12,17 @@ use std::{
 };
 
 use anes::execute;
-use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING};
+use clap::Parser;
+use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING, HELP_MESSAGE};
 use futures::channel::oneshot::Receiver;
 use log::{info, warn};
-use structopt::StructOpt;
 
 /// CLI structure generated when interacting with Forest binary
-#[derive(StructOpt)]
-#[structopt(
-    name = env!("CARGO_PKG_NAME"),
-    version = FOREST_VERSION_STRING.as_str(),
-    about = env!("CARGO_PKG_DESCRIPTION"),
-    author = env!("CARGO_PKG_AUTHORS")
-)]
+#[derive(Parser)]
+#[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
+#[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     pub opts: CliOpts,
     pub cmd: Option<String>,
 }

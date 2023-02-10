@@ -24,18 +24,17 @@ use num::{BigInt, Zero};
 use rustyline::{config::Config as RustyLineConfig, EditMode, Editor};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
-use structopt::StructOpt;
 
 use super::Config;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Args)]
 pub struct AttachCommand {
     /// Set a library directory for the Javascript scripts
-    #[structopt(long)]
+    #[arg(long)]
     jspath: Option<PathBuf>,
 
     /// Execute Javascript code non-interactively
-    #[structopt(long)]
+    #[arg(long)]
     exec: Option<String>,
 }
 
