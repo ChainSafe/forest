@@ -201,23 +201,22 @@ impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
         // Deserialize into peer id if valid, `None` if not.
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
-        // MinerInfo {
-        //     owner: info.owner,
-        //     worker: info.worker,
-        //     control_addresses: info.control_addresses,
-        //     new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
-        //     worker_change_epoch: info
-        //         .pending_worker_key
-        //         .map(|k| k.effective_at)
-        //         .unwrap_or(-1),
-        //     peer_id,
-        //     multiaddrs: info.multi_address,
-        //     window_post_proof_type: info.window_post_proof_type,
-        //     sector_size: info.sector_size,
-        //     window_post_partition_sectors: info.window_post_partition_sectors,
-        //     consensus_fault_elapsed: info.consensus_fault_elapsed,
-        // }
-        todo!()
+        MinerInfo {
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.iter().map(|a| a.into()).collect(),
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker.into()),
+            worker_change_epoch: info
+                .pending_worker_key
+                .map(|k| k.effective_at)
+                .unwrap_or(-1),
+            peer_id,
+            multiaddrs: info.multi_address,
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: info.consensus_fault_elapsed,
+        }
     }
 }
 
@@ -226,23 +225,22 @@ impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
         // Deserialize into peer id if valid, `None` if not.
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
-        // MinerInfo {
-        //     owner: info.owner,
-        //     worker: info.worker,
-        //     control_addresses: info.control_addresses,
-        //     new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
-        //     worker_change_epoch: info
-        //         .pending_worker_key
-        //         .map(|k| k.effective_at)
-        //         .unwrap_or(-1),
-        //     peer_id,
-        //     multiaddrs: info.multi_address,
-        //     window_post_proof_type: info.window_post_proof_type,
-        //     sector_size: info.sector_size,
-        //     window_post_partition_sectors: info.window_post_partition_sectors,
-        //     consensus_fault_elapsed: info.consensus_fault_elapsed,
-        // }
-        todo!()
+        MinerInfo {
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.iter().map(|a| a.into()).collect(),
+            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker.into()),
+            worker_change_epoch: info
+                .pending_worker_key
+                .map(|k| k.effective_at)
+                .unwrap_or(-1),
+            peer_id,
+            multiaddrs: info.multi_address,
+            window_post_proof_type: info.window_post_proof_type,
+            sector_size: info.sector_size,
+            window_post_partition_sectors: info.window_post_partition_sectors,
+            consensus_fault_elapsed: info.consensus_fault_elapsed,
+        }
     }
 }
 
