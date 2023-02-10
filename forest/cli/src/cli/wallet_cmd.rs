@@ -291,12 +291,12 @@ impl WalletCommands {
     }
 }
 
-fn formating_vars(balance_string: String, balance_exact: String) -> (String, String) {
+fn formating_vars(balance_string: String, balance_exact: String, changed: bool) -> (String, String) {
     //unfallible unwrap
     let re = Regex::new(r"(?i)(0+$)|(\.0+$)|(\.+$)").unwrap();
     let res = re.replace(balance_string.as_str(), "").to_string();
     let balance_exact_res = re.replace(balance_exact.as_str(), "").to_string();
-    let symbol = if balance_exact_res.len() <= res.len() {
+    let symbol = if balance_exact_res.len() <= res.len() && !changed {
         ""
     } else {
         "~"
@@ -312,23 +312,50 @@ fn format_balance_string(
     let mut unit = "FIL";
     let (balance_string, symbol) = if fixed_unit {
         if exact_balance {
-            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
+            formating_vars(format!("{balance_int}"), format!("{balance_int}"), false)
         } else {
-            formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"))
+            let mut changed: bool = false;
+            let balance_int = if balance_int >= TokenAmount::from_whole(1) {
+                balance_int
+            } else if balance_int >= TokenAmount::from_atto(5 * 10_i64.pow(17)) {
+                changed = true;
+                TokenAmount::from_whole(1)
+            } else {
+                changed = true;
+                TokenAmount::from_whole(0)
+            };
+            formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"), changed)
         }
     } else {
         let atto = balance_int.atto();
         let len = atto.to_string().len();
+        let mut changed: bool = false;
         if len <= 18 {
             //unfallible unwrap
             let (unit_string, closure_power) = LEN_TO_CLOSURE_POWERS.get(&len).unwrap();
             unit = unit_string.as_str();
-            balance_int *= BigInt::from(10i64.pow(*closure_power as u32));
+
+            if *closure_power < 18 {
+                balance_int = if balance_int >= TokenAmount::from_atto(10_i64.pow(18 - *closure_power as u32)) {
+                    balance_int * BigInt::from(10i64.pow(*closure_power as u32))
+                } else if balance_int >= TokenAmount::from_atto(5 * 10_i64.pow(18 - *closure_power as u32 - 1)) {
+                    changed = true;
+                    TokenAmount::from_atto(*closure_power as u32 + 1)
+                } else {
+                    changed = true;
+                    TokenAmount::from_whole(0)
+                };
+            } else {
+                balance_int *= BigInt::from(10i64.pow(*closure_power as u32));
+            }
+
+            
         }
+
         if exact_balance {
-            formating_vars(format!("{balance_int}"), format!("{balance_int}"))
+            formating_vars(format!("{balance_int}"), format!("{balance_int}"), changed)
         } else {
-            formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"))
+            formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"), changed)
         }
     };
     format!("{symbol}{balance_string} {unit}")
@@ -352,6 +379,11 @@ fn not_exact_balance_fixed_unit() {
     assert_eq!(
         format_balance_string(TokenAmount::from_atto(100), true, false,),
         "~0 FIL"
+    );
+
+    assert_eq!(
+        format_balance_string(TokenAmount::from_atto(999999999999999999u64), true, false,),
+        "~1 FIL"
     );
 
     assert_eq!(
@@ -438,15 +470,15 @@ fn not_exact_balance_not_fixed_unit() {
 #[test]
 fn test_formatting_vars() {
     assert_eq!(
-        formating_vars("1940.00".to_string(), "1940.000".to_string()),
+        formating_vars("1940.00".to_string(), "1940.000".to_string(), false),
         ("1940".to_string(), "".to_string())
     );
     assert_eq!(
-        formating_vars("940.050".to_string(), "940.050123".to_string()),
+        formating_vars("940.050".to_string(), "940.050123".to_string(), false),
         ("940.05".to_string(), "~".to_string())
     );
     assert_eq!(
-        formating_vars("230.".to_string(), "230.0".to_string()),
+        formating_vars("230.".to_string(), "230.0".to_string(), false),
         ("230".to_string(), "".to_string())
     );
 }
