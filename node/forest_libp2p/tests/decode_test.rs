@@ -8,7 +8,8 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
+use forest_shim::{address::Address, crypto::signature::Signature, message::Message};
+use fvm_shared::{address::Address, message::Message};
 use num::BigInt;
 
 #[test]

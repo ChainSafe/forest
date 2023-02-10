@@ -8,7 +8,7 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::{error::ExitCode, Inner};
+use forest_shim::{error::ExitCode, message::Message, Inner};
 use fvm::{
     executor::{ApplyRet, DefaultExecutor},
     externs::Rand,
@@ -17,8 +17,8 @@ use fvm::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::{
-    address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt,
-    BLOCK_GAS_LIMIT, METHOD_SEND,
+    address::Address, clock::ChainEpoch, econ::TokenAmount, receipt::Receipt, BLOCK_GAS_LIMIT,
+    METHOD_SEND,
 };
 use num::Zero;
 
@@ -125,30 +125,35 @@ where
             &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
         >,
     ) -> Result<(), anyhow::Error> {
-        let cron_msg = Message {
-            from: system::ADDRESS,
-            to: cron::ADDRESS,
-            // Epoch as sequence is intentional
-            sequence: epoch as u64,
-            // Arbitrarily large gas limit for cron (matching Lotus value)
-            gas_limit: BLOCK_GAS_LIMIT * 10000,
-            method_num: cron::Method::EpochTick as u64,
-            params: Default::default(),
-            value: Default::default(),
-            version: Default::default(),
-            gas_fee_cap: Default::default(),
-            gas_premium: Default::default(),
-        };
+        //let cron_msg = Message {
+        //from: system::ADDRESS,
+        //to: cron::ADDRESS,
+        //// Epoch as sequence is intentional
+        //sequence: epoch as u64,
+        //// Arbitrarily large gas limit for cron (matching Lotus value)
+        //gas_limit: BLOCK_GAS_LIMIT * 10000,
+        //method_num: cron::Method::EpochTick as u64,
+        //params: Default::default(),
+        //value: Default::default(),
+        //version: Default::default(),
+        //gas_fee_cap: Default::default(),
+        //gas_premium: Default::default(),
+        //};
 
-        let ret = self.apply_implicit_message(&cron_msg)?;
-        if let Some(err) = ret.failure_info {
-            anyhow::bail!("failed to apply block cron message: {}", err);
-        }
+        //let ret = self.apply_implicit_message(&cron_msg)?;
+        //if let Some(err) = ret.failure_info {
+        //anyhow::bail!("failed to apply block cron message: {}", err);
+        //}
 
-        if let Some(callback) = callback {
-            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
-        }
-        Ok(())
+        //if let Some(callback) = callback {
+        //callback(
+        //&(cron_msg.cid()?),
+        //&ChainMessage::Unsigned(cron_msg.into()),
+        //&ret,
+        //)?;
+        //}
+        //Ok(())
+        todo!()
     }
 
     /// Apply block messages from a Tipset.
@@ -218,7 +223,11 @@ where
                     );
                 }
                 if let Some(callback) = &mut callback {
-                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                    callback(
+                        &(rew_msg.cid()),
+                        &ChainMessage::Unsigned(rew_msg.into()),
+                        &ret,
+                    )?;
                 }
             }
         }
@@ -231,28 +240,29 @@ where
 
     /// Applies single message through VM and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
-        use fvm::executor::Executor;
-        // raw_length is not used for Implicit messages.
-        let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = self.fvm_executor.execute_message(
-            msg.clone(),
-            fvm::executor::ApplyKind::Implicit,
-            raw_length,
-        )?;
-        Ok(ret)
+        todo!()
+        //use fvm::executor::Executor;
+        //// raw_length is not used for Implicit messages.
+        //let raw_length = msg.marshal_cbor().expect("encoding error").len();
+        //let ret = self.fvm_executor.execute_message(
+        //msg.into(),
+        //fvm::executor::ApplyKind::Implicit,
+        //raw_length,
+        //)?;
+        //Ok(ret)
     }
 
     /// Applies the state transition for a single message.
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
-        check_message(msg.message())?;
+        check_message(msg.message().into())?;
 
         use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
         let ret = self.fvm_executor.execute_message(
-            unsigned,
+            unsigned.into(),
             fvm::executor::ApplyKind::Explicit,
             raw_length,
         )?;
@@ -308,21 +318,22 @@ impl RewardCalc for RewardActorMessageCalc {
             win_count,
         })?;
 
-        let rew_msg = Message {
-            from: system::ADDRESS,
-            to: reward::ADDRESS,
-            method_num: reward::Method::AwardBlockReward as u64,
-            params,
-            // Epoch as sequence is intentional
-            sequence: epoch as u64,
-            gas_limit: 1 << 30,
-            value: Default::default(),
-            version: Default::default(),
-            gas_fee_cap: Default::default(),
-            gas_premium: Default::default(),
-        };
+        //let rew_msg = Message {
+        //from: system::ADDRESS,
+        //to: reward::ADDRESS,
+        //method_num: reward::Method::AwardBlockReward as u64,
+        //params,
+        //// Epoch as sequence is intentional
+        //sequence: epoch as u64,
+        //gas_limit: 1 << 30,
+        //value: Default::default(),
+        //version: Default::default(),
+        //gas_fee_cap: Default::default(),
+        //gas_premium: Default::default(),
+        //};
 
-        Ok(Some(rew_msg))
+        //Ok(Some(rew_msg))
+        todo!()
     }
 }
 
@@ -358,20 +369,21 @@ impl RewardCalc for FixedRewardCalc {
         _penalty: TokenAmount,
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
-        let msg = Message {
-            from: reward::ADDRESS,
-            to: miner,
-            method_num: METHOD_SEND,
-            params: Default::default(),
-            // Epoch as sequence is intentional
-            sequence: epoch as u64,
-            gas_limit: 1 << 30,
-            value: gas_reward + self.reward.clone(),
-            version: Default::default(),
-            gas_fee_cap: Default::default(),
-            gas_premium: Default::default(),
-        };
+        //let msg = Message {
+        //from: reward::ADDRESS,
+        //to: miner,
+        //method_num: METHOD_SEND,
+        //params: Default::default(),
+        //// Epoch as sequence is intentional
+        //sequence: epoch as u64,
+        //gas_limit: 1 << 30,
+        //value: gas_reward + self.reward.clone(),
+        //version: Default::default(),
+        //gas_fee_cap: Default::default(),
+        //gas_premium: Default::default(),
+        //};
 
-        Ok(Some(msg))
+        //Ok(Some(msg))
+        todo!()
     }
 }

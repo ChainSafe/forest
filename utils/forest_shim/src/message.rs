@@ -7,7 +7,7 @@ use cid::Cid;
 use fil_actors_runtime::cbor::serialize;
 use fvm_ipld_encoding::DAG_CBOR;
 use fvm_shared::message::Message as MessageV2;
-use fvm_shared3::message::Message as MessageV3;
+pub use fvm_shared3::message::Message as MessageV3;
 use serde::{Deserialize, Serialize};
 
 use crate::{address::Address, econ::TokenAmount};
@@ -71,6 +71,23 @@ impl From<MessageV2> for Message {
 
 impl From<Message> for MessageV2 {
     fn from(value: Message) -> Self {
+        Self {
+            version: value.version as i64,
+            from: Address::from(value.from).into(),
+            to: Address::from(value.to).into(),
+            sequence: value.sequence,
+            value: TokenAmount::from(value.value.clone()).into(),
+            method_num: value.method_num,
+            params: value.params.bytes().to_owned().into(),
+            gas_limit: value.gas_limit as i64,
+            gas_fee_cap: TokenAmount::from(value.gas_fee_cap.clone()).into(),
+            gas_premium: TokenAmount::from(value.gas_premium.clone()).into(),
+        }
+    }
+}
+
+impl From<&Message> for MessageV2 {
+    fn from(value: &Message) -> Self {
         Self {
             version: value.version as i64,
             from: Address::from(value.from).into(),

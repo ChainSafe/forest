@@ -31,6 +31,7 @@ forest_paramfetch.workspace = true
 forest_rpc-api.workspace = true
 forest_rpc-client.workspace = true
 forest_utils.workspace = true
+forest_shim.workspace = true
 fs_extra.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_shared = { workspace = true, default-features = false }

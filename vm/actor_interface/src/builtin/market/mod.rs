@@ -5,15 +5,17 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::state_tree::ActorState;
+use forest_shim::{address::Address, state_tree::ActorState, Inner};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
+use fvm_shared::{clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
 
-/// Market actor address.
-pub const ADDRESS: Address = Address::new_id(5);
+lazy_static::lazy_static! {
+    /// Market actor address.
+    pub static ref ADDRESS: Address = <Address as Inner>::FVM::new_id(5).into();
+}
 
 /// Market actor method.
 pub type Method = fil_actor_market_v8::Method;

@@ -1,13 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{borrow::Borrow, rc::Rc, sync::Arc};
+
 use forest_encoding::tuple::*;
-use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
-use fvm_shared::{
-    address::Address,
-    crypto::signature::{Signature, SignatureType},
+use forest_shim::{
+    address::{Address, AddressRef},
     econ::TokenAmount,
     message::Message,
+};
+use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
+use fvm_shared::{
+    crypto::signature::{Signature, SignatureType},
     MethodNum,
 };
 
@@ -25,7 +29,10 @@ impl SignedMessage {
     /// The signature will be verified.
     pub fn new_from_parts(message: Message, signature: Signature) -> anyhow::Result<SignedMessage> {
         signature
-            .verify(&message.cid()?.to_bytes(), &message.from)
+            .verify(
+                &message.cid().to_bytes(),
+                &Address::from(message.from).into(),
+            )
             .map_err(anyhow::Error::msg)?;
         Ok(SignedMessage { message, signature })
     }
@@ -64,63 +71,59 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.cid().unwrap().to_bytes(), self.from())
+            .verify(&self.message.cid().to_bytes(), &self.from().into())
     }
 }
 
 impl MessageTrait for SignedMessage {
-    fn from(&self) -> &Address {
-        &self.message.from
+    fn from(&self) -> AddressRef {
+        AddressRef::from(&self.message.from)
     }
-    fn to(&self) -> &Address {
-        &self.message.to
+    fn to(&self) -> AddressRef {
+        AddressRef::from(&self.message.to)
     }
     fn sequence(&self) -> u64 {
         self.message.sequence
     }
-    fn value(&self) -> &TokenAmount {
-        &self.message.value
+    fn value(&self) -> Rc<TokenAmount> {
+        Rc::new(self.message.value.borrow().into())
     }
     fn method_num(&self) -> MethodNum {
         self.message.method_num
     }
-    fn params(&self) -> &RawBytes {
-        &self.message.params
+    fn params(&self) -> Rc<RawBytes> {
+        Rc::new(self.message.params.bytes().to_owned().into())
     }
-    fn gas_limit(&self) -> i64 {
+    fn gas_limit(&self) -> u64 {
         self.message.gas_limit
     }
-    fn set_gas_limit(&mut self, token_amount: i64) {
+    fn set_gas_limit(&mut self, token_amount: u64) {
         self.message.gas_limit = token_amount;
     }
     fn set_sequence(&mut self, new_sequence: u64) {
         self.message.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        &self.message.gas_fee_cap * self.message.gas_limit + &self.message.value
+        (&self.message.gas_fee_cap * self.message.gas_limit + &self.message.value).into()
     }
-    fn gas_fee_cap(&self) -> &TokenAmount {
-        &self.message.gas_fee_cap
+    fn gas_fee_cap(&self) -> Rc<TokenAmount> {
+        Rc::new(self.message.gas_fee_cap.borrow().into())
     }
-    fn gas_premium(&self) -> &TokenAmount {
-        &self.message.gas_premium
+    fn gas_premium(&self) -> Rc<TokenAmount> {
+        Rc::new(self.message.gas_premium.borrow().into())
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.message.gas_fee_cap = cap;
+        self.message.gas_fee_cap = cap.into();
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.message.gas_premium = prem;
+        self.message.gas_premium = prem.into();
     }
 }
 
 impl Cbor for SignedMessage {
     fn marshal_cbor(&self) -> Result<Vec<u8>, CborError> {
-        if self.is_bls() {
-            self.message.marshal_cbor()
-        } else {
-            Ok(to_vec(&self)?)
-        }
+        to_vec(&self)
     }
 }

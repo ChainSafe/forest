@@ -1,9 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::rc::Rc;
+
 use cid::Cid;
+use forest_shim::{
+    address::{Address, AddressRef},
+    econ::TokenAmount,
+    message::Message,
+};
 use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message, MethodNum};
+use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
@@ -28,16 +35,16 @@ impl ChainMessage {
 }
 
 impl MessageTrait for ChainMessage {
-    fn from(&self) -> &Address {
+    fn from(&self) -> AddressRef {
         match self {
             Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => &t.from,
+            Self::Unsigned(t) => AddressRef::from(&t.from),
         }
     }
-    fn to(&self) -> &Address {
+    fn to(&self) -> AddressRef {
         match self {
             Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => &t.to,
+            Self::Unsigned(t) => AddressRef::from(&t.to),
         }
     }
     fn sequence(&self) -> u64 {
@@ -46,10 +53,10 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.sequence,
         }
     }
-    fn value(&self) -> &TokenAmount {
+    fn value(&self) -> Rc<TokenAmount> {
         match self {
             Self::Signed(t) => t.value(),
-            Self::Unsigned(t) => &t.value,
+            Self::Unsigned(t) => Rc::new(t.value.clone().into()),
         }
     }
     fn method_num(&self) -> MethodNum {
@@ -58,19 +65,19 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.method_num,
         }
     }
-    fn params(&self) -> &RawBytes {
+    fn params(&self) -> Rc<RawBytes> {
         match self {
             Self::Signed(t) => t.params(),
-            Self::Unsigned(t) => &t.params,
+            Self::Unsigned(t) => Rc::new(t.params.bytes().to_owned().into()),
         }
     }
-    fn gas_limit(&self) -> i64 {
+    fn gas_limit(&self) -> u64 {
         match self {
             Self::Signed(t) => t.gas_limit(),
             Self::Unsigned(t) => t.gas_limit,
         }
     }
-    fn set_gas_limit(&mut self, token_amount: i64) {
+    fn set_gas_limit(&mut self, token_amount: u64) {
         match self {
             Self::Signed(t) => t.set_gas_limit(token_amount),
             Self::Unsigned(t) => t.gas_limit = token_amount,
@@ -85,33 +92,33 @@ impl MessageTrait for ChainMessage {
     fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
+            Self::Unsigned(t) => (&t.gas_fee_cap * t.gas_limit + &t.value).into(),
         }
     }
-    fn gas_fee_cap(&self) -> &TokenAmount {
+    fn gas_fee_cap(&self) -> Rc<TokenAmount> {
         match self {
             Self::Signed(t) => t.gas_fee_cap(),
-            Self::Unsigned(t) => &t.gas_fee_cap,
+            Self::Unsigned(t) => Rc::new(t.gas_fee_cap.clone().into()),
         }
     }
-    fn gas_premium(&self) -> &TokenAmount {
+    fn gas_premium(&self) -> Rc<TokenAmount> {
         match self {
             Self::Signed(t) => t.gas_premium(),
-            Self::Unsigned(t) => &t.gas_premium,
+            Self::Unsigned(t) => Rc::new(t.gas_premium.clone().into()),
         }
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_fee_cap(cap),
-            Self::Unsigned(t) => t.gas_fee_cap = cap,
+            Self::Unsigned(t) => t.gas_fee_cap = cap.into(),
         }
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
-            Self::Unsigned(t) => t.gas_premium = prem,
+            Self::Unsigned(t) => t.gas_premium = prem.into(),
         }
     }
 }
@@ -122,7 +129,7 @@ impl Cbor for ChainMessage {
     fn cid(&self) -> Result<Cid, Error> {
         match self {
             Self::Signed(t) => t.cid(),
-            Self::Unsigned(t) => t.cid(),
+            Self::Unsigned(t) => todo!(), //t.cid(),
         }
     }
 }

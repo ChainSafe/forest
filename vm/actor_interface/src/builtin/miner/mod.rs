@@ -1,22 +1,20 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
-use forest_shim::state_tree::ActorState;
+use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
 use fvm_shared::{
-    address::Address,
     clock::ChainEpoch,
     deal::DealID,
-    econ::TokenAmount,
     sector::{RegisteredPoStProof, RegisteredSealProof, SectorNumber, SectorSize},
 };
 use libp2p::PeerId;
@@ -169,8 +167,8 @@ impl State {
     /// Gets fee debt of miner state
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.fee_debt.clone(),
-            State::V9(st) => st.fee_debt.clone(),
+            State::V8(st) => st.fee_debt.borrow().into(),
+            State::V9(st) => st.fee_debt.borrow().into(),
         }
     }
 }
@@ -203,10 +201,13 @@ impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner,
-            worker: info.worker,
-            control_addresses: info.control_addresses,
-            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.iter().map(Into::into).collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -227,10 +228,13 @@ impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner,
-            worker: info.worker,
-            control_addresses: info.control_addresses,
-            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info.control_addresses.iter().map(Into::into).collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -377,9 +381,9 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
         }
     }
 }
@@ -395,9 +399,9 @@ impl From<fil_actor_miner_v9::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
         }
     }
 }
