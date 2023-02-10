@@ -32,10 +32,11 @@ use log::error;
 use serde::Serialize;
 
 pub(super) use self::{
-    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
-    db_cmd::DBCommands, fetch_params_cmd::FetchCommands, mpool_cmd::MpoolCommands,
-    net_cmd::NetCommands, send_cmd::SendCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands, wallet_cmd::WalletCommands,
+    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
+    config_cmd::ConfigCommands, db_cmd::DBCommands, fetch_params_cmd::FetchCommands,
+    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
+    snapshot_cmd::SnapshotCommands, state_cmd::StateCommands, sync_cmd::SyncCommands,
+    wallet_cmd::WalletCommands,
 };
 
 /// CLI structure generated when interacting with Forest binary
