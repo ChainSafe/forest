@@ -25,8 +25,5 @@ cfg_if::cfg_if! {
 
         mod utils;
         use utils::*;
-
-        mod event_emitter;
-        use event_emitter::*;
     }
 }

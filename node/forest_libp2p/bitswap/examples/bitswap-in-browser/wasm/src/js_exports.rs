@@ -18,18 +18,14 @@ pub fn init_logger() -> Result<(), JsError> {
 }
 
 #[wasm_bindgen]
-pub fn set_event_emitter(e: EventEmitter) {
-    log::info!("set_event_emitter called in wasm");
-    event_emitter::set_event_emitter(e);
-}
-
-#[wasm_bindgen]
-pub async fn connect(addr: &str) -> Result<Connection, JsError> {
+pub async fn connect(addr: &str, event_emitter: EventEmitter) -> Result<Connection, JsError> {
     let addr = addr.parse().map_err(err_to_js_error)?;
-    connect_async(addr).await.map_err(err_to_js_error)
+    connect_async(addr, event_emitter)
+        .await
+        .map_err(err_to_js_error)
 }
 
-async fn connect_async(addr: Multiaddr) -> anyhow::Result<Connection> {
+async fn connect_async(addr: Multiaddr, event_emitter: EventEmitter) -> anyhow::Result<Connection> {
     let (transport, _, local_peer_id) = TransportBuilder::default().build()?;
     log::info!("[WASM] Connecting to forest daemon via ws at {addr} ... ",);
     let mut swarm = {
@@ -45,7 +41,7 @@ async fn connect_async(addr: Multiaddr) -> anyhow::Result<Connection> {
             _ => {}
         }
     };
-    Ok(ConnectionImpl::new(swarm, peer_id).into())
+    Ok(ConnectionImpl::new(swarm, peer_id, event_emitter).into())
 }
 
 #[wasm_bindgen]

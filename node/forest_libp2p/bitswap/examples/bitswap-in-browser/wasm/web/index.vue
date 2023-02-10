@@ -65,8 +65,8 @@ export default {
             }
             let conn = this.connection as Connection;
             this.cid = this.cid.trim();
+            this.responses[this.cid] = "...";
             conn.bitswap_get(this.cid);
-            this.responses[this.cid] = "..."
         },
         random_cid() {
             this.cid = random_cid();
@@ -75,11 +75,10 @@ export default {
             if (!this.wasmLoaded) {
                 return;
             }
-            set_event_emitter(this.eventEmitter);
             console.log(`[JS] Connecting to ${this.addr}`);
             try {
                 this.addr = this.addr.trim();
-                const connection = await connect(this.addr);
+                const connection = await connect(this.addr, this.eventEmitter);
                 this.connection = connection;
                 console.log(`[JS] Connected to ${this.addr}`);
                 connection.run()

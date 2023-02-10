@@ -55,6 +55,7 @@ impl Connection {
 pub struct ConnectionImpl {
     pub swarm: Mutex<Swarm<DemoBehaviour>>,
     pub target: PeerId,
+    pub event_emitter: EventEmitter,
     pub tx: flume::Sender<Cid>,
     pub rx: flume::Receiver<Cid>,
 }
@@ -68,11 +69,12 @@ impl From<ConnectionImpl> for Connection {
 }
 
 impl ConnectionImpl {
-    pub fn new(swarm: Swarm<DemoBehaviour>, target: PeerId) -> Self {
+    pub fn new(swarm: Swarm<DemoBehaviour>, target: PeerId, event_emitter: EventEmitter) -> Self {
         let (tx, rx) = flume::unbounded();
         Self {
             swarm: Mutex::new(swarm),
             target,
+            event_emitter,
             tx,
             rx,
         }
@@ -83,7 +85,7 @@ impl ConnectionImpl {
         loop {
             select! {
                 event = swarm.select_next_some() => {
-                    if let Err(err) = handle_swarm_event(&mut swarm, event) {
+                    if let Err(err) = handle_swarm_event(&mut swarm, &self.event_emitter, event) {
                         log::error!("{err}");
                     }
                 }
@@ -115,6 +117,7 @@ struct BitswapResponseJson {
 
 fn handle_swarm_event<Err: Display>(
     swarm: &mut Swarm<DemoBehaviour>,
+    event_emitter: &EventEmitter,
     event: SwarmEvent<DemoBehaviourEvent, Err>,
 ) -> anyhow::Result<()> {
     match event {
@@ -140,15 +143,13 @@ fn handle_swarm_event<Err: Display>(
                                         "bitswap response {cid}:\n{}",
                                         serde_json::to_string_pretty(&response)?
                                     );
-                                    if let Some(event_emitter) = get_event_emitter() {
-                                        event_emitter.emit_str(
-                                            "bitswap",
-                                            &serde_json::to_string(&BitswapResponseJson {
-                                                cid: cid.to_string(),
-                                                response: serde_json::to_string(&response)?,
-                                            })?,
-                                        )
-                                    }
+                                    event_emitter.emit_str(
+                                        "bitswap",
+                                        &serde_json::to_string(&BitswapResponseJson {
+                                            cid: cid.to_string(),
+                                            response: serde_json::to_string(&response)?,
+                                        })?,
+                                    )
                                 }
                                 BitswapMessage::Request(request) => {
                                     log::info!(
