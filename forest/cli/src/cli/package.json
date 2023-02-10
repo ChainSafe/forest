@@ -1,0 +1,15 @@
+{
+  "name": "my-forest-package",
+  "version": "1.0.0",
+  "author": "Your Name <email@example.com>",
+  "my-forest-package": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx}": [
+      "eslint '*/**/*.{js,jsx}' --fix"
+    ]
+  }
+}
