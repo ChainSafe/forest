@@ -1,6 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+/* global netPeers, netDisconnect */
+/* global walletList, walletDefaultAddress, walletBalance */
+/* global syncStatus */
+
 module.exports = {
     greet: function () {
         console.log("Welcome to the Forest Javascript console!\n\nTo exit, press ctrl-d or type :quit");
@@ -43,6 +47,10 @@ module.exports = {
         }
         console.log(buffer);
     },
+    sendFIL: function (to, amount) {
+        let from = walletDefaultAddress();
+        return sendMessage(from, to, amount.toString());
+    },
     showSyncStatus: function() {
         let stage = syncStatus().ActiveSyncs[0].Stage;
         let height = syncStatus().ActiveSyncs[0].Epoch;
@@ -52,9 +60,5 @@ Stage:  ${stage}
 Height: ${height}
 `;
         console.log(result);
-    },
-    sendFIL: function (to, amount) {
-        let from = walletDefaultAddress();
-        return sendMessage(from, to, amount.toString());
     }
 }
