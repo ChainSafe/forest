@@ -39,7 +39,7 @@ thiserror.workspace = true
 
 # optional
 parity-db = { version = "0.4", default-features = false, optional = true }
-rocksdb = { version = "0.19", default-features = false, optional = true }
+rocksdb = { version = "0.20", default-features = false, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
