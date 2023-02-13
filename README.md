@@ -49,7 +49,7 @@ Follow other instructions for proper `forest` usage. You may need to mount a vol
 ```
 Use dockerized Forest with host database:
 ```
-❯ docker run --init -it -v $HOME/.forest:/root/.forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
+❯ docker run --init -it -v $HOME/.forest:/home/forest/.local/share/forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
 ```
 
 ## Dependencies
@@ -109,6 +109,11 @@ make install # install forest daemon and cli
 
 ### Config
 
+#### Keystore
+To encrypt the keystore while in headless mode, set the `FOREST_KEYSTORE_PHRASE` environmental variable. Otherwise, skip the encryption (not recommended in production environments) with `--encrypt-keystore false`.
+
+
+#### Network
 Run the node with custom config and bootnodes
 
 ```bash
@@ -127,6 +132,8 @@ bootstrap_peers = ["<multiaddress>"]
 ```
 
 Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
+
+#### Configuration sources
 
 Forest will look for config files in the following order and priority:
  * Paths passed to the command line via the `--config` flag.
@@ -148,6 +155,12 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 Forest can also send telemetry to the endpoint of a Loki instance or a Loki agent (see [Grafana Cloud](https://grafana.com/oss/loki/)). Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
 
 ### Testing
+First, install the [`nextest`](https://nexte.st/) test runner.
+
+```bash
+cargo install cargo-nextest --locked
+```
+
 ```bash
 # To run base tests
 cargo nextest run # use `make test-release` for longer compilation but faster execution
@@ -183,9 +196,6 @@ cargo install cargo-udeps --locked
 
 # Spellcheck
 cargo install cargo-spellcheck
-
-# Test runner
-cargo install cargo-nextest --locked
 ```
 After everything is installed, you can run `make lint-all`.
 

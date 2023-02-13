@@ -23,11 +23,9 @@ use std::{
     path::PathBuf,
     str::{self, FromStr},
 };
-use structopt::StructOpt;
 
 lazy_static! {
     static ref LEN_TO_CLOSURE_POWERS: HashMap<usize, (String, u8)> = {
-        let mut map = HashMap::new();
         for item in 0..4 {
             map.insert(item, ("atto FIL".to_string(), 18));
         }
@@ -51,13 +49,15 @@ lazy_static! {
 }
 
 use super::handle_rpc_err;
+use anyhow::Context;
+use base64::{prelude::BASE64_STANDARD, Engine};
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum WalletCommands {
     /// Create a new wallet
     New {
         /// The signature type to use. One of SECP256k1, or BLS
-        #[structopt(default_value = "secp256k1")]
+        #[arg(default_value = "secp256k1")]
         signature_type: String,
     },
     /// Get account balance
@@ -110,22 +110,23 @@ pub enum WalletCommands {
     /// Sign a message
     Sign {
         /// The hex encoded message to sign
-        #[structopt(short)]
+        #[arg(short)]
         message: String,
         /// The address to be used to sign the message
-        #[structopt(short)]
+        #[arg(short)]
         address: String,
     },
-    /// Verify the signature of a message. Returns true if the signature matches the message and address
+    /// Verify the signature of a message. Returns true if the signature matches
+    /// the message and address
     Verify {
         /// The address used to sign the message
-        #[structopt(short)]
+        #[arg(short)]
         address: String,
         /// The message to verify
-        #[structopt(short)]
+        #[arg(short)]
         message: String,
         /// The signature of the message to verify
-        #[structopt(short)]
+        #[arg(short)]
         signature: String,
     },
 }

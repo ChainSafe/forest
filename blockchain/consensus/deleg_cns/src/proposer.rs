@@ -1,15 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use core::time::Duration;
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use core::time::Duration;
-use futures::StreamExt;
-use log::{error, info};
-use std::sync::Arc;
-use tokio::task::JoinSet;
-use tokio_stream::wrappers::IntervalStream;
-
 use forest_blocks::{BlockHeader, GossipBlock, Tipset};
 use forest_chain::Scale;
 use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter};
@@ -17,8 +13,12 @@ use forest_db::Store;
 use forest_key_management::Key;
 use forest_networks::Height;
 use forest_state_manager::StateManager;
+use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::address::Address;
+use log::{error, info};
+use tokio::task::JoinSet;
+use tokio_stream::wrappers::IntervalStream;
 
 use crate::DelegatedConsensus;
 

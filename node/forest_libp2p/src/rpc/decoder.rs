@@ -1,14 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{io, marker::PhantomData, pin::Pin, task::Poll};
+
 use bytes::BytesMut;
 use futures::prelude::*;
 use log::warn;
 use pin_project_lite::pin_project;
-use std::io;
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::task::Poll;
 
 pin_project! {
     #[derive(Debug)]

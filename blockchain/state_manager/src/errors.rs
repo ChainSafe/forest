@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_db::Error as DbErr;
 use std::fmt::Debug;
+
+use forest_db::Error as DbErr;
 use thiserror::Error;
 use tokio::task::JoinError;
 

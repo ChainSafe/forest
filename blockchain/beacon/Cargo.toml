@@ -1,8 +1,10 @@
 [package]
 name = "forest_beacon"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [package.metadata.docs.rs]
 features = ["json"]
@@ -15,6 +17,7 @@ base64.workspace = true
 bls-signatures.workspace = true
 byteorder.workspace = true
 forest_encoding.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true

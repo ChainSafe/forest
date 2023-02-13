@@ -1,8 +1,10 @@
 [package]
 name = "forest_state_manager"
-version = "0.1.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
@@ -24,6 +26,7 @@ forest_legacy_ipld_amt.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_metrics.workspace = true
 forest_networks.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm.workspace = true
@@ -34,6 +37,7 @@ fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 lru.workspace = true
 num-traits.workspace = true
+num.workspace = true
 prometheus.workspace = true
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true

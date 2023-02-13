@@ -1,7 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::Config;
-use crate::cli::to_size_string;
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+    str::FromStr,
+    time::Duration,
+};
+
 use anyhow::bail;
 use chrono::DateTime;
 use forest_utils::{
@@ -16,12 +21,6 @@ use log::info;
 use regex::Regex;
 use s3::Bucket;
 use sha2::{Digest, Sha256};
-use std::str::FromStr;
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-    time::Duration,
-};
 use time::{format_description, format_description::well_known::Iso8601, Date};
 use tokio::{
     fs::{create_dir_all, File},
@@ -29,8 +28,11 @@ use tokio::{
 };
 use url::Url;
 
+use super::Config;
+use crate::cli::to_size_string;
+
 /// Snapshot fetch service provider
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SnapshotServer {
     Forest,
     Filecoin,
@@ -116,8 +118,8 @@ pub fn is_car_or_tmp(path: &Path) -> bool {
     ext == "car" || ext == "tmp" || ext == "aria2"
 }
 
-/// Fetches snapshot from a trusted location and saves it to the given directory. Chain is inferred
-/// from configuration.
+/// Fetches snapshot from a trusted location and saves it to the given
+/// directory. Chain is inferred from configuration.
 pub async fn snapshot_fetch(
     snapshot_out_dir: &Path,
     config: &Config,
@@ -145,9 +147,9 @@ pub fn is_aria2_installed() -> bool {
     which::which("aria2c").is_ok()
 }
 
-/// Fetches snapshot for `calibnet` from a default, trusted location. On success, the snapshot will be
-/// saved in the given directory. In case of failure (e.g. connection interrupted) it will not be
-/// removed.
+/// Fetches snapshot for `calibnet` from a default, trusted location. On
+/// success, the snapshot will be saved in the given directory. In case of
+/// failure (e.g. connection interrupted) it will not be removed.
 async fn snapshot_fetch_forest(
     snapshot_out_dir: &Path,
     config: &Config,
@@ -184,9 +186,9 @@ async fn snapshot_fetch_forest(
     create_dir_all(snapshot_out_dir).await?;
 
     // Download the file
-    // It'd be better to use the bucket directly with `get_object_stream`, but at the time
-    // of writing this code the Stream API is a bit lacking, making adding a progress bar a pain.
-    // https://github.com/durch/rust-s3/issues/275
+    // It'd be better to use the bucket directly with `get_object_stream`, but at
+    // the time of writing this code the Stream API is a bit lacking, making
+    // adding a progress bar a pain. https://github.com/durch/rust-s3/issues/275
     let client = https_client();
     let snapshot_spaces_url = &snapshot_fetch_config.snapshot_spaces_url;
     let path = &snapshot_fetch_config.path;
@@ -210,9 +212,9 @@ async fn snapshot_fetch_forest(
     Ok(snapshot_path)
 }
 
-/// Fetches snapshot for `mainnet` from a default, trusted location. On success, the snapshot will be
-/// saved in the given directory. In case of failure (e.g. checksum verification fiasco) it will
-/// not be removed.
+/// Fetches snapshot for `mainnet` from a default, trusted location. On success,
+/// the snapshot will be saved in the given directory. In case of failure (e.g.
+/// checksum verification fiasco) it will not be removed.
 async fn snapshot_fetch_filecoin(
     snapshot_out_dir: &Path,
     config: &Config,
@@ -269,7 +271,8 @@ async fn snapshot_fetch_filecoin(
     Ok(snapshot_path)
 }
 
-/// Downloads snapshot to a file with a progress bar. Returns the digest of the downloaded file.
+/// Downloads snapshot to a file with a progress bar. Returns the digest of the
+/// downloaded file.
 async fn download_snapshot_and_validate_checksum<C>(
     client: hyper::Client<C>,
     url: Url,
@@ -404,9 +407,10 @@ fn filename_from_url(url: &Url) -> anyhow::Result<String> {
 }
 
 /// Returns a normalized snapshot name
-/// Filecoin snapshot files are named in the format of `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`.
-/// Normalized snapshot name are in the format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.car`.
-/// # Example
+/// Filecoin snapshot files are named in the format of
+/// `<height>_<YYYY_MM_DD>T<HH_MM_SS>Z.car`. Normalized snapshot name are in the
+/// format `filecoin_snapshot_{mainnet|calibnet}_<YYYY-MM-DD>_height_<height>.
+/// car`. # Example
 /// ```
 /// # use forest_cli_shared::cli::normalize_filecoin_snapshot_name;
 /// let actual_name = "64050_2022_11_24T00_00_00Z.car";
@@ -457,9 +461,9 @@ fn replace_extension_url(mut url: Url, extension: &str) -> anyhow::Result<Url> {
     Ok(url)
 }
 
-/// Fetches the relevant checksum for the snapshot, compares it with the result one. Fails if they
-/// don't match. The checksum is expected to be located in the same location as the snapshot but
-/// with a `.sha256sum` extension.
+/// Fetches the relevant checksum for the snapshot, compares it with the result
+/// one. Fails if they don't match. The checksum is expected to be located in
+/// the same location as the snapshot but with a `.sha256sum` extension.
 async fn fetch_checksum_and_validate<C>(
     client: hyper::Client<C>,
     url: Url,
@@ -476,8 +480,8 @@ where
     }
 
     let checksum_bytes = hyper::body::to_bytes(checksum_expected_file.into_body()).await?;
-    // checksum file is hex-encoded with optionally trailing `- ` at the end. Take only what's needed, i.e.
-    // encoded digest, for SHA256 it's 32 bytes.
+    // checksum file is hex-encoded with optionally trailing `- ` at the end. Take
+    // only what's needed, i.e. encoded digest, for SHA256 it's 32 bytes.
     let checksum_expected = checksum_from_file(&checksum_bytes, Sha256::output_size())?;
 
     validate_checksum(&checksum_expected, snapshot_checksum)?;
@@ -510,8 +514,10 @@ fn checksum_from_file(content: &[u8], digest_length: usize) -> anyhow::Result<Ve
 }
 
 /// Validates checksum
-/// * `expected_checksum` - expected checksum, e.g. provided along with the snapshot file.
-/// * `actual_checksum` - actual checksum, e.g. obtained by running a hasher over a snapshot.
+/// * `expected_checksum` - expected checksum, e.g. provided along with the
+///   snapshot file.
+/// * `actual_checksum` - actual checksum, e.g. obtained by running a hasher
+///   over a snapshot.
 fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow::Result<()> {
     if actual_checksum != expected_checksum {
         bail!(
@@ -526,13 +532,17 @@ fn validate_checksum(expected_checksum: &[u8], actual_checksum: &[u8]) -> anyhow
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::{env::temp_dir, net::TcpListener};
+
     use anyhow::{ensure, Result};
     use axum::{routing::get_service, Router};
     use http::StatusCode;
     use quickcheck_macros::quickcheck;
-    use std::{env::temp_dir, net::TcpListener};
+    use rand::{distributions::Alphanumeric, Rng};
+    use tempfile::TempDir;
     use tower_http::services::ServeDir;
+
+    use super::*;
 
     #[test]
     fn checksum_from_file_test() {
@@ -630,7 +640,7 @@ mod test {
             return Ok(());
         }
 
-        let (url, shutdown_tx) = serve_forest_logo()?;
+        let (url, shutdown_tx, _, _data_dir) = serve_random_file()?;
         let r = download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
@@ -650,23 +660,52 @@ mod test {
             return Ok(());
         }
 
-        let (url, shutdown_tx) = serve_forest_logo()?;
+        let (url, shutdown_tx, shasum, _data_dir) = serve_random_file()?;
         download_with_aria2(
             &url,
             temp_dir().as_os_str().to_str().unwrap_or_default(),
             "test",
-            "sha-256=124305d4602185addd53df5f39a35b2564baa3f51eb211b266af2db77844266d",
+            &format!("sha-256={}", hex::encode(shasum)),
         )?;
         shutdown_tx.send(()).unwrap();
         Ok(())
     }
 
-    fn serve_forest_logo() -> Result<(String, tokio::sync::oneshot::Sender<()>)> {
+    /// Serves a random file over HTTP.
+    /// Returns:
+    /// - url of the served file,
+    /// - service channel,
+    /// - expected SHA-256 of the file,
+    /// - handle to the temporary directory in which the file is created.
+    fn serve_random_file() -> Result<(
+        String,
+        tokio::sync::oneshot::Sender<()>,
+        sha2::digest::Output<Sha256>,
+        TempDir,
+    )> {
+        // Create temporary directory
+        let temp_dir = tempfile::Builder::new()
+            .tempdir()
+            .expect("Failed to create temporary path");
+
+        // Create random file with a random name and calculate its sha256sum
+        let data: Vec<_> = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(100)
+            .collect();
+        let filename: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(10)
+            .map(char::from)
+            .collect();
+        std::fs::write(temp_dir.path().join(&filename), &data).unwrap();
+        let shasum = sha2::Sha256::digest(&data);
+
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
-        let url = format!("http://{}:{}/forest_logo.png", addr.ip(), addr.port());
+        let url = format!("http://{}:{}/{filename}", addr.ip(), addr.port());
         let app = {
-            let serve_dir = get_service(ServeDir::new("../../.github")).handle_error(|_| async {
+            let serve_dir = get_service(ServeDir::new(temp_dir.path())).handle_error(|_| async {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong...")
             });
             Router::new().nest_service("/", serve_dir)
@@ -678,7 +717,7 @@ mod test {
                 shutdown_rx.await.ok();
             });
         tokio::spawn(server);
-        Ok((url, shutdown_tx))
+        Ok((url, shutdown_tx, shasum, temp_dir))
     }
 
     fn is_github_action() -> bool {

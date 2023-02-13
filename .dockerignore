@@ -1,3 +1,7 @@
 .github
-*target**
-/test_dir*
+.maintain
+Dockerfile
+.dockerignore
+*.md
+target/
+scripts/

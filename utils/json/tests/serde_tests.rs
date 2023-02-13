@@ -3,9 +3,10 @@
 
 #![cfg(feature = "cbor")]
 
-use cid::multihash::Code::Blake2b256;
-use cid::multihash::MultihashDigest;
-use cid::Cid;
+use cid::{
+    multihash::{Code::Blake2b256, MultihashDigest},
+    Cid,
+};
 use fvm_ipld_encoding::DAG_CBOR;
 use serde_ipld_dagcbor::{from_slice, to_vec};
 

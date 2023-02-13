@@ -2,16 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use chrono::{Duration, Utc};
+use forest_key_management::KeyInfo;
+use fvm_shared::crypto::signature::SignatureType;
 use jsonrpc_v2::Error as JsonRpcError;
-use jsonwebtoken::errors::Result as JWTResult;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header};
+use jsonwebtoken::{decode, encode, errors::Result as JWTResult, DecodingKey, EncodingKey, Header};
 use once_cell::sync::Lazy;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use forest_key_management::KeyInfo;
-use fvm_shared::crypto::signature::SignatureType;
 
 /// constant string that is used to identify the JWT secret key in `KeyStore`
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
@@ -88,7 +86,7 @@ pub fn has_perms(header_raw: String, required: &str, key: &[u8]) -> Result<(), J
 
 pub fn generate_priv_key() -> KeyInfo {
     let priv_key = rand::thread_rng().gen::<[u8; 32]>();
-    // TODO temp use of bls key as placeholder, need to update keyinfo to use string instead of keyinfo
-    // for key type
+    // TODO temp use of bls key as placeholder, need to update keyinfo to use string
+    // instead of keyinfo for key type
     KeyInfo::new(SignatureType::BLS, priv_key.to_vec())
 }

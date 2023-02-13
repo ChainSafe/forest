@@ -1,8 +1,10 @@
 [package]
 name = "forest_chain_sync"
-version = "0.2.1"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
@@ -21,6 +23,7 @@ forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
 forest_message_pool.workspace = true
 forest_networks.workspace = true
+forest_shim.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
@@ -33,6 +36,7 @@ log.workspace = true
 lru.workspace = true
 nonempty.workspace = true
 num-bigint.workspace = true
+num.workspace = true
 parking_lot.workspace = true
 prometheus = { workspace = true, features = ["process"] }
 quickcheck.workspace = true

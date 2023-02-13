@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use forest_blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::bigint::BigInt;
+use num::BigInt;
 
 pub type Weight = BigInt;
 
