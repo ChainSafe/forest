@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
-
+use crate::prefix::Prefix;
+use cid::multihash::Code;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
@@ -561,12 +562,15 @@ where
         Self::walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
+                let prefix = Code::try_from(Prefix::from(&cid).mh_type)?;
                 let block = self
                     .blockstore()
                     .get(&cid)?
                     .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
-
-                tx_clone.send_async((cid, block.clone())).await?;
+                // Don't include identity CIDs.
+                if prefix != Code::Identity {
+                    tx_clone.send_async((cid, block.clone())).await?;
+                }
                 Ok(block)
             }
         })

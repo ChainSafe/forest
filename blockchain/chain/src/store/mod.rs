@@ -6,5 +6,6 @@ mod chain_store;
 mod errors;
 mod index;
 mod tipset_tracker;
+pub(crate) mod prefix;
 
 pub use self::{base_fee::*, chain_store::*, errors::*};
