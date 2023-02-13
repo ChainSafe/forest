@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
-use crate::prefix::Prefix;
-use cid::multihash::Code;
+
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::{
+    multihash::{Code, Code::Blake2b256},
+    Cid,
+};
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -54,7 +56,7 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::Scale;
+use crate::{prefix::Prefix, Scale};
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";

@@ -3096,7 +3096,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
- "unsigned-varint",
 ]
 
 [[package]]

@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use cid::Cid;
-
-use libipld::cid::{
-    Version,
-};
+use libipld::cid::Version;
 
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
