@@ -49,8 +49,6 @@ members = [
 ]
 resolver = "2"
 
-[patch.crates-io]
-
 [workspace.dependencies]
 ahash = "0.8"
 anyhow = "1.0"
