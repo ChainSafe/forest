@@ -59,7 +59,6 @@ fn require(
     };
 
     let result = if path.exists() {
-        println!("Loading: {}", path.display());
         read_to_string(path)
     } else {
         Ok(PRELUDE_MODULE.into())
