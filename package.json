@@ -1,0 +1,10 @@
+{
+  "name": "root",
+  "devDependencies": {
+    "lerna": "^6.4.1",
+    "node-fetch": "^2.6.7"
+  },
+  "scripts": {
+    "lint": "npx lerna exec -- npx eslint **/*.js"
+  }
+}
