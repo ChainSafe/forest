@@ -1,31 +1,37 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Config;
-use ahash::HashMap;
-use ahash::HashMapExt;
-use anyhow::Context;
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
-use forest_json::address::json::AddressJson;
-use forest_json::signature::json::{signature_type::SignatureTypeJson, SignatureJson};
-use forest_key_management::json::KeyInfoJson;
-use forest_rpc_client::wallet_ops::*;
-use forest_utils::io::read_file_to_string;
-use fvm_shared::address::{Address, Protocol};
-use fvm_shared::bigint::BigInt;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use fvm_shared::econ::TokenAmount;
-use lazy_static::lazy_static;
-use regex::Regex;
-use rpassword::read_password;
 use std::{
     path::PathBuf,
     str::{self, FromStr},
 };
 
+use ahash::{HashMap, HashMapExt};
+use anyhow::Context;
+use base64::{prelude::BASE64_STANDARD, Engine};
+use clap::{arg, Subcommand};
+use forest_json::{
+    address::json::AddressJson,
+    signature::json::{signature_type::SignatureTypeJson, SignatureJson},
+};
+use forest_key_management::json::KeyInfoJson;
+use forest_rpc_client::wallet_ops::*;
+use forest_utils::io::read_file_to_string;
+use fvm_shared::{
+    address::{Address, Protocol},
+    bigint::BigInt,
+    crypto::signature::{Signature, SignatureType},
+    econ::TokenAmount,
+};
+use lazy_static::lazy_static;
+use regex::Regex;
+use rpassword::read_password;
+
+use super::Config;
+
 lazy_static! {
     static ref LEN_TO_CLOSURE_POWERS: HashMap<usize, (String, u8)> = {
+        let mut map = HashMap::new();
         for item in 0..4 {
             map.insert(item, ("atto FIL".to_string(), 18));
         }
@@ -88,7 +94,7 @@ pub enum WalletCommands {
         /// In combination with `--fixed-unit` flag
         /// it will show exact data in `FIL` units
         /// E.g. 0.0000002367798 `FIL` instead of 0 `FIL`
-        #[structopt(short, long)]
+        #[arg(short, long)]
         exact_balance: bool,
         /// flag to force the balance to be in `FIL`
         /// meaning one won't balance in `atto` or `micro`
@@ -97,7 +103,7 @@ pub enum WalletCommands {
         /// In combination with `--exact-balance` flag
         /// it will show exact data in `FIL` units
         /// E.g. 0.0000002367798 `FIL` instead of 0 `FIL`
-        #[structopt(short, long)]
+        #[arg(short, long)]
         fixed_unit: bool,
     },
     /// Set the default wallet address
@@ -290,7 +296,11 @@ impl WalletCommands {
     }
 }
 
-fn formating_vars(balance_string: String, balance_exact: String, changed: bool) -> (String, String) {
+fn formating_vars(
+    balance_string: String,
+    balance_exact: String,
+    changed: bool,
+) -> (String, String) {
     //unfallible unwrap
     let re = Regex::new(r"(?i)(0+$)|(\.0+$)|(\.+$)").unwrap();
     let res = re.replace(balance_string.as_str(), "").to_string();
@@ -323,7 +333,11 @@ fn format_balance_string(
                 changed = true;
                 TokenAmount::from_whole(0)
             };
-            formating_vars(format!("{balance_int:.0}0"), format!("{balance_int}"), changed)
+            formating_vars(
+                format!("{balance_int:.0}0"),
+                format!("{balance_int}"),
+                changed,
+            )
         }
     } else {
         let atto = balance_int.atto();
@@ -335,9 +349,13 @@ fn format_balance_string(
             unit = unit_string.as_str();
 
             if *closure_power < 18 {
-                balance_int = if balance_int >= TokenAmount::from_atto(10_i64.pow(18 - *closure_power as u32)) {
+                balance_int = if balance_int
+                    >= TokenAmount::from_atto(10_i64.pow(18 - *closure_power as u32))
+                {
                     balance_int * BigInt::from(10i64.pow(*closure_power as u32))
-                } else if balance_int >= TokenAmount::from_atto(5 * 10_i64.pow(18 - *closure_power as u32 - 1)) {
+                } else if balance_int
+                    >= TokenAmount::from_atto(5 * 10_i64.pow(18 - *closure_power as u32 - 1))
+                {
                     changed = true;
                     TokenAmount::from_atto(*closure_power as u32 + 1)
                 } else {
@@ -347,14 +365,16 @@ fn format_balance_string(
             } else {
                 balance_int *= BigInt::from(10i64.pow(*closure_power as u32));
             }
-
-            
         }
 
         if exact_balance {
             formating_vars(format!("{balance_int}"), format!("{balance_int}"), changed)
         } else {
-            formating_vars(format!("{balance_int:.4}"), format!("{balance_int}"), changed)
+            formating_vars(
+                format!("{balance_int:.4}"),
+                format!("{balance_int}"),
+                changed,
+            )
         }
     };
     format!("{symbol}{balance_string} {unit}")
@@ -391,11 +411,7 @@ fn not_exact_balance_fixed_unit() {
     );
 
     assert_eq!(
-        format_balance_string(
-            TokenAmount::from_atto(15089000000000050000u64),
-            true,
-            false,
-        ),
+        format_balance_string(TokenAmount::from_atto(15089000000000050000u64), true, false,),
         "~15 FIL"
     );
 }
