@@ -232,7 +232,7 @@ impl AttachCommand {
             return Err(anyhow::anyhow!("error {err:?}"));
         }
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn run(&self, config: Config) -> anyhow::Result<()> {
