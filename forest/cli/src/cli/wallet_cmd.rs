@@ -49,8 +49,6 @@ lazy_static! {
 }
 
 use super::handle_rpc_err;
-use anyhow::Context;
-use base64::{prelude::BASE64_STANDARD, Engine};
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
