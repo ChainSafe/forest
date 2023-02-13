@@ -38,9 +38,11 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use tokio::{sync::RwLock, task::JoinSet};
-
-use super::cli::set_sigint_handler;
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::RwLock,
+    task::JoinSet,
+};
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
@@ -65,7 +67,8 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 
 /// Starts daemon process
 pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> {
-    let mut ctrlc_oneshot = set_sigint_handler();
+    let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
+    let mut terminate = signal(SignalKind::terminate())?;
 
     info!(
         "Starting Forest daemon, version {}",
@@ -291,6 +294,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
+                shutdown_send,
             )
             .await
             .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
@@ -314,10 +318,17 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let config = maybe_fetch_snapshot(should_fetch_snapshot, config).await?;
 
-    select! {
+    tokio::select! {
         () = sync_from_snapshot(&config, &state_manager).fuse() => {},
-        _ = ctrlc_oneshot => {
-            // Cancel all async services
+        _ = tokio::signal::ctrl_c() => {
+            services.shutdown().await;
+            return Ok(db);
+        },
+        _ = terminate.recv() => {
+            services.shutdown().await;
+            return Ok(db);
+        },
+        _ = shutdown_recv.recv() => {
             services.shutdown().await;
             return Ok(db);
         },
@@ -325,7 +336,6 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     // Halt
     if config.client.halt_after_import {
-        // Cancel all async services
         services.shutdown().await;
         return Ok(db);
     }
@@ -334,12 +344,13 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     // blocking until any of the services returns an error,
     // or CTRL-C is pressed
-    select! {
+    tokio::select! {
         err = propagate_error(&mut services).fuse() => error!("services failure: {}", err),
-        _ = ctrlc_oneshot => {}
+        _ = tokio::signal::ctrl_c() => {},
+        _ = terminate.recv() => {},
+        _ = shutdown_recv.recv() => {},
     }
 
-    // Cancel all async services
     services.shutdown().await;
 
     Ok(db)
