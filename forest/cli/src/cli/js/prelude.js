@@ -1,9 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-/* global netPeers, netDisconnect */
-/* global walletList, walletDefaultAddress, walletBalance */
-/* global syncStatus */
+/* global netPeers, netDisconnect, walletList, walletDefaultAddress, walletBalance, syncStatus */
+/* global sendMessage */
 
 module.exports = {
     greet: function () {
