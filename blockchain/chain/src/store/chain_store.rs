@@ -574,7 +574,7 @@ where
                     } else {
                         from_old_rolling.fetch_add(1, Ordering::Relaxed);
                         let block = proxy_store.get(&cid)?.ok_or_else(|| {
-                            Error::Other("Cid {cid} not found in blockstore".to_string())
+                            Error::Other(format!("Cid {cid} not found in blockstore"))
                         })?;
                         if prune_db {
                             latest_rolling_store.store.put_keyed(&cid, &block)?;
