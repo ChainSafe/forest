@@ -7,7 +7,7 @@ use forest_db::Store;
 use forest_fil_types::verifier::generate_winning_post_sector_challenge;
 use forest_shim::{
     randomness::Randomness,
-    sector::{RegisteredSealProof, SectorInfo, SectorSize},
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo, SectorSize},
     version::NetworkVersion,
 };
 use fvm_ipld_bitfield::BitField;
@@ -73,10 +73,7 @@ where
 
         let sector_size: SectorSize = info.sector_size();
 
-        let spt = forest_shim::sector::RegisteredSealProof::from_sector_size(
-            sector_size,
-            nv,
-        );
+        let spt = RegisteredSealProof::from_sector_size(sector_size, nv);
 
         let wpt = spt
             .registered_winning_post_proof()
@@ -85,7 +82,7 @@ where
         let m_id = miner_address.id()?;
 
         let ids = generate_winning_post_sector_challenge(
-            forest_shim::sector::RegisteredPoStProof::from(wpt),
+            RegisteredPoStProof::from(wpt),
             m_id,
             rand.into(),
             num_prov_sect,
@@ -110,11 +107,7 @@ where
             .into_iter()
             .map(|s_info| {
                 let proof: RegisteredSealProof = spt;
-                forest_shim::sector::SectorInfo::new(
-                    *proof,
-                    s_info.sector_number,
-                    s_info.sealed_cid,
-                )
+                SectorInfo::new(*proof, s_info.sector_number, s_info.sealed_cid)
             })
             .collect();
 

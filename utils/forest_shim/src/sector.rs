@@ -150,8 +150,7 @@ impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
 }
 
 /// SectorSize indicates one of a set of possible sizes in the network.
-#[derive(Clone, Debug, PartialEq, Copy, serde::Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Debug, PartialEq, Copy, serde::Serialize, serde::Deserialize)]
 pub struct SectorSize(SectorSizeV3);
 
 impl From<SectorSizeV3> for SectorSize {
@@ -214,5 +213,26 @@ impl Deref for PoStProof {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn sector_size_ser_deser() {
+        let orig_sector_size = fvm_shared3::sector::SectorSize::_2KiB;
+        let orig_json_repr = serde_json::to_string(&orig_sector_size).unwrap();
+
+        let shimmed_sector_size = crate::sector::SectorSize(fvm_shared3::sector::SectorSize::_2KiB);
+        let shimmed_json_repr = serde_json::to_string(&shimmed_sector_size).unwrap();
+
+        assert_eq!(orig_json_repr, shimmed_json_repr);
+
+        let shimmed_deser: crate::sector::SectorSize =
+            serde_json::from_str(&shimmed_json_repr).unwrap();
+        let orig_deser: fvm_shared3::sector::SectorSize =
+            serde_json::from_str(&orig_json_repr).unwrap();
+
+        assert_eq!(shimmed_deser.0, orig_deser);
     }
 }

@@ -4,7 +4,7 @@
 use std::{collections::BTreeMap, convert::TryInto};
 
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
-use forest_shim::sector::{RegisteredSealProof, SectorInfo};
+use forest_shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, randomness::Randomness};
 
@@ -16,7 +16,7 @@ use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, random
 /// winning proof leads to a miner being slashed.
 pub fn verify_winning_post(
     Randomness(mut randomness): Randomness,
-    proofs: &[forest_shim::sector::PoStProof],
+    proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
 ) -> Result<(), anyhow::Error> {
@@ -45,7 +45,7 @@ pub fn verify_winning_post(
 
 /// Generates sector challenge indexes for use in winning PoSt verification.
 pub fn generate_winning_post_sector_challenge(
-    proof: forest_shim::sector::RegisteredPoStProof,
+    proof: RegisteredPoStProof,
     prover_id: u64,
     mut rand: Randomness,
     eligible_sector_count: u64,

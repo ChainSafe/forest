@@ -42,7 +42,7 @@ pub mod json {
         }
     }
 
-    impl From<PoStProofJson> for forest_shim::sector::PoStProof {
+    impl From<PoStProofJson> for PoStProof {
         fn from(wrapper: PoStProofJson) -> Self {
             wrapper.0
         }
@@ -56,10 +56,7 @@ pub mod json {
         proof_bytes: String,
     }
 
-    pub fn serialize<S>(
-        m: &forest_shim::sector::PoStProof,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(m: &PoStProof, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -70,7 +67,7 @@ pub mod json {
         .serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<forest_shim::sector::PoStProof, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<PoStProof, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -79,7 +76,7 @@ pub mod json {
         let proof_bytes = BASE64_STANDARD
             .decode(m.proof_bytes)
             .map_err(de::Error::custom)?;
-        let post_proof = forest_shim::sector::PoStProof::new(reg_post_proof.into(), proof_bytes);
+        let post_proof = PoStProof::new(reg_post_proof.into(), proof_bytes);
         Ok(post_proof)
     }
 
