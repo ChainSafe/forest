@@ -54,7 +54,7 @@ pub fn generate_winning_post_sector_challenge(
     rand.0[31] &= 0x3f;
 
     post::generate_winning_post_sector_challenge(
-        (*proof).try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
+        proof.try_into().unwrap(),
         &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),

@@ -126,6 +126,14 @@ impl Deref for RegisteredPoStProof {
     }
 }
 
+impl TryFrom<RegisteredPoStProof> for filecoin_proofs_api::RegisteredPoStProof {
+    type Error = anyhow::Error;
+
+    fn try_from(value: RegisteredPoStProof) -> Result<Self, Self::Error> {
+        value.0.try_into().map_err(|e: String| anyhow::anyhow!(e))
+    }
+}
+
 impl From<RegisteredPoStProofV3> for RegisteredPoStProof {
     fn from(value: RegisteredPoStProofV3) -> Self {
         RegisteredPoStProof(value)

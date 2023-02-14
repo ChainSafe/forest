@@ -7,7 +7,9 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
+anyhow.workspace = true
 cid.workspace = true
+filecoin-proofs-api.workspace = true
 fvm.workspace = true
 fvm3 = { package = "fvm", version = "3.0.0-alpha.19" }
 fvm_shared.workspace = true
