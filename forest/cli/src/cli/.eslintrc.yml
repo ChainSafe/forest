@@ -1,0 +1,9 @@
+env:
+  commonjs: true
+  es2021: true
+  shared-node-browser: true
+extends: eslint:recommended
+overrides: []
+parserOptions:
+  ecmaVersion: latest
+rules: {}

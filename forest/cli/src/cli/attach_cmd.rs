@@ -42,7 +42,7 @@ pub struct AttachCommand {
     exec: Option<String>,
 }
 
-const PRELUDE: &str = include_str!("./prelude.js");
+const PRELUDE_MODULE: &str = include_str!("./js/prelude.js");
 
 fn require(
     _: &JsValue,
@@ -62,8 +62,12 @@ fn require(
         PathBuf::from(module_name)
     };
 
-    println!("Loading: {}", path.display());
-    match read_to_string(path) {
+    let result = if path.exists() {
+        read_to_string(path)
+    } else {
+        Ok(PRELUDE_MODULE.into())
+    };
+    match result {
         Ok(buffer) => {
             context.eval(&buffer).unwrap();
 
@@ -256,29 +260,22 @@ impl AttachCommand {
         bind_func!(context, token, sleep_tipsets);
     }
 
-    fn source_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
-        if let Some(jspath) = &self.jspath {
-            let prelude_path = jspath.join("prelude.js");
-
-            if prelude_path.exists() {
-                match read_to_string(prelude_path) {
-                    Ok(buffer) => {
-                        let result = context.eval(&buffer);
-                        if let Err(err) = result {
-                            return Err(anyhow::anyhow!("error {err:?}"));
-                        }
-                        return Ok(());
-                    }
-                    Err(err) => {
-                        return Err(anyhow::anyhow!("error {err}"));
-                    }
-                }
-            }
+    fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
+        const INIT: &str = r"
+            const prelude = require('prelude.js')
+            prelude.greet();
+            if (prelude.showPeers) { showPeers = prelude.showPeers; }
+            if (prelude.getPeer) { getPeer = prelude.getPeer; }
+            if (prelude.disconnectPeers) { disconnectPeers = prelude.disconnectPeers; }
+            if (prelude.isPeerConnected) { isPeerConnected = prelude.isPeerConnected; }
+            if (prelude.showWallet) { showWallet = prelude.showWallet; }
+            if (prelude.showSyncStatus) { showSyncStatus = prelude.showSyncStatus; }
+            if (prelude.sendFIL) { sendFIL = prelude.sendFIL; }
+        ";
+        let result = context.eval(INIT);
+        if let Err(err) = result {
+            return Err(anyhow::anyhow!("error {err:?}"));
         }
-        // Use builtin prelude
-        context
-            .eval(PRELUDE)
-            .expect("prelude script should compile");
 
         Ok(())
     }
@@ -289,13 +286,17 @@ impl AttachCommand {
 
         // If only a short execution was requested, evaluate and return
         if let Some(code) = &self.exec {
-            if let Err(v) = context.eval(code.trim_end()) {
-                eprintln!("Uncaught: {v:?}");
+            match context.eval(code.trim_end()) {
+                Ok(v) => match v {
+                    JsValue::Undefined => (),
+                    _ => println!("{}", v.display()),
+                },
+                Err(v) => eprintln!("Uncaught: {v:?}"),
             }
             return Ok(());
         }
 
-        self.source_prelude(&mut context)?;
+        self.import_prelude(&mut context)?;
 
         let config = RustyLineConfig::builder()
             .keyseq_timeout(1)
