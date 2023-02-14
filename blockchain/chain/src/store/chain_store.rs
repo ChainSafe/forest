@@ -564,7 +564,7 @@ where
                 let block = self
                     .blockstore()
                     .get(&cid)?
-                    .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
+                    .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
                 tx_clone.send_async((cid, block.clone())).await?;
                 Ok(block)
