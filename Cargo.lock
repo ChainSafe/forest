@@ -2346,9 +2346,9 @@ checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
 
 [[package]]
 name = "fastrand"
-version = "1.8.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7a407cfaa3385c4ae6b23e84623d48c2798d06e3e6a1878f7f59f17b3f86499"
+checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
 dependencies = [
  "instant",
 ]
@@ -3735,7 +3735,7 @@ version = "0.6.0"
 dependencies = [
  "cid",
  "fvm 2.2.0",
- "fvm 3.0.0-alpha.24",
+ "fvm 3.0.0-rc.1",
  "fvm_shared 2.0.0",
  "fvm_shared 3.0.0-alpha.20",
  "num-bigint",
@@ -4126,9 +4126,9 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "3.0.0-alpha.24"
+version = "3.0.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "560201e145435e4a3741fe5e6f37b7854273af9f344ca13957232ccb58834a1f"
+checksum = "9efd2ca858542b73acd5f679bac84ab9de2af8ccb35a3528e414e08b85e55982"
 dependencies = [
  "anyhow",
  "blake2b_simd",
@@ -5658,9 +5658,9 @@ dependencies = [
 
 [[package]]
 name = "librocksdb-sys"
-version = "0.8.3+7.4.4"
+version = "0.10.0+7.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "557b255ff04123fcc176162f56ed0c9cd42d8f357cf55b3fabeb60f7413741b3"
+checksum = "0fe4d5874f5ff2bc616e55e8c6086d478fcda13faf9495768a4aa1c22042d30b"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -5668,6 +5668,7 @@ dependencies = [
  "glob",
  "libc",
  "libz-sys",
+ "lz4-sys",
  "tikv-jemalloc-sys",
 ]
 
@@ -7597,9 +7598,9 @@ dependencies = [
 
 [[package]]
 name = "rocksdb"
-version = "0.19.0"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e9562ea1d70c0cc63a34a22d977753b50cca91cc6b6527750463bd5dd8697bc"
+checksum = "015439787fce1e75d55f279078d33ff14b4af5d93d995e8838ee4631301c8a99"
 dependencies = [
  "libc",
  "librocksdb-sys",
