@@ -61,11 +61,11 @@ impl ChainExchangeBehaviour {
     }
 
     pub fn on_outbound_error(&mut self, request_id: &RequestId, error: OutboundFailure) {
+        self.track_metrics();
         if let Some(tx) = self.response_channels.remove(request_id) {
             if let Err(err) = tx.send(Err(error.into())) {
                 warn!("{err}");
             }
-            self.track_metrics();
         }
     }
 
