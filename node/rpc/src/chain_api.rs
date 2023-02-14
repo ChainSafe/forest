@@ -51,7 +51,14 @@ where
 
 pub(crate) async fn chain_export<DB, B>(
     data: Data<RPCState<DB, B>>,
-    Params(params): Params<ChainExportParams>,
+    Params(ChainExportParams {
+        epoch,
+        recent_roots,
+        output_path,
+        tipset_keys: TipsetKeysJson(tsk),
+        skip_checksum,
+        dry_run,
+    }): Params<ChainExportParams>,
 ) -> Result<ChainExportResult, JsonRpcError>
 where
     DB: Blockstore + Store + Clone + Send + Sync + 'static,
@@ -69,8 +76,6 @@ where
         });
     }
 
-    let (epoch, recent_roots, out, TipsetKeysJson(tsk), skip_checksum) = params;
-
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
     if recent_roots < chain_finality {
         Err(&format!(
@@ -78,9 +83,18 @@ where
         ))?;
     }
 
-    let out_tmp = out.with_extension("car.tmp");
-    let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
-    let writer = AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file));
+    let (out_tmp, writer) = if dry_run {
+        (None, None)
+    } else {
+        let out_tmp = output_path.with_extension("car.tmp");
+        let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
+        (
+            Some(out_tmp),
+            Some(AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(
+                file,
+            ))),
+        )
+    };
 
     let head = data.chain_store.tipset_from_keys(&tsk)?;
 
@@ -91,27 +105,32 @@ where
         .export(&start_ts, recent_roots, writer)
         .await
     {
-        Ok(checksum) => {
-            std::fs::rename(&out_tmp, &out)?;
-            if !skip_checksum {
-                save_checksum(&out, checksum).await?;
+        Ok(Some(checksum)) => {
+            if let Some(out_tmp) = out_tmp {
+                std::fs::rename(&out_tmp, &output_path)?;
+                if !skip_checksum {
+                    save_checksum(&output_path, checksum).await?;
+                }
             }
         }
+        Ok(None) => {}
         Err(e) => {
-            if let Err(e) = std::fs::remove_file(&out_tmp) {
-                error!(
-                    "failed to remove incomplete export file at {}: {e}",
-                    out_tmp.display()
-                );
-            } else {
-                debug!("incomplete export file at {} removed", out_tmp.display());
+            if let Some(out_tmp) = out_tmp {
+                if let Err(e) = std::fs::remove_file(&out_tmp) {
+                    error!(
+                        "failed to remove incomplete export file at {}: {e}",
+                        out_tmp.display()
+                    );
+                } else {
+                    debug!("incomplete export file at {} removed", out_tmp.display());
+                }
             }
 
             return Err(JsonRpcError::from(e));
         }
     };
 
-    Ok(out)
+    Ok(output_path)
 }
 
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file

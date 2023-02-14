@@ -523,38 +523,45 @@ where
         &self,
         tipset: &Tipset,
         recent_roots: ChainEpoch,
-        writer: W,
-    ) -> Result<digest::Output<D>, Error>
+        writer: Option<W>,
+    ) -> Result<Option<digest::Output<D>>, Error>
     where
         D: Digest,
         W: AsyncWrite + Checksum<D> + Send + Unpin + 'static,
     {
+        let dry_run = writer.is_none();
+
         // Channel cap is equal to buffered write size
         const CHANNEL_CAP: usize = 1000;
         let (tx, rx) = flume::bounded(CHANNEL_CAP);
         let header = CarHeader::from(tipset.key().cids().to_vec());
 
-        let writer = Arc::new(TokioMutex::new(writer.compat_write()));
+        let writer = writer.map(|w| Arc::new(TokioMutex::new(w.compat_write())));
         let writer_clone = writer.clone();
 
         // Spawns task which receives blocks to write to the car writer.
         let write_task = tokio::task::spawn(async move {
-            let mut writer = writer_clone.lock().await;
-            header
-                .write_stream_async(
-                    &mut *writer,
-                    &mut Box::pin(stream! {
-                        while let Ok(val) = rx.recv_async().await {
-                            yield val;
-                        }
-                    }),
-                )
-                .await
-                .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
+            if let Some(writer) = writer_clone {
+                let mut writer = writer.lock().await;
+                header
+                    .write_stream_async(
+                        &mut *writer,
+                        &mut Box::pin(stream! {
+                            while let Ok(val) = rx.recv_async().await {
+                                yield val;
+                            }
+                        }),
+                    )
+                    .await
+                    .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))
+            } else {
+                while rx.recv_async().await.is_ok() {}
+                Ok(())
+            }
         });
 
         let global_pre_time = SystemTime::now();
-        info!("chain export started");
+        info!("chain export started, dry_run: {dry_run}");
 
         // Walks over tipset and historical data, sending all blocks visited into the
         // car writer.
@@ -566,7 +573,9 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                tx_clone.send_async((cid, block.clone())).await?;
+                if !dry_run {
+                    tx_clone.send_async((cid, block.clone())).await?;
+                }
                 Ok(block)
             }
         })
@@ -581,13 +590,20 @@ where
             .await
             .map_err(|e| Error::Other(format!("Failed to write blocks in export: {e}")))??;
 
-        let time = SystemTime::now()
-            .duration_since(global_pre_time)
-            .expect("time cannot go backwards");
-        info!("export finished, took {} seconds", time.as_secs());
+        info!(
+            "export finished, took {} seconds",
+            global_pre_time
+                .elapsed()
+                .expect("time cannot go backwards")
+                .as_secs()
+        );
 
-        let digest = writer.lock().await.get_mut().finalize();
-        Ok(digest)
+        if let Some(writer) = writer {
+            let digest = writer.lock().await.get_mut().finalize();
+            Ok(Some(digest))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Walks over tipset and state data and loads all blocks not yet seen.
