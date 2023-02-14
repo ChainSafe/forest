@@ -366,7 +366,7 @@ where
     //   that exceed the balance
     let actor_state = api.get_actor_after(actor, ts)?;
     let mut cur_seq = actor_state.sequence;
-    let mut balance: TokenAmount = forest_shim::econ::TokenAmount::from(&actor_state.balance);
+    let mut balance: TokenAmount = TokenAmount::from(&actor_state.balance);
 
     let mut gas_limit = 0;
     let mut skip = 0;
