@@ -4,10 +4,7 @@
 pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use forest_shim::{
-        sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo},
-        Inner,
-    };
+    use forest_shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
     use fvm_shared::sector::SectorNumber;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -72,7 +69,7 @@ pub mod json {
         D: Deserializer<'de>,
     {
         let m: JsonHelper = Deserialize::deserialize(deserializer)?;
-        let reg_post_proof = <RegisteredPoStProof as Inner>::FVM::from(m.post_proof);
+        let reg_post_proof = RegisteredPoStProof::from(m.post_proof);
         let proof_bytes = BASE64_STANDARD
             .decode(m.proof_bytes)
             .map_err(de::Error::custom)?;
@@ -121,20 +118,22 @@ mod tests {
         postproof: PoStProof,
     }
 
+    type RegisteredPostProof = <RegisteredPoStProof as Inner>::FVM;
+
     impl quickcheck::Arbitrary for PoStProofWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let registered_postproof = g
                 .choose(&[
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning2KiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning8MiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning512MiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning32GiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWinning64GiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow2KiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow8MiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow512MiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow32GiBV1,
-                    <RegisteredPoStProof as Inner>::FVM::StackedDRGWindow64GiBV1,
+                    RegisteredPostProof::StackedDRGWinning2KiBV1,
+                    RegisteredPostProof::StackedDRGWinning8MiBV1,
+                    RegisteredPostProof::StackedDRGWinning512MiBV1,
+                    RegisteredPostProof::StackedDRGWinning32GiBV1,
+                    RegisteredPostProof::StackedDRGWinning64GiBV1,
+                    RegisteredPostProof::StackedDRGWindow2KiBV1,
+                    RegisteredPostProof::StackedDRGWindow8MiBV1,
+                    RegisteredPostProof::StackedDRGWindow512MiBV1,
+                    RegisteredPostProof::StackedDRGWindow32GiBV1,
+                    RegisteredPostProof::StackedDRGWindow64GiBV1,
                 ])
                 .unwrap();
             let postproof = PoStProof::new((*registered_postproof).into(), Vec::arbitrary(g));
