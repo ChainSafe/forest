@@ -250,7 +250,6 @@ impl From<SectorSize> for SectorSizeV2 {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
-#[serde(transparent)]
 pub struct PoStProof(PoStProofV3);
 
 impl PoStProof {

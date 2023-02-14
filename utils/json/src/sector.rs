@@ -5,7 +5,7 @@ pub mod json {
     use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
     use forest_shim::{
-        sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
+        sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo},
         Inner,
     };
     use fvm_shared::sector::SectorNumber;
@@ -14,12 +14,12 @@ pub mod json {
     /// Wrapper for serializing a `PoStProof` to JSON.
     #[derive(Deserialize, Serialize)]
     #[serde(transparent)]
-    pub struct PoStProofJson(#[serde(with = "self")] pub forest_shim::sector::PoStProof);
+    pub struct PoStProofJson(#[serde(with = "self")] pub PoStProof);
 
     /// Wrapper for serializing a `PoStProof` reference to JSON.
     #[derive(Serialize)]
     #[serde(transparent)]
-    pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a forest_shim::sector::PoStProof);
+    pub struct PoStProofJsonRef<'a>(#[serde(with = "self")] pub &'a PoStProof);
 
     #[derive(Clone, Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]

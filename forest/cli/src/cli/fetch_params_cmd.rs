@@ -48,12 +48,14 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
     let mut trimmed = size.trim_end_matches('B');
     trimmed = trimmed.trim_end_matches('b');
 
+    type SectorSize = <forest_shim::sector::SectorSize as Inner>::FVM;
+
     match trimmed {
-        "2048" | "2Ki" | "2ki" => Ok(<SectorSize as Inner>::FVM::_2KiB.into()),
-        "8388608" | "8Mi" | "8mi" => Ok(<SectorSize as Inner>::FVM::_8MiB.into()),
-        "536870912" | "512Mi" | "512mi" => Ok(<SectorSize as Inner>::FVM::_512MiB.into()),
-        "34359738368" | "32Gi" | "32gi" => Ok(<SectorSize as Inner>::FVM::_32GiB.into()),
-        "68719476736" | "64Gi" | "64gi" => Ok(<SectorSize as Inner>::FVM::_64GiB.into()),
+        "2048" | "2Ki" | "2ki" => Ok(SectorSize::_2KiB.into()),
+        "8388608" | "8Mi" | "8mi" => Ok(SectorSize::_8MiB.into()),
+        "536870912" | "512Mi" | "512mi" => Ok(SectorSize::_512MiB.into()),
+        "34359738368" | "32Gi" | "32gi" => Ok(SectorSize::_32GiB.into()),
+        "68719476736" | "64Gi" | "64gi" => Ok(SectorSize::_64GiB.into()),
         _ => Err(anyhow::Error::msg(format!(
             "Failed to parse: {size}. Must be a valid sector size"
         ))),
