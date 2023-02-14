@@ -132,6 +132,12 @@ impl From<RegisteredPoStProofV3> for RegisteredPoStProof {
     }
 }
 
+impl From<i64> for RegisteredPoStProof {
+    fn from(value: i64) -> Self {
+        RegisteredPoStProof(RegisteredPoStProofV3::from(value))
+    }
+}
+
 impl Inner for RegisteredPoStProof {
     type FVM = RegisteredPoStProofV3;
 }

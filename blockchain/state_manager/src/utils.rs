@@ -74,8 +74,8 @@ where
         let sector_size: SectorSize = info.sector_size();
 
         let spt = forest_shim::sector::RegisteredSealProof::from_sector_size(
-            sector_size.into(),
-            nv.into(),
+            sector_size,
+            nv,
         );
 
         let wpt = spt
@@ -109,7 +109,7 @@ where
         let out = sectors
             .into_iter()
             .map(|s_info| {
-                let proof: RegisteredSealProof = spt.into();
+                let proof: RegisteredSealProof = spt;
                 forest_shim::sector::SectorInfo::new(
                     *proof,
                     s_info.sector_number,

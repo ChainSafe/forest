@@ -66,39 +66,17 @@ fn ram_to_int(size: &str) -> anyhow::Result<SectorSize> {
 mod tests {
     use super::*;
 
+    type SectorSize = <forest_shim::sector::SectorSize as Inner>::FVM;
+
     #[test]
     fn ram_str_conversions() {
-        assert_eq!(
-            ram_to_int("2048").unwrap(),
-            <SectorSize as Inner>::FVM::_2KiB.into()
-        );
-        assert_eq!(
-            ram_to_int("2048B").unwrap(),
-            <SectorSize as Inner>::FVM::_2KiB.into()
-        );
-        assert_eq!(
-            ram_to_int("2kib").unwrap(),
-            <SectorSize as Inner>::FVM::_2KiB.into()
-        );
-        assert_eq!(
-            ram_to_int("8Mib").unwrap(),
-            <SectorSize as Inner>::FVM::_8MiB.into()
-        );
-        assert_eq!(
-            ram_to_int("512MiB").unwrap(),
-            <SectorSize as Inner>::FVM::_512MiB.into()
-        );
-        assert_eq!(
-            ram_to_int("32Gi").unwrap(),
-            <SectorSize as Inner>::FVM::_32GiB.into()
-        );
-        assert_eq!(
-            ram_to_int("32GiB").unwrap(),
-            <SectorSize as Inner>::FVM::_32GiB.into()
-        );
-        assert_eq!(
-            ram_to_int("64Gib").unwrap(),
-            <SectorSize as Inner>::FVM::_64GiB.into()
-        );
+        assert_eq!(ram_to_int("2048").unwrap(), SectorSize::_2KiB.into());
+        assert_eq!(ram_to_int("2048B").unwrap(), SectorSize::_2KiB.into());
+        assert_eq!(ram_to_int("2kib").unwrap(), SectorSize::_2KiB.into());
+        assert_eq!(ram_to_int("8Mib").unwrap(), SectorSize::_8MiB.into());
+        assert_eq!(ram_to_int("512MiB").unwrap(), SectorSize::_512MiB.into());
+        assert_eq!(ram_to_int("32Gi").unwrap(), SectorSize::_32GiB.into());
+        assert_eq!(ram_to_int("32GiB").unwrap(), SectorSize::_32GiB.into());
+        assert_eq!(ram_to_int("64Gib").unwrap(), SectorSize::_64GiB.into());
     }
 }
