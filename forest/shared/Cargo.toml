@@ -13,6 +13,7 @@ anyhow.workspace = true
 atty.workspace = true
 byte-unit = "4.0"
 chrono.workspace = true
+clap.workspace = true
 console-subscriber.workspace = true
 directories.workspace = true
 forest_chain_sync.workspace = true
@@ -33,7 +34,6 @@ s3 = { package = "rust-s3", version = "0.32", default-features = false, features
 serde = { workspace = true, features = ["derive"] }
 serde_with.workspace = true
 sha2.workspace = true
-structopt.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 toml.workspace = true

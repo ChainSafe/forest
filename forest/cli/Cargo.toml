@@ -14,6 +14,7 @@ atty = "0.2"
 base64.workspace = true
 blake3.workspace = true
 cid.workspace = true
+clap.workspace = true
 dialoguer.workspace = true
 forest_auth.workspace = true
 forest_blocks.workspace = true
@@ -44,7 +45,6 @@ rpassword.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 strfmt = "0.2.2"
-structopt.workspace = true
 tempfile.workspace = true
 ticker = "0.1"
 time.workspace = true

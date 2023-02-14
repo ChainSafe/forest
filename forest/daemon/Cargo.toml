@@ -15,6 +15,7 @@ path = "src/main.rs"
 anes = "0.1.6"
 anyhow.workspace = true
 atty.workspace = true
+clap.workspace = true
 ctrlc = { version = "3.2", features = ["termination"] }
 daemonize-me = "2.0"
 dialoguer.workspace = true
@@ -49,7 +50,6 @@ raw_sync = "0.1"
 rpassword.workspace = true
 serde_json.workspace = true
 shared_memory = "0.12"
-structopt.workspace = true
 tempfile.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt"] }
