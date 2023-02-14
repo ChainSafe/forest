@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_encoding::tuple::*;
-use forest_shim::econ::TokenAmount;
+use forest_shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
 use fvm_shared::{
-    address::Address,
     crypto::signature::{Signature, SignatureType},
-    message::Message,
     MethodNum,
 };
 
@@ -64,16 +62,16 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.cid().unwrap().to_bytes(), self.from())
+            .verify(&self.message.cid().unwrap().to_bytes(), &self.from().into())
     }
 }
 
 impl MessageTrait for SignedMessage {
-    fn from(&self) -> &Address {
-        &self.message.from
+    fn from(&self) -> Address {
+        Address::from(self.message.from)
     }
-    fn to(&self) -> &Address {
-        &self.message.to
+    fn to(&self) -> Address {
+        Address::from(self.message.to)
     }
     fn sequence(&self) -> u64 {
         self.message.sequence

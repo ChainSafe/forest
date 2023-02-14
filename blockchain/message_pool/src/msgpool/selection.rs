@@ -11,8 +11,7 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use forest_shim::econ::TokenAmount;
-use fvm_shared::address::Address;
+use forest_shim::{address::Address, econ::TokenAmount};
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
@@ -664,10 +663,20 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from(),
+                    pending,
+                    msg.sequence(),
+                    rmsgs.borrow_mut(),
+                )?;
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from.into(),
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
             }
         }
     }
@@ -768,7 +777,7 @@ mod test_selection {
         let mut next_nonce = 0;
         for (i, msg) in msgs.iter().enumerate().take(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1 {i}",
             );
@@ -779,7 +788,7 @@ mod test_selection {
         next_nonce = 0;
         for (i, msg) in msgs.iter().enumerate().take(20).skip(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2 {i}",
             );
@@ -854,7 +863,7 @@ mod test_selection {
         let mut next_nonce = 20;
         for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
@@ -864,7 +873,7 @@ mod test_selection {
         next_nonce = 20;
         for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
@@ -1027,7 +1036,7 @@ mod test_selection {
         let mut next_nonce = 0;
         for msg in msgs.iter().take(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a1,
                 "first 10 returned messages should be from actor a1"
             );
@@ -1037,7 +1046,7 @@ mod test_selection {
         next_nonce = 0;
         for msg in msgs.iter().take(20).skip(10) {
             assert_eq!(
-                *msg.from(),
+                msg.from(),
                 a2,
                 "next 10 returned messages should be from actor a2"
             );
@@ -1114,7 +1123,7 @@ mod test_selection {
         assert_eq!(msgs.len(), expected_msgs as usize);
 
         for (next_nonce, m) in msgs.into_iter().enumerate() {
-            assert_eq!(m.message().from, a1, "Expected message from a1");
+            assert_eq!(m.from(), a1, "Expected message from a1");
             assert_eq!(
                 m.message().sequence,
                 next_nonce as u64,
@@ -1209,7 +1218,7 @@ mod test_selection {
         let mut next_nonce2 = 0;
 
         for m in msgs {
-            if m.message.from == a1 {
+            if m.from() == a1 {
                 if m.message.sequence != next_nonce1 {
                     panic!(
                         "Expected nonce {}, but got {}",
@@ -1331,7 +1340,7 @@ mod test_selection {
 
         let mut nonces = vec![0; n_actors as usize];
         for m in &msgs {
-            let who = who_is(m.message.from);
+            let who = who_is(m.from());
             if who < 3 {
                 panic!("got message from {who}th actor",);
             }

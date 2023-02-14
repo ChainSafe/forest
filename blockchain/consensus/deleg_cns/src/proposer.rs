@@ -69,7 +69,7 @@ impl DelegatedProposer {
         let mut header = BlockHeader::builder()
             .messages(persisted.msg_cid)
             .bls_aggregate(Some(persisted.bls_agg))
-            .miner_address(self.miner_addr)
+            .miner_address(self.miner_addr.into())
             .weight(parent_weight)
             .parent_base_fee(parent_base_fee)
             .parents(base.key().clone())

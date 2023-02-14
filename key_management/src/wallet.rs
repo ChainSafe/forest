@@ -4,10 +4,8 @@
 use std::{convert::TryFrom, str::FromStr};
 
 use ahash::{HashMap, HashMapExt};
-use fvm_shared::{
-    address::Address,
-    crypto::signature::{Signature, SignatureType},
-};
+use forest_shim::address::Address;
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use serde::{Deserialize, Serialize};
 
 use super::{errors::Error, wallet_helpers, KeyInfo, KeyStore};
@@ -434,11 +432,11 @@ mod tests {
         let msg = [0u8; 64];
 
         let sig = wallet.sign(&addr, &msg).unwrap();
-        sig.verify(&msg, &addr).unwrap();
+        sig.verify(&msg, &addr.into()).unwrap();
 
         // invalid verify check
         let invalid_addr = wallet.generate_addr(SignatureType::Secp256k1).unwrap();
-        assert!(sig.verify(&msg, &invalid_addr).is_err())
+        assert!(sig.verify(&msg, &invalid_addr.into()).is_err())
     }
 
     #[test]
@@ -453,10 +451,10 @@ mod tests {
         let msg = [0u8; 64];
 
         let sig = wallet.sign(&addr, &msg).unwrap();
-        sig.verify(&msg, &addr).unwrap();
+        sig.verify(&msg, &addr.into()).unwrap();
 
         // invalid verify check
         let invalid_addr = wallet.generate_addr(SignatureType::BLS).unwrap();
-        assert!(sig.verify(&msg, &invalid_addr).is_err())
+        assert!(sig.verify(&msg, &invalid_addr.into()).is_err())
     }
 }

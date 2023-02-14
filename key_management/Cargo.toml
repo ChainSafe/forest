@@ -18,6 +18,7 @@ bls-signatures.workspace = true
 forest_encoding.workspace = true
 forest_json.workspace = true
 forest_utils.workspace = true
+forest_shim.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 libsecp256k1.workspace = true
 log.workspace = true

@@ -7,13 +7,12 @@ use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
-use forest_shim::state_tree::ActorState;
+use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
 use fvm_shared::{
-    address::Address,
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
@@ -203,10 +202,17 @@ impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner,
-            worker: info.worker,
-            control_addresses: info.control_addresses,
-            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info
+                .control_addresses
+                .into_iter()
+                .map(Address::from)
+                .collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)
@@ -227,10 +233,17 @@ impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
         let peer_id = PeerId::from_bytes(&info.peer_id).ok();
 
         MinerInfo {
-            owner: info.owner,
-            worker: info.worker,
-            control_addresses: info.control_addresses,
-            new_worker: info.pending_worker_key.as_ref().map(|k| k.new_worker),
+            owner: info.owner.into(),
+            worker: info.worker.into(),
+            control_addresses: info
+                .control_addresses
+                .into_iter()
+                .map(Address::from)
+                .collect(),
+            new_worker: info
+                .pending_worker_key
+                .as_ref()
+                .map(|k| k.new_worker.into()),
             worker_change_epoch: info
                 .pending_worker_key
                 .map(|k| k.effective_at)

@@ -15,7 +15,7 @@ use num::BigInt;
 fn convert_single_tipset_bundle() {
     let block = Block {
         header: BlockHeader::builder()
-            .miner_address(Address::new_id(0))
+            .miner_address(Address::new_id(0).into())
             .build()
             .unwrap(),
         bls_messages: Vec::new(),
@@ -46,12 +46,12 @@ fn convert_single_tipset_bundle() {
 fn tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
         .weight(BigInt::from(1u32))
-        .miner_address(Address::new_id(0))
+        .miner_address(Address::new_id(0).into())
         .build()
         .unwrap();
     let h1 = BlockHeader::builder()
         .weight(BigInt::from(1u32))
-        .miner_address(Address::new_id(1))
+        .miner_address(Address::new_id(1).into())
         .build()
         .unwrap();
     let ua = Message {

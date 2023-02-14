@@ -177,7 +177,7 @@ mod tests {
         let (cids, db) = populate_db().await;
 
         let gen_block = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
+            .miner_address(Address::new_id(0).into())
             .build()
             .unwrap();
 

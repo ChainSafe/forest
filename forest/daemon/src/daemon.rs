@@ -554,7 +554,7 @@ mod test {
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
+            .miner_address(Address::new_id(0).into())
             .timestamp(7777)
             .build()?;
 
@@ -573,7 +573,7 @@ mod test {
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
         let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
+            .miner_address(Address::new_id(0).into())
             .timestamp(7777)
             .build()?;
 

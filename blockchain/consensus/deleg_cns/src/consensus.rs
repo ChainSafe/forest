@@ -102,7 +102,7 @@ impl DelegatedConsensus {
     {
         let genesis = state_manager.chain_store().genesis()?;
         let state_cid = genesis.state_root();
-        let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one)?;
+        let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one.into())?;
 
         info!(
             "The work address of the chosen proposer {} is {}",

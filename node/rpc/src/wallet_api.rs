@@ -72,7 +72,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key_info = forest_key_management::export_key_info(&addr, &keystore)?;
+    let key_info = forest_key_management::export_key_info(&addr.into(), &keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
@@ -90,7 +90,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key = forest_key_management::find_key(&addr, &keystore).is_ok();
+    let key = forest_key_management::find_key(&addr.into(), &keystore).is_ok();
     Ok(key)
 }
 
@@ -230,6 +230,6 @@ where
     let (addr, msg, SignatureJson(sig)) = params;
     let address = addr.0;
 
-    let ret = sig.verify(&msg, &address).is_ok();
+    let ret = sig.verify(&msg, &address.into()).is_ok();
     Ok(ret)
 }

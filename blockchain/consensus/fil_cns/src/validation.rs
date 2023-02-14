@@ -12,14 +12,12 @@ use forest_chain_sync::collect_errs;
 use forest_db::Store;
 use forest_fil_types::verifier::verify_winning_post;
 use forest_networks::{ChainConfig, Height};
-use forest_shim::{randomness::Randomness, version::NetworkVersion};
+use forest_shim::{address::Address, randomness::Randomness, version::NetworkVersion};
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    address::Address, crypto::signature::ops::verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
-};
+use fvm_shared::{crypto::signature::ops::verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK};
 use nonempty::NonEmpty;
 
 use crate::{metrics, FilecoinConsensusError};
@@ -333,7 +331,7 @@ fn verify_election_post_vrf(
     rand: &[u8],
     evrf: &[u8],
 ) -> Result<(), FilecoinConsensusError> {
-    verify_bls_sig(evrf, rand, worker).map_err(FilecoinConsensusError::VrfValidation)
+    verify_bls_sig(evrf, rand, &worker.into()).map_err(FilecoinConsensusError::VrfValidation)
 }
 
 fn verify_winning_post_proof<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
