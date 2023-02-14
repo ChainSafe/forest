@@ -240,8 +240,12 @@ impl AttachCommand {
 
         // If only a short execution was requested, evaluate and return
         if let Some(code) = &self.exec {
-            if let Err(v) = context.eval(code.trim_end()) {
-                eprintln!("Uncaught: {v:?}");
+            match context.eval(code.trim_end()) {
+                Ok(v) => match v {
+                    JsValue::Undefined => (),
+                    _ => println!("{}", v.display()),
+                },
+                Err(v) => eprintln!("Uncaught: {v:?}"),
             }
             return Ok(());
         }
