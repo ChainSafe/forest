@@ -69,3 +69,16 @@ impl From<Address> for Address_v2 {
             .expect("Couldn't convert between FVM2 and FVM3 addresses")
     }
 }
+
+impl From<&Address> for Address_v2 {
+    fn from(other: &Address) -> Self {
+        Address_v2::from_bytes(&other.to_bytes())
+            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+    }
+}
+
+impl From<&Address> for Address_v3 {
+    fn from(other: &Address) -> Self {
+        other.0
+    }
+}
