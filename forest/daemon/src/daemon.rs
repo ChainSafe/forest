@@ -516,7 +516,7 @@ mod test {
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
-    use fvm_shared::address::Address;
+    use forest_shim::address::Address;
 
     use super::*;
 
@@ -554,7 +554,7 @@ mod test {
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0).into())
+            .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
 
@@ -573,7 +573,7 @@ mod test {
         let db = MemoryDB::default();
         let chain_config = Arc::new(ChainConfig::default());
         let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0).into())
+            .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()?;
 
