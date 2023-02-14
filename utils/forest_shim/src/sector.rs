@@ -13,7 +13,7 @@ use fvm_shared3::sector::{
     SectorSize as SectorSizeV3,
 };
 
-use crate::Inner;
+use crate::{version::NetworkVersion, Inner};
 
 /// Represents a shim over RegisteredSealProof from fvm_shared with convenience
 /// methods to convert to an older version of the type
@@ -32,8 +32,17 @@ use crate::Inner;
 /// assert_eq!(fvm3_proof, *proof_shim);
 /// assert_eq!(fvm2_proof, proof_shim.into());
 /// ```
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
 pub struct RegisteredSealProof(RegisteredSealProofV3);
+
+impl RegisteredSealProof {
+    pub fn from_sector_size(size: SectorSize, network_version: NetworkVersion) -> Self {
+        RegisteredSealProof(RegisteredSealProofV3::from_sector_size(
+            *size,
+            network_version.into(),
+        ))
+    }
+}
 
 impl From<RegisteredSealProofV3> for RegisteredSealProof {
     fn from(value: RegisteredSealProofV3) -> Self {
@@ -164,46 +173,14 @@ impl Inner for RegisteredPoStProof {
 
 impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
     fn from(value: RegisteredPoStProofV2) -> RegisteredPoStProof {
-        let proof = match value {
-            RegisteredPoStProofV2::StackedDRGWinning2KiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWinning2KiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWinning8MiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWinning8MiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWinning512MiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWinning512MiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWinning32GiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWinning32GiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWinning64GiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWinning64GiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWindow2KiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWindow2KiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWindow8MiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWindow8MiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWindow512MiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWindow512MiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWindow32GiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWindow32GiBV1
-            }
-            RegisteredPoStProofV2::StackedDRGWindow64GiBV1 => {
-                RegisteredPoStProofV3::StackedDRGWindow64GiBV1
-            }
-            RegisteredPoStProofV2::Invalid(i64) => RegisteredPoStProofV3::Invalid(i64),
-        };
-        RegisteredPoStProof(proof)
+        let num_id: i64 = value.into();
+        RegisteredPoStProof(RegisteredPoStProofV3::from(num_id))
     }
 }
 
 /// SectorSize indicates one of a set of possible sizes in the network.
 #[derive(Clone, Debug, PartialEq, Copy, serde::Serialize)]
-
+#[serde(transparent)]
 pub struct SectorSize(SectorSizeV3);
 
 impl From<SectorSizeV3> for SectorSize {

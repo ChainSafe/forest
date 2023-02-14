@@ -9,7 +9,6 @@ use forest_shim::{
     randomness::Randomness,
     sector::{RegisteredSealProof, SectorInfo, SectorSize},
     version::NetworkVersion,
-    Inner,
 };
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
@@ -74,8 +73,8 @@ where
 
         let sector_size: SectorSize = info.sector_size();
 
-        let spt = <forest_shim::sector::RegisteredSealProof as Inner>::FVM::from_sector_size(
-            *sector_size,
+        let spt = forest_shim::sector::RegisteredSealProof::from_sector_size(
+            sector_size.into(),
             nv.into(),
         );
 
