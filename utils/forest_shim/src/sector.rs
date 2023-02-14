@@ -63,50 +63,15 @@ impl Deref for RegisteredSealProof {
 
 impl From<RegisteredSealProofV2> for RegisteredSealProof {
     fn from(value: RegisteredSealProofV2) -> RegisteredSealProof {
-        let proof = match value {
-            RegisteredSealProofV2::StackedDRG2KiBV1 => RegisteredSealProofV3::StackedDRG2KiBV1,
-            RegisteredSealProofV2::StackedDRG512MiBV1 => RegisteredSealProofV3::StackedDRG512MiBV1,
-            RegisteredSealProofV2::StackedDRG8MiBV1 => RegisteredSealProofV3::StackedDRG8MiBV1,
-            RegisteredSealProofV2::StackedDRG32GiBV1 => RegisteredSealProofV3::StackedDRG32GiBV1,
-            RegisteredSealProofV2::StackedDRG64GiBV1 => RegisteredSealProofV3::StackedDRG64GiBV1,
-            RegisteredSealProofV2::StackedDRG2KiBV1P1 => RegisteredSealProofV3::StackedDRG2KiBV1P1,
-            RegisteredSealProofV2::StackedDRG512MiBV1P1 => {
-                RegisteredSealProofV3::StackedDRG512MiBV1P1
-            }
-            RegisteredSealProofV2::StackedDRG8MiBV1P1 => RegisteredSealProofV3::StackedDRG8MiBV1P1,
-            RegisteredSealProofV2::StackedDRG32GiBV1P1 => {
-                RegisteredSealProofV3::StackedDRG32GiBV1P1
-            }
-            RegisteredSealProofV2::StackedDRG64GiBV1P1 => {
-                RegisteredSealProofV3::StackedDRG64GiBV1P1
-            }
-            RegisteredSealProofV2::Invalid(i64) => RegisteredSealProofV3::Invalid(i64),
-        };
-        RegisteredSealProof(proof)
+        let num_id: i64 = value.into();
+        RegisteredSealProof(RegisteredSealProofV3::from(num_id))
     }
 }
 
 impl From<RegisteredSealProof> for RegisteredSealProofV2 {
     fn from(value: RegisteredSealProof) -> RegisteredSealProofV2 {
-        match value.0 {
-            RegisteredSealProofV3::StackedDRG2KiBV1 => RegisteredSealProofV2::StackedDRG2KiBV1,
-            RegisteredSealProofV3::StackedDRG512MiBV1 => RegisteredSealProofV2::StackedDRG512MiBV1,
-            RegisteredSealProofV3::StackedDRG8MiBV1 => RegisteredSealProofV2::StackedDRG8MiBV1,
-            RegisteredSealProofV3::StackedDRG32GiBV1 => RegisteredSealProofV2::StackedDRG32GiBV1,
-            RegisteredSealProofV3::StackedDRG64GiBV1 => RegisteredSealProofV2::StackedDRG64GiBV1,
-            RegisteredSealProofV3::StackedDRG2KiBV1P1 => RegisteredSealProofV2::StackedDRG2KiBV1P1,
-            RegisteredSealProofV3::StackedDRG512MiBV1P1 => {
-                RegisteredSealProofV2::StackedDRG512MiBV1P1
-            }
-            RegisteredSealProofV3::StackedDRG8MiBV1P1 => RegisteredSealProofV2::StackedDRG8MiBV1P1,
-            RegisteredSealProofV3::StackedDRG32GiBV1P1 => {
-                RegisteredSealProofV2::StackedDRG32GiBV1P1
-            }
-            RegisteredSealProofV3::StackedDRG64GiBV1P1 => {
-                RegisteredSealProofV2::StackedDRG64GiBV1P1
-            }
-            RegisteredSealProofV3::Invalid(i64) => RegisteredSealProofV2::Invalid(i64),
-        }
+        let num_id: i64 = value.0.into();
+        RegisteredSealProofV2::from(num_id)
     }
 }
 
