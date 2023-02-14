@@ -118,6 +118,37 @@ pub fn is_car_or_tmp(path: &Path) -> bool {
     ext == "car" || ext == "tmp" || ext == "aria2"
 }
 
+/// gets the size of a snapshot from filecoin.
+pub async fn snapshot_fetch_size(config: &Config) -> anyhow::Result<u64> {
+    let service_url = match config.chain.name.to_lowercase().as_ref() {
+        "mainnet" => config.snapshot_fetch.filecoin.mainnet.clone(),
+        "calibnet" => config.snapshot_fetch.filecoin.calibnet.clone(),
+        _ => bail!("Fetch not supported for chain {}", config.chain.name,),
+    };
+    let client = https_client();
+
+    let snapshot_url = {
+        let head_response = client
+            .request(hyper::Request::head(service_url.as_str()).body("".into())?)
+            .await?;
+
+        // Use the redirect if available.
+        match head_response.headers().get("location") {
+            Some(url) => url.to_str()?.try_into()?,
+            None => service_url,
+        }
+    };
+
+    let snapshot_response = client.get(snapshot_url.as_str().try_into()?).await?;
+    let total_size = snapshot_response
+        .headers()
+        .get("content-length")
+        .and_then(|ct_len| ct_len.to_str().ok())
+        .and_then(|ct_len| ct_len.parse::<u64>().ok())
+        .ok_or_else(|| anyhow::anyhow!("Couldn't retrieve content length"))?;
+    anyhow::Ok(total_size)
+}
+
 /// Fetches snapshot from a trusted location and saves it to the given
 /// directory. Chain is inferred from configuration.
 pub async fn snapshot_fetch(
@@ -195,6 +226,7 @@ async fn snapshot_fetch_forest(
     let url = snapshot_spaces_url.join(path)?.join(filename)?;
 
     let snapshot_response = client.get(url.as_str().try_into()?).await?;
+
     if use_aria2 {
         download_snapshot_and_validate_checksum_with_aria2(client, url, &snapshot_path).await?
     } else {
