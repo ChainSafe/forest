@@ -261,7 +261,7 @@ mod test {
                 rocks_db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
-                    write_buffer_size: usize::arbitrary(g),
+                    write_buffer_size: u32::arbitrary(g) as _,
                     max_open_files: i32::arbitrary(g),
                     max_background_jobs: Option::arbitrary(g),
                     compaction_style: String::arbitrary(g),
@@ -285,7 +285,7 @@ mod test {
                 },
                 sync: SyncConfig {
                     req_window: i64::arbitrary(g),
-                    tipset_sample_size: usize::arbitrary(g),
+                    tipset_sample_size: u32::arbitrary(g) as _,
                 },
             }
         }
