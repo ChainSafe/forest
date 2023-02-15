@@ -24,11 +24,10 @@ use forest_libp2p::{
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
 use forest_utils::db::BlockstoreExt;
-use futures::channel::oneshot::channel as oneshot_channel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
-use tokio::{task::JoinSet, time::timeout};
+use tokio::task::JoinSet;
 
 /// Timeout for response from an RPC request
 // TODO this value can be tweaked, this is just set pretty low to avoid peers
@@ -306,7 +305,7 @@ where
 
         let req_pre_time = SystemTime::now();
 
-        let (tx, rx) = oneshot_channel();
+        let (tx, rx) = flume::bounded(1);
         if network_send
             .send_async(NetworkMessage::ChainExchangeRequest {
                 peer_id,
@@ -322,7 +321,8 @@ where
         // Add timeout to receiving response from p2p service to avoid stalling.
         // There is also a timeout inside the request-response calls, but this ensures
         // this.
-        let res = timeout(CHAIN_EXCHANGE_TIMEOUT, rx).await;
+        let res =
+            tokio::task::spawn_blocking(move || rx.recv_timeout(CHAIN_EXCHANGE_TIMEOUT)).await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();

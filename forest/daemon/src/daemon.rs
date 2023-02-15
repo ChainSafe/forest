@@ -12,8 +12,8 @@ use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
 use forest_cli_shared::{
     chain_path,
     cli::{
-        default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config,
-        FOREST_VERSION_STRING,
+        default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
+        to_size_string, Client, Config, FOREST_VERSION_STRING,
     },
 };
 use forest_db::{
@@ -155,7 +155,7 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let epoch = chain_store.heaviest_tipset().epoch();
     let nv = config.chain.network_version(epoch);
     let should_fetch_snapshot = if nv < NetworkVersion::V16 {
-        prompt_snapshot_or_die(&config)?
+        prompt_snapshot_or_die(&config).await?
     } else {
         false
     };
@@ -390,15 +390,17 @@ async fn maybe_fetch_snapshot(
 
 /// Last resort in case a snapshot is needed. If it is not to be downloaded,
 /// this method fails and exits the process.
-fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
+async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
     let should_download = if !config.client.auto_download_snapshot && atty::is(atty::Stream::Stdin)
     {
+        let required_size: u64 = snapshot_fetch_size(config).await?;
+        let required_size = to_size_string(&required_size.into())?;
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
-                    "Forest needs a snapshot to sync with the network. Would you like to download one now?",
+                    format!("Forest needs a snapshot to sync with the network. Would you like to download one now? Required disk space {required_size}."),
                 )
                 .default(false)
                 .interact()
