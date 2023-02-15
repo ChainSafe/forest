@@ -3,6 +3,7 @@ Notable updates:
 
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
+* [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 
 ### Changed
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
