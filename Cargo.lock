@@ -2875,6 +2875,7 @@ dependencies = [
  "forest_paramfetch",
  "forest_rpc-api",
  "forest_rpc-client",
+ "forest_shim",
  "forest_utils",
  "fs_extra",
  "fvm_ipld_blockstore",
@@ -3617,9 +3618,9 @@ dependencies = [
  "anyhow",
  "backoff",
  "blake2b_simd",
+ "forest_shim",
  "forest_utils",
  "futures",
- "fvm_shared 2.0.0",
  "log",
  "serde",
  "serde_json",
@@ -3733,7 +3734,9 @@ dependencies = [
 name = "forest_shim"
 version = "0.6.0"
 dependencies = [
+ "anyhow",
  "cid",
+ "filecoin-proofs-api",
  "fvm 2.2.0",
  "fvm 3.0.0-rc.1",
  "fvm_shared 2.0.0",
@@ -3741,6 +3744,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

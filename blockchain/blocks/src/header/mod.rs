@@ -13,12 +13,11 @@ use forest_encoding::blake2b_256;
 use forest_shim::{
     bigint::{BigIntDe, BigIntSer},
     econ::TokenAmount,
+    sector::PoStProof,
     version::NetworkVersion,
 };
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
-use fvm_shared::{
-    address::Address, clock::ChainEpoch, crypto::signature::Signature, sector::PoStProof,
-};
+use fvm_shared::{address::Address, clock::ChainEpoch, crypto::signature::Signature};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
