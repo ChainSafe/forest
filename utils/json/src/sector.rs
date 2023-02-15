@@ -118,22 +118,22 @@ mod tests {
         postproof: PoStProof,
     }
 
-    type RegisteredPostProof = <RegisteredPoStProof as Inner>::FVM;
+    type RegisteredPoStProofFVM = <RegisteredPoStProof as Inner>::FVM;
 
     impl quickcheck::Arbitrary for PoStProofWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let registered_postproof = g
                 .choose(&[
-                    RegisteredPostProof::StackedDRGWinning2KiBV1,
-                    RegisteredPostProof::StackedDRGWinning8MiBV1,
-                    RegisteredPostProof::StackedDRGWinning512MiBV1,
-                    RegisteredPostProof::StackedDRGWinning32GiBV1,
-                    RegisteredPostProof::StackedDRGWinning64GiBV1,
-                    RegisteredPostProof::StackedDRGWindow2KiBV1,
-                    RegisteredPostProof::StackedDRGWindow8MiBV1,
-                    RegisteredPostProof::StackedDRGWindow512MiBV1,
-                    RegisteredPostProof::StackedDRGWindow32GiBV1,
-                    RegisteredPostProof::StackedDRGWindow64GiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWinning2KiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWinning8MiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWinning512MiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWinning32GiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWinning64GiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWindow2KiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWindow8MiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWindow512MiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWindow32GiBV1,
+                    RegisteredPoStProofFVM::StackedDRGWindow64GiBV1,
                 ])
                 .unwrap();
             let postproof = PoStProof::new((*registered_postproof).into(), Vec::arbitrary(g));

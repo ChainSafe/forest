@@ -4,7 +4,7 @@
 use std::{collections::BTreeMap, convert::TryInto};
 
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
-use forest_shim::sector::{PoStProof, RegisteredPoStProof, RegisteredSealProof, SectorInfo};
+use forest_shim::sector::{PoStProof, RegisteredPoStProof, SectorInfo};
 use fvm_ipld_encoding::bytes_32;
 use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, randomness::Randomness};
 
@@ -15,13 +15,13 @@ use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, random
 /// miners that are elected to mine a new block to verify a sector. A failed
 /// winning proof leads to a miner being slashed.
 pub fn verify_winning_post(
-    Randomness(mut randomness): Randomness,
+    mut rand: Randomness,
     proofs: &[PoStProof],
     challenge_sectors: &[SectorInfo],
     prover: u64,
 ) -> Result<(), anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    randomness[31] &= 0x3f;
+    rand.0[31] &= 0x3f;
 
     // Convert sector info into public replica
     let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)
@@ -37,7 +37,7 @@ pub fn verify_winning_post(
     let prover_id = prover_id_from_u64(prover);
 
     // Verify Proof
-    if !post::verify_winning_post(&bytes_32(&randomness), &proof_bytes, &replicas, prover_id)? {
+    if !post::verify_winning_post(&bytes_32(&rand.0), &proof_bytes, &replicas, prover_id)? {
         anyhow::bail!("Winning post was invalid")
     }
     Ok(())
@@ -54,7 +54,7 @@ pub fn generate_winning_post_sector_challenge(
     rand.0[31] &= 0x3f;
 
     post::generate_winning_post_sector_challenge(
-        proof.try_into().unwrap(),
+        proof.try_into()?,
         &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),
@@ -81,10 +81,9 @@ fn to_fil_public_replica_infos(
     let replicas = src
         .iter()
         .map::<Result<(SectorId, PublicReplicaInfo), String>, _>(|sector_info: &SectorInfo| {
-            let proof: RegisteredSealProof = RegisteredSealProof::from(sector_info.proof);
             let commr = cid_to_replica_commitment_v1(&sector_info.sealed_cid)?;
             let proof = match typ {
-                ProofType::Winning => proof.registered_winning_post_proof()?,
+                ProofType::Winning => sector_info.proof.registered_winning_post_proof()?,
                 // ProofType::Window => sector_info.proof.registered_window_post_proof()?,
             };
             let replica = PublicReplicaInfo::new(proof.try_into()?, commr);
