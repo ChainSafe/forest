@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Borrow;
+
 use cid::Cid;
 use forest_shim::econ::TokenAmount;
 use fvm_ipld_encoding::{Cbor, Error, RawBytes};
@@ -50,7 +52,7 @@ impl MessageTrait for ChainMessage {
     fn value(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.value(),
-            Self::Unsigned(t) => TokenAmount::from(&t.value),
+            Self::Unsigned(t) => t.value.borrow().into(),
         }
     }
     fn method_num(&self) -> MethodNum {
@@ -86,19 +88,19 @@ impl MessageTrait for ChainMessage {
     fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => TokenAmount::from(&t.gas_fee_cap * t.gas_limit + &t.value),
+            Self::Unsigned(t) => (&t.gas_fee_cap * t.gas_limit + &t.value).into(),
         }
     }
     fn gas_fee_cap(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.gas_fee_cap(),
-            Self::Unsigned(t) => TokenAmount::from(&t.gas_fee_cap),
+            Self::Unsigned(t) => (&t.gas_fee_cap).into(),
         }
     }
     fn gas_premium(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.gas_premium(),
-            Self::Unsigned(t) => TokenAmount::from(&t.gas_premium),
+            Self::Unsigned(t) => (&t.gas_premium).into(),
         }
     }
 
