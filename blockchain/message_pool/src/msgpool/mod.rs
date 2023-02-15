@@ -173,7 +173,7 @@ where
             // check the baseFee lower bound -- only republish messages that can be included
             // in the chain within the next 20 blocks.
             for m in chain.msgs.iter() {
-                if m.gas_fee_cap() < &base_fee_lower_bound {
+                if m.gas_fee_cap() < base_fee_lower_bound {
                     let key = chains.get_key_at(i);
                     chains.invalidate(key);
                     continue 'l;
@@ -324,9 +324,8 @@ pub mod tests {
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use fvm_shared::{
-        address::Address, crypto::signature::SignatureType, econ::TokenAmount, message::Message,
-    };
+    use forest_shim::econ::TokenAmount;
+    use fvm_shared::{address::Address, crypto::signature::SignatureType, message::Message};
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;
@@ -350,8 +349,8 @@ pub mod tests {
             from: *from,
             sequence,
             gas_limit,
-            gas_fee_cap: TokenAmount::from_atto(gas_price + 100),
-            gas_premium: TokenAmount::from_atto(gas_price),
+            gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
+            gas_premium: TokenAmount::from_atto(gas_price).into(),
             ..Message::default()
         };
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
