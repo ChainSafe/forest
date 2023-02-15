@@ -11,9 +11,9 @@ use std::{
 use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
+use forest_shim::sector::SectorSize;
 use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;
-use fvm_shared::sector::SectorSize;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -89,7 +89,7 @@ pub async fn get_params(
         .filter(|(name, info)| match storage_size {
             SectorSizeOpt::Keys => !name.ends_with("params"),
             SectorSizeOpt::Size(size) => {
-                size as u64 == info.sector_size || !name.ends_with(".params")
+                (*size) as u64 == info.sector_size || !name.ends_with(".params")
             }
             SectorSizeOpt::All => true,
         })

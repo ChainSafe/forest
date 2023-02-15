@@ -7,12 +7,17 @@ use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
-use forest_shim::{address::Address, state_tree::ActorState};
+use forest_shim::{
+    address::Address,
+    sector::{RegisteredPoStProof, RegisteredSealProof, SectorSize},
+    state_tree::ActorState,
+};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
 use fvm_shared::{
+    address::Address,
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
@@ -219,8 +224,8 @@ impl From<fil_actor_miner_v8::MinerInfo> for MinerInfo {
                 .unwrap_or(-1),
             peer_id,
             multiaddrs: info.multi_address,
-            window_post_proof_type: info.window_post_proof_type,
-            sector_size: info.sector_size,
+            window_post_proof_type: info.window_post_proof_type.into(),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }
@@ -250,8 +255,8 @@ impl From<fil_actor_miner_v9::MinerInfo> for MinerInfo {
                 .unwrap_or(-1),
             peer_id,
             multiaddrs: info.multi_address,
-            window_post_proof_type: info.window_post_proof_type,
-            sector_size: info.sector_size,
+            window_post_proof_type: info.window_post_proof_type.into(),
+            sector_size: info.sector_size.into(),
             window_post_partition_sectors: info.window_post_partition_sectors,
             consensus_fault_elapsed: info.consensus_fault_elapsed,
         }
@@ -383,7 +388,7 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_v8::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
-            seal_proof: info.seal_proof,
+            seal_proof: info.seal_proof.into(),
             sealed_cid: info.sealed_cid,
             deal_ids: info.deal_ids,
             activation: info.activation,
@@ -401,7 +406,7 @@ impl From<fil_actor_miner_v9::SectorOnChainInfo> for SectorOnChainInfo {
     fn from(info: fil_actor_miner_v9::SectorOnChainInfo) -> Self {
         Self {
             sector_number: info.sector_number,
-            seal_proof: info.seal_proof,
+            seal_proof: info.seal_proof.into(),
             sealed_cid: info.sealed_cid,
             deal_ids: info.deal_ids,
             activation: info.activation,
