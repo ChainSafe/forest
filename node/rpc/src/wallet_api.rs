@@ -31,10 +31,10 @@ where
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
-    match state.get_actor(&address) {
+    match state.get_actor(&address.into()) {
         Ok(act) => {
             if let Some(actor) = act {
-                let actor_balance = actor.balance;
+                let actor_balance = &actor.balance;
                 Ok(actor_balance.atto().to_string())
             } else {
                 Ok(TokenAmount::zero().atto().to_string())

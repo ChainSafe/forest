@@ -26,17 +26,17 @@ pub fn resolve_to_key_addr<BS, S>(
 ) -> Result<Address, anyhow::Error>
 where
     BS: Blockstore,
-    S: Blockstore,
+    S: Blockstore + Clone,
 {
     if addr.protocol() == Protocol::BLS || addr.protocol() == Protocol::Secp256k1 {
         return Ok(*addr);
     }
 
     let act = st
-        .get_actor(&addr.into())?
+        .get_actor(addr)?
         .ok_or_else(|| anyhow::anyhow!("Failed to retrieve actor: {}", addr))?;
 
-    let acc_st = account::State::load(store, &act.into())?;
+    let acc_st = account::State::load(store, &act)?;
 
     Ok(acc_st.pubkey_address().into())
 }

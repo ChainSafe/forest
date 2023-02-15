@@ -245,7 +245,7 @@ where
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
         let state = StateTree::new_from_root(self.blockstore().clone(), &state_cid)?;
-        Ok(state.get_actor(&addr.into())?.map(|v| v.into()))
+        state.get_actor(addr)
     }
 
     /// Returns a reference to the state manager's [`Blockstore`].
@@ -301,11 +301,11 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let act = state
-            .get_actor(&addr.into())
+            .get_actor(addr)
             .map_err(|e| Error::State(e.to_string()))?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
-        let ms = miner::State::load(self.blockstore(), &act.into())?;
+        let ms = miner::State::load(self.blockstore(), &act)?;
 
         let info = ms.info(self.blockstore()).map_err(|e| e.to_string())?;
 
@@ -852,7 +852,7 @@ where
                 .map_err(|e| Error::State(e.to_string()))?;
 
             if let Some(actor_state) = state
-                .get_actor(&message_from_address.into())
+                .get_actor(message_from_address)
                 .map_err(|e| Error::State(e.to_string()))?
             {
                 if actor_state.sequence == 0 || actor_state.sequence < *message_sequence {
@@ -1090,7 +1090,7 @@ where
         let state_tree = StateTree::new_from_root(self.blockstore(), ts.parent_state())
             .map_err(|e| e.to_string())?;
         Ok(state_tree
-            .lookup_id(&addr.into())
+            .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
     }

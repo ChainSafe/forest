@@ -70,12 +70,12 @@ impl<DB: Blockstore> ForestExterns<DB> {
         let lb_state = StateTree::new_from_root(&self.db, &prev_root)?;
 
         let actor = lb_state
-            .get_actor(miner_addr)?
+            .get_actor(&miner_addr.into())?
             .ok_or_else(|| anyhow::anyhow!("actor not found {:?}", miner_addr))?;
 
         let tbs = TrackingBlockstore::new(&self.db);
 
-        let ms = forest_actor_interface::miner::State::load(&tbs, &actor.into())?;
+        let ms = forest_actor_interface::miner::State::load(&tbs, &actor)?;
 
         let worker = ms.info(&tbs)?.worker;
 
