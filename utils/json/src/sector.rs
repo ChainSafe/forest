@@ -73,7 +73,7 @@ pub mod json {
         let proof_bytes = BASE64_STANDARD
             .decode(m.proof_bytes)
             .map_err(de::Error::custom)?;
-        let post_proof = PoStProof::new(reg_post_proof.into(), proof_bytes);
+        let post_proof = PoStProof::new(reg_post_proof, proof_bytes);
         Ok(post_proof)
     }
 
