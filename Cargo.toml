@@ -49,11 +49,6 @@ members = [
 ]
 resolver = "2"
 
-[patch.crates-io]
-# get rid of RUSTSEC-2020-0071, the fix is in place but not published to crates.io
-# tracking issue: https://github.com/ChainSafe/forest/issues/2251
-pbr = { git = "https://github.com/a8m/pb", rev = "09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd" }
-
 [workspace.dependencies]
 ahash = "0.8"
 anyhow = "1.0"

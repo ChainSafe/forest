@@ -6725,8 +6725,9 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pbr"
-version = "1.0.4"
-source = "git+https://github.com/a8m/pb?rev=09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd#09a8e592c1bb0aa1d6215e35c5c8b49b7a5ad6bd"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5827dfa0d69b6c92493d6c38e633bbaa5937c153d0d7c28bf12313f8c6d514"
 dependencies = [
  "crossbeam-channel",
  "libc",
