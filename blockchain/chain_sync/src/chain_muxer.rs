@@ -934,8 +934,9 @@ mod tests {
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
+    use forest_shim::address::Address;
     use forest_test_utils::construct_messages;
-    use fvm_shared::{address::Address, message::Message};
+    use fvm_shared::message::Message;
 
     use crate::validation::TipsetValidator;
 
@@ -974,7 +975,7 @@ mod tests {
     fn compute_base_fee_shouldnt_panic_on_bad_input() {
         let blockstore = MemoryDB::default();
         let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0).into())
+            .miner_address(Address::new_id(0))
             .build()
             .unwrap();
         let ts = Tipset::from(h0);
