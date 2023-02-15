@@ -2935,7 +2935,6 @@ dependencies = [
  "forest_utils",
  "futures",
  "fvm_ipld_blockstore",
- "fvm_shared 2.0.0",
  "lazy_static",
  "log",
  "raw_sync",
