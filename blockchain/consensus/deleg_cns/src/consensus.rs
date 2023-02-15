@@ -9,10 +9,10 @@ use forest_chain::{Error as ChainStoreError, Scale, Weight};
 use forest_chain_sync::consensus::Consensus;
 use forest_db::Store;
 use forest_key_management::KeyStore;
+use forest_shim::address::Address;
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
-use fvm_shared::address::Address;
 use log::info;
 use nonempty::NonEmpty;
 use num::BigInt;
@@ -102,7 +102,7 @@ impl DelegatedConsensus {
     {
         let genesis = state_manager.chain_store().genesis()?;
         let state_cid = genesis.state_root();
-        let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one.into())?;
+        let work_addr = state_manager.get_miner_work_addr(*state_cid, &self.chosen_one)?;
 
         info!(
             "The work address of the chosen proposer {} is {}",

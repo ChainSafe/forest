@@ -9,9 +9,8 @@ use forest_db::Store;
 use forest_json::{address::json::AddressJson, signature::json::SignatureJson};
 use forest_key_management::{json::KeyInfoJson, Error, Key};
 use forest_rpc_api::{data_types::RPCState, wallet_api::*};
-use forest_shim::state_tree::StateTree;
+use forest_shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, econ::TokenAmount};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::Zero;
 
@@ -31,7 +30,7 @@ where
     let cid = heaviest_ts.parent_state();
 
     let state = StateTree::new_from_root(data.state_manager.blockstore(), cid)?;
-    match state.get_actor(&address.into()) {
+    match state.get_actor(&address) {
         Ok(act) => {
             if let Some(actor) = act {
                 let actor_balance = &actor.balance;
@@ -72,7 +71,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key_info = forest_key_management::export_key_info(&addr.into(), &keystore)?;
+    let key_info = forest_key_management::export_key_info(&addr, &keystore)?;
     Ok(KeyInfoJson(key_info))
 }
 
@@ -90,7 +89,7 @@ where
 
     let keystore = data.keystore.read().await;
 
-    let key = forest_key_management::find_key(&addr.into(), &keystore).is_ok();
+    let key = forest_key_management::find_key(&addr, &keystore).is_ok();
     Ok(key)
 }
 

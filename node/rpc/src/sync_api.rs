@@ -70,9 +70,9 @@ mod tests {
     use forest_libp2p::NetworkMessage;
     use forest_message_pool::{MessagePool, MpoolRpcProvider};
     use forest_networks::ChainConfig;
+    use forest_shim::address::Address;
     use forest_state_manager::StateManager;
     use fvm_ipld_encoding::Cbor;
-    use fvm_shared::address::Address;
     use serde_json::from_str;
     use tokio::{sync::RwLock, task::JoinSet};
 
@@ -95,7 +95,7 @@ mod tests {
         let chain_config = Arc::new(ChainConfig::default());
 
         let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0).into())
+            .miner_address(Address::new_id(0))
             .timestamp(7777)
             .build()
             .unwrap();

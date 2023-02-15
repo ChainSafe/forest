@@ -154,8 +154,8 @@ mod tests {
     use forest_db::MemoryDB;
     use forest_genesis::EXPORT_SR_40;
     use forest_networks::ChainConfig;
+    use forest_shim::address::Address;
     use fvm_ipld_car::load_car;
-    use fvm_shared::address::Address;
     use tokio::io::BufReader;
     use tokio_util::compat::TokioAsyncReadCompatExt;
 
@@ -177,7 +177,7 @@ mod tests {
         let (cids, db) = populate_db().await;
 
         let gen_block = BlockHeader::builder()
-            .miner_address(Address::new_id(0).into())
+            .miner_address(Address::new_id(0))
             .build()
             .unwrap();
 

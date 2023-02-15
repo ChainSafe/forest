@@ -8,14 +8,15 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
+use forest_shim::address::Address;
+use fvm_shared::{crypto::signature::Signature, message::Message};
 use num::BigInt;
 
 #[test]
 fn convert_single_tipset_bundle() {
     let block = Block {
         header: BlockHeader::builder()
-            .miner_address(Address::new_id(0).into())
+            .miner_address(Address::new_id(0))
             .build()
             .unwrap(),
         bls_messages: Vec::new(),
@@ -46,12 +47,12 @@ fn convert_single_tipset_bundle() {
 fn tipset_bundle_to_full_tipset() {
     let h0 = BlockHeader::builder()
         .weight(BigInt::from(1u32))
-        .miner_address(Address::new_id(0).into())
+        .miner_address(Address::new_id(0))
         .build()
         .unwrap();
     let h1 = BlockHeader::builder()
         .weight(BigInt::from(1u32))
-        .miner_address(Address::new_id(1).into())
+        .miner_address(Address::new_id(1))
         .build()
         .unwrap();
     let ua = Message {

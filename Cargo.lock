@@ -3235,6 +3235,7 @@ dependencies = [
  "forest_interpreter",
  "forest_key_management",
  "forest_networks",
+ "forest_shim",
  "forest_state_manager",
  "futures",
  "fvm_ipld_blockstore",

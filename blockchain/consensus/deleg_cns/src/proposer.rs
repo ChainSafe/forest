@@ -12,10 +12,10 @@ use forest_chain_sync::consensus::{MessagePoolApi, Proposer, SyncGossipSubmitter
 use forest_db::Store;
 use forest_key_management::Key;
 use forest_networks::Height;
+use forest_shim::address::Address;
 use forest_state_manager::StateManager;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
 use log::{error, info};
 use tokio::task::JoinSet;
 use tokio_stream::wrappers::IntervalStream;
@@ -69,7 +69,7 @@ impl DelegatedProposer {
         let mut header = BlockHeader::builder()
             .messages(persisted.msg_cid)
             .bls_aggregate(Some(persisted.bls_agg))
-            .miner_address(self.miner_addr.into())
+            .miner_address(self.miner_addr)
             .weight(parent_weight)
             .parent_base_fee(parent_base_fee)
             .parents(base.key().clone())
