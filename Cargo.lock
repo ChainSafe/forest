@@ -8187,6 +8187,7 @@ dependencies = [
  "forest_blocks",
  "forest_json",
  "forest_message",
+ "forest_shim",
  "fvm_ipld_encoding 0.2.3",
  "fvm_shared 2.0.0",
  "hex",
