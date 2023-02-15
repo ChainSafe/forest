@@ -97,11 +97,9 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
 
         let actor = state
-            .get_actor(addr)
+            .get_actor(&addr.into())
             .map_err(|e| Error::Other(e.to_string()))?;
-        actor
-            .map(|v| v.into())
-            .ok_or_else(|| Error::Other("No actor state".to_owned()))
+        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
     }
 
     fn messages_for_block(

@@ -804,11 +804,11 @@ where
             let from_address = message.from();
             if applied.contains_key(from_address) {
                 let actor_state = state
-                    .get_actor(from_address)
+                    .get_actor(&from_address.into())
                     .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
-                balances.insert(*from_address, actor_state.balance.into());
+                balances.insert(*from_address, actor_state.balance.clone().into());
             }
             if let Some(seq) = applied.get_mut(from_address) {
                 if *seq != message.sequence() {

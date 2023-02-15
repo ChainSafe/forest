@@ -12,6 +12,7 @@ cid.workspace = true
 filecoin-proofs-api.workspace = true
 fvm.workspace = true
 fvm3 = { package = "fvm", version = "3.0.0-alpha.19" }
+fvm_ipld_blockstore.workspace = true
 fvm_shared.workspace = true
 fvm_shared3 = { package = "fvm_shared", version = "3.0.0-alpha.16", features = ["proofs"] }
 num-bigint.workspace = true
