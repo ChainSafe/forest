@@ -1640,7 +1640,7 @@ mod test {
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_crypto::VRFProof;
-    use fvm_shared::address::Address;
+    use forest_shim::address::Address;
     use num_bigint::BigInt;
 
     use super::*;
@@ -1658,7 +1658,7 @@ mod test {
         };
         let weight_inc = BigInt::from(weight);
         BlockHeader::builder()
-            .miner_address(addr.into())
+            .miner_address(addr)
             .election_proof(Some(election_proof))
             .ticket(Some(ticket))
             .message_receipts(cid)
