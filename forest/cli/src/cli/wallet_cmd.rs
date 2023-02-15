@@ -15,9 +15,9 @@ use forest_json::{
 };
 use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
+use forest_shim::address::{Address, Protocol};
 use forest_utils::io::read_file_to_string;
 use fvm_shared::{
-    address::{Address, Protocol},
     crypto::signature::{Signature, SignatureType},
     econ::TokenAmount,
 };
@@ -190,7 +190,7 @@ impl WalletCommands {
                 let key =
                     Address::from_str(key).with_context(|| format!("Invalid address: {key}"))?;
 
-                let key_json = AddressJson(key.into());
+                let key_json = AddressJson(key);
                 wallet_set_default((key_json,), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
@@ -204,7 +204,7 @@ impl WalletCommands {
                 let message = BASE64_STANDARD.encode(message);
 
                 let response = wallet_sign(
-                    (AddressJson(address.into()), message.into_bytes()),
+                    (AddressJson(address), message.into_bytes()),
                     &config.client.rpc_token,
                 )
                 .await
@@ -229,7 +229,7 @@ impl WalletCommands {
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
                 let response = wallet_verify(
-                    (AddressJson(address.into()), msg, SignatureJson(signature)),
+                    (AddressJson(address), msg, SignatureJson(signature)),
                     &config.client.rpc_token,
                 )
                 .await
