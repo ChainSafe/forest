@@ -12,8 +12,8 @@ use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use forest_chain::HeadChange;
 use forest_crypto::VRFProof;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use forest_shim::state_tree::ActorState;
-use fvm_shared::{address::Address, econ::TokenAmount, message::Message};
+use forest_shim::{econ::TokenAmount, state_tree::ActorState};
+use fvm_shared::{address::Address, message::Message};
 use num::BigInt;
 use parking_lot::Mutex;
 use tokio::sync::broadcast;
@@ -150,7 +150,7 @@ impl Provider for TestApi {
         let actor = <ActorState as forest_shim::Inner>::FVM::new(
             Cid::default(),
             Cid::default(),
-            forest_shim::econ::TokenAmount::from(balance).into(),
+            balance.into(),
             sequence,
             None,
         );

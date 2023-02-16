@@ -11,7 +11,8 @@ use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 use ahash::{HashMap, HashMapExt};
 use forest_blocks::Tipset;
 use forest_message::{Message, SignedMessage};
-use fvm_shared::{address::Address, econ::TokenAmount};
+use forest_shim::econ::TokenAmount;
+use fvm_shared::address::Address;
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
