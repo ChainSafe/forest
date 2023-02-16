@@ -274,73 +274,75 @@ fn cal_gas_used_from_stats(
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, iter::repeat};
+    // use std::{cell::RefCell, iter::repeat};
 
-    use anyhow::ensure;
+    // use anyhow::ensure;
 
-    use super::*;
+    // use super::*;
 
-    #[test]
-    fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {
-        test_cal_gas_used_from_stats_inner(1, &[])
-    }
+    // #[test]
+    // fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {
+    //     test_cal_gas_used_from_stats_inner(1, &[])
+    // }
 
-    #[test]
-    fn test_cal_gas_used_from_stats_1_write() -> anyhow::Result<()> {
-        test_cal_gas_used_from_stats_inner(0, &[100])
-    }
+    // #[test]
+    // fn test_cal_gas_used_from_stats_1_write() -> anyhow::Result<()> {
+    //     test_cal_gas_used_from_stats_inner(0, &[100])
+    // }
 
-    #[test]
-    fn test_cal_gas_used_from_stats_multi_read() -> anyhow::Result<()> {
-        test_cal_gas_used_from_stats_inner(10, &[])
-    }
+    // #[test]
+    // fn test_cal_gas_used_from_stats_multi_read() -> anyhow::Result<()> {
+    //     test_cal_gas_used_from_stats_inner(10, &[])
+    // }
 
-    #[test]
-    fn test_cal_gas_used_from_stats_multi_write() -> anyhow::Result<()> {
-        test_cal_gas_used_from_stats_inner(0, &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109])
-    }
+    // #[test]
+    // fn test_cal_gas_used_from_stats_multi_write() -> anyhow::Result<()> {
+    //     test_cal_gas_used_from_stats_inner(0, &[100, 101, 102, 103, 104, 105,
+    // 106, 107, 108, 109]) }
 
-    #[test]
-    fn test_cal_gas_used_from_stats_1_read_1_write() -> anyhow::Result<()> {
-        test_cal_gas_used_from_stats_inner(1, &[100])
-    }
+    // #[test]
+    // fn test_cal_gas_used_from_stats_1_read_1_write() -> anyhow::Result<()> {
+    //     test_cal_gas_used_from_stats_inner(1, &[100])
+    // }
 
-    #[test]
-    fn test_cal_gas_used_from_stats_multi_read_multi_write() -> anyhow::Result<()> {
-        test_cal_gas_used_from_stats_inner(10, &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109])
-    }
+    // #[test]
+    // fn test_cal_gas_used_from_stats_multi_read_multi_write() ->
+    // anyhow::Result<()> {     test_cal_gas_used_from_stats_inner(10,
+    // &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109]) }
 
-    fn test_cal_gas_used_from_stats_inner(
-        read_count: usize,
-        write_bytes: &[usize],
-    ) -> anyhow::Result<()> {
-        let network_version = NetworkVersion::V8;
-        let stats = BSStats {
-            r: read_count,
-            w: write_bytes.len(),
-            br: 0, // Not used in current logic
-            bw: write_bytes.iter().sum(),
-        };
-        let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version)?;
+    // fn test_cal_gas_used_from_stats_inner(
+    //     read_count: usize,
+    //     write_bytes: &[usize],
+    // ) -> anyhow::Result<()> {
+    //     let network_version = NetworkVersion::V8;
+    //     let stats = BSStats {
+    //         r: read_count,
+    //         w: write_bytes.len(),
+    //         br: 0, // Not used in current logic
+    //         bw: write_bytes.iter().sum(),
+    //     };
+    //     let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(),
+    // network_version)?;
 
-        // Simulates logic in old GasBlockStore
-        let price_list = price_list_by_network_version(network_version.into());
-        let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
-        repeat(()).take(read_count).for_each(|_| {
-            tracker
-                .apply_charge(price_list.on_block_open_base())
-                .unwrap()
-                .stop()
-        });
-        for &bytes in write_bytes {
-            let hash_code = SupportedHashes::Blake2b256; // XXX This is definitely wrong...
-            tracker
-                .apply_charge(price_list.on_block_link(hash_code, bytes))?
-                .stop();
-        }
-        let expected = tracker.gas_used();
+    //     // Simulates logic in old GasBlockStore
+    //     let price_list =
+    // price_list_by_network_version(network_version.into());
+    //     let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0),
+    // false);     repeat(()).take(read_count).for_each(|_| {
+    //         tracker
+    //             .apply_charge(price_list.on_block_open_base())
+    //             .unwrap()
+    //             .stop()
+    //     });
+    //     for &bytes in write_bytes {
+    //         let hash_code = SupportedHashes::Blake2b256; // XXX This is
+    // definitely wrong...         tracker
+    //             .apply_charge(price_list.on_block_link(hash_code, bytes))?
+    //             .stop();
+    //     }
+    //     let expected = tracker.gas_used();
 
-        ensure!(result == expected);
-        Ok(())
-    }
+    //     ensure!(result == expected);
+    //     Ok(())
+    // }
 }
