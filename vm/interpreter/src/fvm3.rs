@@ -100,7 +100,7 @@ impl<DB: Blockstore> Externs for ForestExterns<DB> {}
 
 impl<DB> Chain for ForestExterns<DB> {
     fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
-        todo!()
+        (self.lookback)(epoch)
     }
 }
 
