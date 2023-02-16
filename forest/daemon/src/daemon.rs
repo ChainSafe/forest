@@ -518,7 +518,7 @@ mod test {
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
-    use fvm_shared::address::Address;
+    use forest_shim::address::Address;
 
     use super::*;
 

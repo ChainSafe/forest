@@ -6,18 +6,18 @@ pub mod message;
 pub mod signed_message;
 
 pub use chain_message::ChainMessage;
-use forest_shim::econ::TokenAmount;
+use forest_shim::{address::Address, econ::TokenAmount};
 use fvm_ipld_encoding::RawBytes;
-use fvm_shared::{address::Address, MethodNum};
+use fvm_shared::MethodNum;
 pub use signed_message::SignedMessage;
 
 /// Message interface to interact with Signed and unsigned messages in a generic
 /// context.
 pub trait Message {
     /// Returns the from address of the message.
-    fn from(&self) -> &Address;
+    fn from(&self) -> Address;
     /// Returns the destination address of the message.
-    fn to(&self) -> &Address;
+    fn to(&self) -> Address;
     /// Returns the message sequence or nonce.
     fn sequence(&self) -> u64;
     /// Returns the amount sent in message.
