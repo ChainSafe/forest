@@ -22,13 +22,6 @@ impl Connection {
     fn inner(&self) -> &ConnectionImpl {
         unsafe { &*self.ptr }
     }
-
-    pub fn free(&self) {
-        unsafe {
-            let inner = Box::from_raw(self.ptr as *mut ConnectionImpl);
-            drop(inner);
-        }
-    }
 }
 
 impl Drop for Connection {
@@ -49,6 +42,14 @@ impl Connection {
         self.inner()
             .send_request(cid_str.try_into().map_err(map_js_err)?)
             .map_err(map_js_err)
+    }
+
+    #[wasm_bindgen]
+    pub fn free(&self) {
+        unsafe {
+            let inner = Box::from_raw(self.ptr as *mut ConnectionImpl);
+            drop(inner);
+        }
     }
 }
 

@@ -21,12 +21,12 @@
     <p v-for="(value, key) of responses">
         {{ key }} => {{ value }}
     </p>
-    </p>
+</p>
 </template>
 
 <script lang="ts">
 import { initWasm } from "../utils";
-import { init_logger, connect, set_event_emitter, Connection, random_cid } from "../pkg/wasm";
+import { init_logger, connect, Connection, random_cid } from "../pkg/wasm";
 import { EventEmitter } from "events";
 
 export default {
@@ -79,6 +79,10 @@ export default {
             try {
                 this.addr = this.addr.trim();
                 const connection = await connect(this.addr, this.eventEmitter);
+                let oldConn = this.connection as Connection;
+                if (oldConn) {
+                    oldConn.free();
+                }
                 this.connection = connection;
                 console.log(`[JS] Connected to ${this.addr}`);
                 connection.run()
@@ -89,6 +93,4 @@ export default {
     },
 };
 </script>
-<style lang="scss" scoped>
-
-</style>
+<style lang="scss" scoped></style>
