@@ -1,8 +1,10 @@
 [package]
 name = "forest_blocks"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 ahash.workspace = true
@@ -14,12 +16,14 @@ forest_crypto = { workspace = true, features = ["blst"] }
 forest_encoding.workspace = true
 forest_json.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
+forest_shim.workspace = true
 forest_utils.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 log.workspace = true
 num-bigint.workspace = true
+num.workspace = true
 once_cell.workspace = true
 quickcheck.workspace = true
 serde = { workspace = true, features = ["derive"] }

@@ -1,11 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
-use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use forest_beacon::beacon_entries;
 use forest_json::{sector, signature};
 use serde::{de, Deserialize, Serialize};
+
+use super::*;
+use crate::{election_proof, ticket, tipset::tipset_keys_json};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.
 #[derive(Deserialize, Serialize)]
@@ -147,9 +148,10 @@ where
 }
 
 pub mod vec {
-    use super::*;
     use forest_utils::json::GoVecVisitor;
     use serde::ser::SerializeSeq;
+
+    use super::*;
 
     pub fn serialize<S>(m: &[BlockHeader], serializer: S) -> Result<S::Ok, S::Error>
     where

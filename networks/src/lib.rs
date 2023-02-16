@@ -1,13 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use fil_actors_runtime::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
-use fvm_shared::version::NetworkVersion;
-
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 pub mod calibnet;
 mod drand;
@@ -197,14 +197,16 @@ pub fn default_network_version() -> NetworkVersion {
 }
 
 pub mod de_network_version {
-    use fvm_shared::version::NetworkVersion;
+    use std::borrow::Cow;
+
+    use forest_shim::version::NetworkVersion;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<NetworkVersion, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let version: &str = Deserialize::deserialize(deserializer)?;
+        let version: Cow<str> = Deserialize::deserialize(deserializer)?;
         let version = version.to_lowercase();
 
         match version.as_str() {
@@ -236,7 +238,7 @@ pub mod de_network_version {
     where
         S: Serializer,
     {
-        let version_string = match nv {
+        let version_string = match *nv {
             NetworkVersion::V0 => "V0",
             NetworkVersion::V1 => "V1",
             NetworkVersion::V2 => "V2",
@@ -265,8 +267,9 @@ pub mod de_network_version {
 
 #[cfg(test)]
 pub mod test {
-    use super::*;
     use toml::de;
+
+    use super::*;
 
     fn remove_whitespace(s: String) -> String {
         s.chars().filter(|c| !c.is_whitespace()).collect()

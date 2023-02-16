@@ -2,16 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod json {
-    use crate::address::json::AddressJson;
-    use base64::prelude::BASE64_STANDARD;
-    use base64::Engine;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use cid::Cid;
-    use fvm_ipld_encoding::Cbor;
-    use fvm_ipld_encoding::RawBytes;
-    use fvm_shared::econ::TokenAmount;
-    use fvm_shared::message::Message;
-    use serde::{de, ser};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use fvm_ipld_encoding::{Cbor, RawBytes};
+    use fvm_shared::{econ::TokenAmount, message::Message};
+    use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+
+    use crate::address::json::AddressJson;
 
     /// Wrapper for serializing and de-serializing a Message from JSON.
     #[derive(Deserialize, Serialize, Debug)]
@@ -101,9 +98,10 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::*;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::*;
 
         pub fn serialize<S>(m: &[Message], serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -127,12 +125,11 @@ pub mod json {
 
 #[cfg(test)]
 pub mod tests {
-    use super::json::{MessageJson, MessageJsonRef};
-    use fvm_shared::address::Address;
-    use fvm_shared::econ::TokenAmount;
-    use fvm_shared::message::Message;
+    use fvm_shared::{address::Address, econ::TokenAmount, message::Message};
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::json::{MessageJson, MessageJsonRef};
 
     #[derive(Clone, Debug, Eq, PartialEq)]
     pub struct MessageWrapper {

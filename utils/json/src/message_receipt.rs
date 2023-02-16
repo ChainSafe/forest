@@ -4,11 +4,12 @@
 use fvm_shared::receipt::Receipt;
 
 pub mod json {
-    use super::*;
     use base64::{prelude::BASE64_STANDARD, Engine};
+    use forest_shim::error::ExitCode;
     use fvm_ipld_encoding::RawBytes;
-    use fvm_shared::error::ExitCode;
     use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -63,7 +64,7 @@ pub mod json {
             gas_used,
         } = Deserialize::deserialize(deserializer)?;
         Ok(Receipt {
-            exit_code: ExitCode::new(exit_code as u32),
+            exit_code: ExitCode::from(exit_code as u32).into(),
             return_data: RawBytes::new(
                 BASE64_STANDARD
                     .decode(return_data)
@@ -73,9 +74,10 @@ pub mod json {
         })
     }
     pub mod vec {
-        use super::*;
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::*;
 
         pub fn serialize<S>(m: &[Receipt], serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -126,7 +128,7 @@ struct MessageReceiptWrapper {
 impl quickcheck::Arbitrary for MessageReceiptWrapper {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let message_receipt = Receipt {
-            exit_code: fvm_shared::error::ExitCode::new(u32::arbitrary(g)),
+            exit_code: forest_shim::error::ExitCode::from(u32::arbitrary(g)).into(),
             return_data: fvm_ipld_encoding::RawBytes::new(Vec::arbitrary(g)),
             gas_used: i64::arbitrary(g),
         };
@@ -136,10 +138,13 @@ impl quickcheck::Arbitrary for MessageReceiptWrapper {
 
 #[cfg(test)]
 mod tests {
-    use super::json::{ReceiptJson, ReceiptJsonRef};
-    use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::{
+        json::{ReceiptJson, ReceiptJsonRef},
+        *,
+    };
 
     #[quickcheck]
     fn message_receipt_roundtrip(message_receipt: MessageReceiptWrapper) {

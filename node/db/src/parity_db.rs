@@ -1,18 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use crate::parity_db_config::ParityDbConfig;
-use crate::utils::bitswap_missing_blocks;
-use crate::{DBStatistics, Store};
+use std::{path::PathBuf, sync::Arc};
+
 use anyhow::anyhow;
 use cid::Cid;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p_bitswap::BitswapStore;
 use log::warn;
-use parity_db::{CompressionType, Db, Options};
-use std::path::PathBuf;
-use std::sync::Arc;
+use parity_db::{CompressionType, Db, Operation, Options};
+
+use super::errors::Error;
+use crate::{parity_db_config::ParityDbConfig, DBStatistics, Store};
 
 #[derive(Clone)]
 pub struct ParityDb {
@@ -43,6 +42,7 @@ impl ParityDb {
             columns: (0..COLUMNS)
                 .map(|_| parity_db::ColumnOptions {
                     compression,
+                    // btree_index: true,
                     ..Default::default()
                 })
                 .collect(),
@@ -72,21 +72,38 @@ impl Store for ParityDb {
         K: AsRef<[u8]>,
         V: AsRef<[u8]>,
     {
-        let tx = [(0, key.as_ref(), Some(value.as_ref().to_owned()))];
+        let tx = [(0, key.as_ref(), Some(value.as_ref().to_vec()))];
         self.db.commit(tx).map_err(Error::from)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    /// [ParityDB::commit] API is doing extra allocations on keys,
+    /// See <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         let tx = values
-            .iter()
-            .map(|(k, v)| (0, k.as_ref(), Some(v.as_ref().to_owned())))
-            .collect::<Vec<_>>();
-
-        self.db.commit(tx).map_err(Error::from)
+            .into_iter()
+            .map(|(k, v)| (0, Operation::Set(k.into(), v.into())));
+        self.db.commit_changes(tx).map_err(Error::from)
+        // <https://docs.rs/crate/parity-db/0.4.3/source/src/db.rs>
+        // ```
+        // fn commit<I, K>(&self, tx: I) -> Result<()>
+        // where
+        //     I: IntoIterator<Item = (ColId, K, Option<Value>)>,
+        //     K: AsRef<[u8]>,
+        // {
+        //     self.commit_changes(tx.into_iter().map(|(c, k, v)| {
+        //         (
+        //             c,
+        //             match v {
+        //                 Some(v) => Operation::Set(k.as_ref().to_vec(), v),
+        //                 None => Operation::Dereference(k.as_ref().to_vec()),
+        //             },
+        //         )
+        //     }))
+        // }
+        // ```
     }
 
     fn delete<K>(&self, key: K) -> Result<(), Error>
@@ -125,31 +142,29 @@ impl Blockstore for ParityDb {
     {
         let values = blocks
             .into_iter()
-            .map(|(k, v)| (k.to_bytes(), v))
+            .map(|(k, v)| (k.to_bytes(), v.as_ref().to_vec()))
             .collect::<Vec<_>>();
-        self.bulk_write(&values).map_err(|e| e.into())
+        self.bulk_write(values).map_err(|e| e.into())
     }
 }
 
-impl BitswapStore for ParityDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
-
-    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+impl BitswapStoreRead for ParityDb {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
+}
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+impl BitswapStoreReadWrite for ParityDb {
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
+    /// [`libipld::DefaultParams`] under feature `dag-cbor`
+    type Params = libipld::DefaultParams;
+
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
 
@@ -177,8 +192,9 @@ impl DBStatistics for ParityDb {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use parity_db::CompressionType;
+
+    use super::*;
 
     #[test]
     fn compression_type_from_str_test() {

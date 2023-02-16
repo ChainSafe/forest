@@ -1,17 +1,18 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+};
+
 use chrono::Duration;
 use directories::ProjectDirs;
 use forest_rpc_client::DEFAULT_PORT;
 use forest_utils::io::ProgressBarVisibility;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::PathBuf,
-    str::FromStr,
-};
 
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -37,7 +38,7 @@ pub struct Client {
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
     /// Download a chain specific snapshot to sync with the Filecoin network
-    pub download_snapshot: bool,
+    pub auto_download_snapshot: bool,
     // Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
     pub token_exp: Duration,
@@ -62,7 +63,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
-            download_snapshot: false,
+            auto_download_snapshot: false,
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
         }

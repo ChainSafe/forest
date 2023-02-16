@@ -3,5 +3,4 @@
 mod store;
 mod weight;
 
-pub use self::store::*;
-pub use self::weight::*;
+pub use self::{store::*, weight::*};

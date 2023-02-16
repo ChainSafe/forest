@@ -4,7 +4,6 @@
 mod errors;
 mod memory;
 mod metrics;
-mod utils;
 
 #[cfg(feature = "rocksdb")]
 pub mod rocks;
@@ -20,7 +19,8 @@ pub use memory::MemoryDB;
 
 /// Store interface used as a KV store implementation
 pub trait Store {
-    /// Read single value from data store and return `None` if key doesn't exist.
+    /// Read single value from data store and return `None` if key doesn't
+    /// exist.
     fn read<K>(&self, key: K) -> Result<Option<Vec<u8>>, Error>
     where
         K: AsRef<[u8]>;
@@ -50,14 +50,13 @@ pub trait Store {
     }
 
     /// Write slice of KV pairs.
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         values
-            .iter()
-            .try_for_each(|(key, value)| self.write(key, value))
+            .into_iter()
+            .try_for_each(|(key, value)| self.write(key.into(), value.into()))
     }
 
     /// Bulk delete keys from the data store.
@@ -111,11 +110,10 @@ impl<BS: Store> Store for &BS {
         (*self).bulk_read(keys)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         (*self).bulk_write(values)
     }
 

@@ -8,8 +8,8 @@
 [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest)
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
-[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
-[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE)
+[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT)
 [![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
 
@@ -49,7 +49,7 @@ Follow other instructions for proper `forest` usage. You may need to mount a vol
 ```
 Use dockerized Forest with host database:
 ```
-❯ docker run --init -it -v $HOME/.forest:/root/.forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
+❯ docker run --init -it -v $HOME/.forest:/home/forest/.local/share/forest  --rm ghcr.io/chainsafe/forest:latest --target-peer-count 50 --encrypt-keystore false
 ```
 
 ## Dependencies
@@ -109,6 +109,11 @@ make install # install forest daemon and cli
 
 ### Config
 
+#### Keystore
+To encrypt the keystore while in headless mode, set the `FOREST_KEYSTORE_PHRASE` environmental variable. Otherwise, skip the encryption (not recommended in production environments) with `--encrypt-keystore false`.
+
+
+#### Network
 Run the node with custom config and bootnodes
 
 ```bash
@@ -128,6 +133,8 @@ bootstrap_peers = ["<multiaddress>"]
 
 Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
 
+#### Configuration sources
+
 Forest will look for config files in the following order and priority:
  * Paths passed to the command line via the `--config` flag.
  * The environment variable `FOREST_CONFIG_PATH`, if no config was passed through command line arguments.
@@ -145,7 +152,15 @@ RUST_LOG="debug,forest_libp2p::service=info" forest
 
 Will show all debug logs by default, but the `forest_libp2p::service` logs will be limited to `info`
 
+Forest can also send telemetry to the endpoint of a Loki instance or a Loki agent (see [Grafana Cloud](https://grafana.com/oss/loki/)). Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
+
 ### Testing
+First, install the [`nextest`](https://nexte.st/) test runner.
+
+```bash
+cargo install cargo-nextest --locked
+```
+
 ```bash
 # To run base tests
 cargo nextest run # use `make test-release` for longer compilation but faster execution
@@ -181,25 +196,15 @@ cargo install cargo-udeps --locked
 
 # Spellcheck
 cargo install cargo-spellcheck
-
-# Test runner
-cargo install cargo-nextest --locked
 ```
 After everything is installed, you can run `make lint-all`.
 
 ### Joining the testnet
 
-Select the builtin calibnet configuration with the `--chain` option:
+Select the builtin calibnet configuration with the `--chain` option. The `--auto-download-snapshot` will ensure that a snapshot is downloaded if needed without any prompts.
 
 ```bash
-# Run and import past the state migrations to latest network version
-./target/release/forest --chain calibnet --import-snapshot snapshot.car
-```
-
-Importing the snapshot only needs to happen during the first run. Following this, to restart the daemon run:
-
-```bash
-./target/release/forest --chain calibnet
+./target/release/forest --chain calibnet --auto-download-snapshot
 ```
 
 ### Interacting with Forest via CLI

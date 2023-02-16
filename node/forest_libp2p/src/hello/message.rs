@@ -3,7 +3,7 @@
 
 use cid::Cid;
 use forest_encoding::tuple::*;
-use fvm_shared::bigint::BigInt;
+use forest_shim::bigint::BigInt;
 use fvm_shared::clock::ChainEpoch;
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>
@@ -11,7 +11,6 @@ use fvm_shared::clock::ChainEpoch;
 pub struct HelloRequest {
     pub heaviest_tip_set: Vec<Cid>,
     pub heaviest_tipset_height: ChainEpoch,
-    #[serde(with = "fvm_shared::bigint::bigint_ser")]
     pub heaviest_tipset_weight: BigInt,
     pub genesis_cid: Cid,
 }
@@ -27,11 +26,10 @@ pub struct HelloResponse {
 
 #[cfg(test)]
 mod tests {
+    use cid::multihash::{Code::Identity, MultihashDigest};
+    use fvm_ipld_encoding::{from_slice, to_vec, DAG_CBOR};
+
     use super::*;
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
-    use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_ipld_encoding::{from_slice, to_vec};
 
     #[test]
     fn hello_default_ser() {

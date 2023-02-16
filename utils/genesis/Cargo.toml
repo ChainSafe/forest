@@ -1,8 +1,10 @@
 [package]
 name = "forest_genesis"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [features]
 testing = []
@@ -14,6 +16,7 @@ forest_blocks.workspace = true
 forest_db.workspace = true
 forest_state_manager.workspace = true
 forest_utils.workspace = true
+futures.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_car.workspace = true
 log.workspace = true

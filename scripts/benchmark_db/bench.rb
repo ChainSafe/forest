@@ -21,12 +21,14 @@ SNAPSHOT_REGEXES = [
   /(?<height>\d+)_.*/
 ].freeze
 
-HEIGHTS_TO_VALIDATE = 400
+HEIGHTS_TO_VALIDATE = 5
 
 MINUTE = 60
 HOUR = MINUTE * MINUTE
 
-TEMP_DIR = Dir.mktmpdir('forest-benchs-')
+BENCHMARK_DIR = Dir.mktmpdir('benchmark-')
+
+TEMP_DIR = Dir.mktmpdir('benchmark-data-')
 
 # Provides human readable formatting to Numeric class
 class Numeric
@@ -39,10 +41,6 @@ def syscall(*command, chdir: '.')
   stdout, _stderr, status = Open3.capture3(*command, chdir: chdir)
 
   status.success? ? stdout.chomp : (raise "#{command}, #{status}")
-end
-
-def forest_version
-  syscall(TEMP_DIR + '/forest/target/release/forest', '--version')
 end
 
 def hr(seconds)
@@ -180,7 +178,7 @@ def write_markdown(metrics)
 
   filename = "result_#{Time.now.to_i}.md"
   File.write(filename, result)
-  puts "Wrote #{filename}"
+  puts "(I) Wrote #{filename}"
 end
 
 def splice_args(command, args)
@@ -243,7 +241,7 @@ class Benchmark
 
   def build_config_file
     config = @config.deep_merge(default_config)
-    config_path = "#{TEMP_DIR}/#{@name}.toml"
+    config_path = "#{data_dir}/#{@name}.toml"
 
     toml_str = TomlRB.dump(config)
     File.write(config_path, toml_str)
@@ -256,14 +254,21 @@ class Benchmark
 
     return { c: '<tbd>', s: '<tbd>', h: start } if dry_run
 
-    config_path = "#{TEMP_DIR}/#{@name}.toml"
+    config_path = "#{data_dir}/#{@name}.toml"
 
     { c: config_path, s: @snapshot_path, h: start }
   end
   private :build_substitution_hash
 
   def build_artefacts(dry_run)
-    clone_command(dry_run)
+    puts "(I) Building artefacts..."
+    if !Dir.exist?(repository_name) then
+      puts "(I) Cloning repository"
+      clone_command(dry_run)
+    else
+      puts "(W) Directory #{repository_name} is already present"
+    end
+    puts "(I) Clean and build client"
     clean_command(dry_run)
     build_command(dry_run)
 
@@ -273,7 +278,7 @@ class Benchmark
   private :build_artefacts
 
   def run(dry_run, daily)
-    puts "Running bench: #{@name}"
+    puts "(I) Running bench: #{@name}"
 
     metrics = {}
     args = build_artefacts(dry_run)
@@ -294,11 +299,12 @@ class Benchmark
     if daily
       validate_online_command = splice_args(@validate_online_command, args)
       new_metrics = exec_command(validate_online_command, dry_run, self)
-      new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+      #new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
       metrics[:validate_online] = new_metrics
     end
     # puts metrics
 
+    puts '(I) Clean db'
     clean_db(dry_run)
 
     @metrics = metrics
@@ -319,56 +325,72 @@ class Benchmark
       [false, nil]
     end
   end
+
+  def repository_name
+    raise 'repository_name method should be implemented' 
+  end
+
+  def data_dir
+    path = "#{TEMP_DIR}/#{repository_name}"
+    if !Dir.exist?(path) then
+      FileUtils.mkdir_p path
+    end
+    path
+  end
 end
 
 # Forest benchmark class
 class ForestBenchmark < Benchmark
   def default_config
-    toml_str = syscall(TEMP_DIR + '/forest/target/release/forest-cli', '--chain', @chain, 'config', 'dump')
+    toml_str = syscall(target_cli, '--chain', @chain, 'config', 'dump')
 
     default = Tomlrb.parse(toml_str)
-    default['client']['data_dir'] = TEMP_DIR
+    default['client']['data_dir'] = data_dir
     default
   end
 
   def db_size
-    config_path = "#{TEMP_DIR}/#{@name}.toml"
+    config_path = "#{data_dir}/#{@name}.toml"
 
-    line = syscall(TEMP_DIR + '/forest/target/release/forest-cli', '-c', config_path, 'db', 'stats').split("\n")[1]
+    line = syscall(target_cli, '-c', config_path, 'db', 'stats').split("\n")[1]
     match = line.match(/Database size: (.+)/)
     match[1]
   end
 
   def clean_db(dry_run)
-    puts 'Wiping db'
+    config_path = "#{data_dir}/#{@name}.toml"
 
-    config_path = "#{TEMP_DIR}/#{@name}.toml"
-
-    syscall(TEMP_DIR + '/forest/target/release/forest-cli', '-c', config_path, 'db', 'clean', '--force') unless dry_run
+    syscall(target_cli, '-c', config_path, 'db', 'clean', '--force') unless dry_run
   end
 
   def target
-    TEMP_DIR + '/forest/target/release/forest'
+    File.join(repository_name, 'target/release/forest')
   end
 
   def target_cli
-    TEMP_DIR + '/forest/target/release/forest-cli'
+    File.join(repository_name, 'target/release/forest-cli')
+  end
+
+  def repository_name
+    'forest'
   end
 
   def clone_command(dry_run)
-    Dir.chdir(TEMP_DIR) do
-      exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git'], dry_run)
+    exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name], dry_run)
+
+    if dry_run then
+      Dir.mkdir(repository_name)
     end
   end
 
   def clean_command(dry_run)
-    Dir.chdir(TEMP_DIR + '/forest') do
+    Dir.chdir(repository_name) do
       exec_command(%w[cargo clean], dry_run)
     end
   end
 
   def build_command(dry_run)
-    Dir.chdir(TEMP_DIR + '/forest') do
+    Dir.chdir(repository_name) do
       exec_command(['cargo', 'build', '--release'], dry_run)
     end
   end
@@ -416,8 +438,9 @@ end
 # Forest benchmark class with ParityDb backend
 class ParityDbBenchmark < ForestBenchmark
   def build_command(dry_run)
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'],
-                 dry_run)
+    Dir.chdir(repository_name) do
+      exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
+    end
   end
 end
 
@@ -434,8 +457,6 @@ class LotusBenchmark < Benchmark
   end
 
   def clean_db(dry_run)
-    # Clean db
-    puts 'Wiping db'
     FileUtils.rm_rf(db_dir, secure: true) unless dry_run
   end
 
@@ -445,29 +466,20 @@ class LotusBenchmark < Benchmark
   private :build_config_file
 
   def target
-    TEMP_DIR + '/lotus/lotus'
-  end
-
-  def clone_command(dry_run)
-    Dir.chdir(TEMP_DIR) do
-      exec_command(['git', 'clone', 'https://github.com/filecoin-project/lotus.git'], dry_run)
-    end
-    Dir.chdir(TEMP_DIR + '/lotus') do
-      exec_command(['git', 'checkout', 'releases'], dry_run)
-    end
+    './lotus/lotus'
   end
 
   def clean_command(dry_run)
     # TODO: handle build both client in a tmpdir
-    Dir.chdir(TEMP_DIR + '/lotus') do
-      exec_command(['make', 'clean', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
+    Dir.chdir('../lotus') do
+      exec_command(%w[make clean], dry_run)
     end
   end
 
   def build_command(dry_run)
     # TODO: handle build both client in a tmpdir
-    Dir.chdir(TEMP_DIR) do
-      exec_command(['make', 'install'], dry_run)
+    Dir.chdir('../lotus') do
+      exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
     end
   end
 
@@ -509,15 +521,20 @@ end
 
 def run_benchmarks(benchmarks, options)
   bench_metrics = {}
-  benchmarks.each do |bench|
-    bench.snapshot_path = options[:snapshot_path]
-    bench.heights = options[:heights]
-    bench.chain = options[:chain]
-    bench.run(options[:dry_run], options[:daily])
-
-    bench_metrics[bench.name] = bench.metrics
-
-    puts "\n"
+  snapshot_abs_path = File.expand_path(options[:snapshot_path])
+  puts "(I) Using snapshot: #{snapshot_abs_path}"
+  Dir.chdir(BENCHMARK_DIR) do
+    puts "(I) cwd: #{Dir.pwd}"
+    benchmarks.each do |bench|
+      bench.snapshot_path = snapshot_abs_path
+      bench.heights = options[:heights]
+      bench.chain = options[:chain]
+      bench.run(options[:dry_run], options[:daily])
+  
+      bench_metrics[bench.name] = bench.metrics
+  
+      puts "\n"
+    end
   end
   if options[:daily]
     write_csv(bench_metrics)
@@ -525,12 +542,11 @@ def run_benchmarks(benchmarks, options)
     write_markdown(bench_metrics)
   end
 
-  # puts bench_metrics
+  puts bench_metrics
 end
 
 BENCHMARKS = [
   ForestBenchmark.new(name: 'baseline'),
-  ForestBenchmark.new(name: 'baseline-with-stats', config: { 'rocks_db' => { 'enable_statistics' => true } }),
   ParityDbBenchmark.new(name: 'paritydb')
 ].freeze
 
@@ -538,7 +554,7 @@ options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
   chain: 'calibnet', # TODO: replace with 'mainnet' before merging
-  daily: true
+  daily: false
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
@@ -552,7 +568,7 @@ snapshot_path = ARGV.pop
 raise "The file '#{snapshot_path}' does not exist" if snapshot_path && !File.file?(snapshot_path)
 
 if snapshot_path.nil?
-  puts 'No snapshot provided, downloading one'
+  puts '(I) No snapshot provided, downloading one'
   snapshot_path = download_snapshot(chain: options[:chain])
   puts snapshot_path
 end
@@ -561,8 +577,8 @@ options[:snapshot_path] = snapshot_path
 
 if options[:daily]
   selection = Set[
-    #ForestBenchmark.new(name: 'forest'),
-    LotusBenchmark.new(name: 'lotus')
+    ForestBenchmark.new(name: 'forest'),
+    #LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
 else
@@ -573,7 +589,7 @@ else
     end
   end
   if selection.empty?
-    puts 'Nothing to run'
+    puts '(I) Nothing to run'
   else
     run_benchmarks(selection, options)
   end

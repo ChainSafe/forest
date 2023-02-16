@@ -1,14 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use core::time::Duration;
+use std::{path::PathBuf, sync::Arc};
+
 use forest_chain_sync::SyncConfig;
 use forest_db::db_engine::DbConfig;
 use forest_libp2p::Libp2pConfig;
 use forest_networks::ChainConfig;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::Arc;
 use url::Url;
 
 use super::client::Client;
@@ -76,11 +77,13 @@ impl Default for FilecoinSnapshotFetchConfig {
     fn default() -> Self {
         // unfallible unwrap as we know that the value is correct
         Self {
-            /// Default `mainnet` snapshot URL. The assumption is that it will redirect once and will contain a
-            /// `sha256sum` file with the same URL (but different extension).
+            /// Default `mainnet` snapshot URL. The assumption is that it will
+            /// redirect once and will contain a `sha256sum` file
+            /// with the same URL (but different extension).
             mainnet: Url::try_from("https://snapshots.mainnet.filops.net/minimal/latest").unwrap(),
-            /// Default `calibnet` snapshot URL. The assumption is that it will redirect once and will contain a
-            /// `sha256sum` file with the same URL (but different extension).
+            /// Default `calibnet` snapshot URL. The assumption is that it will
+            /// redirect once and will contain a `sha256sum` file
+            /// with the same URL (but different extension).
             calibnet: Url::try_from("https://snapshots.calibrationnet.filops.net/minimal/latest")
                 .unwrap(),
         }
@@ -155,6 +158,15 @@ impl Default for DaemonConfig {
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Eq, Clone, Default)]
+pub struct TokioConfig {
+    pub worker_threads: Option<usize>,
+    pub max_blocking_threads: Option<usize>,
+    pub thread_keep_alive: Option<Duration>,
+    pub thread_stack_size: Option<usize>,
+    pub global_queue_interval: Option<u32>,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
@@ -167,6 +179,7 @@ pub struct Config {
     pub daemon: DaemonConfig,
     pub log: LogConfig,
     pub snapshot_fetch: SnapshotFetchConfig,
+    pub tokio: TokioConfig,
 }
 
 impl Config {
@@ -183,19 +196,21 @@ impl Config {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use chrono::Duration;
-    use forest_utils::io::ProgressBarVisibility;
-    use quickcheck::Arbitrary;
-    use quickcheck_macros::quickcheck;
     use std::{
         net::{Ipv4Addr, SocketAddr},
         path::PathBuf,
     };
+
+    use chrono::Duration;
+    use forest_utils::io::ProgressBarVisibility;
+    use quickcheck::Arbitrary;
+    use quickcheck_macros::quickcheck;
     use tracing_subscriber::EnvFilter;
 
-    /// Partial configuration, as some parts of the proper one don't implement required traits (i.e.
-    /// Debug)
+    use super::*;
+
+    /// Partial configuration, as some parts of the proper one don't implement
+    /// required traits (i.e. Debug)
     #[derive(Clone, Debug)]
     struct ConfigPartial {
         client: Client,
@@ -217,6 +232,7 @@ mod test {
                 daemon: DaemonConfig::default(),
                 log: Default::default(),
                 snapshot_fetch: Default::default(),
+                tokio: Default::default(),
             }
         }
     }
@@ -238,14 +254,14 @@ mod test {
                     encrypt_keystore: bool::arbitrary(g),
                     metrics_address: SocketAddr::arbitrary(g),
                     rpc_address: SocketAddr::arbitrary(g),
-                    download_snapshot: bool::arbitrary(g),
+                    auto_download_snapshot: bool::arbitrary(g),
                     token_exp: Duration::milliseconds(i64::arbitrary(g)),
                     show_progress_bars: ProgressBarVisibility::arbitrary(g),
                 },
                 rocks_db: forest_db::rocks_config::RocksDbConfig {
                     create_if_missing: bool::arbitrary(g),
                     parallelism: i32::arbitrary(g),
-                    write_buffer_size: usize::arbitrary(g),
+                    write_buffer_size: u32::arbitrary(g) as _,
                     max_open_files: i32::arbitrary(g),
                     max_background_jobs: Option::arbitrary(g),
                     compaction_style: String::arbitrary(g),
@@ -269,7 +285,7 @@ mod test {
                 },
                 sync: SyncConfig {
                     req_window: i64::arbitrary(g),
-                    tipset_sample_size: usize::arbitrary(g),
+                    tipset_sample_size: u32::arbitrary(g) as _,
                 },
             }
         }

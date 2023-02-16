@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
+
 use cid::Cid;
 use fil_actors_runtime::runtime::DomainSeparationTag;
 use forest_actor_interface::power;
@@ -10,17 +12,15 @@ use forest_chain_sync::collect_errs;
 use forest_db::Store;
 use forest_fil_types::verifier::verify_winning_post;
 use forest_networks::{ChainConfig, Height};
+use forest_shim::{randomness::Randomness, version::NetworkVersion};
 use forest_state_manager::StateManager;
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::ops::verify_bls_sig;
-use fvm_shared::randomness::Randomness;
-use fvm_shared::version::NetworkVersion;
-use fvm_shared::TICKET_RANDOMNESS_LOOKBACK;
+use fvm_shared::{
+    address::Address, crypto::signature::ops::verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
+};
 use nonempty::NonEmpty;
-use std::sync::Arc;
 
 use crate::{metrics, FilecoinConsensusError};
 
@@ -29,7 +29,8 @@ fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusE
 }
 
 /// Validates block semantically according to https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md
-/// Returns all encountered errors, so they can be merged with the common validations performed by the synchronizer.
+/// Returns all encountered errors, so they can be merged with the common
+/// validations performed by the synchronizer.
 ///
 /// Validation includes:
 /// * Sanity checks
@@ -179,7 +180,8 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusErro
     Ok(())
 }
 
-/// Check the timestamp corresponds exactly to the number of epochs since the parents.
+/// Check the timestamp corresponds exactly to the number of epochs since the
+/// parents.
 fn block_timestamp_checks(
     header: &BlockHeader,
     base_tipset: &Tipset,
@@ -210,7 +212,8 @@ fn validate_miner<DB: Blockstore + Store + Clone + Send + Sync + 'static>(
         .start_timer();
 
     let actor = state_manager
-        .get_actor(&power::ADDRESS, *tipset_state)?
+        .get_actor(&power::ADDRESS, *tipset_state)
+        .map_err(|_| FilecoinConsensusError::PowerActorUnavailable)?
         .ok_or(FilecoinConsensusError::PowerActorUnavailable)?;
 
     let state = power::State::load(state_manager.blockstore(), &actor)
@@ -386,12 +389,12 @@ fn verify_winning_post_proof<DB: Blockstore + Store + Clone + Send + Sync + 'sta
             lookback_state,
             network_version,
             header.miner_address(),
-            Randomness(rand.to_vec()),
+            Randomness::new(rand.to_vec()),
         )
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
-        Randomness(rand.to_vec()),
+        Randomness::new(rand.to_vec()),
         header.winning_post_proof(),
         &sectors,
         id,

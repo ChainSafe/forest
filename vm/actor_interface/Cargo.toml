@@ -1,8 +1,10 @@
 [package]
 name = "forest_actor_interface"
-version = "0.2.0"
-authors = ["ChainSafe Systems <info@chainsafe.io>"]
-edition = "2021"
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 fil_actor_account_v8.workspace = true
@@ -23,11 +25,12 @@ fil_actors_runtime.workspace = true
 anyhow.workspace = true
 cid.workspace = true
 forest_json.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
-fvm.workspace = true
 fvm_ipld_bitfield.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 libp2p = { workspace = true, default-features = false }
+num.workspace = true
 serde = { workspace = true, features = ["derive"] }

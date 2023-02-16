@@ -1,13 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod behaviour;
 mod message;
 mod provider;
-
-pub use self::message::*;
-pub use self::provider::*;
-use super::rpc::CborRequestResponse;
+pub use behaviour::*;
 use libp2p::core::ProtocolName;
+
+pub use self::{message::*, provider::*};
+use super::rpc::CborRequestResponse;
 
 /// Libp2p protocol ID for `ChainExchange`.
 pub const CHAIN_XCHG_PROTOCOL_ID: &[u8] = b"/fil/chain/xchg/0.0.1";

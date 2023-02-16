@@ -4,10 +4,13 @@ Notable updates:
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
 
-
 ### Changed
-* [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h.: [#2396](https://github.com/ChainSafe/forest/pull/2396)
+* [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
+* [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h. [#2396](https://github.com/ChainSafe/forest/pull/2396)
 * [config] `stats` and `compression` keys in `parity_db` section were renamed to `enable_statistics` and `compression_type` respectively. [#2444](https://github.com/ChainSafe/forest/pull/2444)
+* [config] `download-snapshot` flag was renamed to `auto-download-snapshot`. `download_snapshot` key in `client` section in configuration renamed to `auto_download_snapshot`. [#257](https://github.com/ChainSafe/forest/pull/2457)
+* [docker|security] the Forest image is no longer running on a root user but a dedicated one. [#2463](https://github.com/ChainSafe/forest/pull/2463)
+* [keystore] Allow specifying the encryption passphrase via environmental variable. [#2514](https://github.com/ChainSafe/forest/pull/2514)
 
 ### Removed
 
@@ -15,6 +18,7 @@ Notable updates:
 * [libp2p] Properly cancel bitswap queries that are not responded to after a period. [#2399](https://github.com/ChainSafe/forest/pull/2399)
 * [console ui] `Scanning Blockchain` progess bar never hits 100% during snapshot import. [#2403](https://github.com/ChainSafe/forest/pull/2403)
 * [forest daemon] forest daeamon crashes on sending bitswap requests. [#2419](https://github.com/ChainSafe/forest/pull/2419)
+* [version] The version shown in `--help` was stuck at `0.4.1`. Now all binaries and crates in the project will follow a standard version, based on the release tag. [#2487](https://github.com/ChainSafe/forest/pull/2487)
 
 ## Forest v0.6.0 (2023-01-06)
 

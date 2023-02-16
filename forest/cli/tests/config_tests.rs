@@ -1,11 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use assert_cmd::Command;
-use forest_cli_shared::cli::{Client, Config};
-use rand::Rng;
 #[cfg(feature = "slow_tests")]
 use std::fs::read_dir;
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
+
+use assert_cmd::Command;
+use forest_cli_shared::cli::{Client, Config};
+use rand::Rng;
 #[cfg(feature = "slow_tests")]
 use tempfile::TempDir;
 

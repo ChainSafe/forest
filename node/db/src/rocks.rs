@@ -1,19 +1,19 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use super::Store;
-use crate::rocks_config::RocksDbConfig;
-use crate::{metrics, utils::bitswap_missing_blocks, DBStatistics};
+use std::{path::Path, sync::Arc};
+
 use anyhow::anyhow;
 use cid::Cid;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p_bitswap::BitswapStore;
 use rocksdb::{
     BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
     Options, WriteBatch, WriteOptions, DB,
 };
-use std::{path::Path, sync::Arc};
+
+use super::{errors::Error, Store};
+use crate::{metrics, rocks_config::RocksDbConfig, DBStatistics};
 
 lazy_static::lazy_static! {
     static ref WRITE_OPT_NO_WAL: WriteOptions = {
@@ -86,8 +86,9 @@ fn log_level_from_str(s: &str) -> anyhow::Result<LogLevel> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use rocksdb::DBCompactionStyle;
+
+    use super::*;
 
     #[test]
     fn compaction_style_from_str_test() {
@@ -250,14 +251,13 @@ impl Store for RocksDb {
             .map_err(Error::from)
     }
 
-    fn bulk_write<K, V>(&self, values: &[(K, V)]) -> Result<(), Error>
-    where
-        K: AsRef<[u8]>,
-        V: AsRef<[u8]>,
-    {
+    fn bulk_write(
+        &self,
+        values: impl IntoIterator<Item = (impl Into<Vec<u8>>, impl Into<Vec<u8>>)>,
+    ) -> Result<(), Error> {
         let mut batch = WriteBatch::default();
         for (k, v) in values {
-            batch.put(k, v);
+            batch.put(k.into(), v.into());
         }
         Ok(self.db.write_without_wal(batch)?)
     }
@@ -297,25 +297,23 @@ impl Blockstore for RocksDb {
     }
 }
 
-impl BitswapStore for RocksDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
-    type Params = libipld::DefaultParams;
-
-    fn contains(&mut self, cid: &Cid) -> anyhow::Result<bool> {
+impl BitswapStoreRead for RocksDb {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
 
-    fn get(&mut self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
+}
 
-    fn insert(&mut self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
+impl BitswapStoreReadWrite for RocksDb {
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
+    /// [`libipld::DefaultParams`] under feature `dag-cbor`
+    type Params = libipld::DefaultParams;
+
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
-    }
-
-    fn missing_blocks(&mut self, cid: &Cid) -> anyhow::Result<Vec<Cid>> {
-        bitswap_missing_blocks::<_, Self::Params>(self, cid)
     }
 }
 
