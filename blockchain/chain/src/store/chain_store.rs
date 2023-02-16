@@ -55,7 +55,7 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::{prefix::Prefix, Scale};
+use crate::Scale;
 
 const GENESIS_KEY: &str = "gen_block";
 const HEAD_KEY: &str = "head";
@@ -563,13 +563,13 @@ where
         Self::walk_snapshot(tipset, recent_roots, |cid| {
             let tx_clone = tx.clone();
             async move {
-                let prefix = Code::try_from(Prefix::from(&cid).mh_type)?;
                 let block = self
                     .blockstore()
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
+
                 // Don't include identity CIDs.
-                if prefix != Code::Identity {
+                if u64::from(Code::Identity) != cid.hash().code() {
                     tx_clone.send_async((cid, block.clone())).await?;
                 }
                 Ok(block)
