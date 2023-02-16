@@ -3,6 +3,7 @@ Notable updates:
 
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
+* [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
 
 ### Changed
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
