@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod fvm;
-mod fvm3;
+pub mod fvm3;
 #[cfg(feature = "instrumented_kernel")]
 mod instrumented_kernel;
 #[cfg(feature = "instrumented_kernel")]

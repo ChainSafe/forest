@@ -11,6 +11,7 @@ use forest_shim::{state_tree::StateTree, version::NetworkVersion};
 use fvm3::{
     externs::{Chain, Consensus, Externs, Rand},
     gas::{price_list_by_network_version, Gas, GasTracker},
+    kernel::SupportedHashes,
 };
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
@@ -248,18 +249,24 @@ fn cal_gas_used_from_stats(
     network_version: NetworkVersion,
 ) -> anyhow::Result<Gas> {
     let price_list = price_list_by_network_version(network_version.into());
-    let mut gas_tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
+    let gas_tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
     // num of reads
     for _ in 0..stats.r {
-        gas_tracker.apply_charge(price_list.on_block_open_base())?;
+        gas_tracker
+            .apply_charge(price_list.on_block_open_base())?
+            .stop();
     }
     // num of writes
     if stats.w > 0 {
         // total bytes written
-        let hash_code = unimplemented!();
-        gas_tracker.apply_charge(price_list.on_block_link(hash_code, stats.bw))?;
+        let hash_code = SupportedHashes::Blake2b256; // XXX This is definitely wrong...
+        gas_tracker
+            .apply_charge(price_list.on_block_link(hash_code, stats.bw))?
+            .stop();
         for _ in 1..stats.w {
-            gas_tracker.apply_charge(price_list.on_block_link(hash_code, 0))?;
+            gas_tracker
+                .apply_charge(price_list.on_block_link(hash_code, 0))?
+                .stop();
         }
     }
     Ok(gas_tracker.gas_used())
@@ -318,15 +325,18 @@ mod tests {
 
         // Simulates logic in old GasBlockStore
         let price_list = price_list_by_network_version(network_version.into());
-        let mut tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
+        let tracker = GasTracker::new(Gas::new(u64::MAX), Gas::new(0), false);
         repeat(()).take(read_count).for_each(|_| {
             tracker
                 .apply_charge(price_list.on_block_open_base())
-                .unwrap();
+                .unwrap()
+                .stop()
         });
         for &bytes in write_bytes {
-            let hash_code = unimplemented!();
-            tracker.apply_charge(price_list.on_block_link(hash_code, bytes))?;
+            let hash_code = SupportedHashes::Blake2b256; // XXX This is definitely wrong...
+            tracker
+                .apply_charge(price_list.on_block_link(hash_code, bytes))?
+                .stop();
         }
         let expected = tracker.gas_used();
 
