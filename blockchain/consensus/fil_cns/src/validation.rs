@@ -394,9 +394,9 @@ fn verify_winning_post_proof<DB: Blockstore + Store + Clone + Send + Sync + 'sta
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
-        Randomness::new(rand.to_vec()),
+        Randomness::new(rand.to_vec()).into(),
         header.winning_post_proof(),
-        &sectors,
+        sectors.as_slice(),
         id,
     )
     .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))

@@ -33,6 +33,11 @@ impl DerefMut for Address {
     }
 }
 
+// Conversion implementations.
+// Note for `::from_bytes`. Both FVM2 and FVM3 addresses values as bytes must be
+// identical and able to do a conversion, otherwise it is a logic error and
+// Forest should not continue so there is no point in `TryFrom`.
+
 impl From<Address_v3> for Address {
     fn from(other: Address_v3) -> Self {
         Address(other)
@@ -67,5 +72,18 @@ impl From<Address> for Address_v2 {
     fn from(other: Address) -> Address_v2 {
         Address_v2::from_bytes(&other.to_bytes())
             .expect("Couldn't convert between FVM2 and FVM3 addresses")
+    }
+}
+
+impl From<&Address> for Address_v2 {
+    fn from(other: &Address) -> Self {
+        Address_v2::from_bytes(&other.to_bytes())
+            .expect("Couldn't convert between FVM2 and FVM3 addresses")
+    }
+}
+
+impl From<&Address> for Address_v3 {
+    fn from(other: &Address) -> Self {
+        other.0
     }
 }

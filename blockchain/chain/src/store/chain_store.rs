@@ -21,7 +21,7 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
-use forest_shim::state_tree::StateTree;
+use forest_shim::{econ::TokenAmount, state_tree::StateTree};
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
@@ -31,7 +31,6 @@ use fvm_shared::{
     address::Address,
     clock::ChainEpoch,
     crypto::signature::{Signature, SignatureType},
-    econ::TokenAmount,
     message::Message,
     receipt::Receipt,
 };
@@ -564,7 +563,7 @@ where
                 let block = self
                     .blockstore()
                     .get(&cid)?
-                    .ok_or_else(|| Error::Other("Cid {cid} not found in blockstore".to_string()))?;
+                    .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
                 tx_clone.send_async((cid, block.clone())).await?;
                 Ok(block)
@@ -805,11 +804,11 @@ where
             let from_address = message.from();
             if applied.contains_key(from_address) {
                 let actor_state = state
-                    .get_actor(from_address)
+                    .get_actor(&from_address.into())
                     .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
-                balances.insert(*from_address, actor_state.balance);
+                balances.insert(*from_address, actor_state.balance.clone().into());
             }
             if let Some(seq) = applied.get_mut(from_address) {
                 if *seq != message.sequence() {

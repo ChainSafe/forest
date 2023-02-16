@@ -11,9 +11,9 @@ ahash.workspace = true
 anyhow.workspace = true
 backoff = { workspace = true, features = ["tokio"] }
 blake2b_simd.workspace = true
+forest_shim.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
-fvm_shared.workspace = true
 log.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

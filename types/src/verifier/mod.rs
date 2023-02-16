@@ -4,13 +4,9 @@
 use std::{collections::BTreeMap, convert::TryInto};
 
 use filecoin_proofs_api::{post, ProverId, PublicReplicaInfo, SectorId};
-use forest_shim::randomness::Randomness;
+use forest_shim::sector::{PoStProof, RegisteredPoStProof, SectorInfo};
 use fvm_ipld_encoding::bytes_32;
-use fvm_shared::{
-    address::Address,
-    commcid::cid_to_replica_commitment_v1,
-    sector::{PoStProof, RegisteredPoStProof, SectorInfo},
-};
+use fvm_shared::{address::Address, commcid::cid_to_replica_commitment_v1, randomness::Randomness};
 
 /// Functionality for verification of seal, winning PoSt and window PoSt proofs.
 /// Proof verification will be full validation by default.
@@ -58,7 +54,7 @@ pub fn generate_winning_post_sector_challenge(
     rand.0[31] &= 0x3f;
 
     post::generate_winning_post_sector_challenge(
-        proof.try_into().map_err(|e| anyhow::anyhow!("{}", e))?,
+        proof.try_into()?,
         &bytes_32(&rand.0),
         eligible_sector_count,
         prover_id_from_u64(prover_id),

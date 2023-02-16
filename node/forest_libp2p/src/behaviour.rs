@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
-
 use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
@@ -17,14 +15,13 @@ use libp2p::{
     kad::QueryId,
     metrics::{Metrics, Recorder},
     ping,
-    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
     swarm::NetworkBehaviour,
     Multiaddr,
 };
 use log::warn;
 
 use crate::{
-    chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName},
+    chain_exchange::ChainExchangeBehaviour,
     config::Libp2pConfig,
     discovery::{DiscoveryBehaviour, DiscoveryConfig},
     gossip_params::{build_peer_score_params, build_peer_score_threshold},
@@ -40,7 +37,7 @@ pub(crate) struct ForestBehaviour {
     ping: ping::Behaviour,
     identify: identify::Behaviour,
     pub(super) hello: HelloBehaviour,
-    pub(super) chain_exchange: RequestResponse<ChainExchangeCodec>,
+    pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
 }
 
@@ -100,12 +97,6 @@ impl ForestBehaviour {
             // TODO allow configuring this through config.
             .discovery_limit(config.target_peer_count as u64);
 
-        let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
-
-        let mut req_res_config = RequestResponseConfig::default();
-        req_res_config.set_request_timeout(Duration::from_secs(20));
-        req_res_config.set_connection_keep_alive(Duration::from_secs(20));
-
         ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
@@ -116,7 +107,7 @@ impl ForestBehaviour {
             )),
             bitswap,
             hello: HelloBehaviour::default(),
-            chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
+            chain_exchange: ChainExchangeBehaviour::default(),
         }
     }
 
