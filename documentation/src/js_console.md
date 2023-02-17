@@ -84,7 +84,7 @@ Forest console comes with a number of helper functions that make interacting wit
 
 ### Timers
 
-In addition to support part of the JavaScript language, the console also provides implementation for `sleep(seconds)` timer and a tipset based timer, `sleepTipsets(epochs)` which sleeps till the number of new tipsets added is equal to or greater than `epochs`.
+In addition, to support part of the JavaScript language, the console also provides implementation for `sleep(seconds)` timer and a tipset based timer, `sleepTipsets(epochs)`, which sleeps till the number of new tipsets added is equal to or greater than `epochs`.
 
 ### Modules
 
