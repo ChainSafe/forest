@@ -570,7 +570,15 @@ where
 
                 // Don't include identity CIDs.
                 if u64::from(Code::Identity) != cid.hash().code() {
-                    tx_clone.send_async((cid, block.clone())).await?;
+                    // We only include raw and dagcbor, for now.
+                    // Raw for "code" CIDs.
+                    match cid.codec() {
+                        fvm_shared::IPLD_RAW => tx_clone.send_async((cid, block.clone())).await?,
+                        fvm_ipld_encoding::DAG_CBOR => {
+                            tx_clone.send_async((cid, block.clone())).await?
+                        }
+                        _ => {}
+                    }
                 }
                 Ok(block)
             }
