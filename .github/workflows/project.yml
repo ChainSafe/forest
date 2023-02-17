@@ -1,0 +1,16 @@
+name: Adds closed issues to the project board
+
+on:
+  issues:
+    types:
+      - closed
+
+jobs:
+  add-to-project:
+    name: Add issue to project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v0.4.0
+        with:
+          project-url: https://github.com/orgs/ChainSafe/projects/11
+          github-token: ${{ secrets.ACTIONS_PAT }}
