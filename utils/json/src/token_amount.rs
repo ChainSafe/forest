@@ -4,7 +4,7 @@
 pub mod json {
     use std::str::FromStr;
 
-    use fvm_shared::econ::TokenAmount;
+    use forest_shim::econ::TokenAmount;
     use num_bigint::BigInt;
     use serde::{Deserialize, Serialize};
 

@@ -29,6 +29,7 @@ use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
+    message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
@@ -37,7 +38,7 @@ use futures::{channel::oneshot, select, FutureExt};
 use fvm::{executor::ApplyRet, externs::Rand};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{clock::ChainEpoch, message::Message, receipt::Receipt};
+use fvm_shared::{clock::ChainEpoch, receipt::Receipt};
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
@@ -483,7 +484,7 @@ where
             .get_actor(&msg.from.into(), *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(msg)?;
+        let apply_ret = vm.apply_implicit_message(&msg.clone().into())?;
         trace!(
             "gas limit {:},gas premium{:?},value {:?}",
             msg.gas_limit,
@@ -558,7 +559,7 @@ where
         let ret = vm.apply_message(message)?;
 
         Ok(InvocResult {
-            msg: message.message().clone(),
+            msg: message.message().clone().into(),
             msg_rct: Some(ret.msg_receipt.clone()),
             error: ret.failure_info.map(|e| e.to_string()),
         })
@@ -603,7 +604,7 @@ where
         let out_ret = r_rx
             .try_recv()
             .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
-        Ok((out_mes, out_ret))
+        Ok((out_mes.into(), out_ret))
     }
 
     /// Gets look-back tipset for block validations.

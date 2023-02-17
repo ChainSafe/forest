@@ -335,8 +335,8 @@ pub mod tests {
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use forest_shim::{address::Address, econ::TokenAmount};
-    use fvm_shared::{crypto::signature::SignatureType, message::Message};
+    use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+    use fvm_shared::crypto::signature::SignatureType;
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;

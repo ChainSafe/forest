@@ -14,6 +14,7 @@ fvm.workspace = true
 fvm3.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
+fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
 fvm_shared.workspace = true
 fvm_shared3 = { workspace = true, features = ["proofs"] }
 num-bigint.workspace = true

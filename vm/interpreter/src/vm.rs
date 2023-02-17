@@ -8,11 +8,19 @@ use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::{address::Address, econ::TokenAmount, error::ExitCode, Inner};
+use forest_shim::{
+    address::Address, econ::TokenAmount, error::ExitCode, state_tree::ActorState, Inner,
+};
 use fvm::{
-    executor::{ApplyRet, DefaultExecutor},
+    executor::{ApplyRet, DefaultExecutor, Executor},
     externs::Rand,
     machine::{DefaultMachine, Machine, MultiEngine, NetworkConfig},
+};
+use fvm3::{
+    executor::{
+        ApplyRet as ApplyRet_v3, DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3,
+    },
+    machine::{DefaultMachine as DefaultMachine_v3, Machine as Machine_v3},
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
@@ -21,16 +29,22 @@ use fvm_shared::{
 };
 use num::Zero;
 
-use crate::fvm::ForestExterns;
+use crate::{fvm::ForestExterns, fvm3::ForestExterns as ForestExterns_v3};
 
 pub(crate) type ForestMachine<DB> = DefaultMachine<DB, ForestExterns<DB>>;
+pub(crate) type ForestMachine_v3<DB> = DefaultMachine_v3<DB, ForestExterns_v3<DB>>;
 
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestKernel<DB> =
     fvm::DefaultKernel<fvm::call_manager::DefaultCallManager<ForestMachine<DB>>>;
 
+type ForestKernel_v3<DB> =
+    fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachine_v3<DB>>>;
+
 #[cfg(not(feature = "instrumented_kernel"))]
 type ForestExecutor<DB> = DefaultExecutor<ForestKernel<DB>>;
+
+type ForestExecutor_v3<DB> = DefaultExecutor_v3<ForestKernel_v3<DB>>;
 
 #[cfg(feature = "instrumented_kernel")]
 type ForestExecutor<DB> = DefaultExecutor<crate::instrumented_kernel::ForestInstrumentedKernel<DB>>;
@@ -62,9 +76,15 @@ pub trait RewardCalc: Send + Sync + 'static {
 
 /// Interpreter which handles execution of state transitioning messages and
 /// returns receipts from the VM execution.
-pub struct VM<DB: Blockstore + 'static> {
-    fvm_executor: ForestExecutor<DB>,
-    reward_calc: Arc<dyn RewardCalc>,
+pub enum VM<DB: Blockstore + 'static> {
+    VM2 {
+        fvm_executor: ForestExecutor<DB>,
+        reward_calc: Arc<dyn RewardCalc>,
+    },
+    VM3 {
+        fvm_executor: ForestExecutor_v3<DB>,
+        reward_calc: Arc<dyn RewardCalc>,
+    },
 }
 
 impl<DB> VM<DB>
@@ -98,7 +118,7 @@ where
                 ForestExterns::new(rand, epoch, root, lb_fn, store, chain_config),
             )?;
         let exec: ForestExecutor<DB> = DefaultExecutor::new(fvm);
-        Ok(VM {
+        Ok(VM::VM2 {
             fvm_executor: exec,
             reward_calc,
         })
@@ -106,15 +126,32 @@ where
 
     /// Flush stores in VM and return state root.
     pub fn flush(&mut self) -> anyhow::Result<Cid> {
-        Ok(self.fvm_executor.flush()?)
+        match self {
+            VM::VM2 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
+            VM::VM3 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
+        }
+        // Ok(self.fvm_executor.flush()?)
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
-    pub fn get_actor(
-        &self,
-        addr: &Address,
-    ) -> Result<Option<fvm::state_tree::ActorState>, anyhow::Error> {
-        Ok(self.fvm_executor.state_tree().get_actor(&addr.into())?)
+    pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
+        match self {
+            VM::VM2 { fvm_executor, .. } => Ok(fvm_executor
+                .state_tree()
+                .get_actor(&addr.into())?
+                .map(ActorState::from)),
+            VM::VM3 { fvm_executor, .. } => {
+                if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
+                    Ok(fvm_executor
+                        .state_tree()
+                        .get_actor(id)?
+                        .map(ActorState::from))
+                } else {
+                    Ok(None)
+                }
+            }
+        }
+        // Ok(self.fvm_executor.state_tree().get_actor(&addr.into())?)
     }
 
     pub fn run_cron(
@@ -145,7 +182,11 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
+            callback(
+                &(cron_msg.cid()?),
+                &ChainMessage::Unsigned(cron_msg.into()),
+                &ret,
+            )?;
         }
         Ok(())
     }
@@ -194,13 +235,9 @@ where
             }
 
             // Generate reward transaction for the miner of the block
-            if let Some(rew_msg) = self.reward_calc.reward_message(
-                epoch,
-                block.miner,
-                block.win_count,
-                penalty,
-                gas_reward,
-            )? {
+            if let Some(rew_msg) =
+                self.reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
+            {
                 let ret = self.apply_implicit_message(&rew_msg)?;
                 if let Some(err) = ret.failure_info {
                     anyhow::bail!(
@@ -217,7 +254,11 @@ where
                     );
                 }
                 if let Some(callback) = &mut callback {
-                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                    callback(
+                        &(rew_msg.cid()?),
+                        &ChainMessage::Unsigned(rew_msg.into()),
+                        &ret,
+                    )?;
                 }
             }
         }
@@ -230,31 +271,47 @@ where
 
     /// Applies single message through VM and returns result from execution.
     pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
-        use fvm::executor::Executor;
         // raw_length is not used for Implicit messages.
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = self.fvm_executor.execute_message(
-            msg.clone(),
-            fvm::executor::ApplyKind::Implicit,
-            raw_length,
-        )?;
-        Ok(ret)
+
+        match self {
+            VM::VM2 { fvm_executor, .. } => {
+                let ret = fvm_executor.execute_message(
+                    msg.clone(),
+                    fvm::executor::ApplyKind::Implicit,
+                    raw_length,
+                )?;
+                Ok(ret)
+            }
+            VM::VM3 { fvm_executor, .. } => {
+                unimplemented!()
+                // let ret = fvm_executor.execute_message(
+                //     msg.clone(),
+                //     fvm3::executor::ApplyKind::Implicit,
+                //     raw_length,
+                // )?;
+                // Ok(ret)
+            }
+        }
     }
 
     /// Applies the state transition for a single message.
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
-        check_message(msg.message())?;
+        check_message(&msg.message().into())?;
 
         use fvm::executor::Executor;
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = self.fvm_executor.execute_message(
-            unsigned,
-            fvm::executor::ApplyKind::Explicit,
-            raw_length,
-        )?;
+        let ret = match self {
+            VM::VM2 { fvm_executor, .. } => fvm_executor.execute_message(
+                unsigned.into(),
+                fvm::executor::ApplyKind::Explicit,
+                raw_length,
+            )?,
+            VM::VM3 { .. } => unimplemented!(),
+        };
 
         let exit_code = ret.msg_receipt.exit_code;
 
@@ -273,6 +330,24 @@ where
         }
 
         Ok(ret)
+    }
+
+    fn reward_message(
+        &self,
+        epoch: ChainEpoch,
+        miner: Address,
+        win_count: i64,
+        penalty: TokenAmount,
+        gas_reward: TokenAmount,
+    ) -> Result<Option<Message>, anyhow::Error> {
+        match self {
+            VM::VM2 { reward_calc, .. } => {
+                reward_calc.reward_message(epoch, miner, win_count, penalty, gas_reward)
+            }
+            VM::VM3 { reward_calc, .. } => {
+                reward_calc.reward_message(epoch, miner, win_count, penalty, gas_reward)
+            }
+        }
     }
 }
 

@@ -21,7 +21,7 @@ use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
-use forest_shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
+use forest_shim::{address::Address, econ::TokenAmount, message::Message, state_tree::StateTree};
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
@@ -30,7 +30,6 @@ use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::{
     clock::ChainEpoch,
     crypto::signature::{Signature, SignatureType},
-    message::Message,
     receipt::Receipt,
 };
 use log::{debug, info, trace, warn};
@@ -488,7 +487,7 @@ where
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
                     usm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m))),
+                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m.into()))),
                 );
                 messages.extend(
                     sm.into_iter()
@@ -796,7 +795,10 @@ where
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
         let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
-        let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
+        let unsigned_box = unsigned
+            .into_iter()
+            .map(|msg| msg.into())
+            .map(ChainMessage::Unsigned);
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
         for message in unsigned_box.chain(signed_box) {

@@ -3,8 +3,9 @@
 pub mod json {
     use cid::Cid;
     use forest_message::SignedMessage;
+    use forest_shim::message::Message;
     use fvm_ipld_encoding::Cbor;
-    use fvm_shared::{crypto::signature::Signature, message::Message};
+    use fvm_shared::crypto::signature::Signature;
     use serde::{ser, Deserialize, Deserializer, Serialize, Serializer};
 
     use crate::{message, signature};
