@@ -356,15 +356,15 @@ class ForestBenchmark < Benchmark
   def clean_db(dry_run)
     config_path = "#{data_dir}/#{@name}.toml"
 
-    syscall(target_cli, '-c', config_path, 'db', 'clean', '--force') unless dry_run
+    exec_command([target_cli, '-c', config_path, 'db', 'clean', '--force'], dry_run)
   end
 
   def target
-    File.join(repository_name, 'target/release/forest')
+    File.join('.', repository_name, 'target/release/forest')
   end
 
   def target_cli
-    File.join(repository_name, 'target/release/forest-cli')
+    File.join('.', repository_name, 'target/release/forest-cli')
   end
 
   def repository_name
@@ -441,16 +441,20 @@ class ParityDbBenchmark < ForestBenchmark
 end
 
 # Benchmark class for Forest with ParityDb backend with Jemalloc allocator
-class JemallocBenchmark < Benchmark
-  Dir.chdir(repository_name) do
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
+class JemallocBenchmark < ForestBenchmark
+  def build_command(dry_run)
+    Dir.chdir(repository_name) do
+      exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
+    end
   end
 end
 
 # Benchmark class for Forest with ParityDb backend with Mimalloc allocator
-class MiMallocBenchmark < Benchmark
-  Dir.chdir(repository_name) do
-    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
+class MimallocBenchmark < ForestBenchmark
+  def build_command(dry_run)
+    Dir.chdir(repository_name) do
+      exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
+    end
   end
 end
 
@@ -557,7 +561,9 @@ end
 
 BENCHMARKS = [
   ForestBenchmark.new(name: 'baseline'),
-  ParityDbBenchmark.new(name: 'paritydb')
+  ParityDbBenchmark.new(name: 'paritydb'),
+  JemallocBenchmark.new(name: 'paritydb-jemalloc'),
+  MimallocBenchmark.new(name: 'paritydb-mimalloc')
 ].freeze
 
 options = {
