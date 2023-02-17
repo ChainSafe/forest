@@ -550,7 +550,7 @@ where
             vm.apply_message(msg)?;
         }
         let from_actor = vm
-            .get_actor(&message.from().into())
+            .get_actor(&message.from())
             .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
         message.set_sequence(from_actor.sequence);

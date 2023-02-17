@@ -496,7 +496,7 @@ where
                 );
 
                 Ok(BlockMessages {
-                    miner: b.miner_address().into(),
+                    miner: *b.miner_address(),
                     messages,
                     win_count: b
                         .election_proof()
