@@ -2949,7 +2949,6 @@ dependencies = [
  "hex",
  "human-repr",
  "jsonrpc-v2",
- "lazy_static",
  "log",
  "multibase",
  "num",
