@@ -9,17 +9,17 @@ Forest console stands as an alternative to tools like [Curl](https://github.com/
 
 Like for some other `forest-cli` subcommands you will need to pass an admin `--token` given what endpoints you will call.
 
-For a description of different options please refer to the developer documentation CLI page.
+For a description of different options please refer to the developer documentation [CLI page](https://github.com/ChainSafe/forest/blob/main/documentation/developer_documentation/CLI.md#cli).
 
 ## Interactive Use
 
 First start Forest node inside another terminal:
 
 ```bash
-./target/release/forest --chain calibnet --encrypt-keystore false
+forest --chain calibnet --encrypt-keystore false
 ```
 
-Copy the Admin token printed in the logs and set it to an environment variable, ie:
+Copy the Admin token printed in the logs and set it to an environment variable, i.e.:
 
 ```bash
 TOKEN="..."
@@ -28,7 +28,7 @@ TOKEN="..."
 To attach to your Forest node, run `forest-cli` with the `attach` subcommand:
 
 ```bash
-./target/release/forest-cli --token $TOKEN attach 
+forest-cli --token $TOKEN attach 
 ```
 
 You should now see a prompt and be able to interact:
@@ -60,13 +60,13 @@ It is also possible to execute commands non-interactively by passing `--exec` fl
 For example, to display the current epoch:
 
 ```bash
-./target/release/forest-cli attach --exec "syncStatus().ActiveSyncs[0].Epoch"
+forest-cli attach --exec "syncStatus().ActiveSyncs[0].Epoch"
 ```
 
 Or print node version:
 
 ```bash
-./target/release/forest-cli attach --exec "commonVersion()"
+forest-cli attach --exec "commonVersion()"
 ```
 
 ## Builtins
@@ -91,7 +91,7 @@ In addition to support part of the JavaScript language, the console also provide
 CommonJS modules is the way to package JavaScript code for Forest console. You can import modules using the `require` function:
 
 ```bash
-./target/release/forest-cli attach --exec "const Math = require('calc'); console.log(Math.add(39,3))"
+forest-cli attach --exec "const Math = require('calc'); console.log(Math.add(39,3))"
 ```
 
 where `calc.js` is:
