@@ -28,6 +28,13 @@ use rust_decimal_macros::dec;
 
 use super::{handle_rpc_err, Config};
 
+enum FormattingMode {
+    ExactFixed,
+    NotExactFixed,
+    ExactNotFixed,
+    NotExactNotFixed,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
     /// Create a new wallet
@@ -204,8 +211,10 @@ impl WalletCommands {
                         .map_err(handle_rpc_err)?;
 
                     let balance_dec = balance_string.parse::<Decimal>()?;
-                    let balance_string =
-                        format_balance_string(balance_dec, *exact_balance, *fixed_unit);
+                    let balance_string = format_balance_string(
+                        balance_dec,
+                        bool_pair_to_mode(*exact_balance, *fixed_unit),
+                    );
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_string}",);
                 }
@@ -267,18 +276,26 @@ impl WalletCommands {
     }
 }
 
-fn format_balance_string(num: Decimal, exact_balance: bool, fixed_unit: bool) -> String {
+fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
     let units = [
         "atto", "femto", "pico", "nano", "micro", "milli", "", "kilo", "mega", "giga", "tera",
         "peta", "exa", "zetta", "yotta",
     ];
     let orig = num;
 
-    if fixed_unit {
-        if exact_balance {
+    let mut num = num;
+    let mut unit_index = 0;
+    while num >= dec!(1000.0) && unit_index < units.len() - 1 {
+        num /= dec!(1000.0);
+        unit_index += 1;
+    }
+
+    match mode {
+        FormattingMode::ExactFixed => {
             let fil = orig / dec!(1e18);
             format!("{fil} FIL")
-        } else {
+        }
+        FormattingMode::NotExactFixed => {
             let fil_orig = orig / dec!(1e18);
             let fil = fil_orig.round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero);
             let mut res = format!("{} FIL", fil.trunc());
@@ -287,17 +304,8 @@ fn format_balance_string(num: Decimal, exact_balance: bool, fixed_unit: bool) ->
             }
             res
         }
-    } else {
-        let mut num = num;
-        let mut unit_index = 0;
-        while num >= dec!(1000.0) && unit_index < units.len() - 1 {
-            num /= dec!(1000.0);
-            unit_index += 1;
-        }
-
-        if exact_balance {
-            format!("{num:0} {} FIL", units[unit_index])
-        } else {
+        FormattingMode::ExactNotFixed => format!("{num:0} {} FIL", units[unit_index]),
+        FormattingMode::NotExactNotFixed => {
             let mut fil = num.round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero);
             if fil == fil.trunc() {
                 fil = fil.trunc();
@@ -313,17 +321,35 @@ fn format_balance_string(num: Decimal, exact_balance: bool, fixed_unit: bool) ->
     }
 }
 
+fn bool_pair_to_mode(exact: bool, fixed: bool) -> FormattingMode {
+    if exact && fixed {
+        FormattingMode::ExactFixed
+    } else if !exact && fixed {
+        FormattingMode::NotExactFixed
+    } else if exact && !fixed {
+        FormattingMode::ExactNotFixed
+    } else {
+        FormattingMode::NotExactNotFixed
+    }
+}
+
 #[test]
 fn exact_balance_fixed_unit() {
     let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, true,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, true)
+        ),
         "0.0000000000000001 FIL"
     );
 
     token_string = TokenAmount::from_atto(12465).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, true,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, true)
+        ),
         "0.000000000000012465 FIL"
     );
 }
@@ -332,7 +358,10 @@ fn exact_balance_fixed_unit() {
 fn not_exact_balance_fixed_unit() {
     let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, true)
+        ),
         "~0 FIL"
     );
 
@@ -340,13 +369,19 @@ fn not_exact_balance_fixed_unit() {
         .atto()
         .to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, true)
+        ),
         "~1 FIL"
     );
 
     token_string = TokenAmount::from_atto(1000005000).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, true)
+        ),
         "~0 FIL"
     );
 
@@ -354,7 +389,10 @@ fn not_exact_balance_fixed_unit() {
         .atto()
         .to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, true)
+        ),
         "~15 FIL"
     );
 }
@@ -363,25 +401,37 @@ fn not_exact_balance_fixed_unit() {
 fn exact_balance_not_fixed_unit() {
     let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, false)
+        ),
         "100 atto FIL"
     );
 
     token_string = TokenAmount::from_atto(120005).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, false)
+        ),
         "120.005 femto FIL"
     );
 
     token_string = TokenAmount::from_atto(200000045i64).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, false)
+        ),
         "200.000045 pico FIL"
     );
 
     token_string = TokenAmount::from_atto(1000000123).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, false)
+        ),
         "1.000000123 nano FIL"
     );
 
@@ -389,7 +439,10 @@ fn exact_balance_not_fixed_unit() {
         .atto()
         .to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, false)
+        ),
         "450.000008 micro FIL"
     );
 
@@ -397,7 +450,10 @@ fn exact_balance_not_fixed_unit() {
         .atto()
         .to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(true, false)
+        ),
         "90.00000275 milli FIL"
     );
 }
@@ -406,25 +462,37 @@ fn exact_balance_not_fixed_unit() {
 fn not_exact_balance_not_fixed_unit() {
     let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, false)
+        ),
         "100 atto FIL"
     );
 
     token_string = TokenAmount::from_atto(120005).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, false)
+        ),
         "120.005 femto FIL"
     );
 
     token_string = TokenAmount::from_atto(200000045i64).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, false)
+        ),
         "~200 pico FIL"
     );
 
     token_string = TokenAmount::from_atto(1000000123).atto().to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, false)
+        ),
         "~1 nano FIL"
     );
 
@@ -432,7 +500,10 @@ fn not_exact_balance_not_fixed_unit() {
         .atto()
         .to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, false)
+        ),
         "~450 micro FIL"
     );
 
@@ -440,7 +511,10 @@ fn not_exact_balance_not_fixed_unit() {
         .atto()
         .to_string();
     assert_eq!(
-        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
+        format_balance_string(
+            token_string.parse::<Decimal>().unwrap(),
+            bool_pair_to_mode(false, false)
+        ),
         "~90 milli FIL"
     );
 }
