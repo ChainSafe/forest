@@ -17,7 +17,7 @@ forest_blocks.workspace = true
 forest_chain.workspace = true
 forest_db.workspace = true
 forest_encoding.workspace = true
-forest_libp2p_bitswap.workspace = true
+forest_libp2p_bitswap = { workspace = true, features = ["tokio"] }
 forest_message.workspace = true
 forest_metrics.workspace = true
 forest_networks.workspace = true

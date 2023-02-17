@@ -1,19 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::FilterEstimate;
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
+use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
-use fvm::state_tree::ActorState;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::sector::StoragePower;
+use fvm_shared::{econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
-use anyhow::Context;
+use crate::FilterEstimate;
 
 /// Power actor address.
 // TODO: Select address based on actors version
@@ -110,8 +108,8 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V8(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
-            State::V9(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
+            State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
         }
     }
 
@@ -128,8 +126,12 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
-            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
+            State::V8(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
+            }
+            State::V9(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
+            }
         }
     }
 

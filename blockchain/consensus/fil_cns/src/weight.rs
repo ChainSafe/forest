@@ -2,21 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use forest_actor_interface::power;
 use forest_blocks::Tipset;
-use fvm::state_tree::StateTree;
+use forest_shim::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use num::{BigInt, Integer};
 use num_traits::Zero;
 
 // constants for Weight calculation
-/// The ratio of weight contributed by short-term vs long-term factors in a given round
+/// The ratio of weight contributed by short-term vs long-term factors in a
+/// given round
 const W_RATIO_NUM: u64 = 1;
 const W_RATIO_DEN: u64 = 2;
 
 /// Blocks epoch allowed
 const BLOCKS_PER_EPOCH: u64 = 5;
 
-/// Returns the weight of provided [Tipset]. This function will load power actor state
-/// and calculate the total weight of the [Tipset].
+/// Returns the weight of provided [Tipset]. This function will load power actor
+/// state and calculate the total weight of the [Tipset].
 pub(crate) fn weight<DB>(db: &DB, ts: &Tipset) -> Result<BigInt, String>
 where
     DB: Blockstore,

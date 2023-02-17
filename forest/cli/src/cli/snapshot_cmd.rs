@@ -1,10 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
-use crate::cli::{cli_error_and_die, handle_rpc_err};
+use std::{fs, path::PathBuf, sync::Arc};
+
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
+use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
@@ -12,33 +13,34 @@ use forest_cli_shared::cli::{
     default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 use forest_db::{db_engine::open_db, Store};
-use forest_genesis::read_genesis_header;
+use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
-use fvm_ipld_car::load_car;
 use fvm_shared::clock::ChainEpoch;
-use std::{fs, path::PathBuf, sync::Arc};
 use strfmt::strfmt;
-use structopt::StructOpt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
+use super::*;
+use crate::cli::{cli_error_and_die, handle_rpc_err};
+
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Subcommand)]
 pub enum SnapshotCommands {
     /// Export a snapshot of the chain to `<output_path>`
     Export {
         /// Tipset to start the export from, default is the chain head
-        #[structopt(short, long)]
+        #[arg(short, long)]
         tipset: Option<i64>,
         /// Specify the number of recent state roots to include in the export.
-        #[structopt(short, long, default_value = "2000")]
+        #[arg(short, long, default_value = "2000")]
         recent_stateroots: i64,
-        /// Snapshot output path. Default to `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
+        /// Snapshot output path. Default to
+        /// `forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car`
         /// Date is in ISO 8601 date format.
         /// Arguments:
         ///  - chain - chain name e.g. `mainnet`
@@ -46,28 +48,24 @@ pub enum SnapshotCommands {
         ///  - month
         ///  - day
         ///  - height - the epoch
-        #[structopt(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
+        #[arg(short, default_value = OUTPUT_PATH_DEFAULT_FORMAT, verbatim_doc_comment)]
         output_path: PathBuf,
         /// Skip creating the checksum file.
-        #[structopt(long)]
+        #[arg(long)]
         skip_checksum: bool,
     },
 
     /// Fetches the most recent snapshot from a trusted, pre-defined location.
     Fetch {
-        /// Directory to which the snapshot should be downloaded. If not provided, it will be saved
-        /// in default Forest data location.
-        #[structopt(short, long)]
+        /// Directory to which the snapshot should be downloaded. If not
+        /// provided, it will be saved in default Forest data location.
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
         /// Snapshot trusted source
-        #[structopt(
-            short,
-            long,
-            possible_values = &["forest", "filecoin"],
-        )]
+        #[arg(short, long, value_enum)]
         provider: Option<SnapshotServer>,
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
-        #[structopt(long)]
+        #[arg(long)]
         aria2: bool,
     },
 
@@ -76,9 +74,9 @@ pub enum SnapshotCommands {
 
     /// List local snapshots
     List {
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
-        #[structopt(short, long)]
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
     },
 
@@ -87,50 +85,51 @@ pub enum SnapshotCommands {
         /// Snapshot filename to remove
         filename: PathBuf,
 
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
-        #[structopt(short, long)]
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 
     /// Prune local snapshot, keeps the latest only.
-    /// Note that file names that do not match forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
+    /// Note that file names that do not match
+    /// forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car
     /// pattern will be ignored
     Prune {
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
-        #[structopt(short, long)]
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 
     /// Clean all local snapshots, use with care.
     Clean {
-        /// Directory to which the snapshots are downloaded. If not provided, it will be the
-        /// default Forest data location.
-        #[structopt(short, long)]
+        /// Directory to which the snapshots are downloaded. If not provided, it
+        /// will be the default Forest data location.
+        #[arg(short, long)]
         snapshot_dir: Option<PathBuf>,
 
         /// Answer yes to all forest-cli yes/no questions without prompting
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
     /// Validates the snapshot.
     Validate {
         /// Number of block headers to validate from the tip
-        #[structopt(long, default_value = "2000")]
+        #[arg(long, default_value = "2000")]
         recent_stateroots: i64,
         /// Path to snapshot file
         snapshot: PathBuf,
         /// Force validation and answers yes to all prompts.
-        #[structopt(long)]
+        #[arg(long)]
         force: bool,
     },
 }
@@ -385,7 +384,7 @@ async fn validate(
         let cids = {
             let file = tokio::fs::File::open(&snapshot).await?;
             let reader = FetchProgress::fetch_from_file(file).await?;
-            load_car(chain_store.blockstore(), reader.compat()).await?
+            forest_load_car(chain_store.blockstore(), reader.compat()).await?
         };
 
         let ts = chain_store.tipset_from_keys(&TipsetKeys::new(cids))?;
@@ -425,11 +424,12 @@ where
     pb.message("Validating tipsets: ");
     pb.set_max_refresh_rate(Some(std::time::Duration::from_millis(500)));
 
-    // Security: Recursive snapshots are difficult to create but not impossible. This
-    // limits the amount of recursion we do.
+    // Security: Recursive snapshots are difficult to create but not impossible.
+    // This limits the amount of recursion we do.
     let mut prev_epoch = ts.epoch();
     loop {
-        // if we reach 0 here, it means parent traversal didn't end up reaching genesis properly, bail with error.
+        // if we reach 0 here, it means parent traversal didn't end up reaching genesis
+        // properly, bail with error.
         if prev_epoch <= 0 {
             bail!("Broken invariant: no genesis tipset in snapshot.");
         }

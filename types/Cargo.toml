@@ -10,6 +10,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 filecoin-proofs-api = { workspace = true, default-features = false }
+forest_shim.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 

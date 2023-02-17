@@ -1,11 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_ipld::selector::Selector;
-use forest_ipld::{json, Ipld};
+use std::{fs::File, io::BufReader};
+
+use forest_ipld::{json, selector::Selector, Ipld};
 use serde::Deserialize;
-use std::fs::File;
-use std::io::BufReader;
 
 #[derive(Deserialize)]
 struct ExploreParams {
@@ -22,7 +21,8 @@ struct TestVector {
     result_selector: Option<Selector>,
 }
 
-// Just needed because cannot deserialize the current selector position in recursive selectors
+// Just needed because cannot deserialize the current selector position in
+// recursive selectors
 fn test_equal(s1: &Option<Selector>, s2: &Option<Selector>) -> bool {
     use Selector::*;
     if let (

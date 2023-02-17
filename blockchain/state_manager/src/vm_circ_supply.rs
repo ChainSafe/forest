@@ -9,11 +9,9 @@ use forest_actor_interface::{
 use forest_chain::*;
 use forest_db::Store;
 use forest_networks::{ChainConfig, Height};
-use fvm::state_tree::{ActorState, StateTree};
+use forest_shim::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
@@ -89,8 +87,8 @@ impl GenesisInfo {
     }
 }
 
-/// Vesting schedule info. These states are lazily filled, to avoid doing until needed
-/// to calculate circulating supply.
+/// Vesting schedule info. These states are lazily filled, to avoid doing until
+/// needed to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
     genesis: Vec<(ChainEpoch, TokenAmount)>,
@@ -108,13 +106,13 @@ impl GenesisInfoVesting {
     }
 }
 
-fn get_actor_state<DB: Blockstore>(
+fn get_actor_state<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
     state_tree
-        .get_actor(addr)?
-        .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {}", addr))
+        .get_actor(&addr.into())?
+        .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {addr}"))
 }
 
 fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
@@ -188,7 +186,8 @@ fn get_fil_reserve_disbursed<DB: Blockstore + Store + Clone>(
     let reserve_actor = get_actor_state(state_tree, &RESERVE_ADDRESS)?;
 
     // If money enters the reserve actor, this could lead to a negative term
-    Ok(fil_reserved - reserve_actor.balance)
+    let value = forest_shim::econ::TokenAmount::from(fil_reserved);
+    Ok(forest_shim::econ::TokenAmount::from(&*value - &reserve_actor.balance).into())
 }
 
 fn get_fil_locked<DB: Blockstore + Store + Clone>(
@@ -204,7 +203,7 @@ fn get_fil_burnt<DB: Blockstore + Store + Clone>(
 ) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, &BURNT_FUNDS_ACTOR_ADDR)?;
 
-    Ok(burnt_actor.balance)
+    Ok(forest_shim::econ::TokenAmount::from(&burnt_actor.balance).into())
 }
 
 fn setup_genesis_vesting_schedule() -> Vec<(ChainEpoch, TokenAmount)> {
@@ -245,7 +244,8 @@ fn setup_calico_vesting_schedule(
         .collect()
 }
 
-// This exact code (bugs and all) has to be used. The results are locked into the blockchain.
+// This exact code (bugs and all) has to be used. The results are locked into
+// the blockchain.
 /// Returns amount locked in multisig contract
 fn v0_amount_locked(
     unlock_duration: ChainEpoch,

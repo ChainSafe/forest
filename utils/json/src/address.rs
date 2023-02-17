@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use fvm_shared::address::Address;
+use forest_shim::address::Address;
 
 pub mod json {
+    use std::{borrow::Cow, str::FromStr};
+
+    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+
     use super::*;
-    use serde::{de, Serialize};
-    use serde::{Deserialize, Deserializer, Serializer};
-    use std::borrow::Cow;
-    use std::str::FromStr;
 
     /// Wrapper for serializing and de-serializing a `SignedMessage` from JSON.
     #[derive(Deserialize, Serialize)]
@@ -48,10 +48,10 @@ pub mod json {
     }
 
     pub mod vec {
-        use super::*;
-        use super::{AddressJson, AddressJsonRef};
         use forest_utils::json::GoVecVisitor;
         use serde::ser::SerializeSeq;
+
+        use super::{AddressJson, AddressJsonRef, *};
 
         /// Wrapper for serializing and de-serializing a Cid vector from JSON.
         #[derive(Deserialize, Serialize)]
@@ -83,9 +83,11 @@ pub mod json {
     }
 
     pub mod opt {
-        use super::*;
-        use serde::{self, Deserialize, Deserializer, Serializer};
         use std::borrow::Cow;
+
+        use serde::{self, Deserialize, Deserializer, Serializer};
+
+        use super::*;
 
         const UNDEF_ADDR_STRING: &str = "<empty>";
 
@@ -117,9 +119,10 @@ pub mod json {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::*;
 
     #[cfg(test)]
     #[derive(Clone, Debug, PartialEq)]
@@ -130,11 +133,13 @@ mod tests {
     #[cfg(test)]
     impl quickcheck::Arbitrary for AddressWrapper {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let address = arbitrary::Arbitrary::arbitrary(&mut arbitrary::Unstructured::new(
-                &Vec::arbitrary(g),
-            ))
+            let address: fvm_shared::address::Address = arbitrary::Arbitrary::arbitrary(
+                &mut arbitrary::Unstructured::new(&Vec::arbitrary(g)),
+            )
             .unwrap();
-            AddressWrapper { address }
+            AddressWrapper {
+                address: Address::from(address),
+            }
         }
     }
 

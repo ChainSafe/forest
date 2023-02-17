@@ -8,8 +8,8 @@
 [![dependency status](https://deps.rs/repo/github/ChainSafe/forest/status.svg?style=for-the-badge)](https://deps.rs/repo/github/ChainSafe/forest)
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
-[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
-[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE)
+[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT)
 [![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
 [![Discord](https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
 
@@ -80,6 +80,10 @@ NOTE: protobuf needs to be installed manually, and protoc needs to present in PA
 ```
 sudo dnf install -y clang-devel ocl-icd-devel protobuf-compiler cmake
 ```
+### Alpine
+```
+apk add git curl protobuf make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
+```
 
 ## Installation
 ```shell
@@ -109,6 +113,11 @@ make install # install forest daemon and cli
 
 ### Config
 
+#### Keystore
+To encrypt the keystore while in headless mode, set the `FOREST_KEYSTORE_PHRASE` environmental variable. Otherwise, skip the encryption (not recommended in production environments) with `--encrypt-keystore false`.
+
+
+#### Network
 Run the node with custom config and bootnodes
 
 ```bash
@@ -127,6 +136,8 @@ bootstrap_peers = ["<multiaddress>"]
 ```
 
 Example of a [multiaddress](https://github.com/multiformats/multiaddr): `"/ip4/54.186.82.90/tcp/1347/p2p/12D3K1oWKNF7vNFEhnvB45E9mw2B5z6t419W3ziZPLdUDVnLLKGs"`
+
+#### Configuration sources
 
 Forest will look for config files in the following order and priority:
  * Paths passed to the command line via the `--config` flag.
@@ -148,6 +159,12 @@ Will show all debug logs by default, but the `forest_libp2p::service` logs will 
 Forest can also send telemetry to the endpoint of a Loki instance or a Loki agent (see [Grafana Cloud](https://grafana.com/oss/loki/)). Use `--loki` to enable it and `--loki-endpoint` to specify the interface and the port.
 
 ### Testing
+First, install the [`nextest`](https://nexte.st/) test runner.
+
+```bash
+cargo install cargo-nextest --locked
+```
+
 ```bash
 # To run base tests
 cargo nextest run # use `make test-release` for longer compilation but faster execution
@@ -183,9 +200,6 @@ cargo install cargo-udeps --locked
 
 # Spellcheck
 cargo install cargo-spellcheck
-
-# Test runner
-cargo install cargo-nextest --locked
 ```
 After everything is installed, you can run `make lint-all`.
 

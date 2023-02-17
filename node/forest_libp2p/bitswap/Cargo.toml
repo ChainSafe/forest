@@ -9,7 +9,9 @@ edition.workspace = true
 [dependencies]
 ahash.workspace = true
 anyhow.workspace = true
+async-std = "1"
 async-trait.workspace = true
+cfg-if = "1"
 flume.workspace = true
 futures.workspace = true
 lazy_static.workspace = true
@@ -17,7 +19,36 @@ libipld = { workspace = true, default-features = false }
 libp2p = { workspace = true, default-features = false, features = ["request-response", "macros"] }
 parking_lot.workspace = true
 prometheus.workspace = true
-prost.workspace = true
-tokio = { workspace = true, features = ["rt", "time"] }
+protobuf = "3.2"
 tracing.workspace = true
 unsigned-varint.workspace = true
+
+# Optional
+tokio = { workspace = true, optional = true, features = ["time", "rt"] }
+
+[dev-dependencies]
+flume.workspace = true
+libp2p = { workspace = true, default-features = false, features = [
+  "tcp",
+  "noise",
+  "yamux",
+  "request-response",
+  "tokio",
+] }
+rand.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "macros"] }
+
+[build-dependencies]
+anyhow.workspace = true
+protobuf-codegen = "3.2"
+walkdir = "2.3"
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["async-std"]
+development = []
+build = []
+
+[features]
+default = []
+
+tokio = ["dep:tokio"]

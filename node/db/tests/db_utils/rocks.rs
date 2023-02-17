@@ -1,9 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_db::rocks::RocksDb;
-use forest_db::rocks_config::RocksDbConfig;
 use std::ops::Deref;
+
+use forest_db::{rocks::RocksDb, rocks_config::RocksDbConfig};
 
 /// Temporary, self-cleaning RocksDB
 pub struct TempRocksDB {
@@ -12,8 +12,8 @@ pub struct TempRocksDB {
 }
 
 impl TempRocksDB {
-    /// Creates a new DB in a temporary path that gets wiped out when the variable
-    /// gets out of scope.
+    /// Creates a new DB in a temporary path that gets wiped out when the
+    /// variable gets out of scope.
     pub fn new() -> TempRocksDB {
         let dir = tempfile::Builder::new()
             .tempdir()

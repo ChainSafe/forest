@@ -1,27 +1,32 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::cli::set_sigint_handler;
+use std::{io::prelude::*, net::TcpListener, path::PathBuf, sync::Arc, time, time::Duration};
+
 use anyhow::Context;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use forest_blocks::Tipset;
 use forest_chain::ChainStore;
-use forest_chain_sync::consensus::SyncGossipSubmitter;
-use forest_chain_sync::ChainMuxer;
-use forest_cli_shared::chain_path;
-use forest_cli_shared::cli::{
-    default_snapshot_dir, is_aria2_installed, snapshot_fetch, Client, Config, FOREST_VERSION_STRING,
+use forest_chain_sync::{consensus::SyncGossipSubmitter, ChainMuxer};
+use forest_cli_shared::{
+    chain_path,
+    cli::{
+        default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
+        to_size_string, Client, Config, FOREST_VERSION_STRING,
+    },
 };
 use forest_db::{
     db_engine::{db_path, open_db, Db},
     Store,
 };
 use forest_genesis::{get_network_name_from_genesis, import_chain, read_genesis_header};
-use forest_key_management::ENCRYPTED_KEYSTORE_NAME;
-use forest_key_management::{KeyStore, KeyStoreConfig};
-use forest_libp2p::{ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService};
-use forest_libp2p::{PeerId, PeerManager};
+use forest_key_management::{
+    KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
+};
+use forest_libp2p::{
+    ed25519, get_keypair, Keypair, Libp2pConfig, Libp2pService, PeerId, PeerManager,
+};
 use forest_message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
@@ -33,26 +38,20 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use std::net::TcpListener;
-use std::time::Duration;
-use tokio::sync::RwLock;
-use tokio::task::JoinSet;
+use tokio::{sync::RwLock, task::JoinSet};
 
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time;
+use super::cli::set_sigint_handler;
 
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
 
 // Default consensus
-#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
-use forest_fil_cns::composition as cns;
 // Custom consensus.
 #[cfg(feature = "forest_deleg_cns")]
 use forest_deleg_cns::composition as cns;
+#[cfg(all(feature = "forest_fil_cns", not(any(feature = "forest_deleg_cns"))))]
+use forest_fil_cns::composition as cns;
 
 fn unblock_parent_process() -> anyhow::Result<()> {
     let shmem = super::ipc_shmem_conf().open()?;
@@ -87,58 +86,24 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
         }
     }?;
 
-    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the peer's multiaddress.
-    // Useful if others want to use this node to bootstrap from.
+    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
+    // peer's multiaddress. Useful if others want to use this node to bootstrap
+    // from.
     info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
-    let mut ks = if config.client.encrypt_keystore {
-        loop {
-            print!("Enter the keystore passphrase: ");
-            std::io::stdout().flush()?;
+    let mut keystore = create_keystore(&config)?;
 
-            let passphrase = read_password()?;
-
-            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
-            if !data_dir.exists() {
-                print!("Confirm passphrase: ");
-                std::io::stdout().flush()?;
-
-                if passphrase != read_password()? {
-                    error!("Passphrases do not match. Please retry.");
-                    continue;
-                }
-            }
-
-            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
-                PathBuf::from(&config.client.data_dir),
-                passphrase,
-            ));
-
-            match key_store_init_result {
-                Ok(ks) => break ks,
-                Err(_) => {
-                    error!("Incorrect passphrase entered. Please try again.")
-                }
-            };
-        }
-    } else {
-        warn!("Warning: Keystore encryption disabled!");
-        KeyStore::new(KeyStoreConfig::Persistent(PathBuf::from(
-            &config.client.data_dir,
-        )))?
-    };
-
-    if ks.get(JWT_IDENTIFIER).is_err() {
-        ks.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
+    if keystore.get(JWT_IDENTIFIER).is_err() {
+        keystore.put(JWT_IDENTIFIER.to_owned(), generate_priv_key())?;
     }
 
     // Print admin token
-    let ki = ks.get(JWT_IDENTIFIER)?;
+    let ki = keystore.get(JWT_IDENTIFIER)?;
     let token_exp = config.client.token_exp;
     let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
     info!("Admin token: {}", token);
 
-    let keystore = Arc::new(RwLock::new(ks));
+    let keystore = Arc::new(RwLock::new(keystore));
 
     let db = open_db(&db_path(&chain_path(&config)), config.db_config())?;
 
@@ -163,7 +128,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     }
 
     // Read Genesis file
-    // * When snapshot command implemented, this genesis does not need to be initialized
+    // * When snapshot command implemented, this genesis does not need to be
+    //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
         config.chain.genesis_bytes(),
@@ -189,13 +155,15 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
     let epoch = chain_store.heaviest_tipset().epoch();
     let nv = config.chain.network_version(epoch);
     let should_fetch_snapshot = if nv < NetworkVersion::V16 {
-        prompt_snapshot_or_die(&config)?
+        prompt_snapshot_or_die(&config).await?
     } else {
         false
     };
 
-    // Reward calculation is needed by the VM to calculate state, which can happen essentially anywhere the `StateManager` is called.
-    // It is consensus specific, but threading it through the type system would be a nightmare, which is why dynamic dispatch is used.
+    // Reward calculation is needed by the VM to calculate state, which can happen
+    // essentially anywhere the `StateManager` is called. It is consensus
+    // specific, but threading it through the type system would be a nightmare,
+    // which is why dynamic dispatch is used.
     let reward_calc = cns::reward_calc();
 
     // Initialize StateManager
@@ -261,7 +229,8 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
 
     let mpool = Arc::new(mpool);
 
-    // For consensus types that do mining, create a component to submit their proposals.
+    // For consensus types that do mining, create a component to submit their
+    // proposals.
     let submitter = SyncGossipSubmitter::new(
         network_name.clone(),
         network_send.clone(),
@@ -314,7 +283,9 @@ pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> 
                     sync_state,
                     network_send,
                     network_name,
-                    beacon: rpc_state_manager.beacon_schedule(), // TODO: the RPCState can fetch this itself from the StateManager
+                    beacon: rpc_state_manager.beacon_schedule(), /* TODO: the RPCState can fetch
+                                                                  * this itself from the
+                                                                  * StateManager */
                     chain_store: rpc_chain_store,
                     new_mined_block_tx: tipset_sink,
                 }),
@@ -395,7 +366,8 @@ async fn propagate_error(services: &mut JoinSet<Result<(), anyhow::Error>>) -> a
     }
 }
 
-/// Optionally fetches the snapshot. Returns the configuration (modified accordingly if a snapshot was fetched).
+/// Optionally fetches the snapshot. Returns the configuration (modified
+/// accordingly if a snapshot was fetched).
 async fn maybe_fetch_snapshot(
     should_fetch_snapshot: bool,
     config: Config,
@@ -416,17 +388,19 @@ async fn maybe_fetch_snapshot(
     }
 }
 
-/// Last resort in case a snapshot is needed. If it is not to be downloaded, this method fails and
-/// exits the process.
-fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
+/// Last resort in case a snapshot is needed. If it is not to be downloaded,
+/// this method fails and exits the process.
+async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if config.client.snapshot_path.is_some() {
         return Ok(false);
     }
     let should_download = if !config.client.auto_download_snapshot && atty::is(atty::Stream::Stdin)
     {
+        let required_size: u64 = snapshot_fetch_size(config).await?;
+        let required_size = to_size_string(&required_size.into())?;
         Confirm::with_theme(&ColorfulTheme::default())
                 .with_prompt(
-                    "Forest needs a snapshot to sync with the network. Would you like to download one now?",
+                    format!("Forest needs a snapshot to sync with the network. Would you like to download one now? Required disk space {required_size}."),
                 )
                 .default(false)
                 .interact()
@@ -483,13 +457,70 @@ fn get_actual_chain_name(internal_network_name: &str) -> &str {
     }
 }
 
+fn create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
+    let passphrase = std::env::var(FOREST_KEYSTORE_PHRASE_ENV);
+    let is_interactive = atty::is(atty::Stream::Stdin);
+
+    // encrypted keystore, headless
+    if config.client.encrypt_keystore && passphrase.is_err() && !is_interactive {
+        anyhow::bail!("Passphrase for the keystore was not provided and the encryption was not explicitly disabled. Please set the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable and re-run the command");
+    // encrypted keystore, either headless or interactive, passphrase provided
+    } else if config.client.encrypt_keystore && passphrase.is_ok() {
+        let passphrase = passphrase.unwrap();
+
+        let keystore = KeyStore::new(KeyStoreConfig::Encrypted(
+            PathBuf::from(&config.client.data_dir),
+            passphrase,
+        ));
+
+        keystore.map_err(|_| anyhow::anyhow!("Incorrect passphrase. Please verify the {FOREST_KEYSTORE_PHRASE_ENV} environmental variable."))
+    // encrypted keystore, interactive, passphrase not provided
+    } else if config.client.encrypt_keystore && passphrase.is_err() && is_interactive {
+        loop {
+            print!("Enter the keystore passphrase: ");
+            std::io::stdout().flush()?;
+
+            let passphrase = read_password()?;
+
+            let data_dir = PathBuf::from(&config.client.data_dir).join(ENCRYPTED_KEYSTORE_NAME);
+            if !data_dir.exists() {
+                print!("Confirm passphrase: ");
+                std::io::stdout().flush()?;
+
+                if passphrase != read_password()? {
+                    error!("Passphrases do not match. Please retry.");
+                    continue;
+                }
+            }
+
+            let key_store_init_result = KeyStore::new(KeyStoreConfig::Encrypted(
+                config.client.data_dir.clone(),
+                passphrase,
+            ));
+
+            match key_store_init_result {
+                Ok(ks) => break Ok(ks),
+                Err(_) => {
+                    error!("Incorrect passphrase entered. Please try again.")
+                }
+            };
+        }
+    } else {
+        warn!("Warning: Keystore encryption disabled!");
+        Ok(KeyStore::new(KeyStoreConfig::Persistent(
+            config.client.data_dir.clone(),
+        ))?)
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::*;
     use forest_blocks::BlockHeader;
     use forest_db::MemoryDB;
     use forest_networks::ChainConfig;
-    use fvm_shared::address::Address;
+    use forest_shim::address::Address;
+
+    use super::*;
 
     #[tokio::test]
     async fn import_snapshot_from_file_valid() -> anyhow::Result<()> {

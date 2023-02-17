@@ -1,21 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{convert::TryFrom, sync::Arc};
+
 use cid::Cid;
 use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
 use forest_encoding::tuple::*;
 use forest_message::SignedMessage;
 use fvm_shared::message::Message;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::convert::TryFrom;
-use std::sync::Arc;
 
 /// `ChainExchange` Filecoin header set bit.
 pub const HEADERS: u64 = 0b01;
 /// `ChainExchange` Filecoin messages set bit.
 pub const MESSAGES: u64 = 0b10;
 
-/// The payload that gets sent to another node to request for blocks and messages.
+/// The payload that gets sent to another node to request for blocks and
+/// messages.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeRequest {
     /// The tipset [Cid] to start the request from.
@@ -32,7 +33,8 @@ impl ChainExchangeRequest {
         self.options & HEADERS > 0
     }
 
-    /// If a request has the [MESSAGES] bit set and requests messages of a block.
+    /// If a request has the [MESSAGES] bit set and requests messages of a
+    /// block.
     pub fn include_messages(&self) -> bool {
         self.options & MESSAGES > 0
     }
@@ -128,7 +130,8 @@ pub struct ChainExchangeResponse {
 impl ChainExchangeResponse {
     /// Converts `chain_exchange` response into result.
     /// Returns an error if the response status is not `Ok`.
-    /// Tipset bundle is converted into generic return type with `TryFrom` trait implementation.
+    /// Tipset bundle is converted into generic return type with `TryFrom` trait
+    /// implementation.
     pub fn into_result<T>(self) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String>,
@@ -207,7 +210,8 @@ impl TryFrom<&TipsetBundle> for FullTipset {
     }
 }
 
-/// Constructs a [`FullTipset`] from headers and compacted messages from a bundle.
+/// Constructs a [`FullTipset`] from headers and compacted messages from a
+/// bundle.
 fn fts_from_bundle_parts(
     headers: Vec<BlockHeader>,
     messages: Option<&CompactedMessages>,
@@ -263,9 +267,10 @@ fn fts_from_bundle_parts(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::*;
 
     #[quickcheck]
     fn chain_exchange_response_status_roundtrip(status: ChainExchangeResponseStatus) {

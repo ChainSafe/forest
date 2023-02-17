@@ -1,16 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::convert::TryFrom;
+
 use forest_blocks::{Block, BlockHeader, FullTipset};
 use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::Signature;
-use fvm_shared::message::Message;
+use forest_shim::address::Address;
+use fvm_shared::{crypto::signature::Signature, message::Message};
 use num::BigInt;
-use std::convert::TryFrom;
 
 #[test]
 fn convert_single_tipset_bundle() {
@@ -56,23 +56,23 @@ fn tipset_bundle_to_full_tipset() {
         .build()
         .unwrap();
     let ua = Message {
-        to: Address::new_id(0),
-        from: Address::new_id(0),
+        to: Address::new_id(0).into(),
+        from: Address::new_id(0).into(),
         ..Message::default()
     };
     let ub = Message {
-        to: Address::new_id(1),
-        from: Address::new_id(1),
+        to: Address::new_id(1).into(),
+        from: Address::new_id(1).into(),
         ..Message::default()
     };
     let uc = Message {
-        to: Address::new_id(2),
-        from: Address::new_id(2),
+        to: Address::new_id(2).into(),
+        from: Address::new_id(2).into(),
         ..Message::default()
     };
     let ud = Message {
-        to: Address::new_id(3),
-        from: Address::new_id(3),
+        to: Address::new_id(3).into(),
+        from: Address::new_id(3).into(),
         ..Message::default()
     };
     let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
@@ -117,7 +117,8 @@ fn tipset_bundle_to_full_tipset() {
     );
 
     if let Some(m) = tsb.messages.as_mut() {
-        // Invalidate tipset bundle by not having includes same length as number of blocks
+        // Invalidate tipset bundle by not having includes same length as number of
+        // blocks
         m.secp_msg_includes = vec![vec![0]];
     }
     assert!(

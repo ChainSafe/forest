@@ -1,11 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::*;
-use crate::{election_proof, ticket, tipset::tipset_keys_json};
 use forest_beacon::beacon_entries;
 use forest_json::{sector, signature};
+use forest_shim::sector::PoStProof;
 use serde::{de, Deserialize, Serialize};
+
+use super::*;
+use crate::{election_proof, ticket, tipset::tipset_keys_json};
 
 // Wrapper for serializing and deserializing a BlockHeader from JSON.
 #[derive(Deserialize, Serialize)]
@@ -64,7 +66,7 @@ where
         miner: m.miner_address.to_string(),
         ticket: &m.ticket,
         election_proof: &m.election_proof,
-        winning_post_proof: &m.winning_post_proof,
+        winning_post_proof: m.winning_post_proof.as_slice(),
         parents: &m.parents,
         weight: m.weight.to_string(),
         height: &m.epoch,
@@ -147,9 +149,10 @@ where
 }
 
 pub mod vec {
-    use super::*;
     use forest_utils::json::GoVecVisitor;
     use serde::ser::SerializeSeq;
+
+    use super::*;
 
     pub fn serialize<S>(m: &[BlockHeader], serializer: S) -> Result<S::Ok, S::Error>
     where

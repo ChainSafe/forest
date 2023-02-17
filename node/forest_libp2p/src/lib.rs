@@ -14,13 +14,13 @@ mod peer_manager;
 pub mod rpc;
 mod service;
 
-pub(crate) use self::behaviour::*;
-pub use self::config::*;
-pub use self::peer_manager::*;
-pub use self::service::*;
-
 // Re-export some libp2p types
-pub use libp2p::core::PeerId;
-pub use libp2p::identity::{ed25519, Keypair};
-pub use libp2p::multiaddr::{Multiaddr, Protocol};
+pub use libp2p::{
+    core::PeerId,
+    identity::{ed25519, Keypair},
+    multiaddr::{Multiaddr, Protocol},
+};
 pub use multihash::Multihash;
+
+pub(crate) use self::behaviour::*;
+pub use self::{config::*, peer_manager::*, service::*};

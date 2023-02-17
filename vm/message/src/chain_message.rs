@@ -1,17 +1,19 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Borrow;
+
+use cid::Cid;
+use forest_shim::{address::Address, econ::TokenAmount, message::Message};
+use fvm_ipld_encoding::{Cbor, Error, RawBytes};
+use fvm_shared::MethodNum;
+use serde::{Deserialize, Serialize};
+
 use super::Message as MessageTrait;
 use crate::signed_message::SignedMessage;
 
-use cid::Cid;
-use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::message::Message;
-use fvm_shared::MethodNum;
-use fvm_shared::{address::Address, econ::TokenAmount};
-use serde::{Deserialize, Serialize};
-
-/// `Enum` to encapsulate signed and unsigned messages. Useful when working with both types
+/// `Enum` to encapsulate signed and unsigned messages. Useful when working with
+/// both types
 #[derive(Clone, Debug, Serialize, Deserialize, Hash)]
 #[serde(untagged)]
 pub enum ChainMessage {
@@ -29,16 +31,16 @@ impl ChainMessage {
 }
 
 impl MessageTrait for ChainMessage {
-    fn from(&self) -> &Address {
+    fn from(&self) -> Address {
         match self {
             Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => &t.from,
+            Self::Unsigned(t) => Address::from(t.from),
         }
     }
-    fn to(&self) -> &Address {
+    fn to(&self) -> Address {
         match self {
             Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => &t.to,
+            Self::Unsigned(t) => Address::from(t.to),
         }
     }
     fn sequence(&self) -> u64 {
@@ -47,10 +49,10 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.sequence,
         }
     }
-    fn value(&self) -> &TokenAmount {
+    fn value(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.value(),
-            Self::Unsigned(t) => &t.value,
+            Self::Unsigned(t) => t.value.borrow().into(),
         }
     }
     fn method_num(&self) -> MethodNum {
@@ -86,33 +88,33 @@ impl MessageTrait for ChainMessage {
     fn required_funds(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.required_funds(),
-            Self::Unsigned(t) => &t.gas_fee_cap * t.gas_limit + &t.value,
+            Self::Unsigned(t) => (&t.gas_fee_cap * t.gas_limit + &t.value).into(),
         }
     }
-    fn gas_fee_cap(&self) -> &TokenAmount {
+    fn gas_fee_cap(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.gas_fee_cap(),
-            Self::Unsigned(t) => &t.gas_fee_cap,
+            Self::Unsigned(t) => (&t.gas_fee_cap).into(),
         }
     }
-    fn gas_premium(&self) -> &TokenAmount {
+    fn gas_premium(&self) -> TokenAmount {
         match self {
             Self::Signed(t) => t.gas_premium(),
-            Self::Unsigned(t) => &t.gas_premium,
+            Self::Unsigned(t) => (&t.gas_premium).into(),
         }
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_fee_cap(cap),
-            Self::Unsigned(t) => t.gas_fee_cap = cap,
+            Self::Unsigned(t) => t.gas_fee_cap = cap.into(),
         }
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
         match self {
             Self::Signed(t) => t.set_gas_premium(prem),
-            Self::Unsigned(t) => t.gas_premium = prem,
+            Self::Unsigned(t) => t.gas_premium = prem.into(),
         }
     }
 }

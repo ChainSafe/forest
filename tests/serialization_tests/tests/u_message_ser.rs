@@ -4,13 +4,14 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
+use std::{fs::File, io::prelude::*};
+
 use forest_json::message;
+use forest_shim::address::{set_current_network, Network};
 use fvm_ipld_encoding::to_vec;
 use fvm_shared::message::Message;
 use hex::encode;
 use serde::Deserialize;
-use std::fs::File;
-use std::io::prelude::*;
 
 #[derive(Deserialize)]
 struct TestVector {
@@ -28,6 +29,8 @@ fn encode_assert_cbor(message: &Message, expected: &str) {
 
 #[test]
 fn unsigned_message_cbor_vectors() {
+    set_current_network(Network::Testnet);
+
     let mut file = File::open("serialization-vectors/unsigned_messages.json").unwrap();
     let mut string = String::new();
     file.read_to_string(&mut string).unwrap();

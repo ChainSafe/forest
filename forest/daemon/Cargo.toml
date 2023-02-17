@@ -15,6 +15,7 @@ path = "src/main.rs"
 anes = "0.1.6"
 anyhow.workspace = true
 atty.workspace = true
+clap.workspace = true
 ctrlc = { version = "3.2", features = ["termination"] }
 daemonize-me = "2.0"
 dialoguer.workspace = true
@@ -42,19 +43,18 @@ forest_state_manager.workspace = true
 forest_utils.workspace = true
 futures.workspace = true
 fvm_ipld_blockstore.workspace = true
-fvm_shared = { workspace = true, default-features = false }
 lazy_static.workspace = true
 log.workspace = true
 raw_sync = "0.1"
 rpassword.workspace = true
 serde_json.workspace = true
 shared_memory = "0.12"
-structopt.workspace = true
 tempfile.workspace = true
 time.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 
 [dev-dependencies]
+assert_cmd.workspace = true
 
 [features]
 default = ["forest_fil_cns", "rocksdb"]
@@ -65,4 +65,5 @@ forest_fil_cns = ["dep:forest_fil_cns"]
 forest_deleg_cns = ["dep:forest_deleg_cns"]
 slow_tests = []
 instrumented_kernel = ["forest_interpreter/instrumented_kernel"]
-jemalloc = ["forest_cli_shared/jemalloc"]
+jemalloc = ["forest_cli_shared/jemalloc", "forest_db/jemalloc"]
+mimalloc = ["forest_cli_shared/mimalloc"]

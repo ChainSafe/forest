@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{Error, Store};
+use std::sync::Arc;
+
 use ahash::HashMap;
 use anyhow::Result;
 use cid::Cid;
-use forest_libp2p_bitswap::BitswapStore;
+use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
-use std::sync::Arc;
+
+use super::{Error, Store};
 
 /// A thread-safe `HashMap` wrapper.
 #[derive(Debug, Default, Clone)]
@@ -61,9 +63,7 @@ impl Blockstore for MemoryDB {
     }
 }
 
-impl BitswapStore for MemoryDB {
-    type Params = libipld::DefaultParams;
-
+impl BitswapStoreRead for MemoryDB {
     fn contains(&self, cid: &Cid) -> Result<bool> {
         Ok(self.exists(cid.to_bytes())?)
     }
@@ -71,6 +71,10 @@ impl BitswapStore for MemoryDB {
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
+}
+
+impl BitswapStoreReadWrite for MemoryDB {
+    type Params = libipld::DefaultParams;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> Result<()> {
         self.put_keyed(block.cid(), block.data())

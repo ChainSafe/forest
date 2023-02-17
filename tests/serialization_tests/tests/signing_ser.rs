@@ -4,18 +4,17 @@
 // Doesn't run these unless feature specified
 #![cfg(feature = "submodule_tests")]
 
+use std::{fs::File, io::prelude::*, str::FromStr};
+
 use base64::{prelude::BASE64_STANDARD, Engine};
 use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use forest_json::{message, signature};
 use forest_message::signed_message::SignedMessage;
+use forest_shim::address::{set_current_network, Network};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::crypto::signature::Signature;
-use fvm_shared::message::Message;
+use fvm_shared::{crypto::signature::Signature, message::Message};
 use serde::Deserialize;
-use std::fs::File;
-use std::io::prelude::*;
-use std::str::FromStr;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -30,6 +29,8 @@ struct TestVec {
 
 #[test]
 fn signing_test() {
+    set_current_network(Network::Testnet);
+
     let mut file = File::open("serialization-vectors/message_signing.json").unwrap();
     let mut string = String::new();
     file.read_to_string(&mut string).unwrap();

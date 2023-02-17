@@ -1,38 +1,56 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::{event_handlers::*, *};
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use flume::TryRecvError;
-use libipld::Block;
-use libipld::Cid;
-use libp2p::PeerId;
-use parking_lot::RwLock;
+//! Request manager implementation that is optimized for `filecoin` network
+//! usage
+
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+
+use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use flume::TryRecvError;
+use libipld::{Block, Cid};
+use libp2p::PeerId;
+use parking_lot::RwLock;
+
+use crate::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone)]
 struct ResponseChannels {
     block_have: flume::Sender<PeerId>,
-    block_saved: flume::Sender<()>,
+    block_received: flume::Sender<Option<Vec<u8>>>,
 }
 
-// TODO: Use message queue like `go-bitswap`
+/// Request manager implementation that is optimized for `filecoin` network
+/// usage
 #[derive(Debug)]
 pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
+    outbound_request_rx: flume::Receiver<(PeerId, BitswapRequest)>,
     peers: RwLock<HashSet<PeerId>>,
     response_channels: RwLock<HashMap<Cid, ResponseChannels>>,
 }
 
 impl BitswapRequestManager {
-    pub fn new(outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>) -> Self {
+    /// A receiver channel of the outbound `bitswap` network events that the
+    /// [BitswapRequestManager] emits. The messages from this channel need
+    /// to be sent with [BitswapBehaviour::send_request] to make
+    /// [BitswapRequestManager::get_block] work.
+    pub fn outbound_request_rx(&self) -> &flume::Receiver<(PeerId, BitswapRequest)> {
+        &self.outbound_request_rx
+    }
+}
+
+impl Default for BitswapRequestManager {
+    fn default() -> Self {
+        let (outbound_request_tx, outbound_request_rx) = flume::unbounded();
         Self {
             outbound_request_tx,
+            outbound_request_rx,
             peers: RwLock::new(HashSet::new()),
             response_channels: RwLock::new(HashMap::new()),
         }
@@ -40,25 +58,8 @@ impl BitswapRequestManager {
 }
 
 impl BitswapRequestManager {
-    pub fn on_peer_connected(&self, peer: PeerId) -> bool {
-        let mut peers = self.peers.write();
-        let success = peers.insert(peer);
-        if success {
-            metrics::peer_container_capacity().set(peers.capacity() as _);
-        }
-        success
-    }
-
-    pub fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
-        let mut peers = self.peers.write();
-        let success = peers.remove(peer);
-        if success {
-            metrics::peer_container_capacity().set(peers.capacity() as _);
-        }
-        success
-    }
-
-    pub fn handle_event<S: BitswapStore>(
+    /// Hook the `bitswap` network event into the [BitswapRequestManager]
+    pub fn handle_event<S: BitswapStoreRead>(
         self: &Arc<Self>,
         bitswap: &mut BitswapBehaviour,
         store: &S,
@@ -67,26 +68,31 @@ impl BitswapRequestManager {
         handle_event_impl(self, bitswap, store, event)
     }
 
+    /// Gets a block, writing it to the given block store that implements
+    /// [BitswapStoreReadWrite] and respond to the channel. Note: this
+    /// method is a non-blocking, it is intended to return immediately.
     pub fn get_block(
         self: Arc<Self>,
-        store: Arc<impl BitswapStore>,
+        store: Arc<impl BitswapStoreReadWrite>,
         cid: Cid,
         timeout: Duration,
         responder: Option<flume::Sender<bool>>,
     ) {
         let start = Instant::now();
         let timer = metrics::GET_BLOCK_TIME.start_timer();
-        tokio::spawn(async move {
+        let store_cloned = store.clone();
+        task::spawn(async move {
             let mut success = store.contains(&cid).unwrap_or_default();
             if !success {
                 let deadline = start.checked_add(timeout).expect("Infallible");
-                success = tokio::task::spawn_blocking(move || self.get_block_sync(cid, deadline))
-                    .await
-                    .unwrap_or_default();
+                success =
+                    task::spawn_blocking(move || self.get_block_sync(store_cloned, cid, deadline))
+                        .await
+                        .unwrap_or_default();
                 // Spin check db when `get_block_sync` fails fast,
                 // which means there is other task actually processing the same `cid`
                 while !success && Instant::now() < deadline {
-                    tokio::time::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
+                    task::sleep(BITSWAP_BLOCK_REQUEST_INTERVAL).await;
                     success = store.contains(&cid).unwrap_or_default();
                 }
             }
@@ -107,7 +113,12 @@ impl BitswapRequestManager {
         });
     }
 
-    fn get_block_sync(&self, cid: Cid, deadline: Instant) -> bool {
+    fn get_block_sync(
+        &self,
+        store: Arc<impl BitswapStoreReadWrite>,
+        cid: Cid,
+        deadline: Instant,
+    ) -> bool {
         // Fail fast here when the given `cid` is being processed by other tasks
         if self.response_channels.read().contains_key(&cid) {
             return false;
@@ -117,7 +128,7 @@ impl BitswapRequestManager {
         let (block_saved_tx, block_saved_rx) = flume::unbounded();
         let channels = ResponseChannels {
             block_have: block_have_tx,
-            block_saved: block_saved_tx,
+            block_received: block_saved_tx,
         };
         {
             self.response_channels.write().insert(cid, channels);
@@ -131,6 +142,7 @@ impl BitswapRequestManager {
         }
 
         let mut success = false;
+        let mut block_data = None;
         let block_request = BitswapRequest::new_block(cid).send_dont_have(false);
         while !success && Instant::now() < deadline {
             match block_have_rx.try_recv() {
@@ -143,13 +155,40 @@ impl BitswapRequestManager {
                 }
             }
 
-            if let Ok(()) = block_saved_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
+            if let Ok(data) = block_saved_rx.recv_timeout(BITSWAP_BLOCK_REQUEST_INTERVAL) {
                 success = true;
+                block_data = data;
             }
         }
 
         if !success {
-            success = block_saved_rx.recv_deadline(deadline).is_ok();
+            if let Ok(data) = block_saved_rx.recv_deadline(deadline) {
+                success = true;
+                block_data = data;
+            }
+        }
+
+        if let Some(data) = block_data {
+            success = match Block::new(cid, data) {
+                Ok(block) => match store.insert(&block) {
+                    Ok(()) => {
+                        metrics::message_counter_inbound_response_block_update_db().inc();
+                        true
+                    }
+                    Err(e) => {
+                        metrics::message_counter_inbound_response_block_update_db_failure().inc();
+                        warn!(
+                            "Failed to update db: {e}, cid: {cid}, data: {:?}",
+                            block.data()
+                        );
+                        false
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to construct block: {e}, cid: {cid}");
+                    false
+                }
+            }
         }
 
         // Cleanup
@@ -162,12 +201,13 @@ impl BitswapRequestManager {
         success
     }
 
-    pub(crate) fn on_inbound_response_event<S: BitswapStore>(
+    pub(crate) fn on_inbound_response_event<S: BitswapStoreRead>(
         &self,
         store: &S,
         response: BitswapInboundResponseEvent,
     ) {
         use BitswapInboundResponseEvent::*;
+
         match response {
             HaveBlock(peer, cid) => {
                 if let Some(chans) = self.response_channels.read().get(&cid) {
@@ -180,35 +220,32 @@ impl BitswapRequestManager {
                         // Avoid duplicate writes, still notify the receiver
                         metrics::message_counter_inbound_response_block_already_exists_in_db()
                             .inc();
-                        _ = chans.block_saved.send(());
-                        _ = chans.block_saved.send(());
+                        _ = chans.block_received.send(None);
                     } else {
-                        match Block::new(cid, data) {
-                            Ok(block) => match store.insert(&block) {
-                                Ok(()) => {
-                                    metrics::message_counter_inbound_response_block_update_db()
-                                        .inc();
-                                    _ = chans.block_saved.send(());
-                                }
-                                Err(e) => {
-                                    metrics::message_counter_inbound_response_block_update_db_failure()
-                                    .inc();
-                                    warn!(
-                                        "Failed to update db: {e}, cid: {cid}, data: {:?}",
-                                        block.data()
-                                    );
-                                }
-                            },
-                            Err(e) => {
-                                // TODO: log data
-                                warn!("Failed to construct block: {e}, cid: {cid}");
-                            }
-                        }
+                        _ = chans.block_received.send(Some(data));
                     }
                 } else {
                     metrics::message_counter_inbound_response_block_not_requested().inc();
                 }
             }
         }
+    }
+
+    pub(crate) fn on_peer_connected(&self, peer: PeerId) -> bool {
+        let mut peers = self.peers.write();
+        let success = peers.insert(peer);
+        if success {
+            metrics::peer_container_capacity().set(peers.capacity() as _);
+        }
+        success
+    }
+
+    pub(crate) fn on_peer_disconnected(&self, peer: &PeerId) -> bool {
+        let mut peers = self.peers.write();
+        let success = peers.remove(peer);
+        if success {
+            metrics::peer_container_capacity().set(peers.capacity() as _);
+        }
+        success
     }
 }
