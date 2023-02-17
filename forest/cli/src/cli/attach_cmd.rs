@@ -40,6 +40,14 @@ pub struct AttachCommand {
 
 const PRELUDE_PATH: &str = include_str!("./js/prelude.js");
 
+fn set_module(context: &mut Context) {
+    let module = JsObject::default();
+    module
+        .set("exports", JsObject::default(), false, context)
+        .unwrap();
+    context.register_global_property("module", JsValue::from(module), Attribute::default());
+}
+
 fn require(
     _: &JsValue,
     params: &[JsValue],
@@ -78,12 +86,16 @@ fn require(
     match result {
         Ok(buffer) => {
             //println!("evaluating:\n{}", buffer);
-            context.eval(&buffer).unwrap();
+            context.eval(&buffer)?;
 
             // Access module.exports and return as ResultValue
             let global_obj = context.global_object().to_owned();
-            let module = global_obj.get("module", context).unwrap();
-            module.as_object().unwrap().get("exports", context)
+            let module = global_obj.get("module", context).expect("get should work");
+            let exports = module.as_object().expect("as_object should work").get("exports", context);
+
+            // Reset module to avoid side effects
+            set_module(context);
+            exports
         }
         Err(err) => {
             eprintln!("Error: {err}");
@@ -189,11 +201,7 @@ impl AttachCommand {
         context.register_global_property("require", require_func, attr);
 
         // Add custom object that mimics `module.exports`
-        let moduleobj = JsObject::default();
-        moduleobj
-            .set("exports", JsValue::from(" "), false, context)
-            .unwrap();
-        context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
+        set_module(context);
 
         // Chain API
         bind_func!(context, token, chain_get_name);
