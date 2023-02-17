@@ -38,7 +38,7 @@ pub struct AttachCommand {
     exec: Option<String>,
 }
 
-const PRELUDE_MODULE: &str = include_str!("./js/prelude.js");
+const PRELUDE_PATH: &str = include_str!("./js/prelude.js");
 
 fn require(
     _: &JsValue,
@@ -52,20 +52,32 @@ fn require(
         return context.throw_error("expecting string argument");
     };
 
+    // Resolve module path
     let module_name = param.to_string(context)?.to_string();
-    let path = if let Some(path) = jspath {
+    let mut path = if let Some(path) = jspath {
         path.join(module_name)
     } else {
         PathBuf::from(module_name)
     };
-
+    // Check if path does not exist and append .js if file has no extension
+    if !path.exists() {
+        if path.extension().is_none() {
+            path.set_extension("js");
+        }
+    }
     let result = if path.exists() {
         read_to_string(path)
     } else {
-        Ok(PRELUDE_MODULE.into())
+        if path == PathBuf::from("prelude.js") {
+            //println!("load builtin prelude");
+            Ok(PRELUDE_PATH.into())
+        } else {
+            return context.throw_error("expecting valid module path");
+        }
     };
     match result {
         Ok(buffer) => {
+            //println!("evaluating:\n{}", buffer);
             context.eval(&buffer).unwrap();
 
             // Access module.exports and return as ResultValue
