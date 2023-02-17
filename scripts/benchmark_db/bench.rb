@@ -261,13 +261,20 @@ class Benchmark
     if !Dir.exist?(repository_name) then
       puts "(I) Cloning repository"
       clone_command(dry_run)
-      checkout_command(dry_run)
+      if dry_run then
+        Dir.mkdir(repository_name)
+      end
     else
       puts "(W) Directory #{repository_name} is already present"
     end
+    Dir.chdir(repository_name) do
+      checkout_command(dry_run)
+    end
     puts "(I) Clean and build client"
-    clean_command(dry_run)
-    build_command(dry_run)
+    Dir.chdir(repository_name) do
+      clean_command(dry_run)
+      build_command(dry_run)
+    end
 
     build_config_file unless dry_run
     build_substitution_hash(dry_run)
@@ -299,7 +306,6 @@ class Benchmark
       new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
       metrics[:validate_online] = new_metrics
     end
-    # puts metrics
 
     puts '(I) Clean db'
     clean_db(dry_run)
@@ -374,25 +380,17 @@ class ForestBenchmark < Benchmark
 
   def clone_command(dry_run)
     exec_command(['git', 'clone', 'https://github.com/ChainSafe/forest.git', repository_name], dry_run)
-
-    if dry_run then
-      Dir.mkdir(repository_name)
-    end
   end
 
   def checkout_command(_dry_run)
   end
 
   def clean_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(%w[cargo clean], dry_run)
-    end
+    exec_command(%w[cargo clean], dry_run)
   end
 
   def build_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(['cargo', 'build', '--release'], dry_run)
-    end
+    exec_command(['cargo', 'build', '--release'], dry_run)
   end
 
   def epoch_command
@@ -438,27 +436,21 @@ end
 # Benchmark class for Forest with ParityDb backend
 class ParityDbBenchmark < ForestBenchmark
   def build_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
-    end
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
   end
 end
 
 # Benchmark class for Forest with ParityDb backend with Jemalloc allocator
 class JemallocBenchmark < ForestBenchmark
   def build_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
-    end
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
   end
 end
 
 # Benchmark class for Forest with ParityDb backend with Mimalloc allocator
 class MimallocBenchmark < ForestBenchmark
   def build_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
-    end
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
   end
 end
 
@@ -493,28 +485,18 @@ class LotusBenchmark < Benchmark
 
   def clone_command(dry_run)
     exec_command(['git', 'clone', 'https://github.com/filecoin-project/lotus.git', repository_name], dry_run)
-
-    if dry_run then
-      Dir.mkdir(repository_name)
-    end
   end
 
   def checkout_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(['git', 'checkout', 'releases'], dry_run)
-    end
+    exec_command(['git', 'checkout', 'releases'], dry_run)
   end
 
   def clean_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(%w[make clean], dry_run)
-    end
+    exec_command(%w[make clean], dry_run)
   end
 
   def build_command(dry_run)
-    Dir.chdir(repository_name) do
-      exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
-    end
+    exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
   end
 
   def epoch_command
@@ -557,8 +539,8 @@ def run_benchmarks(benchmarks, options)
   bench_metrics = {}
   snapshot_abs_path = File.expand_path(options[:snapshot_path])
   puts "(I) Using snapshot: #{snapshot_abs_path}"
+  puts "(I) BENCHMARK_DIR: #{BENCHMARK_DIR}"
   Dir.chdir(BENCHMARK_DIR) do
-    puts "(I) cwd: #{Dir.pwd}"
     benchmarks.each do |bench|
       bench.snapshot_path = snapshot_abs_path
       bench.heights = options[:heights]
@@ -576,7 +558,7 @@ def run_benchmarks(benchmarks, options)
     write_markdown(bench_metrics)
   end
 
-  puts bench_metrics
+  # puts bench_metrics
 end
 
 BENCHMARKS = [
