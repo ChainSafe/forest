@@ -99,10 +99,13 @@ pub mod json {
 #[cfg(test)]
 mod tests {
     use forest_message::{self, SignedMessage};
-    use fvm_ipld_encoding::RawBytes;
-    use fvm_shared::{
-        address::Address, crypto::signature::Signature, econ::TokenAmount, message::Message,
+    use forest_shim::{
+        address::Address,
+        econ::TokenAmount,
+        message::{Message, Message_v3},
     };
+    use fvm_ipld_encoding::RawBytes;
+    use fvm_shared::crypto::signature::Signature;
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};
     use serde_json::{self, from_str, to_string};
@@ -158,20 +161,22 @@ mod tests {
 
     #[test]
     fn message_json_annotations() {
-        let message = Message {
+        let message: Message = Message_v3 {
             version: 10,
-            from: Address::new_id(34),
-            to: Address::new_id(12),
+            from: Address::new_id(34).into(),
+            to: Address::new_id(12).into(),
             sequence: 5,
-            value: TokenAmount::from_atto(6),
+            value: TokenAmount::from_atto(6).into(),
             method_num: 7,
-            params: RawBytes::default(),
+            params: Default::default(),
             gas_limit: 8,
-            gas_fee_cap: TokenAmount::from_atto(10),
-            gas_premium: TokenAmount::from_atto(9),
-        };
+            gas_fee_cap: TokenAmount::from_atto(10).into(),
+            gas_premium: TokenAmount::from_atto(9).into(),
+        }
+        .into();
 
-        let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
+        let signed =
+            SignedMessage::new_unchecked(message.clone().into(), Signature::new_bls(vec![0, 1]));
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct TestStruct {

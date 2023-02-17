@@ -934,9 +934,8 @@ mod tests {
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
-    use forest_shim::address::Address;
+    use forest_shim::{address::Address, message::Message};
     use forest_test_utils::construct_messages;
-    use fvm_shared::message::Message;
 
     use crate::validation::TipsetValidator;
 
