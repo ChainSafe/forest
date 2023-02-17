@@ -28,6 +28,7 @@ use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    econ::TokenAmount,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
@@ -36,7 +37,7 @@ use futures::{channel::oneshot, select, FutureExt};
 use fvm::{executor::ApplyRet, externs::Rand};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt};
+use fvm_shared::{clock::ChainEpoch, message::Message, receipt::Receipt};
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
@@ -536,7 +537,7 @@ where
             store,
             epoch,
             chain_rand,
-            ts.blocks()[0].parent_base_fee().clone().into(),
+            ts.blocks()[0].parent_base_fee().clone(),
             self.genesis_info
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
@@ -771,7 +772,7 @@ where
                 &blocks,
                 epoch,
                 chain_rand,
-                base_fee.into(),
+                base_fee,
                 callback,
                 &ts_cloned,
             )?)
@@ -1081,8 +1082,8 @@ where
     pub fn get_balance(&self, addr: &Address, cid: Cid) -> Result<TokenAmount, Error> {
         let act = self.get_actor(addr, cid)?;
         let actor = act.ok_or_else(|| "could not find actor".to_owned())?;
-        let balance = forest_shim::econ::TokenAmount::from(&actor.balance);
-        Ok(balance.into())
+        let balance = TokenAmount::from(&actor.balance);
+        Ok(balance)
     }
 
     /// Looks up ID [Address] from the state at the given [Tipset].

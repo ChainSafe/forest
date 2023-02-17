@@ -112,6 +112,12 @@ impl From<TokenAmount> for TokenAmount_v2 {
     }
 }
 
+impl From<&TokenAmount> for TokenAmount_v2 {
+    fn from(other: &TokenAmount) -> TokenAmount_v2 {
+        TokenAmount_v2::from_atto(other.atto().clone())
+    }
+}
+
 impl Mul<BigInt> for TokenAmount {
     type Output = TokenAmount;
     fn mul(self, rhs: BigInt) -> Self::Output {
@@ -197,6 +203,13 @@ impl SubAssign for TokenAmount {
 impl Sub<&TokenAmount> for TokenAmount {
     type Output = TokenAmount;
     fn sub(self, rhs: &TokenAmount) -> Self::Output {
+        (&self.0).sub(&rhs.0).into()
+    }
+}
+
+impl Sub<TokenAmount> for &TokenAmount {
+    type Output = TokenAmount;
+    fn sub(self, rhs: TokenAmount) -> Self::Output {
         (&self.0).sub(&rhs.0).into()
     }
 }

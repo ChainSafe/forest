@@ -1,14 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
+use std::{borrow::Borrow, sync::Arc};
 
 use ahash::HashSet;
 use cid::Cid;
 use forest_actor_interface::{cron, reward, system, AwardBlockRewardParams};
 use forest_message::ChainMessage;
 use forest_networks::ChainConfig;
-use forest_shim::{error::ExitCode, Inner};
+use forest_shim::{econ::TokenAmount, error::ExitCode, Inner};
 use fvm::{
     executor::{ApplyRet, DefaultExecutor},
     externs::Rand,
@@ -17,8 +17,8 @@ use fvm::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{Cbor, RawBytes};
 use fvm_shared::{
-    address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message, receipt::Receipt,
-    BLOCK_GAS_LIMIT, METHOD_SEND,
+    address::Address, clock::ChainEpoch, message::Message, receipt::Receipt, BLOCK_GAS_LIMIT,
+    METHOD_SEND,
 };
 use num::Zero;
 
@@ -89,8 +89,8 @@ where
         let config = NetworkConfig::new(network_version.into());
         let engine = multi_engine.get(&config)?;
         let mut context = config.for_epoch(epoch, root);
-        context.set_base_fee(base_fee);
-        context.set_circulating_supply(circ_supply);
+        context.set_base_fee(base_fee.into());
+        context.set_circulating_supply(circ_supply.into());
         let fvm: fvm::machine::DefaultMachine<DB, ForestExterns<DB>> =
             fvm::machine::DefaultMachine::new(
                 &engine,
@@ -181,8 +181,8 @@ where
                 }
 
                 // Update totals
-                gas_reward += &ret.miner_tip;
-                penalty += &ret.penalty;
+                gas_reward += ret.miner_tip.borrow().into();
+                penalty += ret.penalty.borrow().into();
                 receipts.push(ret.msg_receipt);
 
                 // Add processed Cid to set of processed messages
@@ -303,8 +303,8 @@ impl RewardCalc for RewardActorMessageCalc {
     ) -> Result<Option<Message>, anyhow::Error> {
         let params = RawBytes::serialize(AwardBlockRewardParams {
             miner,
-            penalty,
-            gas_reward,
+            penalty: penalty.into(),
+            gas_reward: gas_reward.into(),
             win_count,
         })?;
 
@@ -366,7 +366,7 @@ impl RewardCalc for FixedRewardCalc {
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             gas_limit: 1 << 30,
-            value: gas_reward + self.reward.clone(),
+            value: fvm_shared::econ::TokenAmount::from(gas_reward + &self.reward),
             version: Default::default(),
             gas_fee_cap: Default::default(),
             gas_premium: Default::default(),
