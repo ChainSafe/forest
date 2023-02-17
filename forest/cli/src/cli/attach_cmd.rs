@@ -46,10 +46,11 @@ fn require(
     context: &mut Context,
     jspath: &Option<PathBuf>,
 ) -> JsResult<JsValue> {
-    if params.is_empty() {
+    let param = if let Some(p) = params.first() {
+        p
+    } else {
         return context.throw_error("expecting string argument");
-    }
-    let param = params.get(0).unwrap();
+    };
 
     let module_name = param.to_string(context)?.to_string();
     let path = if let Some(path) = jspath {
