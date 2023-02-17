@@ -2954,7 +2954,6 @@ dependencies = [
  "multibase",
  "num",
  "rand 0.8.5",
- "regex",
  "rpassword",
  "rust_decimal",
  "rust_decimal_macros",
