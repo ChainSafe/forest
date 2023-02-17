@@ -11,6 +11,7 @@ use bls_signatures::{PrivateKey, Serialize};
 use cid::Cid;
 use forest_json::{message, signature};
 use forest_message::signed_message::SignedMessage;
+use forest_shim::address::{set_current_network, Network};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{crypto::signature::Signature, message::Message};
 use serde::Deserialize;
@@ -28,6 +29,8 @@ struct TestVec {
 
 #[test]
 fn signing_test() {
+    set_current_network(Network::Testnet);
+
     let mut file = File::open("serialization-vectors/message_signing.json").unwrap();
     let mut string = String::new();
     file.read_to_string(&mut string).unwrap();

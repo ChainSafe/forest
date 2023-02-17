@@ -8,7 +8,8 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
-use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
+use forest_shim::address::Address;
+use fvm_shared::{crypto::signature::Signature, message::Message};
 use num::BigInt;
 
 #[test]
@@ -55,23 +56,23 @@ fn tipset_bundle_to_full_tipset() {
         .build()
         .unwrap();
     let ua = Message {
-        to: Address::new_id(0),
-        from: Address::new_id(0),
+        to: Address::new_id(0).into(),
+        from: Address::new_id(0).into(),
         ..Message::default()
     };
     let ub = Message {
-        to: Address::new_id(1),
-        from: Address::new_id(1),
+        to: Address::new_id(1).into(),
+        from: Address::new_id(1).into(),
         ..Message::default()
     };
     let uc = Message {
-        to: Address::new_id(2),
-        from: Address::new_id(2),
+        to: Address::new_id(2).into(),
+        from: Address::new_id(2).into(),
         ..Message::default()
     };
     let ud = Message {
-        to: Address::new_id(3),
-        from: Address::new_id(3),
+        to: Address::new_id(3).into(),
+        from: Address::new_id(3).into(),
         ..Message::default()
     };
     let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));

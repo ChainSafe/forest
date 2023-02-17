@@ -15,8 +15,9 @@ use forest_blocks::Tipset;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{Message as MessageTrait, SignedMessage};
 use forest_networks::ChainConfig;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, crypto::signature::Signature};
+use fvm_shared::crypto::signature::Signature;
 use log::error;
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
@@ -245,13 +246,23 @@ where
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {
-                remove_from_selected_msgs(msg.from(), pending, msg.sequence(), rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from(),
+                    pending,
+                    msg.sequence(),
+                    rmsgs.borrow_mut(),
+                )?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
             }
             for msg in msgs {
-                remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
+                remove_from_selected_msgs(
+                    &msg.from.into(),
+                    pending,
+                    msg.sequence,
+                    rmsgs.borrow_mut(),
+                )?;
                 if !repub && republished.write().insert(msg.cid()?) {
                     repub = true;
                 }
@@ -267,7 +278,7 @@ where
     }
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
-            let sequence = get_state_sequence(api, msg.from(), &cur_tipset.lock().clone())?;
+            let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
             if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
                 error!("Failed to readd message from reorg to mpool: {}", e);
             }
@@ -303,12 +314,12 @@ pub(crate) fn add_to_selected_msgs(
     m: SignedMessage,
     rmsgs: &mut HashMap<Address, HashMap<u64, SignedMessage>>,
 ) {
-    let s = rmsgs.get_mut(m.from());
+    let s = rmsgs.get_mut(&m.from());
     if let Some(s) = s {
         s.insert(m.sequence(), m);
     } else {
-        rmsgs.insert(*m.from(), HashMap::new());
-        rmsgs.get_mut(m.from()).unwrap().insert(m.sequence(), m);
+        rmsgs.insert(m.from(), HashMap::new());
+        rmsgs.get_mut(&m.from()).unwrap().insert(m.sequence(), m);
     }
 }
 
@@ -324,8 +335,8 @@ pub mod tests {
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use forest_shim::econ::TokenAmount;
-    use fvm_shared::{address::Address, crypto::signature::SignatureType, message::Message};
+    use forest_shim::{address::Address, econ::TokenAmount};
+    use fvm_shared::{crypto::signature::SignatureType, message::Message};
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;
@@ -345,8 +356,8 @@ pub mod tests {
         gas_price: u64,
     ) -> SignedMessage {
         let umsg = Message {
-            to: *to,
-            from: *from,
+            to: to.into(),
+            from: from.into(),
             sequence,
             gas_limit,
             gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
