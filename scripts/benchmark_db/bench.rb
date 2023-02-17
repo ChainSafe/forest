@@ -261,6 +261,7 @@ class Benchmark
     if !Dir.exist?(repository_name) then
       puts "(I) Cloning repository"
       clone_command(dry_run)
+      checkout_command(dry_run)
     else
       puts "(W) Directory #{repository_name} is already present"
     end
@@ -295,7 +296,7 @@ class Benchmark
     if daily
       validate_online_command = splice_args(@validate_online_command, args)
       new_metrics = exec_command(validate_online_command, dry_run, self)
-      #new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
+      new_metrics[:tpm] = (MINUTE * new_metrics[:num_epochs]) / online_validation_secs
       metrics[:validate_online] = new_metrics
     end
     # puts metrics
@@ -377,6 +378,9 @@ class ForestBenchmark < Benchmark
     if dry_run then
       Dir.mkdir(repository_name)
     end
+  end
+
+  def checkout_command(_dry_run)
   end
 
   def clean_command(dry_run)
@@ -479,20 +483,36 @@ class LotusBenchmark < Benchmark
   end
   private :build_config_file
 
+  def repository_name
+    'lotus'
+  end
+
   def target
-    './lotus/lotus'
+    File.join('.', repository_name, 'lotus')
+  end
+
+  def clone_command(dry_run)
+    exec_command(['git', 'clone', 'https://github.com/filecoin-project/lotus.git', repository_name], dry_run)
+
+    if dry_run then
+      Dir.mkdir(repository_name)
+    end
+  end
+
+  def checkout_command(dry_run)
+    Dir.chdir(repository_name) do
+      exec_command(['git', 'checkout', 'releases'], dry_run)
+    end
   end
 
   def clean_command(dry_run)
-    # TODO: handle build both client in a tmpdir
-    Dir.chdir('../lotus') do
+    Dir.chdir(repository_name) do
       exec_command(%w[make clean], dry_run)
     end
   end
 
   def build_command(dry_run)
-    # TODO: handle build both client in a tmpdir
-    Dir.chdir('../lotus') do
+    Dir.chdir(repository_name) do
       exec_command(['make', @chain == 'mainnet' ? 'all' : 'calibnet'], dry_run)
     end
   end
@@ -570,7 +590,7 @@ options = {
   heights: HEIGHTS_TO_VALIDATE,
   pattern: 'baseline',
   chain: 'calibnet', # TODO: replace with 'mainnet' before merging
-  daily: false
+  daily: true
 }
 OptionParser.new do |opts|
   opts.banner = 'Usage: bench.rb [options] snapshot'
@@ -594,7 +614,7 @@ options[:snapshot_path] = snapshot_path
 if options[:daily]
   selection = Set[
     ForestBenchmark.new(name: 'forest'),
-    #LotusBenchmark.new(name: 'lotus')
+    LotusBenchmark.new(name: 'lotus')
   ]
   run_benchmarks(selection, options)
 else
