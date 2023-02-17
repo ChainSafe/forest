@@ -43,7 +43,7 @@ No need to install Rust toolchain or other dependencies, you will need only Dock
 ❯ docker run --init -it --rm --entrypoint forest-cli ghcr.io/chainsafe/forest:latest --help
 ```
 
-For more in-depth usage, please refer to the [Forest Docker documentation](https://chainsafe.github.io/forest/docker.html).
+For more in-depth usage and sample use cases, please refer to the Forest Docker documentation in the [Forest Book](https://chainsafe.github.io/forest/).
 
 ## Dependencies
 

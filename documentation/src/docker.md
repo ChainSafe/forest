@@ -10,7 +10,7 @@ Native images are available for the following platforms:
 - `linux/arm64`
 - `linux/amd64`
 
-This means that the images will work out-of-the box on both Intel processors and macOS with M1/M2.
+The images will work out-of-the box on both Intel processors and macOS with M1/M2.
 
 ## Tags
 For the list of all available tags please refer to the [Forest packages](https://github.com/ChainSafe/forest/pkgs/container/forest).
@@ -100,7 +100,7 @@ Send 10 FIL from the original wallet to the new one
 ❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN send --from f1uvqpa2jgic7fhhko3w4wf3kxj36qslvqrk2ln5i f1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca 10000000000000000000
 ```
 
-Verify balance of the new address. [Sample transaction](https://calibration.filscan.io/tipset/message-detail?cid=bafy2bzacebymw25tedmec4xnwmf7fcrt64qvfbbuacbx6lnhyrcbfv3rgkn2a) for this wallet.
+Verify the balance of the new address. [Sample transaction](https://calibration.filscan.io/tipset/message-detail?cid=bafy2bzacebymw25tedmec4xnwmf7fcrt64qvfbbuacbx6lnhyrcbfv3rgkn2a) for this wallet.
 ```shell
 ❯ docker exec -it forest forest-cli --chain calibnet --token $JWT_TOKEN wallet balance f1wa7lgs7b3p5a26abkgpxwjpw67tx4fbsryg6tca
 10000000000000000000
