@@ -17,8 +17,9 @@ use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
 use forest_shim::address::{Address, Protocol};
 use forest_utils::io::read_file_to_string;
+#[allow(unused_imports)]
 use fvm_shared::{
-    crypto::signature::{Signature, SignatureType},
+    crypto::signature::{Signature, SignatureType}, econ::TokenAmount,
 };
 use rpassword::read_password;
 use rust_decimal::prelude::*;
