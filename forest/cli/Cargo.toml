@@ -53,6 +53,8 @@ time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
+rust_decimal_macros = "1.28.1"
+rust_decimal = "1.28.1"
 
 [dev-dependencies]
 assert_cmd.workspace = true

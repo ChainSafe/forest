@@ -24,35 +24,11 @@ use fvm_shared::{
     econ::TokenAmount,
 };
 use lazy_static::lazy_static;
-use regex::Regex;
 use rpassword::read_password;
+use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 
 use super::Config;
-
-lazy_static! {
-    static ref LEN_TO_CLOSURE_POWERS: HashMap<usize, (String, u8)> = {
-        let mut map = HashMap::new();
-        for item in 0..4 {
-            map.insert(item, ("atto FIL".to_string(), 18));
-        }
-        for item in 4..7 {
-            map.insert(item, ("femto FIL".to_string(), 15));
-        }
-        for item in 7..10 {
-            map.insert(item, ("pico FIL".to_string(), 12));
-        }
-        for item in 10..13 {
-            map.insert(item, ("nano FIL".to_string(), 9));
-        }
-        for item in 13..16 {
-            map.insert(item, ("micro FIL".to_string(), 6));
-        }
-        for item in 16..19 {
-            map.insert(item, ("milli FIL".to_string(), 3));
-        }
-        map
-    };
-}
 
 use super::handle_rpc_err;
 
@@ -231,12 +207,10 @@ impl WalletCommands {
                         .await
                         .map_err(handle_rpc_err)?;
 
-                    let balance_int = TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
+                    let balance_dec = balance_string.parse::<Decimal>()?;
+                    let balance_string = format_balance_string(balance_dec, *exact_balance, *fixed_unit);
 
-                    let formatted_balance_string =
-                        format_balance_string(balance_int, *fixed_unit, *exact_balance);
-
-                    println!("{addr:41}  {default_address_mark:7}  {formatted_balance_string}",);
+                    println!("{addr:41}  {default_address_mark:7}  {balance_string}",);
                 }
                 Ok(())
             }
@@ -296,204 +270,168 @@ impl WalletCommands {
     }
 }
 
-fn formating_vars(
-    balance_string: String,
-    balance_exact: String,
-    changed: bool,
-) -> (String, String) {
-    //unfallible unwrap
-    let re = Regex::new(r"(?i)(0+$)|(\.0+$)|(\.+$)").unwrap();
-    let res = re.replace(balance_string.as_str(), "").to_string();
-    let balance_exact_res = re.replace(balance_exact.as_str(), "").to_string();
-    let symbol = if balance_exact_res.len() <= res.len() && !changed {
-        ""
-    } else {
-        "~"
-    };
-    (res, symbol.to_string())
-}
+fn format_balance_string(num: Decimal, exact_balance: bool, fixed_unit: bool) -> String {
+    let units = [
+        "atto", "femto", "pico", "nano", "micro", "milli", "", "kilo", "mega", "giga", "tera",
+        "peta", "exa", "zetta", "yotta",
+    ];
+    let orig = num;
 
-fn format_balance_string(
-    mut balance_int: TokenAmount,
-    fixed_unit: bool,
-    exact_balance: bool,
-) -> String {
-    let mut unit = "FIL";
-    let (balance_string, symbol) = if fixed_unit {
+    if fixed_unit {
         if exact_balance {
-            formating_vars(format!("{balance_int}"), format!("{balance_int}"), false)
+            let fil = orig / dec!(1e18);
+            format!("{fil} FIL")
         } else {
-            let mut changed: bool = false;
-            let balance_int = if balance_int >= TokenAmount::from_whole(1) {
-                balance_int
-            } else if balance_int >= TokenAmount::from_atto(5 * 10_i64.pow(17)) {
-                changed = true;
-                TokenAmount::from_whole(1)
-            } else {
-                changed = true;
-                TokenAmount::from_whole(0)
-            };
-            formating_vars(
-                format!("{balance_int:.0}0"),
-                format!("{balance_int}"),
-                changed,
-            )
-        }
-    } else {
-        let atto = balance_int.atto();
-        let len = atto.to_string().len();
-        let mut changed: bool = false;
-        if len <= 18 {
-            //unfallible unwrap
-            let (unit_string, closure_power) = LEN_TO_CLOSURE_POWERS.get(&len).unwrap();
-            unit = unit_string.as_str();
-
-            if *closure_power < 18 {
-                balance_int = if balance_int
-                    >= TokenAmount::from_atto(10_i64.pow(18 - *closure_power as u32))
-                {
-                    balance_int * BigInt::from(10i64.pow(*closure_power as u32))
-                } else if balance_int
-                    >= TokenAmount::from_atto(5 * 10_i64.pow(18 - *closure_power as u32 - 1))
-                {
-                    changed = true;
-                    TokenAmount::from_atto(*closure_power as u32 + 1)
-                } else {
-                    changed = true;
-                    TokenAmount::from_whole(0)
-                };
-            } else {
-                balance_int *= BigInt::from(10i64.pow(*closure_power as u32));
+            let fil_orig = orig / dec!(1e18);
+            let fil = fil_orig.round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero);
+            let mut res = format!("{} FIL", fil.trunc());
+            if fil != fil_orig {
+                res.insert(0, '~');
             }
+            res
+        }
+    } else {
+        let mut num = num;
+        let mut unit_index = 0;
+        while num >= dec!(1000.0) && unit_index < units.len() - 1 {
+            num /= dec!(1000.0);
+            unit_index += 1;
         }
 
         if exact_balance {
-            formating_vars(format!("{balance_int}"), format!("{balance_int}"), changed)
+            format!("{num:0} {} FIL", units[unit_index])
         } else {
-            formating_vars(
-                format!("{balance_int:.4}"),
-                format!("{balance_int}"),
-                changed,
-            )
+            let mut fil = num.round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero);
+            if fil == fil.trunc() {
+                fil = fil.trunc();
+            }
+            let mut res = format!("{} {} FIL", fil, units[unit_index]);
+
+            if fil != num {
+                res.insert(0, '~');
+            }
+
+            res
         }
-    };
-    format!("{symbol}{balance_string} {unit}")
+    }
 }
 
 #[test]
 fn exact_balance_fixed_unit() {
+    let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), true, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, true,),
         "0.0000000000000001 FIL"
     );
 
+    token_string = TokenAmount::from_atto(12465).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(12465), true, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, true,),
         "0.000000000000012465 FIL"
     );
 }
 
 #[test]
 fn not_exact_balance_fixed_unit() {
+    let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), true, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
         "~0 FIL"
     );
 
+    token_string = TokenAmount::from_atto(999999999999999999u64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(999999999999999999u64), true, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
         "~1 FIL"
     );
 
+    token_string = TokenAmount::from_atto(1000005000).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(1000005000), true, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
         "~0 FIL"
     );
 
+    token_string = TokenAmount::from_atto(15089000000000050000u64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(15089000000000050000u64), true, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
         "~15 FIL"
     );
 }
 
 #[test]
 fn exact_balance_not_fixed_unit() {
+    let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), false, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "100 atto FIL"
     );
 
+    token_string = TokenAmount::from_atto(120005).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(120005), false, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "120.005 femto FIL"
     );
 
+    token_string = TokenAmount::from_atto(200000045i64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(200000045i64), false, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "200.000045 pico FIL"
     );
 
+    token_string = TokenAmount::from_atto(1000000123).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(1000000123), false, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "1.000000123 nano FIL"
     );
 
+    token_string = TokenAmount::from_atto(450000008000000i64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(450000008000000i64), false, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "450.000008 micro FIL"
     );
 
+    token_string = TokenAmount::from_atto(90000002750000000i64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(90000002750000000i64), false, true,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "90.00000275 milli FIL"
     );
 }
 
 #[test]
 fn not_exact_balance_not_fixed_unit() {
+    let mut token_string = TokenAmount::from_atto(100).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(100), false, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "100 atto FIL"
     );
 
+    token_string = TokenAmount::from_atto(120005).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(120005), false, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "120.005 femto FIL"
     );
 
+    token_string = TokenAmount::from_atto(200000045i64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(200000045i64), false, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "~200 pico FIL"
     );
 
+    token_string = TokenAmount::from_atto(1000000123).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(1000000123), false, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "~1 nano FIL"
     );
 
+    token_string = TokenAmount::from_atto(450000008000000i64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(450000008000000i64), false, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "~450 micro FIL"
     );
 
+    token_string = TokenAmount::from_atto(90000002750000000i64).atto().to_string();
     assert_eq!(
-        format_balance_string(TokenAmount::from_atto(90000002750000000i64), false, false,),
+        format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "~90 milli FIL"
-    );
-}
-
-#[test]
-fn test_formatting_vars() {
-    assert_eq!(
-        formating_vars("1940.00".to_string(), "1940.000".to_string(), false),
-        ("1940".to_string(), "".to_string())
-    );
-    assert_eq!(
-        formating_vars("940.050".to_string(), "940.050123".to_string(), false),
-        ("940.05".to_string(), "~".to_string())
-    );
-    assert_eq!(
-        formating_vars("230.".to_string(), "230.0".to_string(), false),
-        ("230".to_string(), "".to_string())
     );
 }
