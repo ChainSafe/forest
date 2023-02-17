@@ -6,7 +6,6 @@ use std::{
     str::{self, FromStr},
 };
 
-use ahash::{HashMap, HashMapExt};
 use anyhow::Context;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
@@ -16,21 +15,16 @@ use forest_json::{
 };
 use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
+use forest_shim::address::{Address, Protocol};
 use forest_utils::io::read_file_to_string;
 use fvm_shared::{
-    address::{Address, Protocol},
-    bigint::BigInt,
     crypto::signature::{Signature, SignatureType},
-    econ::TokenAmount,
 };
-use lazy_static::lazy_static;
 use rpassword::read_password;
 use rust_decimal::prelude::*;
 use rust_decimal_macros::dec;
 
-use super::Config;
-
-use super::handle_rpc_err;
+use super::{handle_rpc_err, Config};
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
@@ -208,7 +202,8 @@ impl WalletCommands {
                         .map_err(handle_rpc_err)?;
 
                     let balance_dec = balance_string.parse::<Decimal>()?;
-                    let balance_string = format_balance_string(balance_dec, *exact_balance, *fixed_unit);
+                    let balance_string =
+                        format_balance_string(balance_dec, *exact_balance, *fixed_unit);
 
                     println!("{addr:41}  {default_address_mark:7}  {balance_string}",);
                 }
@@ -339,7 +334,9 @@ fn not_exact_balance_fixed_unit() {
         "~0 FIL"
     );
 
-    token_string = TokenAmount::from_atto(999999999999999999u64).atto().to_string();
+    token_string = TokenAmount::from_atto(999999999999999999u64)
+        .atto()
+        .to_string();
     assert_eq!(
         format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
         "~1 FIL"
@@ -351,7 +348,9 @@ fn not_exact_balance_fixed_unit() {
         "~0 FIL"
     );
 
-    token_string = TokenAmount::from_atto(15089000000000050000u64).atto().to_string();
+    token_string = TokenAmount::from_atto(15089000000000050000u64)
+        .atto()
+        .to_string();
     assert_eq!(
         format_balance_string(token_string.parse::<Decimal>().unwrap(), false, true),
         "~15 FIL"
@@ -384,13 +383,17 @@ fn exact_balance_not_fixed_unit() {
         "1.000000123 nano FIL"
     );
 
-    token_string = TokenAmount::from_atto(450000008000000i64).atto().to_string();
+    token_string = TokenAmount::from_atto(450000008000000i64)
+        .atto()
+        .to_string();
     assert_eq!(
         format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "450.000008 micro FIL"
     );
 
-    token_string = TokenAmount::from_atto(90000002750000000i64).atto().to_string();
+    token_string = TokenAmount::from_atto(90000002750000000i64)
+        .atto()
+        .to_string();
     assert_eq!(
         format_balance_string(token_string.parse::<Decimal>().unwrap(), true, false),
         "90.00000275 milli FIL"
@@ -423,13 +426,17 @@ fn not_exact_balance_not_fixed_unit() {
         "~1 nano FIL"
     );
 
-    token_string = TokenAmount::from_atto(450000008000000i64).atto().to_string();
+    token_string = TokenAmount::from_atto(450000008000000i64)
+        .atto()
+        .to_string();
     assert_eq!(
         format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "~450 micro FIL"
     );
 
-    token_string = TokenAmount::from_atto(90000002750000000i64).atto().to_string();
+    token_string = TokenAmount::from_atto(90000002750000000i64)
+        .atto()
+        .to_string();
     assert_eq!(
         format_balance_string(token_string.parse::<Decimal>().unwrap(), false, false,),
         "~90 milli FIL"

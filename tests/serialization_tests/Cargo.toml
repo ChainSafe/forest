@@ -16,6 +16,7 @@ cid.workspace = true
 forest_blocks.workspace = true
 forest_json.workspace = true
 forest_message.workspace = true
+forest_shim.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 hex.workspace = true

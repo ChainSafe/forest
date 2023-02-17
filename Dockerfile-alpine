@@ -2,14 +2,14 @@
 # 
 # Build and run locally:
 # ```
-# docker build -t forest:latest -f ./Dockerfile .
-# docker run --init -it forest
+# docker build -t forest:alpine -f ./Dockerfile-alpine .
+# docker run --init -it forest:alpine
 # ```
 # 
 # Build and manually push to Github Container Registry (see https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 # ```
-# docker build -t ghcr.io/chainsafe/forest:latest .
-# docker push ghcr.io/chainsafe/forest:latest
+# docker build -t ghcr.io/chainsafe/forest:alpine .
+# docker push ghcr.io/chainsafe/forest:alpine
 # ```
 
 ##
@@ -17,26 +17,15 @@
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ## 
+FROM alpine AS build-env
 
-# Cross-compilation helpers
-# https://github.com/tonistiigi/xx
-FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.2.1 AS xx
+# Install dependencies
+RUN apk update
+RUN apk add git curl protobuf make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
+RUN update-ca-certificates
 
-FROM --platform=$BUILDPLATFORM buildpack-deps:bullseye AS build-env
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Copy the cross-compilation scripts 
-COPY --from=xx / /
-
-# install dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y build-essential clang protobuf-compiler cmake
-
-# export TARGETPLATFORM
-ARG TARGETPLATFORM
-
-# Install those packages for the target architecture
-RUN xx-apt-get update && xx-apt-get install -y libc6-dev g++ ocl-icd-opencl-dev
 
 WORKDIR /forest
 COPY . .
@@ -45,7 +34,7 @@ COPY . .
 RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/root/.rustup \
     --mount=type=cache,sharing=private,target=/forest/target \
-    make install-xx && \
+    make install-with-mimalloc && \
     mkdir /forest_out && \
     cp /root/.cargo/bin/forest* /forest_out
 
@@ -54,16 +43,16 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
-FROM ubuntu:22.04
+FROM alpine
 
 # Link package to the repository
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 ARG SERVICE_USER=forest
 ARG SERVICE_GROUP=forest
 
-ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev aria2 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apk update
+RUN apk add aria2 ca-certificates opencl-icd-loader
 RUN update-ca-certificates
 
 # Create user and group and assign appropriate rights to the forest binaries

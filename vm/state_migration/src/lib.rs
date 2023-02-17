@@ -121,8 +121,8 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     let migrator = self.migrations.get(&state.code).cloned().unwrap();
                     scope.spawn(move |_| {
                         let job = MigrationJob {
-                            address: forest_shim::address::Address::from(address).into(),
-                            actor_state: state.into(),
+                            address: address.into(),
+                            actor_state: state,
                             actor_migration: migrator,
                         };
 
@@ -146,7 +146,7 @@ impl<BS: Blockstore + Clone + Send + Sync> StateMigration<BS> {
                     actor_state,
                 } = job_output;
                 actors_out
-                    .set_actor(&address, actor_state.into())
+                    .set_actor(&address.into(), actor_state)
                     .unwrap_or_else(|e| {
                         panic!(
                             "Failed setting new actor state at given address: {address}, Reason: {e}"
