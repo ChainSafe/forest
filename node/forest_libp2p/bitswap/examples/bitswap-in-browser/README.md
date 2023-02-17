@@ -3,7 +3,6 @@
 1. Start the server, the program will print its address and some random block CIDs that are available in its in-memory blockstore
 
 ```console
-➜  bitswap-in-browser git:(hm/bitswap-example-wasm)
 cargo run
 ```
 
