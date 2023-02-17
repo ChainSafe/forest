@@ -117,7 +117,7 @@ def exec_command(command, dry_run, benchmark = nil)
   metrics
 end
 
-def import_table_row(key, value)
+def format_import_table_row(key, value)
   elapsed = value[:import][:elapsed] || 'n/a'
   rss = value[:import][:rss]
   rss_max = rss ? (rss.max * 1024).to_bibyte : 'n/a'
@@ -125,37 +125,18 @@ def import_table_row(key, value)
   "#{key} | #{elapsed} | #{rss_max} | #{db_size}\n"
 end
 
-def write_import_table(metrics)
-  return '' unless metrics.key?(:import)
-
+def format_import_table(metrics)
   result = "Bench | Import Time | Import RSS | DB Size\n"
   result += "-|-|-|-\n"
 
   metrics.each do |key, value|
-    result += import_table_row(key, value)
+    result += format_import_table_row(key, value)
   end
 
   result
 end
 
-def write_csv(metrics)
-  filename = "result_#{Time.now.to_i}.csv"
-  CSV.open(filename, 'w') do |csv|
-    csv << ['Client', 'Snapshot Import Time [sec]', 'Validation Time [tipsets/min]']
-
-    metrics.each do |key, value|
-      elapsed = value[:import][:elapsed] || 'n/a'
-      tpm = value[:validate_online][:tpm] || 'n/a'
-
-      csv << [key, elapsed, tpm]
-    end
-  end
-  puts "Wrote #{filename}"
-end
-
-def write_validate_table(metrics)
-  return '' unless metrics.key?(:validate)
-
+def format_validate_table(metrics)
   result = "Bench | Validate Time | Validate RSS\n"
   result += "-|-|-\n"
 
@@ -172,13 +153,28 @@ end
 def write_markdown(metrics)
   # Output file is a suite of markdown tables
   result = ''
-  result += write_import_table(metrics)
+  result += format_import_table(metrics)
   result += "---\n"
-  result += write_validate_table(metrics)
+  result += format_validate_table(metrics)
 
   filename = "result_#{Time.now.to_i}.md"
   File.write(filename, result)
   puts "(I) Wrote #{filename}"
+end
+
+def write_csv(metrics)
+  filename = "result_#{Time.now.to_i}.csv"
+  CSV.open(filename, 'w') do |csv|
+    csv << ['Client', 'Snapshot Import Time [sec]', 'Validation Time [tipsets/min]']
+
+    metrics.each do |key, value|
+      elapsed = value[:import][:elapsed] || 'n/a'
+      tpm = value[:validate_online][:tpm] || 'n/a'
+
+      csv << [key, elapsed, tpm]
+    end
+  end
+  puts "Wrote #{filename}"
 end
 
 def splice_args(command, args)
