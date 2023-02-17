@@ -28,6 +28,7 @@ use rust_decimal_macros::dec;
 
 use super::{handle_rpc_err, Config};
 
+#[allow(clippy::enum_variant_names)]
 enum FormattingMode {
     ExactFixed,
     NotExactFixed,
