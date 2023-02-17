@@ -1,5 +1,11 @@
 SER_TESTS = "tests/serialization_tests"
 
+# Using https://github.com/tonistiigi/xx
+# Use in Docker images when cross-compiling.
+install-xx:
+	xx-cargo install --locked --path forest/cli --force
+	xx-cargo install --locked --path forest/daemon --force
+
 install-cli:
 	cargo install --locked --path forest/cli --force
 
