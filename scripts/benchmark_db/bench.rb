@@ -431,12 +431,26 @@ class ForestBenchmark < Benchmark
   end
 end
 
-# Forest benchmark class with ParityDb backend
+# Benchmark class for Forest with ParityDb backend
 class ParityDbBenchmark < ForestBenchmark
   def build_command(dry_run)
     Dir.chdir(repository_name) do
       exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb'], dry_run)
     end
+  end
+end
+
+# Benchmark class for Forest with ParityDb backend with Jemalloc allocator
+class JemallocBenchmark < Benchmark
+  Dir.chdir(repository_name) do
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
+  end
+end
+
+# Benchmark class for Forest with ParityDb backend with Mimalloc allocator
+class MiMallocBenchmark < Benchmark
+  Dir.chdir(repository_name) do
+    exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
   end
 end
 
