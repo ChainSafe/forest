@@ -3240,7 +3240,6 @@ dependencies = [
  "futures",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
  "log",
  "nonempty",
  "num",
