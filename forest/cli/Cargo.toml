@@ -43,6 +43,8 @@ log.workspace = true
 multibase.workspace = true
 num.workspace = true
 rpassword.workspace = true
+rust_decimal = "1.28.1"
+rust_decimal_macros = "1.28.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 strfmt = "0.2.2"
@@ -52,8 +54,6 @@ time.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tokio-util = { workspace = true, features = ["compat"] }
 toml.workspace = true
-rust_decimal_macros = "1.28.1"
-rust_decimal = "1.28.1"
 
 [dev-dependencies]
 assert_cmd.workspace = true
