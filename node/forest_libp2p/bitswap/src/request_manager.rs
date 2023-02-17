@@ -71,6 +71,7 @@ impl BitswapRequestManager {
     /// Gets a block, writing it to the given block store that implements
     /// [BitswapStoreReadWrite] and respond to the channel. Note: this
     /// method is a non-blocking, it is intended to return immediately.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_block(
         self: Arc<Self>,
         store: Arc<impl BitswapStoreReadWrite>,
