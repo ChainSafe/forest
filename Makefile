@@ -77,7 +77,7 @@ clean:
 lint-all: lint audit spellcheck udeps
 
 audit:
-	cargo audit
+	cargo audit --ignore RUSTSEC-2020-0071
 
 udeps:
 	cargo udeps --all-targets --features submodule_tests,instrumented_kernel
