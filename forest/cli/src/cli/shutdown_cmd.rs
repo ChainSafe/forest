@@ -9,14 +9,14 @@ use crate::cli::prompt_confirm;
 #[derive(Debug, clap::Args)]
 pub struct ShutdownCommand {
     /// Assume "yes" as answer to shutdown prompt
-    #[arg(long, short)]
-    yes: bool,
+    #[arg(long)]
+    force: bool,
 }
 
 impl ShutdownCommand {
     pub async fn run(&self, config: Config) -> anyhow::Result<()> {
         println!("Shutting down Forest node");
-        if !self.yes && !prompt_confirm() {
+        if !self.force && !prompt_confirm() {
             println!("Aborted.");
             return Ok(());
         }
