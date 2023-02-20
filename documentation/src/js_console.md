@@ -41,9 +41,9 @@ To exit, press ctrl-d or type :quit
 Forest running on calibnet
 ```
 
-You can directly call JSON-RPC API endpoints that have been binded to the console.
+You can directly call JSON-RPC API endpoints that are bound to the console.
 
-For example `Filecoin.ChainGetName` will be binded to the global `chainGetName` function.
+For example, `Filecoin.ChainGetName` is bound to the global `chainGetName` function.
 
 ### Tips
 
