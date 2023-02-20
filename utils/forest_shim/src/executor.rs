@@ -95,7 +95,7 @@ impl Receipt {
 
     pub fn return_data(&self) -> RawBytes {
         match self {
-            Receipt::V2(v2) => RawBytes::from(Vec::<u8>::from(v2.return_data.clone())),
+            Receipt::V2(v2) => RawBytes::from(v2.return_data.to_vec()),
             Receipt::V3(v3) => v3.return_data.clone(),
         }
     }
