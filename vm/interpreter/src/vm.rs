@@ -335,16 +335,24 @@ where
 
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
-        let ret = match self {
-            VM::VM2 { fvm_executor, .. } => fvm_executor.execute_message(
-                unsigned.into(),
-                fvm::executor::ApplyKind::Explicit,
-                raw_length,
-            )?,
-            VM::VM3 { .. } => unimplemented!(),
+        let ret: ApplyRet = match self {
+            VM::VM2 { fvm_executor, .. } => fvm_executor
+                .execute_message(
+                    unsigned.into(),
+                    fvm::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?
+                .into(),
+            VM::VM3 { fvm_executor, .. } => fvm_executor
+                .execute_message(
+                    unsigned.into(),
+                    fvm3::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?
+                .into(),
         };
 
-        let exit_code = ret.msg_receipt.exit_code;
+        let exit_code = ret.msg_receipt().exit_code();
 
         if !exit_code.is_success() {
             match exit_code.value() {
@@ -360,7 +368,7 @@ where
             };
         }
 
-        Ok(ret.into())
+        Ok(ret)
     }
 
     fn reward_message(
