@@ -259,7 +259,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
@@ -275,7 +275,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
@@ -543,7 +543,7 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "thiserror",
- "time",
+ "time 0.3.18",
  "url",
 ]
 
@@ -969,7 +969,8 @@ dependencies = [
 [[package]]
 name = "boa_engine"
 version = "0.16.0"
-source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ad1e1e9d5af81e5051138a3a17dade32a899ebca3bf007678ea245bb8ef3fcd"
 dependencies = [
  "bitflags",
  "boa_gc",
@@ -998,7 +999,8 @@ dependencies = [
 [[package]]
 name = "boa_gc"
 version = "0.16.0"
-source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca7b8b2de06b105e2515b4ec1906dfd9ce882d8337e8e10484ced8ba9d8cb83f"
 dependencies = [
  "gc",
 ]
@@ -1006,7 +1008,8 @@ dependencies = [
 [[package]]
 name = "boa_interner"
 version = "0.16.0"
-source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45609e07dcbc9315bbd10e2a6499da4469b2caddc1374bcc823ac5720d8b9dc5"
 dependencies = [
  "phf",
  "rustc-hash",
@@ -1016,12 +1019,14 @@ dependencies = [
 [[package]]
 name = "boa_profiler"
 version = "0.16.0"
-source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16acab52167770e9e6dc5c5fd3029750830ecaf1e8012575816a214846d22b7c"
 
 [[package]]
 name = "boa_unicode"
 version = "0.16.0"
-source = "git+https://github.com/elmattic/boa?branch=fix-rustsec#81f3b4f621f2a7245e3da78d17c50e51ff7aad37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f7df6584b38b34a6bdb457bff1c96eadb01362d43420e61a89b301a5f3db2c1"
 dependencies = [
  "unicode-general-category",
 ]
@@ -1208,9 +1213,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-integer",
  "num-traits",
  "serde",
+ "time 0.1.45",
+ "wasm-bindgen",
  "winapi",
 ]
 
@@ -3076,7 +3084,7 @@ dependencies = [
  "strfmt",
  "tempfile",
  "ticker",
- "time",
+ "time 0.3.18",
  "tokio",
  "tokio-util",
  "toml 0.7.2",
@@ -3125,7 +3133,7 @@ dependencies = [
  "serde_json",
  "shared_memory",
  "tempfile",
- "time",
+ "time 0.3.18",
  "tokio",
 ]
 
@@ -3319,7 +3327,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "time",
+ "time 0.3.18",
  "tokio",
 ]
 
@@ -3361,7 +3369,7 @@ dependencies = [
  "sha2 0.10.6",
  "tempfile",
  "tikv-jemallocator",
- "time",
+ "time 0.3.18",
  "tokio",
  "toml 0.7.2",
  "tower-http",
@@ -7775,7 +7783,7 @@ checksum = "6413f3de1edee53342e6138e75b56d32e7bc6e332b3bd62d497b1929d4cfbcdd"
 dependencies = [
  "pem",
  "ring",
- "time",
+ "time 0.3.18",
  "x509-parser 0.13.2",
  "yasna",
 ]
@@ -7788,7 +7796,7 @@ checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
  "pem",
  "ring",
- "time",
+ "time 0.3.18",
  "yasna",
 ]
 
@@ -8096,7 +8104,7 @@ dependencies = [
  "serde_derive",
  "sha2 0.10.6",
  "thiserror",
- "time",
+ "time 0.3.18",
  "url",
 ]
 
@@ -8552,7 +8560,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros",
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
@@ -8761,7 +8769,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "thiserror",
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
@@ -9253,6 +9261,17 @@ dependencies = [
 
 [[package]]
 name = "time"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
+dependencies = [
+ "libc",
+ "wasi 0.10.0+wasi-snapshot-preview1",
+ "winapi",
+]
+
+[[package]]
+name = "time"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af0097eaf301d576d0b2aead7a59facab6d53cc636340f0291fab8446a2e8613"
@@ -9546,7 +9565,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d48f71a791638519505cefafe162606f706c25592e4bde4d97600c0195312e"
 dependencies = [
  "crossbeam-channel",
- "time",
+ "time 0.3.18",
  "tracing-subscriber",
 ]
 
@@ -9974,6 +9993,12 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
+version = "0.10.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
+
+[[package]]
+name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
@@ -10318,7 +10343,7 @@ dependencies = [
  "sha2 0.10.6",
  "stun",
  "thiserror",
- "time",
+ "time 0.3.18",
  "tokio",
  "turn",
  "url",
@@ -10824,7 +10849,7 @@ dependencies = [
  "ring",
  "rusticata-macros",
  "thiserror",
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
@@ -10842,7 +10867,7 @@ dependencies = [
  "oid-registry 0.6.1",
  "rusticata-macros",
  "thiserror",
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
@@ -10890,7 +10915,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aed2e7a52e3744ab4d0c05c20aa065258e84c49fd4226f5191b2ed29712710b4"
 dependencies = [
- "time",
+ "time 0.3.18",
 ]
 
 [[package]]
