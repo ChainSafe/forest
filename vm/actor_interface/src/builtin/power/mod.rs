@@ -210,6 +210,7 @@ impl From<fil_actor_power_v9::Claim> for Claim {
     }
 }
 
+
 impl From<fil_actor_power_v10::Claim> for Claim {
     fn from(cl: fil_actor_power_v10::Claim) -> Self {
         Self {
