@@ -6,14 +6,14 @@ use jsonrpc_v2::Error;
 
 use crate::call;
 
-pub async fn common_version(
+pub async fn version(
     params: VersionParams,
     auth_token: &Option<String>,
 ) -> Result<VersionResult, Error> {
     call(VERSION, params, auth_token).await
 }
 
-pub async fn common_shutdown(
+pub async fn shutdown(
     params: ShutdownParams,
     auth_token: &Option<String>,
 ) -> Result<ShutdownResult, Error> {

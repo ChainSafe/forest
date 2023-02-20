@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use forest_rpc_client::common_shutdown;
+use forest_rpc_client::shutdown;
 
 use super::{handle_rpc_err, Config};
 use crate::cli::prompt_confirm;
@@ -20,7 +20,7 @@ impl ShutdownCommand {
             println!("Aborted.");
             return Ok(());
         }
-        common_shutdown((), &config.client.rpc_token)
+        shutdown((), &config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
         Ok(())

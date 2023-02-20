@@ -60,7 +60,7 @@ forest-cli attach --exec "syncStatus().ActiveSyncs[0].Epoch"
 Or print node version:
 
 ```bash
-forest-cli attach --exec "commonVersion()"
+forest-cli attach --exec "version()"
 ```
 
 ## Builtins

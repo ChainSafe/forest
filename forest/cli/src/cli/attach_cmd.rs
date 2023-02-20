@@ -324,8 +324,8 @@ impl AttachCommand {
         bind_func!(context, token, mpool_push_message);
 
         // Common API
-        bind_func!(context, token, common_version);
-        bind_func!(context, token, common_shutdown);
+        bind_func!(context, token, version);
+        bind_func!(context, token, shutdown);
 
         // Bind send_message, sleep, sleep_tipsets
         bind_func!(context, token, send_message);
