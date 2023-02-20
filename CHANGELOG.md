@@ -9,7 +9,7 @@ Notable updates:
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
 * [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h. [#2396](https://github.com/ChainSafe/forest/pull/2396)
 * [config] `stats` and `compression` keys in `parity_db` section were renamed to `enable_statistics` and `compression_type` respectively. [#2444](https://github.com/ChainSafe/forest/pull/2444)
-* [forest cli] changed how balances are displayed defualting to 
+* [forest cli] changed how balances are displayed, defaulting to
   - adding metric prefix when it's appropriate to do so, consequently CLI flag `--fixed-unit` added to force to show in original `FIL` unit
   - 4 significant digits, consequently CLI flag `--exact-balance` added to force full accuracy.
   [#2385](https://github.com/ChainSafe/forest/pull/2385)
