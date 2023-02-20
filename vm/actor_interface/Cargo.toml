@@ -11,7 +11,6 @@ fil_actor_account_v8.workspace = true
 fil_actor_account_v9.workspace = true
 fil_actor_account_v10.workspace = true
 fil_actor_cron_v8.workspace = true
-fil_actor_cron_v10.workspace = true
 fil_actor_init_v8.workspace = true
 fil_actor_init_v9.workspace = true
 fil_actor_init_v10.workspace = true

@@ -2474,21 +2474,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fil_actor_cron_v10"
-version = "10.0.0-alpha.1"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=f6cdc18449d93dac3a54cdcfc4a37cd451ec1d5e#f6cdc18449d93dac3a54cdcfc4a37cd451ec1d5e"
-dependencies = [
- "fil_actors_runtime_v10",
- "fvm_ipld_blockstore",
- "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
- "log",
- "num-derive",
- "num-traits",
- "serde",
-]
-
-[[package]]
 name = "fil_actor_cron_v8"
 version = "8.0.0"
 source = "git+https://github.com/ChainSafe/fil-actor-states?rev=f6cdc18449d93dac3a54cdcfc4a37cd451ec1d5e#f6cdc18449d93dac3a54cdcfc4a37cd451ec1d5e"
@@ -3182,7 +3167,6 @@ dependencies = [
  "fil_actor_account_v10",
  "fil_actor_account_v8",
  "fil_actor_account_v9",
- "fil_actor_cron_v10",
  "fil_actor_cron_v8",
  "fil_actor_init_v10",
  "fil_actor_init_v8",
@@ -3840,7 +3824,6 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "fil_actors_runtime_v9",
- "forest_actor_interface",
  "forest_beacon",
  "forest_shim",
  "fvm_shared 2.0.0",
