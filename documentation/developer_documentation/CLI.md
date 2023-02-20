@@ -32,6 +32,8 @@ For nodes running on default port and when you are interacting locally, the admi
 forest-cli --token eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjczMjEwMTkzfQ.xxhmqtG9O3XNTIrOEB2_TWnVkq0JkqzRdw63BdosV0c
 ```
 
+Note that the Admin token is printed in the logs when starting Forest node.
+
 ## Wallet
 
 All wallet commands require write permissions to interact with the keystore

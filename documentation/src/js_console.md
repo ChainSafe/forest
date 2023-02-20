@@ -19,16 +19,10 @@ First start Forest node inside another terminal:
 forest --chain calibnet --encrypt-keystore false
 ```
 
-Copy the Admin token printed in the logs and set it to an environment variable, i.e.:
-
-```bash
-TOKEN="..."
-```
-
 To attach to your Forest node, run `forest-cli` with the `attach` subcommand:
 
 ```bash
-forest-cli --token $TOKEN attach 
+forest-cli --token <TOKEN> attach 
 ```
 
 You should now see a prompt and be able to interact:
