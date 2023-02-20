@@ -84,7 +84,7 @@ fvm = "~2.2"
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
-fvm_ipld_encoding = "0.2"
+fvm_ipld_encoding = "0.3"
 fvm_shared = { version = "2.0", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
