@@ -73,6 +73,19 @@ fn to_position(err: ParseError) -> Option<(u32, u32)> {
     }
 }
 
+fn eval(code: &str, context: &mut Context) {
+    match context.eval(code) {
+        Ok(v) => match v {
+            JsValue::Undefined => (),
+            _ => println!("{}", v.display()),
+        },
+        Err(v) => {
+            let msg = v.to_string(context).expect("to_string must succeed");
+            eprintln!("Uncaught {msg}");
+        }
+    }
+}
+
 fn require(
     _: &JsValue,
     params: &[JsValue],
@@ -277,15 +290,14 @@ impl AttachCommand {
 
     fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
         const INIT: &str = r"
-            const prelude = require('prelude.js')
-            prelude.greet();
-            if (prelude.showPeers) { showPeers = prelude.showPeers; }
-            if (prelude.getPeer) { getPeer = prelude.getPeer; }
-            if (prelude.disconnectPeers) { disconnectPeers = prelude.disconnectPeers; }
-            if (prelude.isPeerConnected) { isPeerConnected = prelude.isPeerConnected; }
-            if (prelude.showWallet) { showWallet = prelude.showWallet; }
-            if (prelude.showSyncStatus) { showSyncStatus = prelude.showSyncStatus; }
-            if (prelude.sendFIL) { sendFIL = prelude.sendFIL; }
+            const Prelude = require('prelude.js')
+            if (Prelude.showPeers) { showPeers = Prelude.showPeers; }
+            if (Prelude.getPeer) { getPeer = Prelude.getPeer; }
+            if (Prelude.disconnectPeers) { disconnectPeers = Prelude.disconnectPeers; }
+            if (Prelude.isPeerConnected) { isPeerConnected = Prelude.isPeerConnected; }
+            if (Prelude.showWallet) { showWallet = Prelude.showWallet; }
+            if (Prelude.showSyncStatus) { showSyncStatus = Prelude.showSyncStatus; }
+            if (Prelude.sendFIL) { sendFIL = Prelude.sendFIL; }
         ";
         let result = context.eval(INIT);
         if let Err(err) = result {
@@ -299,19 +311,15 @@ impl AttachCommand {
         let mut context = Context::default();
         self.setup_context(&mut context, &config.client.rpc_token);
 
+        self.import_prelude(&mut context)?;
+
         // If only a short execution was requested, evaluate and return
         if let Some(code) = &self.exec {
-            match context.eval(code.trim_end()) {
-                Ok(v) => match v {
-                    JsValue::Undefined => (),
-                    _ => println!("{}", v.display()),
-                },
-                Err(v) => eprintln!("Uncaught: {v:?}"),
-            }
+            eval(code.trim_end(), &mut context);
             return Ok(());
         }
 
-        self.import_prelude(&mut context)?;
+        eval("Prelude.greet()", &mut context);
 
         let config = RustyLineConfig::builder()
             .keyseq_timeout(1)
@@ -363,17 +371,7 @@ impl AttachCommand {
                     Ok(_v) => {
                         // println!("Parse tree:\n{:#?}", v);
                         editor.add_history_entry(&buffer);
-                        match context.eval(buffer.trim_end()) {
-                            Ok(v) => match v {
-                                JsValue::Undefined => (),
-                                _ => println!("{}", v.display()),
-                            },
-                            Err(v) => {
-                                let message =
-                                    v.to_string(&mut context).expect("to_string must succeed");
-                                eprintln!("Uncaught {message}");
-                            }
-                        }
+                        eval(buffer.trim_end(), &mut context);
                         break;
                     }
                     Err(err) => {
