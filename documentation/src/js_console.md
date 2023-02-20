@@ -107,4 +107,4 @@ By default modules will be loaded from the current directory. Use `--jspath` fla
 
 Forest's console is built using [Boa Javascript engine](https://github.com/boa-dev/boa). It does support promises or `async` functions, but keep in mind that Boa is not fully compatible with ECMAScript yet.
 
-Not every endpoints from the Filecoin API has been binded to the console at the moment.
+Not every endpoint from the Filecoin API has been bound to the console. Please [create an issue](https://github.com/ChainSafe/forest/issues) if you need one that is not available.
