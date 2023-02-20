@@ -796,9 +796,7 @@ where
     let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
         let (unsigned, signed) = block_messages(db, b)?;
         let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
-        let unsigned_box = unsigned
-            .into_iter()
-            .map(ChainMessage::Unsigned);
+        let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
         for message in unsigned_box.chain(signed_box) {

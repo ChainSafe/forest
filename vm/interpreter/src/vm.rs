@@ -213,11 +213,7 @@ where
         }
 
         if let Some(callback) = callback {
-            callback(
-                &(cron_msg.cid()?),
-                &ChainMessage::Unsigned(cron_msg),
-                &ret,
-            )?;
+            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
         }
         Ok(())
     }
@@ -285,11 +281,7 @@ where
                     );
                 }
                 if let Some(callback) = &mut callback {
-                    callback(
-                        &(rew_msg.cid()?),
-                        &ChainMessage::Unsigned(rew_msg),
-                        &ret,
-                    )?;
+                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
                 }
             }
         }

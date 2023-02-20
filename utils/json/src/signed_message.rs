@@ -174,8 +174,7 @@ mod tests {
         }
         .into();
 
-        let signed =
-            SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
+        let signed = SignedMessage::new_unchecked(message.clone(), Signature::new_bls(vec![0, 1]));
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct TestStruct {
