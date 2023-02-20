@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    fs::{read_to_string, OpenOptions},
+    fs::{canonicalize, read_to_string, OpenOptions},
     path::PathBuf,
     str::FromStr,
 };
@@ -48,6 +48,31 @@ fn set_module(context: &mut Context) {
     context.register_global_property("module", JsValue::from(module), Attribute::default());
 }
 
+fn to_position(err: ParseError) -> Option<(u32, u32)> {
+    match err {
+        ParseError::Expected {
+            expected: _,
+            found: _,
+            span,
+            context: _,
+        } => Some((span.start().line_number(), span.start().column_number())),
+        ParseError::Unexpected {
+            found: _,
+            span,
+            message: _,
+        } => Some((span.start().line_number(), span.start().column_number())),
+        ParseError::General {
+            message: _,
+            position,
+        } => Some((position.line_number(), position.column_number())),
+        ParseError::Unimplemented {
+            message: _,
+            position,
+        } => Some((position.line_number(), position.column_number())),
+        _ => None,
+    }
+}
+
 fn require(
     _: &JsValue,
     params: &[JsValue],
@@ -74,7 +99,7 @@ fn require(
         }
     }
     let result = if path.exists() {
-        read_to_string(path)
+        read_to_string(path.clone())
     } else {
         if path == PathBuf::from("prelude.js") {
             //println!("load builtin prelude");
@@ -85,13 +110,32 @@ fn require(
     };
     match result {
         Ok(buffer) => {
-            //println!("evaluating:\n{}", buffer);
+            if let Err(err) = context.parse(&buffer) {
+                let canonical_path = canonicalize(path.clone()).unwrap_or(path.clone());
+                eprintln!("{}", canonical_path.display());
+
+                if let Some((line, column)) = to_position(err) {
+                    // Display a few lines for context
+                    const MAX_WINDOW: usize = 3;
+                    let start_index = 0.max(line as isize - MAX_WINDOW as isize) as usize;
+                    let window_len = line as usize - start_index;
+                    for l in buffer.split("\n").skip(start_index).take(window_len) {
+                        println!("{l}");
+                    }
+                    // Column is always strictly superior to zero
+                    println!("{}^", " ".to_owned().repeat(column as usize - 1));
+                }
+                println!("");
+            }
             context.eval(&buffer)?;
 
             // Access module.exports and return as ResultValue
             let global_obj = context.global_object().to_owned();
-            let module = global_obj.get("module", context).expect("get should work");
-            let exports = module.as_object().expect("as_object should work").get("exports", context);
+            let module = global_obj.get("module", context).expect("get must succeed");
+            let exports = module
+                .as_object()
+                .expect("as_object must succeed")
+                .get("exports", context);
 
             // Reset module to avoid side effects
             set_module(context);
@@ -328,25 +372,24 @@ impl AttachCommand {
                                 JsValue::Undefined => (),
                                 _ => println!("{}", v.display()),
                             },
-                            Err(v) => eprintln!("Uncaught: {v:?}"),
+                            Err(v) => {
+                                let message =
+                                    v.to_string(&mut context).expect("to_string must succeed");
+                                eprintln!("Uncaught {}", message);
+                            }
                         }
                         break;
                     }
                     Err(err) => {
                         match err {
-                            ParseError::Expected {
-                                expected,
-                                found,
-                                span: _,
-                                context: _,
-                            } => {
-                                eprintln!("Expecting token {expected:?} but got {found}");
-                                break 'main;
-                            }
-                            _ => {
+                            ParseError::Lex { err: _ } | ParseError::AbruptEnd => {
                                 // Continue reading input and append it to buffer
                                 buffer.push('\n');
                                 prompt = ">> ";
+                            }
+                            _ => {
+                                eprintln!("Uncaught ParseError: {}", err.to_string());
+                                break;
                             }
                         }
                     }
