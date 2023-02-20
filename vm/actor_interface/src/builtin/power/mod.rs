@@ -3,7 +3,6 @@
 
 use anyhow::Context;
 use cid::Cid;
-use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
 use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
@@ -11,7 +10,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
-use crate::FilterEstimate;
+use crate::{FilterEstimate, Policy};
 
 /// Power actor address.
 // TODO: Select address based on actors version
@@ -43,12 +42,23 @@ pub fn is_v9_power_cid(cid: &Cid) -> bool {
     known_cids.contains(cid)
 }
 
+pub fn is_v10_power_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v9
+        Cid::try_from("bafk2bzaceburxajojmywawjudovqvigmos4dlu4ifdikogumhso2ca2ccaleo").unwrap(),
+        // mainnet v9
+        Cid::try_from("bafk2bzacedsetphfajgne4qy3vdrpyd6ekcmtfs2zkjut4r34cvnuoqemdrtw").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
 /// Power actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_power_v8::State),
     V9(fil_actor_power_v9::State),
+    V10(fil_actor_power_v10::State),
 }
 
 impl State {
@@ -68,6 +78,12 @@ impl State {
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
+        if is_v10_power_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V9)
+                .context("Actor state doesn't exist in store");
+        }
         Err(anyhow::anyhow!("Unknown power actor code {}", actor.code))
     }
 
@@ -76,6 +92,7 @@ impl State {
         match self {
             State::V8(st) => st.total_quality_adj_power,
             State::V9(st) => st.total_quality_adj_power,
+            State::V10(st) => st.total_quality_adj_power,
         }
     }
 
@@ -90,6 +107,10 @@ impl State {
                 raw_byte_power: st.total_raw_byte_power.clone(),
                 quality_adj_power: st.total_quality_adj_power.clone(),
             },
+            State::V10(st) => Claim {
+                raw_byte_power: st.total_raw_byte_power.clone(),
+                quality_adj_power: st.total_quality_adj_power.clone(),
+            },
         }
     }
 
@@ -98,6 +119,7 @@ impl State {
         match self {
             State::V8(st) => st.into_total_locked(),
             State::V9(st) => st.into_total_locked(),
+            State::V10(st) => st.into_total_locked(),
         }
     }
 
@@ -110,6 +132,7 @@ impl State {
         match self {
             State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
             State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V10(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
         }
     }
 
@@ -121,17 +144,25 @@ impl State {
     /// Checks power actor state for if miner meets minimum consensus power.
     pub fn miner_nominal_power_meets_consensus_minimum<BS: Blockstore>(
         &self,
-        policy: &Policy,
+        policy: Policy,
         s: &BS,
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => {
-                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
-            }
-            State::V9(st) => {
-                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
-            }
+            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(
+                &policy.try_into()?,
+                &s,
+                &miner.into(),
+            ),
+            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(
+                &policy.try_into()?,
+                &s,
+                &miner.into(),
+            ),
+            State::V10(st) => st
+                .miner_nominal_power_meets_consensus_minimum(&policy.try_into()?, &s, miner.id()?)
+                .map(|(_, bool_val)| bool_val)
+                .map_err(|e| anyhow::anyhow!("{}", e)),
         }
     }
 
@@ -140,6 +171,7 @@ impl State {
         match self {
             State::V8(st) => st.this_epoch_qa_power_smoothed.clone(),
             State::V9(st) => st.this_epoch_qa_power_smoothed.clone(),
+            State::V10(st) => st.this_epoch_qa_power_smoothed.clone(),
         }
     }
 
@@ -148,6 +180,7 @@ impl State {
         match self {
             State::V8(st) => st.total_pledge_collateral.clone(),
             State::V9(st) => st.total_pledge_collateral.clone(),
+            State::V10(st) => st.total_pledge_collateral.clone(),
         }
     }
 }
@@ -173,6 +206,15 @@ impl From<fil_actor_power_v8::Claim> for Claim {
 
 impl From<fil_actor_power_v9::Claim> for Claim {
     fn from(cl: fil_actor_power_v9::Claim) -> Self {
+        Self {
+            raw_byte_power: cl.raw_byte_power,
+            quality_adj_power: cl.quality_adj_power,
+        }
+    }
+}
+
+impl From<fil_actor_power_v10::Claim> for Claim {
+    fn from(cl: fil_actor_power_v10::Claim) -> Self {
         Self {
             raw_byte_power: cl.raw_byte_power,
             quality_adj_power: cl.quality_adj_power,

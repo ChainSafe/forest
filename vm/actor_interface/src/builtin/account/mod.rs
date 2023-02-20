@@ -18,6 +18,7 @@ pub type Method = fil_actor_account_v8::Method;
 pub enum State {
     V8(fil_actor_account_v8::State),
     V9(fil_actor_account_v9::State),
+    V10(fil_actor_account_v10::State),
 }
 
 pub fn is_v8_account_cid(cid: &Cid) -> bool {
@@ -33,6 +34,16 @@ pub fn is_v8_account_cid(cid: &Cid) -> bool {
 }
 
 pub fn is_v9_account_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v9
+        Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw").unwrap(),
+        // mainnet v9
+        Cid::try_from("bafk2bzacect2p7urje3pylrrrjy3tngn6yaih4gtzauuatf2jllk3ksgfiw2y").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
+pub fn is_v10_account_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v9
         Cid::try_from("bafk2bzaceavfgpiw6whqigmskk74z4blm22nwjfnzxb4unlqz2e4wg3c5ujpw").unwrap(),
@@ -59,6 +70,12 @@ impl State {
                 .map(State::V9)
                 .context("Actor state doesn't exist in store");
         }
+        if is_v10_account_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V10)
+                .context("Actor state doesn't exist in store");
+        }
         Err(anyhow::anyhow!("Unknown account actor code {}", actor.code))
     }
 
@@ -66,6 +83,7 @@ impl State {
         match self {
             State::V8(st) => st.address,
             State::V9(st) => st.address,
+            State::V10(st) => st.address,
         }
     }
 }

@@ -74,7 +74,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     /// Deletes old entries in the `TipsetTracker` that are past the chain
     /// finality.
     fn prune_entries(&self, header_epoch: ChainEpoch) {
-        let cut_off_epoch = header_epoch - self.chain_config.policy.chain_finality;
+        let cut_off_epoch = header_epoch - self.chain_config.policy.chain_finality();
         let mut entries = self.entries.lock();
         let mut finality_entries = entries.split_off(&cut_off_epoch);
         debug!(
