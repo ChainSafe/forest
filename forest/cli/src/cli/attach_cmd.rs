@@ -116,9 +116,6 @@ fn require(
     let result = if path.exists() {
         read_to_string(path.clone())
     } else if path == PathBuf::from("prelude.js") {
-        //println!("load builtin prelude");
-        Ok(PRELUDE_PATH.into())
-    } else if path == PathBuf::from("prelude.js") {
         Ok(PRELUDE_PATH.into())
     } else {
         return context.throw_error("expecting valid module path");
