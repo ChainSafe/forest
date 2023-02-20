@@ -67,7 +67,7 @@ impl From<Message> for Message_v2 {
             sequence: other.sequence,
             value: TokenAmount::from(other.value).into(),
             method_num: other.method_num,
-            params: RawBytes_v2::from(Vec::<u8>::from(other.params)),
+            params: RawBytes_v2::from(other.params.to_vec()),
             gas_limit: other.gas_limit as i64,
             gas_fee_cap: TokenAmount::from(other.gas_fee_cap).into(),
             gas_premium: TokenAmount::from(other.gas_premium).into(),
