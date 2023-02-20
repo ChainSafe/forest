@@ -15,6 +15,7 @@ use std::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
+use fil_actors_runtime_v9::runtime::Policy;
 use forest_actor_interface::*;
 use forest_beacon::{BeaconSchedule, DrandBeacon};
 use forest_blocks::{BlockHeader, Tipset, TipsetKeys};
@@ -333,7 +334,7 @@ where
                 .ok_or_else(|| Error::State(format!("Miner for address {maddr} not found")))?;
 
             let min_pow = spas.miner_nominal_power_meets_consensus_minimum(
-                self.chain_config.policy.clone(),
+                &self.chain_config.policy,
                 self.blockstore(),
                 maddr,
             )?;
@@ -659,8 +660,7 @@ where
         base_tipset: &Tipset,
         lookback_tipset: &Tipset,
     ) -> anyhow::Result<bool, Error> {
-        let hmp =
-            self.miner_has_min_power(self.chain_config.policy.clone(), address, lookback_tipset)?;
+        let hmp = self.miner_has_min_power(&self.chain_config.policy, address, lookback_tipset)?;
         let version = self.get_network_version(base_tipset.epoch());
 
         if version <= NetworkVersion::V3 {
@@ -1155,7 +1155,7 @@ where
     /// requirements.
     pub fn miner_has_min_power(
         &self,
-        policy: Policy,
+        policy: &Policy,
         addr: &Address,
         ts: &Tipset,
     ) -> anyhow::Result<bool> {
