@@ -93,20 +93,16 @@ fn require(
         PathBuf::from(module_name)
     };
     // Check if path does not exist and append .js if file has no extension
-    if !path.exists() {
-        if path.extension().is_none() {
-            path.set_extension("js");
-        }
+    if !path.exists() && path.extension().is_none() {
+        path.set_extension("js");
     }
     let result = if path.exists() {
         read_to_string(path.clone())
+    } else if path == PathBuf::from("prelude.js") {
+        //println!("load builtin prelude");
+        Ok(PRELUDE_PATH.into())
     } else {
-        if path == PathBuf::from("prelude.js") {
-            //println!("load builtin prelude");
-            Ok(PRELUDE_PATH.into())
-        } else {
-            return context.throw_error("expecting valid module path");
-        }
+        return context.throw_error("expecting valid module path");
     };
     match result {
         Ok(buffer) => {
@@ -119,13 +115,13 @@ fn require(
                     const MAX_WINDOW: usize = 3;
                     let start_index = 0.max(line as isize - MAX_WINDOW as isize) as usize;
                     let window_len = line as usize - start_index;
-                    for l in buffer.split("\n").skip(start_index).take(window_len) {
+                    for l in buffer.split('\n').skip(start_index).take(window_len) {
                         println!("{l}");
                     }
                     // Column is always strictly superior to zero
                     println!("{}^", " ".to_owned().repeat(column as usize - 1));
                 }
-                println!("");
+                println!();
             }
             context.eval(&buffer)?;
 
@@ -375,7 +371,7 @@ impl AttachCommand {
                             Err(v) => {
                                 let message =
                                     v.to_string(&mut context).expect("to_string must succeed");
-                                eprintln!("Uncaught {}", message);
+                                eprintln!("Uncaught {message}");
                             }
                         }
                         break;
@@ -388,7 +384,7 @@ impl AttachCommand {
                                 prompt = ">> ";
                             }
                             _ => {
-                                eprintln!("Uncaught ParseError: {}", err.to_string());
+                                eprintln!("Uncaught ParseError: {err}");
                                 break;
                             }
                         }
