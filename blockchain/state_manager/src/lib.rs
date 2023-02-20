@@ -394,6 +394,7 @@ where
                 &self.engine_v2,
                 &self.engine_v3,
                 Arc::clone(self.chain_config()),
+                tipset.min_timestamp(),
             )
         };
 
@@ -484,6 +485,7 @@ where
             &self.engine_v2,
             &self.engine_v3,
             Arc::clone(self.chain_config()),
+            tipset.min_timestamp(),
         )?;
 
         if msg.gas_limit == 0 {
@@ -556,6 +558,7 @@ where
             &self.engine_v2,
             &self.engine_v3,
             Arc::clone(self.chain_config()),
+            ts.min_timestamp(),
         )?;
 
         for msg in prior_messages {

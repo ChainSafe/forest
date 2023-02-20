@@ -113,14 +113,12 @@ where
         multi_engine_v2: &MultiEngine_v2,
         multi_engine_v3: &MultiEngine_v3,
         chain_config: Arc<ChainConfig>,
+        timestamp: u64,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
         if network_version >= NetworkVersion::V18 {
             let config = NetworkConfig_v3::new(network_version.into());
             let engine = multi_engine_v3.get(&config)?;
-            // The UNIX timestamp (in seconds) of the current tipset.
-            // XXX: How do we get this?
-            let timestamp = 0;
             let mut context = config.for_epoch(epoch, timestamp, root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
