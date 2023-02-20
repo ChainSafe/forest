@@ -17,15 +17,12 @@ use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
+use forest_shim::{address::Address, econ::TokenAmount};
 use forest_utils::const_option;
 use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    address::Address,
-    crypto::signature::{Signature, SignatureType},
-    econ::TokenAmount,
-};
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use num::BigInt;
@@ -74,11 +71,11 @@ impl MsgSet {
         }
         if let Some(exms) = self.msgs.get(&m.sequence()) {
             if m.cid()? != exms.cid()? {
-                let premium = exms.message().gas_premium.clone();
+                let premium = TokenAmount::from(&exms.message().gas_premium);
                 let min_price = premium.clone()
                     + ((premium * RBF_NUM).div_floor(RBF_DENOM))
                     + TokenAmount::from_atto(1u8);
-                if m.message().gas_premium <= min_price {
+                if m.message().gas_premium <= min_price.into() {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
@@ -292,7 +289,7 @@ where
 
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
-        self.local_addrs.write().push(*m.from());
+        self.local_addrs.write().push(m.from());
         self.local_msgs.write().insert(m);
         Ok(())
     }
@@ -323,7 +320,7 @@ where
             return Err(Error::MessageTooBig);
         }
         valid_for_block_inclusion(msg.message(), Gas::new(0), NEWEST_NETWORK_VERSION)?;
-        if msg.value() > &fvm_shared::TOTAL_FILECOIN {
+        if msg.value() > TokenAmount::from(&*fvm_shared::TOTAL_FILECOIN) {
             return Err(Error::MessageValueTooHigh);
         }
         if msg.gas_fee_cap().atto() < &MINIMUM_BASE_FEE.into() {
@@ -364,7 +361,7 @@ where
     /// given then call `add_locked` to finish adding the `signed_message`
     /// to pending.
     fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
-        let sequence = self.get_state_sequence(msg.from(), cur_ts)?;
+        let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
@@ -372,7 +369,7 @@ where
 
         let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
-        let balance = self.get_state_balance(msg.from(), cur_ts)?;
+        let balance = self.get_state_balance(&msg.from(), cur_ts)?;
 
         let msg_balance = msg.required_funds();
         if balance < msg_balance {
@@ -387,7 +384,7 @@ where
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
     fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
-        let from = *msg.from();
+        let from = msg.from();
         let cur_ts = self.cur_tipset.lock().clone();
         add_helper(
             self.api.as_ref(),
@@ -429,7 +426,7 @@ where
     /// address and tipset, if this actor does not exist, return an error.
     fn get_state_balance(&self, addr: &Address, ts: &Tipset) -> Result<TokenAmount, Error> {
         let actor = self.api.get_actor_after(addr, ts)?;
-        Ok(forest_shim::econ::TokenAmount::from(&actor.balance).into())
+        Ok(TokenAmount::from(&actor.balance))
     }
 
     /// Remove a message given a sequence and address from the message pool.
@@ -609,12 +606,12 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write();
-    let msett = pending.get_mut(&msg.message().from);
+    let msett = pending.get_mut(&msg.from());
     match msett {
         Some(mset) => mset.add(msg)?,
         None => {
             let mut mset = MsgSet::new(sequence);
-            let from = msg.message().from;
+            let from = msg.from();
             mset.add(msg)?;
             pending.insert(from, mset);
         }
@@ -635,11 +632,9 @@ fn verify_msg_before_add(
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
     if !cur_ts.blocks().is_empty() {
         let base_fee = cur_ts.blocks()[0].parent_base_fee();
-        let base_fee_lower_bound = get_base_fee_lower_bound(
-            &base_fee.clone().into(),
-            BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
-        );
-        if m.gas_fee_cap() < &base_fee_lower_bound {
+        let base_fee_lower_bound =
+            get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
+        if m.gas_fee_cap() < base_fee_lower_bound {
             if local {
                 warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
                 return Ok(false);

@@ -5,10 +5,10 @@ use std::marker::PhantomData;
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::state_tree::ActorState;
+use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
+use fvm_shared::{clock::ChainEpoch, econ::TokenAmount, piece::PaddedPieceSize};
 use num::BigInt;
 use serde::Serialize;
 

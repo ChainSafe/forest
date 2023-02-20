@@ -3,8 +3,9 @@
 
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{address::Address, clock::ChainEpoch};
+use fvm_shared::clock::ChainEpoch;
 use log::info;
 use num::BigInt;
 use once_cell::sync::OnceCell;
@@ -446,8 +447,8 @@ mod test {
         Cid,
     };
     use forest_crypto::VRFProof;
+    use forest_shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_shared::address::Address;
     use num_bigint::BigInt;
 
     use crate::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};

@@ -80,6 +80,10 @@ NOTE: protobuf needs to be installed manually, and protoc needs to present in PA
 ```
 sudo dnf install -y clang-devel ocl-icd-devel protobuf-compiler cmake
 ```
+### Alpine
+```
+apk add git curl protobuf make cmake gcc clang clang-dev musl-dev opencl-icd-loader-dev
+```
 
 ## Installation
 ```shell
