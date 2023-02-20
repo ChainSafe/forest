@@ -58,7 +58,7 @@ impl<DB: Blockstore> ForestExterns<DB> {
         miner_addr: &Address,
         height: ChainEpoch,
     ) -> anyhow::Result<(Address, i64)> {
-        if height < self.epoch - self.chain_config.policy.chain_finality() {
+        if height < self.epoch - self.chain_config.policy.chain_finality {
             bail!(
                 "cannot get worker key (current epoch: {}, height: {})",
                 self.epoch,

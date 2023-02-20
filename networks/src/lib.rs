@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use forest_actor_interface::Policy;
+use fil_actors_runtime_v9::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
@@ -118,7 +118,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
-            policy: Policy::V9(fil_actors_runtime_v9::runtime::Policy::calibnet()),
+            policy: Policy::calibnet(),
         }
     }
 
@@ -182,14 +182,14 @@ impl Default for ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.iter().map(|x| x.to_string()).collect(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u64,
             height_infos: HEIGHT_INFOS.to_vec(),
-            policy: Policy::V9(fil_actors_runtime_v9::runtime::Policy::mainnet()),
+            policy: Policy::mainnet(),
         }
     }
 }
 
 // XXX: Dummy default. Will be overwritten later. Wish we could get rid of this.
 fn default_policy() -> Policy {
-    Policy::V9(fil_actors_runtime_v9::runtime::Policy::mainnet())
+    Policy::mainnet()
 }
 
 pub fn default_network_version() -> NetworkVersion {

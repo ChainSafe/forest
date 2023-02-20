@@ -5,6 +5,7 @@ use std::borrow::Cow;
 
 use anyhow::Context;
 use cid::Cid;
+use fil_actors_runtime_v10::runtime::Policy;
 use forest_json::bigint::json;
 use forest_shim::{
     address::Address,
@@ -20,7 +21,7 @@ use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-use crate::{power::Claim, Policy};
+use crate::power::Claim;
 /// Miner actor method.
 pub type Method = fil_actor_miner_v8::Method;
 
@@ -103,51 +104,42 @@ impl State {
     /// Loads deadlines for a miner's state
     pub fn for_each_deadline<BS: Blockstore>(
         &self,
-        policy: Policy,
+        policy: &Policy,
         store: &BS,
         mut f: impl FnMut(u64, Deadline) -> Result<(), anyhow::Error>,
     ) -> anyhow::Result<()> {
         match self {
-            State::V8(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&policy.try_into()?, &store, |idx, dl| {
-                        f(idx, Deadline::V8(dl))
-                    })
-            }
-            State::V9(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&policy.try_into()?, &store, |idx, dl| {
-                        f(idx, Deadline::V9(dl))
-                    })
-            }
-            State::V10(st) => {
-                st.load_deadlines(&store)?
-                    .for_each(&policy.try_into()?, &store, |idx, dl| {
-                        f(idx, Deadline::V10(dl))
-                    })
-            }
+            State::V8(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V8(dl))),
+            State::V9(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V9(dl))),
+            State::V10(st) => st
+                .load_deadlines(&store)?
+                .for_each(policy, &store, |idx, dl| f(idx, Deadline::V10(dl))),
         }
     }
 
     /// Loads deadline at index for a miner's state
     pub fn load_deadline<BS: Blockstore>(
         &self,
-        policy: Policy,
+        policy: &Policy,
         store: &BS,
         idx: u64,
     ) -> anyhow::Result<Deadline> {
         match self {
             State::V8(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&policy.try_into()?, store, idx)
+                .load_deadline(policy, store, idx)
                 .map(Deadline::V8)?),
             State::V9(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&policy.try_into()?, store, idx)
+                .load_deadline(policy, store, idx)
                 .map(Deadline::V9)?),
             State::V10(st) => Ok(st
                 .load_deadlines(store)?
-                .load_deadline(&policy.try_into()?, store, idx)
+                .load_deadline(policy, store, idx)
                 .map(Deadline::V10)?),
         }
     }

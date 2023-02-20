@@ -619,7 +619,7 @@ where
         let lb = if version <= NetworkVersion::V3 {
             ChainEpoch::from(10)
         } else {
-            self.chain_config.policy.chain_finality()
+            self.chain_config.policy.chain_finality
         };
         let lbr = (round - lb).max(0);
 

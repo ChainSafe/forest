@@ -3,6 +3,7 @@
 
 use anyhow::Context;
 use cid::Cid;
+use fil_actors_runtime_v9::runtime::Policy;
 use forest_json::bigint::json;
 use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
@@ -10,7 +11,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::{econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
-use crate::{FilterEstimate, Policy};
+use crate::FilterEstimate;
 
 /// Power actor address.
 // TODO: Select address based on actors version
@@ -144,23 +145,19 @@ impl State {
     /// Checks power actor state for if miner meets minimum consensus power.
     pub fn miner_nominal_power_meets_consensus_minimum<BS: Blockstore>(
         &self,
-        policy: Policy,
+        policy: &Policy,
         s: &BS,
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(
-                &policy.try_into()?,
-                &s,
-                &miner.into(),
-            ),
-            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(
-                &policy.try_into()?,
-                &s,
-                &miner.into(),
-            ),
+            State::V8(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
+            }
+            State::V9(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
+            }
             State::V10(st) => st
-                .miner_nominal_power_meets_consensus_minimum(&policy.try_into()?, &s, miner.id()?)
+                .miner_nominal_power_meets_consensus_minimum(policy, &s, miner.id()?)
                 .map(|(_, bool_val)| bool_val)
                 .map_err(|e| anyhow::anyhow!("{}", e)),
         }
