@@ -496,7 +496,7 @@ where
             .get_actor(&msg.from.into(), *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(&msg)?;
+        let apply_ret = vm.apply_implicit_message(msg)?;
         trace!(
             "gas limit {:},gas premium{:?},value {:?}",
             msg.gas_limit,
@@ -573,7 +573,7 @@ where
         let ret = vm.apply_message(message)?;
 
         Ok(InvocResult {
-            msg: message.message().clone().into(),
+            msg: message.message().clone(),
             msg_rct: Some(ret.msg_receipt()),
             error: ret.failure_info(),
         })
@@ -618,7 +618,7 @@ where
         let out_ret = r_rx
             .try_recv()
             .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
-        Ok((out_mes.into(), out_ret))
+        Ok((out_mes, out_ret))
     }
 
     /// Gets look-back tipset for block validations.

@@ -1496,7 +1496,7 @@ async fn check_block_messages<
 
         // Phase 2: (Partial) Semantic validation
         // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(&msg.from().into()) {
+        let sequence: u64 = match account_sequences.get(&msg.from()) {
             Some(sequence) => *sequence,
             None => {
                 let actor = tree.get_actor(&msg.from.into())?.ok_or_else(|| {

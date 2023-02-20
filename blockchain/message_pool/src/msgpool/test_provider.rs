@@ -178,7 +178,7 @@ impl Provider for TestApi {
         let mut msgs = Vec::new();
 
         for msg in us {
-            msgs.push(ChainMessage::Unsigned(msg.into()));
+            msgs.push(ChainMessage::Unsigned(msg));
         }
         for smsg in s {
             msgs.push(ChainMessage::Signed(smsg));
