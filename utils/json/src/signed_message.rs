@@ -104,7 +104,6 @@ mod tests {
         econ::TokenAmount,
         message::{Message, Message_v3},
     };
-    use fvm_ipld_encoding::RawBytes;
     use fvm_shared::crypto::signature::Signature;
     use quickcheck_macros::quickcheck;
     use serde::{Deserialize, Serialize};

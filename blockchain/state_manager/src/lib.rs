@@ -29,16 +29,18 @@ use forest_networks::{ChainConfig, Height};
 use forest_shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     econ::TokenAmount,
+    executor::{ApplyRet, Receipt},
     message::Message,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
 use forest_utils::db::BlockstoreExt;
 use futures::{channel::oneshot, select, FutureExt};
-use fvm::{executor::ApplyRet, externs::Rand};
+use fvm::externs::Rand;
+use fvm3::externs::Rand as Rand_v3;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{clock::ChainEpoch, receipt::Receipt};
+use fvm_shared::clock::ChainEpoch;
 use lru::LruCache;
 use num::BigInt;
 use num_traits::identities::Zero;
@@ -204,7 +206,8 @@ pub struct StateManager<DB> {
     genesis_info: GenesisInfo,
     beacon: Arc<forest_beacon::BeaconSchedule<DrandBeacon>>,
     chain_config: Arc<ChainConfig>,
-    engine: fvm::machine::MultiEngine,
+    engine_v2: fvm::machine::MultiEngine,
+    engine_v3: fvm3::engine::MultiEngine,
     reward_calc: Arc<dyn RewardCalc>,
 }
 
@@ -226,7 +229,12 @@ where
             genesis_info: GenesisInfo::from_chain_config(&chain_config),
             beacon,
             chain_config,
-            engine: fvm::machine::MultiEngine::new(),
+            engine_v2: fvm::machine::MultiEngine::new(),
+            engine_v3: fvm3::engine::MultiEngine::new(
+                std::thread::available_parallelism()
+                    .map(|x| x.get() as u32)
+                    .unwrap_or(1),
+            ),
             reward_calc,
         })
     }
@@ -364,7 +372,7 @@ where
         tipset: &Arc<Tipset>,
     ) -> Result<CidPair, anyhow::Error>
     where
-        R: Rand + Clone + 'static,
+        R: Rand + Rand_v3 + Clone + 'static,
         CB: FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
     {
         let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -383,7 +391,8 @@ where
                     .get_circulating_supply(epoch, &db, &state_root)?,
                 self.reward_calc.clone(),
                 chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-                &self.engine,
+                &self.engine_v2,
+                &self.engine_v3,
                 Arc::clone(self.chain_config()),
             )
         };
@@ -472,7 +481,8 @@ where
                 .get_circulating_supply(bheight, self.blockstore(), bstate)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(tipset)),
-            &self.engine,
+            &self.engine_v2,
+            &self.engine_v3,
             Arc::clone(self.chain_config()),
         )?;
 
@@ -491,14 +501,14 @@ where
             msg.gas_premium,
             msg.value
         );
-        if let Some(err) = &apply_ret.failure_info {
+        if let Some(err) = &apply_ret.failure_info() {
             warn!("chain call failed: {:?}", err);
         }
 
         Ok(InvocResult {
             msg: msg.clone(),
-            msg_rct: Some(apply_ret.msg_receipt.clone()),
-            error: apply_ret.failure_info.map(|e| e.to_string()),
+            msg_rct: Some(apply_ret.msg_receipt()),
+            error: apply_ret.failure_info(),
         })
     }
 
@@ -543,7 +553,8 @@ where
                 .get_circulating_supply(epoch, self.blockstore(), &st)?,
             self.reward_calc.clone(),
             chain_epoch_root(Arc::clone(self), Arc::clone(&ts)),
-            &self.engine,
+            &self.engine_v2,
+            &self.engine_v3,
             Arc::clone(self.chain_config()),
         )?;
 
@@ -560,8 +571,8 @@ where
 
         Ok(InvocResult {
             msg: message.message().clone().into(),
-            msg_rct: Some(ret.msg_receipt.clone()),
-            error: ret.failure_info.map(|e| e.to_string()),
+            msg_rct: Some(ret.msg_receipt()),
+            error: ret.failure_info(),
         })
     }
 
