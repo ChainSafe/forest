@@ -218,3 +218,4 @@ lto = "off"
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
 panic = "abort"
+overflow-checks = true
