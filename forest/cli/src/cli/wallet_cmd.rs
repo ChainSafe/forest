@@ -15,9 +15,9 @@ use forest_json::{
 };
 use forest_key_management::json::KeyInfoJson;
 use forest_rpc_client::wallet_ops::*;
+use forest_shim::address::{Address, Protocol};
 use forest_utils::io::read_file_to_string;
 use fvm_shared::{
-    address::{Address, Protocol},
     crypto::signature::{Signature, SignatureType},
     econ::TokenAmount,
 };

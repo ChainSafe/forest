@@ -76,7 +76,7 @@ pub fn setup_logger(
         .map_err(|e| format!("Unable to create loki layer: {e}"))
         .unwrap();
         loki_task = Some(task);
-        Some(layer.with_filter(LevelFilter::TRACE))
+        Some(layer.with_filter(LevelFilter::DEBUG))
     } else {
         None
     };

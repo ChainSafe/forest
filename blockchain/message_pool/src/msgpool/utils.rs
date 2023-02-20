@@ -4,8 +4,9 @@
 use cid::Cid;
 use forest_chain::MINIMUM_BASE_FEE;
 use forest_message::{Message as MessageTrait, SignedMessage};
+use forest_shim::econ::TokenAmount;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{crypto::signature::Signature, econ::TokenAmount, message::Message};
+use fvm_shared::{crypto::signature::Signature, message::Message};
 use lru::LruCache;
 use num_rational::BigRational;
 use num_traits::ToPrimitive;
@@ -24,8 +25,8 @@ pub(crate) fn get_base_fee_lower_bound(base_fee: &TokenAmount, factor: i64) -> T
 /// Gets the gas reward for the given message.
 pub(crate) fn get_gas_reward(msg: &SignedMessage, base_fee: &TokenAmount) -> TokenAmount {
     let mut max_prem = msg.gas_fee_cap() - base_fee;
-    if &max_prem < msg.gas_premium() {
-        max_prem = msg.gas_premium().clone();
+    if max_prem < msg.gas_premium() {
+        max_prem = msg.gas_premium();
     }
     max_prem * msg.gas_limit()
 }

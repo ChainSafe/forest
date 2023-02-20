@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    fs::{read_to_string, OpenOptions},
+    fs::{canonicalize, read_to_string, OpenOptions},
     path::PathBuf,
     str::FromStr,
 };
@@ -44,16 +44,63 @@ pub struct AttachCommand {
 
 const PRELUDE_PATH: &str = include_str!("./js/prelude.js");
 
+fn set_module(context: &mut Context) {
+    let module = JsObject::default();
+    module
+        .set("exports", JsObject::default(), false, context)
+        .unwrap();
+    context.register_global_property("module", JsValue::from(module), Attribute::default());
+}
+
+fn to_position(err: ParseError) -> Option<(u32, u32)> {
+    match err {
+        ParseError::Expected {
+            expected: _,
+            found: _,
+            span,
+            context: _,
+        } => Some((span.start().line_number(), span.start().column_number())),
+        ParseError::Unexpected {
+            found: _,
+            span,
+            message: _,
+        } => Some((span.start().line_number(), span.start().column_number())),
+        ParseError::General {
+            message: _,
+            position,
+        } => Some((position.line_number(), position.column_number())),
+        ParseError::Unimplemented {
+            message: _,
+            position,
+        } => Some((position.line_number(), position.column_number())),
+        _ => None,
+    }
+}
+
+fn eval(code: &str, context: &mut Context) {
+    match context.eval(code) {
+        Ok(v) => match v {
+            JsValue::Undefined => (),
+            _ => println!("{}", v.display()),
+        },
+        Err(v) => {
+            let msg = v.to_string(context).expect("to_string must succeed");
+            eprintln!("Uncaught {msg}");
+        }
+    }
+}
+
 fn require(
     _: &JsValue,
     params: &[JsValue],
     context: &mut Context,
     jspath: &Option<PathBuf>,
 ) -> JsResult<JsValue> {
-    if params.is_empty() {
+    let param = if let Some(p) = params.first() {
+        p
+    } else {
         return context.throw_error("expecting string argument");
-    }
-    let param = params.get(0).unwrap();
+    };
 
     // Resolve module path
     let module_name = param.to_string(context)?.to_string();
@@ -63,28 +110,51 @@ fn require(
         PathBuf::from(module_name)
     };
     // Check if path does not exist and append .js if file has no extension
-    if !path.exists() {
-        if path.extension().is_none() {
-            path.set_extension("js");
-        }
+    if !path.exists() && path.extension().is_none() {
+        path.set_extension("js");
     }
     let result = if path.exists() {
-        read_to_string(path)
+        read_to_string(path.clone())
+    } else if path == PathBuf::from("prelude.js") {
+        //println!("load builtin prelude");
+        Ok(PRELUDE_PATH.into())
+    } else if path == PathBuf::from("prelude.js") {
+        Ok(PRELUDE_PATH.into())
     } else {
-        if path == PathBuf::from("prelude.js") {
-            Ok(PRELUDE_PATH.into())
-        } else {
-            return context.throw_error("expecting valid module path");
-        }
+        return context.throw_error("expecting valid module path");
     };
     match result {
         Ok(buffer) => {
-            context.eval(&buffer).unwrap();
+            if let Err(err) = context.parse(&buffer) {
+                let canonical_path = canonicalize(path.clone()).unwrap_or(path.clone());
+                eprintln!("{}", canonical_path.display());
+
+                if let Some((line, column)) = to_position(err) {
+                    // Display a few lines for context
+                    const MAX_WINDOW: usize = 3;
+                    let start_index = 0.max(line as isize - MAX_WINDOW as isize) as usize;
+                    let window_len = line as usize - start_index;
+                    for l in buffer.split('\n').skip(start_index).take(window_len) {
+                        println!("{l}");
+                    }
+                    // Column is always strictly superior to zero
+                    println!("{}^", " ".to_owned().repeat(column as usize - 1));
+                }
+                println!();
+            }
+            context.eval(&buffer)?;
 
             // Access module.exports and return as ResultValue
             let global_obj = context.global_object().to_owned();
-            let module = global_obj.get("module", context).unwrap();
-            module.as_object().unwrap().get("exports", context)
+            let module = global_obj.get("module", context).expect("get must succeed");
+            let exports = module
+                .as_object()
+                .expect("as_object must succeed")
+                .get("exports", context);
+
+            // Reset module to avoid side effects
+            set_module(context);
+            exports
         }
         Err(err) => {
             eprintln!("Error: {err}");
@@ -226,11 +296,7 @@ impl AttachCommand {
         context.register_global_property("require", require_func, attr);
 
         // Add custom object that mimics `module.exports`
-        let moduleobj = JsObject::default();
-        moduleobj
-            .set("exports", JsValue::from(" "), false, context)
-            .unwrap();
-        context.register_global_property("module", JsValue::from(moduleobj), Attribute::default());
+        set_module(context);
 
         // Chain API
         bind_func!(context, token, chain_get_name);
@@ -272,15 +338,14 @@ impl AttachCommand {
 
     fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
         const INIT: &str = r"
-            const prelude = require('prelude.js')
-            prelude.greet();
-            if (prelude.showPeers) { showPeers = prelude.showPeers; }
-            if (prelude.getPeer) { getPeer = prelude.getPeer; }
-            if (prelude.disconnectPeers) { disconnectPeers = prelude.disconnectPeers; }
-            if (prelude.isPeerConnected) { isPeerConnected = prelude.isPeerConnected; }
-            if (prelude.showWallet) { showWallet = prelude.showWallet; }
-            if (prelude.showSyncStatus) { showSyncStatus = prelude.showSyncStatus; }
-            if (prelude.sendFIL) { sendFIL = prelude.sendFIL; }
+            const Prelude = require('prelude.js')
+            if (Prelude.showPeers) { showPeers = Prelude.showPeers; }
+            if (Prelude.getPeer) { getPeer = Prelude.getPeer; }
+            if (Prelude.disconnectPeers) { disconnectPeers = Prelude.disconnectPeers; }
+            if (Prelude.isPeerConnected) { isPeerConnected = Prelude.isPeerConnected; }
+            if (Prelude.showWallet) { showWallet = Prelude.showWallet; }
+            if (Prelude.showSyncStatus) { showSyncStatus = Prelude.showSyncStatus; }
+            if (Prelude.sendFIL) { sendFIL = Prelude.sendFIL; }
         ";
         let result = context.eval(INIT);
         if let Err(err) = result {
@@ -294,19 +359,15 @@ impl AttachCommand {
         let mut context = Context::default();
         self.setup_context(&mut context, &config.client.rpc_token);
 
+        self.import_prelude(&mut context)?;
+
         // If only a short execution was requested, evaluate and return
         if let Some(code) = &self.exec {
-            match context.eval(code.trim_end()) {
-                Ok(v) => match v {
-                    JsValue::Undefined => (),
-                    _ => println!("{}", v.display()),
-                },
-                Err(v) => eprintln!("Uncaught: {v:?}"),
-            }
+            eval(code.trim_end(), &mut context);
             return Ok(());
         }
 
-        self.import_prelude(&mut context)?;
+        eval("Prelude.greet()", &mut context);
 
         let config = RustyLineConfig::builder()
             .keyseq_timeout(1)
@@ -357,30 +418,19 @@ impl AttachCommand {
                 match context.parse(buffer.trim_end()) {
                     Ok(_v) => {
                         editor.add_history_entry(&buffer);
-                        match context.eval(buffer.trim_end()) {
-                            Ok(v) => match v {
-                                JsValue::Undefined => (),
-                                _ => println!("{}", v.display()),
-                            },
-                            Err(v) => eprintln!("Uncaught: {v:?}"),
-                        }
+                        eval(buffer.trim_end(), &mut context);
                         break;
                     }
                     Err(err) => {
                         match err {
-                            ParseError::Expected {
-                                expected,
-                                found,
-                                span: _,
-                                context: _,
-                            } => {
-                                eprintln!("Expecting token {expected:?} but got {found}");
-                                break 'main;
-                            }
-                            _ => {
+                            ParseError::Lex { err: _ } | ParseError::AbruptEnd => {
                                 // Continue reading input and append it to buffer
                                 buffer.push('\n');
                                 prompt = ">> ";
+                            }
+                            _ => {
+                                eprintln!("Uncaught ParseError: {err}");
+                                break;
                             }
                         }
                     }

@@ -310,7 +310,7 @@ impl RewardCalc for RewardActorMessageCalc {
 
         let rew_msg = Message {
             from: system::ADDRESS,
-            to: reward::ADDRESS,
+            to: reward::ADDRESS.into(),
             method_num: reward::Method::AwardBlockReward as u64,
             params,
             // Epoch as sequence is intentional
@@ -359,7 +359,7 @@ impl RewardCalc for FixedRewardCalc {
         gas_reward: TokenAmount,
     ) -> Result<Option<Message>, anyhow::Error> {
         let msg = Message {
-            from: reward::ADDRESS,
+            from: reward::ADDRESS.into(),
             to: miner,
             method_num: METHOD_SEND,
             params: Default::default(),

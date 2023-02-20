@@ -106,13 +106,12 @@ impl GenesisInfoVesting {
     }
 }
 
-fn get_actor_state<DB: Blockstore>(
+fn get_actor_state<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
     state_tree
-        .get_actor(addr)?
-        .map(|v| v.into())
+        .get_actor(&addr.into())?
         .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {addr}"))
 }
 
@@ -153,7 +152,7 @@ fn get_fil_mined<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
         .context("Reward actor address could not be resolved")?;
-    let state = reward::State::load(state_tree.store(), &actor.into())?;
+    let state = reward::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_storage_power_reward())
 }
@@ -164,7 +163,7 @@ fn get_fil_market_locked<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&market::ADDRESS)?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
-    let state = market::State::load(state_tree.store(), &actor.into())?;
+    let state = market::State::load(state_tree.store(), &actor)?;
 
     Ok(state.total_locked())
 }
@@ -175,7 +174,7 @@ fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-    let state = power::State::load(state_tree.store(), &actor.into())?;
+    let state = power::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_locked())
 }

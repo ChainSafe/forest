@@ -13,6 +13,7 @@ forest_blocks.workspace = true
 forest_crypto = { workspace = true, features = ["blst"] }
 forest_libp2p.workspace = true
 forest_message = { workspace = true, features = ["blst"] }
+forest_shim.workspace = true
 fvm_ipld_encoding.workspace = true
 fvm_shared = { workspace = true, default-features = false }
 num.workspace = true

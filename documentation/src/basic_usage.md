@@ -47,7 +47,7 @@ If desired, you can check the checksum using the instructions [here](https://lot
 Import the snapshot using `forest`:
 
 ```bash
-./target/release/forest --target-peer-count 50 --encrypt-keystore false --import-snapshot /path/to/snapshot/file
+forest --target-peer-count 50 --encrypt-keystore false --import-snapshot /path/to/snapshot/file
 ```
 
 ## Forest Synchronization Mode
@@ -59,5 +59,5 @@ Import the snapshot using `forest`:
 Start the `forest` node:
 
 ```bash
-./target/release/forest --target-peer-count 50 --encrypt-keystore false
+forest --target-peer-count 50 --encrypt-keystore false
 ```

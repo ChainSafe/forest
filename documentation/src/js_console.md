@@ -9,26 +9,20 @@ Forest console stands as an alternative to tools like [Curl](https://github.com/
 
 Like for some other `forest-cli` subcommands you will need to pass an admin `--token` given what endpoints you will call.
 
-For a description of different options please refer to the developer documentation CLI page.
+For a description of different options please refer to the developer documentation [CLI page](https://github.com/ChainSafe/forest/blob/main/documentation/developer_documentation/CLI.md#cli).
 
 ## Interactive Use
 
 First start Forest node inside another terminal:
 
 ```bash
-./target/release/forest --chain calibnet --encrypt-keystore false
-```
-
-Copy the Admin token printed in the logs and set it to an environment variable, ie:
-
-```bash
-TOKEN="..."
+forest --chain calibnet --encrypt-keystore false
 ```
 
 To attach to your Forest node, run `forest-cli` with the `attach` subcommand:
 
 ```bash
-./target/release/forest-cli --token $TOKEN attach 
+forest-cli --token <TOKEN> attach 
 ```
 
 You should now see a prompt and be able to interact:
@@ -41,9 +35,9 @@ To exit, press ctrl-d or type :quit
 Forest running on calibnet
 ```
 
-You can directly call JSON-RPC API endpoints that have been binded to the console.
+You can directly call JSON-RPC API endpoints that are bound to the console.
 
-For example `Filecoin.ChainGetName` will be binded to the global `chainGetName` function.
+For example, `Filecoin.ChainGetName` is bound to the global `chainGetName` function.
 
 ### Tips
 
@@ -60,13 +54,13 @@ It is also possible to execute commands non-interactively by passing `--exec` fl
 For example, to display the current epoch:
 
 ```bash
-./target/release/forest-cli attach --exec "syncStatus().ActiveSyncs[0].Epoch"
+forest-cli attach --exec "syncStatus().ActiveSyncs[0].Epoch"
 ```
 
 Or print node version:
 
 ```bash
-./target/release/forest-cli attach --exec "commonVersion()"
+forest-cli attach --exec "commonVersion()"
 ```
 
 ## Builtins
@@ -84,14 +78,14 @@ Forest console comes with a number of helper functions that make interacting wit
 
 ### Timers
 
-In addition to support part of the JavaScript language, the console also provides implementation for `sleep(seconds)` timer and a tipset based timer, `sleepTipsets(epochs)` which sleeps till the number of new tipsets added is equal to or greater than `epochs`.
+In addition, to support part of the JavaScript language, the console also provides implementation for `sleep(seconds)` timer and a tipset based timer, `sleepTipsets(epochs)`, which sleeps till the number of new tipsets added is equal to or greater than `epochs`.
 
 ### Modules
 
 CommonJS modules is the way to package JavaScript code for Forest console. You can import modules using the `require` function:
 
 ```bash
-./target/release/forest-cli attach --exec "const Math = require('calc'); console.log(Math.add(39,3))"
+forest-cli attach --exec "const Math = require('calc'); console.log(Math.add(39,3))"
 ```
 
 where `calc.js` is:
@@ -113,4 +107,4 @@ By default modules will be loaded from the current directory. Use `--jspath` fla
 
 Forest's console is built using [Boa Javascript engine](https://github.com/boa-dev/boa). It does support promises or `async` functions, but keep in mind that Boa is not fully compatible with ECMAScript yet.
 
-Not every endpoints from the Filecoin API has been binded to the console at the moment.
+Not every endpoint from the Filecoin API has been bound to the console. Please [create an issue](https://github.com/ChainSafe/forest/issues) if you need one that is not available.
