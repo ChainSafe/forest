@@ -215,7 +215,7 @@ where
         if let Some(callback) = callback {
             callback(
                 &(cron_msg.cid()?),
-                &ChainMessage::Unsigned(cron_msg.into()),
+                &ChainMessage::Unsigned(cron_msg),
                 &ret,
             )?;
         }
@@ -287,7 +287,7 @@ where
                 if let Some(callback) = &mut callback {
                     callback(
                         &(rew_msg.cid()?),
-                        &ChainMessage::Unsigned(rew_msg.into()),
+                        &ChainMessage::Unsigned(rew_msg),
                         &ret,
                     )?;
                 }
@@ -329,7 +329,7 @@ where
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
-        check_message(&msg.message())?;
+        check_message(msg.message())?;
 
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
@@ -474,7 +474,7 @@ impl RewardCalc for FixedRewardCalc {
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             gas_limit: 1 << 30,
-            value: TokenAmount::from(gas_reward + &self.reward).into(),
+            value: (gas_reward + &self.reward).into(),
             version: Default::default(),
             gas_fee_cap: Default::default(),
             gas_premium: Default::default(),

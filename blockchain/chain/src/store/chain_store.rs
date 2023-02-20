@@ -488,7 +488,7 @@ where
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
                     usm.into_iter()
-                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m.into()))),
+                        .filter_map(|m| select_msg(ChainMessage::Unsigned(m))),
                 );
                 messages.extend(
                     sm.into_iter()
@@ -798,7 +798,6 @@ where
         let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
         let unsigned_box = unsigned
             .into_iter()
-            .map(|msg| msg.into())
             .map(ChainMessage::Unsigned);
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
