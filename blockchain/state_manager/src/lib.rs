@@ -494,7 +494,7 @@ where
             .get_actor(&msg.from.into(), *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(&msg.clone().into())?;
+        let apply_ret = vm.apply_implicit_message(&msg)?;
         trace!(
             "gas limit {:},gas premium{:?},value {:?}",
             msg.gas_limit,
