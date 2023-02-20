@@ -161,6 +161,8 @@ jobs:
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
+      - name: check js console
+        run: forest-cli --chain calibnet attach --exec 'showPeers()'
       - name: export snapshot
         run: |
           forest-cli snapshot export
