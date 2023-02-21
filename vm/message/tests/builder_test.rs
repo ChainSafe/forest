@@ -3,10 +3,8 @@
 
 use forest_message::SignedMessage;
 use forest_shim::crypto::Signature;
-use fvm_shared::address::Address;
-use fvm_shared::message::Message;
-use rand::rngs::OsRng;
-use rand::RngCore;
+use fvm_shared::{address::Address, message::Message};
+use rand::{rngs::OsRng, RngCore};
 
 #[test]
 fn generate_signed_message() {

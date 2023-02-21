@@ -8,6 +8,7 @@ Another libp2p bitswap([SPEC](https://github.com/ipfs/specs/blob/main/BITSWAP.md
 - Optional request manager
 - Prometheus metrics
 - Multiple async task API support, `async-std` and `tokio`(optional behind feature `tokio`)
+- Compiles into WebAssembly and works in browser. (`examples/bitswap-in-browser`)
 
 ## Feature flags
 

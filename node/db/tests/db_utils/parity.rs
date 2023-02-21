@@ -3,8 +3,7 @@
 
 use std::ops::Deref;
 
-use forest_db::parity_db::ParityDb;
-use forest_db::parity_db_config::ParityDbConfig;
+use forest_db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
 
 /// Temporary, self-cleaning ParityDB
 pub struct TempParityDB {
@@ -13,8 +12,8 @@ pub struct TempParityDB {
 }
 
 impl TempParityDB {
-    /// Creates a new DB in a temporary path that gets wiped out when the variable
-    /// gets out of scope.
+    /// Creates a new DB in a temporary path that gets wiped out when the
+    /// variable gets out of scope.
     pub fn new() -> TempParityDB {
         let dir = tempfile::Builder::new()
             .tempdir()

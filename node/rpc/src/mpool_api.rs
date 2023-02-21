@@ -2,22 +2,25 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use super::gas_api::estimate_message_gas;
+use std::convert::TryFrom;
+
 use ahash::{HashSet, HashSetExt};
 use forest_beacon::Beacon;
 use forest_blocks::TipsetKeys;
 use forest_db::Store;
-use forest_json::cid::{vec::CidJsonVec, CidJson};
-use forest_json::message::json::MessageJson;
-use forest_json::signed_message::json::SignedMessageJson;
+use forest_json::{
+    cid::{vec::CidJsonVec, CidJson},
+    message::json::MessageJson,
+    signed_message::json::SignedMessageJson,
+};
 use forest_message::SignedMessage;
-use forest_rpc_api::data_types::RPCState;
-use forest_rpc_api::mpool_api::*;
+use forest_rpc_api::{data_types::RPCState, mpool_api::*};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::address::Protocol;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use std::convert::TryFrom;
+
+use super::gas_api::estimate_message_gas;
 
 /// Return `Vec` of pending messages in `mpool`
 pub(crate) async fn mpool_pending<DB, B>(
@@ -112,7 +115,7 @@ where
     let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = data
         .state_manager
-        .resolve_to_key_addr(&from, &heaviest_tipset)
+        .resolve_to_key_addr(&from.into(), &heaviest_tipset)
         .await?;
 
     if umsg.sequence != 0 {
@@ -126,9 +129,9 @@ where
     }
 
     if from.protocol() == Protocol::ID {
-        umsg.from = key_addr;
+        umsg.from = key_addr.into();
     }
-    let nonce = data.mpool.get_sequence(&from)?;
+    let nonce = data.mpool.get_sequence(&from.into())?;
     umsg.sequence = nonce;
     let key = forest_key_management::Key::try_from(forest_key_management::try_find(
         &key_addr,

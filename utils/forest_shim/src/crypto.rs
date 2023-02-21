@@ -1,6 +1,5 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 pub use fvm_shared::crypto::signature::{
@@ -9,6 +8,7 @@ pub use fvm_shared::crypto::signature::{
 pub use fvm_shared3::crypto::signature::{
     Signature as Signature_v3, SignatureType as SignatureType_v3,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize, Hash)]
 #[repr(transparent)]

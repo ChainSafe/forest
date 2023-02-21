@@ -1,6 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    convert::TryFrom,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime},
+};
+
 use anyhow::Context;
 use cid::Cid;
 use forest_blocks::{FullTipset, Tipset, TipsetKeys};
@@ -15,31 +24,30 @@ use forest_libp2p::{
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
 };
 use forest_utils::db::BlockstoreExt;
-use futures::channel::oneshot::channel as oneshot_channel;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
 use log::{debug, trace, warn};
-use std::sync::{atomic::Ordering, Arc};
-use std::time::{Duration, SystemTime};
-use std::{convert::TryFrom, sync::atomic::AtomicU64};
-use tokio::{task::JoinSet, time::timeout};
+use tokio::task::JoinSet;
 
 /// Timeout for response from an RPC request
-// TODO this value can be tweaked, this is just set pretty low to avoid peers timing out
-// requests from slowing the node down. If increase, should create a countermeasure for this.
+// TODO this value can be tweaked, this is just set pretty low to avoid peers
+// timing out requests from slowing the node down. If increase, should create a
+// countermeasure for this.
 const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Maximum number of concurrent chain exchange request being sent to the network
+/// Maximum number of concurrent chain exchange request being sent to the
+/// network
 const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 
 /// Context used in chain sync to handle network requests.
-/// This contains the peer manager, P2P service interface, and [`BlockStore`] required to make
-/// network requests.
+/// This contains the peer manager, P2P service interface, and [`BlockStore`]
+/// required to make network requests.
 pub(crate) struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
     network_send: flume::Sender<NetworkMessage>,
 
-    /// Manages peers to send requests to and updates request stats for the respective peers.
+    /// Manages peers to send requests to and updates request stats for the
+    /// respective peers.
     pub peer_manager: Arc<PeerManager>,
     db: Box<DB>,
 }
@@ -75,8 +83,9 @@ where
         self.peer_manager.as_ref()
     }
 
-    /// Send a `chain_exchange` request for only block headers (ignore messages).
-    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
+    /// Send a `chain_exchange` request for only block headers (ignore
+    /// messages). If `peer_id` is `None`, requests will be sent to a set of
+    /// shuffled peers.
     pub async fn chain_exchange_headers(
         &self,
         peer_id: Option<PeerId>,
@@ -86,8 +95,9 @@ where
         self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
             .await
     }
-    /// Send a `chain_exchange` request for only messages (ignore block headers).
-    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
+    /// Send a `chain_exchange` request for only messages (ignore block
+    /// headers). If `peer_id` is `None`, requests will be sent to a set of
+    /// shuffled peers.
     pub async fn chain_exchange_messages(
         &self,
         peer_id: Option<PeerId>,
@@ -98,8 +108,9 @@ where
             .await
     }
 
-    /// Send a `chain_exchange` request for a single full tipset (includes messages)
-    /// If `peer_id` is `None`, requests will be sent to a set of shuffled peers.
+    /// Send a `chain_exchange` request for a single full tipset (includes
+    /// messages) If `peer_id` is `None`, requests will be sent to a set of
+    /// shuffled peers.
     pub async fn chain_exchange_fts(
         &self,
         peer_id: Option<PeerId>,
@@ -118,8 +129,8 @@ where
         Ok(fts.remove(0))
     }
 
-    /// Requests that some content with a particular `Cid` get fetched over `Bitswap` if it doesn't
-    /// exist in the `BlockStore`.
+    /// Requests that some content with a particular `Cid` get fetched over
+    /// `Bitswap` if it doesn't exist in the `BlockStore`.
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
         epoch: ChainEpoch,
@@ -159,8 +170,8 @@ where
         }
     }
 
-    /// Helper function to handle the peer retrieval if no peer supplied as well as the logging
-    /// and updating of the peer info in the `PeerManager`.
+    /// Helper function to handle the peer retrieval if no peer supplied as well
+    /// as the logging and updating of the peer info in the `PeerManager`.
     async fn handle_chain_exchange_request<T>(
         &self,
         peer_id: Option<PeerId>,
@@ -294,7 +305,7 @@ where
 
         let req_pre_time = SystemTime::now();
 
-        let (tx, rx) = oneshot_channel();
+        let (tx, rx) = flume::bounded(1);
         if network_send
             .send_async(NetworkMessage::ChainExchangeRequest {
                 peer_id,
@@ -308,8 +319,10 @@ where
         };
 
         // Add timeout to receiving response from p2p service to avoid stalling.
-        // There is also a timeout inside the request-response calls, but this ensures this.
-        let res = timeout(CHAIN_EXCHANGE_TIMEOUT, rx).await;
+        // There is also a timeout inside the request-response calls, but this ensures
+        // this.
+        let res =
+            tokio::task::spawn_blocking(move || rx.recv_timeout(CHAIN_EXCHANGE_TIMEOUT)).await;
         let res_duration = SystemTime::now()
             .duration_since(req_pre_time)
             .unwrap_or_default();
@@ -338,8 +351,8 @@ where
                 Err(format!("Internal libp2p error: {e:?}"))
             }
             Ok(Err(_)) | Err(_) => {
-                // Sender channel internally dropped or timeout, both should log failure which will
-                // negatively score the peer, but not drop yet.
+                // Sender channel internally dropped or timeout, both should log failure which
+                // will negatively score the peer, but not drop yet.
                 peer_manager.log_failure(peer_id, res_duration).await;
                 log::debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
@@ -347,7 +360,8 @@ where
         }
     }
 
-    /// Send a hello request to the network (does not immediately await response).
+    /// Send a hello request to the network (does not immediately await
+    /// response).
     pub async fn hello_request(
         &self,
         peer_id: PeerId,

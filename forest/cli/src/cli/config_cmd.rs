@@ -1,12 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::cli::Config;
-use anyhow::Context;
 use std::io::Write;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
+use anyhow::Context;
+use clap::Subcommand;
+
+use crate::cli::Config;
+
+#[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
     /// Dump current configuration to standard output
     Dump,

@@ -11,9 +11,7 @@ use forest_db::Store;
 use forest_networks::{ChainConfig, Height};
 use forest_shim::state_tree::{ActorState, StateTree};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::address::Address;
-use fvm_shared::clock::ChainEpoch;
-use fvm_shared::econ::TokenAmount;
+use fvm_shared::{address::Address, clock::ChainEpoch, econ::TokenAmount};
 use num_traits::Zero;
 
 const EPOCHS_IN_YEAR: ChainEpoch = 365 * EPOCHS_IN_DAY;
@@ -89,8 +87,8 @@ impl GenesisInfo {
     }
 }
 
-/// Vesting schedule info. These states are lazily filled, to avoid doing until needed
-/// to calculate circulating supply.
+/// Vesting schedule info. These states are lazily filled, to avoid doing until
+/// needed to calculate circulating supply.
 #[derive(Default, Clone)]
 struct GenesisInfoVesting {
     genesis: Vec<(ChainEpoch, TokenAmount)>,
@@ -108,13 +106,12 @@ impl GenesisInfoVesting {
     }
 }
 
-fn get_actor_state<DB: Blockstore>(
+fn get_actor_state<DB: Blockstore + Clone>(
     state_tree: &StateTree<DB>,
     addr: &Address,
 ) -> Result<ActorState, anyhow::Error> {
     state_tree
-        .get_actor(addr)?
-        .map(|v| v.into())
+        .get_actor(&addr.into())?
         .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {addr}"))
 }
 
@@ -155,7 +152,7 @@ fn get_fil_mined<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&reward::ADDRESS)?
         .context("Reward actor address could not be resolved")?;
-    let state = reward::State::load(state_tree.store(), &actor.into())?;
+    let state = reward::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_storage_power_reward())
 }
@@ -166,7 +163,7 @@ fn get_fil_market_locked<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&market::ADDRESS)?
         .ok_or_else(|| Error::State("Market actor address could not be resolved".to_string()))?;
-    let state = market::State::load(state_tree.store(), &actor.into())?;
+    let state = market::State::load(state_tree.store(), &actor)?;
 
     Ok(state.total_locked())
 }
@@ -177,7 +174,7 @@ fn get_fil_power_locked<DB: Blockstore + Store + Clone>(
     let actor = state_tree
         .get_actor(&power::ADDRESS)?
         .ok_or_else(|| Error::State("Power actor address could not be resolved".to_string()))?;
-    let state = power::State::load(state_tree.store(), &actor.into())?;
+    let state = power::State::load(state_tree.store(), &actor)?;
 
     Ok(state.into_total_locked())
 }
@@ -247,7 +244,8 @@ fn setup_calico_vesting_schedule(
         .collect()
 }
 
-// This exact code (bugs and all) has to be used. The results are locked into the blockchain.
+// This exact code (bugs and all) has to be used. The results are locked into
+// the blockchain.
 /// Returns amount locked in multisig contract
 fn v0_amount_locked(
     unlock_duration: ChainEpoch,

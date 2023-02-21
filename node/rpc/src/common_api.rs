@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use forest_rpc_api::{
+    common_api::*,
+    data_types::{APIVersion, Version},
+};
 use jsonrpc_v2::Error as JsonRpcError;
-
-use forest_rpc_api::common_api::*;
-use forest_rpc_api::data_types::{APIVersion, Version};
 use semver::Version as SemVer;
 
 pub(crate) async fn version(

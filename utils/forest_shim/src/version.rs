@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
 pub use fvm_shared::version::NetworkVersion as NetworkVersion_v2;
 pub use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
+use serde::{Deserialize, Serialize};
 
 /// Specifies the network version
 ///

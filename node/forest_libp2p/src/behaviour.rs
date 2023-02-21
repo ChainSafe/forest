@@ -1,36 +1,35 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::discovery::DiscoveryConfig;
-use crate::{
-    chain_exchange::{ChainExchangeCodec, ChainExchangeProtocolName},
-    config::Libp2pConfig,
-    discovery::DiscoveryBehaviour,
-    gossip_params::{build_peer_score_params, build_peer_score_threshold},
-    hello::HelloBehaviour,
-};
 use ahash::{HashMap, HashSet};
 use forest_encoding::blake2b_256;
 use forest_libp2p_bitswap::BitswapBehaviour;
-use libp2p::swarm::NetworkBehaviour;
-use libp2p::{core::identity::Keypair, kad::QueryId};
-use libp2p::{core::PeerId, gossipsub::GossipsubMessage};
 use libp2p::{
+    core::{identity::Keypair, PeerId},
     gossipsub::{
-        error::PublishError, error::SubscriptionError, Gossipsub, GossipsubConfigBuilder,
-        IdentTopic as Topic, MessageAuthenticity, MessageId, ValidationMode,
+        error::{PublishError, SubscriptionError},
+        Gossipsub, GossipsubConfigBuilder, GossipsubMessage, IdentTopic as Topic,
+        MessageAuthenticity, MessageId, ValidationMode,
     },
+    identify,
+    kad::QueryId,
+    metrics::{Metrics, Recorder},
+    ping,
+    swarm::NetworkBehaviour,
     Multiaddr,
 };
-use libp2p::{identify, ping};
-use libp2p::{
-    metrics::{Metrics, Recorder},
-    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
-};
 use log::warn;
-use std::time::Duration;
 
-/// Libp2p behavior for the Forest node. This handles all sub protocols needed for a Filecoin node.
+use crate::{
+    chain_exchange::ChainExchangeBehaviour,
+    config::Libp2pConfig,
+    discovery::{DiscoveryBehaviour, DiscoveryConfig},
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
+    hello::HelloBehaviour,
+};
+
+/// Libp2p behavior for the Forest node. This handles all sub protocols needed
+/// for a Filecoin node.
 #[derive(NetworkBehaviour)]
 pub(crate) struct ForestBehaviour {
     gossipsub: Gossipsub,
@@ -38,7 +37,7 @@ pub(crate) struct ForestBehaviour {
     ping: ping::Behaviour,
     identify: identify::Behaviour,
     pub(super) hello: HelloBehaviour,
-    pub(super) chain_exchange: RequestResponse<ChainExchangeCodec>,
+    pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
 }
 
@@ -98,12 +97,6 @@ impl ForestBehaviour {
             // TODO allow configuring this through config.
             .discovery_limit(config.target_peer_count as u64);
 
-        let cp = std::iter::once((ChainExchangeProtocolName, ProtocolSupport::Full));
-
-        let mut req_res_config = RequestResponseConfig::default();
-        req_res_config.set_request_timeout(Duration::from_secs(20));
-        req_res_config.set_connection_keep_alive(Duration::from_secs(20));
-
         ForestBehaviour {
             gossipsub,
             discovery: discovery_config.finish(),
@@ -114,7 +107,7 @@ impl ForestBehaviour {
             )),
             bitswap,
             hello: HelloBehaviour::default(),
-            chain_exchange: RequestResponse::new(ChainExchangeCodec::default(), cp, req_res_config),
+            chain_exchange: ChainExchangeBehaviour::default(),
         }
     }
 

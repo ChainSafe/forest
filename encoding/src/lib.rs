@@ -12,8 +12,7 @@ pub mod error {
 pub use cs_serde_bytes;
 pub use serde::{de, ser};
 
-pub use self::checked_serde_bytes::serde_byte_array;
-pub use self::hash::*;
+pub use self::{checked_serde_bytes::serde_byte_array, hash::*};
 
 pub mod tuple {
     pub use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
@@ -22,8 +21,8 @@ pub mod tuple {
 pub mod repr {
     pub use serde_repr::{Deserialize_repr, Serialize_repr};
 }
-/// lotus use cbor-gen for generating codec for types, it has a length limit for byte
-/// array as `2 << 20`
+/// lotus use cbor-gen for generating codec for types, it has a length limit for
+/// byte array as `2 << 20`
 ///
 /// <https://github.com/whyrusleeping/cbor-gen/blob/f57984553008dd4285df16d4ec2760f97977d713/gen.go#L16>
 pub const BYTE_ARRAY_MAX_LEN: usize = 2 << 20;

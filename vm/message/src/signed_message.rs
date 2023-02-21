@@ -1,14 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::Message as MessageTrait;
 use forest_encoding::tuple::*;
+use forest_shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::{to_vec, Cbor, Error as CborError, RawBytes};
-use fvm_shared::address::Address;
-use fvm_shared::crypto::signature::{Signature, SignatureType};
-use fvm_shared::econ::TokenAmount;
-use fvm_shared::message::Message;
-use fvm_shared::MethodNum;
+use fvm_shared::{
+    crypto::signature::{Signature, SignatureType},
+    MethodNum,
+};
+
+use super::Message as MessageTrait;
 
 /// Represents a wrapped message with signature bytes.
 #[derive(PartialEq, Clone, Debug, Serialize_tuple, Deserialize_tuple, Hash, Eq)]
@@ -61,22 +62,22 @@ impl SignedMessage {
     /// Verifies that the from address of the message generated the signature.
     pub fn verify(&self) -> Result<(), String> {
         self.signature
-            .verify(&self.message.cid().unwrap().to_bytes(), self.from())
+            .verify(&self.message.cid().unwrap().to_bytes(), &self.from().into())
     }
 }
 
 impl MessageTrait for SignedMessage {
-    fn from(&self) -> &Address {
-        &self.message.from
+    fn from(&self) -> Address {
+        Address::from(self.message.from)
     }
-    fn to(&self) -> &Address {
-        &self.message.to
+    fn to(&self) -> Address {
+        Address::from(self.message.to)
     }
     fn sequence(&self) -> u64 {
         self.message.sequence
     }
-    fn value(&self) -> &TokenAmount {
-        &self.message.value
+    fn value(&self) -> TokenAmount {
+        TokenAmount::from(&self.message.value)
     }
     fn method_num(&self) -> MethodNum {
         self.message.method_num
@@ -94,21 +95,21 @@ impl MessageTrait for SignedMessage {
         self.message.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        &self.message.gas_fee_cap * self.message.gas_limit + &self.message.value
+        TokenAmount::from(&self.message.gas_fee_cap * self.message.gas_limit + &self.message.value)
     }
-    fn gas_fee_cap(&self) -> &TokenAmount {
-        &self.message.gas_fee_cap
+    fn gas_fee_cap(&self) -> TokenAmount {
+        TokenAmount::from(&self.message.gas_fee_cap)
     }
-    fn gas_premium(&self) -> &TokenAmount {
-        &self.message.gas_premium
+    fn gas_premium(&self) -> TokenAmount {
+        TokenAmount::from(&self.message.gas_premium)
     }
 
     fn set_gas_fee_cap(&mut self, cap: TokenAmount) {
-        self.message.gas_fee_cap = cap;
+        self.message.gas_fee_cap = cap.into();
     }
 
     fn set_gas_premium(&mut self, prem: TokenAmount) {
-        self.message.gas_premium = prem;
+        self.message.gas_premium = prem.into();
     }
 }
 

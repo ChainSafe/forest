@@ -1,21 +1,24 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ValueMut;
-use crate::{
-    init_sized_vec,
-    node::{CollapsedNode, Link},
-    nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
-};
+use std::error::Error as StdError;
+
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_db::Store;
 use forest_encoding::{de::DeserializeOwned, ser::Serialize};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::sorted;
-use std::error::Error as StdError;
 
-/// Array Mapped Trie allows for the insertion and persistence of data, serializable to a CID.
+use super::ValueMut;
+use crate::{
+    init_sized_vec,
+    node::{CollapsedNode, Link},
+    nodes_for_height, Error, Node, Root, MAX_HEIGHT, MAX_INDEX,
+};
+
+/// Array Mapped Trie allows for the insertion and persistence of data,
+/// serializable to a CID.
 ///
 /// Amt is not thread-safe and can't be shared between threads.
 ///
@@ -164,7 +167,8 @@ where
     }
 
     /// Batch set (naive for now)
-    // TODO Implement more efficient batch set to not have to traverse tree and keep cache for each
+    // TODO Implement more efficient batch set to not have to traverse tree and keep
+    // cache for each
     pub fn batch_set(&mut self, vals: impl IntoIterator<Item = V>) -> Result<(), Error> {
         for (i, val) in vals.into_iter().enumerate() {
             self.set(i, val)?;
@@ -237,8 +241,8 @@ where
     }
 
     /// Deletes multiple items from AMT
-    /// If `strict` is true, all indices are expected to be present, and this will
-    /// return an error if one is not found.
+    /// If `strict` is true, all indices are expected to be present, and this
+    /// will return an error if one is not found.
     ///
     /// Returns true if items were deleted.
     pub fn batch_delete(
@@ -270,8 +274,8 @@ where
 
     /// Iterates over each value in the Amt and runs a function on the values.
     ///
-    /// The index in the amt is a `usize` and the value is the generic parameter `V` as defined
-    /// in the Amt.
+    /// The index in the amt is a `usize` and the value is the generic parameter
+    /// `V` as defined in the Amt.
     ///
     /// # Examples
     ///
@@ -302,8 +306,8 @@ where
         })
     }
 
-    /// Iterates over each value in the Amt and runs a function on the values, for as long as that
-    /// function keeps returning `true`.
+    /// Iterates over each value in the Amt and runs a function on the values,
+    /// for as long as that function keeps returning `true`.
     pub fn for_each_while<F>(&self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         F: FnMut(usize, &V) -> Result<bool, Box<dyn StdError>>,
@@ -314,8 +318,8 @@ where
             .map(|_| ())
     }
 
-    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
-    /// each value.
+    /// Iterates over each value in the Amt and runs a function on the values
+    /// that allows modifying each value.
     pub fn for_each_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         V: Clone,
@@ -327,8 +331,9 @@ where
         })
     }
 
-    /// Iterates over each value in the Amt and runs a function on the values that allows modifying
-    /// each value, for as long as that function keeps returning `true`.
+    /// Iterates over each value in the Amt and runs a function on the values
+    /// that allows modifying each value, for as long as that function keeps
+    /// returning `true`.
     pub fn for_each_while_mut<F>(&mut self, mut f: F) -> Result<(), Box<dyn StdError>>
     where
         // TODO remove clone bound when go-interop doesn't require it.
@@ -345,10 +350,11 @@ where
         }
 
         // TODO remove requirement for this when/if changed in go-implementation
-        // This is not 100% compatible, because the blockstore reads/writes are not in the same
-        // order. If this is to be achieved, the for_each iteration would have to pause when
-        // a mutation occurs, set, then continue where it left off. This is a much more extensive
-        // change, and since it should not be feasibly triggered, it's left as this for now.
+        // This is not 100% compatible, because the blockstore reads/writes are not in
+        // the same order. If this is to be achieved, the for_each iteration
+        // would have to pause when a mutation occurs, set, then continue where
+        // it left off. This is a much more extensive change, and since it
+        // should not be feasibly triggered, it's left as this for now.
         #[cfg(feature = "go-interop")]
         {
             let mut mutated = ahash::AHashMap::new();

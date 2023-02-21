@@ -1,58 +1,56 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::chain_exchange::{
-    make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse,
+use std::{
+    path::Path,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use super::{ForestBehaviour, ForestBehaviourEvent, Libp2pConfig};
-use crate::discovery::DiscoveryOut;
-use crate::hello::HelloBehaviour;
-use crate::{
-    hello::{HelloRequest, HelloResponse},
-    rpc::RequestResponseError,
-};
-use crate::{PeerManager, PeerOperation};
-use ahash::{HashMap, HashMapExt};
+
+use ahash::HashMap;
 use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
 use forest_chain::ChainStore;
 use forest_db::Store;
-use forest_libp2p_bitswap::request_manager::BitswapRequestManager;
-use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use forest_libp2p_bitswap::{
+    request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
+};
 use forest_message::SignedMessage;
 use forest_utils::io::read_file_to_vec;
-use futures::channel::oneshot::Sender as OneShotSender;
-use futures::select;
+use futures::{channel::oneshot::Sender as OneShotSender, select};
 use futures_util::stream::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::clock::ChainEpoch;
-use libp2p::gossipsub::GossipsubEvent;
-pub use libp2p::gossipsub::IdentTopic;
-pub use libp2p::gossipsub::Topic;
-use libp2p::metrics::{Metrics, Recorder};
-use libp2p::multiaddr::Protocol;
-use libp2p::multihash::Multihash;
-use libp2p::ping::{self};
-use libp2p::request_response::{
-    RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
-};
+pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     core,
-    core::muxing::StreamMuxerBox,
-    core::transport::Boxed,
+    core::{muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    gossipsub::GossipsubEvent,
     identity::{ed25519, Keypair},
-    noise,
-    swarm::{ConnectionLimits, SwarmEvent},
+    metrics::{Metrics, Recorder},
+    multiaddr::Protocol,
+    multihash::Multihash,
+    noise, ping,
+    request_response::{RequestId, RequestResponseEvent, RequestResponseMessage, ResponseChannel},
+    swarm::{ConnectionLimits, SwarmBuilder, SwarmEvent},
     yamux::YamuxConfig,
     PeerId, Swarm, Transport,
 };
-use libp2p::{core::Multiaddr, swarm::SwarmBuilder};
 use log::{debug, error, info, trace, warn};
-use std::path::Path;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio_stream::wrappers::IntervalStream;
+
+use super::{
+    chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
+    ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
+};
+use crate::{
+    chain_exchange::ChainExchangeBehaviour,
+    discovery::DiscoveryOut,
+    hello::{HelloBehaviour, HelloRequest, HelloResponse},
+    rpc::RequestResponseError,
+    PeerManager, PeerOperation,
+};
 
 pub(crate) mod metrics {
     use lazy_static::lazy_static;
@@ -78,7 +76,7 @@ pub(crate) mod metrics {
 
     pub mod values {
         pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
-        pub const CX_REQUEST_TABLE: &str = "cx_request_table";
+        pub const CHAIN_EXCHANGE_REQUEST_TABLE: &str = "cx_request_table";
     }
 
     pub mod labels {
@@ -96,9 +94,6 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(10);
 
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
-
-type CxRequestTable =
-    HashMap<RequestId, OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>>;
 
 /// Events emitted by this Service.
 #[allow(clippy::large_enum_variant)]
@@ -158,7 +153,7 @@ pub enum NetworkMessage {
     ChainExchangeRequest {
         peer_id: PeerId,
         request: ChainExchangeRequest,
-        response_channel: OneShotSender<Result<ChainExchangeResponse, RequestResponseError>>,
+        response_channel: flume::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
     },
     HelloRequest {
         peer_id: PeerId,
@@ -254,7 +249,8 @@ where
         }
     }
 
-    /// Starts the libp2p service networking stack. This Future resolves when shutdown occurs.
+    /// Starts the libp2p service networking stack. This Future resolves when
+    /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
         Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr)?;
@@ -271,7 +267,6 @@ where
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, self.network_name);
         let pubsub_msg_str = format!("{}/{}", PUBSUB_MSG_STR, self.network_name);
 
-        let mut cx_request_table = HashMap::new();
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
@@ -297,7 +292,6 @@ where
                             &self.cs,
                             &self.genesis_cid,
                             &self.network_sender_out,
-                            &mut cx_request_table,
                             cx_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
@@ -313,8 +307,7 @@ where
                             self.cs.clone(),
                             bitswap_request_manager.clone(),
                             message,
-                            &self.network_sender_out,
-                            &mut cx_request_table).await;
+                            &self.network_sender_out).await;
                     }
                     None => { break; }
                 },
@@ -377,7 +370,6 @@ async fn handle_network_message(
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
-    cx_request_table: &mut CxRequestTable,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -406,14 +398,11 @@ async fn handle_network_message(
             request,
             response_channel,
         } => {
-            let request_id = swarm
-                .behaviour_mut()
-                .chain_exchange
-                .send_request(&peer_id, request);
-            cx_request_table.insert(request_id, response_channel);
-            metrics::NETWORK_CONTAINER_CAPACITIES
-                .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                .set(cx_request_table.capacity() as u64);
+            let request_id = swarm.behaviour_mut().chain_exchange.send_request(
+                &peer_id,
+                request,
+                response_channel,
+            );
             emit_event(
                 network_sender_out,
                 NetworkEvent::ChainExchangeRequestOutbound { request_id },
@@ -675,10 +664,10 @@ async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManag
 }
 
 async fn handle_chain_exchange_event<DB>(
+    chain_exchange: &mut ChainExchangeBehaviour,
     ce_event: RequestResponseEvent<ChainExchangeRequest, ChainExchangeResponse>,
     db: &Arc<ChainStore<DB>>,
     network_sender_out: &Sender<NetworkEvent>,
-    cx_request_table: &mut CxRequestTable,
     cx_response_tx: Sender<(
         RequestId,
         ResponseChannel<ChainExchangeResponse>,
@@ -721,42 +710,18 @@ async fn handle_chain_exchange_event<DB>(
                         NetworkEvent::ChainExchangeResponseInbound { request_id },
                     )
                     .await;
-                    let tx = cx_request_table.remove(&request_id);
-                    // Send the successful response through channel out.
-                    if let Some(tx) = tx {
-                        metrics::NETWORK_CONTAINER_CAPACITIES
-                            .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                            .set(cx_request_table.capacity() as u64);
-                        if tx.send(Ok(response)).is_err() {
-                            debug!("Failed to send ChainExchange response")
-                        }
-                    } else {
-                        warn!("RPCResponse receive failed: channel not found");
-                    };
+                    chain_exchange
+                        .handle_inbound_response(&request_id, response)
+                        .await;
                 }
             }
         }
         RequestResponseEvent::OutboundFailure {
-            peer,
+            peer: _,
             request_id,
             error,
         } => {
-            warn!(
-                "ChainExchange outbound error (peer: {:?}) (id: {:?}): {:?}",
-                peer, request_id, error
-            );
-
-            let tx = cx_request_table.remove(&request_id);
-
-            // Send error through channel out.
-            if let Some(tx) = tx {
-                metrics::NETWORK_CONTAINER_CAPACITIES
-                    .with_label_values(&[metrics::values::CX_REQUEST_TABLE])
-                    .set(cx_request_table.capacity() as u64);
-                if tx.send(Err(error.into())).is_err() {
-                    warn!("RPCResponse receive failed")
-                }
-            }
+            chain_exchange.on_outbound_error(&request_id, error);
         }
         RequestResponseEvent::InboundFailure {
             peer,
@@ -787,7 +752,6 @@ async fn handle_forest_behaviour_event<DB>(
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
-    cx_request_table: &mut CxRequestTable,
     cx_response_tx: Sender<(
         RequestId,
         ResponseChannel<ChainExchangeResponse>,
@@ -828,10 +792,10 @@ async fn handle_forest_behaviour_event<DB>(
         ForestBehaviourEvent::Identify(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {
             handle_chain_exchange_event(
+                &mut swarm.behaviour_mut().chain_exchange,
                 ce_event,
                 db,
                 network_sender_out,
-                cx_request_table,
                 cx_response_tx,
             )
             .await

@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ValueMut;
-use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
+use std::error::Error as StdError;
+
 use cid::{multihash::Code::Blake2b256, Cid};
 use forest_encoding::cs_serde_bytes;
 use forest_utils::db::BlockstoreExt;
@@ -13,7 +13,9 @@ use serde::{
     de::{self, DeserializeOwned},
     ser, Deserialize, Serialize,
 };
-use std::error::Error as StdError;
+
+use super::ValueMut;
+use crate::{bmap_bytes, init_sized_vec, nodes_for_height, Error};
 
 /// This represents a link to another Node
 #[derive(Debug)]
@@ -67,7 +69,8 @@ impl<V> From<Cid> for Link<V> {
     }
 }
 
-/// Node represents either a shard of values in the form of bytes or links to other nodes
+/// Node represents either a shard of values in the form of bytes or links to
+/// other nodes
 #[derive(PartialEq, Eq, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Node<V> {
@@ -178,8 +181,8 @@ impl<V> Node<V>
 where
     V: Serialize + DeserializeOwned,
 {
-    /// Empty node. This is an invalid format and should only be used temporarily to avoid
-    /// allocations.
+    /// Empty node. This is an invalid format and should only be used
+    /// temporarily to avoid allocations.
     pub(super) fn empty() -> Self {
         Node::Leaf {
             vals: Default::default(),
@@ -472,10 +475,11 @@ where
         Ok(true)
     }
 
-    /// Returns a `(keep_going, did_mutate)` pair. `keep_going` will be `false` if-and-only-if
-    /// a closure call returned `Ok(false)`, indicating that a `break` has happened.
-    /// `did_mutate` will be `true` if-and-only-if any of the values in the node was actually
-    /// mutated inside the closure, requiring the node to be cached.
+    /// Returns a `(keep_going, did_mutate)` pair. `keep_going` will be `false`
+    /// if-and-only-if a closure call returned `Ok(false)`, indicating that
+    /// a `break` has happened. `did_mutate` will be `true` if-and-only-if
+    /// any of the values in the node was actually mutated inside the
+    /// closure, requiring the node to be cached.
     pub(super) fn for_each_while_mut<S, F>(
         &mut self,
         bs: &S,
@@ -553,8 +557,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use fvm_ipld_encoding::{from_slice, to_vec};
+
+    use super::*;
 
     #[test]
     fn serialize_node_symmetric() {

@@ -1,11 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use log::error;
-use prometheus::core::{Collector, Desc};
-use prometheus::proto;
-use prometheus::{Gauge, Opts};
 use std::path::PathBuf;
+
+use log::error;
+use prometheus::{
+    core::{Collector, Desc},
+    proto, Gauge, Opts,
+};
 
 pub struct DBCollector {
     db_directory: PathBuf,

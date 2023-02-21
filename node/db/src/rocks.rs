@@ -1,10 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::errors::Error;
-use super::Store;
-use crate::rocks_config::RocksDbConfig;
-use crate::{metrics, DBStatistics};
+use std::{path::Path, sync::Arc};
+
 use anyhow::anyhow;
 use cid::Cid;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
@@ -13,7 +11,9 @@ use rocksdb::{
     BlockBasedOptions, Cache, DBCompactionStyle, DBCompressionType, DataBlockIndexType, LogLevel,
     Options, WriteBatch, WriteOptions, DB,
 };
-use std::{path::Path, sync::Arc};
+
+use super::{errors::Error, Store};
+use crate::{metrics, rocks_config::RocksDbConfig, DBStatistics};
 
 lazy_static::lazy_static! {
     static ref WRITE_OPT_NO_WAL: WriteOptions = {
@@ -86,8 +86,9 @@ fn log_level_from_str(s: &str) -> anyhow::Result<LogLevel> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use rocksdb::DBCompactionStyle;
+
+    use super::*;
 
     #[test]
     fn compaction_style_from_str_test() {
@@ -307,8 +308,8 @@ impl BitswapStoreRead for RocksDb {
 }
 
 impl BitswapStoreReadWrite for RocksDb {
-    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by [`libipld::DefaultParams`]
-    /// under feature `dag-cbor`
+    /// `fvm_ipld_encoding::DAG_CBOR(0x71)` is covered by
+    /// [`libipld::DefaultParams`] under feature `dag-cbor`
     type Params = libipld::DefaultParams;
 
     fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {

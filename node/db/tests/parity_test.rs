@@ -8,9 +8,8 @@ mod subtests;
 
 #[cfg(feature = "paritydb")]
 mod paritydb_tests {
-    use crate::db_utils::parity::TempParityDB;
-
     use super::*;
+    use crate::db_utils::parity::TempParityDB;
 
     #[test]
     fn db_write() {
