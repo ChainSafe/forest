@@ -50,9 +50,9 @@ pub fn is_v9_miner_cid(cid: &Cid) -> bool {
 pub fn is_v10_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v10
-        Cid::try_from("bafk2bzacebz4na3nq4gmumghegtkaofrv4nffiihd7sxntrryfneusqkuqodm").unwrap(),
+        Cid::try_from("bafk2bzacedu4chbl36rilas45py4vhqtuj6o7aa5stlvnwef3kshgwcsmha6y").unwrap(),
         // mainnet v10
-        Cid::try_from("bafk2bzacedyux5hlrildwutvvjdcsvjtwsoc5xnqdjl73ouiukgklekeuyfl4").unwrap(),
+        Cid::try_from("bafk2bzacecpq5wjp3frz3b4cd2pozegi7sykgcawnaowjm6ddyai2epbphxvw").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -87,7 +87,7 @@ impl State {
         if is_v10_miner_cid(&actor.code) {
             return store
                 .get_obj(&actor.state)?
-                .map(State::V9)
+                .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown miner actor code {}", actor.code))

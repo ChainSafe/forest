@@ -40,9 +40,9 @@ pub fn is_v9_reward_cid(cid: &Cid) -> bool {
 pub fn is_v10_reward_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v10
-        Cid::try_from("bafk2bzacebpptqhcw6mcwdj576dgpryapdd2zfexxvqzlh3aoc24mabwgmcss").unwrap(),
+        Cid::try_from("bafk2bzacea3yo22x4dsh4axioshrdp42eoeugef3tqtmtwz5untyvth7uc73o").unwrap(),
         // mainnet v10
-        Cid::try_from("bafk2bzacebezgbbmcm2gbcqwisus5fjvpj7hhmu5ubd37phuku3hmkfulxm2o").unwrap(),
+        Cid::try_from("bafk2bzacedbeexrv2d4kiridcvqgdatcwo2an4xsmg3ckdrptxu6c3y7mm6ji").unwrap(),
     ];
     known_cids.contains(cid)
 }

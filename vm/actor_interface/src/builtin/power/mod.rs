@@ -46,9 +46,9 @@ pub fn is_v9_power_cid(cid: &Cid) -> bool {
 pub fn is_v10_power_cid(cid: &Cid) -> bool {
     let known_cids = vec![
         // calibnet v10
-        Cid::try_from("bafk2bzaceburxajojmywawjudovqvigmos4dlu4ifdikogumhso2ca2ccaleo").unwrap(),
+        Cid::try_from("bafk2bzacedu3c67spbf2dmwo77ymkjel6i2o5gpzyksgu2iuwu2xvcnxgfdjg").unwrap(),
         // mainnet v10
-        Cid::try_from("bafk2bzacedsetphfajgne4qy3vdrpyd6ekcmtfs2zkjut4r34cvnuoqemdrtw").unwrap(),
+        Cid::try_from("bafk2bzacedfxlpyj5uxlh5uuhl55lazmhm7q6pr3qoywxb25qrytbptpy7zb6").unwrap(),
     ];
     known_cids.contains(cid)
 }
@@ -82,7 +82,7 @@ impl State {
         if is_v10_power_cid(&actor.code) {
             return store
                 .get_obj(&actor.state)?
-                .map(State::V9)
+                .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown power actor code {}", actor.code))
