@@ -15,7 +15,7 @@ use forest_cli_shared::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
         to_size_string, Client, Config, FOREST_VERSION_STRING,
     },
-    macros::{DELAY, MAX_RETRIES},
+    macros::{DEFAULT_DELAY, DEFAULT_RETRIES},
     retry,
 };
 use forest_db::{
@@ -378,8 +378,8 @@ async fn maybe_fetch_snapshot(
         let snapshot_path = default_snapshot_dir(&config);
         let path = retry!(
             snapshot_fetch,
-            MAX_RETRIES,
-            DELAY,
+            DEFAULT_RETRIES,
+            DEFAULT_DELAY,
             &snapshot_path,
             &config,
             &None,

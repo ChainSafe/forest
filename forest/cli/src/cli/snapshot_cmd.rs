@@ -19,6 +19,7 @@ use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
 use forest_utils::net::FetchProgress;
 use fvm_shared::clock::ChainEpoch;
+use log::info;
 use strfmt::strfmt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
