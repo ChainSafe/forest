@@ -2,17 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use forest_message::SignedMessage;
-use forest_shim::crypto::Signature;
-use fvm_shared::{address::Address, message::Message};
+use forest_shim::{
+    address::Address,
+    crypto::Signature,
+    message::{Message, Message_v3},
+};
 use rand::{rngs::OsRng, RngCore};
 
 #[test]
 fn generate_signed_message() {
-    let msg = Message {
-        to: Address::new_id(1),
-        from: Address::new_id(2),
-        ..Message::default()
-    };
+    let msg: Message = Message_v3 {
+        to: Address::new_id(1).into(),
+        from: Address::new_id(2).into(),
+        ..Message_v3::default()
+    }
+    .into();
 
     let mut dummy_sig = vec![0];
     OsRng.fill_bytes(&mut dummy_sig);

@@ -14,9 +14,9 @@ use forest_message::signed_message::SignedMessage;
 use forest_shim::{
     address::{set_current_network, Network},
     crypto::Signature,
+    message::Message,
 };
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::message::Message;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
