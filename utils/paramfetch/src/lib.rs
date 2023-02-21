@@ -167,7 +167,7 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::E
         Ok(fetch_params_inner(&url, path).await?)
     })
     .await;
-    info!("Done fetching param file {:?} from {}", path, gw);
+    debug!("Done fetching param file {:?} from {}", path, gw);
     result
 }
 

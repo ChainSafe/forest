@@ -3,11 +3,12 @@
 
 use pb::bitswap_pb;
 use protobuf::{EnumOrUnknown, Message};
+use serde::{Deserialize, Serialize};
 
 use crate::{prefix::Prefix, *};
 
 /// Type of a `bitswap` request
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Deserialize, Serialize)]
 pub enum RequestType {
     Have,
     Block,
@@ -49,7 +50,7 @@ impl From<RequestType> for EnumOrUnknown<bitswap_pb::message::wantlist::WantType
 }
 
 /// `Bitswap` request type
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct BitswapRequest {
     pub ty: RequestType,
     pub cid: Cid,
@@ -80,7 +81,7 @@ impl BitswapRequest {
 }
 
 /// `Bitswap` response type
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum BitswapResponse {
     Have(bool),
     Block(Vec<u8>),
@@ -88,7 +89,7 @@ pub enum BitswapResponse {
 
 /// `Bitswap` message enum type that is either a [BitswapRequest] or a
 /// [BitswapResponse]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum BitswapMessage {
     Request(BitswapRequest),
     Response(Cid, BitswapResponse),
