@@ -41,8 +41,8 @@ For example, `Filecoin.ChainGetName` is bound to the global `chainGetName` funct
 
 ### Tips
 
-- Console history is saved in your `~/.forest_history`
-- Use `:clear` to erase session commands before exiting
+- The console history is saved in your `~/.forest_history` after exiting.
+- Use `:clear` to erase *current* session commands.
 - Use `_BOA_VERSION` to get engine version
 
 ## Non-interactive Use
