@@ -81,11 +81,14 @@ fs_extra = "1.2"
 futures = "0.3"
 futures-util = "0.3"
 fvm = "~2.2"
+fvm3 = { package = "fvm", version = "3.0.0-alpha.19" }
 fvm_ipld_bitfield = "0.5"
 fvm_ipld_blockstore = "0.1"
 fvm_ipld_car = "0.6"
 fvm_ipld_encoding = "0.2"
+fvm_ipld_encoding3 = { package = "fvm_ipld_encoding", version = "0.3" }
 fvm_shared = { version = "2.0", default-features = false }
+fvm_shared3 = { package = "fvm_shared", version = "3.0.0-alpha.16", default-features = false }
 gethostname = "0.4"
 git-version = "0.3"
 hex = "0.4"
@@ -224,3 +227,4 @@ lto = "off"
 # https://doc.rust-lang.org/cargo/reference/profiles.html#strip
 strip = true
 panic = "abort"
+overflow-checks = true

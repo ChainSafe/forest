@@ -9,6 +9,7 @@ use fil_actors_runtime_v10::runtime::Policy;
 use forest_json::bigint::json;
 use forest_shim::{
     address::Address,
+    econ::TokenAmount,
     sector::{RegisteredPoStProof, RegisteredSealProof, SectorSize},
     state_tree::ActorState,
 };
@@ -16,7 +17,7 @@ use forest_utils::db::BlockstoreExt;
 use fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::BytesDe;
-use fvm_shared::{clock::ChainEpoch, deal::DealID, econ::TokenAmount, sector::SectorNumber};
+use fvm_shared::{clock::ChainEpoch, deal::DealID, sector::SectorNumber};
 use libp2p::PeerId;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
@@ -209,9 +210,9 @@ impl State {
     /// Gets fee debt of miner state
     pub fn fee_debt(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.fee_debt.clone(),
-            State::V9(st) => st.fee_debt.clone(),
-            State::V10(st) => st.fee_debt.clone(),
+            State::V8(st) => st.fee_debt.clone().into(),
+            State::V9(st) => st.fee_debt.clone().into(),
+            State::V10(st) => st.fee_debt.clone().into(),
         }
     }
 }
@@ -472,9 +473,9 @@ impl From<fil_actor_miner_v8::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
         }
     }
 }
@@ -490,9 +491,9 @@ impl From<fil_actor_miner_v9::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
         }
     }
 }
@@ -508,9 +509,9 @@ impl From<fil_actor_miner_v10::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
         }
     }
 }

@@ -3,10 +3,9 @@
 
 use anyhow::Context;
 use cid::Cid;
-use forest_shim::{address::Address, state_tree::ActorState};
+use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::econ::TokenAmount;
 use serde::Serialize;
 
 /// Reward actor address.
@@ -85,9 +84,9 @@ impl State {
     /// Consume state to return just storage power reward
     pub fn into_total_storage_power_reward(self) -> TokenAmount {
         match self {
-            State::V8(st) => st.into_total_storage_power_reward(),
-            State::V9(st) => st.into_total_storage_power_reward(),
-            State::V10(st) => st.into_total_storage_power_reward(),
+            State::V8(st) => st.into_total_storage_power_reward().into(),
+            State::V9(st) => st.into_total_storage_power_reward().into(),
+            State::V10(st) => st.into_total_storage_power_reward().into(),
         }
     }
 }
