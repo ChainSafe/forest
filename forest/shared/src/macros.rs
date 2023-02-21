@@ -15,11 +15,11 @@ macro_rules! retry {
                 Ok(val) => break Ok(val),
                 Err(err) => {
                     retry_count += 1;
-                    info!("Retry attempt {} started with delay {:#?}.", retry_count, $delay);
                     if retry_count >= $max_retries {
                         info!("Maximum retries exceeded.");
                         break Err(err);
                     }
+                    info!("Retry attempt {} started with delay {:#?}.", retry_count, $delay);
                     sleep($delay).await;
                 }
             }
