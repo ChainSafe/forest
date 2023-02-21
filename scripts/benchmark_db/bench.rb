@@ -367,11 +367,11 @@ class ForestBenchmark < Benchmark
   end
 
   def target
-    File.join('.', repository_name, 'target/release/forest')
+    File.join('.', repository_name, 'target', 'release', 'forest')
   end
 
   def target_cli
-    File.join('.', repository_name, 'target/release/forest-cli')
+    File.join('.', repository_name, 'target', 'release', 'forest-cli')
   end
 
   def repository_name
@@ -440,14 +440,14 @@ class ParityDbBenchmark < ForestBenchmark
   end
 end
 
-# Benchmark class for Forest with ParityDb backend with Jemalloc allocator
+# Benchmark class for Forest with ParityDb backend and Jemalloc allocator
 class JemallocBenchmark < ForestBenchmark
   def build_command(dry_run)
     exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,jemalloc'], dry_run)
   end
 end
 
-# Benchmark class for Forest with ParityDb backend with Mimalloc allocator
+# Benchmark class for Forest with ParityDb backend and Mimalloc allocator
 class MimallocBenchmark < ForestBenchmark
   def build_command(dry_run)
     exec_command(['cargo', 'build', '--release', '--no-default-features', '--features', 'forest_fil_cns,paritydb,mimalloc'], dry_run)
@@ -540,6 +540,7 @@ def run_benchmarks(benchmarks, options)
   snapshot_abs_path = File.expand_path(options[:snapshot_path])
   puts "(I) Using snapshot: #{snapshot_abs_path}"
   puts "(I) BENCHMARK_DIR: #{BENCHMARK_DIR}"
+  puts ''
   Dir.chdir(BENCHMARK_DIR) do
     benchmarks.each do |bench|
       bench.snapshot_path = snapshot_abs_path
