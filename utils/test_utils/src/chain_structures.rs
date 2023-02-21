@@ -14,8 +14,9 @@ use forest_libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
 use forest_message::SignedMessage;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use fvm_shared::{address::Address, crypto::signature::Signature, message::Message};
+use fvm_shared::{crypto::signature::Signature, message::Message};
 use num::BigInt;
 
 /// Defines a `TipsetKey` used in testing
@@ -130,8 +131,8 @@ pub fn construct_full_tipset() -> FullTipset {
 /// Returns a tuple of unsigned and signed messages used for testing
 pub fn construct_messages() -> (Message, SignedMessage) {
     let bls_messages = Message {
-        to: Address::new_id(1),
-        from: Address::new_id(2),
+        to: Address::new_id(1).into(),
+        from: Address::new_id(2).into(),
         ..Message::default()
     };
 

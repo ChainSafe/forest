@@ -1448,7 +1448,7 @@ async fn check_block_messages<
     for m in block.bls_msgs() {
         let pk = StateManager::get_bls_public_key(
             state_manager.blockstore(),
-            &m.from,
+            &m.from.into(),
             *base_tipset.parent_state(),
         )?;
         pub_keys.push(pk);
@@ -1553,12 +1553,12 @@ async fn check_block_messages<
         })?;
         // Resolve key address for signature verification
         let key_addr = state_manager
-            .resolve_to_key_addr(msg.from(), &base_tipset)
+            .resolve_to_key_addr(&msg.from(), &base_tipset)
             .await
             .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr)
+            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr.into())
             .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
     }
 
@@ -1640,7 +1640,7 @@ mod test {
     use cid::Cid;
     use forest_blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
     use forest_crypto::VRFProof;
-    use fvm_shared::address::Address;
+    use forest_shim::address::Address;
     use num_bigint::BigInt;
 
     use super::*;

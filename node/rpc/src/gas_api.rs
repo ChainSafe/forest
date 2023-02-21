@@ -190,7 +190,7 @@ where
     let curr_ts = data.state_manager.chain_store().heaviest_tipset();
     let from_a = data
         .state_manager
-        .resolve_to_key_addr(&msg.from, &curr_ts)
+        .resolve_to_key_addr(&msg.from.into(), &curr_ts)
         .await?;
 
     let pending = data.mpool.pending_for(&from_a);

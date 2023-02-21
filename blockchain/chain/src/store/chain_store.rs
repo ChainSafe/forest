@@ -29,14 +29,13 @@ use forest_legacy_ipld_amt::Amt;
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use forest_metrics::metrics;
 use forest_networks::ChainConfig;
-use forest_shim::{econ::TokenAmount, state_tree::StateTree};
+use forest_shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
 use forest_utils::{db::BlockstoreExt, io::Checksum};
 use futures::Future;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_car::CarHeader;
 use fvm_ipld_encoding::{from_slice, Cbor};
 use fvm_shared::{
-    address::Address,
     clock::ChainEpoch,
     crypto::signature::{Signature, SignatureType},
     message::Message,
@@ -455,7 +454,7 @@ where
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
             // the block isn't valid otherwise.
-            let entry = applied.entry(*m.from()).or_insert_with(|| m.sequence());
+            let entry = applied.entry(m.from()).or_insert_with(|| m.sequence());
 
             if *entry != m.sequence() {
                 return None;
@@ -481,7 +480,7 @@ where
                 );
 
                 Ok(BlockMessages {
-                    miner: *b.miner_address(),
+                    miner: b.miner_address().into(),
                     messages,
                     win_count: b
                         .election_proof()
@@ -841,10 +840,10 @@ where
         let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
         for message in unsigned_box.chain(signed_box) {
-            let from_address = message.from();
+            let from_address = &message.from();
             if applied.contains_key(from_address) {
                 let actor_state = state
-                    .get_actor(&from_address.into())
+                    .get_actor(from_address)
                     .map_err(|e| Error::Other(e.to_string()))?
                     .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
                 applied.insert(*from_address, actor_state.sequence);
@@ -1022,8 +1021,8 @@ mod tests {
         },
         Cid,
     };
+    use forest_shim::address::Address;
     use fvm_ipld_encoding::DAG_CBOR;
-    use fvm_shared::address::Address;
 
     use super::*;
 

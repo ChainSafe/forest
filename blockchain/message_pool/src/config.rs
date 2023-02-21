@@ -4,8 +4,8 @@
 use std::time::Duration;
 
 use forest_db::Store;
+use forest_shim::address::Address;
 use fvm_ipld_encoding::{from_slice, to_vec};
-use fvm_shared::address::Address;
 use serde::{Deserialize, Serialize};
 
 const MPOOL_CONFIG_KEY: &[u8] = b"/mpool/config";

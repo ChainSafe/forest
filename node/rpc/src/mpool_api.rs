@@ -115,7 +115,7 @@ where
     let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = data
         .state_manager
-        .resolve_to_key_addr(&from, &heaviest_tipset)
+        .resolve_to_key_addr(&from.into(), &heaviest_tipset)
         .await?;
 
     if umsg.sequence != 0 {
@@ -129,9 +129,9 @@ where
     }
 
     if from.protocol() == Protocol::ID {
-        umsg.from = key_addr;
+        umsg.from = key_addr.into();
     }
-    let nonce = data.mpool.get_sequence(&from)?;
+    let nonce = data.mpool.get_sequence(&from.into())?;
     umsg.sequence = nonce;
     let key = forest_key_management::Key::try_from(forest_key_management::try_find(
         &key_addr,

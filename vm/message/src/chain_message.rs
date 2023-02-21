@@ -4,9 +4,9 @@
 use std::borrow::Borrow;
 
 use cid::Cid;
-use forest_shim::econ::TokenAmount;
+use forest_shim::{address::Address, econ::TokenAmount, message::Message};
 use fvm_ipld_encoding::{Cbor, Error, RawBytes};
-use fvm_shared::{address::Address, message::Message, MethodNum};
+use fvm_shared::MethodNum;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
@@ -31,16 +31,16 @@ impl ChainMessage {
 }
 
 impl MessageTrait for ChainMessage {
-    fn from(&self) -> &Address {
+    fn from(&self) -> Address {
         match self {
             Self::Signed(t) => t.from(),
-            Self::Unsigned(t) => &t.from,
+            Self::Unsigned(t) => Address::from(t.from),
         }
     }
-    fn to(&self) -> &Address {
+    fn to(&self) -> Address {
         match self {
             Self::Signed(t) => t.to(),
-            Self::Unsigned(t) => &t.to,
+            Self::Unsigned(t) => Address::from(t.to),
         }
     }
     fn sequence(&self) -> u64 {
