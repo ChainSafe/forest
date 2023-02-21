@@ -8,6 +8,7 @@ use std::{
 };
 
 use ahash::HashMap;
+use anyhow::Context;
 use cid::Cid;
 use flume::Sender;
 use forest_blocks::GossipBlock;
@@ -207,7 +208,8 @@ where
     ) -> Self {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport = build_transport(net_keypair.clone());
+        let transport =
+            build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
         let limits = ConnectionLimits::default()
             .with_max_pending_incoming(Some(10))
@@ -253,7 +255,12 @@ where
     /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
-        Swarm::listen_on(&mut self.swarm, self.config.listening_multiaddr)?;
+        for addr in &self.config.listening_multiaddrs {
+            if let Err(err) = Swarm::listen_on(&mut self.swarm, addr.clone()) {
+                error!("Fail to listen on {addr}: {err}");
+            }
+        }
+
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
             warn!("Failed to bootstrap with Kademlia: {e}");
@@ -809,25 +816,31 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     }
 }
 
-/// Builds the transport stack that libp2p will communicate over.
-pub fn build_transport(local_key: Keypair) -> Boxed<(PeerId, StreamMuxerBox)> {
-    let tcp_transport =
-        || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
-    let transport = libp2p::dns::TokioDnsConfig::system(tcp_transport()).unwrap();
+/// Builds the transport stack that libp2p will communicate over. When support
+/// of other protocols like `udp`, `quic`, `http` are added, remember to update
+/// code comment in [Libp2pConfig].
+///
+/// As a reference `lotus` uses the default `go-libp2p` transport builder which
+/// has all above protocols enabled.
+pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
+    let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
+    let build_dns_tcp = || libp2p::dns::TokioDnsConfig::system(build_tcp());
+    let transport =
+        libp2p::websocket::WsConfig::new(build_dns_tcp()?).or_transport(build_dns_tcp()?);
+
     let auth_config = {
         let dh_keys = noise::Keypair::<noise::X25519Spec>::new()
             .into_authentic(&local_key)
-            .expect("Noise key generation failed");
-
+            .context("Noise key generation failed")?;
         noise::NoiseConfig::xx(dh_keys).into_authenticated()
     };
 
-    transport
+    Ok(transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(auth_config)
         .multiplex(YamuxConfig::default())
         .timeout(Duration::from_secs(20))
-        .boxed()
+        .boxed())
 }
 
 /// Fetch key-pair from disk, returning none if it cannot be decoded.

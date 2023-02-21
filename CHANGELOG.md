@@ -8,6 +8,7 @@ Notable updates:
 ### Changed
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
 * [libp2p] Ban peers with duration. Banned peers are automatically unbanned after a period of 1h. [#2396](https://github.com/ChainSafe/forest/pull/2396)
+* [libp2p] Support multiple listen addr. [#2570](https://github.com/ChainSafe/forest/pull/2570)
 * [config] `stats` and `compression` keys in `parity_db` section were renamed to `enable_statistics` and `compression_type` respectively. [#2444](https://github.com/ChainSafe/forest/pull/2444)
 * [config] `download-snapshot` flag was renamed to `auto-download-snapshot`. `download_snapshot` key in `client` section in configuration renamed to `auto_download_snapshot`. [#257](https://github.com/ChainSafe/forest/pull/2457)
 * [docker|security] the Forest image is no longer running on a root user but a dedicated one. [#2463](https://github.com/ChainSafe/forest/pull/2463)
