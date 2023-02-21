@@ -140,8 +140,10 @@ pub fn construct_messages() -> (Message, SignedMessage) {
     }
     .into();
 
-    let secp_messages =
-        SignedMessage::new_unchecked(bls_messages.clone(), Signature::new_secp256k1(vec![0]));
+    let secp_messages = SignedMessage::new_unchecked(
+        bls_messages.clone(),
+        (&Signature::new_secp256k1(vec![0])).into(),
+    );
     (bls_messages, secp_messages)
 }
 
