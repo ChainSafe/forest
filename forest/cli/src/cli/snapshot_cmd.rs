@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
-use forest_cli_shared::retry;
+
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_cli_shared::cli::{
-    default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
+use forest_cli_shared::{
+    cli::{default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore},
+    retry,
 };
 use forest_db::{db_engine::open_db, Store};
 use forest_genesis::{forest_load_car, read_genesis_header};

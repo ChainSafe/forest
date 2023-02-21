@@ -15,6 +15,8 @@ use forest_cli_shared::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
         to_size_string, Client, Config, FOREST_VERSION_STRING,
     },
+    macros::{DELAY, MAX_RETRIES},
+    retry,
 };
 use forest_db::{
     db_engine::{db_path, open_db, Db},
@@ -38,7 +40,7 @@ use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};
 use raw_sync::events::{Event, EventInit, EventState};
 use rpassword::read_password;
-use tokio::{sync::RwLock, task::JoinSet};
+use tokio::{sync::RwLock, task::JoinSet, time::sleep};
 
 use super::cli::set_sigint_handler;
 
@@ -374,7 +376,15 @@ async fn maybe_fetch_snapshot(
 ) -> anyhow::Result<Config> {
     if should_fetch_snapshot {
         let snapshot_path = default_snapshot_dir(&config);
-        let path = snapshot_fetch(&snapshot_path, &config, &None, is_aria2_installed()).await?;
+        let path = retry!(
+            snapshot_fetch,
+            MAX_RETRIES,
+            DELAY,
+            &snapshot_path,
+            &config,
+            &None,
+            is_aria2_installed()
+        )?;
         Ok(Config {
             client: Client {
                 snapshot_path: Some(path),
