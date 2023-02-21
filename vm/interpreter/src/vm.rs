@@ -319,7 +319,8 @@ where
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
     pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
-        check_message(msg.message())?;
+        // Basic validity check
+        msg.message().check()?;
 
         let unsigned = msg.message().clone();
         let raw_length = msg.marshal_cbor().expect("encoding error").len();
@@ -376,15 +377,6 @@ where
             }
         }
     }
-}
-
-/// Does some basic checks on the Message to see if the fields are valid.
-fn check_message(msg: &Message) -> Result<(), anyhow::Error> {
-    if msg.gas_limit == 0 {
-        anyhow::bail!("Message has no gas limit set");
-    }
-
-    Ok(())
 }
 
 /// Default reward working with the Filecoin Reward Actor.
