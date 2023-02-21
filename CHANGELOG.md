@@ -3,6 +3,7 @@ Notable updates:
 
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
+* [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
 * [forest-cli] added `--dry-run` flag to `snapshot export` command. [#2549](https://github.com/ChainSafe/forest/pull/2549)
 
 ### Changed

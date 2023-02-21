@@ -11,15 +11,16 @@ ahash.workspace = true
 anyhow.workspace = true
 async-std = "1"
 async-trait.workspace = true
-cfg-if = "1"
+cfg-if.workspace = true
 flume.workspace = true
 futures.workspace = true
 lazy_static.workspace = true
-libipld = { workspace = true, default-features = false }
+libipld = { workspace = true, default-features = false, features = ["serde-codec"] }
 libp2p = { workspace = true, default-features = false, features = ["request-response", "macros"] }
 parking_lot.workspace = true
 prometheus.workspace = true
 protobuf = "3.2"
+serde = { workspace = true, features = ["derive"] }
 tracing.workspace = true
 unsigned-varint.workspace = true
 

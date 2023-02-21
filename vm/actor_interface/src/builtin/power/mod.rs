@@ -5,10 +5,10 @@ use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime::runtime::Policy;
 use forest_json::bigint::json;
-use forest_shim::state_tree::ActorState;
+use forest_shim::{address::Address, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{address::Address, econ::TokenAmount, sector::StoragePower};
+use fvm_shared::{econ::TokenAmount, sector::StoragePower};
 use serde::{Deserialize, Serialize};
 
 use crate::FilterEstimate;
@@ -108,8 +108,8 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<Option<Claim>> {
         match self {
-            State::V8(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
-            State::V9(st) => Ok(st.miner_power(&s, miner)?.map(From::from)),
+            State::V8(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
+            State::V9(st) => Ok(st.miner_power(&s, &miner.into())?.map(From::from)),
         }
     }
 
@@ -126,8 +126,12 @@ impl State {
         miner: &Address,
     ) -> anyhow::Result<bool> {
         match self {
-            State::V8(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
-            State::V9(st) => st.miner_nominal_power_meets_consensus_minimum(policy, &s, miner),
+            State::V8(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
+            }
+            State::V9(st) => {
+                st.miner_nominal_power_meets_consensus_minimum(policy, &s, &miner.into())
+            }
         }
     }
 

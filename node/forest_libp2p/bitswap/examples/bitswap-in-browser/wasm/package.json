@@ -1,0 +1,40 @@
+{
+    "name": "bitswap-wasm-example",
+    "version": "0.1.0",
+    "license": "MIT",
+    "private": true,
+    "browserslist": "> 0.5%, last 2 versions, not dead",
+    "scripts": {
+        "start": "parcel serve web/*.html --open --port 54321",
+        "build:wasm": "wasm-pack build -t web --out-name wasm",
+        "build:web": "rimraf dist/web && parcel build web/*.html --no-source-maps --dist-dir dist/web",
+        "build": "pnpm clean && pnpm build:wasm && pnpm build:web",
+        "clean": "rimraf dist",
+        "help": "parcel build -h"
+    },
+    "dependencies": {
+        "events": "^3.3.0",
+        "prettier": "^2.8.4",
+        "vue": "^3.2.47"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.20.12",
+        "@parcel/config-default": "^2.8.3",
+        "@parcel/core": "^2.8.3",
+        "@parcel/transformer-inline-string": "^2.8.3",
+        "@parcel/transformer-raw": "^2.8.3",
+        "@parcel/transformer-sass": "^2.8.3",
+        "@parcel/transformer-vue": "^2.8.3",
+        "@tailwindcss/forms": "^0.5.3",
+        "@tailwindcss/typography": "^0.5.9",
+        "parcel": "^2.8.3",
+        "postcss": "^8.4.21",
+        "postcss-html": "^1.5.0",
+        "process": "^0.11.10",
+        "rimraf": "^4.1.2",
+        "sass": "^1.58.0",
+        "tailwindcss": "^3.2.4",
+        "typescript": "^4.9.5",
+        "util": "^0.12.5"
+    }
+}

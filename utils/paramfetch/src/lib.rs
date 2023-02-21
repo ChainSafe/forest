@@ -11,10 +11,10 @@ use std::{
 use ahash::HashMap;
 use backoff::{future::retry, ExponentialBackoff};
 use blake2b_simd::{Hash, State as Blake2b};
+use forest_shim::sector::SectorSize;
 use forest_utils::net::{https_client, hyper};
 use futures::TryStreamExt;
-use fvm_shared::sector::SectorSize;
-use log::{debug, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use tokio::{
     fs::{self, File},
@@ -89,14 +89,19 @@ pub async fn get_params(
         .filter(|(name, info)| match storage_size {
             SectorSizeOpt::Keys => !name.ends_with("params"),
             SectorSizeOpt::Size(size) => {
-                size as u64 == info.sector_size || !name.ends_with(".params")
+                (*size) as u64 == info.sector_size || !name.ends_with(".params")
             }
             SectorSizeOpt::All => true,
         })
         .for_each(|(name, info)| {
             let data_dir_clone = data_dir.to_owned();
             tasks.push(tokio::task::spawn(async move {
-                fetch_verify_params(&data_dir_clone, &name, Arc::new(info)).await
+                fetch_verify_params(&data_dir_clone, &name, Arc::new(info))
+                    .await
+                    .map_err(|err| {
+                        error!("Error fetching param file {name}: {err}");
+                        err
+                    })
             }))
         });
 
@@ -156,13 +161,14 @@ async fn fetch_verify_params(
 
 async fn fetch_params(path: &Path, info: &ParameterData) -> Result<(), anyhow::Error> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
-    debug!("Fetching {:?} from {}", path, gw);
+    info!("Fetching param file {:?} from {}", path, gw);
     let url = format!("{}{}", gw, info.cid);
-
-    retry(ExponentialBackoff::default(), || async {
+    let result = retry(ExponentialBackoff::default(), || async {
         Ok(fetch_params_inner(&url, path).await?)
     })
-    .await
+    .await;
+    debug!("Done fetching param file {:?} from {}", path, gw);
+    result
 }
 
 async fn fetch_params_inner(url: impl AsRef<str>, path: &Path) -> Result<(), anyhow::Error> {

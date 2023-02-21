@@ -7,6 +7,7 @@ use std::{fs::File, io::prelude::*};
 
 use cid::Cid;
 use forest_blocks::{header, BlockHeader};
+use forest_shim::address::{set_current_network, Network};
 use fvm_ipld_encoding::to_vec;
 use hex::encode;
 use serde::Deserialize;
@@ -30,6 +31,8 @@ fn encode_assert_cbor(header: &BlockHeader, expected: &str, cid: &Cid) {
 
 #[test]
 fn header_cbor_vectors() {
+    set_current_network(Network::Testnet);
+
     let mut file = File::open("serialization-vectors/block_headers.json").unwrap();
     let mut string = String::new();
     file.read_to_string(&mut string).unwrap();
