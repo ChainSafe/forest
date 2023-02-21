@@ -568,16 +568,13 @@ where
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
                 // Don't include identity CIDs.
-                if u64::from(Code::Identity) != cid.hash().code() {
-                    // We only include raw and dagcbor, for now.
-                    // Raw for "code" CIDs.
-                    match cid.codec() {
-                        fvm_shared::IPLD_RAW => tx_clone.send_async((cid, block.clone())).await?,
-                        fvm_ipld_encoding::DAG_CBOR => {
-                            tx_clone.send_async((cid, block.clone())).await?
-                        }
-                        _ => {}
-                    }
+                // We only include raw and dagcbor, for now.
+                // Raw for "code" CIDs.
+                if u64::from(Code::Identity) != cid.hash().code()
+                    && (cid.codec() == fvm_shared::IPLD_RAW
+                        || cid.codec() == fvm_ipld_encoding::DAG_CBOR)
+                {
+                    tx_clone.send_async((cid, block.clone())).await?;
                 }
                 Ok(block)
             }
