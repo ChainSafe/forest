@@ -45,9 +45,9 @@ pub fn is_v9_power_cid(cid: &Cid) -> bool {
 
 pub fn is_v10_power_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet v9
+        // calibnet v10
         Cid::try_from("bafk2bzaceburxajojmywawjudovqvigmos4dlu4ifdikogumhso2ca2ccaleo").unwrap(),
-        // mainnet v9
+        // mainnet v10
         Cid::try_from("bafk2bzacedsetphfajgne4qy3vdrpyd6ekcmtfs2zkjut4r34cvnuoqemdrtw").unwrap(),
     ];
     known_cids.contains(cid)

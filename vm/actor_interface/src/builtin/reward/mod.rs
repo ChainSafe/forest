@@ -39,9 +39,9 @@ pub fn is_v9_reward_cid(cid: &Cid) -> bool {
 
 pub fn is_v10_reward_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet v9
+        // calibnet v10
         Cid::try_from("bafk2bzacebpptqhcw6mcwdj576dgpryapdd2zfexxvqzlh3aoc24mabwgmcss").unwrap(),
-        // mainnet v9
+        // mainnet v10
         Cid::try_from("bafk2bzacebezgbbmcm2gbcqwisus5fjvpj7hhmu5ubd37phuku3hmkfulxm2o").unwrap(),
     ];
     known_cids.contains(cid)
@@ -76,7 +76,7 @@ impl State {
         if is_v10_reward_cid(&actor.code) {
             return store
                 .get_obj(&actor.state)?
-                .map(State::V8)
+                .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown reward actor code {}", actor.code))

@@ -42,9 +42,9 @@ pub fn is_v9_market_cid(cid: &Cid) -> bool {
 
 pub fn is_v10_market_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet v9
+        // calibnet v10
         Cid::try_from("bafk2bzacebkfcnc27d3agm2bhzzbvvtbqahmvy2b2nf5xyj4aoxehow3bules").unwrap(),
-        // mainnet v9
+        // mainnet v10
         Cid::try_from("bafk2bzacec3j7p6gklk64stax5px3xxd7hdtejaepnd4nw7s2adihde6emkcu").unwrap(),
     ];
     known_cids.contains(cid)

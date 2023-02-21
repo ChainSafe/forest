@@ -49,9 +49,9 @@ pub fn is_v9_miner_cid(cid: &Cid) -> bool {
 
 pub fn is_v10_miner_cid(cid: &Cid) -> bool {
     let known_cids = vec![
-        // calibnet v9
+        // calibnet v10
         Cid::try_from("bafk2bzacebz4na3nq4gmumghegtkaofrv4nffiihd7sxntrryfneusqkuqodm").unwrap(),
-        // mainnet v9
+        // mainnet v10
         Cid::try_from("bafk2bzacedyux5hlrildwutvvjdcsvjtwsoc5xnqdjl73ouiukgklekeuyfl4").unwrap(),
     ];
     known_cids.contains(cid)
