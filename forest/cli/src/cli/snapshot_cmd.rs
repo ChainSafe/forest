@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
@@ -21,10 +21,30 @@ use fvm_shared::clock::ChainEpoch;
 use strfmt::strfmt;
 use tempfile::TempDir;
 use time::OffsetDateTime;
+use tokio::time::sleep;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
+
+macro_rules! retry {
+    ($func:ident, $max_retries:expr, $delay:expr $(, $arg:expr)*) => {{
+        let mut retry_count = 0;
+
+        loop {
+            match $func($($arg),*).await {
+                Ok(val) => break Ok(val),
+                Err(err) => {
+                    retry_count += 1;
+                    if retry_count >= $max_retries {
+                        break Err(err);
+                    }
+                    sleep($delay).await;
+                }
+            }
+        }
+    }};
+}
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
@@ -204,7 +224,15 @@ impl SnapshotCommands {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
-                match snapshot_fetch(&snapshot_dir, &config, provider, *use_aria2).await {
+                match retry!(
+                    snapshot_fetch,
+                    max_retries,
+                    delay,
+                    &snapshot_dir,
+                    &config,
+                    provider,
+                    *use_aria2
+                ) {
                     Ok(out) => {
                         println!("Snapshot successfully downloaded at {}", out.display());
                         Ok(())
