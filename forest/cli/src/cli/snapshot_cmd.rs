@@ -87,6 +87,12 @@ pub enum SnapshotCommands {
         /// Use [`aria2`](https://aria2.github.io/) for downloading, default is false. Requires `aria2c` in PATH.
         #[arg(long)]
         aria2: bool,
+        /// Maximum number of times to retry the fetch
+        #[arg(short, long, default_value = "3")]
+        max_retries: Option<i32>,
+        /// Duration to wait between the retries in seconds
+        #[arg(short, long, default_value = "60")]
+        delay: Option<u64>,
     },
 
     /// Shows default snapshot dir
@@ -220,14 +226,16 @@ impl SnapshotCommands {
                 snapshot_dir,
                 provider,
                 aria2: use_aria2,
+                max_retries,
+                delay,
             } => {
                 let snapshot_dir = snapshot_dir
                     .clone()
                     .unwrap_or_else(|| default_snapshot_dir(&config));
                 match retry!(
                     snapshot_fetch,
-                    max_retries,
-                    delay,
+                    max_retries.unwrap(),
+                    Duration::from_secs(delay.unwrap()),
                     &snapshot_dir,
                     &config,
                     provider,
