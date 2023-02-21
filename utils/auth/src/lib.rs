@@ -48,7 +48,7 @@ pub enum Error {
 
 /// Claim structure for JWT Tokens
 #[derive(Debug, Serialize, Deserialize)]
-struct Claims {
+pub struct Claims {
     #[serde(rename = "Allow")]
     allow: Vec<String>,
     // Expiration time (as UTC timestamp)
