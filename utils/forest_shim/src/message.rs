@@ -40,6 +40,12 @@ impl From<Message> for Message_v3 {
     }
 }
 
+impl From<&Message> for Message_v3 {
+    fn from(other: &Message) -> Self {
+        other.0.clone()
+    }
+}
+
 impl From<Message_v2> for Message {
     fn from(other: Message_v2) -> Self {
         Message(Message_v3 {

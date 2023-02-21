@@ -298,7 +298,7 @@ where
         match self {
             VM::VM2 { fvm_executor, .. } => {
                 let ret = fvm_executor.execute_message(
-                    msg.clone().into(),
+                    msg.into(),
                     fvm::executor::ApplyKind::Implicit,
                     raw_length,
                 )?;
@@ -306,7 +306,7 @@ where
             }
             VM::VM3 { fvm_executor, .. } => {
                 let ret = fvm_executor.execute_message(
-                    msg.clone().into(),
+                    msg.into(),
                     fvm3::executor::ApplyKind::Implicit,
                     raw_length,
                 )?;
