@@ -26,7 +26,7 @@ use forest_shim::{address::Address, message::Message, state_tree::StateTree};
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
-use fvm::gas::price_list_by_network_version;
+use fvm3::gas::price_list_by_network_version;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{

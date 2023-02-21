@@ -20,7 +20,7 @@ use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
 use forest_shim::{address::Address, econ::TokenAmount};
 use forest_utils::const_option;
 use futures::StreamExt;
-use fvm::gas::{price_list_by_network_version, Gas};
+use fvm3::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
