@@ -160,7 +160,6 @@ where
             VM::VM2 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
             VM::VM3 { fvm_executor, .. } => Ok(fvm_executor.flush()?),
         }
-        // Ok(self.fvm_executor.flush()?)
     }
 
     /// Get actor state from an address. Will be resolved to ID address.
@@ -181,7 +180,6 @@ where
                 }
             }
         }
-        // Ok(self.fvm_executor.state_tree().get_actor(&addr.into())?)
     }
 
     pub fn run_cron(
