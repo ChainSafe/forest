@@ -3204,7 +3204,6 @@ dependencies = [
  "chrono",
  "forest_key_management",
  "forest_shim",
- "fvm_shared 2.0.0",
  "jsonrpc-v2",
  "jsonwebtoken",
  "once_cell",
@@ -3651,7 +3650,6 @@ dependencies = [
  "forest_json",
  "forest_shim",
  "forest_utils",
- "fvm_shared 2.0.0",
  "libsecp256k1",
  "log",
  "quickcheck",
@@ -4083,7 +4081,6 @@ dependencies = [
  "forest_message",
  "forest_shim",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
  "num",
 ]
 
@@ -8535,7 +8532,6 @@ dependencies = [
  "forest_message",
  "forest_shim",
  "fvm_ipld_encoding 0.2.3",
- "fvm_shared 2.0.0",
  "hex",
  "serde",
  "serde_json",
