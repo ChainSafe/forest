@@ -40,12 +40,23 @@ pub fn is_v9_market_cid(cid: &Cid) -> bool {
     known_cids.contains(cid)
 }
 
+pub fn is_v10_market_cid(cid: &Cid) -> bool {
+    let known_cids = vec![
+        // calibnet v10
+        Cid::try_from("bafk2bzacecclsfboql3iraf3e66pzuh3h7qp3vgmfurqz26qh5g5nrexjgknc").unwrap(),
+        // mainnet v10
+        Cid::try_from("bafk2bzacedalaigmokrtimabt7y7bkok5nd2j5gmifdahht3dsz5ulj7vxdgu").unwrap(),
+    ];
+    known_cids.contains(cid)
+}
+
 /// Market actor state.
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum State {
     V8(fil_actor_market_v8::State),
     V9(fil_actor_market_v9::State),
+    V10(fil_actor_market_v10::State),
 }
 
 impl State {
@@ -63,6 +74,12 @@ impl State {
             return store
                 .get_obj(&actor.state)?
                 .map(State::V9)
+                .context("Actor state doesn't exist in store");
+        }
+        if is_v10_market_cid(&actor.code) {
+            return store
+                .get_obj(&actor.state)?
+                .map(State::V10)
                 .context("Actor state doesn't exist in store");
         }
         Err(anyhow::anyhow!("Unknown market actor code {}", actor.code))
@@ -105,6 +122,7 @@ impl State {
         match self {
             State::V8(st) => st.total_locked(),
             State::V9(st) => st.total_locked(),
+            State::V10(st) => st.get_total_locked(),
         }
     }
 
