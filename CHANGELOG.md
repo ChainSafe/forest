@@ -18,7 +18,7 @@ Notable updates:
 * [forest daemon] The `--skip-load` flag must be now called with a boolean indicating its value. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 ### Removed
-* [forest daemon] Removed `--halt_after_import` and `--auto_download_snapshot` from configuration. They are now strictly a CLI option. [#2577](https://github.com/ChainSafe/forest/pull/2577)
+* [forest daemon] Removed `--halt-after-import` and `--auto-download-snapshot` from configuration. They are now strictly a CLI option. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 
 ### Fixed
