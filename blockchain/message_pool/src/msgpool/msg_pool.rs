@@ -593,10 +593,10 @@ pub(crate) fn add_helper<T>(
 where
     T: Provider,
 {
-    if msg.signature().signature_type() == SignatureType::BLS {
+    if msg.signature().signature_type() == SignatureType::BLS.into() {
         bls_sig_cache
             .lock()
-            .put(msg.cid()?, msg.signature().clone());
+            .put(msg.cid()?, msg.signature().clone().into());
     }
 
     if msg.message().gas_limit > 100_000_000 {

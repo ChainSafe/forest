@@ -927,7 +927,7 @@ pub fn persist_block_messages<DB: Blockstore>(
 
     let mut bls_sigs = Vec::new();
     for msg in messages {
-        if msg.signature().signature_type() == SignatureType::BLS {
+        if msg.signature().signature_type() == SignatureType::BLS.into() {
             let c = db.put_obj(&msg.message, Blake2b256)?;
             bls_cids.push(c);
             bls_sigs.push(&msg.signature);

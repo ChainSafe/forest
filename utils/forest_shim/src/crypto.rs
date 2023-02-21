@@ -22,6 +22,22 @@ impl Signature {
             bytes,
         })
     }
+
+    /// Creates a BLS Signature given the raw bytes.
+    pub fn new_bls(bytes: Vec<u8>) -> Self {
+        Signature(Signature_v3 {
+            sig_type: SignatureType_v3::BLS,
+            bytes,
+        })
+    }
+
+    /// Creates a SECP Signature given the raw bytes.
+    pub fn new_secp256k1(bytes: Vec<u8>) -> Self {
+        Signature(Signature_v3 {
+            sig_type: SignatureType_v3::Secp256k1,
+            bytes,
+        })
+    }
 }
 
 impl Deref for Signature {
@@ -63,8 +79,8 @@ impl From<Signature> for Signature_v3 {
     }
 }
 
-impl From<Signature> for Signature_v2 {
-    fn from(other: Signature) -> Signature_v2 {
+impl From<&Signature> for Signature_v2 {
+    fn from(other: &Signature) -> Signature_v2 {
         let sig_type: SignatureType = other.signature_type().into();
         let sig: Signature_v2 = Signature_v2 {
             sig_type: sig_type.into(),

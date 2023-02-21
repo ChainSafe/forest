@@ -69,7 +69,7 @@ pub mod json {
         let SignedMessageDe { message, signature } = Deserialize::deserialize(deserializer)?;
         Ok(SignedMessage {
             message,
-            signature: signature.into(),
+            signature: (&signature).into(),
         })
     }
 

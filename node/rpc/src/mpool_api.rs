@@ -143,7 +143,7 @@ where
         umsg.cid().unwrap().to_bytes().as_slice(),
     )?;
 
-    let smsg = SignedMessage::new_from_parts(umsg, sig)?;
+    let smsg = SignedMessage::new_from_parts(umsg, (&sig).into())?;
 
     data.mpool.as_ref().push(smsg.clone()).await?;
 
