@@ -11,13 +11,14 @@ use derive_builder::Builder;
 use forest_beacon::{self, Beacon, BeaconEntry, BeaconSchedule};
 use forest_encoding::blake2b_256;
 use forest_shim::{
+    address::Address,
     bigint::{BigIntDe, BigIntSer},
     econ::TokenAmount,
     sector::PoStProof,
     version::NetworkVersion,
 };
 use fvm_ipld_encoding::{Cbor, Error as EncodingError, DAG_CBOR};
-use fvm_shared::{address::Address, clock::ChainEpoch, crypto::signature::Signature};
+use fvm_shared::{clock::ChainEpoch, crypto::signature::Signature};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -347,7 +348,7 @@ impl BlockHeader {
             .ok_or_else(|| Error::InvalidSignature("Signature is nil in header".to_owned()))?;
 
         signature
-            .verify(&self.to_signing_bytes(), addr)
+            .verify(&self.to_signing_bytes(), &addr.into())
             .map_err(|e| Error::InvalidSignature(format!("Block signature invalid: {e}")))?;
 
         // Set validated cache to true
@@ -459,9 +460,8 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use forest_beacon::{BeaconEntry, BeaconPoint, BeaconSchedule, MockBeacon};
-    use forest_shim::version::NetworkVersion;
+    use forest_shim::{address::Address, version::NetworkVersion};
     use fvm_ipld_encoding::Cbor;
-    use fvm_shared::address::Address;
 
     use crate::{errors::Error, BlockHeader};
 

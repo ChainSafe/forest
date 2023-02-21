@@ -1,0 +1,30 @@
+[package]
+name = "bitswap-in-browser"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ahash.workspace = true
+anyhow.workspace = true
+cid.workspace = true
+libipld.workspace = true
+libp2p = { workspace = true, default-features = false, features = [
+  "noise",
+  "tcp",
+  "websocket",
+  "wasm-ext-websocket",
+  "request-response",
+  "yamux",
+  "tokio",
+  "macros",
+] }
+log.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing-subscriber.workspace = true
+
+bitswap-in-browser-lib = { path = "./wasm" }
+forest_libp2p_bitswap = { path = "../.." }

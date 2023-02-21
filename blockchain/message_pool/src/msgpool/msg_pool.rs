@@ -17,15 +17,12 @@ use forest_db::Store;
 use forest_libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use forest_message::{message::valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use forest_networks::{ChainConfig, NEWEST_NETWORK_VERSION};
-use forest_shim::econ::TokenAmount;
+use forest_shim::{address::Address, econ::TokenAmount};
 use forest_utils::const_option;
 use futures::StreamExt;
 use fvm::gas::{price_list_by_network_version, Gas};
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    address::Address,
-    crypto::signature::{Signature, SignatureType},
-};
+use fvm_shared::crypto::signature::{Signature, SignatureType};
 use log::warn;
 use lru::LruCache;
 use num::BigInt;
@@ -292,7 +289,7 @@ where
 
     /// Add a signed message to the pool and its address.
     fn add_local(&self, m: SignedMessage) -> Result<(), Error> {
-        self.local_addrs.write().push(*m.from());
+        self.local_addrs.write().push(m.from());
         self.local_msgs.write().insert(m);
         Ok(())
     }
@@ -364,7 +361,7 @@ where
     /// given then call `add_locked` to finish adding the `signed_message`
     /// to pending.
     fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
-        let sequence = self.get_state_sequence(msg.from(), cur_ts)?;
+        let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
             return Err(Error::SequenceTooLow);
@@ -372,7 +369,7 @@ where
 
         let publish = verify_msg_before_add(&msg, cur_ts, local, &self.chain_config)?;
 
-        let balance = self.get_state_balance(msg.from(), cur_ts)?;
+        let balance = self.get_state_balance(&msg.from(), cur_ts)?;
 
         let msg_balance = msg.required_funds();
         if balance < msg_balance {
@@ -387,7 +384,7 @@ where
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
     fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
-        let from = *msg.from();
+        let from = msg.from();
         let cur_ts = self.cur_tipset.lock().clone();
         add_helper(
             self.api.as_ref(),
@@ -609,12 +606,12 @@ where
     api.put_message(&ChainMessage::Unsigned(msg.message().clone()))?;
 
     let mut pending = pending.write();
-    let msett = pending.get_mut(&msg.message().from);
+    let msett = pending.get_mut(&msg.from());
     match msett {
         Some(mset) => mset.add(msg)?,
         None => {
             let mut mset = MsgSet::new(sequence);
-            let from = msg.message().from;
+            let from = msg.from();
             mset.add(msg)?;
             pending.insert(from, mset);
         }

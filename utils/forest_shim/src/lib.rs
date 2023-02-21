@@ -5,6 +5,7 @@ pub mod address;
 pub mod bigint;
 pub mod econ;
 pub mod error;
+pub mod message;
 pub mod randomness;
 pub mod sector;
 pub mod state_tree;
