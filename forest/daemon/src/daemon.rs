@@ -44,6 +44,8 @@ use tokio::{
     task::JoinSet,
 };
 
+use super::cli::set_sigint_handler;
+
 // Initialize Consensus
 #[cfg(not(any(feature = "forest_fil_cns", feature = "forest_deleg_cns")))]
 compile_error!("No consensus feature enabled; use e.g. `--feature forest_fil_cns` to pick one.");
@@ -67,6 +69,7 @@ fn unblock_parent_process() -> anyhow::Result<()> {
 
 /// Starts daemon process
 pub(super) async fn start(config: Config, detached: bool) -> anyhow::Result<Db> {
+    set_sigint_handler()?;
     let (shutdown_send, mut shutdown_recv) = tokio::sync::mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
@@ -423,7 +426,7 @@ async fn prompt_snapshot_or_die(config: &Config) -> anyhow::Result<bool> {
     if should_download {
         Ok(true)
     } else {
-        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --download-snapshot to download one automatically");
+        anyhow::bail!("Forest cannot sync without a snapshot. Download a snapshot from a trusted source and import with --import-snapshot=[file] or --auto-download-snapshot to download one automatically");
     }
 }
 
