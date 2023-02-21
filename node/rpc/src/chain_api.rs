@@ -19,7 +19,10 @@ use forest_rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
-use forest_utils::{db::BlockstoreExt, io::AsyncWriterWithChecksum};
+use forest_utils::{
+    db::BlockstoreExt,
+    io::{AsyncWriterWithChecksum, VoidAsyncWriterWithChecksum},
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_shared::message::Message;
 use hex::ToHex;
@@ -83,39 +86,37 @@ where
         ))?;
     }
 
-    let (out_tmp, writer) = if dry_run {
-        (None, None)
-    } else {
-        let out_tmp = output_path.with_extension("car.tmp");
-        let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
-        (
-            Some(out_tmp),
-            Some(AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(
-                file,
-            ))),
-        )
-    };
-
+    let out_tmp = output_path.with_extension("car.tmp");
     let head = data.chain_store.tipset_from_keys(&tsk)?;
-
     let start_ts = data.chain_store.tipset_by_height(epoch, head, true)?;
 
-    match data
-        .chain_store
-        .export(&start_ts, recent_roots, writer)
-        .await
-    {
-        Ok(Some(checksum)) => {
-            if let Some(out_tmp) = out_tmp {
-                std::fs::rename(&out_tmp, &output_path)?;
-                if !skip_checksum {
-                    save_checksum(&output_path, checksum).await?;
-                }
+    match if dry_run {
+        data.chain_store
+            .export(
+                &start_ts,
+                recent_roots,
+                VoidAsyncWriterWithChecksum::<Sha256>::default(),
+            )
+            .await
+    } else {
+        let file = File::create(&out_tmp).await.map_err(JsonRpcError::from)?;
+        data.chain_store
+            .export(
+                &start_ts,
+                recent_roots,
+                AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(file)),
+            )
+            .await
+    } {
+        Ok(checksum) if !dry_run => {
+            std::fs::rename(&out_tmp, &output_path)?;
+            if !skip_checksum {
+                save_checksum(&output_path, checksum).await?;
             }
         }
-        Ok(None) => {}
+        Ok(_) => {}
         Err(e) => {
-            if let Some(out_tmp) = out_tmp {
+            if out_tmp.exists() {
                 if let Err(e) = std::fs::remove_file(&out_tmp) {
                     error!(
                         "failed to remove incomplete export file at {}: {e}",
