@@ -1,5 +1,6 @@
 ## Forest unreleased
 Notable updates:
+* Support for nv18.
 
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
