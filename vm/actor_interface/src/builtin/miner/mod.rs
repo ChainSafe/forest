@@ -509,9 +509,9 @@ impl From<fil_actor_miner_v10::SectorOnChainInfo> for SectorOnChainInfo {
             expiration: info.expiration,
             deal_weight: info.deal_weight,
             verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge,
-            expected_day_reward: info.expected_day_reward,
-            expected_storage_pledge: info.expected_storage_pledge,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
         }
     }
 }
