@@ -7,7 +7,10 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
-use cid::{multihash::Code::Blake2b256, Cid};
+use cid::{
+    multihash::{Code, Code::Blake2b256},
+    Cid,
+};
 use digest::Digest;
 use forest_actor_interface::EPOCHS_IN_DAY;
 use forest_beacon::{BeaconEntry, IGNORE_DRAND_VAR};
@@ -564,7 +567,15 @@ where
                     .get(&cid)?
                     .ok_or_else(|| Error::Other(format!("Cid {cid} not found in blockstore")))?;
 
-                tx_clone.send_async((cid, block.clone())).await?;
+                // Don't include identity CIDs.
+                // We only include raw and dagcbor, for now.
+                // Raw for "code" CIDs.
+                if u64::from(Code::Identity) != cid.hash().code()
+                    && (cid.codec() == fvm_shared::IPLD_RAW
+                        || cid.codec() == fvm_ipld_encoding::DAG_CBOR)
+                {
+                    tx_clone.send_async((cid, block.clone())).await?;
+                }
                 Ok(block)
             }
         })
