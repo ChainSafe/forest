@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 
 use fvm_shared::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
@@ -112,10 +112,22 @@ impl From<TokenAmount> for TokenAmount_v2 {
     }
 }
 
+impl From<&TokenAmount> for TokenAmount_v2 {
+    fn from(other: &TokenAmount) -> TokenAmount_v2 {
+        TokenAmount_v2::from_atto(other.atto().clone())
+    }
+}
+
 impl Mul<BigInt> for TokenAmount {
     type Output = TokenAmount;
     fn mul(self, rhs: BigInt) -> Self::Output {
         self.0.mul(rhs).into()
+    }
+}
+
+impl MulAssign<BigInt> for TokenAmount {
+    fn mul_assign(&mut self, rhs: BigInt) {
+        self.0.mul_assign(rhs)
     }
 }
 
@@ -197,6 +209,13 @@ impl SubAssign for TokenAmount {
 impl Sub<&TokenAmount> for TokenAmount {
     type Output = TokenAmount;
     fn sub(self, rhs: &TokenAmount) -> Self::Output {
+        (&self.0).sub(&rhs.0).into()
+    }
+}
+
+impl Sub<TokenAmount> for &TokenAmount {
+    type Output = TokenAmount;
+    fn sub(self, rhs: TokenAmount) -> Self::Output {
         (&self.0).sub(&rhs.0).into()
     }
 }

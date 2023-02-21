@@ -335,8 +335,12 @@ pub mod tests {
     use forest_message::SignedMessage;
     #[cfg(feature = "slow_tests")]
     use forest_networks::ChainConfig;
-    use forest_shim::{address::Address, econ::TokenAmount};
-    use fvm_shared::{crypto::signature::SignatureType, message::Message};
+    use forest_shim::{
+        address::Address,
+        econ::TokenAmount,
+        message::{Message, Message_v3},
+    };
+    use fvm_shared::crypto::signature::SignatureType;
     #[cfg(feature = "slow_tests")]
     use num_traits::Zero;
     use test_provider::*;
@@ -355,15 +359,16 @@ pub mod tests {
         gas_limit: i64,
         gas_price: u64,
     ) -> SignedMessage {
-        let umsg = Message {
+        let umsg: Message = Message_v3 {
             to: to.into(),
             from: from.into(),
             sequence,
-            gas_limit,
+            gas_limit: gas_limit as u64,
             gas_fee_cap: TokenAmount::from_atto(gas_price + 100).into(),
             gas_premium: TokenAmount::from_atto(gas_price).into(),
-            ..Message::default()
-        };
+            ..Message_v3::default()
+        }
+        .into();
         let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_from_parts(umsg, sig).unwrap()
