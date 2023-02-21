@@ -3,6 +3,7 @@
 
 pub mod cli;
 pub mod logger;
+pub mod macros;
 
 use std::path::PathBuf;
 

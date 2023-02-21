@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
-
+use forest_cli_shared::retry;
 use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
 use clap::Subcommand;
@@ -26,25 +26,6 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use super::*;
 use crate::cli::{cli_error_and_die, handle_rpc_err};
-
-macro_rules! retry {
-    ($func:ident, $max_retries:expr, $delay:expr $(, $arg:expr)*) => {{
-        let mut retry_count = 0;
-
-        loop {
-            match $func($($arg),*).await {
-                Ok(val) => break Ok(val),
-                Err(err) => {
-                    retry_count += 1;
-                    if retry_count >= $max_retries {
-                        break Err(err);
-                    }
-                    sleep($delay).await;
-                }
-            }
-        }
-    }};
-}
 
 pub(crate) const OUTPUT_PATH_DEFAULT_FORMAT: &str =
     "forest_snapshot_{chain}_{year}-{month}-{day}_height_{height}.car";
