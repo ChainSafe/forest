@@ -13,7 +13,6 @@ log.workspace = true
 once_cell.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio = { workspace = true, features = ["sync"] }
 
 # Internal
 forest_libp2p.workspace = true
