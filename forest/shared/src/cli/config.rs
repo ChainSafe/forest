@@ -277,7 +277,7 @@ mod test {
                     compression_type: String::arbitrary(g),
                 },
                 network: Libp2pConfig {
-                    listening_multiaddr: Ipv4Addr::arbitrary(g).into(),
+                    listening_multiaddrs: vec![Ipv4Addr::arbitrary(g).into()],
                     bootstrap_peers: vec![Ipv4Addr::arbitrary(g).into(); u8::arbitrary(g) as usize],
                     mdns: bool::arbitrary(g),
                     kademlia: bool::arbitrary(g),
