@@ -20,6 +20,14 @@ Currently, the following tags are produced:
 - `date-digest` e.g., `2023-02-17-5f27a62` - all builds that landed on the `main` branch.
 - release tags, available from `v.0.7.0` onwards.
 
+## Security recommendations
+- We strongly recommend running the docker daemon in rootless mode ([installation instructions](https://docs.docker.com/engine/security/rootless/)), or running the daemon-less docker alternative `podman` ([installation instructions](https://podman.io/getting-started/installation)) with non-root user and put `alias docker = podman` (or manually replace the `docker` commands with `podman` in below instructions)
+
+## Performance recommendations
+- We recommend lowering the swappiness kernel parameter on linux to 1-10 for long running forest node by doing `sudo sysctl -w vm.swappiness=[n]`. 
+
+References: [[1]](https://en.wikipedia.org/wiki/Memory_paging#Swappiness)  [[2]](https://linuxhint.com/understanding_vm_swappiness/)
+
 ## Usage
 
 ### List available flags and/or commands
