@@ -3,7 +3,6 @@
 
 use std::{fs, path::PathBuf, sync::Arc, time::Duration};
 
-use ahash::{HashSet, HashSetExt};
 use anyhow::bail;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -14,7 +13,7 @@ use forest_cli_shared::cli::{
 };
 use forest_db::{db_engine::open_db, Store};
 use forest_genesis::{forest_load_car, read_genesis_header};
-use forest_ipld::recurse_links_hash;
+use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_rpc_client::chain_ops::*;
 use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
 use fvm_shared::clock::ChainEpoch;
@@ -432,7 +431,7 @@ async fn validate_links_and_genesis_traversal<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore + Store + Send + Sync,
 {
-    let mut seen = HashSet::<blake3::Hash>::new();
+    let mut seen = CidHashSet::default();
     let upto = ts.epoch() - recent_stateroots;
 
     let mut tsk = ts.parents().clone();
