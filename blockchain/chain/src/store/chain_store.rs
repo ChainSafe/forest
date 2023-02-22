@@ -3,7 +3,7 @@
 
 use std::{collections::VecDeque, num::NonZeroUsize, sync::Arc, time::SystemTime};
 
-use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use ahash::{HashMap, HashMapExt};
 use anyhow::Result;
 use async_stream::stream;
 use bls_signatures::Serialize as SerializeBls;
@@ -18,7 +18,7 @@ use forest_blocks::{Block, BlockHeader, FullTipset, Tipset, TipsetKeys, TxMeta};
 use forest_db::Store;
 use forest_encoding::de::DeserializeOwned;
 use forest_interpreter::BlockMessages;
-use forest_ipld::{recurse_links_hash, InsertHash};
+use forest_ipld::{recurse_links_hash, CidHashSet};
 use forest_legacy_ipld_amt::Amt;
 use forest_libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use forest_message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -610,13 +610,13 @@ where
         F: FnMut(Cid) -> T + Send,
         T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
     {
-        let mut seen = HashSet::<blake3::Hash>::new();
+        let mut seen = CidHashSet::default();
         let mut blocks_to_walk: VecDeque<Cid> = tipset.cids().to_vec().into();
         let mut current_min_height = tipset.epoch();
         let incl_roots_epoch = tipset.epoch() - recent_roots;
 
         while let Some(next) = blocks_to_walk.pop_front() {
-            if !seen.hash_and_insert(&next.to_bytes()) {
+            if !seen.insert(&next) {
                 continue;
             }
 
