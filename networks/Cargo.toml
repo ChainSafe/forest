@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-fil_actors_runtime.workspace = true
+fil_actors_runtime_v9.workspace = true
 forest_beacon.workspace = true
 forest_shim.workspace = true
 fvm_shared = { workspace = true, default-features = false }

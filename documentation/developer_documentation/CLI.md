@@ -29,10 +29,10 @@ the Forest daemon. This will be needed to create tokens with certain permissions
 
 For nodes running on default port and when you are interacting locally, the admin token can also be set using `--token` flag:
 ```
-forest-cli --token eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjczMjEwMTkzfQ.xxhmqtG9O3XNTIrOEB2_TWnVkq0JkqzRdw63BdosV0c
+forest-cli --token eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJBbGxvdyI6WyJyZWFkIiwid3JpdGUiLCJzaWduIiwiYWRtaW4iXSwiZXhwIjoxNjczMjEwMTkzfQ.xxhmqtG9O3XNTIrOEB2_TWnVkq0JkqzRdw63BdosV0c <subcommand>
 ```
 
-Note that the Admin token is printed in the logs when starting Forest node.
+When the Forest daemon is started, an admin token will be displayed (alternatively, use `--save-token <token>` flag to save it on disk).
 
 ## Wallet
 

@@ -22,7 +22,7 @@ use forest_db::Store;
 use forest_libp2p::chain_exchange::TipsetBundle;
 use forest_message::{message::valid_for_block_inclusion, Message as MessageTrait};
 use forest_networks::Height;
-use forest_shim::state_tree::StateTree;
+use forest_shim::{address::Address, message::Message, state_tree::StateTree};
 use forest_state_manager::{Error as StateManagerError, StateManager};
 use forest_utils::io::ProgressBar;
 use futures::{stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
@@ -30,8 +30,8 @@ use fvm::gas::price_list_by_network_version;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
 use fvm_shared::{
-    address::Address, clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate,
-    message::Message, ALLOWABLE_CLOCK_DRIFT, BLOCK_GAS_LIMIT,
+    clock::ChainEpoch, crypto::signature::ops::verify_bls_aggregate, ALLOWABLE_CLOCK_DRIFT,
+    BLOCK_GAS_LIMIT,
 };
 use log::{debug, error, info, trace, warn};
 use nonempty::NonEmpty;
@@ -1490,13 +1490,13 @@ async fn check_block_messages<
         valid_for_block_inclusion(msg, min_gas.total(), network_version)
             .map_err(|e| anyhow::anyhow!("{}", e))?;
         sum_gas_limit += msg.gas_limit;
-        if sum_gas_limit > BLOCK_GAS_LIMIT {
+        if sum_gas_limit > BLOCK_GAS_LIMIT as u64 {
             anyhow::bail!("block gas limit exceeded");
         }
 
         // Phase 2: (Partial) Semantic validation
         // Send exists and is an account actor, and sequence is correct
-        let sequence: u64 = match account_sequences.get(&msg.from) {
+        let sequence: u64 = match account_sequences.get(&msg.from()) {
             Some(sequence) => *sequence,
             None => {
                 let actor = tree.get_actor(&msg.from.into())?.ok_or_else(|| {
@@ -1519,7 +1519,7 @@ async fn check_block_messages<
                 msg.sequence
             );
         }
-        account_sequences.insert(msg.from, sequence + 1);
+        account_sequences.insert(msg.from(), sequence + 1);
         Ok(())
     };
 

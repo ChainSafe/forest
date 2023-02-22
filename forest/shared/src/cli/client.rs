@@ -28,7 +28,6 @@ pub struct Client {
     pub snapshot: bool,
     pub snapshot_height: Option<i64>,
     pub snapshot_path: Option<PathBuf>,
-    pub halt_after_import: bool,
     /// Skips loading import CAR file and assumes it's already been loaded.
     /// Will use the CIDs in the header of the file to index the chain.
     pub skip_load: bool,
@@ -37,8 +36,6 @@ pub struct Client {
     pub metrics_address: SocketAddr,
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
-    /// Download a chain specific snapshot to sync with the Filecoin network
-    pub auto_download_snapshot: bool,
     // Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
     pub token_exp: Duration,
@@ -57,13 +54,11 @@ impl Default for Client {
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
-            halt_after_import: false,
             snapshot_height: None,
             skip_load: false,
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
-            auto_download_snapshot: false,
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
         }
