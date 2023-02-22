@@ -60,8 +60,8 @@ pub(crate) async fn state_replay<
 
     Ok(InvocResult {
         msg,
-        msg_rct: Some(ret.msg_receipt),
-        error: ret.failure_info.map(|e| e.to_string()),
+        msg_rct: Some(ret.msg_receipt()),
+        error: ret.failure_info(),
     })
 }
 
@@ -184,10 +184,10 @@ pub(crate) async fn state_wait_msg<
     let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
-    let ipld: Ipld = if receipt.return_data.bytes().is_empty() {
+    let ipld: Ipld = if receipt.return_data().bytes().is_empty() {
         Ipld::Null
     } else {
-        receipt.return_data.deserialize()?
+        receipt.return_data().deserialize()?
     };
     Ok(MessageLookup {
         receipt: receipt.into(),

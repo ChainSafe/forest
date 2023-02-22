@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use fil_actors_runtime::runtime::Policy;
+use fil_actors_runtime_v9::runtime::Policy;
 use forest_beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use forest_shim::version::NetworkVersion;
 use fvm_shared::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
@@ -37,6 +37,7 @@ pub enum Height {
     OhSnap,
     Skyr,
     Shark,
+    Hygge,
 }
 
 impl Default for Height {
@@ -66,6 +67,7 @@ impl From<Height> for NetworkVersion {
             Height::OhSnap => NetworkVersion::V15,
             Height::Skyr => NetworkVersion::V16,
             Height::Shark => NetworkVersion::V17,
+            Height::Hygge => NetworkVersion::V18,
         }
     }
 }

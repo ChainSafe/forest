@@ -20,6 +20,7 @@ use forest_libp2p::{
 };
 use forest_message::SignedMessage;
 use forest_message_pool::{MessagePool, Provider};
+use forest_shim::message::Message;
 use forest_state_manager::StateManager;
 use futures::{
     future::{try_join_all, Future},
@@ -27,7 +28,6 @@ use futures::{
     try_join, StreamExt,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::message::Message;
 use log::{debug, error, info, trace, warn};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
@@ -934,9 +934,8 @@ mod tests {
     use forest_db::MemoryDB;
     use forest_message::SignedMessage;
     use forest_networks::{ChainConfig, Height};
-    use forest_shim::address::Address;
+    use forest_shim::{address::Address, message::Message};
     use forest_test_utils::construct_messages;
-    use fvm_shared::message::Message;
 
     use crate::validation::TipsetValidator;
 

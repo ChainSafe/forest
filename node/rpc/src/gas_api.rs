@@ -7,13 +7,14 @@ use forest_blocks::{tipset_keys_json::TipsetKeysJson, TipsetKeys};
 use forest_chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use forest_db::Store;
 use forest_json::{address::json::AddressJson, message::json::MessageJson};
-use forest_message::ChainMessage;
+use forest_message::{ChainMessage, Message as MessageTrait};
 use forest_rpc_api::{
     data_types::{MessageSendSpec, RPCState},
     gas_api::*,
 };
+use forest_shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{econ::TokenAmount, message::Message, BLOCK_GAS_LIMIT};
+use fvm_shared::BLOCK_GAS_LIMIT;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
@@ -55,8 +56,8 @@ where
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
             .ok_or("failed to convert fee_in_future f64 to bigint")?;
     let mut out: forest_shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
-    out += msg.gas_premium.into();
-    Ok(out.into())
+    out += msg.gas_premium();
+    Ok(out)
 }
 
 /// Estimate the fee cap
@@ -111,8 +112,8 @@ where
             &mut msgs
                 .iter()
                 .map(|msg| GasMeta {
-                    price: msg.message().gas_premium.clone(),
-                    limit: msg.message().gas_limit,
+                    price: msg.message().gas_premium(),
+                    limit: msg.message().gas_limit(),
                 })
                 .collect(),
         );
@@ -183,9 +184,9 @@ where
     B: Beacon,
 {
     let mut msg = msg;
-    msg.gas_limit = BLOCK_GAS_LIMIT;
-    msg.gas_fee_cap = TokenAmount::from_atto(MINIMUM_BASE_FEE + 1);
-    msg.gas_premium = TokenAmount::from_atto(1);
+    msg.set_gas_limit(BLOCK_GAS_LIMIT);
+    msg.set_gas_fee_cap(TokenAmount::from_atto(MINIMUM_BASE_FEE + 1));
+    msg.set_gas_premium(TokenAmount::from_atto(1));
 
     let curr_ts = data.state_manager.chain_store().heaviest_tipset();
     let from_a = data
@@ -205,12 +206,12 @@ where
         .await?;
     match res.msg_rct {
         Some(rct) => {
-            if rct.exit_code.value() != 0 {
+            if rct.exit_code().value() != 0 {
                 return Ok(-1);
             }
             // TODO: Figure out why we always under estimate the gas calculation so we dont
             // need to add 200000 https://github.com/ChainSafe/forest/issues/901
-            Ok(rct.gas_used + 200000)
+            Ok(rct.gas_used() as i64 + 200000)
         }
         None => Ok(-1),
     }
@@ -244,15 +245,15 @@ where
     let mut msg = msg;
     if msg.gas_limit == 0 {
         let gl = estimate_gas_limit::<DB, B>(data, msg.clone(), tsk.clone()).await?;
-        msg.gas_limit = gl;
+        msg.set_gas_limit(gl);
     }
     if msg.gas_premium.is_zero() {
         let gp = estimate_gas_premium(data, 10).await?;
-        msg.gas_premium = gp;
+        msg.set_gas_premium(gp);
     }
     if msg.gas_fee_cap.is_zero() {
         let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
-        msg.gas_fee_cap = gfp;
+        msg.set_gas_fee_cap(gfp);
     }
     // TODO: Cap Gas Fee https://github.com/ChainSafe/forest/issues/901
     Ok(msg)

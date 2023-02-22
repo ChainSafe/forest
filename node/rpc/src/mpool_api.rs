@@ -15,9 +15,9 @@ use forest_json::{
 };
 use forest_message::SignedMessage;
 use forest_rpc_api::{data_types::RPCState, mpool_api::*};
+use forest_shim::address::Protocol;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::address::Protocol;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use super::gas_api::estimate_message_gas;

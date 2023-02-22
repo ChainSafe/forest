@@ -16,9 +16,12 @@ forest_message = { workspace = true, default_features = false, features = ["blst
 forest_networks.workspace = true
 forest_shim.workspace = true
 fvm.workspace = true
+fvm3.workspace = true
 fvm_ipld_blockstore.workspace = true
 fvm_ipld_encoding.workspace = true
+fvm_ipld_encoding3.workspace = true
 fvm_shared = { workspace = true, default-features = false }
+fvm_shared3 = { workspace = true, features = ["proofs"] }
 lazy_static.workspace = true
 log.workspace = true
 num.workspace = true
