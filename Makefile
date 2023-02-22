@@ -60,7 +60,6 @@ clean:
 	@cargo clean -p forest_crypto
 	@cargo clean -p forest_encoding
 	@cargo clean -p forest_ipld
-	@cargo clean -p forest_legacy_ipld_amt
 	@cargo clean -p forest_json
 	@cargo clean -p forest_fil_types
 	@cargo clean -p forest_rpc

@@ -32,7 +32,6 @@ members = [
   "node/forest_libp2p/bitswap/examples/*",
   "crypto",
   "encoding",
-  "ipld/legacy_amt",
   "ipld",
   "key_management",
   "tests/serialization_tests",
@@ -195,7 +194,6 @@ forest_interpreter = { path = "./vm/interpreter" }
 forest_ipld = { path = "./ipld" }
 forest_json = { path = "./utils/json" }
 forest_key_management = { path = "./key_management" }
-forest_legacy_ipld_amt = { path = "./ipld/legacy_amt" }
 forest_libp2p = { path = "./node/forest_libp2p" }
 forest_libp2p_bitswap = { path = "./node/forest_libp2p/bitswap" }
 forest_message = { path = "./vm/message", default-features = false }
