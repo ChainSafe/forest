@@ -68,7 +68,7 @@ impl MessageTrait for ChainMessage {
             Self::Unsigned(t) => t.params(),
         }
     }
-    fn gas_limit(&self) -> i64 {
+    fn gas_limit(&self) -> u64 {
         match self {
             Self::Signed(t) => t.gas_limit(),
             Self::Unsigned(t) => t.gas_limit(),

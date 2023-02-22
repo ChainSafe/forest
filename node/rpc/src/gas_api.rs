@@ -89,7 +89,7 @@ where
 
     struct GasMeta {
         pub price: TokenAmount,
-        pub limit: i64,
+        pub limit: u64,
     }
 
     let mut prices: Vec<GasMeta> = Vec::new();
@@ -122,7 +122,7 @@ where
 
     prices.sort_by(|a, b| b.price.cmp(&a.price));
     // TODO: From lotus, account for how full blocks are
-    let mut at = BLOCK_GAS_TARGET * blocks as i64 / 2;
+    let mut at = BLOCK_GAS_TARGET * blocks as u64 / 2;
     let mut prev = TokenAmount::zero();
     let mut premium = TokenAmount::zero();
 

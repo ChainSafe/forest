@@ -157,7 +157,7 @@ where
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
-            let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+            let mut gas_limit = fvm_shared::BLOCK_GAS_LIMIT as u64;
             while next_chain < chains.len() {
                 let chain_key = chains.key_vec[next_chain];
                 next_chain += 1;
@@ -489,9 +489,9 @@ where
         pending: &mut Pending,
         base_fee: &TokenAmount,
         ts: &Tipset,
-    ) -> Result<(Vec<SignedMessage>, i64), Error> {
+    ) -> Result<(Vec<SignedMessage>, u64), Error> {
         let result = Vec::with_capacity(self.config.size_limit_low() as usize);
-        let gas_limit = fvm_shared::BLOCK_GAS_LIMIT;
+        let gas_limit = fvm_shared::BLOCK_GAS_LIMIT as u64;
         let min_gas = 1298450;
 
         // 1. Get priority actor chains
@@ -532,9 +532,9 @@ fn merge_and_trim(
     chains: &mut Chains,
     mut result: Vec<SignedMessage>,
     base_fee: &TokenAmount,
-    gas_limit: i64,
-    min_gas: i64,
-) -> (Vec<SignedMessage>, i64) {
+    gas_limit: u64,
+    min_gas: u64,
+) -> (Vec<SignedMessage>, u64) {
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
