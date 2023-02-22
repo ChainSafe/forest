@@ -6,7 +6,7 @@ use std::io::Write;
 use anes::execute;
 use clap::Parser;
 use forest_cli_shared::cli::{CliOpts, FOREST_VERSION_STRING, HELP_MESSAGE};
-use tokio::{signal, task::Builder};
+use tokio::{signal, task};
 
 /// CLI structure generated when interacting with Forest binary
 #[derive(Parser)]
@@ -18,8 +18,8 @@ pub struct Cli {
     pub cmd: Option<String>,
 }
 
-pub fn set_sigint_handler() -> anyhow::Result<()> {
-    Builder::new().name("ctrl-c").spawn(async {
+pub fn set_sigint_handler() {
+    task::spawn(async {
         let _ = signal::ctrl_c().await;
 
         // the cursor can go missing if we hit ctrl-c during a prompt, so we always
@@ -27,7 +27,5 @@ pub fn set_sigint_handler() -> anyhow::Result<()> {
         let mut stdout = std::io::stdout();
         #[allow(clippy::question_mark)]
         execute!(&mut stdout, anes::ShowCursor).unwrap();
-    })?;
-
-    Ok(())
+    });
 }
