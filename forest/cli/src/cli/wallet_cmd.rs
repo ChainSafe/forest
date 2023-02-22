@@ -299,7 +299,7 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> anyhow::Result<S
                     RoundingStrategy::MidpointAwayFromZero,
                 )
                 .ok_or(anyhow::Error::msg("cannot represent"))?;
-            let mut res = format!("{} FIL", fil);
+            let mut res = format!("{fil} FIL");
             if fil != fil_orig {
                 res.insert(0, '~');
             }
