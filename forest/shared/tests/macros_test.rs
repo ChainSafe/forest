@@ -8,17 +8,17 @@ use log::info;
 use tokio::time::sleep;
 
 async fn failing_function() -> Result<(), ()> {
-    sleep(Duration::from_nanos(1)).await;
+    sleep(Duration::from_nanos(0)).await;
     Err(())
 }
 
 async fn successful_function() -> Result<(), ()> {
-    sleep(Duration::from_nanos(1)).await;
+    sleep(Duration::from_nanos(0)).await;
     Ok(())
 }
 
 async fn retryable_function(counter: &mut i32) -> Result<(), ()> {
-    sleep(Duration::from_nanos(1)).await;
+    sleep(Duration::from_nanos(0)).await;
     if *counter > 0 {
         *counter -= 1;
         Err(())
@@ -31,7 +31,7 @@ async fn retryable_function(counter: &mut i32) -> Result<(), ()> {
 // Tests that the retry macro correctly handles a function that always fails.
 // This case should return Err after the maximum number of retries is exceeded.
 async fn test_retry_macro_failing_function() {
-    let result = retry!(failing_function, 3, Duration::from_millis(100));
+    let result = retry!(failing_function, 3, Duration::from_nanos(0));
     assert!(result.is_err());
 }
 
@@ -39,7 +39,7 @@ async fn test_retry_macro_failing_function() {
 // Tests that the retry macro correctly handles a function that always succeeds.
 // This case should return Ok without retrying the function.
 async fn test_retry_macro_successful_function() {
-    let result = retry!(successful_function, 3, Duration::from_millis(100));
+    let result = retry!(successful_function, 3, Duration::from_nanos(0));
     assert!(result.is_ok());
 }
 
@@ -50,12 +50,7 @@ async fn test_retry_macro_successful_function() {
 // function.
 async fn test_retry_macro_retryable_function() {
     let mut counter = 3;
-    let result = retry!(
-        retryable_function,
-        5,
-        Duration::from_millis(100),
-        &mut counter
-    );
+    let result = retry!(retryable_function, 5, Duration::from_nanos(0), &mut counter);
     assert!(result.is_ok());
     assert_eq!(counter, 0);
 }
