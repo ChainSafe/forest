@@ -68,7 +68,7 @@ pub enum WalletCommands {
     List {
         /// flag to force full accuracy,
         /// not just default 4 significant digits
-        /// E.g. 500.2367798 `milli FIL` instead of 500.2367 `milli FIL`
+        /// E.g. 500.2367798 `milli FIL` instead of 500.2 `milli FIL`
         /// In combination with `--fixed-unit` flag
         /// it will show exact data in `FIL` units
         /// E.g. 0.0000002367798 `FIL` instead of 0 `FIL`
@@ -299,7 +299,7 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> anyhow::Result<S
                     RoundingStrategy::MidpointAwayFromZero,
                 )
                 .ok_or(anyhow::Error::msg("cannot represent"))?;
-            let mut res = format!("{} FIL", fil.trunc());
+            let mut res = format!("{} FIL", fil);
             if fil != fil_orig {
                 res.insert(0, '~');
             }
@@ -361,10 +361,11 @@ mod test {
     #[test]
     fn not_exact_balance_fixed_unit() {
         let cases_vec = vec![
-            (100, "0 FIL"),
-            (999999999999999999, "~1 FIL"),
-            (1000005000, "~0 FIL"),
-            (1508900000000005000, "~1 FIL"),
+            (100, "0.0000000000000001000 FIL"),
+            (999999999999999999, "~1.0000 FIL"),
+            (1000005000, "~0.000000001000 FIL"),
+            (508900000000005000, "~0.5089 FIL"),
+            (1508900000000005000, "~1.509 FIL"),
         ];
 
         for (atto, result) in cases_vec {
