@@ -213,7 +213,7 @@ Select the builtin calibnet configuration with the `--chain` option. The `--auto
 
 ### Interacting with Forest via CLI
 
-When the Forest daemon is started, an admin token will be displayed. You will need this for commands that require a higher level of authorization (like a password). Forest, as mentioned above, uses multiaddresses for networking. This is no different in the CLI. To set the host and the port to use, if not using the default port or using a remote host, set the `FULLNODE_API_INFO` environment variable. This is also where you can set a token for authentication.
+When the Forest daemon is started, an admin token will be displayed (alternatively, use `--save-token <token>` flag to save it on disk). You will need this for commands that require a higher level of authorization (like a password). Forest, as mentioned above, uses multiaddresses for networking. This is no different in the CLI. To set the host and the port to use, if not using the default port or using a remote host, set the `FULLNODE_API_INFO` environment variable. This is also where you can set a token for authentication.
 
 ```
 FULLNODE_API_INFO="<token goes here>:/ip4/<host>/tcp/<port>/http

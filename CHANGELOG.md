@@ -5,6 +5,7 @@ Notable updates:
 ### Added
 * [database] added ParityDb statistics to the stats endpoint. [#2444](https://github.com/ChainSafe/forest/pull/2444)
 * [docker] Multi-platform Docker image support. [#2552](https://github.com/ChainSafe/forest/pull/2552)
+* [forest daemon] Added `--exit-after-init` and `--save-token` flags. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 ### Changed
 * [libp2p] Use in house bitswap implementation. [#2445](https://github.com/ChainSafe/forest/pull/2445)
@@ -14,8 +15,11 @@ Notable updates:
 * [config] `download-snapshot` flag was renamed to `auto-download-snapshot`. `download_snapshot` key in `client` section in configuration renamed to `auto_download_snapshot`. [#257](https://github.com/ChainSafe/forest/pull/2457)
 * [docker|security] the Forest image is no longer running on a root user but a dedicated one. [#2463](https://github.com/ChainSafe/forest/pull/2463)
 * [keystore] Allow specifying the encryption passphrase via environmental variable. [#2514](https://github.com/ChainSafe/forest/pull/2514)
+* [forest daemon] The `--skip-load` flag must be now called with a boolean indicating its value. [#2577](https://github.com/ChainSafe/forest/pull/2577)
 
 ### Removed
+* [forest daemon] Removed `--halt-after-import` and `--auto-download-snapshot` from configuration. They are now strictly a CLI option. [#2577](https://github.com/ChainSafe/forest/pull/2577)
+
 
 ### Fixed
 * [libp2p] Properly cancel bitswap queries that are not responded to after a period. [#2399](https://github.com/ChainSafe/forest/pull/2399)
