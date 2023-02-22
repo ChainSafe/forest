@@ -370,7 +370,7 @@ mod test {
             (90000002750000000, "90.00000275 milli FIL"),
         ];
 
-        for (atto, result) in cases_vec { 
+        for (atto, result) in cases_vec {
             test_call(atto, result, true, false);
         }
     }
