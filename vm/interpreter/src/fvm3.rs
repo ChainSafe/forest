@@ -8,24 +8,19 @@ use cid::Cid;
 use forest_blocks::BlockHeader;
 use forest_networks::ChainConfig;
 use forest_shim::{state_tree::StateTree, version::NetworkVersion};
-use fvm::{
-    externs::{Consensus, Externs, Rand},
-    gas::{price_list_by_network_version, Gas, GasTracker},
-};
+use fvm::gas::{price_list_by_network_version, Gas, GasTracker};
+use fvm3::externs::{Chain, Consensus, Externs, Rand};
 use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
 use fvm_ipld_encoding::Cbor;
-use fvm_shared::{
-    address::Address,
-    clock::ChainEpoch,
-    consensus::{ConsensusFault, ConsensusFaultType},
-};
+use fvm_shared::{address::Address, clock::ChainEpoch};
+use fvm_shared3::consensus::{ConsensusFault, ConsensusFaultType};
 
 use crate::resolve_to_key_addr;
 
-pub struct ForestExternsV2<DB> {
+pub struct ForestExterns<DB> {
     rand: Box<dyn Rand>,
     epoch: ChainEpoch,
     root: Cid,
@@ -34,7 +29,7 @@ pub struct ForestExternsV2<DB> {
     chain_config: Arc<ChainConfig>,
 }
 
-impl<DB: Blockstore> ForestExternsV2<DB> {
+impl<DB: Blockstore> ForestExterns<DB> {
     pub fn new(
         rand: impl Rand + 'static,
         epoch: ChainEpoch,
@@ -43,7 +38,7 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
         db: DB,
         chain_config: Arc<ChainConfig>,
     ) -> Self {
-        ForestExternsV2 {
+        ForestExterns {
             rand: Box::new(rand),
             epoch,
             root,
@@ -99,9 +94,15 @@ impl<DB: Blockstore> ForestExternsV2<DB> {
     }
 }
 
-impl<DB: Blockstore> Externs for ForestExternsV2<DB> {}
+impl<DB: Blockstore> Externs for ForestExterns<DB> {}
 
-impl<DB> Rand for ForestExternsV2<DB> {
+impl<DB> Chain for ForestExterns<DB> {
+    fn get_tipset_cid(&self, epoch: ChainEpoch) -> anyhow::Result<Cid> {
+        (self.lookback)(epoch)
+    }
+}
+
+impl<DB> Rand for ForestExterns<DB> {
     fn get_chain_randomness(
         &self,
         pers: i64,
@@ -121,7 +122,7 @@ impl<DB> Rand for ForestExternsV2<DB> {
     }
 }
 
-impl<DB: Blockstore> Consensus for ForestExternsV2<DB> {
+impl<DB: Blockstore> Consensus for ForestExterns<DB> {
     // See https://github.com/filecoin-project/lotus/blob/v1.18.0/chain/vm/fvm.go#L102-L216 for reference implementation
     fn verify_consensus_fault(
         &self,
@@ -248,7 +249,7 @@ fn cal_gas_used_from_stats(
     let mut gas_tracker = GasTracker::new(Gas::new(i64::MAX), Gas::new(0));
     // num of reads
     for _ in 0..stats.r {
-        gas_tracker.apply_charge(price_list.on_block_open_base())?;
+        gas_tracker.apply_charge(price_list.on_block_open_base())?
     }
     // num of writes
     if stats.w > 0 {
@@ -321,7 +322,7 @@ mod tests {
                 .unwrap()
         });
         for &bytes in write_bytes {
-            tracker.apply_charge(price_list.on_block_link(bytes))?;
+            tracker.apply_charge(price_list.on_block_link(bytes))?
         }
         let expected = tracker.gas_used();
 

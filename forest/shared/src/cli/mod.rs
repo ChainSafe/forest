@@ -89,7 +89,7 @@ pub struct CliOpts {
     /// Skips loading CAR file and uses header to index chain. Assumes a
     /// pre-loaded database
     #[arg(long)]
-    pub skip_load: bool,
+    pub skip_load: Option<bool>,
     /// Number of tipsets requested over chain exchange (default is 200)
     #[arg(long)]
     pub req_window: Option<i64>,
@@ -118,8 +118,8 @@ pub struct CliOpts {
     pub color: LoggingColor,
     /// Display progress bars mode [always, never, auto]. Auto will display if
     /// TTY.
-    #[arg(long, default_value = "auto")]
-    pub show_progress_bars: ProgressBarVisibility,
+    #[arg(long)]
+    pub show_progress_bars: Option<ProgressBarVisibility>,
     /// Turn on tokio-console support for debugging
     #[arg(long)]
     pub tokio_console: bool,
@@ -129,11 +129,15 @@ pub struct CliOpts {
     /// Endpoint of `grafana loki`
     #[arg(long, default_value = "http://127.0.0.1:3100")]
     pub loki_endpoint: String,
-    #[arg(
-        long,
-        help = "Specify a directory into which rolling log files should be appended"
-    )]
+    /// Specify a directory into which rolling log files should be appended
+    #[arg(long)]
     pub log_dir: Option<PathBuf>,
+    /// Exit after basic daemon initialization
+    #[arg(long)]
+    pub exit_after_init: bool,
+    /// If provided, indicates the file to which to save the admin token.
+    #[arg(long)]
+    pub save_token: Option<PathBuf>,
 }
 
 impl CliOpts {
@@ -185,12 +189,13 @@ impl CliOpts {
             cfg.client.snapshot = false;
         }
         cfg.client.snapshot_height = self.height;
+        if let Some(skip_load) = self.skip_load {
+            cfg.client.skip_load = skip_load;
+        }
 
-        cfg.client.skip_load = self.skip_load;
-
-        cfg.client.halt_after_import = self.halt_after_import;
-        cfg.client.auto_download_snapshot = self.auto_download_snapshot;
-        cfg.client.show_progress_bars = self.show_progress_bars;
+        if let Some(show_progress_bars) = self.show_progress_bars {
+            cfg.client.show_progress_bars = show_progress_bars;
+        }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);

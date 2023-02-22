@@ -1,14 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::borrow::Borrow;
+
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_runtime_v9::runtime::Policy;
 use forest_json::bigint::json;
-use forest_shim::{address::Address, state_tree::ActorState};
+use forest_shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use forest_utils::db::BlockstoreExt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared::{econ::TokenAmount, sector::StoragePower};
+use fvm_shared::sector::StoragePower;
 use serde::{Deserialize, Serialize};
 
 use crate::FilterEstimate;
@@ -118,9 +120,9 @@ impl State {
     /// Consume state to return total locked funds
     pub fn into_total_locked(self) -> TokenAmount {
         match self {
-            State::V8(st) => st.into_total_locked(),
-            State::V9(st) => st.into_total_locked(),
-            State::V10(st) => st.into_total_locked(),
+            State::V8(st) => st.into_total_locked().into(),
+            State::V9(st) => st.into_total_locked().into(),
+            State::V10(st) => st.into_total_locked().into(),
         }
     }
 
@@ -175,9 +177,9 @@ impl State {
     /// Returns total locked funds
     pub fn total_locked(&self) -> TokenAmount {
         match self {
-            State::V8(st) => st.total_pledge_collateral.clone(),
-            State::V9(st) => st.total_pledge_collateral.clone(),
-            State::V10(st) => st.total_pledge_collateral.clone(),
+            State::V8(st) => st.total_pledge_collateral.borrow().into(),
+            State::V9(st) => st.total_pledge_collateral.borrow().into(),
+            State::V10(st) => st.total_pledge_collateral.borrow().into(),
         }
     }
 }
