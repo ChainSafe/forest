@@ -17,7 +17,7 @@ use forest_db::{db_engine::open_db, Store};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
-use forest_utils::net::FetchProgress;
+use forest_utils::{io::parser::parse_duration, net::FetchProgress};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
@@ -74,8 +74,8 @@ pub enum SnapshotCommands {
         #[arg(short, long, default_value = "3")]
         max_retries: Option<i32>,
         /// Duration to wait between the retries in seconds
-        #[arg(short, long, default_value = "60")]
-        delay: Option<u64>,
+        #[arg(short, long, default_value = "60", value_parser = parse_duration)]
+        delay: Option<Duration>,
     },
 
     /// Shows default snapshot dir
@@ -218,7 +218,7 @@ impl SnapshotCommands {
                 match retry!(
                     snapshot_fetch,
                     max_retries.unwrap(),
-                    Duration::from_secs(delay.unwrap()),
+                    delay.unwrap(),
                     &snapshot_dir,
                     &config,
                     provider,
