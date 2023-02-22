@@ -275,7 +275,7 @@ impl WalletCommands {
     }
 }
 
-fn format_balance_string(num: Decimal, mode: FormattingMode) -> Result<String> {
+fn format_balance_string(num: Decimal, mode: FormattingMode) -> anyhow::Result<String> {
     let units = ["atto", "femto", "pico", "nano", "micro", "milli", ""];
     let orig = num;
 
