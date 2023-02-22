@@ -64,7 +64,7 @@ ARG DATA_DIR=/home/forest/.local/share/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
-RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-opencl-dev aria2 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y ocl-icd-libopencl1 aria2 ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN update-ca-certificates
 
 # Create user and group and assign appropriate rights to the forest binaries
