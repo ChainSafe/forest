@@ -16,7 +16,7 @@ For a description of different options please refer to the developer documentati
 First start Forest node inside another terminal:
 
 ```bash
-forest --chain calibnet --encrypt-keystore false
+forest --chain calibnet
 ```
 
 To attach to your Forest node, run `forest-cli` with the `attach` subcommand:
@@ -57,10 +57,10 @@ For example, to display the current epoch:
 forest-cli attach --exec "syncStatus().ActiveSyncs[0].Epoch"
 ```
 
-Or print node version:
+Or print wallet default address:
 
 ```bash
-forest-cli attach --exec "commonVersion()"
+forest-cli attach --exec "console.log(walletDefaultAddress())"
 ```
 
 ## Builtins
@@ -75,10 +75,6 @@ Forest console comes with a number of helper functions that make interacting wit
  - `showWallet()`
  - `showSyncStatus()`
  - `sendFIL(to, attoAmount)`
-
-### Timers
-
-In addition, to support part of the JavaScript language, the console also provides implementation for `sleep(seconds)` timer and a tipset based timer, `sleepTipsets(epochs)`, which sleeps till the number of new tipsets added is equal to or greater than `epochs`.
 
 ### Modules
 
