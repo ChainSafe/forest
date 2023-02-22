@@ -60,6 +60,7 @@ FROM ubuntu:22.04
 LABEL org.opencontainers.image.source https://github.com/chainsafe/forest
 ARG SERVICE_USER=forest
 ARG SERVICE_GROUP=forest
+ARG DATA_DIR=/home/forest/.local/share/forest
 
 ENV DEBIAN_FRONTEND="noninteractive"
 # Install binary dependencies
@@ -71,6 +72,9 @@ RUN addgroup --gid 1000 ${SERVICE_GROUP} && adduser --uid 1000 --ingroup ${SERVI
 
 # Copy forest daemon and cli binaries from the build-env
 COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /usr/local/bin/
+
+# Initialize data directory with proper permissions
+RUN mkdir -p ${DATA_DIR} && chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
 
 USER ${SERVICE_USER}
 WORKDIR /home/${SERVICE_USER}
