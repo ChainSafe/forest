@@ -162,12 +162,12 @@ jobs:
         run: |
           forest-cli sync wait
           forest-cli --chain calibnet db stats
-      - name: check js console
-        run: forest-cli --chain calibnet attach --exec 'showPeers()'
       - name: export snapshot
         run: |
           forest-cli snapshot export
           sha256sum -c *.sha256sum
+      - name: js console
+        run: forest-cli --attach --exec 'showPeers()'
       - name: validate snapshot
         run: |
           forest-cli --chain mainnet snapshot validate $SNAPSHOT_DIRECTORY/*.car --force &&
