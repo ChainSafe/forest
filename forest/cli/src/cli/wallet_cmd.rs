@@ -24,6 +24,8 @@ use rust_decimal_macros::dec;
 
 use super::{handle_rpc_err, Config};
 
+const NUM_SIGNIFICANT_DIGITS: u32 = 4;
+
 #[allow(clippy::enum_variant_names)]
 enum FormattingMode {
     ExactFixed,
@@ -291,7 +293,7 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         }
         FormattingMode::NotExactFixed => {
             let fil_orig = orig / dec!(1e18);
-            let fil = fil_orig.round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero);
+            let fil = fil_orig.round_dp_with_strategy(NUM_SIGNIFICANT_DIGITS, RoundingStrategy::MidpointAwayFromZero);
             let mut res = format!("{} FIL", fil.trunc());
             if fil != fil_orig {
                 res.insert(0, '~');
@@ -300,7 +302,7 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> String {
         }
         FormattingMode::ExactNotFixed => format!("{num:0} {} FIL", units[unit_index]),
         FormattingMode::NotExactNotFixed => {
-            let mut fil = num.round_dp_with_strategy(3, RoundingStrategy::MidpointAwayFromZero);
+            let mut fil = num.round_dp_with_strategy(NUM_SIGNIFICANT_DIGITS, RoundingStrategy::MidpointAwayFromZero);
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
@@ -384,6 +386,7 @@ mod test {
             (1000000123, "~1 nano FIL"),
             (450000008000000, "~450 micro FIL"),
             (90000002750000000, "~90 milli FIL"),
+            (500236779800000000, "~500.2368 milli FIL"),
         ];
 
         for (atto, result) in cases_vec {
