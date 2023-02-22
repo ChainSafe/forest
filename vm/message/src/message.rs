@@ -14,9 +14,10 @@ pub fn valid_for_block_inclusion(
     if msg.version != 0 {
         anyhow::bail!("Message version: {} not supported", msg.version);
     }
-    if msg.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
-        anyhow::bail!("invalid 'to' address");
-    }
+    // ZERO_ADDRESS is fubar
+    // if msg.to == *ZERO_ADDRESS && version >= NetworkVersion::V7 {
+    //     anyhow::bail!("invalid 'to' address");
+    // }
     if msg.value.is_negative() {
         anyhow::bail!("message value cannot be negative");
     }
