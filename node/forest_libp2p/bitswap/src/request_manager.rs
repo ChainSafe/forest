@@ -229,7 +229,10 @@ impl BitswapRequestManager {
                     metrics::message_counter_inbound_response_block_not_requested().inc();
                 }
 
-                // Broadcast cancellation
+                // <https://github.com/ipfs/go-libipfs/tree/main/bitswap#background>
+                // When a node receives blocks that it asked for, the node should send out a
+                // notification called a 'Cancel' to tell its peers that the
+                // node no longer wants those blocks.
                 let cancel_request = BitswapRequest::new_cancel(cid);
                 for &peer in self.peers.read().iter() {
                     if let Err(e) = self
