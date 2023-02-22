@@ -45,7 +45,7 @@ pub mod json {
         sequence: u64,
         #[serde(with = "crate::token_amount::json")]
         value: TokenAmount,
-        gas_limit: i64,
+        gas_limit: u64,
         #[serde(with = "crate::token_amount::json")]
         gas_fee_cap: TokenAmount,
         #[serde(with = "crate::token_amount::json")]
