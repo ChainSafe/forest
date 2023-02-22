@@ -13,3 +13,4 @@ genesis.json
 !/.cargo/*.toml
 node/rpc-api/static/ast.ron
 documentation/book/**/*
+node_modules

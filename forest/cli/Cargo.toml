@@ -13,9 +13,12 @@ anyhow.workspace = true
 atty = "0.2"
 base64.workspace = true
 blake3.workspace = true
+boa_engine = { version = "0.16.0", features = ["console"] }
 cid.workspace = true
 clap.workspace = true
+convert_case = "0.6.0"
 dialoguer.workspace = true
+directories.workspace = true
 forest_auth.workspace = true
 forest_blocks.workspace = true
 forest_chain.workspace = true
@@ -43,6 +46,7 @@ log.workspace = true
 multibase.workspace = true
 num.workspace = true
 rpassword.workspace = true
+rustyline = "10.1.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 strfmt = "0.2.2"

@@ -155,7 +155,7 @@ impl SnapshotCommands {
                 let month_string = format!("{:02}", now.month() as u8);
                 let year = now.year();
                 let day_string = format!("{:02}", now.day());
-                let chain_name = chain_get_name(&config.client.rpc_token)
+                let chain_name = chain_get_name((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
