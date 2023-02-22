@@ -310,7 +310,7 @@ fn format_balance_string(num: Decimal, mode: FormattingMode) -> anyhow::Result<S
                     NUM_SIGNIFICANT_DIGITS,
                     RoundingStrategy::MidpointAwayFromZero,
                 )
-                .ok_or(anyhow::bail!("unable to be represented"))?;
+                .ok_or(anyhow::Error::msg("unable to be represented"))?;
             if fil == fil.trunc() {
                 fil = fil.trunc();
             }
