@@ -8,14 +8,17 @@ use log::info;
 use tokio::time::sleep;
 
 async fn failing_function() -> Result<(), ()> {
+    sleep(Duration::from_nanos(1)).await;
     Err(())
 }
 
 async fn successful_function() -> Result<(), ()> {
+    sleep(Duration::from_nanos(1)).await;
     Ok(())
 }
 
 async fn retryable_function(counter: &mut i32) -> Result<(), ()> {
+    sleep(Duration::from_nanos(1)).await;
     if *counter > 0 {
         *counter -= 1;
         Err(())
