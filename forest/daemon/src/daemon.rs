@@ -15,7 +15,6 @@ use forest_cli_shared::{
         default_snapshot_dir, is_aria2_installed, snapshot_fetch, snapshot_fetch_size,
         to_size_string, CliOpts, Client, Config, FOREST_VERSION_STRING,
     },
-    retry,
 };
 use forest_db::{
     db_engine::{db_path, open_db, Db},
@@ -33,7 +32,7 @@ use forest_rpc::start_rpc;
 use forest_rpc_api::data_types::RPCState;
 use forest_shim::version::NetworkVersion;
 use forest_state_manager::StateManager;
-use forest_utils::io::write_to_file;
+use forest_utils::{io::write_to_file, retry};
 use futures::{select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use log::{debug, error, info, warn};

@@ -9,15 +9,14 @@ use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use forest_blocks::{tipset_keys_json::TipsetKeysJson, Tipset, TipsetKeys};
 use forest_chain::ChainStore;
-use forest_cli_shared::{
-    cli::{default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore},
-    retry,
+use forest_cli_shared::cli::{
+    default_snapshot_dir, is_car_or_tmp, snapshot_fetch, SnapshotServer, SnapshotStore,
 };
 use forest_db::{db_engine::open_db, Store};
 use forest_genesis::{forest_load_car, read_genesis_header};
 use forest_ipld::recurse_links_hash;
 use forest_rpc_client::chain_ops::*;
-use forest_utils::{io::parser::parse_duration, net::FetchProgress};
+use forest_utils::{io::parser::parse_duration, net::FetchProgress, retry};
 use fvm_shared::clock::ChainEpoch;
 use log::info;
 use strfmt::strfmt;
