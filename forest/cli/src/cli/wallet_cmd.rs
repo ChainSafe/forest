@@ -348,10 +348,10 @@ mod test {
     #[test]
     fn not_exact_balance_fixed_unit() {
         let cases_vec = vec![
-            (100i64, "~0 FIL"),
-            (999999999999999999i64, "~1 FIL"),
-            (1000005000i64, "~0 FIL"),
-            (1508900000000005000i64, "~1 FIL"),
+            (100, "~0 FIL"),
+            (999999999999999999, "~1 FIL"),
+            (1000005000, "~0 FIL"),
+            (1508900000000005000, "~1 FIL"),
         ];
 
         for (atto, result) in cases_vec {
@@ -364,13 +364,13 @@ mod test {
         let cases_vec = vec![
             (100, "100 atto FIL"),
             (120005, "120.005 femto FIL"),
-            (200000045i64, "200.000045 pico FIL"),
+            (200000045, "200.000045 pico FIL"),
             (1000000123, "1.000000123 nano FIL"),
-            (450000008000000i64, "450.000008 micro FIL"),
-            (90000002750000000i64, "90.00000275 milli FIL"),
+            (450000008000000, "450.000008 micro FIL"),
+            (90000002750000000, "90.00000275 milli FIL"),
         ];
 
-        for (atto, result) in cases_vec {
+        for (atto, result) in cases_vec { 
             test_call(atto, result, true, false);
         }
     }
@@ -380,10 +380,10 @@ mod test {
         let cases_vec = vec![
             (100, "100 atto FIL"),
             (120005, "120.005 femto FIL"),
-            (200000045i64, "~200 pico FIL"),
+            (200000045, "~200 pico FIL"),
             (1000000123, "~1 nano FIL"),
-            (450000008000000i64, "~450 micro FIL"),
-            (90000002750000000i64, "~90 milli FIL"),
+            (450000008000000, "~450 micro FIL"),
+            (90000002750000000, "~90 milli FIL"),
         ];
 
         for (atto, result) in cases_vec {
